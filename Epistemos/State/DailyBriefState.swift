@@ -49,7 +49,7 @@ final class DailyBriefState {
                 await onDailyBriefSave?(result, false)
             } else {
                 isDailyBriefLoading = false
-                dailyBriefContent = "Unable to generate your daily brief. Check your API key in Settings."
+                dailyBriefContent = "Unable to generate your daily brief. Install a local Qwen model in Settings."
             }
         }
     }
@@ -73,7 +73,7 @@ final class DailyBriefState {
                 await onDailyBriefSave?(result, true)
             } else {
                 isDailyBriefLoading = false
-                dailyBriefContent = "Unable to generate deep analysis. Check your API key in Settings."
+                dailyBriefContent = "Unable to generate deep analysis. Install a local Qwen model in Settings."
             }
         }
     }
@@ -141,8 +141,6 @@ final class DailyBriefState {
                 let daysSinceChat =
                     Calendar.current.dateComponents([.day], from: chatItem.updatedAt, to: .now).day ?? 0
                 let freshness = daysSinceChat == 0 ? "today" : daysSinceChat == 1 ? "yesterday" : "\(daysSinceChat)d ago"
-                let isResearch = chatItem.hasDeepResearch == true
-
                 let lastUserMsg = msgs.last { $0.role == "user" }?.content.prefix(300) ?? ""
                 let lastAssistantSnippet = msgs.last { $0.role == "assistant" }?.content.prefix(200) ?? ""
                 let userSnippet = String(lastUserMsg)
@@ -153,7 +151,7 @@ final class DailyBriefState {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
 
                 chatsSection +=
-                    "- **\(chatItem.title)**\(isResearch ? " [research]" : "") (\(msgCount) msgs, \(freshness))\n"
+                    "- **\(chatItem.title)** (\(msgCount) msgs, \(freshness))\n"
                 if !userSnippet.isEmpty {
                     chatsSection += "  Q: \(userSnippet)…\n"
                 }

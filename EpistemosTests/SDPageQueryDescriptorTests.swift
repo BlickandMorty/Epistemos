@@ -235,8 +235,8 @@ struct SDPageQueryDescriptorTests {
         let notes = SDChat(title: "Notes Chat", chatType: "notes")
         context.insert(notes)
 
-        let research = SDChat(title: "Research Chat", chatType: "research")
-        context.insert(research)
+        let general = SDChat(title: "General Chat", chatType: "chat")
+        context.insert(general)
 
         try context.save()
 
@@ -271,20 +271,16 @@ struct SDPageQueryDescriptorTests {
         #expect(page.ideas.map(\.title) == ["Second"])
     }
 
-    @Test("chat message mapping preserves research timing and reasoning metadata")
-    func chatMessageMappingPreservesResearchMetadata() throws {
+    @Test("chat message mapping preserves reasoning metadata")
+    func chatMessageMappingPreservesReasoningMetadata() throws {
         let container = try makeContainer()
         let context = container.mainContext
 
-        let chat = SDChat(title: "Research", chatType: "research")
+        let chat = SDChat(title: "General", chatType: "chat")
         let message = SDMessage(role: "assistant", content: "Answer")
-        let start = Date(timeIntervalSince1970: 1_234)
 
         message.reasoningText = "Thinking..."
         message.reasoningDuration = 2.5
-        message.isResearchResult = true
-        message.researchStartTime = start
-        message.researchDuration = 42
         message.chat = chat
 
         context.insert(chat)
@@ -296,45 +292,15 @@ struct SDPageQueryDescriptorTests {
 
         #expect(mapped.reasoningText == "Thinking...")
         #expect(mapped.reasoningDuration == 2.5)
-        #expect(mapped.isResearchResult)
-        #expect(mapped.researchStartTime == start)
-        #expect(mapped.researchDuration == 42)
     }
 
-    @Test("chat message mapping preserves an in-flight research timer before enrichment completes")
-    func chatMessageMappingPreservesRunningResearchTimer() throws {
+    @Test("sd chat loaded messages preserve enriched reasoning metadata")
+    func sdChatLoadedMessagesPreserveReasoningMetadata() throws {
         let container = try makeContainer()
         let context = container.mainContext
 
-        let chat = SDChat(title: "Research", chatType: "research")
-        let message = SDMessage(role: "assistant", content: "Streaming answer")
-        let start = Date(timeIntervalSince1970: 5_678)
-
-        message.isResearchResult = true
-        message.researchStartTime = start
-        message.researchDuration = nil
-        message.chat = chat
-
-        context.insert(chat)
-        context.insert(message)
-        try context.save()
-
-        let fetched = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first)
-        let mapped = fetched.chatMessage(chatId: chat.id)
-
-        #expect(mapped.isResearchResult)
-        #expect(mapped.researchStartTime == start)
-        #expect(mapped.researchDuration == nil)
-    }
-
-    @Test("sd chat loaded messages preserve enriched research metadata")
-    func sdChatLoadedMessagesPreserveResearchMetadata() throws {
-        let container = try makeContainer()
-        let context = container.mainContext
-
-        let chat = SDChat(title: "Research Chat", chatType: "chat")
+        let chat = SDChat(title: "General Chat", chatType: "chat")
         let message = SDMessage(role: "assistant", content: "Answer")
-        let start = Date(timeIntervalSince1970: 9_999)
 
         let dual = DualMessage(
             rawAnalysis: "Raw analysis",
@@ -369,10 +335,7 @@ struct SDPageQueryDescriptorTests {
             evidenceGrade: .b,
             mode: .api,
             reasoningText: "Thinking...",
-            reasoningDuration: 3.5,
-            isResearchResult: true,
-            researchDuration: 42,
-            researchStartTime: start
+            reasoningDuration: 3.5
         )
         message.chat = chat
 
@@ -386,8 +349,5 @@ struct SDPageQueryDescriptorTests {
         #expect(mapped.dualMessage?.laymanSummary?.whatWasTried == "Tried")
         #expect(mapped.reasoningText == "Thinking...")
         #expect(mapped.reasoningDuration == 3.5)
-        #expect(mapped.isResearchResult)
-        #expect(mapped.researchStartTime == start)
-        #expect(mapped.researchDuration == 42)
     }
 }

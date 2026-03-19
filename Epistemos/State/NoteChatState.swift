@@ -3,34 +3,6 @@ import Observation
 import SwiftData
 import os
 
-// MARK: - Note Chat Mode
-// Controls how note chat routes queries:
-// - auto: TriageService decides (Apple AI for simple, cloud for complex)
-// - cloudOnly: bypass triage, use the user's selected cloud API
-// - provider: use a specific LLMProviderType regardless of settings
-
-enum NoteChatMode: String, Codable, CaseIterable, Sendable {
-    case auto
-    case cloudOnly
-    case provider
-
-    var label: String {
-        switch self {
-        case .auto: "Auto"
-        case .cloudOnly: "Cloud"
-        case .provider: "Manual"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .auto: "sparkles"
-        case .cloudOnly: "cloud"
-        case .provider: "server.rack"
-        }
-    }
-}
-
 // MARK: - Note Chat State (v2 — Simplified)
 // Per-note AI chat state. One instance per open note tab.
 // Manages a single query → response cycle with 60ms token buffering.
@@ -61,15 +33,6 @@ final class NoteChatState {
     /// Per-note chat history.
     var messages: [AssistantMessage] = []
 
-    // MARK: - Chat Mode (persisted to UserDefaults)
-
-    var chatMode: NoteChatMode {
-        didSet { UserDefaults.standard.set(chatMode.rawValue, forKey: "noteChatMode") }
-    }
-    var overrideProvider: LLMProviderType? {
-        didSet { UserDefaults.standard.set(overrideProvider?.rawValue, forKey: "noteChatProvider") }
-    }
-
     // MARK: - Callbacks (wired by Coordinator)
 
     /// Insert the AI response divider into storage when streaming starts.
@@ -93,16 +56,6 @@ final class NoteChatState {
 
     init(pageId: String) {
         self.pageId = pageId
-        let restoredMode = NoteChatMode(rawValue: UserDefaults.standard.string(forKey: "noteChatMode") ?? "") ?? .auto
-        let restoredProvider = LLMProviderType(rawValue: UserDefaults.standard.string(forKey: "noteChatProvider") ?? "")
-        // If mode is .provider but the saved provider is gone, fall back to .auto
-        if restoredMode == .provider, restoredProvider == nil {
-            self.chatMode = .auto
-            self.overrideProvider = nil
-        } else {
-            self.chatMode = restoredMode
-            self.overrideProvider = restoredProvider
-        }
     }
 
     func appendStreamingText(_ text: String) {
@@ -132,7 +85,7 @@ final class NoteChatState {
 
     // MARK: - Submit
 
-    func submitQuery(_ query: String, triageService: TriageService, llmService: LLMService) {
+    func submitQuery(_ query: String, triageService: TriageService) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -147,15 +100,6 @@ final class NoteChatState {
 
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
-        let systemPrompt = """
-        You are a helpful note assistant embedded in the user's note editor. \
-        Answer concisely and helpfully based on the note content below.
-
-        --- NOTE ---
-        \(noteBody.prefix(50_000))
-        --- END NOTE ---
-        """
-
         // Build prompt with conversation history for follow-ups
         let history = conversationHistoryPrompt()
         let fullPrompt: String
@@ -169,23 +113,15 @@ final class NoteChatState {
                 : "Note content:\n\(noteSnippet)\n\n\(history)\n\nUser: \(trimmed)"
         }
 
-        let stream: AsyncThrowingStream<String, Error>
-        switch chatMode {
-        case .auto:
-            stream = triageService.stream(
-                prompt: fullPrompt, systemPrompt: systemPrompt,
-                operation: .ask(query: trimmed),
-                contentLength: noteBody.count, query: trimmed
-            )
-            log.info("Note chat: auto mode (triage routing)")
-        case .cloudOnly:
-            stream = llmService.stream(prompt: fullPrompt, systemPrompt: systemPrompt)
-            log.info("Note chat: cloud-only mode")
-        case .provider:
-            let provider = overrideProvider ?? .anthropic
-            stream = llmService.stream(prompt: fullPrompt, systemPrompt: systemPrompt, provider: provider)
-            log.info("Note chat: manual provider (\(provider.displayName))")
-        }
+        let stream = triageService.stream(
+            prompt: fullPrompt,
+            systemPrompt: nil,
+            operation: .ask(query: trimmed),
+            contentLength: noteBody.count,
+            query: trimmed,
+            localReasoningMode: .fast
+        )
+        log.info("Note chat: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
 
         streamingTask = Task { [weak self] in
             guard let self else { return }
@@ -194,11 +130,18 @@ final class NoteChatState {
                     self.appendStreamingText(chunk)
                 }
                 self.flushTokens()
+                guard !Task.isCancelled else {
+                    self.isStreaming = false
+                    return
+                }
                 self.isStreaming = false
                 let final = self.responseText.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !final.isEmpty {
                     self.messages.append(AssistantMessage(role: .assistant, content: final))
                 }
+            } catch is CancellationError {
+                self.flushTokens()
+                self.isStreaming = false
             } catch {
                 self.flushTokens()
                 self.isStreaming = false
@@ -210,7 +153,7 @@ final class NoteChatState {
 
     /// Submit with a specific operation for proper triage routing.
     /// Each operation routes through the correct complexity tier:
-    /// .rewrite (0.25) → on-device, .expand (0.50) → cloud, etc.
+    /// .rewrite (0.25) → Apple Intelligence, .expand (0.50) → local Qwen, etc.
     func submitQuery(
         _ query: String,
         operation: NotesOperation,
@@ -233,22 +176,27 @@ final class NoteChatState {
 
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
-        let fullSystemPrompt = """
-        \(systemPrompt)
+        let fullPrompt: String
+        if noteSnippet.isEmpty {
+            fullPrompt = """
+            \(systemPrompt)
 
-        --- NOTE ---
-        \(noteBody.prefix(50_000))
-        --- END NOTE ---
-        """
+            Request: \(trimmed)
+            """
+        } else {
+            fullPrompt = """
+            \(systemPrompt)
 
-        // Include note content in user prompt for Apple Intelligence compatibility
-        let fullPrompt = noteSnippet.isEmpty
-            ? trimmed
-            : "Note content:\n\(noteSnippet)\n\nQuestion: \(trimmed)"
+            Note content:
+            \(noteSnippet)
+
+            Request: \(trimmed)
+            """
+        }
 
         let stream = triageService.stream(
             prompt: fullPrompt,
-            systemPrompt: fullSystemPrompt,
+            systemPrompt: nil,
             operation: operation,
             contentLength: noteBody.count,
             query: trimmed
@@ -261,12 +209,19 @@ final class NoteChatState {
                     self.appendStreamingText(chunk)
                 }
                 self.flushTokens()
+                guard !Task.isCancelled else {
+                    self.isStreaming = false
+                    return
+                }
                 self.isStreaming = false
                 let final = self.responseText.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !final.isEmpty {
                     self.messages.append(AssistantMessage(role: .assistant, content: final))
                 }
                 self.log.info("Note chat complete for page \(self.pageId)")
+            } catch is CancellationError {
+                self.flushTokens()
+                self.isStreaming = false
             } catch {
                 self.flushTokens()
                 self.isStreaming = false

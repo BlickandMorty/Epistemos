@@ -4,8 +4,6 @@ import Testing
 @Suite("TriageService")
 struct TriageServiceTests {
 
-    // MARK: - isRefusalResponse
-
     @Test("empty string is a refusal")
     func emptyRefusal() {
         #expect(TriageService.isRefusalResponse(""))
@@ -16,121 +14,388 @@ struct TriageServiceTests {
         #expect(TriageService.isRefusalResponse("   \n  "))
     }
 
-    @Test("generic AI refusal detected")
-    func genericRefusal() {
+    @Test("generic and Apple refusals are detected")
+    func refusalDetection() {
         #expect(TriageService.isRefusalResponse("I can't help with that request."))
-        #expect(TriageService.isRefusalResponse("I cannot assist with this topic."))
-        #expect(TriageService.isRefusalResponse("As an AI, I don't have the ability to do that."))
-    }
-
-    @Test("Apple Intelligence refusal detected")
-    func appleRefusal() {
         #expect(TriageService.isRefusalResponse("As a language model created by Apple, I am unable to assist with that."))
-        #expect(TriageService.isRefusalResponse("Beyond my remit to provide that kind of analysis."))
+        #expect(!TriageService.isRefusalResponse("Bayesian updating revises beliefs in proportion to evidence."))
     }
 
-    @Test("legitimate response is not a refusal")
-    func legitimateResponse() {
-        #expect(!TriageService.isRefusalResponse("Aspirin is a nonsteroidal anti-inflammatory drug (NSAID)."))
-        #expect(!TriageService.isRefusalResponse("The key insight here is that quantum entanglement does not allow faster-than-light communication."))
-    }
-
-    @Test("refusal buried after 500 chars is not detected")
-    func buriedRefusal() {
-        let longPrefix = String(repeating: "This is valid content. ", count: 30)
-        let text = longPrefix + "I can't help with that."
-        #expect(!TriageService.isRefusalResponse(text))
-    }
-
-    // MARK: - isTruncatedResponse
-
-    @Test("short response is truncated")
-    func shortTruncated() {
+    @Test("truncation detection catches short and abrupt responses")
+    func truncationDetection() {
         #expect(TriageService.isTruncatedResponse("Yes"))
-        #expect(TriageService.isTruncatedResponse("I think"))
+        #expect(TriageService.isTruncatedResponse("This response ends abruptly without punctuation"))
+        #expect(!TriageService.isTruncatedResponse("This response is complete."))
+        #expect(!TriageService.isTruncatedResponse("Here are the key points:\n- First item"))
     }
 
-    @Test("response ending without punctuation is truncated")
-    func noPunctuationTruncated() {
-        let text = "This is a response that ends abruptly without any terminal punctuation and keeps going on"
-        #expect(TriageService.isTruncatedResponse(text))
+    @Test("fallback heuristic combines refusal and truncation checks")
+    func fallbackHeuristic() {
+        #expect(TriageService.shouldRetryWithLocalModel(""))
+        #expect(TriageService.shouldRetryWithLocalModel("I cannot assist with that."))
+        #expect(TriageService.shouldRetryWithLocalModel("Short"))
+        #expect(!TriageService.shouldRetryWithLocalModel("This answer is complete, substantive, and properly finished."))
     }
 
-    @Test("response ending with period is not truncated")
-    func periodNotTruncated() {
-        #expect(!TriageService.isTruncatedResponse("This is a complete response with a proper ending."))
-    }
-
-    @Test("response ending with list marker is not truncated")
-    func listNotTruncated() {
-        #expect(!TriageService.isTruncatedResponse("Here are the key points:\n- First important item"))
-    }
-
-    @Test("response ending with code block is not truncated")
-    func codeBlockNotTruncated() {
-        #expect(!TriageService.isTruncatedResponse("Here is the code:\n```"))
-    }
-
-    // MARK: - shouldFallbackToAPI
-
-    @Test("combines refusal and truncation checks")
-    func fallbackCombined() {
-        #expect(TriageService.shouldFallbackToAPI(""))           // refusal
-        #expect(TriageService.shouldFallbackToAPI("I can't help")) // refusal
-        #expect(TriageService.shouldFallbackToAPI("Short"))       // truncated
-        #expect(!TriageService.shouldFallbackToAPI("This is a perfectly valid response that should not trigger any fallback."))
-    }
-
-    // MARK: - NotesOperation complexity
-
-    @Test("operations have correct complexity ordering")
+    @Test("operation complexity ordering stays coherent")
     func complexityOrdering() {
         #expect(NotesOperation.grammarFix.baseComplexity < NotesOperation.summarize.baseComplexity)
         #expect(NotesOperation.summarize.baseComplexity <= NotesOperation.ask(query: "test").baseComplexity)
-        #expect(NotesOperation.ask(query: "test").baseComplexity < NotesOperation.rewrite.baseComplexity)
-        #expect(NotesOperation.rewrite.baseComplexity < NotesOperation.continueWriting.baseComplexity)
         #expect(NotesOperation.ask(query: "test").baseComplexity < NotesOperation.outline.baseComplexity)
         #expect(NotesOperation.outline.baseComplexity < NotesOperation.expand.baseComplexity)
         #expect(NotesOperation.expand.baseComplexity < NotesOperation.analyze.baseComplexity)
         #expect(NotesOperation.analyze.baseComplexity < NotesOperation.learn.baseComplexity)
     }
 
-    @Test("all operations have display names")
-    func operationDisplayNames() {
-        #expect(!NotesOperation.grammarFix.displayName.isEmpty)
-        #expect(!NotesOperation.summarize.displayName.isEmpty)
-        #expect(!NotesOperation.learn.displayName.isEmpty)
-    }
-
-    // MARK: - GeneralOperation complexity
-
-    @Test("apiOnly always has max complexity")
-    func apiOnlyMaxComplexity() {
-        #expect(GeneralOperation.apiOnly.baseComplexity == 1.0)
-    }
-
-    @Test("general operations have display names")
-    func generalDisplayNames() {
-        #expect(!GeneralOperation.chatResponse(query: "test").displayName.isEmpty)
-        #expect(!GeneralOperation.epistemicLens.displayName.isEmpty)
-        #expect(!GeneralOperation.brainstorm.displayName.isEmpty)
-        #expect(!GeneralOperation.apiOnly.displayName.isEmpty)
-    }
-
-    // MARK: - TriageDecision
-
-    @Test("decision labels and icons are non-empty")
-    func decisionLabels() {
+    @Test("triage decisions expose labels and icons")
+    func decisionPresentation() {
         #expect(!TriageDecision.appleIntelligence.label.isEmpty)
-        #expect(!TriageDecision.apiProvider.label.isEmpty)
+        #expect(!TriageDecision.localMLX.label.isEmpty)
         #expect(!TriageDecision.appleIntelligence.icon.isEmpty)
-        #expect(!TriageDecision.apiProvider.icon.isEmpty)
+        #expect(!TriageDecision.localMLX.icon.isEmpty)
+        #expect(TriageDecision.appleIntelligence.isOnDevice)
+        #expect(TriageDecision.localMLX.isOnDevice)
     }
 
-    @Test("isOnDevice matches enum case")
-    func isOnDevice() {
-        #expect(TriageDecision.appleIntelligence.isOnDevice)
-        #expect(!TriageDecision.apiProvider.isOnDevice)
+    @Test("routing stays Apple plus local without stale cloud modes or providers")
+    func routingSurfaceRemainsTwoState() {
+        #expect(LocalRoutingMode.allCases == [.auto, .localOnly])
+        #expect(LLMProviderType.allCases == [.appleIntelligence, .localMLX])
+    }
+}
+
+@Suite("InferencePolicyEngine")
+struct InferencePolicyEngineTests {
+
+    @Test("auto mode uses Apple Intelligence for lightweight rewrite work")
+    func autoUsesAppleForLightRewrite() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .noteChat,
+                intent: .rewrite,
+                contentLength: 240,
+                promptLength: 180,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 120,
+                baseComplexity: 0.25,
+                queryComplexity: 0.05,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(appleAvailable: true)
+        )
+
+        #expect(decision.selectedRoute == .appleIntelligence)
+        #expect(decision.localSelection == nil)
+        #expect(decision.reasonCodes.contains(.simpleTaskAppleEligible))
+    }
+
+    @Test("heavier local work picks the smallest sufficient local tier")
+    func heavierLocalWorkPicksBalancedTier() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .coding,
+                contentLength: 2_400,
+                promptLength: 2_200,
+                contextBlockCount: 3,
+                estimatedTokenLoad: 900,
+                baseComplexity: 0.35,
+                queryComplexity: 0.40,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: true,
+                installed: [
+                    .qwen35_2B4Bit,
+                    .qwen35_4B4Bit,
+                ]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(decision.localSelection?.reasoningMode == .fast)
+    }
+
+    @Test("explicit deep reasoning request enables thinking mode")
+    func explicitThinkingPrefersThinkingMode() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .graph,
+                intent: .graphAnalysis,
+                contentLength: 6_000,
+                promptLength: 5_500,
+                contextBlockCount: 6,
+                estimatedTokenLoad: 2_400,
+                baseComplexity: 0.60,
+                queryComplexity: 0.55,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: true,
+                explicitFastRequested: false,
+                visibleThinkingRequested: true
+            ),
+            context: makeContext(
+                appleAvailable: true,
+                installed: [
+                    .qwen35_2B4Bit,
+                    .qwen35_4B4Bit,
+                ]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.localSelection?.reasoningMode == .thinking)
+        #expect(decision.reasonCodes.contains(.explicitThinkingRequested))
+    }
+
+    @Test("structured analysis defaults to fast local reasoning unless the user explicitly asks for thinking")
+    func structuredAnalysisDefaultsToFastReasoning() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .structuredAnalysis,
+                contentLength: 6_800,
+                promptLength: 6_200,
+                contextBlockCount: 4,
+                estimatedTokenLoad: 1_900,
+                baseComplexity: 0.65,
+                queryComplexity: 0.42,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: true
+            ),
+            context: makeContext(
+                appleAvailable: true,
+                installed: [
+                    .qwen35_2B4Bit,
+                    .qwen35_4B4Bit,
+                ]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(decision.localSelection?.reasoningMode == .fast)
+    }
+
+    @Test("thinking panel visibility does not force trivial prompts into thinking mode")
+    func thinkingPanelVisibilityDoesNotForceThinkingMode() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 32,
+                promptLength: 16,
+                contextBlockCount: 0,
+                estimatedTokenLoad: 8,
+                baseComplexity: 0.10,
+                queryComplexity: 0.01,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: true
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.qwen35_2B4Bit, .qwen35_4B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.localSelection?.reasoningMode == .fast)
+    }
+
+    @Test("thinking panel visibility does not block Apple for trivial prompts")
+    func thinkingPanelVisibilityDoesNotBlockApple() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 24,
+                promptLength: 24,
+                contextBlockCount: 0,
+                estimatedTokenLoad: 12,
+                baseComplexity: 0.10,
+                queryComplexity: 0.01,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: true
+            ),
+            context: makeContext(appleAvailable: true)
+        )
+
+        #expect(decision.selectedRoute == .appleIntelligence)
+    }
+
+    @Test("freeform chat keeps a 2B floor for trivial local asks")
+    func freeformChatKeepsBalancedFloorForTrivialLocalAsks() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 32,
+                promptLength: 32,
+                contextBlockCount: 0,
+                estimatedTokenLoad: 16,
+                baseComplexity: 0.10,
+                queryComplexity: 0.01,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+    }
+
+    @Test("warm local model is reused when still sufficient")
+    func warmLocalModelIsReusedWhenSufficient() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .summarize,
+                contentLength: 480,
+                promptLength: 440,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 180,
+                baseComplexity: 0.20,
+                queryComplexity: 0.08,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [
+                    .qwen35_2B4Bit,
+                    .qwen35_4B4Bit,
+                ],
+                warmModel: .qwen35_4B4Bit
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(decision.reuseWarmModel)
+        #expect(decision.reasonCodes.contains(.warmModelSufficient))
+    }
+
+    @Test("local only bypasses Apple Intelligence even for trivial work")
+    func localOnlyBypassesApple() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .noteChat,
+                intent: .rewrite,
+                contentLength: 200,
+                promptLength: 140,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 100,
+                baseComplexity: 0.25,
+                queryComplexity: 0.05,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                routingMode: .localOnly,
+                appleAvailable: true,
+                installed: [.qwen35_2B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.reasonCodes.contains(.localModeForced))
+    }
+
+    @Test("constrained runtime downshifts to a safer local tier")
+    func constrainedRuntimeDownshiftsTier() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .coding,
+                contentLength: 2_000,
+                promptLength: 1_900,
+                contextBlockCount: 2,
+                estimatedTokenLoad: 700,
+                baseComplexity: 0.35,
+                queryComplexity: 0.35,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [
+                    .qwen35_2B4Bit,
+                    .qwen35_4B4Bit,
+                ],
+                runtimeConditions: LocalRuntimeConditions(
+                    lowPowerModeEnabled: true,
+                    appActive: false,
+                    thermalState: .serious
+                )
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(decision.reasonCodes.contains(.runtimeConstrained))
+    }
+
+    private func makeContext(
+        routingMode: LocalRoutingMode = .auto,
+        appleAvailable: Bool,
+        automaticSelectionEnabled: Bool = true,
+        installed: [LocalTextModelID] = [.qwen35_2B4Bit, .qwen35_4B4Bit],
+        warmModel: LocalTextModelID? = nil,
+        runtimeConditions: LocalRuntimeConditions = LocalRuntimeConditions(
+            lowPowerModeEnabled: false,
+            appActive: true,
+            thermalState: .nominal
+        )
+    ) -> InferencePolicyContext {
+        InferencePolicyContext(
+            routingMode: routingMode,
+            appleIntelligenceAvailable: appleAvailable,
+            automaticLocalModelSelectionEnabled: automaticSelectionEnabled,
+            preferredLocalTextModelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            preferredLocalReasoningMode: .fast,
+            installedLocalTextModelIDs: Set(installed.map(\.rawValue)),
+            warmLocalTextModelID: warmModel?.rawValue,
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 18_000_000_000,
+                roundedMemoryGB: 18,
+                maxRecommendedLocalContentLength: 8_000
+            ),
+            runtimeConditions: runtimeConditions
+        )
     }
 }
 
@@ -177,7 +442,11 @@ final class TriageIntegrationMockLLMClient: LLMClientProtocol {
     }
 
     func configSnapshot() -> LLMSnapshot {
-        LLMSnapshot(provider: .anthropic, apiKey: "test-key", model: "test-model", ollamaBaseUrl: "http://localhost:11434")
+        LLMSnapshot(
+            provider: .localMLX,
+            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            reasoningMode: .fast
+        )
     }
 
     func enrichmentSnapshot() -> LLMSnapshot { configSnapshot() }
@@ -186,11 +455,9 @@ final class TriageIntegrationMockLLMClient: LLMClientProtocol {
 @Suite("TriageService Integration")
 struct TriageServiceIntegrationTests {
 
-    // MARK: - Notes Routing
-
-    @Test("notes triage prefers on-device for simple transforms when Apple AI is available")
-    @MainActor func notesSimpleOperationsUseOnDevice() {
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
+    @Test("notes triage uses Apple Intelligence for simple transforms in Auto mode")
+    @MainActor func notesSimpleOperationsUseAppleIntelligence() {
+        let triage = makeService(appleAvailable: true)
 
         #expect(triage.triage(operation: .grammarFix, contentLength: 240) == .appleIntelligence)
         #expect(triage.triage(operation: .summarize, contentLength: 240) == .appleIntelligence)
@@ -203,135 +470,111 @@ struct TriageServiceIntegrationTests {
         )
     }
 
-    @Test("notes triage routes complex operations to cloud when key is configured")
-    @MainActor func notesComplexOperationsUseCloud() {
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
-
-        #expect(triage.triage(operation: .continueWriting, contentLength: 100) == .apiProvider)
-        #expect(
-            triage.triage(
-                operation: .ask(
-                    query: "Compare the causal relationship between Bayesian updating, coherence, and evidential decision theory across conflicting studies."
-                ),
-                contentLength: 100
-            ) == .apiProvider
+    @Test("notes triage uses local qwen for deeper work")
+    @MainActor func notesComplexOperationsUseLocal() {
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue]
         )
-        #expect(triage.triage(operation: .outline, contentLength: 100) == .apiProvider)
-        #expect(triage.triage(operation: .expand, contentLength: 100) == .apiProvider)
-        #expect(triage.triage(operation: .analyze, contentLength: 100) == .apiProvider)
-        #expect(triage.triage(operation: .learn, contentLength: 100) == .apiProvider)
+
+        #expect(triage.triage(operation: .continueWriting, contentLength: 1_000) == .localMLX)
+        #expect(triage.triage(operation: .analyze, contentLength: 2_000) == .localMLX)
+        #expect(triage.triage(operation: .learn, contentLength: 4_000) == .localMLX)
     }
 
-    @Test("notes triage force-routes to on-device when selected provider key is missing")
-    @MainActor func notesNoSelectedProviderKeyForcesOnDevice() {
-        // OpenAI is selected and empty; Anthropic key is irrelevant for selected-provider routing.
-        let triage = makeService(apiProvider: .openai, apiKey: "", appleAvailable: true, otherProviderKey: "anthropic-key")
+    @Test("Apple unavailable routes notes work to local qwen")
+    @MainActor func notesAppleUnavailableUsesLocal() {
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue]
+        )
 
-        #expect(triage.triage(operation: .learn, contentLength: 12000) == .appleIntelligence)
+        #expect(triage.triage(operation: .grammarFix, contentLength: 100) == .localMLX)
     }
 
-    @Test("notes triage routes to cloud when Apple AI is unavailable")
-    @MainActor func notesAppleUnavailableUsesCloud() {
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false)
-
-        #expect(triage.triage(operation: .grammarFix, contentLength: 100) == .apiProvider)
+    @Test("general brainstorm uses Apple Intelligence for lightweight work")
+    @MainActor func generalBrainstormUsesAppleIntelligence() {
+        let triage = makeService(appleAvailable: true)
+        #expect(triage.triageGeneral(operation: .brainstorm, contentLength: 500) == .appleIntelligence)
     }
 
-    @Test("direct triage calls do not mutate lastDecision state")
+    @Test("general higher-complexity work uses local qwen")
+    @MainActor func generalComplexUsesLocal() {
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue]
+        )
+
+        #expect(
+            triage.triageGeneral(
+                operation: .chatResponse(query: "Compare Bayesian and evidential decision theory."),
+                contentLength: 5_000
+            ) == .localMLX
+        )
+        #expect(triage.triageGeneral(operation: .epistemicLens, contentLength: 500) == .localMLX)
+        #expect(triage.triageGeneral(operation: .structuredAnalysis, contentLength: 10_000) == .localMLX)
+    }
+
+    @Test("local only bypasses Apple Intelligence")
+    @MainActor func localOnlyForcesLocalQwen() {
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            routingMode: .localOnly
+        )
+
+        #expect(triage.triage(operation: .grammarFix, contentLength: 100) == .localMLX)
+        #expect(
+            triage.triageGeneral(
+                operation: .chatResponse(query: "Explain coherentism."),
+                contentLength: 400
+            ) == .localMLX
+        )
+    }
+
+    @Test("direct triage calls do not mutate lastDecision")
     @MainActor func triageCallsDoNotMutateLastDecision() {
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
+        let triage = makeService(appleAvailable: true)
 
         _ = triage.triage(operation: .grammarFix, contentLength: 50)
         _ = triage.triageGeneral(operation: .brainstorm, contentLength: 50)
         #expect(triage.lastDecision == nil)
     }
 
-    // MARK: - General Routing
-
-    @Test("general triage sends brainstorm to on-device when Apple AI is available")
-    @MainActor func generalBrainstormUsesOnDevice() {
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
-        #expect(triage.triageGeneral(operation: .brainstorm, contentLength: 500) == .appleIntelligence)
-    }
-
-    @Test("general triage routes higher-complexity operations to cloud")
-    @MainActor func generalComplexUsesCloud() {
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
-
-        #expect(triage.triageGeneral(operation: .chatResponse(query: "What is Bayesian updating?"), contentLength: 100) == .apiProvider)
-        #expect(triage.triageGeneral(operation: .epistemicLens, contentLength: 100) == .apiProvider)
-        #expect(triage.triageGeneral(operation: .apiOnly, contentLength: 100) == .apiProvider)
-    }
-
-    @Test("general triage force-routes to on-device when selected provider key is missing")
-    @MainActor func generalNoSelectedProviderKeyForcesOnDevice() {
-        let triage = makeService(apiProvider: .google, apiKey: "", appleAvailable: true)
-        #expect(triage.triageGeneral(operation: .apiOnly, contentLength: 10000) == .appleIntelligence)
-    }
-
-    @Test("general triage routes to cloud when Apple AI is unavailable")
-    @MainActor func generalAppleUnavailableUsesCloud() {
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false)
-        #expect(triage.triageGeneral(operation: .brainstorm, contentLength: 100) == .apiProvider)
-    }
-
-    // MARK: - Notes Generate/Stream Integration
-
-    @Test("notes generate uses cloud path and records maxTokens default")
-    @MainActor func notesGenerateUsesCloudPath() async throws {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.generateResult = .success("cloud-response")
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+    @Test("notes generate uses local path and records maxTokens default")
+    @MainActor func notesGenerateUsesLocalPath() async throws {
+        let llm = TriageIntegrationMockLLMClient()
+        llm.generateResult = .success("local-response")
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localLLMService: llm
+        )
 
         let output = try await triage.generate(
             prompt: "Prompt A",
             systemPrompt: "System A",
             operation: .analyze,
-            contentLength: 1800
+            contentLength: 1_800
         )
 
-        #expect(output == "cloud-response")
-        #expect(triage.lastDecision == .apiProvider)
-        #expect(mock.generateCalls.count == 1)
-        #expect(mock.streamCalls.isEmpty)
-        #expect(mock.generateCalls[0].prompt == "Prompt A")
-        #expect(mock.generateCalls[0].systemPrompt == "System A")
-        #expect(mock.generateCalls[0].maxTokens == 4096)
+        #expect(output == "local-response")
+        #expect(triage.lastDecision == .localMLX)
+        #expect(llm.generateCalls.count == 1)
+        #expect(llm.generateCalls[0].prompt == "Prompt A")
+        #expect(llm.generateCalls[0].systemPrompt == "System A")
+        #expect(llm.generateCalls[0].maxTokens == 4096)
     }
 
-    @Test("notes generate propagates cloud errors")
-    @MainActor func notesGeneratePropagatesCloudError() async {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.generateResult = .failure(LLMError.apiError(statusCode: 500, body: "boom"))
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
-
-        do {
-            _ = try await triage.generate(
-                prompt: "Prompt B",
-                systemPrompt: nil,
-                operation: .learn,
-                contentLength: 2400
-            )
-            Issue.record("Expected generate to throw")
-        } catch let error as LLMError {
-            if case .apiError(let code, _) = error {
-                #expect(code == 500)
-            } else {
-                Issue.record("Expected .apiError case")
-            }
-        } catch {
-            Issue.record("Expected LLMError, got \(type(of: error))")
-        }
-
-        #expect(triage.lastDecision == .apiProvider)
-        #expect(mock.generateCalls.count == 1)
-    }
-
-    @Test("notes stream uses cloud path and yields all chunks")
-    @MainActor func notesStreamUsesCloudPath() async {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.streamTokens = ["alpha", " ", "beta"]
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+    @Test("notes stream uses local path and yields all chunks")
+    @MainActor func notesStreamUsesLocalPath() async {
+        let llm = TriageIntegrationMockLLMClient()
+        llm.streamTokens = ["alpha", " ", "beta"]
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localLLMService: llm
+        )
 
         let stream = triage.stream(
             prompt: "Prompt C",
@@ -339,168 +582,37 @@ struct TriageServiceIntegrationTests {
             operation: .expand,
             contentLength: 900
         )
-        #expect(triage.lastDecision == .apiProvider)
+        let outcome = await LocalRuntimeSmokeSupport.collect(stream)
 
-        let outcome = await collect(stream)
         #expect(outcome.tokens == ["alpha", " ", "beta"])
-        if let error = outcome.error {
-            Issue.record("Unexpected stream error: \(error)")
-        }
-
-        #expect(mock.streamCalls.count == 1)
-        #expect(mock.generateCalls.isEmpty)
-        #expect(mock.streamCalls[0].prompt == "Prompt C")
-        #expect(mock.streamCalls[0].systemPrompt == "System C")
-        #expect(mock.streamCalls[0].maxTokens == 0)
+        #expect(outcome.error == nil)
+        #expect(triage.lastDecision == .localMLX)
+        #expect(llm.streamCalls.count == 1)
+        #expect(llm.streamCalls[0].maxTokens == 0)
     }
 
-    @Test("notes stream propagates cloud stream errors after partial output")
-    @MainActor func notesStreamPropagatesCloudError() async {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.streamTokens = ["partial"]
-        mock.streamError = LLMError.apiError(statusCode: 503, body: "unavailable")
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
-
-        let stream = triage.stream(
-            prompt: "Prompt D",
-            systemPrompt: nil,
-            operation: .analyze,
-            contentLength: 1200
-        )
-        let outcome = await collect(stream)
-
-        #expect(outcome.tokens == ["partial"])
-        guard let error = outcome.error as? LLMError else {
-            Issue.record("Expected LLMError from stream")
-            return
-        }
-        if case .apiError(let code, _) = error {
-            #expect(code == 503)
-        } else {
-            Issue.record("Expected .apiError case")
-        }
-        #expect(triage.lastDecision == .apiProvider)
-    }
-
-    // MARK: - General Generate/Stream Integration
-
-    @Test("general generate apiOnly uses cloud path")
-    @MainActor func generalGenerateApiOnlyUsesCloudPath() async throws {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.generateResult = .success("general-cloud")
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
-
-        let output = try await triage.generateGeneral(
-            prompt: "General prompt",
-            systemPrompt: "General system",
-            operation: .apiOnly,
-            contentLength: 100
+    @Test("missing local model throws in local only mode")
+    @MainActor func missingModelThrowsWhenLocalIsRequired() async {
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [],
+            routingMode: .localOnly
         )
 
-        #expect(output == "general-cloud")
-        #expect(triage.lastDecision == .apiProvider)
-        #expect(mock.generateCalls.count == 1)
-        #expect(mock.generateCalls[0].maxTokens == 4096)
-    }
-
-    @Test("general generate chat response uses cloud path when Apple AI is unavailable")
-    @MainActor func generalGenerateChatResponseUsesCloudPath() async throws {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.generateResult = .success("chat-cloud")
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
-
-        let output = try await triage.generateGeneral(
-            prompt: "Explain epistemology",
-            operation: .chatResponse(query: "Explain epistemology"),
-            contentLength: 300
-        )
-
-        #expect(output == "chat-cloud")
-        #expect(mock.generateCalls.count == 1)
-        #expect(triage.lastDecision == .apiProvider)
-    }
-
-    @Test("general generate propagates non-auth cloud errors")
-    @MainActor func generalGeneratePropagatesNonAuthError() async {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.generateResult = .failure(LLMError.apiError(statusCode: 400, body: "bad request"))
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
-
-        do {
-            _ = try await triage.generateGeneral(
-                prompt: "General prompt 2",
-                operation: .apiOnly,
-                contentLength: 500
+        await #expect(throws: LocalInferenceRoutingError.modelRequired) {
+            try await triage.generateGeneral(
+                prompt: "Explain coherentism.",
+                operation: .chatResponse(query: "Explain coherentism."),
+                contentLength: 200
             )
-            Issue.record("Expected generateGeneral to throw")
-        } catch let error as LLMError {
-            if case .apiError(let code, _) = error {
-                #expect(code == 400)
-            } else {
-                Issue.record("Expected .apiError case")
-            }
-        } catch {
-            Issue.record("Expected LLMError, got \(type(of: error))")
         }
-
-        #expect(triage.lastDecision == .apiProvider)
     }
-
-    @Test("general stream uses cloud path and yields all chunks")
-    @MainActor func generalStreamUsesCloudPath() async {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.streamTokens = ["x", "y", "z"]
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
-
-        let stream = triage.streamGeneral(
-            prompt: "General stream prompt",
-            operation: .epistemicLens,
-            contentLength: 600
-        )
-        let outcome = await collect(stream)
-
-        #expect(outcome.tokens == ["x", "y", "z"])
-        if let error = outcome.error {
-            Issue.record("Unexpected streamGeneral error: \(error)")
-        }
-        #expect(mock.streamCalls.count == 1)
-        #expect(triage.lastDecision == .apiProvider)
-    }
-
-    @Test("general stream propagates non-auth cloud stream errors")
-    @MainActor func generalStreamPropagatesNonAuthError() async {
-        let mock = TriageIntegrationMockLLMClient()
-        mock.streamTokens = ["chunk"]
-        mock.streamError = LLMError.apiError(statusCode: 500, body: "server")
-        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
-
-        let stream = triage.streamGeneral(
-            prompt: "General stream prompt 2",
-            operation: .chatResponse(query: "What is coherentism?"),
-            contentLength: 500
-        )
-        let outcome = await collect(stream)
-
-        #expect(outcome.tokens == ["chunk"])
-        guard let error = outcome.error as? LLMError else {
-            Issue.record("Expected LLMError from streamGeneral")
-            return
-        }
-        if case .apiError(let code, _) = error {
-            #expect(code == 500)
-        } else {
-            Issue.record("Expected .apiError case")
-        }
-        #expect(triage.lastDecision == .apiProvider)
-    }
-
-    // MARK: - Heuristic Edge Cases
 
     @Test("refusal detection is case-insensitive and prefix-bounded")
     func refusalCaseInsensitivityAndPrefixWindow() {
         #expect(TriageService.isRefusalResponse("I CANNOT ASSIST WITH THIS REQUEST."))
 
-        let longPrefix = String(repeating: "valid-content ", count: 45) // >500 chars
+        let longPrefix = String(repeating: "valid-content ", count: 45)
         let buried = longPrefix + "I cannot assist with this request."
         #expect(!TriageService.isRefusalResponse(buried))
     }
@@ -511,57 +623,483 @@ struct TriageServiceIntegrationTests {
         #expect(!TriageService.isTruncatedResponse("The bracketed citation is complete.]"))
     }
 
-    @Test("fallback check stays false for complete, substantive prose")
-    func fallbackFalseForCompleteResponse() {
-        let text = """
-        This answer includes sufficient detail, clear reasoning, and a proper ending.
-        It should not be classified as a refusal or a truncation artifact.
-        """
-        #expect(!TriageService.shouldFallbackToAPI(text))
+    @Test("live smoke verifies installed 4B qwen, auto/local routing, thinking stream, and notes plus graph memory")
+    @MainActor func liveQwen35Smoke() async throws {
+        guard FileManager.default.fileExists(atPath: "/tmp/epi-live-local-qwen35-smoke") else { return }
+        try await LocalRuntimeSmokeSupport.runLiveQwen35Smoke()
     }
 
-    // MARK: - Helpers
+    @MainActor
+    @Test("local runtime tuning unloads faster and uses lower cache budgets on low power")
+    func lowPowerRuntimeTuningIsMoreAggressive() {
+        let snapshot = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 18_000_000_000,
+            roundedMemoryGB: 18,
+            maxRecommendedLocalContentLength: 8_000
+        )
+
+        let normal = LocalMLXRuntimeTuning.runtimePolicy(
+            snapshot: snapshot,
+            conditions: LocalRuntimeConditions(
+                lowPowerModeEnabled: false,
+                appActive: true,
+                thermalState: .nominal
+            )
+        )
+        let lowPower = LocalMLXRuntimeTuning.runtimePolicy(
+            snapshot: snapshot,
+            conditions: LocalRuntimeConditions(
+                lowPowerModeEnabled: true,
+                appActive: true,
+                thermalState: .nominal
+            )
+        )
+
+        #expect(lowPower.idleUnloadDelay < normal.idleUnloadDelay)
+        #expect(lowPower.memoryPolicy.cacheLimitBytes < normal.memoryPolicy.cacheLimitBytes)
+        #expect(lowPower.memoryPolicy.memoryLimitBytes <= normal.memoryPolicy.memoryLimitBytes)
+    }
+
+    @MainActor
+    @Test("background thermal pressure tightens local runtime budgets on 18GB machines")
+    func backgroundThermalPressureTightensRuntimeBudgets() {
+        let snapshot = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 18_000_000_000,
+            roundedMemoryGB: 18,
+            maxRecommendedLocalContentLength: 8_000
+        )
+
+        let normalConditions = LocalRuntimeConditions(
+            lowPowerModeEnabled: false,
+            appActive: true,
+            thermalState: .nominal
+        )
+        let constrainedConditions = LocalRuntimeConditions(
+            lowPowerModeEnabled: true,
+            appActive: false,
+            thermalState: .serious
+        )
+
+        let normalPolicy = LocalMLXRuntimeTuning.runtimePolicy(
+            snapshot: snapshot,
+            conditions: normalConditions
+        )
+        let constrainedPolicy = LocalMLXRuntimeTuning.runtimePolicy(
+            snapshot: snapshot,
+            conditions: constrainedConditions
+        )
+        let normalBudget = LocalMLXRuntimeTuning.contentBudget(
+            snapshot: snapshot,
+            conditions: normalConditions,
+            reasoningMode: .fast
+        )
+        let constrainedBudget = LocalMLXRuntimeTuning.contentBudget(
+            snapshot: snapshot,
+            conditions: constrainedConditions,
+            reasoningMode: .fast
+        )
+
+        #expect(constrainedPolicy.idleUnloadDelay < normalPolicy.idleUnloadDelay)
+        #expect(constrainedPolicy.memoryPolicy.cacheLimitBytes < normalPolicy.memoryPolicy.cacheLimitBytes)
+        #expect(constrainedPolicy.memoryPolicy.memoryLimitBytes < normalPolicy.memoryPolicy.memoryLimitBytes)
+        #expect(constrainedBudget.totalBudget < normalBudget.totalBudget)
+        #expect(constrainedBudget.promptBudget < normalBudget.promptBudget)
+    }
+
+    @MainActor
+    @Test("constrained runtime downshifts local model choice and disables automatic local routing")
+    func constrainedRuntimeDownshiftsModelChoice() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen35_2B4Bit.rawValue,
+            LocalTextModelID.qwen35_4B4Bit.rawValue,
+        ])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setLocalRuntimeConditions(
+            LocalRuntimeConditions(
+                lowPowerModeEnabled: false,
+                appActive: true,
+                thermalState: .nominal
+            )
+        )
+
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(inference.canRouteToLocalMLX(contentLength: 4_000))
+
+        inference.setLocalRuntimeConditions(
+            LocalRuntimeConditions(
+                lowPowerModeEnabled: true,
+                appActive: false,
+                thermalState: .serious
+            )
+        )
+
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(!inference.canRouteToLocalMLX(contentLength: 4_000))
+    }
+
+    @MainActor
+    @Test("automatic local selection uses a smaller installed tier for simple local work")
+    func automaticSelectionUsesSmallerTierForSimpleLocalWork() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let small = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_2B4Bit.rawValue))
+        let balanced = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        for descriptor in [small, balanced] {
+            try FileManager.default.createDirectory(
+                at: paths.activeDirectory(for: descriptor),
+                withIntermediateDirectories: true
+            )
+        }
+
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.routingMode = .auto
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([small.id, balanced.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let localClient = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: localClient)
+
+        _ = try await triage.generateGeneral(
+            prompt: "Summarize this in two sentences.",
+            systemPrompt: "Be concise.",
+            operation: .chatResponse(query: "Summarize this in two sentences."),
+            contentLength: 31
+        )
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.modelID == small.id)
+    }
+
+    @MainActor
+    @Test("automatic local selection reuses a justified warm tier instead of bouncing down immediately")
+    func automaticSelectionSticksToWarmTier() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let small = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_2B4Bit.rawValue))
+        let balanced = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let strong = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_9B4Bit.rawValue))
+        for descriptor in [small, balanced, strong] {
+            try FileManager.default.createDirectory(
+                at: paths.activeDirectory(for: descriptor),
+                withIntermediateDirectories: true
+            )
+        }
+
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.routingMode = .auto
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_2B4Bit.rawValue)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        inference.setInstalledLocalTextModelIDs([small.id, balanced.id, strong.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let localClient = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: localClient)
+
+        let hardPrompt = String(repeating: "Compare competing interpretations of this code path and identify failure modes. ", count: 80)
+        _ = try await triage.generateGeneral(
+            prompt: hardPrompt,
+            systemPrompt: "Think through the tradeoffs before answering.",
+            operation: .chatResponse(query: "Think step by step about competing code paths and failure modes."),
+            contentLength: hardPrompt.count,
+            localReasoningMode: .thinking
+        )
+
+        let firstRequest = try #require(await runtime.lastGenerateRequest)
+        #expect(firstRequest.modelID == balanced.id || firstRequest.modelID == strong.id)
+
+        _ = try await triage.generateGeneral(
+            prompt: "Give me the short practical takeaway.",
+            systemPrompt: "Be direct.",
+            operation: .chatResponse(query: "Give me the short practical takeaway."),
+            contentLength: 36
+        )
+
+        let secondRequest = try #require(await runtime.lastGenerateRequest)
+        #expect(secondRequest.modelID == firstRequest.modelID)
+    }
+
+    @MainActor
+    @Test("disabling automatic local selection keeps the preferred installed tier")
+    func manualLocalSelectionKeepsPreferredTier() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let small = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_2B4Bit.rawValue))
+        let balanced = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        for descriptor in [small, balanced] {
+            try FileManager.default.createDirectory(
+                at: paths.activeDirectory(for: descriptor),
+                withIntermediateDirectories: true
+            )
+        }
+
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.routingMode = .auto
+        inference.setAutomaticLocalModelSelectionEnabled(false)
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([small.id, balanced.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let localClient = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: localClient)
+
+        _ = try await triage.generateGeneral(
+            prompt: "Summarize this in two sentences.",
+            systemPrompt: "Be concise.",
+            operation: .chatResponse(query: "Summarize this in two sentences."),
+            contentLength: 31
+        )
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.modelID == balanced.id)
+    }
+
+    @MainActor
+    @Test("local client uses installed preferred local model")
+    func usesInstalledPreferredModel() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        let output = try await client.generate(prompt: "Hello", systemPrompt: "System", maxTokens: 123)
+
+        #expect(output == "local-generate")
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.modelID == descriptor.id)
+        #expect(request.modelDirectory == paths.activeDirectory(for: descriptor))
+        #expect(request.prompt == "Hello")
+        #expect(request.systemPrompt == "System")
+        #expect(request.maxTokens == 123)
+    }
+
+    @Test("local request preserves uncapped output when the caller leaves maxTokens at zero")
+    func localRequestPreservesUncappedOutput() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            prompt: "Explain the tradeoffs in detail.",
+            systemPrompt: "Be thorough.",
+            maxTokens: 0,
+            reasoningMode: .fast
+        )
+
+        #expect(request.resolvedMaxTokens == nil)
+    }
+
+    @Test("thinking mode does not hard-cap long-form local output to 1024 tokens")
+    func thinkingModeDoesNotHardCapLongFormOutput() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            prompt: "Produce a detailed research analysis.",
+            systemPrompt: "Think deeply and be comprehensive.",
+            maxTokens: 6000,
+            reasoningMode: .thinking
+        )
+
+        #expect(request.resolvedMaxTokens == 6000)
+    }
+
+    @MainActor
+    @Test("local client falls back to any installed supported model when preferred choices are unavailable")
+    func usesInstalledAlternativeModel() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let installed = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_2B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: installed),
+            withIntermediateDirectories: true
+        )
+
+        let inference = InferenceState()
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([installed.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.modelID == installed.id)
+    }
+
+    @MainActor
+    @Test("manual local selection falls back to the nearest installed supported tier")
+    func manualSelectionFallsBackToNearestInstalledTier() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let smallest = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_0_8B4Bit.rawValue))
+        let smaller = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_2B4Bit.rawValue))
+        for descriptor in [smallest, smaller] {
+            try FileManager.default.createDirectory(
+                at: paths.activeDirectory(for: descriptor),
+                withIntermediateDirectories: true
+            )
+        }
+
+        let inference = InferenceState()
+        inference.setAutomaticLocalModelSelectionEnabled(false)
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([smallest.id, smaller.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.modelID == smaller.id)
+    }
+
+    @MainActor
+    @Test("thinking mode preserves the caller system prompt and marks the request as thinking")
+    func thinkingModePreservesSystemPromptAndRequestMode() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        let stream = client.stream(
+            prompt: "Explain tides.",
+            systemPrompt: "Think first, then answer.",
+            maxTokens: 256,
+            reasoningMode: .thinking
+        )
+        for try await _ in stream {
+            break
+        }
+
+        let request = try #require(await runtime.lastStreamRequest)
+        let systemPrompt = try #require(request.systemPrompt)
+        #expect(systemPrompt == "Think first, then answer.")
+        #expect(request.reasoningMode == .thinking)
+    }
+
+    @MainActor
+    @Test("local client errors when no usable local model is installed")
+    func errorsWithoutInstalledModel() async {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let inference = InferenceState()
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        await #expect(throws: LocalInferenceRoutingError.modelRequired) {
+            try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 32)
+        }
+    }
+
+    @MainActor
+    @Test("local client snapshot uses the distinct local provider identity")
+    func snapshotUsesDistinctLocalIdentity() {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let inference = InferenceState()
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        #expect(client.configSnapshot().provider == .localMLX)
+    }
 
     @MainActor
     private func makeService(
-        apiProvider: LLMProviderType,
-        apiKey: String,
         appleAvailable: Bool,
-        otherProviderKey: String = "",
-        llm: TriageIntegrationMockLLMClient = TriageIntegrationMockLLMClient()
+        localInstalled: [String] = [],
+        routingMode: LocalRoutingMode = .auto,
+        localLLMService: (any LLMClientProtocol)? = nil
     ) -> TriageService {
         let inference = InferenceState()
-        inference.apiProvider = apiProvider
-        inference.anthropicKey = ""
-        inference.openaiKey = ""
-        inference.googleKey = ""
-        inference.kimiKey = ""
         inference.appleIntelligenceAvailable = appleAvailable
-
-        switch apiProvider {
-        case .anthropic: inference.anthropicKey = apiKey
-        case .openai: inference.openaiKey = apiKey
-        case .google: inference.googleKey = apiKey
-        case .kimi: inference.kimiKey = apiKey
-        case .ollama, .appleIntelligence: break
+        inference.routingMode = routingMode
+        inference.setPreferredLocalReasoningMode(.fast)
+        inference.setAutomaticLocalModelSelectionEnabled(true)
+        inference.setInstalledLocalTextModelIDs(Set(localInstalled))
+        if let firstInstalled = localInstalled.first {
+            inference.setPreferredLocalTextModelID(firstInstalled)
         }
 
-        if !otherProviderKey.isEmpty {
-            inference.anthropicKey = otherProviderKey
-        }
-
-        return TriageService(inference: inference, llmService: llm)
+        return TriageService(
+            inference: inference,
+            localLLMService: localLLMService
+        )
     }
 
-    private func collect(_ stream: AsyncThrowingStream<String, Error>) async -> (tokens: [String], error: (any Error)?) {
-        var tokens: [String] = []
-        do {
-            for try await token in stream {
-                tokens.append(token)
-            }
-            return (tokens, nil)
-        } catch {
-            return (tokens, error)
+    private func temporaryLocalModelPaths() -> LocalModelPaths {
+        LocalModelPaths(
+            rootDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        )
+    }
+}
+
+@Suite("LLMService Local Snapshots")
+struct LLMServiceLocalSnapshotTests {
+    @Test("research enrichment snapshot uses local qwen thinking when a local model is installed")
+    @MainActor func enrichmentSnapshotUsesLocalThinking() {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = true
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setPreferredLocalReasoningMode(.fast)
+
+        let llm = LLMService(inference: inference)
+        let snapshot = llm.enrichmentSnapshot()
+
+        #expect(snapshot.provider == .localMLX)
+        #expect(snapshot.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(snapshot.reasoningMode == .thinking)
+    }
+}
+
+private actor RecordingLocalMLXRuntime: LocalMLXRuntime {
+    var lastGenerateRequest: LocalMLXRequest?
+    var lastStreamRequest: LocalMLXRequest?
+
+    func generate(request: LocalMLXRequest) async throws -> String {
+        lastGenerateRequest = request
+        return "local-generate"
+    }
+
+    func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error> {
+        lastStreamRequest = request
+        return AsyncThrowingStream { continuation in
+            continuation.yield("local")
+            continuation.finish()
         }
     }
+
+    func unload() async {}
 }

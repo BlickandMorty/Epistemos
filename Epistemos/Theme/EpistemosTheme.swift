@@ -1039,6 +1039,12 @@ enum InlineMarkdownStyler {
     private static let orphanBracketRegex = try! NSRegularExpression(
         pattern: "\\[[A-Z][A-Z ]+\\](?!\\()"
     )
+    private static let markdownLinkDestinationRegex = try! NSRegularExpression(
+        pattern: #"\[[^\]]+\]\((https?://[^\s\)]+)\)"#
+    )
+    private static let urlDetector = try! NSDataDetector(
+        types: NSTextCheckingResult.CheckingType.link.rawValue
+    )
 
     static func cleanedText(_ text: String) -> String {
         orphanBracketRegex.stringByReplacingMatches(
@@ -1090,8 +1096,9 @@ enum InlineMarkdownStyler {
         linkForegroundColor: Color? = nil
     ) -> AttributedString? {
         let cleaned = cleanedText(text)
+        let linkified = linkifyRawURLs(in: cleaned)
         guard var attributed = try? AttributedString(
-            markdown: cleaned,
+            markdown: linkified,
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         ) else {
             return nil
@@ -1138,6 +1145,46 @@ enum InlineMarkdownStyler {
         for range in linkRuns {
             attributed[range].foregroundColor = foregroundColor
         }
+    }
+
+    private static func linkifyRawURLs(in text: String) -> String {
+        let nsText = text as NSString
+        let excludedRanges = markdownLinkDestinationRegex.matches(
+            in: text,
+            range: NSRange(location: 0, length: nsText.length)
+        ).map { $0.range(at: 1) }
+        let matches = urlDetector.matches(
+            in: text,
+            range: NSRange(location: 0, length: nsText.length)
+        )
+        guard !matches.isEmpty else { return text }
+
+        let mutable = NSMutableString(string: text)
+        for match in matches.reversed() {
+            guard shouldAutolink(match.range, in: nsText, excludedRanges: excludedRanges) else { continue }
+            let rawURL = nsText.substring(with: match.range)
+            mutable.replaceCharacters(in: match.range, with: "<\(rawURL)>")
+        }
+
+        return mutable as String
+    }
+
+    private static func shouldAutolink(
+        _ range: NSRange,
+        in text: NSString,
+        excludedRanges: [NSRange]
+    ) -> Bool {
+        guard !excludedRanges.contains(where: { NSIntersectionRange($0, range).length > 0 }) else {
+            return false
+        }
+
+        let lowerIndex = range.location - 1
+        let upperIndex = range.location + range.length
+        guard lowerIndex >= 0, upperIndex < text.length else { return true }
+
+        let lowerCharacter = text.substring(with: NSRange(location: lowerIndex, length: 1))
+        let upperCharacter = text.substring(with: NSRange(location: upperIndex, length: 1))
+        return !(lowerCharacter == "<" && upperCharacter == ">")
     }
 }
 

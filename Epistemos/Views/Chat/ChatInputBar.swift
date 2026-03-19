@@ -34,13 +34,10 @@ struct ChatInputBar: View {
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private let composerMetrics = AssistantComposerMetrics.mainChat
+    private let placeholderText = "Ask anything…"
     private var composerIsActive: Bool {
         isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty
     }
-    private var placeholderText: String {
-        chat.isResearchMode ? "Ask a research question…" : "Ask anything…"
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             // Pending attachments preview — collapsed to 0 height when empty
@@ -83,9 +80,6 @@ struct ChatInputBar: View {
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     HStack(spacing: MainChatComposerLayout.controlRowSpacing) {
                         attachButton
-
-                        ResearchModeControl(variant: .toolbar)
-                            .disabled(isProcessing)
 
                         incognitoButton
                     }
@@ -259,10 +253,17 @@ struct ChatInputBar: View {
         mentionFilter = ""
     }
 
-    private func insertMention(_ entry: VaultManifest.ManifestEntry) {
+    private func insertMention(_ choice: NoteMentionChoice) {
+        let token: String
+        switch choice {
+        case .allNotes:
+            token = ChatCoordinator.allNotesMentionToken
+        case .entry(let entry):
+            token = entry.title
+        }
         // Replace the @filter text with @[Title]
         if let atIdx = text.lastIndex(of: "@") {
-            text = String(text[text.startIndex..<atIdx]) + "@[\(entry.title)] "
+            text = String(text[text.startIndex..<atIdx]) + "@[\(token)] "
         }
         showMentionDropdown = false
         mentionFilter = ""

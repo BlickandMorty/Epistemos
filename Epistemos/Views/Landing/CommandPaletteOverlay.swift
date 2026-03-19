@@ -33,7 +33,6 @@ struct CommandPaletteOverlay: View {
 
     @Environment(ThreadState.self) private var threadState
     @Environment(TriageService.self) private var triage
-    @Environment(LLMService.self) private var llmService
     @Environment(\.modelContext) private var modelContext
 
     @Query(SDPage.activePagesDescriptor) private var allPages: [SDPage]
@@ -59,12 +58,6 @@ struct CommandPaletteOverlay: View {
     @State private var chatInput = ""
     @State private var lastScrollTime: ContinuousClock.Instant = .now
     @State private var chatAutoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
-    @State private var paletteChatMode: NoteChatMode = {
-        NoteChatMode(rawValue: UserDefaults.standard.string(forKey: "paletteChatMode") ?? "") ?? .auto
-    }()
-    @State private var paletteOverrideProvider: LLMProviderType? = {
-        LLMProviderType(rawValue: UserDefaults.standard.string(forKey: "paletteProvider") ?? "")
-    }()
     @State private var focusedPageId: String?
     @FocusState private var isChatFocused: Bool
 
@@ -196,9 +189,9 @@ struct CommandPaletteOverlay: View {
                     Spacer()
 
                     HStack(spacing: 6) {
-                        Image(systemName: paletteChatMode == .auto ? "sparkles" : (paletteOverrideProvider?.iconName ?? inference.apiProvider.iconName))
+                        Image(systemName: paletteRoutingIcon)
                             .font(.system(size: 10, weight: .medium))
-                        Text(paletteChatMode == .auto ? "Auto" : (paletteOverrideProvider?.displayName ?? inference.apiProvider.displayName))
+                        Text(inference.routingMode.displayName)
                             .font(.system(size: 11, weight: .medium))
                             .lineLimit(1)
                     }
@@ -293,8 +286,6 @@ struct CommandPaletteOverlay: View {
                     }
 
                     HStack(spacing: 6) {
-                        ResearchModeControl(variant: .toolbar)
-
                         ExpandingModeButton(
                             title: "Incognito",
                             systemImage: chat.isIncognito ? "eye.slash.fill" : "eye.slash",
@@ -443,49 +434,32 @@ struct CommandPaletteOverlay: View {
 
     // MARK: - Chat Tab Bar
 
-    // MARK: - Mode / Provider Picker
+    // MARK: - Mode Picker
 
     private var paletteModeMenu: some View {
         Menu {
             Button {
-                paletteChatMode = .auto
-                paletteOverrideProvider = nil
-                UserDefaults.standard.set("auto", forKey: "paletteChatMode")
+                inference.setRoutingMode(.auto)
             } label: {
-                Label("Auto (Apple AI + Cloud)", systemImage: "sparkles")
+                Label("Auto", systemImage: "sparkles")
             }
 
             Button {
-                paletteChatMode = .cloudOnly
-                paletteOverrideProvider = nil
-                UserDefaults.standard.set("cloudOnly", forKey: "paletteChatMode")
+                inference.setRoutingMode(.localOnly)
             } label: {
-                Label("Cloud Only", systemImage: "cloud")
-            }
-
-            Divider()
-
-            ForEach(LLMProviderType.allCases.filter({ $0 != .appleIntelligence }), id: \.self) { provider in
-                Button {
-                    paletteChatMode = .provider
-                    paletteOverrideProvider = provider
-                    UserDefaults.standard.set("provider", forKey: "paletteChatMode")
-                    UserDefaults.standard.set(provider.rawValue, forKey: "paletteProvider")
-                } label: {
-                    Label(provider.displayName, systemImage: provider.iconName)
-                }
+                Label("Local Only", systemImage: "memorychip")
             }
         } label: {
-            Image(systemName: paletteChatMode == .auto ? "sparkles" : (paletteOverrideProvider?.iconName ?? inference.apiProvider.iconName))
+            Image(systemName: paletteRoutingIcon)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(paletteChatMode == .auto ? theme.textTertiary : theme.accent)
+                .foregroundStyle(inference.routingMode == .auto ? theme.textTertiary : theme.accent)
                 .frame(width: 30, height: 30)
                 .contentShape(Circle())
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(paletteChatMode == .auto ? "Auto routing" : (paletteOverrideProvider?.displayName ?? "Cloud"))
+        .help(inference.routingMode.displayName)
     }
 
     private var chatTabBar: some View {
@@ -650,7 +624,7 @@ struct CommandPaletteOverlay: View {
             }
 
             HStack(spacing: 10) {
-                // Model/API picker
+                // Routing/model picker
                 paletteModeMenu
 
                 TextField("Ask anything\u{2026}", text: $chatInput)
@@ -711,107 +685,33 @@ struct CommandPaletteOverlay: View {
             do {
                 // Phase 1 (main actor): lightweight SwiftData fetches + metadata
                 let page = activePage()
-                let pageId = page?.id
-                let pageTitle = page?.title ?? ""
-                let pageTags = page?.tags ?? []
-
-                var folderNames: [String] = []
-                let folderDescriptor = FetchDescriptor<SDFolder>(sortBy: [SortDescriptor(\.sortOrder)])
-                if let folders = try? modelContext.fetch(folderDescriptor) {
-                    folderNames = folders.map(\.name)
-                }
 
                 let activeMessages = activeThread?.messages ?? []
-                let hasHistory = activeMessages.count > 1
-                let conversationNote = hasHistory
-                    ? " The user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
-                    : ""
-
-                // Phase 2 (off main): file I/O + FTS search
-                let noteBody: String
-                if let pageId {
-                    noteBody = await Task.detached {
-                        NoteFileStorage.readBody(pageId: pageId)
-                    }.value
-                } else {
-                    noteBody = ""
-                }
-
-                let vaultSnippets = await vaultSync.searchFullAsync(query: trimmed, limit: 5)
-
-                // Phase 3 (main actor): build prompts
-                var contextParts: [String] = []
-
-                if !noteBody.isEmpty {
-                    contextParts.append("## Active Note: \(pageTitle)\nTags: [\(pageTags.joined(separator: ", "))]\n\(String(noteBody.prefix(2000)))")
-                }
-
-                if !vaultSnippets.isEmpty {
-                    let snippetText = vaultSnippets.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
-                    contextParts.append("## Related Notes from Vault\n\(snippetText)")
-                }
-
-                if let manifest = AppBootstrap.shared?.ambientManifest {
-                    contextParts.append(manifest.asManifestOnly())
-                }
-
-                let systemPrompt: String
-                if contextParts.isEmpty {
-                    systemPrompt = "You are Epistemos, a research assistant. Answer clearly and helpfully. Use markdown formatting.\(conversationNote)"
-                } else {
-                    let actionInstructions = page != nil ? """
-
-                    ## Vault Actions
-                    When the user asks to modify a note (tag, move, rename, etc.), include an action marker at the END of your response:
-                    - To add tags: `[ACTION:TAG tag1, tag2, tag3]`
-                    - To move to folder: `[ACTION:MOVE FolderName]`
-                    - To create a new note: `[ACTION:CREATE Title of New Note]`
-                    Available folders: [\(folderNames.joined(separator: ", "))]
-                    Only include an action marker if the user explicitly asks to modify something. Otherwise just answer normally.
-                    """ : ""
-
-                    systemPrompt = """
-                    You are Epistemos, a research assistant with access to the user's notes vault. \
-                    Reference the user's notes naturally when relevant — quote specific content, \
-                    connect ideas across notes, or point out things the user might not have noticed. \
-                    Answer clearly and helpfully. Use markdown formatting.\(conversationNote)\(actionInstructions)
-
-                    \(contextParts.joined(separator: "\n\n"))
-                    """
-                }
-
-                let noteContext = noteBody.isEmpty ? "" : "Note: \(pageTitle)\n\(String(noteBody.prefix(2000)))\n\n"
 
                 // Build conversation-aware prompt with thread history
-                let conversationPrompt: String
+                var promptParts: [String] = []
                 if activeMessages.count > 1 {
                     let history = activeMessages.dropLast().suffix(10)
                     let historyText = history.map { msg in
                         msg.role == .user ? "User: \(msg.content)" : "Assistant: \(msg.content)"
                     }.joined(separator: "\n\n")
-                    conversationPrompt = "\(noteContext)\(historyText)\n\nUser: \(trimmed)"
+                    promptParts.append(historyText)
+                    promptParts.append("User: \(trimmed)")
                 } else {
-                    conversationPrompt = "\(noteContext)\(trimmed)"
+                    promptParts.append(trimmed)
                 }
+                let conversationPrompt = promptParts.joined(separator: "\n\n")
 
-                let contentLength = conversationPrompt.count + contextParts.joined().count
+                let contentLength = conversationPrompt.count
                 var accumulated = ""
 
-                let stream: AsyncThrowingStream<String, Error>
-                switch paletteChatMode {
-                case .auto:
-                    stream = triage.streamGeneral(
-                        prompt: conversationPrompt,
-                        systemPrompt: systemPrompt,
-                        operation: .chatResponse(query: trimmed),
-                        contentLength: contentLength
-                    )
-                case .cloudOnly:
-                    stream = llmService.stream(prompt: conversationPrompt, systemPrompt: systemPrompt)
-                case .provider:
-                    let provider = paletteOverrideProvider ?? inference.apiProvider
-                    stream = llmService.stream(prompt: conversationPrompt, systemPrompt: systemPrompt, provider: provider)
-                }
+                let stream = triage.streamGeneral(
+                    prompt: conversationPrompt,
+                    systemPrompt: nil,
+                    operation: .chatResponse(query: trimmed),
+                    contentLength: contentLength,
+                    localReasoningMode: .fast
+                )
 
                 for try await chunk in stream {
                     try Task.checkCancellation()
@@ -847,6 +747,13 @@ struct CommandPaletteOverlay: View {
                     threadId: tid
                 )
             }
+        }
+    }
+
+    private var paletteRoutingIcon: String {
+        switch inference.routingMode {
+        case .auto: "sparkles"
+        case .localOnly: "memorychip"
         }
     }
 

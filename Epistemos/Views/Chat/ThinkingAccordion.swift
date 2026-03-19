@@ -12,6 +12,7 @@ struct ThinkingAccordion: View {
     let isLive: Bool
 
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded: Bool
 
     private var theme: EpistemosTheme { ui.theme }
@@ -26,85 +27,130 @@ struct ThinkingAccordion: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header — tap to toggle
             headerRow
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(Motion.quick) { isExpanded.toggle() }
                 }
 
-            // Body — collapsible reasoning text
             if isExpanded && !reasoningText.isEmpty {
-                Rectangle()
-                    .fill(theme.glassBorder)
-                    .frame(height: 0.5)
-                    .padding(.horizontal, Spacing.sm)
-
                 ScrollView {
-                    Text(reasoningText)
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(theme.foreground.opacity(0.65))
-                        .lineSpacing(4)
-                        .textSelection(.enabled)
-                        .padding(Spacing.md)
+                    VStack(alignment: .leading, spacing: 12) {
+                        if isLive {
+                            liveStatusStrip
+                        }
+
+                        Text(reasoningText)
+                            .font(.system(size: 13, weight: .regular, design: .monospaced))
+                            .foregroundStyle(theme.foreground.opacity(0.74))
+                            .lineSpacing(5)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 6)
+                    .padding(.bottom, 14)
                 }
-                .frame(maxHeight: isLive ? 200 : 300)
+                .frame(maxHeight: isLive ? 220 : 300)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(theme.glassBg.opacity(0.5))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(
-                    isLive ? theme.accent.opacity(0.2) : theme.glassBorder,
-                    lineWidth: 0.5
-                )
-        )
+        .assistantInsetChrome(theme: theme, cornerRadius: 18, isEmphasized: isLive || isExpanded)
         .animation(Motion.smooth, value: isExpanded)
     }
 
-    // MARK: - Header
-
     private var headerRow: some View {
-        HStack(spacing: 8) {
-            // Brain icon with pulse for live
-            Image(systemName: isLive ? "brain" : "brain.filled.head.profile")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(isLive ? theme.accent : theme.mutedForeground.opacity(0.6))
-                .symbolEffect(.pulse.wholeSymbol, options: .repeating, isActive: isLive)
+        HStack(spacing: 12) {
+            thinkingOrb
 
-            Text(isLive ? "Thinking" : "Thought Process")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(isLive ? theme.foreground.opacity(0.8) : theme.mutedForeground.opacity(0.7))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(isLive ? "Thinking" : "Thought for")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme.foreground)
 
-            // Duration badge
-            if let dur = duration {
-                Text(formatDuration(dur))
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(theme.mutedForeground.opacity(0.5))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(theme.glassBg))
-            } else if isLive {
-                // Live timer dot
-                Circle()
-                    .fill(theme.accent)
-                    .frame(width: 6, height: 6)
-                    .opacity(0.8)
+                    if let badge = durationBadgeText {
+                        Text(badge)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(isLive ? theme.accent : theme.textSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(theme.glassBg.opacity(theme.isDark ? 0.78 : 0.95)))
+                    }
+                }
+
+                Text(isLive ? "Live model deliberation" : "Model reasoning captured for this answer")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
             }
 
             Spacer()
 
-            // Chevron
+            if isLive && !reduceMotion {
+                TimelineView(.periodic(from: .now, by: 0.9)) { context in
+                    let phase = Int(context.date.timeIntervalSinceReferenceDate) % 3
+                    HStack(spacing: 5) {
+                        ForEach(0..<3, id: \.self) { index in
+                            Capsule()
+                                .fill(theme.accent.opacity(index <= phase ? 0.92 : 0.22))
+                                .frame(width: index == phase ? 16 : 8, height: 5)
+                        }
+                    }
+                }
+            }
+
             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(theme.mutedForeground.opacity(0.4))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
         }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var thinkingOrb: some View {
+        ZStack {
+            Circle()
+                .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.12))
+                .frame(width: 28, height: 28)
+
+            Circle()
+                .strokeBorder(theme.accent.opacity(0.28), lineWidth: 0.8)
+                .frame(width: 28, height: 28)
+
+            Image(systemName: isLive ? "sparkles" : "brain.head.profile")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isLive ? theme.accent : theme.foreground.opacity(0.8))
+                .symbolEffect(.pulse.wholeSymbol, options: .repeating, isActive: isLive && !reduceMotion)
+        }
+    }
+
+    private var liveStatusStrip: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.accent)
+
+            Text("Streaming model reasoning as it arrives")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(theme.textSecondary)
+
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(theme.glassBg.opacity(theme.isDark ? 0.66 : 0.88), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(theme.glassBorder.opacity(0.85), lineWidth: 0.6)
+        )
+    }
+
+    private var durationBadgeText: String? {
+        if let duration {
+            return formatDuration(duration)
+        }
+        guard isLive else { return nil }
+        return "Live"
     }
 
     private func formatDuration(_ seconds: Double) -> String {

@@ -11,7 +11,6 @@ struct SettingsView: View {
 
     enum SettingsSection: String, CaseIterable, Identifiable {
         case inference = "Inference"
-        case soar = "SOAR"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -24,7 +23,6 @@ struct SettingsView: View {
         var icon: String {
             switch self {
             case .inference: "cpu"
-            case .soar: "brain"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -41,32 +39,56 @@ struct SettingsView: View {
                 Label(section.rawValue, systemImage: section.icon)
                     .tag(section)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .safeAreaPadding(.top, 44)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 220)
         } detail: {
-            Group {
-                switch selection {
-                case .inference: InferenceDetailView()
-                case .soar: SOARDetailView()
-                case .landing: LandingDetailView()
-                case .appearance: AppearanceDetailView()
-                case .vault: VaultDetailView()
-                case .security: SecurityDetailView()
-                case .export: ExportDetailView()
-                case .reset: ResetDetailView()
-                case nil: InferenceDetailView()
-                }
+            settingsDetail
+        }
+        .navigationSplitViewStyle(.balanced)
+        .ignoresSafeArea(.container, edges: .top)
+        .overlay(alignment: .topLeading) {
+            sidebarToggleButton
+                .padding(.leading, 78)
+                .padding(.top, 12)
+        }
+    }
+
+    @ViewBuilder
+    private var settingsDetail: some View {
+        Group {
+            switch selection {
+            case .inference: InferenceDetailView()
+            case .landing: LandingDetailView()
+            case .appearance: AppearanceDetailView()
+            case .vault: VaultDetailView()
+            case .security: SecurityDetailView()
+            case .export: ExportDetailView()
+            case .reset: ResetDetailView()
+            case nil: InferenceDetailView()
             }
         }
-        .navigationSplitViewStyle(.prominentDetail)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button(action: toggleSidebar) {
-                    Image(systemName: "sidebar.left")
-                }
-                .help("Toggle Sidebar")
-            }
+        .safeAreaPadding(.top, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var sidebarToggleButton: some View {
+        Button(action: toggleSidebar) {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 30, height: 30)
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
+        .buttonStyle(.plain)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(.white.opacity(0.08))
+        }
+        .shadow(color: .black.opacity(0.10), radius: 8, y: 4)
+        .help("Toggle Sidebar")
     }
 
     private func toggleSidebar() {
@@ -240,207 +262,143 @@ private struct LandingGreetingEditorRow: View {
 private struct InferenceDetailView: View {
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
-    @Environment(LLMService.self) private var llmService
+    @Environment(LocalModelManager.self) private var localModelManager
 
-    @State private var apiKeyDraft = ""
-    @State private var apiKeyVisible = false
-    @State private var connectionStatus: String? = nil
-    @State private var isTesting = false
-    /// Tracks whether the user has enabled a custom token cap.
+    @State private var showLocalModelManager = false
     @State private var tokenCapEnabled = false
-    /// Draft token value for the stepper (kept in sync with inference.chatOutputTokens).
     @State private var tokenCapDraft: Int = 2000
 
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         Form {
-            Section("Provider") {
-                // Apple Intelligence status
+            Section("Routing") {
+                Picker(
+                    "Routing Mode",
+                    selection: Binding(
+                        get: { inference.routingMode },
+                        set: { inference.setRoutingMode($0) }
+                    )
+                ) {
+                    ForEach(LocalRoutingMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(inference.routingMode.summary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
+
                 if inference.appleIntelligenceAvailable {
                     Label(
-                        "Apple Intelligence active — simple queries run on-device automatically",
-                        systemImage: "cpu"
+                        "Apple Intelligence is available for lightweight on-device work in Auto mode",
+                        systemImage: "apple.intelligence"
                     )
                     .font(.system(size: 11))
                     .foregroundStyle(theme.success)
+                } else if let reason = inference.appleIntelligenceUnavailableReason, !reason.isEmpty {
+                    Label(reason, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.warning)
+                }
+            }
+
+            Section("Local AI") {
+                LabeledContent("Hardware") {
+                    Text(localModelManager.hardwareSummary)
+                        .font(.system(size: 13, design: .monospaced))
+                }
+
+                LabeledContent("Installed") {
+                    Text(inference.localModelInstallStateSummary.displayName)
+                        .font(.system(size: 13, weight: .medium))
+                }
+
+                LabeledContent("Active Tier") {
+                    Text(inference.activeLocalTextModelDisplayName)
+                        .font(.system(size: 13, weight: .medium))
+                }
+
+                LabeledContent("Storage") {
+                    Text(ByteCountFormatter.string(fromByteCount: localModelManager.totalInstalledStorageBytes, countStyle: .file))
+                        .font(.system(size: 13, design: .monospaced))
+                }
+
+                Toggle(
+                    "Automatic Qwen Model Selection",
+                    isOn: Binding(
+                        get: { inference.automaticLocalModelSelectionEnabled },
+                        set: { inference.setAutomaticLocalModelSelectionEnabled($0) }
+                    )
+                )
+
+                Picker(
+                    "Active Local Model",
+                    selection: Binding(
+                        get: { inference.preferredLocalTextModelID },
+                        set: { inference.setPreferredLocalTextModelID($0) }
+                    )
+                ) {
+                    ForEach(
+                        localModelManager.textDescriptors.filter {
+                            localModelManager.installRecords[$0.id] != nil
+                                || inference.hardwareCapabilitySnapshot.supports(descriptor: $0)
+                        },
+                        id: \.id
+                    ) { descriptor in
+                        Text(descriptor.displayName).tag(descriptor.id)
+                    }
                 }
 
                 Picker(
-                    "Provider",
+                    "Local Response Mode",
                     selection: Binding(
-                        get: { inference.apiProvider },
-                        set: { inference.setApiProvider($0) }
+                        get: { inference.preferredLocalReasoningMode },
+                        set: { inference.setPreferredLocalReasoningMode($0) }
                     )
                 ) {
-                    Text("Anthropic").tag(LLMProviderType.anthropic)
-                    Text("OpenAI").tag(LLMProviderType.openai)
-                    Text("Google").tag(LLMProviderType.google)
-                    Text("Kimi (Moonshot)").tag(LLMProviderType.kimi)
-                    Text("Ollama (local)").tag(LLMProviderType.ollama)
-                }
-                .pickerStyle(.radioGroup)
-            }
-
-            if inference.needsApiKey {
-                Section("API Key") {
-                    LabeledContent("Key") {
-                        HStack(spacing: 8) {
-                            if apiKeyVisible {
-                                TextField(inference.activeKeyPlaceholder, text: $apiKeyDraft)
-                                    .font(.system(size: 13, design: .monospaced))
-                                    .frame(maxWidth: 260)
-                            } else {
-                                SecureField(inference.activeKeyPlaceholder, text: $apiKeyDraft)
-                                    .font(.system(size: 13, design: .monospaced))
-                                    .frame(maxWidth: 260)
-                            }
-                            Button(apiKeyVisible ? "Hide" : "Show") {
-                                apiKeyVisible.toggle()
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
+                    ForEach(LocalReasoningMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
                     }
+                }
 
-                    HStack(spacing: Spacing.sm) {
-                        Button("Save Key") {
-                            inference.setApiKey(apiKeyDraft)
-                            connectionStatus = "Saved"
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(theme.accent)
-                        .disabled(apiKeyDraft == inference.apiKey)
+                Toggle(
+                    "Show Thinking Panel",
+                    isOn: Binding(
+                        get: { inference.showLocalThinkingPanel },
+                        set: { inference.setShowLocalThinkingPanel($0) }
+                    )
+                )
 
-                        Button("Test Connection") {
-                            isTesting = true
-                            connectionStatus = nil
+                Text(
+                    inference.automaticLocalModelSelectionEnabled
+                        ? "Epistemos keeps AI on-device. Auto mode uses Apple Intelligence for the lightest work, then keeps the current warm Qwen tier when it is sufficient and escalates only when the local task justifies it. The recommended baseline on this Mac is \(LocalTextModelID(rawValue: localModelManager.recommendedTextModelID)?.displayName ?? "Qwen 3.5")."
+                        : "Epistemos keeps AI on-device. The preferred Qwen tier on this Mac is \(LocalTextModelID(rawValue: localModelManager.recommendedTextModelID)?.displayName ?? "Qwen 3.5")."
+                )
+                .font(.system(size: 11))
+                .foregroundStyle(theme.textSecondary)
+
+                if let fallback = localModelManager.missingConstrainedFallbackDescriptor {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("For low power mode, background work, and thermal pressure, also install \(fallback.displayName). Epistemos will downshift to it automatically when headroom gets tight.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.textSecondary)
+
+                        Button("Install Constrained Fallback") {
                             Task {
-                                let previousKey = inference.apiKey
-                                if apiKeyDraft != previousKey {
-                                    inference.setApiKey(apiKeyDraft)
-                                }
-                                let result = await llmService.testConnection()
-                                isTesting = false
-                                connectionStatus = result.success ? "Connected" : result.message
+                                try? await localModelManager.install(modelID: fallback.id)
                             }
                         }
                         .buttonStyle(.bordered)
-                        .disabled(apiKeyDraft.isEmpty || isTesting)
-
-                        if isTesting {
-                            ProgressView()
-                                .controlSize(.small)
-                        }
-
-                        if let status = connectionStatus {
-                            Text(status)
-                                .font(.system(size: 11))
-                                .foregroundStyle(
-                                    status == "Connected" || status == "Saved"
-                                        ? theme.success : theme.error
-                                )
-                                .lineLimit(1)
-                        }
                     }
                 }
-            }
 
-            Section("Model") {
-                switch inference.apiProvider {
-                case .anthropic:
-                    Picker(
-                        "Model",
-                        selection: Binding(
-                            get: { inference.anthropicModel },
-                            set: { inference.setAnthropicModel($0) }
-                        )
-                    ) {
-                        ForEach(InferenceState.anthropicModels, id: \.id) { m in
-                            Text(m.name).tag(m.id)
-                        }
-                    }
-                case .openai:
-                    Picker(
-                        "Model",
-                        selection: Binding(
-                            get: { inference.openaiModel },
-                            set: { inference.setOpenAIModel($0) }
-                        )
-                    ) {
-                        ForEach(InferenceState.openaiModels, id: \.id) { m in
-                            Text(m.name).tag(m.id)
-                        }
-                    }
-                case .google:
-                    Picker(
-                        "Model",
-                        selection: Binding(
-                            get: { inference.googleModel },
-                            set: { inference.setGoogleModel($0) }
-                        )
-                    ) {
-                        ForEach(InferenceState.googleModels, id: \.id) { m in
-                            Text(m.name).tag(m.id)
-                        }
-                    }
-                case .kimi:
-                    Picker(
-                        "Model",
-                        selection: Binding(
-                            get: { inference.kimiModel },
-                            set: { inference.setKimiModel($0) }
-                        )
-                    ) {
-                        ForEach(InferenceState.kimiModels, id: \.id) { m in
-                            Text(m.name).tag(m.id)
-                        }
-                    }
-                case .ollama:
-                    LabeledContent("Base URL") {
-                        TextField(
-                            "http://localhost:11434",
-                            text: Binding(
-                                get: { inference.ollamaBaseUrl },
-                                set: { inference.setOllamaBaseUrl($0) }
-                            )
-                        )
-                        .font(.system(size: 13, design: .monospaced))
-                        .frame(maxWidth: 220)
-                    }
-                    if inference.ollamaModels.isEmpty {
-                        Text("No models found — start Ollama and pull a model")
-                            .font(.system(size: 11))
-                            .foregroundStyle(theme.textTertiary)
-                    } else {
-                        Picker(
-                            "Model",
-                            selection: Binding(
-                                get: { inference.ollamaModel },
-                                set: { inference.setOllamaModel($0) }
-                            )
-                        ) {
-                            ForEach(inference.ollamaModels, id: \.self) { m in
-                                Text(m).tag(m)
-                            }
-                        }
-                    }
-                    HStack {
-                        Circle()
-                            .fill(inference.ollamaAvailable ? Color.green : Color.red)
-                            .frame(width: 8, height: 8)
-                        Text(inference.ollamaAvailable ? "Connected" : "Not available")
-                            .font(.system(size: 11))
-                    }
-                case .appleIntelligence:
-                    // Apple Intelligence is the always-on triage layer, not a standalone provider.
-                    // If somehow selected (stale UserDefaults), show status + redirect.
-                    Text(
-                        "Apple Intelligence runs automatically alongside your cloud provider. Select a cloud provider above."
-                    )
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
+                Button("Manage Local Models") {
+                    showLocalModelManager = true
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(theme.accent)
             }
 
             Section("Response Tokens") {
@@ -469,6 +427,7 @@ private struct InferenceDetailView: View {
                 .onChange(of: tokenCapDraft) { _, value in
                     if tokenCapEnabled { inference.setChatOutputTokens(value) }
                 }
+
                 Text(
                     tokenCapEnabled
                         ? "Responses are capped at \(tokenCapDraft) tokens (~\(tokenCapDraft * 4 / 1000)k characters)."
@@ -477,136 +436,159 @@ private struct InferenceDetailView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
-
-            Section("API Cost Tracking") {
-                let cost = CostTracker.shared
-
-                LabeledContent("Today's Calls") {
-                    Text("\(cost.todayUsage.callCount)")
-                        .font(.system(size: 13, design: .monospaced))
-                }
-                LabeledContent("Input Tokens") {
-                    Text(formatTokenCount(cost.todayUsage.inputTokens))
-                        .font(.system(size: 13, design: .monospaced))
-                }
-                LabeledContent("Output Tokens") {
-                    Text(formatTokenCount(cost.todayUsage.outputTokens))
-                        .font(.system(size: 13, design: .monospaced))
-                }
-                LabeledContent("Est. Cost") {
-                    Text("$\(String(format: "%.4f", cost.todayUsage.estimatedCostUSD))")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundStyle(cost.budgetExceeded ? .red : .primary)
-                }
-
-                if !cost.providerBreakdown.isEmpty {
-                    ForEach(
-                        Array(
-                            cost.providerBreakdown.keys.sorted(by: { $0.rawValue < $1.rawValue })),
-                        id: \.self
-                    ) { provider in
-                        if let usage = cost.providerBreakdown[provider], usage.callCount > 0 {
-                            LabeledContent(provider.rawValue.capitalized) {
-                                Text(
-                                    "\(usage.callCount) calls · $\(String(format: "%.4f", usage.estimatedCostUSD))"
-                                )
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-
-                LabeledContent("Daily Budget") {
-                    HStack(spacing: 8) {
-                        if cost.dailyBudgetUSD > 0 {
-                            Text("$\(String(format: "%.2f", cost.dailyBudgetUSD))")
-                                .font(.system(size: 13, design: .monospaced))
-                        } else {
-                            Text("Unlimited")
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
-                        }
-                        Stepper("", value: Bindable(cost).dailyBudgetUSD, in: 0...100, step: 0.50)
-                            .labelsHidden()
-                    }
-                }
-
-                HStack {
-                    if cost.budgetExceeded {
-                        Label(
-                            "Budget exceeded — API calls paused",
-                            systemImage: "exclamationmark.triangle.fill"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                    }
-                    Spacer()
-                    Button("Reset") { cost.resetToday() }
-                        .font(.caption)
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                }
-            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .onAppear {
-            apiKeyDraft = inference.apiKey
             let saved = inference.chatOutputTokens
             tokenCapEnabled = saved > 0
             if saved > 0 { tokenCapDraft = saved }
         }
-        .onChange(of: inference.apiProvider) {
-            apiKeyDraft = inference.apiKey
-            connectionStatus = nil
+        .sheet(isPresented: $showLocalModelManager) {
+            LocalModelManagerSheet()
+                .frame(minWidth: 700, minHeight: 520)
         }
-    }
-
-    private func formatTokenCount(_ count: Int) -> String {
-        if count >= 1_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
-        if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
-        return "\(count)"
     }
 }
 
-// MARK: - SOAR Detail
-
-private struct SOARDetailView: View {
-    @Environment(SOARState.self) private var soar
+private struct LocalModelManagerSheet: View {
+    @Environment(LocalModelManager.self) private var localModelManager
+    @Environment(InferenceState.self) private var inference
+    @Environment(UIState.self) private var ui
 
     var body: some View {
-        @Bindable var soar = soar
-        Form {
-            Section {
-                Toggle("SOAR Engine", isOn: $soar.soarConfig.enabled)
-            } footer: {
-                Text("Self-Organizing Adaptive Reasoning")
-                    .font(.caption)
-            }
-
-            Section("Detection") {
-                Toggle("Auto-detect Edge of Learnability", isOn: $soar.soarConfig.autoDetect)
-                Toggle(
-                    "OOLONG Contradiction Detection", isOn: $soar.soarConfig.contradictionDetection)
-                Toggle("Verbose Logging", isOn: $soar.soarConfig.verbose)
-            }
-
-            Section("Limits") {
-                LabeledContent("Max Iterations") {
-                    Stepper(
-                        "\(soar.soarConfig.maxIterations)", value: $soar.soarConfig.maxIterations,
-                        in: 1...5)
+        NavigationStack {
+            Form {
+                if let error = localModelManager.lastErrorMessage, !error.isEmpty {
+                    Section {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(ui.theme.warning)
+                    }
                 }
-                LabeledContent("Stones per Curriculum") {
-                    Stepper(
-                        "\(soar.soarConfig.stonesPerCurriculum)",
-                        value: $soar.soarConfig.stonesPerCurriculum, in: 2...5)
+
+                Section("Text Models") {
+                    ForEach(localModelManager.textDescriptors, id: \.id) { descriptor in
+                        LocalModelRow(descriptor: descriptor)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Local Models")
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    Button("Refresh") {
+                        localModelManager.refreshFromDisk()
+                    }
                 }
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
+    }
+}
+
+private struct LocalModelRow: View {
+    @Environment(LocalModelManager.self) private var localModelManager
+    @Environment(InferenceState.self) private var inference
+
+    let descriptor: LocalModelDescriptor
+
+    private var state: LocalModelPresentationState {
+        localModelManager.presentationState(for: descriptor)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(descriptor.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                    if descriptor.id == localModelManager.recommendedTextModelID {
+                        Text("Recommended")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    if descriptor.id == localModelManager.constrainedFallbackTextModelID {
+                        Text("Fallback")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(state.title)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(descriptor.summary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Text(descriptor.familyName)
+                    Text(descriptor.approximateDownloadLabel)
+                    Text("Min \(descriptor.minimumRecommendedMemoryGB) GB")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+
+                if case .installing(let progress) = state {
+                    ProgressView(value: progress)
+                        .controlSize(.small)
+                        .frame(maxWidth: 220)
+                } else if case .blocked(let reason) = state {
+                    Text(blockedGuidance(for: reason))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            switch state {
+            case .installed:
+                Button("Delete") {
+                    try? localModelManager.uninstall(modelID: descriptor.id)
+                }
+                .buttonStyle(.bordered)
+            case .installing:
+                ProgressView()
+                    .controlSize(.small)
+            case .blocked:
+                blockedAction
+            case .available:
+                Button("Install") {
+                    Task {
+                        try? await localModelManager.install(modelID: descriptor.id)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var blockedAction: some View {
+        if localModelManager.installErrors[descriptor.id] != nil {
+            Button("Retry") {
+                Task {
+                    try? await localModelManager.install(modelID: descriptor.id)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        } else if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
+            Label("Unsupported", systemImage: "memorychip.slash")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func blockedGuidance(for reason: String) -> String {
+        if localModelManager.installErrors[descriptor.id] != nil {
+            return reason
+        }
+        if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
+            return "This Mac does not have enough unified memory for this model."
+        }
+        return reason
     }
 }
 
@@ -904,13 +886,13 @@ private struct SecurityDetailView: View {
     var body: some View {
         Form {
             Section("Data Protection") {
-                LabeledContent("API keys") {
-                    Text("Stored in macOS Keychain")
+                LabeledContent("Local models") {
+                    Text("Stored in Application Support")
                         .foregroundStyle(theme.success)
                         .font(.system(size: 12))
                 }
-                LabeledContent("Keychain access") {
-                    Text("Available after first unlock")
+                LabeledContent("Apple Intelligence") {
+                    Text("On-device only")
                         .font(.system(size: 12))
                         .foregroundStyle(theme.mutedForeground)
                 }
@@ -974,7 +956,7 @@ private struct ResetDetailView: View {
         Form {
             Section {
                 Text(
-                    "Clear all saved data, conversations, API keys, and settings. Your vault files on disk will not be deleted."
+                    "Clear all saved data, conversations, local model state, and settings. Your vault files on disk will not be deleted."
                 )
                 .foregroundStyle(.secondary)
 
@@ -994,7 +976,7 @@ private struct ResetDetailView: View {
             }
         } message: {
             Text(
-                "This will delete all conversations, notes data, API keys, and preferences. Your vault files on disk are preserved. This cannot be undone."
+                "This will delete all conversations, notes data, local model state, and preferences. Your vault files on disk are preserved. This cannot be undone."
             )
         }
     }

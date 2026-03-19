@@ -34,7 +34,14 @@ struct VaultManifestTests {
             VaultManifest.NoteBody(pageId: "p2", title: "Daily Journal", body: "Full body B"),
         ]
 
-        return VaultManifest(entries: entries, recentBodies: recentBodies, generatedAt: now)
+        return VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: entries,
+            recentBodies: recentBodies,
+            generatedAt: now
+        )
     }
 
     @Test("manifest entry id maps to pageId")
@@ -57,7 +64,10 @@ struct VaultManifestTests {
         let manifest = makeManifest()
         let context = manifest.asContext()
 
-        #expect(context.contains("## Vault Overview (2 notes)"))
+        #expect(context.contains("## Vault"))
+        #expect(context.contains("- title: my mind"))
+        #expect(context.contains("- notes: 2"))
+        #expect(context.contains("## Vault Overview (2 listed notes)"))
         #expect(context.contains("**Quantum Notes** in Research [tags: physics, math]"))
         #expect(context.contains("Renormalization and field operators"))
         #expect(context.contains("## Recent Notes (full content)"))
@@ -70,7 +80,10 @@ struct VaultManifestTests {
         let manifest = makeManifest()
         let compact = manifest.asManifestOnly()
 
-        #expect(compact.contains("## Vault Overview (2 notes)"))
+        #expect(compact.contains("## Vault"))
+        #expect(compact.contains("- title: my mind"))
+        #expect(compact.contains("- notes: 2"))
+        #expect(compact.contains("## Vault Overview (2 listed notes)"))
         #expect(compact.contains("**Daily Journal**"))
         #expect(!compact.contains("## Recent Notes (full content)"))
         #expect(!compact.contains("Renormalization and field operators"))
@@ -87,5 +100,41 @@ struct VaultManifestTests {
 
         #expect(lines.count == 2)
     }
-}
 
+    @Test("context pack keeps vault stages ordered and deduplicated")
+    func contextPackStagesAreDeterministic() throws {
+        let manifest = makeManifest()
+        let pack = VaultContextPack(
+            manifest: manifest,
+            includeManifest: true,
+            referencedNotes: [
+                VaultManifest.NoteBody(pageId: "p1", title: "Quantum Notes", body: "Referenced body A"),
+            ],
+            cleanedQuery: "Compare Quantum Notes"
+        )
+
+        let rendered = try #require(pack.renderedContext())
+        let nsRendered = rendered as NSString
+        let manifestRange = nsRendered.range(of: "## Vault")
+        let referencedRange = nsRendered.range(of: "### Referenced Note: Quantum Notes")
+
+        #expect(manifestRange.location != NSNotFound)
+        #expect(referencedRange.location != NSNotFound)
+        #expect(manifestRange.location < referencedRange.location)
+        #expect(!rendered.contains("### Previously Referenced:"))
+        #expect(pack.cleanedQuery == "Compare Quantum Notes")
+    }
+
+    @Test("context pack returns nil when no staged context exists")
+    func contextPackOmitsEmptyContext() {
+        let pack = VaultContextPack(
+            manifest: nil,
+            includeManifest: false,
+            referencedNotes: [],
+            cleanedQuery: "Hello"
+        )
+
+        #expect(pack.renderedContext() == nil)
+        #expect(pack.cleanedQuery == "Hello")
+    }
+}

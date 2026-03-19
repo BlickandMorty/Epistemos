@@ -36,7 +36,7 @@ final class MiniChatWindowController: NSWindowController {
         // Unified toolbar gives rounded corners matching the main window
         let toolbar = NSToolbar(identifier: "MiniChatToolbar")
         panel.toolbar = toolbar
-        panel.toolbarStyle = .unified
+        panel.toolbarStyle = .unifiedCompact
         panel.titleVisibility = .hidden
 
         panel.center()

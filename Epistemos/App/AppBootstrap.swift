@@ -26,9 +26,9 @@ final class AppBootstrap {
     let pipelineState = PipelineState()
     let uiState = UIState()
     let notesUI = NotesUIState()
-    let researchState = ResearchState()
     let soarState = SOARState()
     let inferenceState: InferenceState
+    let localModelManager: LocalModelManager
     let dailyBriefState = DailyBriefState()
     let threadState = ThreadState()
     let graphState = GraphState()
@@ -44,11 +44,13 @@ final class AppBootstrap {
     // MARK: - Active Query Task
     var queryTask: Task<Void, Never>?
     private var healthyVaultBodyCleanupTask: Task<Void, Never>?
+    private var localRuntimeObserverTokens: [NSObjectProtocol] = []
 
     // MARK: - Services
     let llmService: LLMService
+    let localInferenceService: MLXInferenceService
+    let localLLMClient: LocalMLXClient
     let triageService: TriageService
-    let researchService: ResearchService
     let vaultSync: VaultSyncService
     let noteInsightService: NoteInsightService
     let pipelineService: PipelineService
@@ -91,17 +93,35 @@ final class AppBootstrap {
         // InferenceState reads Keychain + checks Apple Intelligence availability
         let inference = InferenceState()
         self.inferenceState = inference
+        let localModelManager = LocalModelManager(
+            inference: inference,
+            installer: ModelDownloadManager()
+        )
+        self.localModelManager = localModelManager
 
-        // LLMService wraps the 5-provider interface
-        let llm = LLMService(inference: inference)
+        let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)
+        self.localInferenceService = localInferenceService
+
+        let localLLMClient = LocalMLXClient(
+            runtime: localInferenceService,
+            inference: inference,
+            paths: localModelManager.paths
+        )
+        self.localLLMClient = localLLMClient
+
+        // LLMService is now the shared local-only gateway used by older subsystems.
+        let llm = LLMService(
+            inference: inference,
+            localLLMClient: localLLMClient
+        )
         self.llmService = llm
 
-        // TriageService routes between Apple Intelligence and API
-        let triage = TriageService(inference: inference, llmService: llm)
+        // TriageService routes between Apple Intelligence and local Qwen.
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: localLLMClient
+        )
         self.triageService = triage
-
-        // ResearchService — Semantic Scholar + LLM-powered research
-        self.researchService = ResearchService(llm: llm)
 
         // VaultSyncService — hybrid persistence bridge
         self.vaultSync = VaultSyncService(modelContainer: container)
@@ -118,6 +138,7 @@ final class AppBootstrap {
             pipelineState: pipelineState,
             llmService: llm,
             triageService: triage,
+            inference: inference,
             eventBus: eventBus,
             soarService: soar
         )
@@ -132,7 +153,6 @@ final class AppBootstrap {
             chatState: chatState,
             pipelineService: pipeline,
             inferenceState: inference,
-            soarState: soarState,
             vaultSync: vaultSync,
             modelContainer: container,
             eventBus: eventBus,
@@ -163,6 +183,10 @@ final class AppBootstrap {
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
 
+        if !Self.isRunningTests {
+            wireLocalRuntimeLifecycle()
+        }
+
         // Wire all events (pipeline, toast, vault, daily brief)
         appCoordinator.wireAll()
 
@@ -171,12 +195,6 @@ final class AppBootstrap {
 
         // Give VaultSyncService access to EventBus for change notifications
         vaultSync.setEventBus(eventBus)
-
-        // Check Ollama availability in background.
-        // Skip under tests to avoid pointless localhost network churn in the test host.
-        if !Self.isRunningTests {
-            Task(priority: .utility) { await llm.checkOllama() }
-        }
 
         // Body-file migration runs off-main to avoid launch hitching.
         // Orphan cleanup now waits for a confirmed healthy vault attach/import.
@@ -204,8 +222,7 @@ final class AppBootstrap {
 
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
-
-        Log.app.info("AppBootstrap: initialized — provider: \(inference.apiProvider.rawValue, privacy: .public)")
+        Log.app.info("AppBootstrap: initialized — local-only AI stack ready")
     }
 
     // MARK: - Forwarding (for external callers that reference AppBootstrap directly)
@@ -284,39 +301,34 @@ final class AppBootstrap {
             Log.pipeline.error("Reset: SwiftData wipe failed: \(error.localizedDescription, privacy: .public)")
         }
 
-        Keychain.delete(for: "epistemos.apiKey.anthropic")
-        Keychain.delete(for: "epistemos.apiKey.openai")
-        Keychain.delete(for: "epistemos.apiKey.google")
-        Keychain.delete(for: "epistemos.apiKey.kimi")
-
         let defaults = UserDefaults.standard
         let keysToRemove = [
             ThemeMode.defaultsKey,
             "epistemos.theme.pair",
-            "epistemos.researchMode",
-            "epistemos.apiProvider",
-            "epistemos.anthropicModel",
-            "epistemos.openaiModel",
-            "epistemos.googleModel",
-            "epistemos.kimiModel",
-            "epistemos.ollamaBaseUrl",
-            "epistemos.ollamaModel",
+            "epistemos.localRoutingMode",
+            "epistemos.automaticLocalModelSelectionEnabled",
+            "epistemos.preferredLocalTextModelID",
+            "epistemos.preferredLocalReasoningMode",
+            "epistemos.showLocalThinkingPanel",
             "epistemos.soar.config",
         ]
+        InferenceState.purgeLegacyRemoteConfiguration(defaults: defaults)
         for key in keysToRemove {
             defaults.removeObject(forKey: key)
         }
 
         chatState.clearMessages()
-        researchState.reset()
         soarState.reset()
         notesUI.resetForVaultSwitch()
         pipelineState.clearConcepts()
 
-        inferenceState.anthropicKey = ""
-        inferenceState.openaiKey = ""
-        inferenceState.googleKey = ""
-        inferenceState.kimiKey = ""
+        inferenceState.setRoutingMode(.auto)
+        inferenceState.setAutomaticLocalModelSelectionEnabled(true)
+        inferenceState.setPreferredLocalTextModelID(
+            inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        )
+        inferenceState.setPreferredLocalReasoningMode(.fast)
+        inferenceState.setShowLocalThinkingPanel(true)
 
         vaultSync.stopWatching()
 
@@ -379,6 +391,59 @@ final class AppBootstrap {
                 return
             }
             await cleanupOrphanBodyFiles()
+        }
+    }
+
+    private func wireLocalRuntimeLifecycle() {
+        let center = NotificationCenter.default
+        localRuntimeObserverTokens = [
+            center.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.syncLocalRuntimeConditions(appActive: true)
+                }
+            },
+            center.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.syncLocalRuntimeConditions(appActive: false)
+                }
+            },
+            center.addObserver(
+                forName: .NSProcessInfoPowerStateDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.syncLocalRuntimeConditions(appActive: nil)
+                }
+            },
+            center.addObserver(
+                forName: ProcessInfo.thermalStateDidChangeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.syncLocalRuntimeConditions(appActive: nil)
+                }
+            },
+        ]
+        syncLocalRuntimeConditions(appActive: NSApp?.isActive ?? true)
+    }
+
+    private func syncLocalRuntimeConditions(appActive: Bool?) {
+        let conditions = LocalRuntimeConditions.current(
+            appActive: appActive ?? (NSApp?.isActive ?? true)
+        )
+        inferenceState.setLocalRuntimeConditions(conditions)
+        Task(priority: .utility) { [localInferenceService] in
+            await localInferenceService.updateRuntimeConditions(conditions)
         }
     }
 }

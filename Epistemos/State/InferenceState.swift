@@ -2,55 +2,303 @@ import Foundation
 import Observation
 import os
 
-// MARK: - Provider Capabilities
-// Describes what the currently selected LLM provider supports.
-// Used to gate UI features that require large context, streaming, or deep research.
+nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
+    case qwen35_0_8B4Bit = "mlx-community/Qwen3.5-0.8B-4bit"
+    case qwen35_2B4Bit = "mlx-community/Qwen3.5-2B-4bit"
+    case qwen35_4B4Bit = "mlx-community/Qwen3.5-4B-4bit"
+    case qwen35_9B4Bit = "mlx-community/Qwen3.5-9B-4bit"
+    case qwen35_27B4Bit = "mlx-community/Qwen3.5-27B-4bit"
+    case qwen35_35BA3B4Bit = "mlx-community/Qwen3.5-35B-A3B-4bit"
 
-struct ProviderCapabilities: Sendable {
-    let supportsLargeContext: Bool
-    let supportsStreaming: Bool
-    let supportsDeepResearch: Bool
-    let supportsExternalAPIs: Bool
-    let contextNote: String?
-}
-
-// MARK: - Inference State
-// Manages LLM provider selection, API keys, and model choices.
-// API keys are stored in Keychain — never in UserDefaults.
-
-@MainActor @Observable
-final class InferenceState {
-    var inferenceMode: InferenceMode = .analytical
-    var apiProvider: LLMProviderType = .anthropic
-
-    // Per-provider API keys — each stored separately in Keychain
-    var anthropicKey: String = ""
-    var openaiKey: String = ""
-    var googleKey: String = ""
-    var kimiKey: String = ""
-
-    // Computed: returns the key for the currently active provider
-    var apiKey: String { key(for: apiProvider) }
-
-    /// Returns the API key for a specific provider (used by Note Chat provider override).
-    func key(for provider: LLMProviderType) -> String {
-        switch provider {
-        case .anthropic: anthropicKey
-        case .openai: openaiKey
-        case .google: googleKey
-        case .kimi: kimiKey
-        case .ollama, .appleIntelligence: ""
+    var displayName: String {
+        switch self {
+        case .qwen35_0_8B4Bit: "Qwen 3.5 0.8B 4-bit"
+        case .qwen35_2B4Bit: "Qwen 3.5 2B 4-bit"
+        case .qwen35_4B4Bit: "Qwen 3.5 4B 4-bit"
+        case .qwen35_9B4Bit: "Qwen 3.5 9B 4-bit"
+        case .qwen35_27B4Bit: "Qwen 3.5 27B 4-bit"
+        case .qwen35_35BA3B4Bit: "Qwen 3.5 35B-A3B 4-bit"
         }
     }
 
-    var openaiModel: String = "gpt-5.3"
-    var anthropicModel: String = "claude-sonnet-4-6"
-    var googleModel: String = "gemini-2.5-flash"
-    var kimiModel: String = "kimi-k2.5"
-    var ollamaBaseUrl: String = "http://localhost:11434"
-    var ollamaModel: String = "llama3.2"
-    var ollamaAvailable: Bool = false
-    var ollamaModels: [String] = []
+    var familyName: String {
+        "Qwen 3.5"
+    }
+
+    var minimumRecommendedMemoryGB: Int {
+        switch self {
+        case .qwen35_0_8B4Bit: 8
+        case .qwen35_2B4Bit: 12
+        case .qwen35_4B4Bit: 16
+        case .qwen35_9B4Bit: 24
+        case .qwen35_27B4Bit: 48
+        case .qwen35_35BA3B4Bit: 64
+        }
+    }
+
+    nonisolated static var ascendingBySize: [LocalTextModelID] {
+        allCases.sorted { lhs, rhs in
+            lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
+        }
+    }
+}
+
+nonisolated enum LocalRoutingMode: String, Codable, Sendable, CaseIterable {
+    case auto
+    case localOnly
+
+    var displayName: String {
+        switch self {
+        case .auto: "Auto"
+        case .localOnly: "Local Only"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .auto:
+            "Apple Intelligence handles the lightest local work. Qwen 3.5 handles deeper local tasks."
+        case .localOnly:
+            "Always use local Qwen 3.5. Apple Intelligence is bypassed."
+        }
+    }
+}
+
+nonisolated enum LocalReasoningMode: String, Codable, Sendable, CaseIterable {
+    case fast
+    case thinking
+
+    var displayName: String {
+        switch self {
+        case .fast: "Fast"
+        case .thinking: "Thinking"
+        }
+    }
+}
+
+nonisolated enum LocalModelInstallStateSummary: String, Codable, Sendable {
+    case none
+    case installed
+
+    var displayName: String {
+        switch self {
+        case .none: "None"
+        case .installed: "Installed"
+        }
+    }
+}
+
+nonisolated enum LocalRuntimeThermalState: String, Codable, Sendable, Equatable {
+    case nominal
+    case fair
+    case serious
+    case critical
+
+    init(_ thermalState: ProcessInfo.ThermalState) {
+        switch thermalState {
+        case .nominal:
+            self = .nominal
+        case .fair:
+            self = .fair
+        case .serious:
+            self = .serious
+        case .critical:
+            self = .critical
+        @unknown default:
+            self = .serious
+        }
+    }
+
+    var isSeverelyConstrained: Bool {
+        switch self {
+        case .serious, .critical:
+            true
+        case .nominal, .fair:
+            false
+        }
+    }
+}
+
+nonisolated struct LocalRuntimeConditions: Sendable, Equatable {
+    let lowPowerModeEnabled: Bool
+    let appActive: Bool
+    let thermalState: LocalRuntimeThermalState
+
+    static func current(appActive: Bool = true) -> LocalRuntimeConditions {
+        LocalRuntimeConditions(
+            lowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled,
+            appActive: appActive,
+            thermalState: LocalRuntimeThermalState(ProcessInfo.processInfo.thermalState)
+        )
+    }
+
+    var prefersConstrainedLocalModel: Bool {
+        lowPowerModeEnabled || !appActive || thermalState != .nominal
+    }
+
+    var allowsAutomaticLocalRouting: Bool {
+        appActive && thermalState != .critical
+    }
+}
+
+nonisolated enum LocalModelSelectionSurface: String, Sendable, Equatable {
+    case mainChat
+    case noteChat
+    case graph
+}
+
+nonisolated struct LocalModelSelection: Sendable, Equatable {
+    let modelID: String
+    let reasoningMode: LocalReasoningMode
+    let contentBudget: Int
+}
+
+nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
+    let physicalMemoryBytes: UInt64
+    let roundedMemoryGB: Int
+    let maxRecommendedLocalContentLength: Int
+
+    static var current: LocalHardwareCapabilitySnapshot {
+        let physicalMemory = ProcessInfo.processInfo.physicalMemory
+        let roundedGB = max(8, Int((physicalMemory + 999_999_999) / 1_000_000_000))
+        let maxContentLength: Int
+        switch roundedGB {
+        case ..<16:
+            maxContentLength = 4_000
+        case ..<24:
+            maxContentLength = 10_000
+        case ..<36:
+            maxContentLength = 18_000
+        default:
+            maxContentLength = 28_000
+        }
+        return LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: physicalMemory,
+            roundedMemoryGB: roundedGB,
+            maxRecommendedLocalContentLength: maxContentLength
+        )
+    }
+
+    nonisolated func supports(textModelID: String) -> Bool {
+        guard let model = LocalTextModelID(rawValue: textModelID) else { return false }
+        return roundedMemoryGB >= model.minimumRecommendedMemoryGB
+    }
+
+    nonisolated var recommendedLocalTextModelID: LocalTextModelID {
+        switch roundedMemoryGB {
+        case ..<12:
+            .qwen35_0_8B4Bit
+        case ..<16:
+            .qwen35_2B4Bit
+        case ..<24:
+            .qwen35_4B4Bit
+        case ..<48:
+            .qwen35_9B4Bit
+        case ..<64:
+            .qwen35_27B4Bit
+        default:
+            .qwen35_35BA3B4Bit
+        }
+    }
+
+    nonisolated func smallerLocalTextModelID(than modelID: LocalTextModelID) -> LocalTextModelID? {
+        guard let index = LocalTextModelID.ascendingBySize.firstIndex(of: modelID),
+              index > 0 else {
+            return nil
+        }
+        return LocalTextModelID.ascendingBySize[index - 1]
+    }
+
+    nonisolated var recommendedConstrainedLocalTextModelID: LocalTextModelID? {
+        smallerLocalTextModelID(than: recommendedLocalTextModelID)
+    }
+
+    nonisolated var baseLocalRuntimeContentLength: Int {
+        switch roundedMemoryGB {
+        case ..<12:
+            3_200
+        case ..<16:
+            4_800
+        case ..<24:
+            8_000
+        case ..<36:
+            12_000
+        default:
+            min(maxRecommendedLocalContentLength, 22_000)
+        }
+    }
+
+    nonisolated func recommendedLocalTextModelID(for conditions: LocalRuntimeConditions) -> LocalTextModelID {
+        let baseline = recommendedLocalTextModelID
+        guard conditions.prefersConstrainedLocalModel,
+              let constrained = smallerLocalTextModelID(than: baseline) else {
+            return baseline
+        }
+        return constrained
+    }
+
+    nonisolated func recommendedLocalContentLength(
+        for conditions: LocalRuntimeConditions,
+        reasoningMode: LocalReasoningMode = .fast
+    ) -> Int {
+        var total = min(maxRecommendedLocalContentLength, baseLocalRuntimeContentLength)
+        if conditions.lowPowerModeEnabled {
+            total = Int(Double(total) * 0.82)
+        }
+        if !conditions.appActive {
+            total = Int(Double(total) * 0.72)
+        }
+        switch conditions.thermalState {
+        case .nominal:
+            break
+        case .fair:
+            total = Int(Double(total) * 0.92)
+        case .serious:
+            total = Int(Double(total) * 0.75)
+        case .critical:
+            total = Int(Double(total) * 0.60)
+        }
+        if reasoningMode == .thinking {
+            total = Int(Double(total) * 0.88)
+        }
+        return max(1_800, total)
+    }
+}
+
+// MARK: - Inference State
+// Manages the local-only AI stack: Apple Intelligence availability,
+// Qwen 3.5 model policy, and runtime conditions.
+
+@MainActor @Observable
+final class InferenceState {
+    private nonisolated static let legacyRemoteDefaultsKeys = [
+        "epistemos.apiProvider",
+        "epistemos.anthropicModel",
+        "epistemos.openaiModel",
+        "epistemos.googleModel",
+        "epistemos.kimiModel",
+        "epistemos.ollamaBaseUrl",
+        "epistemos.ollamaModel",
+        "epistemos.preferredVoiceEngineID",
+        "epistemos.preferredVoiceID",
+        "epistemos.localAutoDownloadEnabled",
+        "epistemos.smartRoutingEnabled",
+        "epistemos.offlineOnlyEnabled",
+        "epistemos.preferredFallbackLocalTextModelID",
+    ]
+
+    var inferenceMode: InferenceMode = .analytical
+    var routingMode: LocalRoutingMode = .auto
+    var automaticLocalModelSelectionEnabled: Bool = true
+    var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
+    var preferredLocalReasoningMode: LocalReasoningMode = .fast
+    var showLocalThinkingPanel: Bool = true
+    private(set) var installedLocalTextModelIDs: Set<String> = []
+    private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
+    private(set) var lastSelectedLocalTextModelID: String?
+    let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current
+    private let policyEngine = InferencePolicyEngine()
+
     var appleIntelligenceAvailable: Bool = false
     var appleIntelligenceUnavailableReason: String?
 
@@ -63,288 +311,166 @@ final class InferenceState {
         self.appleIntelligenceAvailable = available
         self.appleIntelligenceUnavailableReason = reason
 
-        // Restore persisted provider + model selection
         let defaults = UserDefaults.standard
-        if let saved = defaults.string(forKey: "epistemos.apiProvider"),
-           let provider = LLMProviderType(rawValue: saved) {
-            self.apiProvider = provider
+        if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
+           let mode = LocalRoutingMode(rawValue: saved) {
+            self.routingMode = mode
+        } else if defaults.object(forKey: "epistemos.offlineOnlyEnabled") != nil,
+                  defaults.bool(forKey: "epistemos.offlineOnlyEnabled") {
+            self.routingMode = .localOnly
         }
-        if let model = defaults.string(forKey: "epistemos.anthropicModel") { self.anthropicModel = model }
-        if let model = defaults.string(forKey: "epistemos.openaiModel") { self.openaiModel = model }
-        if let model = defaults.string(forKey: "epistemos.googleModel") { self.googleModel = model }
-        if let model = defaults.string(forKey: "epistemos.kimiModel") { self.kimiModel = model }
-        if let url = defaults.string(forKey: "epistemos.ollamaBaseUrl"), !url.isEmpty { self.ollamaBaseUrl = url }
-        if let model = defaults.string(forKey: "epistemos.ollamaModel") { self.ollamaModel = model }
+        if let saved = defaults.string(forKey: "epistemos.preferredLocalTextModelID"),
+           LocalTextModelID(rawValue: saved) != nil {
+            self.preferredLocalTextModelID = saved
+        }
+        if defaults.object(forKey: "epistemos.automaticLocalModelSelectionEnabled") != nil {
+            self.automaticLocalModelSelectionEnabled = defaults.bool(forKey: "epistemos.automaticLocalModelSelectionEnabled")
+        }
+        if let saved = defaults.string(forKey: "epistemos.preferredLocalReasoningMode"),
+           let mode = LocalReasoningMode(rawValue: saved) {
+            self.preferredLocalReasoningMode = mode
+        }
+        if defaults.object(forKey: "epistemos.showLocalThinkingPanel") != nil {
+            self.showLocalThinkingPanel = defaults.bool(forKey: "epistemos.showLocalThinkingPanel")
+        }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
-        // Legacy keychain migration disabled — the migration itself reads from the
-        // legacy (non-DP) keychain which triggers macOS password dialogs on dev builds.
-        // Keys already in the DP keychain persist. If keys are missing after this change,
-        // re-enter them once in Settings → they'll be saved directly to the DP keychain.
-        // To re-enable: uncomment the migrateFromLegacyKeychain call below.
-        //
-        // let apiKeyNames = [
-        //     "epistemos.apiKey.anthropic",
-        //     "epistemos.apiKey.openai",
-        //     "epistemos.apiKey.google",
-        //     "epistemos.apiKey.kimi",
-        // ]
-        // Keychain.migrateFromLegacyKeychain(keys: apiKeyNames)
+        Self.purgeLegacyRemoteConfiguration(defaults: defaults)
+    }
 
-        // Restore per-provider API keys from Keychain
-        self.anthropicKey = Keychain.load(for: "epistemos.apiKey.anthropic") ?? ""
-        self.openaiKey = Keychain.load(for: "epistemos.apiKey.openai") ?? ""
-        self.googleKey = Keychain.load(for: "epistemos.apiKey.google") ?? ""
-        self.kimiKey = Keychain.load(for: "epistemos.apiKey.kimi") ?? ""
-
-        // Migrate: Apple Intelligence is no longer a selectable provider.
-        // It runs automatically underneath whatever cloud API the user picks.
-        if self.apiProvider == .appleIntelligence {
-            self.apiProvider = .anthropic
-            defaults.set(LLMProviderType.anthropic.rawValue, forKey: "epistemos.apiProvider")
-        }
-
-        // Migrate deprecated models to current replacements.
-        let geminiMigrations: [String: String] = [
-            "gemini-2.0-flash": "gemini-2.5-flash",
-            "gemini-2.0-flash-lite": "gemini-2.5-flash",
-            "gemini-1.5-pro": "gemini-2.5-pro",
-            "gemini-1.5-flash": "gemini-2.5-flash",
-        ]
-        if let replacement = geminiMigrations[self.googleModel] {
-            self.googleModel = replacement
-            defaults.set(replacement, forKey: "epistemos.googleModel")
-        }
-
-        // Migrate deprecated OpenAI models
-        let openaiMigrations: [String: String] = [
-            "gpt-4o": "gpt-5.3",
-            "gpt-4o-mini": "gpt-4.1-mini",
-            "gpt-5.2": "gpt-5.3",
-            "gpt-5.1": "gpt-5.3",
-        ]
-        if let replacement = openaiMigrations[self.openaiModel] {
-            self.openaiModel = replacement
-            defaults.set(replacement, forKey: "epistemos.openaiModel")
+    static func purgeLegacyRemoteConfiguration(defaults: UserDefaults = .standard) {
+        for key in legacyRemoteDefaultsKeys {
+            defaults.removeObject(forKey: key)
         }
     }
 
     func setInferenceMode(_ mode: InferenceMode) { inferenceMode = mode }
 
-    func setApiProvider(_ provider: LLMProviderType) {
-        // Apple Intelligence is the always-on triage layer, not a standalone provider.
-        // Redirect to Anthropic if somehow selected (stale UI, programmatic call).
-        let effective = provider == .appleIntelligence ? .anthropic : provider
-        apiProvider = effective
-        UserDefaults.standard.set(effective.rawValue, forKey: "epistemos.apiProvider")
+    var localModelInstallStateSummary: LocalModelInstallStateSummary {
+        installedLocalTextModelIDs.isEmpty ? .none : .installed
     }
 
-    private func keychainKey(for provider: LLMProviderType) -> String {
-        switch provider {
-        case .anthropic: "epistemos.apiKey.anthropic"
-        case .openai: "epistemos.apiKey.openai"
-        case .google: "epistemos.apiKey.google"
-        case .kimi: "epistemos.apiKey.kimi"
-        case .ollama, .appleIntelligence: "epistemos.apiKey.none"
-        }
+    var policyContext: InferencePolicyContext {
+        InferencePolicyContext(
+            routingMode: routingMode,
+            appleIntelligenceAvailable: appleIntelligenceAvailable,
+            automaticLocalModelSelectionEnabled: automaticLocalModelSelectionEnabled,
+            preferredLocalTextModelID: preferredLocalTextModelID,
+            preferredLocalReasoningMode: preferredLocalReasoningMode,
+            installedLocalTextModelIDs: installedLocalTextModelIDs,
+            warmLocalTextModelID: lastSelectedLocalTextModelID,
+            hardwareCapabilitySnapshot: hardwareCapabilitySnapshot,
+            runtimeConditions: localRuntimeConditions
+        )
     }
 
-    func setApiKey(_ key: String) {
-        switch apiProvider {
-        case .anthropic: anthropicKey = key
-        case .openai: openaiKey = key
-        case .google: googleKey = key
-        case .kimi: kimiKey = key
-        case .ollama, .appleIntelligence: return
-        }
-        let kcKey = keychainKey(for: apiProvider)
-        if key.isEmpty {
-            Keychain.delete(for: kcKey)
-        } else {
-            Keychain.save(key, for: kcKey)
-        }
-    }
-
-    var activeKeyPlaceholder: String {
-        switch apiProvider {
-        case .anthropic: "sk-ant-..."
-        case .openai: "sk-..."
-        case .google: "AIza..."
-        case .kimi: "sk-..."
-        case .ollama: "No key needed"
-        case .appleIntelligence: "No key needed"
-        }
-    }
-
-    var needsApiKey: Bool {
-        switch apiProvider {
-        case .anthropic, .openai, .google, .kimi: true
-        case .ollama, .appleIntelligence: false
-        }
-    }
-
-    // MARK: - Provider Capabilities
-
-    var capabilities: ProviderCapabilities {
-        switch apiProvider {
-        case .anthropic, .openai, .google, .kimi, .appleIntelligence:
-            ProviderCapabilities(
-                supportsLargeContext: true,
-                supportsStreaming: true,
-                supportsDeepResearch: true,
-                supportsExternalAPIs: true,
-                contextNote: nil
-            )
-        case .ollama:
-            ProviderCapabilities(
-                supportsLargeContext: false,
-                supportsStreaming: true,
-                supportsDeepResearch: true,
-                supportsExternalAPIs: true,
-                contextNote: "Context window varies by model. Deep research works best with models ≥7B parameters."
-            )
-        }
-    }
-
-    // MARK: - Model Selection Helpers
-
-    /// The currently active model ID for the selected provider.
-    var activeModel: String {
-        switch apiProvider {
-        case .anthropic: anthropicModel
-        case .openai: openaiModel
-        case .google: googleModel
-        case .kimi: kimiModel
-        case .ollama: ollamaModel
-        case .appleIntelligence: ""
-        }
-    }
-
-    /// Sets the active model for the currently selected provider.
-    func setActiveModel(_ model: String) {
-        switch apiProvider {
-        case .anthropic: setAnthropicModel(model)
-        case .openai: setOpenAIModel(model)
-        case .google: setGoogleModel(model)
-        case .kimi: setKimiModel(model)
-        case .ollama: setOllamaModel(model)
-        case .appleIntelligence: break
-        }
-    }
-
-    /// Available models for the currently selected provider.
-    /// Returns (displayName, modelId) tuples.
-    var availableModels: [(name: String, id: String)] {
-        switch apiProvider {
-        case .anthropic: Self.anthropicModels
-        case .openai: Self.openaiModels
-        case .google: Self.googleModels
-        case .kimi: Self.kimiModels
-        case .ollama: ollamaModels.map { ($0, $0) }
-        case .appleIntelligence: []
-        }
-    }
-
-    /// Human-readable display name for a model ID.
-    var activeModelDisplayName: String {
-        availableModels.first { $0.id == activeModel }?.name ?? activeModel
-    }
-
-    // Canonical model lists — single source of truth for Settings + dropdowns.
-    static let anthropicModels: [(name: String, id: String)] = [
-        ("Sonnet 4.6", "claude-sonnet-4-6"),
-        ("Opus 4.6", "claude-opus-4-6"),
-        ("Sonnet 4.5", "claude-sonnet-4-5-20250929"),
-        ("Sonnet 4", "claude-sonnet-4-20250514"),
-        ("Haiku 4.5", "claude-haiku-4-5-20251001"),
-    ]
-
-    static let openaiModels: [(name: String, id: String)] = [
-        // GPT-5 series — flagship chat models
-        ("GPT-5.3", "gpt-5.3"),
-        ("GPT-5.2", "gpt-5.2"),
-        ("GPT-5.1", "gpt-5.1"),
-        ("GPT-4.1", "gpt-4.1"),
-        ("GPT-4.1 mini", "gpt-4.1-mini"),
-        // o-series — reasoning / thinking models (chain-of-thought server-side)
-        ("o1 Pro", "o1-pro"),
-        ("o3", "o3"),
-        ("o3-mini", "o3-mini"),
-    ]
-
-    static let googleModels: [(name: String, id: String)] = [
-        ("Gemini 2.5 Flash", "gemini-2.5-flash"),
-        ("Gemini 2.5 Pro", "gemini-2.5-pro"),
-        ("Gemini 3 Flash", "gemini-3-flash-preview"),
-        ("Gemini 3 Pro", "gemini-3-pro-preview"),
-        ("Gemini 3.1 Pro", "gemini-3.1-pro-preview"),
-    ]
-
-    static let kimiModels: [(name: String, id: String)] = [
-        ("Kimi K2.5", "kimi-k2.5"),
-        ("Kimi K2", "kimi-k2"),
-        ("Moonshot 128K", "moonshot-v1-128k"),
-    ]
-
-    func setOpenAIModel(_ model: String) {
-        openaiModel = model
-        UserDefaults.standard.set(model, forKey: "epistemos.openaiModel")
-    }
-
-    func setAnthropicModel(_ model: String) {
-        anthropicModel = model
-        UserDefaults.standard.set(model, forKey: "epistemos.anthropicModel")
-    }
-
-    func setGoogleModel(_ model: String) {
-        googleModel = model
-        UserDefaults.standard.set(model, forKey: "epistemos.googleModel")
-    }
-
-    func setKimiModel(_ model: String) {
-        kimiModel = model
-        UserDefaults.standard.set(model, forKey: "epistemos.kimiModel")
-    }
-
-    /// Validates and sets the Ollama base URL.
-    /// SECURITY: Rejects non-localhost URLs to prevent SSRF (CWE-918).
-    func setOllamaBaseUrl(_ url: String) {
-        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            ollamaBaseUrl = "http://localhost:11434"
-            UserDefaults.standard.set(ollamaBaseUrl, forKey: "epistemos.ollamaBaseUrl")
-            return
-        }
-        if let parsed = URL(string: trimmed), let host = parsed.host?.lowercased() {
-            let allowedHosts: Set<String> = ["localhost", "127.0.0.1", "::1", "[::1]"]
-            guard allowedHosts.contains(host) else {
-                Log.security.warning("Rejected non-localhost Ollama URL: \(host, privacy: .private)")
-                return
+    private var supportedInstalledLocalTextModels: [LocalTextModelID] {
+        installedLocalTextModelIDs
+            .compactMap(LocalTextModelID.init(rawValue:))
+            .filter { hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue) }
+            .sorted { lhs, rhs in
+                lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
             }
-            guard parsed.scheme == "http" || parsed.scheme == "https" else {
-                Log.security.warning("Rejected non-HTTP Ollama URL scheme: \(parsed.scheme ?? "nil", privacy: .public)")
-                return
-            }
-        } else {
-            Log.security.warning("Rejected unparseable Ollama URL")
-            return
+    }
+
+    var effectiveLocalTextModelID: String? {
+        policyEngine.resolvedPreferredLocalSelection(in: policyContext)?.modelID
+    }
+
+    var hasUsableLocalTextModel: Bool {
+        effectiveLocalTextModelID != nil
+    }
+
+    var activeLocalTextModelID: String? {
+        if let lastSelectedLocalTextModelID,
+           supportedInstalledLocalTextModels.contains(where: { $0.rawValue == lastSelectedLocalTextModelID }) {
+            return lastSelectedLocalTextModelID
         }
-        ollamaBaseUrl = trimmed
-        UserDefaults.standard.set(trimmed, forKey: "epistemos.ollamaBaseUrl")
+        return effectiveLocalTextModelID
     }
 
-    func setOllamaModel(_ model: String) {
-        ollamaModel = model
-        UserDefaults.standard.set(model, forKey: "epistemos.ollamaModel")
+    var activeLocalTextModelDisplayName: String {
+        guard let modelID = activeLocalTextModelID,
+              let model = LocalTextModelID(rawValue: modelID) else {
+            return "Qwen 3.5"
+        }
+        return model.displayName
     }
 
-    func setOllamaStatus(available: Bool, models: [String]) {
-        ollamaAvailable = available
-        ollamaModels = models
+    func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {
+        policyEngine.decide(profile: profile, context: policyContext)
+    }
+
+    func localModelSelection(for profile: InferenceRequestProfile) -> LocalModelSelection? {
+        policyEngine.localSelection(for: profile, context: policyContext)
+    }
+
+    func canAutomaticallyRouteToLocalMLX(for profile: InferenceRequestProfile) -> Bool {
+        guard localRuntimeConditions.allowsAutomaticLocalRouting else { return false }
+        guard let selection = localModelSelection(for: profile) else { return false }
+        guard hardwareCapabilitySnapshot.supports(textModelID: selection.modelID) else { return false }
+        return profile.contentLength <= selection.contentBudget
+    }
+
+    func canRouteToLocalMLX(contentLength: Int) -> Bool {
+        canAutomaticallyRouteToLocalMLX(
+            for: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: contentLength,
+                promptLength: contentLength,
+                contextBlockCount: max(1, contentLength / 2_400),
+                estimatedTokenLoad: max(1, contentLength / 4),
+                baseComplexity: 0.35,
+                queryComplexity: 0,
+                requestedReasoningMode: preferredLocalReasoningMode,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            )
+        )
     }
 
     func setChatOutputTokens(_ tokens: Int) {
         chatOutputTokens = max(0, tokens)
         UserDefaults.standard.set(chatOutputTokens, forKey: "epistemos.chatOutputTokens")
+    }
+
+    func setRoutingMode(_ mode: LocalRoutingMode) {
+        routingMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.localRoutingMode")
+    }
+
+    func setPreferredLocalTextModelID(_ modelID: String) {
+        guard LocalTextModelID(rawValue: modelID) != nil else { return }
+        preferredLocalTextModelID = modelID
+        UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
+    }
+
+    func setAutomaticLocalModelSelectionEnabled(_ enabled: Bool) {
+        automaticLocalModelSelectionEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "epistemos.automaticLocalModelSelectionEnabled")
+    }
+
+    func setPreferredLocalReasoningMode(_ mode: LocalReasoningMode) {
+        preferredLocalReasoningMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.preferredLocalReasoningMode")
+    }
+
+    func setShowLocalThinkingPanel(_ enabled: Bool) {
+        showLocalThinkingPanel = enabled
+        UserDefaults.standard.set(enabled, forKey: "epistemos.showLocalThinkingPanel")
+    }
+
+    func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {
+        localRuntimeConditions = conditions
+    }
+
+    func setInstalledLocalTextModelIDs(_ ids: Set<String>) {
+        installedLocalTextModelIDs = ids
+    }
+
+    func recordLocalModelSelection(_ selection: LocalModelSelection) {
+        lastSelectedLocalTextModelID = selection.modelID
     }
 }

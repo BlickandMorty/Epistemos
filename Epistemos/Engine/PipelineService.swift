@@ -27,17 +27,14 @@ nonisolated enum PipelineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noLLMService: "No LLM provider configured. Add an API key in Settings."
+        case .noLLMService: "No local AI runtime is available. Install a Qwen 3.5 model in Settings."
         case .analysisFailure(let msg): msg
         }
     }
 }
 
 // MARK: - Pipeline Service
-// Orchestrates the analytical pipeline with 3 API calls total:
-// Call 1: Streaming direct answer (Pass 1 — user sees immediately)
-// Call 2: Deep research analysis (Pass 2 — Epistemic Lens, background)
-// Call 3: Consolidated enrichment (summary + reflection + arbitration + truth, background)
+// Orchestrates direct answer streaming plus optional background enrichment.
 
 @MainActor
 final class PipelineService {
@@ -47,6 +44,7 @@ final class PipelineService {
     private let pipelineState: PipelineState
     private let llmService: any LLMClientProtocol
     private let triageService: TriageService
+    private let inference: InferenceState
     private let eventBus: EventBus
     private var soarService: SOARService?
 
@@ -54,18 +52,20 @@ final class PipelineService {
         pipelineState: PipelineState,
         llmService: any LLMClientProtocol,
         triageService: TriageService,
+        inference: InferenceState,
         eventBus: EventBus,
         soarService: SOARService? = nil
     ) {
         self.pipelineState = pipelineState
         self.llmService = llmService
         self.triageService = triageService
+        self.inference = inference
         self.eventBus = eventBus
         self.soarService = soarService
     }
 
     // MARK: - Active Tasks
-    // Both tasks are cancelled when a new query starts to prevent zombie API calls.
+    // Both tasks are cancelled when a new query starts to prevent zombie enrichment work.
     private var pipelineTask: Task<Void, Never>?
     private var enrichmentTask: Task<Void, Never>?
 
@@ -77,8 +77,8 @@ final class PipelineService {
 
     // MARK: - Run Pipeline
 
-    /// Execute the full analytical pipeline for a user query.
-    /// When `skipEnrichment` is true, enrichment calls 2-3 are skipped entirely (no Lucid Lens API calls).
+    /// Execute the direct-answer pipeline for a user query.
+    /// When `skipEnrichment` is true, background enrichment is skipped entirely.
     /// `conversationHistory` provides prior User/Assistant turns for multi-turn context.
     /// `onEnriched` delivers enrichment results directly (bypasses the stream) so results
     /// survive query cancellation — the callback is captured by the detached enrichment task.
@@ -97,7 +97,7 @@ final class PipelineService {
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         // Cancel the previous Pass 1 generation AND any in-flight enrichment.
         // Without cancelling enrichment, rapid queries spawn zombie background tasks
-        // that silently consume API tokens (5 queries = 5 concurrent enrichment calls).
+        // that silently consume local compute and memory headroom.
         pipelineTask?.cancel()
         pipelineTask = nil
         enrichmentTask?.cancel()
@@ -120,112 +120,122 @@ final class PipelineService {
                     return
                 }
                 do {
-                    pipelineState.startProcessing()
+                    if skipEnrichment {
+                        pipelineState.isProcessing = true
+                        pipelineState.currentError = nil
+                        pipelineState.pipelineStages = []
+                        pipelineState.activeStage = nil
+                    } else {
+                        pipelineState.startProcessing()
+                    }
 
                     // Step 1: Analyze query
-                    let queryAnalysis = QueryAnalyzer.analyze(query: query, context: context)
+                    let queryAnalysis = skipEnrichment
+                        ? Self.plainQueryAnalysis(for: query)
+                        : QueryAnalyzer.analyze(query: query, context: context)
 
                     // Generate signals
-                    let signals = SignalGenerator.generate(
-                        queryAnalysis: queryAnalysis,
-                        controls: controls,
-                        steeringBias: steeringBias
-                    )
+                    let signals = skipEnrichment
+                        ? Self.plainSignals()
+                        : SignalGenerator.generate(
+                            queryAnalysis: queryAnalysis,
+                            controls: controls,
+                            steeringBias: steeringBias
+                        )
 
-                    let baselineSignals = BaselineSignals(
-                        confidence: signals.confidence,
-                        entropy: signals.entropy,
-                        dissonance: signals.dissonance,
-                        healthScore: signals.healthScore
-                    )
-
-                    // Update signals in state
-                    pipelineState.updateSignals(
-                        SignalUpdate(
+                    if !skipEnrichment {
+                        let baselineSignals = BaselineSignals(
                             confidence: signals.confidence,
                             entropy: signals.entropy,
                             dissonance: signals.dissonance,
-                            healthScore: signals.healthScore,
-                            safetyState: signals.safetyState,
-                            riskScore: signals.riskScore,
-                            focusDepth: signals.focusDepth,
-                            temperatureScale: signals.temperatureScale,
-                            concepts: signals.concepts
-                        ))
-
-                    // Run through pipeline stages
-                    for stage in PipelineStage.allCases {
-                        guard !Task.isCancelled else {
-                            if finisher.tryFinish() { continuation.finish() }
-                            return
-                        }
-                        let detail = PromptComposer.generateStageDetail(stage: stage, queryAnalysis: queryAnalysis)
-
-                        let startResult = StageResult(
-                            stage: stage,
-                            status: .running,
-                            data: nil,
-                            durationMs: nil,
-                            error: nil,
-                            detail: detail,
-                            value: nil
+                            healthScore: signals.healthScore
                         )
-                        pipelineState.advanceStage(stage, result: startResult)
-                        continuation.yield(.stageAdvanced(stage, startResult))
 
-                        try await Task.sleep(for: .milliseconds(20))
+                        pipelineState.updateSignals(
+                            SignalUpdate(
+                                confidence: signals.confidence,
+                                entropy: signals.entropy,
+                                dissonance: signals.dissonance,
+                                healthScore: signals.healthScore,
+                                safetyState: signals.safetyState,
+                                riskScore: signals.riskScore,
+                                focusDepth: signals.focusDepth,
+                                temperatureScale: signals.temperatureScale,
+                                concepts: signals.concepts
+                            ))
 
-                        // Check for SOAR engagement on triage stage
-                        if stage == .triage,
-                            let soarCfg = soarConfig,
-                            soarCfg.enabled,
-                            let soars = soarService
-                        {
-                            let probe = soars.probeLearnability(
-                                queryAnalysis: queryAnalysis,
-                                priorSignals: baselineSignals
+                        for stage in PipelineStage.allCases {
+                            guard !Task.isCancelled else {
+                                if finisher.tryFinish() { continuation.finish() }
+                                return
+                            }
+                            let detail = PromptComposer.generateStageDetail(stage: stage, queryAnalysis: queryAnalysis)
+
+                            let startResult = StageResult(
+                                stage: stage,
+                                status: .running,
+                                data: nil,
+                                durationMs: nil,
+                                error: nil,
+                                detail: detail,
+                                value: nil
                             )
+                            pipelineState.advanceStage(stage, result: startResult)
+                            continuation.yield(.stageAdvanced(stage, startResult))
 
-                            if probe.atEdge {
-                                let soarSession = try await soars.runSOAR(
-                                    query: query,
+                            try await Task.sleep(for: .milliseconds(20))
+
+                            if stage == .triage,
+                                let soarCfg = soarConfig,
+                                soarCfg.enabled,
+                                let soars = soarService
+                            {
+                                let probe = soars.probeLearnability(
                                     queryAnalysis: queryAnalysis,
-                                    baselineSignals: baselineSignals,
-                                    inferenceMode: mode
+                                    priorSignals: baselineSignals
                                 )
 
-                                if let finalSignals = soarSession.finalSignals {
-                                    pipelineState.updateSignals(
-                                        SignalUpdate(
-                                            confidence: finalSignals.confidence,
-                                            entropy: finalSignals.entropy,
-                                            dissonance: finalSignals.dissonance,
-                                            healthScore: finalSignals.healthScore
-                                        ))
+                                if probe.atEdge {
+                                    let soarSession = try await soars.runSOAR(
+                                        query: query,
+                                        queryAnalysis: queryAnalysis,
+                                        baselineSignals: baselineSignals,
+                                        inferenceMode: mode
+                                    )
+
+                                    if let finalSignals = soarSession.finalSignals {
+                                        pipelineState.updateSignals(
+                                            SignalUpdate(
+                                                confidence: finalSignals.confidence,
+                                                entropy: finalSignals.entropy,
+                                                dissonance: finalSignals.dissonance,
+                                                healthScore: finalSignals.healthScore
+                                            ))
+                                    }
+
+                                    continuation.yield(
+                                        .soarEvent(
+                                            .sessionComplete,
+                                            [
+                                                "overallImproved": .bool(soarSession.overallImproved),
+                                                "iterationsCompleted": .int(
+                                                    soarSession.iterationsCompleted),
+                                            ]))
                                 }
-
-                                continuation.yield(
-                                    .soarEvent(
-                                        .sessionComplete,
-                                        [
-                                            "overallImproved": .bool(soarSession.overallImproved),
-                                            "iterationsCompleted": .int(
-                                                soarSession.iterationsCompleted),
-                                        ]))
                             }
-                        }
 
-                        let completeResult = StageResult(
-                            stage: stage,
-                            status: .completed,
-                            data: nil,
-                            durationMs: 100,
-                            error: nil,
-                            detail: detail,
-                            value: Double.random(in: 0.6...0.95)
-                        )
-                        pipelineState.advanceStage(stage, result: completeResult)
-                        continuation.yield(.stageAdvanced(stage, completeResult))
+                            let completeResult = StageResult(
+                                stage: stage,
+                                status: .completed,
+                                data: nil,
+                                durationMs: 100,
+                                error: nil,
+                                detail: detail,
+                                value: Double.random(in: 0.6...0.95)
+                            )
+                            pipelineState.advanceStage(stage, result: completeResult)
+                            continuation.yield(.stageAdvanced(stage, completeResult))
+                        }
                     }
 
                     // ── Pass 1: Stream the direct LLM answer token-by-token ──────────────
@@ -242,40 +252,79 @@ final class PipelineService {
                         chatMode: skipEnrichment ? .plain : .research,
                         conversationHistory: conversationHistory
                     )
-                    var insideThinking = false
-                    var thinkingBuffer = ""
+                    enum ThinkingStreamState {
+                        case tagged(closingTag: String)
+                        case prelude
+                    }
+
+                    let openingProbeLimit = max(
+                        ThinkingPreludeSyntax.maxOpeningMarkerLength,
+                        ThinkingPreludeSyntax.maxNarrativeOpeningProbeLength,
+                        24
+                    )
+                    let thinkingFlushTail = max(ThinkingPreludeSyntax.maxAnswerMarkerLength, 32)
+                    var pendingPlainThinkingProbe =
+                        inference.showLocalThinkingPanel
+                    var thinkingState: ThinkingStreamState?
                     var textBuffer = ""
+                    var emittedVisibleText = ""
+
+                    func emitVisible(_ text: String) {
+                        guard !text.isEmpty else { return }
+                        emittedVisibleText += text
+                        continuation.yield(.textDelta(text))
+                    }
 
                     for try await token in directStream {
                         tokenChunks.append(token)
                         textBuffer += token
 
-                        // Check for opening tag
-                        if let openRange = textBuffer.range(of: "<thinking>") {
+                        if thinkingState == nil,
+                           let openingMatch = ThinkingTagSyntax.openingMatch(in: textBuffer) {
                             // Flush text before the tag as visible text
                             let before = String(
-                                textBuffer[textBuffer.startIndex..<openRange.lowerBound])
+                                textBuffer[textBuffer.startIndex..<openingMatch.range.lowerBound]
+                            )
                             if !before.isEmpty {
-                                continuation.yield(.textDelta(before))
+                                emitVisible(before)
                             }
-                            textBuffer = String(textBuffer[openRange.upperBound...])
-                            insideThinking = true
+                            textBuffer = String(textBuffer[openingMatch.range.upperBound...])
+                            thinkingState = .tagged(closingTag: openingMatch.closingTag)
+                            pendingPlainThinkingProbe = false
+                        } else if thinkingState == nil,
+                                  pendingPlainThinkingProbe,
+                                  let preludeRange = ThinkingPreludeSyntax.openingMatch(in: textBuffer) {
+                            let before = String(
+                                textBuffer[textBuffer.startIndex..<preludeRange.lowerBound]
+                            )
+                            if !before.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                emitVisible(before)
+                            }
+                            textBuffer = String(textBuffer[preludeRange.upperBound...])
+                                .trimmingLeadingWhitespaceAndNewlines()
+                            thinkingState = .prelude
+                            pendingPlainThinkingProbe = false
+                        } else if thinkingState == nil,
+                                  pendingPlainThinkingProbe,
+                                  ThinkingPreludeSyntax.proseOpeningDetected(in: textBuffer) {
+                            thinkingState = .prelude
+                            pendingPlainThinkingProbe = false
                         }
 
-                        if insideThinking {
-                            // Check for closing tag
-                            if let closeRange = textBuffer.range(of: "</thinking>") {
+                        switch thinkingState {
+                        case .tagged(let closingTag):
+                            if let closeRange = textBuffer.range(of: closingTag) {
                                 let thought = String(
                                     textBuffer[textBuffer.startIndex..<closeRange.lowerBound])
                                 if !thought.isEmpty {
-                                    thinkingBuffer += thought
                                     continuation.yield(.deliberationDelta(thought))
+                                    continuation.yield(.reasoningDelta(thought))
                                 }
                                 textBuffer = String(textBuffer[closeRange.upperBound...])
-                                insideThinking = false
+                                thinkingState = nil
                                 // Flush any remaining text after the closing tag
                                 if !textBuffer.isEmpty {
-                                    continuation.yield(.textDelta(textBuffer))
+                                    emitVisible(textBuffer)
                                     textBuffer = ""
                                 }
                             } else {
@@ -286,77 +335,148 @@ final class PipelineService {
                                         textBuffer.endIndex, offsetBy: -20)
                                     let flush = String(textBuffer[textBuffer.startIndex..<flushEnd])
                                     continuation.yield(.deliberationDelta(flush))
-                                    thinkingBuffer += flush
+                                    continuation.yield(.reasoningDelta(flush))
                                     textBuffer = String(textBuffer[flushEnd...])
                                 }
                             }
-                        } else {
-                            // Normal text — flush
+
+                        case .prelude:
+                            if let boundary = ThinkingPreludeSyntax.answerBoundary(in: textBuffer) {
+                                let thought = String(
+                                    textBuffer[textBuffer.startIndex..<boundary.reasoningEnd]
+                                )
+                                if !thought.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    continuation.yield(.deliberationDelta(thought))
+                                    continuation.yield(.reasoningDelta(thought))
+                                }
+                                textBuffer = String(textBuffer[boundary.answerStart...])
+                                    .trimmingLeadingWhitespaceAndNewlines()
+                                thinkingState = nil
+                                if !textBuffer.isEmpty {
+                                    emitVisible(textBuffer)
+                                    textBuffer = ""
+                                }
+                            } else if let split = ThinkingPreludeSyntax.flushableReasoningPrefix(in: textBuffer) {
+                                if !split.flush.isEmpty {
+                                    continuation.yield(.deliberationDelta(split.flush))
+                                    continuation.yield(.reasoningDelta(split.flush))
+                                }
+                                textBuffer = split.remainder
+                            } else if textBuffer.count > thinkingFlushTail,
+                                      !ThinkingPreludeSyntax.likelyAnswerCandidate(in: textBuffer) {
+                                let flushEnd = textBuffer.index(
+                                    textBuffer.endIndex,
+                                    offsetBy: -thinkingFlushTail
+                                )
+                                let flush = String(textBuffer[textBuffer.startIndex..<flushEnd])
+                                if !flush.isEmpty,
+                                   textBuffer[flushEnd...].contains(where: { !$0.isWhitespace && !$0.isNewline }) {
+                                    continuation.yield(.deliberationDelta(flush))
+                                    continuation.yield(.reasoningDelta(flush))
+                                }
+                                textBuffer = String(textBuffer[flushEnd...])
+                            }
+
+                        case nil:
+                            if pendingPlainThinkingProbe {
+                                if textBuffer.count < openingProbeLimit {
+                                    continue
+                                }
+                                pendingPlainThinkingProbe = false
+                            }
                             if !textBuffer.isEmpty {
-                                continuation.yield(.textDelta(textBuffer))
+                                emitVisible(textBuffer)
                                 textBuffer = ""
                             }
                         }
                     }
 
-                    // Flush any remaining buffer
-                    if !textBuffer.isEmpty {
-                        if insideThinking {
-                            continuation.yield(.deliberationDelta(textBuffer))
-                        } else {
-                            continuation.yield(.textDelta(textBuffer))
-                        }
-                    }
-                    var rawAnswerBuffer = tokenChunks.joined()
-
-                    // Guard: if the answer is empty or trivially short, treat as error — don't
-                    // create a completed message with placeholder metrics.
-                    let trimmedAnswer = rawAnswerBuffer.trimmingCharacters(
-                        in: .whitespacesAndNewlines)
-                    guard trimmedAnswer.count >= 10 else {
-                        let reason =
-                            trimmedAnswer.isEmpty ? "No response received" : "Response too short"
-                        continuation.yield(.error("\(reason) — check your API key in Settings."))
+                    guard !Task.isCancelled else {
                         pipelineState.completeProcessing()
                         if finisher.tryFinish() { continuation.finish() }
                         return
                     }
 
-                    // Replace placeholder concepts with real ones from the LLM's [CONCEPTS: ...] tag.
-                    // If the LLM included the tag, parse it and strip it from displayed text.
-                    // Fall back to regex heuristic extraction if no tag found.
-                    let (llmConcepts, cleanedAnswer) = EnrichmentController.parseConceptsTag(from: rawAnswerBuffer)
-                    if !llmConcepts.isEmpty {
-                        rawAnswerBuffer = cleanedAnswer
-                        pipelineState.updateSignals(SignalUpdate(concepts: llmConcepts))
-                    } else {
-                        let extractedConcepts = EnrichmentController.extractResponseConcepts(
-                            from: rawAnswerBuffer,
-                            queryEntities: queryAnalysis.entities
-                        )
-                        if !extractedConcepts.isEmpty {
-                            pipelineState.updateSignals(SignalUpdate(concepts: extractedConcepts))
+                    // Flush any remaining buffer
+                    if !textBuffer.isEmpty {
+                        if thinkingState != nil {
+                            if let split = ThinkingPreludeSyntax.splitReasoningAndAnswer(in: textBuffer) {
+                                if !split.reasoning.isEmpty {
+                                    continuation.yield(.deliberationDelta(split.reasoning))
+                                    continuation.yield(.reasoningDelta(split.reasoning))
+                                }
+                                emitVisible(split.answer)
+                            } else if ThinkingPreludeSyntax.likelyAnswerCandidate(in: textBuffer) {
+                                emitVisible(textBuffer.trimmingLeadingWhitespaceAndNewlines())
+                            } else {
+                                continuation.yield(.deliberationDelta(textBuffer))
+                                continuation.yield(.reasoningDelta(textBuffer))
+                            }
+                        } else {
+                            emitVisible(textBuffer)
                         }
                     }
+                    let rawTokenBuffer = tokenChunks.joined()
 
-                    // ── Fire .completed immediately so the user sees their answer ─────
-                    // rawAnalysis is empty here — the real research prose arrives via
-                    // .enriched after Pass 2. This prevents the "clone" bug where
-                    // the Lucid Lens panel showed a duplicate of the streaming answer.
-                    let minimalDualMessage = DualMessage(
-                        rawAnalysis: skipEnrichment ? rawAnswerBuffer : "",
-                        uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: rawAnswerBuffer),
-                        modelVsDataFlags: []
-                    )
+                    if emittedVisibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                       let salvagedAnswer = ThinkingPreludeSyntax.salvagedAnswer(in: rawTokenBuffer),
+                       !salvagedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        emitVisible(salvagedAnswer)
+                    }
+
+                    // Guard: if the answer is empty or trivially short, treat as error — don't
+                    // create a completed message with placeholder metrics.
+                    var finalVisibleAnswer = emittedVisibleText.trimmingCharacters(
+                        in: .whitespacesAndNewlines)
+                    guard finalVisibleAnswer.count >= 10 else {
+                        let reason =
+                            finalVisibleAnswer.isEmpty ? "No response received" : "Response too short"
+                        continuation.yield(.error("\(reason) — install a local Qwen model in Settings."))
+                        pipelineState.completeProcessing()
+                        if finisher.tryFinish() { continuation.finish() }
+                        return
+                    }
+
+                    var rawAnswerBuffer = finalVisibleAnswer
+                    let minimalDualMessage: DualMessage
+                    if skipEnrichment {
+                        minimalDualMessage = DualMessage(
+                            rawAnalysis: "",
+                            uncertaintyTags: [],
+                            modelVsDataFlags: []
+                        )
+                    } else {
+                        let (llmConcepts, cleanedAnswer) = EnrichmentController.parseConceptsTag(from: rawAnswerBuffer)
+                        if !llmConcepts.isEmpty {
+                            rawAnswerBuffer = cleanedAnswer
+                            finalVisibleAnswer = cleanedAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+                            pipelineState.updateSignals(SignalUpdate(concepts: llmConcepts))
+                        } else {
+                            let extractedConcepts = EnrichmentController.extractResponseConcepts(
+                                from: rawAnswerBuffer,
+                                queryEntities: queryAnalysis.entities
+                            )
+                            if !extractedConcepts.isEmpty {
+                                pipelineState.updateSignals(SignalUpdate(concepts: extractedConcepts))
+                            }
+                        }
+
+                        minimalDualMessage = DualMessage(
+                            rawAnalysis: "",
+                            uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: rawAnswerBuffer),
+                            modelVsDataFlags: []
+                        )
+                    }
+
                     continuation.yield(.completed(minimalDualMessage, nil))
                     pipelineState.completeProcessing()
 
                     // ── Calls 2-3: Background enrichment ─────────
                     // Skip enrichment entirely when the user has toggled it off.
-                    // This saves 2 API calls per query.
+                    // This saves 2 local post-processing passes per query.
                     guard !skipEnrichment else {
                         Log.pipeline.info(
-                            "🔬 Enrichment: SKIPPED (regular mode) — no enrichment calls"
+                            "🔬 Enrichment: SKIPPED (regular mode) — no background enrichment passes"
                         )
                         // Regular mode: no enrichment. Don't emit fake arbitration or
                         // placeholder truth — those are research-only features.
@@ -371,38 +491,7 @@ final class PipelineService {
                     let capturedSteeringBias = steeringBias
                     let capturedSoarConfig = soarConfig
                     let capturedRawAnswerBuffer = rawAnswerBuffer
-                    // Enrichment always uses Anthropic if a key is available.
-                    // Kimi/OpenAI/Google produce thin or schema-non-compliant output for
-                    // the complex JSON enrichment. The chat provider is independent.
                     let capturedLLM = llmService.enrichmentSnapshot()
-
-                    // Early exit: if the enrichment snapshot has no usable API key
-                    // (and isn't a local provider), skip enrichment entirely to avoid
-                    // 2 failing HTTP requests that all return fallback values anyway.
-                    // Ollama and Apple Intelligence don't need API keys — they run locally.
-                    let enrichmentKeyValid =
-                        !capturedLLM.apiKey.isEmpty
-                        || capturedLLM.provider == .ollama
-                        || capturedLLM.provider == .appleIntelligence
-                    if !enrichmentKeyValid {
-                        Log.pipeline.warning(
-                            "🔬 Enrichment: SKIPPED (no API key for \(capturedLLM.provider.rawValue)) — yielding signal-derived fallback. Add an Anthropic API key in Settings for full research."
-                        )
-                        let fallbackArb = EnrichmentController.fallbackArbitration(signals: signals)
-                        let fallbackTruth = EnrichmentController.fallbackTruthAssessment(signals: signals)
-                        let noKeyDual = DualMessage(
-                            rawAnalysis: "",
-                            uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: rawAnswerBuffer),
-                            modelVsDataFlags: [],
-                            laymanSummary: EnrichmentController.fallbackLaymanSummary(
-                                queryAnalysis: queryAnalysis, signals: signals),
-                            reflection: EnrichmentController.fallbackReflection(signals: signals),
-                            arbitration: fallbackArb
-                        )
-                        onEnriched?(noKeyDual, fallbackTruth)
-                        if finisher.tryFinish() { continuation.finish() }
-                        return
-                    }
 
                     // Strong capture: PipelineService is held by AppBootstrap — no retain cycle.
                     // [weak self] caused silent enrichment death if momentary deallocation occurred.
@@ -412,7 +501,7 @@ final class PipelineService {
                         let deliveryGuard = FinishOnce()
 
                         Log.pipeline.info(
-                            "🔬 Enrichment: STARTED — provider=\(capturedLLM.provider.rawValue) model=\(capturedLLM.model.prefix(30)) keyLen=\(capturedLLM.apiKey.count)"
+                            "🔬 Enrichment: STARTED — provider=\(capturedLLM.provider.rawValue) model=\(capturedLLM.model.prefix(30)) reasoning=\(capturedLLM.reasoningMode.rawValue)"
                         )
 
                         guard !Task.isCancelled else {
@@ -568,6 +657,9 @@ final class PipelineService {
                     // Stream is done — enrichment delivers via callback, not through the stream.
                     if finisher.tryFinish() { continuation.finish() }
 
+                } catch is CancellationError {
+                    pipelineState.completeProcessing()
+                    if finisher.tryFinish() { continuation.finish() }
                 } catch {
                     pipelineState.setError(error.localizedDescription)
                     continuation.yield(.error(error.localizedDescription))
@@ -596,100 +688,40 @@ final class PipelineService {
         chatMode: AnalyticalMode = .plain,
         conversationHistory: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
-        let directives = PromptComposer.compose(
-            controls: controls,
-            steeringBias: steeringBias,
-            soarConfig: soarConfig,
-            reroute: reroute,
-            analyticsEngineEnabled: true,
-            chatMode: chatMode
-        )
-
-        let notesSection: String
-        if let nc = notesContext {
-            notesSection = """
-
-                ## User's Knowledge Vault
-                The user has a personal knowledge vault attached. Note titles, metadata, and any @-referenced bodies are below.
-
-                Instructions:
-                - When the query relates to topics in their notes, reference specific notes by title and quote content
-                - When the query is unrelated to their notes, answer from general knowledge WITHOUT mentioning the vault
-                - If the user explicitly asks about their notes or uses @-mentions, always engage with vault content
-                - Be clear about what their notes say vs. what you know from training data
-                - Identify contradictions, evolving ideas, and gaps across notes when relevant
-
-                \(nc)
-                """
-        } else {
-            notesSection = ""
-        }
-
+        let _ = (queryAnalysis, signals, controls, steeringBias, soarConfig, reroute)
         Log.pipeline.info(
             "🔬 generateDirectStream — chatMode=\(chatMode == .research ? "RESEARCH" : "PLAIN") queryLen=\(query.count)"
         )
 
-        let systemPrompt: String
-        switch chatMode {
-        case .research:
-            systemPrompt = """
-                \(EnrichmentController.systemPreamble)
-                \(EnrichmentController.evidenceHierarchy)
-
-                \(directives.isEmpty ? "" : directives + "\n\n")You are answering a research query. Structure your response as follows:
-
-                RESPONSE STRUCTURE:
-                1. **Direct answer** (1-2 paragraphs) — State your position clearly. What does the weight of evidence say? At what confidence level?
-                2. **Evidence and reasoning** (2-4 paragraphs) — Present the strongest evidence supporting your answer. Reference specific studies, effect sizes, or theoretical frameworks. State which tier of the evidence hierarchy each claim rests on.
-                3. **The honest reckoning** (1-2 paragraphs) — Name the uncomfortable truth that most analyses avoid. What is the thing people don't want to say out loud? State it directly, then interrogate it. If a correlation makes us uncomfortable, that discomfort is data — analyze why. Ask "what INPUTS produced this OUTPUT?" rather than stopping at surface description. Show the causal chain: systemic conditions → behavioral outputs → how those outputs get misattributed.
-                4. **Counterarguments and paradoxes** (1-2 paragraphs) — Steel-man the 2-3 strongest objections. Where does your own analysis contain tension or contradiction? Name it. If the question itself contains a false premise, say so. Engage counterarguments as a mind wrestling with them in real time — "But here's the paradox...", "This raises the question..." — not as a list of objections you've pre-dismissed.
-                5. **Nuance and open questions** (1-2 paragraphs) — What important caveats, boundary conditions, or contextual factors affect the answer? Where does expert opinion genuinely diverge? End with the questions this analysis opens rather than a tidy conclusion. What remains unknown, contested, or unstudied?
-                6. **## Sources & References** — List key studies, papers, or authoritative sources. Include author(s), year, title. Only cite sources you are confident exist. If a claim rests on broad scientific consensus rather than a specific paper, say so.
-
-                INTELLECTUAL HONESTY PRINCIPLES:
-                - Never smooth over contradictions in the evidence. Name them, sit with them, analyze them.
-                - If the data points somewhere uncomfortable, follow it. Then contextualize it. The goal is not to make the reader comfortable — it is to make them informed.
-                - Distinguish between what the data says and what narratives people build around the data. Both matter, but they are not the same thing.
-                - When analyzing human behavior, always ask what systemic and historical inputs produced the observed output before attributing it to individual character.
-                - Acknowledge when your analysis itself contains a performative tension (e.g., arguing against certainty with certainty). That meta-awareness is a feature, not a bug.
-
-                Use markdown formatting (headers, bold, bullets). Aim for \(queryAnalysis.complexity > 0.6 ? "8-12" : "5-8") paragraphs scaled to complexity (\(String(format: "%.1f", queryAnalysis.complexity))/1.0). Write as a mind in motion — show the reasoning encountering resistance and pushing through it. Be direct — never hedge when evidence is strong; never overclaim when evidence is weak.
-
-                Domain: \(queryAnalysis.domain.rawValue) | Type: \(queryAnalysis.questionType.rawValue) | Entities: \(queryAnalysis.entities.prefix(4).joined(separator: ", "))\(notesSection)
-                """
-
-        case .plain:
-            systemPrompt = """
-                You are Epistemos, an intelligent assistant. Be helpful, accurate, and thorough.
-
-                \(directives.isEmpty ? "" : directives + "\n\n")Answer the user's question directly and completely. Use markdown formatting where helpful (headers, bold, bullets, code blocks). Write naturally — match your depth and length to the complexity of the question.
-
-                For simple questions, be concise. For complex questions, provide detailed explanations with examples. Always be honest about uncertainty.\(notesSection)
-                """
+        var promptParts: [String] = []
+        if let nc = notesContext, !nc.isEmpty {
+            promptParts.append(nc)
         }
-
-        // Inject conversation history for multi-turn context
-        let finalSystemPrompt: String
-        let finalPrompt: String
         if let history = conversationHistory, !history.isEmpty {
-            finalSystemPrompt =
-                systemPrompt
-                + "\n\nThe user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
-            finalPrompt = history + "\n\nUser: " + query
+            promptParts.append(history)
+            promptParts.append("User: \(query)")
         } else {
-            finalSystemPrompt = systemPrompt
-            finalPrompt = query
+            promptParts.append(query)
         }
+        let finalPrompt = promptParts.joined(separator: "\n\n")
 
         Log.pipeline.info(
-            "🔬 systemPrompt length=\(finalSystemPrompt.count) chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(conversationHistory != nil)"
+            "🔬 systemPrompt length=0 chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(conversationHistory != nil)"
         )
+
+        let triageOperation: GeneralOperation = chatMode == .research
+            ? .epistemicLens
+            : .chatResponse(query: query)
+        let requestedLocalReasoningMode: LocalReasoningMode = chatMode == .research
+            ? .fast
+            : inference.preferredLocalReasoningMode
 
         return triageService.streamGeneral(
             prompt: finalPrompt,
-            systemPrompt: finalSystemPrompt,
-            operation: .chatResponse(query: query),
-            contentLength: finalPrompt.count
+            systemPrompt: nil,
+            operation: triageOperation,
+            contentLength: finalPrompt.count,
+            localReasoningMode: requestedLocalReasoningMode
         )
     }
 
@@ -724,6 +756,41 @@ final class PipelineService {
         default: break
         }
         pipelineState.updateSignals(update)
+    }
+
+    nonisolated private static func plainQueryAnalysis(for query: String) -> QueryAnalysis {
+        QueryAnalysis(
+            domain: .general,
+            questionType: .conceptual,
+            entities: [],
+            coreQuestion: query,
+            complexity: 0,
+            isEmpirical: false,
+            isPhilosophical: false,
+            isMetaAnalytical: false,
+            hasSafetyKeywords: false,
+            hasNormativeClaims: false,
+            keyTerms: [],
+            emotionalValence: .neutral,
+            isFollowUp: false,
+            followUpFocus: nil
+        )
+    }
+
+    nonisolated private static func plainSignals() -> GeneratedSignals {
+        GeneratedSignals(
+            confidence: 0.5,
+            entropy: 0,
+            dissonance: 0,
+            healthScore: 1.0,
+            safetyState: .green,
+            riskScore: 0,
+            focusDepth: 0,
+            temperatureScale: 1.0,
+            concepts: [],
+            grade: .c,
+            mode: .moderate
+        )
     }
 }
 

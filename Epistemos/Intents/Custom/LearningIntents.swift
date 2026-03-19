@@ -2,7 +2,7 @@ import AppIntents
 import SwiftData
 
 // MARK: - Research Intents (Custom)
-// Voice-activated research and knowledge management via Siri Shortcuts.
+// Research and knowledge management via Siri Shortcuts.
 
 // MARK: Deep Analyze
 
@@ -24,6 +24,7 @@ struct DeepAnalyzeIntent: AppIntent {
             pipelineState: bootstrap.pipelineState,
             llmService: bootstrap.llmService,
             triageService: bootstrap.triageService,
+            inference: bootstrap.inferenceState,
             eventBus: bootstrap.eventBus
         )
 

@@ -115,7 +115,7 @@ final class AppCoordinator {
             Flag stalled work. Recommend concrete actions referencing specific materials. \
             Use markdown headers (###) and **bold**. Aim for 300-500 words.
             """
-            // Use triage service — it handles Apple Intelligence → cloud API routing + fallback.
+            // Use triage service — it handles Apple Intelligence → local Qwen routing + fallback.
             return try? await self.triageService.generateGeneral(
                 prompt: prompt,
                 systemPrompt: briefSystemPrompt,
@@ -133,7 +133,7 @@ final class AppCoordinator {
             Use ### headers per perspective. Be substantive and intellectually challenging. \
             End with 3-5 provocative questions.
             """
-            // Use triage service — it handles Apple Intelligence → cloud API routing + fallback.
+            // Use triage service — it handles Apple Intelligence → local Qwen routing + fallback.
             return try? await self.triageService.generateGeneral(
                 prompt: prompt,
                 systemPrompt: deepSystemPrompt,

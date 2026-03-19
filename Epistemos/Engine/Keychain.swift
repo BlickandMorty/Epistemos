@@ -66,7 +66,9 @@ enum Keychain {
     static func delete(for key: String) {
         let query = baseQuery(for: key)
         let status = SecItemDelete(query as CFDictionary)
-        if status != errSecSuccess && status != errSecItemNotFound {
+        if status != errSecSuccess &&
+            status != errSecItemNotFound &&
+            status != errSecMissingEntitlement {
             Log.security.error("Keychain delete failed for key '\(key, privacy: .public)': OSStatus \(status)")
         }
     }

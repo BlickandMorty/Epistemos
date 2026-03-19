@@ -601,7 +601,6 @@ struct NoteDetailWorkspaceView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
-    @Environment(LLMService.self) private var llmService
     @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
     @Query private var pages: [SDPage]
@@ -1603,8 +1602,7 @@ struct NoteDetailWorkspaceView: View {
                     .onSubmit {
                         noteChatState.submitQuery(
                             noteChatState.inputText,
-                            triageService: triageService,
-                            llmService: llmService
+                            triageService: triageService
                         )
                     }
                     .disabled(noteChatState.isStreaming)
@@ -1659,34 +1657,18 @@ struct NoteDetailWorkspaceView: View {
             @Bindable var chat = noteChatState
             Menu {
                 Button {
-                    noteChatState.chatMode = .auto
-                    noteChatState.overrideProvider = nil
+                    inference.setRoutingMode(.auto)
                 } label: {
-                    Label("Auto (Apple AI + Cloud)", systemImage: "apple.intelligence")
+                    Label("Auto", systemImage: "apple.intelligence")
                 }
 
                 Button {
-                    noteChatState.chatMode = .cloudOnly
+                    inference.setRoutingMode(.localOnly)
                 } label: {
                     Label(
-                        "Cloud (\(inference.apiProvider.displayName))",
-                        systemImage: inference.apiProvider.iconName
+                        "Local Only",
+                        systemImage: "memorychip"
                     )
-                }
-
-                Divider()
-
-                Menu("Manual Provider") {
-                    ForEach(
-                        [LLMProviderType.anthropic, .openai, .google, .kimi, .ollama], id: \.self
-                    ) { provider in
-                        Button {
-                            noteChatState.chatMode = .provider
-                            noteChatState.overrideProvider = provider
-                        } label: {
-                            Label(provider.displayName, systemImage: provider.iconName)
-                        }
-                    }
                 }
             } label: {
                 Image(systemName: noteChatRoutingIcon)
@@ -1708,8 +1690,7 @@ struct NoteDetailWorkspaceView: View {
                 .onSubmit {
                     noteChatState.submitQuery(
                         noteChatState.inputText,
-                        triageService: triageService,
-                        llmService: llmService
+                        triageService: triageService
                     )
                 }
 
@@ -2021,18 +2002,16 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var noteChatRoutingIcon: String {
-        switch noteChatState.chatMode {
+        switch inference.routingMode {
         case .auto: "apple.intelligence"
-        case .cloudOnly: inference.apiProvider.iconName
-        case .provider: (noteChatState.overrideProvider ?? .openai).iconName
+        case .localOnly: "memorychip"
         }
     }
 
     private var noteChatRoutingLabel: String {
-        switch noteChatState.chatMode {
+        switch inference.routingMode {
         case .auto: "Auto routing"
-        case .cloudOnly: "Cloud routing"
-        case .provider: (noteChatState.overrideProvider ?? .openai).displayName
+        case .localOnly: "Local only"
         }
     }
 

@@ -274,6 +274,7 @@ struct ThemePairTests {
             LandingCursorAnimationPolicy.defaultsKey,
             LandingGreetingAnimationPolicy.enabledDefaultsKey,
             LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey,
+            LandingWakeFieldPolicy.visibilityModeDefaultsKey,
             LandingWakeFieldPolicy.responseDefaultsKey,
             LandingWakeFieldPolicy.spreadDefaultsKey,
             LandingWakeFieldPolicy.trailDefaultsKey,
@@ -718,9 +719,9 @@ struct ThemePairTests {
         #expect(!landingView.contains("LandingSearchChromePolicy"))
     }
 
-    @Test("Chat streaming keeps incremental response text out of the live bubble")
-    func chatStreamingKeepsIncrementalResponseTextOutOfTheLiveBubble() {
-        #expect(!ChatStreamingDisplayPolicy.showsLiveResponseText)
+    @Test("Chat streaming shows incremental response text in the live bubble")
+    func chatStreamingShowsIncrementalResponseTextInTheLiveBubble() {
+        #expect(ChatStreamingDisplayPolicy.showsLiveResponseText)
     }
 
     @Test("Chat transcript rows capture the previous user query without re-scanning chat state")
@@ -741,6 +742,45 @@ struct ThemePairTests {
         #expect(rows[2].originalQuery == "first question")
         #expect(rows[3].originalQuery == nil)
         #expect(rows[4].originalQuery == "second question")
+    }
+
+    @Test("Main chat transcript uses calmer bubble and markdown spacing")
+    func mainChatTranscriptUsesCalmerBubbleAndMarkdownSpacing() throws {
+        let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        let markdownView = try loadTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
+
+        #expect(chatView.contains("static let transcriptSpacing: CGFloat = 28"))
+        #expect(messageBubble.contains(".padding(.horizontal, 18)"))
+        #expect(messageBubble.contains(".padding(.vertical, 14)"))
+        #expect(markdownView.contains("private static let bodyLineSpacing: CGFloat = 5"))
+        #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 16"))
+    }
+
+    @Test("Thinking panel uses opulent glass chrome and live status treatment")
+    func thinkingPanelUsesOpulentGlassChromeAndLiveStatusTreatment() throws {
+        let thinkingPanel = try loadTextFile("Epistemos/Views/Chat/ThinkingAccordion.swift")
+        let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
+
+        #expect(thinkingPanel.contains(".assistantInsetChrome(theme: theme, cornerRadius: 18"))
+        #expect(thinkingPanel.contains("TimelineView(.periodic(from: .now, by: 0.9))"))
+        #expect(thinkingPanel.contains("Text(isLive ? \"Thinking\" : \"Thought for\")"))
+        #expect(chatView.contains("TaggedMarkdownTextView("))
+        #expect(chatView.contains("content: chat.streamingText + (chat.isStreaming ? \" ▍\" : \"\")"))
+    }
+
+    @Test("Landing and active chat inference controls use the shared popover selector")
+    func landingAndActiveChatUseSharedInferencePopoverSelector() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
+
+        #expect(landingView.contains("AnchoredPopoverButton("))
+        #expect(rootView.contains("AnchoredPopoverButton("))
+        #expect(!landingView.contains("private var landingRoutingMenu: some View {\n        Menu {"))
+        #expect(!rootView.contains("private var modelToolbarButton: some View {\n        Menu {"))
+        #expect(rootView.contains("Toggle(\"\", isOn: automaticSelectionBinding)"))
+        #expect(rootView.contains(".assistantPopoverChrome("))
+        #expect(rootView.contains("struct InferenceControlPopoverButton: View"))
     }
 
     @Test("Bare until pressed chrome stays invisible until press or active selection")
@@ -775,9 +815,30 @@ struct ThemePairTests {
         )
     }
 
-    @Test("Research control no longer exposes a secondary options box in composer surfaces")
-    func researchControlHidesSecondaryOptionsBox() {
-        #expect(ResearchModeControl.showsSecondaryOptionsBox == false)
+    @Test("Chat surfaces no longer expose the removed research mode control")
+    func chatSurfacesDropResearchModeControl() throws {
+        let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let chatInputBar = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+
+        #expect(!chatView.contains("struct ResearchModeControl"))
+        #expect(!chatInputBar.contains("Ask a research question"))
+        #expect(!chatInputBar.contains("ResearchModeControl"))
+        #expect(!landingView.contains("ResearchModeControl"))
+        #expect(!commandPalette.contains("ResearchModeControl"))
+    }
+
+    @Test("Settings and landing metadata drop SOAR and confidence-era chat chrome")
+    func settingsAndLandingDropAnalyticalChatChrome() throws {
+        let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let landing = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(!settings.contains("case soar"))
+        #expect(!settings.contains("SOARDetailView"))
+        #expect(!landing.contains("Confidence:"))
+        #expect(!landing.contains("confidence scores"))
+        #expect(!landing.contains("evidence grades"))
     }
 
     @Test("Toolbar control metrics stay compact and boxy inside the outer pill")
@@ -814,6 +875,58 @@ struct ThemePairTests {
         #expect(sources[3].subtitle == "notes.example.org")
     }
 
+    @Test("Inline markdown preserves markdown links and linkifies raw URLs for clickable sources")
+    func inlineMarkdownMakesSourcesClickable() {
+        let attributed = InlineMarkdownStyler.attributedString(
+            """
+            See https://example.com/raw and [Paper](https://example.com/paper) for details.
+            """,
+            strongFontSize: 15,
+            strongForegroundColor: nil,
+            linkForegroundColor: .blue
+        )
+
+        #expect(attributed != nil)
+        let links = attributed?.runs.compactMap(\.link) ?? []
+        #expect(links.contains(URL(string: "https://example.com/raw")!))
+        #expect(links.contains(URL(string: "https://example.com/paper")!))
+    }
+
+    @Test("Main chat sources use the popover panel presentation")
+    func mainChatSourcesUsePopoverPanel() throws {
+        let bubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        let chrome = try loadTextFile("Epistemos/Theme/GlassModifiers.swift")
+
+        #expect(bubble.contains("style: .popoverPanel"))
+        #expect(chrome.contains("enum AssistantSourcesPresentationStyle"))
+        #expect(chrome.contains("case popoverPanel"))
+        #expect(chrome.contains("Text(\"Sources\")"))
+        #expect(chrome.contains("AssistantSourcesListPanel"))
+    }
+
+    @Test("Mini chat uses the shared notes context resolver and carries note-title sources")
+    func miniChatUsesSharedNotesContextResolverAndCarriesNoteTitleSources() throws {
+        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let threadState = try loadTextFile("Epistemos/State/ThreadState.swift")
+
+        #expect(miniChat.contains("ChatCoordinator.resolveNotesContext("))
+        #expect(miniChat.contains("loadedNoteTitles: notesContext.loadedNoteTitles"))
+        #expect(miniChat.contains("noteTitles: message.loadedNoteTitles ?? []"))
+        #expect(threadState.contains("func updateActiveThreadLoadedNotes(ids: Set<String>, titles: [String])"))
+    }
+
+    @Test("@ mentions offer an explicit all-notes option")
+    func notesMentionDropdownOffersAllNotes() throws {
+        let dropdown = try loadTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+        let mainChat = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(dropdown.contains("case allNotes"))
+        #expect(dropdown.contains("Text(\"All Notes\")"))
+        #expect(mainChat.contains("ChatCoordinator.allNotesMentionToken"))
+        #expect(miniChat.contains("ChatCoordinator.allNotesMentionToken"))
+    }
+
     @MainActor
     @Test("UIState restores saved display mode from defaults")
     func uiStateRestoresDisplayMode() {
@@ -837,16 +950,24 @@ struct ThemePairTests {
     @Test("UIState enables landing cursor animation by default")
     func uiStateEnablesLandingCursorAnimationByDefault() {
         let defaults = UserDefaults.standard
-        let previous = defaults.object(forKey: LandingCursorAnimationPolicy.defaultsKey)
+        let keys = [
+            LandingCursorAnimationPolicy.defaultsKey,
+            LandingWakeFieldPolicy.visibilityModeDefaultsKey,
+        ]
+        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
-            if let previous {
-                defaults.set(previous, forKey: LandingCursorAnimationPolicy.defaultsKey)
-            } else {
-                defaults.removeObject(forKey: LandingCursorAnimationPolicy.defaultsKey)
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
             }
         }
 
-        defaults.removeObject(forKey: LandingCursorAnimationPolicy.defaultsKey)
+        for key in keys {
+            defaults.removeObject(forKey: key)
+        }
 
         let uiState = UIState()
         #expect(uiState.landingCursorAnimationEnabled == LandingCursorAnimationPolicy.defaultValue)
@@ -1064,6 +1185,57 @@ struct ThemePairTests {
         #expect(bootstrap.contains("searchIndexProvider: {"))
     }
 
+    @Test("bootstrap owns a shared local MLX runtime and passes it into triage")
+    func bootstrapWiresSharedLocalMLXRouting() throws {
+        let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(bootstrap.contains("let localInferenceService: MLXInferenceService"))
+        #expect(bootstrap.contains("let localLLMClient: LocalMLXClient"))
+        #expect(bootstrap.contains("let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)"))
+        #expect(bootstrap.contains("localLLMService: localLLMClient"))
+    }
+
+    @Test("bootstrap and environment no longer inject the removed local voice stack")
+    func bootstrapDropsLocalVoiceManager() throws {
+        let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
+        let environment = try loadTextFile("Epistemos/App/AppEnvironment.swift")
+
+        #expect(!bootstrap.contains("let localVoiceManager: LocalVoiceManager"))
+        #expect(!bootstrap.contains("self.localVoiceManager = LocalVoiceManager("))
+        #expect(!environment.contains(".environment(bootstrap.localVoiceManager)"))
+    }
+
+    @Test("assistant chat surfaces no longer expose read aloud controls")
+    func assistantSurfacesDropReadAloud() throws {
+        let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        let noteSidebar = try loadTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
+
+        #expect(!messageBubble.contains("@Environment(LocalVoiceManager.self) private var localVoice"))
+        #expect(!messageBubble.contains("await localVoice.toggleSpeak("))
+        #expect(!noteSidebar.contains("@Environment(LocalVoiceManager.self) private var localVoice"))
+        #expect(!noteSidebar.contains("await localVoice.toggleSpeak("))
+    }
+
+    @Test("inference settings focus on qwen local routing without voice residue")
+    func inferenceSettingsRefocusOnQwenRouting() throws {
+        let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let inferenceState = try loadTextFile("Epistemos/State/InferenceState.swift")
+
+        #expect(settings.contains("Routing Mode"))
+        #expect(settings.contains("Automatic Model Selection"))
+        #expect(settings.contains("Active Local Model"))
+        #expect(settings.contains("Local Response Mode"))
+        #expect(settings.contains("Show Thinking Panel"))
+        #expect(settings.contains("Qwen 3.5"))
+        #expect(inferenceState.contains("Local Only"))
+        #expect(!inferenceState.contains("Cloud Only"))
+        #expect(!settings.contains("Preferred Local Voice"))
+        #expect(!settings.contains("Voice Playback"))
+        #expect(!settings.contains("Auto-download core local pack"))
+        #expect(!settings.contains("Chatterbox"))
+        #expect(!settings.contains("Gemma"))
+    }
+
     @Test("UIState source keeps the typewriter toggle and drops liquid greeting state")
     func uiStateKeepsSplitGreetingTogglesAndDropsObsoleteFlags() throws {
         let uiState = try loadTextFile("Epistemos/State/UIState.swift")
@@ -1087,6 +1259,12 @@ struct ThemePairTests {
         #expect(!pbxproj.contains("PillNavBar.swift"))
     }
 
+    @Test("project drops dead Gemini generated image references")
+    func projectDropsDeadGeminiGeneratedImageReferences() throws {
+        let pbxproj = try loadProjectFile()
+        #expect(!pbxproj.contains("Gemini Generated Image"))
+    }
+
     @Test("shell helpers keep only the heading and flow layout still in use")
     func shellHelpersKeepOnlyLiveTypes() throws {
         let shellSource = try loadTextFile("Epistemos/Views/Shell/PageShell.swift")
@@ -1099,18 +1277,90 @@ struct ThemePairTests {
         #expect(!shellSource.contains("struct ResearchTabBar<"))
     }
 
-    @Test("research state keeps only the live paper cache used by shortcuts")
-    func researchStateKeepsOnlyLivePaperCache() throws {
-        let researchState = try loadTextFile("Epistemos/State/ResearchState.swift")
-        let researchTypes = try loadTextFile("Epistemos/Models/ResearchTypes.swift")
+    @Test("project drops the standalone research subsystem")
+    func projectDropsStandaloneResearchSubsystem() throws {
+        let pbxproj = try loadProjectFile()
+        let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
+        let shortcuts = try loadTextFile("Epistemos/Intents/EpistemosShortcutsProvider.swift")
 
-        #expect(researchState.contains("var researchPapers: [ResearchPaper] = []"))
-        #expect(!researchState.contains("currentCitations"))
-        #expect(!researchState.contains("pendingReroute"))
-        #expect(!researchState.contains("researchBooks"))
-        #expect(!researchState.contains("pendingNotesContent"))
-        #expect(!researchTypes.contains("struct Citation:"))
-        #expect(!researchTypes.contains("struct ResearchBook:"))
+        #expect(!pbxproj.contains("ResearchState.swift"))
+        #expect(!pbxproj.contains("ResearchService.swift"))
+        #expect(!pbxproj.contains("ResearchIntents.swift"))
+        #expect(!pbxproj.contains("PaperEntity.swift"))
+        #expect(!pbxproj.contains("ResearchTypes.swift"))
+        #expect(!bootstrap.contains("researchState"))
+        #expect(!bootstrap.contains("researchService"))
+        #expect(!shortcuts.contains("ResearchTopicIntent"))
+        #expect(!shortcuts.contains("FindGapsIntent"))
+        #expect(!shortcuts.contains("FactCheckIntent"))
+    }
+
+    @Test("utility panels keep compact toolbar styles")
+    func utilityPanelsKeepCompactToolbarStyles() throws {
+        let utilityWindowManager = try loadTextFile("Epistemos/App/UtilityWindowManager.swift")
+        let miniChatWindowController = try loadTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+
+        #expect(utilityWindowManager.contains("panel.toolbarStyle = .unifiedCompact"))
+        #expect(miniChatWindowController.contains("panel.toolbarStyle = .unifiedCompact"))
+        #expect(!miniChatWindowController.contains("panel.toolbarStyle = .unified\n"))
+    }
+
+    @Test("living repo guidance reflects local-only Apple plus Qwen routing")
+    func livingRepoGuidanceReflectsLocalOnlyRouting() throws {
+        let agents = try loadRepoRootTextFile("AGENTS.md")
+        let claude = try loadRepoRootTextFile("CLAUDE.md")
+        let memory = try loadTextFile("docs/codex-memory.md")
+
+        for source in [agents, claude, memory] {
+            #expect(!source.contains("Cloud (Anthropic/OpenAI)"))
+            #expect(source.contains("Apple Intelligence"))
+            #expect(source.contains("Qwen 3.5"))
+        }
+    }
+
+    @Test("chat thread drops legacy provider metadata fields")
+    func chatThreadDropsLegacyProviderMetadataFields() throws {
+        let chatTypes = try loadTextFile("Epistemos/Models/ChatTypes.swift")
+
+        #expect(!chatTypes.contains("var provider: String?"))
+        #expect(!chatTypes.contains("var model: String?"))
+        #expect(!chatTypes.contains("var useLocal: Bool"))
+    }
+
+    @Test("bundle plist drops unused speech and microphone permission prompts")
+    func bundlePlistDropsUnusedSpeechAndMicrophonePrompts() throws {
+        let plist = try loadBundlePlist()
+
+        #expect(plist["NSSpeechRecognitionUsageDescription"] == nil)
+        #expect(plist["NSMicrophoneUsageDescription"] == nil)
+    }
+
+    @Test("mini chat quick actions no longer use hidden system prompts")
+    func miniChatQuickActionsUsePlainUserPrompts() throws {
+        let source = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(source.contains("prompt: prompt, systemPrompt: nil"))
+        #expect(!source.contains("let systemPrompt: String"))
+        #expect(!source.contains("## Vault Index"))
+    }
+
+    @Test("note operation streaming pushes note instructions through the user prompt only")
+    func noteOperationStreamingUsesUserPromptOnly() throws {
+        let source = try loadTextFile("Epistemos/State/NoteChatState.swift")
+
+        #expect(source.contains("Request: \\(trimmed)"))
+        #expect(source.contains("systemPrompt: nil"))
+        #expect(!source.contains("let fullSystemPrompt"))
+    }
+
+    @Test("mini chat only resolves vault context for explicit note mentions")
+    func miniChatUsesExplicitNoteMentionsOnly() throws {
+        let source = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(source.contains("if ChatCoordinator.queryContainsExplicitNoteContext(trimmed)"))
+        #expect(source.contains("context: nil"))
+        #expect(source.contains("loadedNoteIds: []"))
+        #expect(source.contains("loadedNoteTitles: []"))
     }
 
     private func loadIconComposerJSON() throws -> String {
@@ -1125,6 +1375,13 @@ struct ThemePairTests {
 
     private func loadProjectFile() throws -> String {
         try loadTextFile("Epistemos.xcodeproj/project.pbxproj")
+    }
+
+    private func loadRepoRootTextFile(_ relativePath: String) throws -> String {
+        try String(
+            contentsOf: repoRootURL().appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
     }
 
     private func loadTextFile(_ relativePath: String) throws -> String {

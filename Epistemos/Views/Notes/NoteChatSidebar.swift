@@ -66,7 +66,7 @@ struct NoteChatSidebar: View {
     }
 
     private func messageRow(_ msg: AssistantMessage) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Text(msg.role == .user ? "You" : "Assistant")
                     .font(.system(size: 9, weight: .semibold))

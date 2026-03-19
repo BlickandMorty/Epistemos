@@ -782,8 +782,10 @@ struct AssistantSourcesFooter: View {
     let sources: [AssistantSourceReference]
     let theme: EpistemosTheme
     var compact = false
+    var style: AssistantSourcesPresentationStyle = .chips
 
     private let metrics = AssistantSourceChromeMetrics.default
+    @State private var showsSourcesPopover = false
 
     private var displayedSources: ArraySlice<AssistantSourceReference> {
         sources.prefix(compact ? 4 : 6)
@@ -791,36 +793,180 @@ struct AssistantSourcesFooter: View {
 
     var body: some View {
         if !sources.isEmpty {
-            VStack(alignment: .leading, spacing: compact ? 6 : 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "link")
-                        .font(.system(size: compact ? 10 : 11, weight: .medium))
-                        .foregroundStyle(theme.textTertiary)
-                    Text("Sources")
-                        .font(.system(size: compact ? 10 : 11, weight: .medium))
-                        .foregroundStyle(theme.textTertiary)
-                    if sources.count > displayedSources.count {
-                        Text("+\(sources.count - displayedSources.count)")
-                            .font(.system(size: compact ? 10 : 11, weight: .medium, design: .rounded))
-                            .foregroundStyle(theme.textTertiary.opacity(0.72))
-                    }
-                }
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(displayedSources) { source in
-                            AssistantSourceChip(
-                                source: source,
-                                theme: theme,
-                                metrics: metrics,
-                                compact: compact
-                            )
+            switch style {
+            case .chips:
+                VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "link")
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                            .foregroundStyle(theme.textTertiary)
+                        Text("Sources")
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                            .foregroundStyle(theme.textTertiary)
+                        if sources.count > displayedSources.count {
+                            Text("+\(sources.count - displayedSources.count)")
+                                .font(.system(size: compact ? 10 : 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(theme.textTertiary.opacity(0.72))
                         }
                     }
-                    .padding(.vertical, 1)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(displayedSources) { source in
+                                AssistantSourceChip(
+                                    source: source,
+                                    theme: theme,
+                                    metrics: metrics,
+                                    compact: compact
+                                )
+                            }
+                        }
+                        .padding(.vertical, 1)
+                    }
+                }
+            case .popoverPanel:
+                Button {
+                    showsSourcesPopover.toggle()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "link")
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                        Text("Sources")
+                            .font(.system(size: compact ? 11 : 12, weight: .semibold))
+                        Text("\(sources.count)")
+                            .font(.system(size: compact ? 10 : 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(theme.textSecondary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(theme.muted.opacity(theme.isDark ? 0.82 : 0.68), in: Capsule())
+                    }
+                    .foregroundStyle(theme.foreground)
+                    .padding(.horizontal, compact ? 10 : 12)
+                    .padding(.vertical, compact ? 7 : 8)
+                    .assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: showsSourcesPopover)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showsSourcesPopover, arrowEdge: .top) {
+                    AssistantSourcesListPanel(
+                        sources: sources,
+                        theme: theme,
+                        metrics: metrics
+                    )
+                    .padding(14)
                 }
             }
         }
+    }
+}
+
+enum AssistantSourcesPresentationStyle {
+    case chips
+    case popoverPanel
+}
+
+private struct AssistantSourcesListPanel: View {
+    let sources: [AssistantSourceReference]
+    let theme: EpistemosTheme
+    let metrics: AssistantSourceChromeMetrics
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Sources")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.foreground)
+                Text("Open web references directly from the answer.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+            }
+
+            Divider()
+                .overlay(theme.glassBorder.opacity(0.5))
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(sources) { source in
+                        AssistantSourceListRow(source: source, theme: theme)
+                    }
+                }
+            }
+            .frame(maxHeight: 320)
+        }
+        .frame(width: 360, alignment: .leading)
+        .assistantPopoverChrome(theme: theme, metrics: metrics)
+    }
+}
+
+private struct AssistantSourceListRow: View {
+    let source: AssistantSourceReference
+    let theme: EpistemosTheme
+
+    @Environment(\.openURL) private var openURL
+    @State private var isHovered = false
+
+    var body: some View {
+        Group {
+            if let url = source.url {
+                Button {
+                    openURL(url)
+                } label: {
+                    rowContent(showsOpenIcon: true)
+                }
+                .buttonStyle(.plain)
+            } else {
+                rowContent(showsOpenIcon: false)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 2)
+        .onHover { hovering in
+            withAnimation(Motion.micro) { isHovered = hovering }
+        }
+    }
+
+    private func rowContent(showsOpenIcon: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: source.kind == .note ? "doc.text.fill" : "globe")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(source.kind == .note ? theme.accent : theme.foreground)
+                .frame(width: 20, height: 20)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(source.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.foreground)
+                    .lineLimit(2)
+                Text(source.subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+                    .lineLimit(2)
+                if let url = source.url {
+                    Text(url.absoluteString)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(theme.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            if showsOpenIcon {
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.top, 2)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(theme.card.opacity(isHovered ? 0.86 : 0.62))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(theme.glassBorder.opacity(isHovered ? 0.66 : 0.42), lineWidth: 0.6)
+                }
+        )
     }
 }
 

@@ -117,23 +117,68 @@ struct NoteChatStateTests {
         #expect(!state.isStreaming)
     }
 
-    @Test("chatMode persists to UserDefaults")
-    @MainActor func chatModePersistence() {
+    @Test("stopStreaming does not append a partial assistant message after cancellation")
+    @MainActor func stopStreamingDoesNotAppendPartialAssistantMessage() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+
+        let llm = SlowStreamingLLMClient()
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
         let state = NoteChatState(pageId: "page-8")
-        state.chatMode = .cloudOnly
-        #expect(UserDefaults.standard.string(forKey: "noteChatMode") == "cloudOnly")
+        state.noteBodyProvider = { "" }
+        state.submitQuery("Explain coherentism.", triageService: triage)
 
-        state.chatMode = .auto
-        #expect(UserDefaults.standard.string(forKey: "noteChatMode") == "auto")
+        for _ in 0..<20 where state.responseText.isEmpty {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        #expect(state.responseText == "partial ")
+        state.stopStreaming()
+        try await Task.sleep(for: .milliseconds(80))
+
+        #expect(!state.isStreaming)
+        #expect(state.responseText == "partial ")
+        #expect(state.messages.count == 1)
+        #expect(state.messages.last?.role == .user)
+    }
+}
+
+@MainActor
+private final class SlowStreamingLLMClient: LLMClientProtocol {
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        "slow-generate"
     }
 
-    @Test("overrideProvider persists to UserDefaults")
-    @MainActor func providerPersistence() {
-        let state = NoteChatState(pageId: "page-9")
-        state.overrideProvider = .openai
-        #expect(UserDefaults.standard.string(forKey: "noteChatProvider") == "openai")
-
-        state.overrideProvider = nil
-        // Setting nil stores nil (removes key)
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                continuation.yield("partial ")
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else {
+                    continuation.finish()
+                    return
+                }
+                continuation.yield("tail")
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(
+            provider: .localMLX,
+            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            reasoningMode: .fast
+        )
+    }
+
+    func enrichmentSnapshot() -> LLMSnapshot { configSnapshot() }
 }

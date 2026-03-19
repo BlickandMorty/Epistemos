@@ -278,13 +278,14 @@ struct ConcurrencyStressTests {
         
         let pipelineState = PipelineState()
         let inference = InferenceState()
-        let triage = TriageService(inference: inference, llmService: mock)
+        let triage = TriageService(inference: inference)
         let eventBus = EventBus()
         
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: InferenceState(),
             eventBus: eventBus
         )
         
@@ -355,13 +356,14 @@ struct ConcurrencyStressTests {
                 
                 let pipelineState = PipelineState()
                 let inference = InferenceState()
-                let triage = TriageService(inference: inference, llmService: mock)
+                let triage = TriageService(inference: inference)
                 let eventBus = EventBus()
                 
                 let pipeline = PipelineService(
                     pipelineState: pipelineState,
                     llmService: mock,
                     triageService: triage,
+                    inference: InferenceState(),
                     eventBus: eventBus
                 )
                 

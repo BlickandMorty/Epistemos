@@ -335,11 +335,7 @@ final class EntityExtractor {
     // MARK: - JSON Parsing
 
     private func parseJSON<T: Decodable>(_ text: String, as type: T.Type) -> T? {
-        var cleaned = text.replacingOccurrences(
-            of: "<thinking>[\\s\\S]*?</thinking>",
-            with: "",
-            options: .regularExpression
-        )
+        var cleaned = text.strippingThinkingBlocks()
         cleaned = cleaned.replacingOccurrences(of: "```json", with: "", options: .caseInsensitive)
         cleaned = cleaned.replacingOccurrences(of: "```", with: "")
         cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)

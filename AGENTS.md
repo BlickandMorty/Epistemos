@@ -99,21 +99,21 @@ Setting `page.needsVaultSync = true` without `modelContext.save()` appears to wo
 ## Service Architecture
 
 ### TriageService — AI Routing
-Routes operations to the right AI backend based on complexity:
-- `baseComplexity < 0.30` → On-device (Apple Intelligence / Neural Engine)
-- `baseComplexity 0.30–0.50` → Threshold-dependent (may go on-device or cloud)
-- `baseComplexity > 0.50` → Cloud (Anthropic/OpenAI)
+Routes operations between the two live local tiers:
+- Apple Intelligence for the lightest rewrite / summarize / simple ask work
+- local Qwen 3.5 for deeper local reasoning, coding, graph analysis, and long-context work
+- no cloud fallback in the live app
 
 Operations and their tiers:
 | Operation | Complexity | Route |
 |-----------|-----------|-------|
-| `.rewrite` | 0.25 | On-device |
-| `.summarize` | 0.20 | On-device |
-| `.continueWriting` | 0.30 | Threshold |
-| `.outline` | 0.40 | Cloud |
-| `.expand` | 0.50 | Cloud |
-| `.analyze` | 0.60 | Cloud |
-| `.ask(query:)` | 0.35 | Threshold |
+| `.rewrite` | 0.25 | Apple Intelligence when light enough, otherwise local Qwen |
+| `.summarize` | 0.20 | Apple Intelligence when light enough, otherwise local Qwen |
+| `.continueWriting` | 0.30 | Local Qwen |
+| `.outline` | 0.40 | Local Qwen |
+| `.expand` | 0.50 | Local Qwen |
+| `.analyze` | 0.60 | Local Qwen |
+| `.ask(query:)` | 0.20 + query complexity | Apple Intelligence when light enough, otherwise local Qwen |
 
 ### NoteChatState — Per-Note AI Chat
 One instance per open note tab. Manages query → response cycle with 60ms token buffering.

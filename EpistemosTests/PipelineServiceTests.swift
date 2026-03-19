@@ -24,10 +24,9 @@ final class MockLLMClient: LLMClientProtocol {
 
     /// Canned snapshot for configSnapshot().
     var snapshot = LLMSnapshot(
-        provider: .anthropic,
-        apiKey: "test-key",
-        model: "claude-test",
-        ollamaBaseUrl: "http://localhost:11434"
+        provider: .localMLX,
+        model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+        reasoningMode: .fast
     )
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
@@ -126,9 +125,9 @@ struct LLMClientProtocolTests {
     @MainActor func snapshotTest() {
         let mock = MockLLMClient()
         let snap = mock.configSnapshot()
-        #expect(snap.provider == .anthropic)
-        #expect(snap.apiKey == "test-key")
-        #expect(snap.model == "claude-test")
+        #expect(snap.provider == .localMLX)
+        #expect(snap.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(snap.reasoningMode == .fast)
     }
 }
 
@@ -137,21 +136,23 @@ struct LLMClientProtocolTests {
 @Suite("PipelineService")
 struct PipelineServiceTests {
 
-    @Test("Pipeline runs all 10 stages before streaming")
-    @MainActor func pipelineStageAdvancement() async throws {
+    @Test("Plain chat bypasses analytical stages and signal generation")
+    @MainActor func plainChatBypassesAnalyticalStages() async throws {
         let mock = MockLLMClient()
         mock.streamTokens = ["Test", " answer"]
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        let triage = TriageService(inference: inference, llmService: mock)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: InferenceState(),
             eventBus: eventBus
         )
 
@@ -166,15 +167,15 @@ struct PipelineServiceTests {
             events.append(event)
         }
 
-        // Should have advanced through all 10 stages (each with running + completed = 20 stage events)
         let stageEvents = events.compactMap { event -> PipelineStage? in
             if case .stageAdvanced(let stage, let result) = event, result.status == .completed {
                 return stage
             }
             return nil
         }
-        #expect(stageEvents.count == PipelineStage.allCases.count)
-        #expect(stageEvents == PipelineStage.allCases)
+        #expect(stageEvents.isEmpty)
+        #expect(pipelineState.pipelineStages.isEmpty)
+        #expect(pipelineState.signalHistory.isEmpty)
     }
 
     @Test("Pipeline handles thinking tags as deliberation")
@@ -184,22 +185,193 @@ struct PipelineServiceTests {
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
-        // Force triage to route through the mock LLM, not Apple Intelligence.
         inference.appleIntelligenceAvailable = false
-        let triage = TriageService(inference: inference, llmService: mock)
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var reasoning: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Think about this",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .reasoningDelta(let d) = event {
+                reasoning.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        let deliberationText = deliberations.joined()
+        let reasoningText = reasoning.joined()
+        let visibleText = texts.joined()
+        // Deliberation should contain the thinking content
+        #expect(deliberationText.contains("think"))
+        #expect(reasoningText.contains("think"))
+        // Visible text should contain the final answer (not thinking)
+        #expect(visibleText.contains("Final answer"))
+    }
+
+    @Test("Pipeline handles qwen think tags as deliberation")
+    @MainActor func pipelineQwenThinkTags() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = ["<think>", "I need to think", "</think>", "Final answer"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var reasoning: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Think about this",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .reasoningDelta(let d) = event {
+                reasoning.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        let deliberationText = deliberations.joined()
+        let reasoningText = reasoning.joined()
+        let visibleText = texts.joined()
+        #expect(deliberationText.contains("think"))
+        #expect(reasoningText.contains("think"))
+        #expect(visibleText.contains("Final answer"))
+    }
+
+    @Test("Pipeline handles qwen thinking prelude without think tags")
+    @MainActor func pipelineQwenThinkingPrelude() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "Thinking Process:\n",
+            "Ice floats because solid water is less dense than liquid water.\n\n",
+            "Final Answer:\n",
+            "Ice floats because hydrogen bonds create an open lattice."
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var reasoning: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Explain why ice floats on water.",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .reasoningDelta(let d) = event {
+                reasoning.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        let deliberationText = deliberations.joined()
+        let reasoningText = reasoning.joined()
+        let visibleText = texts.joined()
+        #expect(deliberationText.contains("less dense"))
+        #expect(reasoningText.contains("less dense"))
+        #expect(!visibleText.localizedCaseInsensitiveContains("thinking process"))
+        #expect(visibleText.contains("Ice floats because hydrogen bonds"))
+    }
+
+    @Test("Pipeline salvages a visible answer when qwen reasoning prelude never emits an answer marker")
+    @MainActor func pipelineSalvagesVisibleAnswerFromReasoningPrelude() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "Thinking Process:\n",
+            "- Compare density.\n",
+            "- Recall hydrogen bonds.\n",
+            "Ice floats because the crystalline lattice keeps solid water less dense than liquid water."
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
             eventBus: eventBus
         )
 
         var deliberations: [String] = []
         var texts: [String] = []
         let stream = pipeline.run(
-            query: "Think about this",
+            query: "Explain why ice floats on water.",
             mode: .api,
             skipEnrichment: true
         )
@@ -215,58 +387,274 @@ struct PipelineServiceTests {
 
         let deliberationText = deliberations.joined()
         let visibleText = texts.joined()
-        // Deliberation should contain the thinking content
-        #expect(deliberationText.contains("think"))
-        // Visible text should contain the final answer (not thinking)
-        #expect(visibleText.contains("Final answer"))
+        #expect(deliberationText.contains("Compare density"))
+        #expect(visibleText.contains("crystalline lattice"))
+        #expect(!visibleText.localizedCaseInsensitiveContains("Thinking Process"))
     }
 
-    @Test("Pipeline updates signals in PipelineState")
-    @MainActor func pipelineSignalUpdate() async throws {
+    @Test("Pipeline salvages a visible answer when qwen ends the reasoning prelude with a therefore paragraph")
+    @MainActor func pipelineSalvagesVisibleAnswerFromReasoningPreludeWithConclusionParagraph() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "Thinking Process:\n",
+            "First, compare the density of ice and liquid water.\n",
+            "Then recall that hydrogen bonding creates an open crystalline lattice.\n\n",
+            "Therefore, ice floats because that lattice keeps solid water less dense than the liquid.\n"
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Explain why ice floats on water.",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        let deliberationText = deliberations.joined()
+        let visibleText = texts.joined()
+        #expect(deliberationText.contains("hydrogen bonding"))
+        #expect(visibleText.contains("ice floats because"))
+        #expect(!visibleText.localizedCaseInsensitiveContains("Thinking Process"))
+    }
+
+    @Test("Pipeline splits prose-style qwen reasoning into deliberation and a clean visible answer")
+    @MainActor func pipelineSplitsNarrativeThinkingPreludeWithoutTags() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "Let me think this through carefully.\n",
+            "First, compare the density of ice and liquid water.\n",
+            "Then recall that hydrogen bonding creates an open crystalline lattice.\n\n",
+            "Therefore, ice floats because that lattice keeps solid water less dense than the liquid.\n",
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Explain why ice floats on water.",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        let deliberationText = deliberations.joined()
+        let visibleText = texts.joined()
+        #expect(deliberationText.localizedCaseInsensitiveContains("let me think this through carefully"))
+        #expect(deliberationText.contains("compare the density of ice"))
+        #expect(visibleText.localizedCaseInsensitiveContains("therefore, ice floats because"))
+        #expect(!visibleText.localizedCaseInsensitiveContains("let me think this through carefully"))
+        #expect(!visibleText.localizedCaseInsensitiveContains("compare the density of ice"))
+    }
+
+    @Test("Pipeline routes numbered self-analysis loops into deliberation and keeps the visible answer clean")
+    @MainActor func pipelineSplitsAnalyzeTheRequestLoopIntoThinkingPanel() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "1. **Analyze the Request:**\n",
+            "* User Query: research the song cranes in the sky what is it about\n",
+            "* Clarify the likely artist and theme.\n\n",
+            "The song is about trying to outrun grief and emotional pain through distractions that never really solve the hurt."
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "research the song cranes in the sky what is it about",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        let deliberationText = deliberations.joined()
+        let visibleText = texts.joined()
+        #expect(deliberationText.contains("User Query: research the song cranes in the sky what is it about"))
+        #expect(deliberationText.contains("Clarify the likely artist and theme"))
+        #expect(!visibleText.contains("Analyze the Request"))
+        #expect(!visibleText.contains("Clarify the likely artist and theme"))
+        #expect(!deliberationText.contains("trying to outrun grief and emotional pain"))
+        #expect(visibleText.contains("trying to outrun grief and emotional pain"))
+    }
+
+    @Test("Pipeline salvages drafted visible answers out of pure thinking loops")
+    @MainActor func pipelineSalvagesDraftedVisibleAnswersFromThinkingLoops() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "1. **Analyze the Input:**\n",
+            "* Input: love\n",
+            "* Intent: open-ended affectionate word.\n\n",
+            "* Let's write: Love is a big word. What's on your mind?\n",
+            "* Let's write: Love is a big word. What's on your mind?\n",
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(true)
+        inference.setPreferredLocalReasoningMode(.fast)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var visibleText = ""
+        let stream = pipeline.run(
+            query: "love",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .textDelta(let text) = event {
+                visibleText += text
+            }
+        }
+
+        #expect(visibleText.trimmingCharacters(in: .whitespacesAndNewlines) == "Love is a big word. What's on your mind?")
+    }
+
+    @Test("Plain chat completion carries no analytical metadata")
+    @MainActor func plainChatCompletionCarriesNoAnalyticalMetadata() async throws {
         let mock = MockLLMClient()
         mock.streamTokens = ["Answer"]
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        let triage = TriageService(inference: inference, llmService: mock)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: InferenceState(),
             eventBus: eventBus
         )
 
+        var completedDual: DualMessage?
+        var completedTruth: TruthAssessment?
         let stream = pipeline.run(
             query: "What is quantum entanglement?",
             mode: .api,
             skipEnrichment: true
         )
 
-        for try await _ in stream {}
+        for try await event in stream {
+            if case .completed(let dual, let truth) = event {
+                completedDual = dual
+                completedTruth = truth
+            }
+        }
 
-        // After pipeline completes, signals should have been updated from defaults
-        // Confidence should be in range (not the initial 0.5 unless query happens to produce it)
-        #expect(pipelineState.confidence >= 0.01)
-        #expect(pipelineState.confidence <= 0.95)
-        #expect(pipelineState.healthScore >= 0.2)
+        #expect(completedTruth == nil)
+        #expect(completedDual?.rawAnalysis.isEmpty == true)
+        #expect(completedDual?.uncertaintyTags.isEmpty == true)
+        #expect(completedDual?.modelVsDataFlags.isEmpty == true)
+        #expect(pipelineState.signalHistory.isEmpty)
     }
 
     @Test("Mock can be injected into PipelineService and TriageService")
     @MainActor func dependencyInjection() {
         let mock = MockLLMClient()
         let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
 
         // Both accept LLMClientProtocol
-        let triage = TriageService(inference: inference, llmService: mock)
+        let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
         let pipelineState = PipelineState()
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: InferenceState(),
             eventBus: eventBus
         )
 
@@ -338,47 +726,6 @@ struct PipelineContractTests {
         #expect(weaknesses?.count == 1)
     }
 
-    // MARK: - Cost Tracking
-
-    @Test("CostTracker estimates cost correctly for known model")
-    func costEstimation() {
-        // claude-sonnet-4-6: $3/1M input, $15/1M output
-        let rates = CostTracker.pricing["claude-sonnet-4-6"]
-        #expect(rates != nil)
-        #expect(rates?.input == 3.0)
-        #expect(rates?.output == 15.0)
-
-        // 1000 input tokens + 500 output tokens at Sonnet rates
-        let expectedCost = (1000.0 * 3.0 / 1_000_000.0) + (500.0 * 15.0 / 1_000_000.0)
-        #expect(expectedCost > 0.01)  // Sanity: non-trivial cost
-        #expect(expectedCost < 0.02)  // Sanity: reasonable for small query
-    }
-
-    @Test("CostTracker returns zero cost for unknown model")
-    func costEstimationUnknownModel() {
-        let rates = CostTracker.pricing["llama-3.3-70b"]
-        #expect(rates == nil)  // Local model → no pricing entry → $0 cost
-    }
-
-    @Test("CostTracker budget detection works")
-    @MainActor func budgetDetection() {
-        let tracker = CostTracker.shared
-        let savedBudget = tracker.dailyBudgetUSD
-
-        // Set budget to $0 (unlimited) — should never be exceeded
-        tracker.dailyBudgetUSD = 0
-        #expect(!tracker.budgetExceeded)
-
-        // Set a tiny budget
-        tracker.dailyBudgetUSD = 0.0001
-        // If any cost has been recorded today, this might already be exceeded
-        // Just verify the property is computable without crash
-        _ = tracker.budgetExceeded
-
-        // Restore
-        tracker.dailyBudgetUSD = savedBudget
-    }
-
     // MARK: - Cancellation
 
     @Test("Pipeline can be cancelled mid-stream")
@@ -390,13 +737,15 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        let triage = TriageService(inference: inference, llmService: mock)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: InferenceState(),
             eventBus: eventBus
         )
 
@@ -425,6 +774,59 @@ struct PipelineContractTests {
         #expect(task.isCancelled)
     }
 
+    @Test("Pipeline cancellation does not emit a completed event for a partial local answer")
+    @MainActor func pipelineCancellationDoesNotCompletePartialAnswer() async {
+        let mock = MockLLMClient()
+        mock.streamTokens = (0..<120).map { "Token\($0) " }
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var receivedText = false
+        var receivedCompleted = false
+        let stream = pipeline.run(
+            query: "Give me a very long answer.",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        let consumer = Task { @MainActor in
+            do {
+                for try await event in stream {
+                    if case .textDelta = event {
+                        receivedText = true
+                    }
+                    if case .completed = event {
+                        receivedCompleted = true
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                return
+            }
+        }
+
+        try? await Task.sleep(for: .milliseconds(280))
+        consumer.cancel()
+        _ = await consumer.result
+
+        #expect(receivedText)
+        #expect(!receivedCompleted)
+    }
+
     // MARK: - Event Ordering
 
     @Test("Pipeline stage events arrive in deterministic order")
@@ -435,13 +837,15 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        let triage = TriageService(inference: inference, llmService: mock)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: InferenceState(),
             eventBus: eventBus
         )
 
@@ -474,13 +878,15 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        let triage = TriageService(inference: inference, llmService: mock)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
+            inference: inference,
             eventBus: eventBus
         )
 
@@ -609,9 +1015,9 @@ struct NetworkProcessActivityTests {
     }
 }
 
-@Suite("ChatCoordinator Research Persistence", .serialized)
+@Suite("ChatCoordinator Persistence", .serialized)
 @MainActor
-struct ChatCoordinatorResearchPersistenceTests {
+struct ChatCoordinatorPersistenceTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema(EpistemosSchema.models)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -625,12 +1031,13 @@ struct ChatCoordinatorResearchPersistenceTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         let llmService = LLMService(inference: inference)
-        let triage = TriageService(inference: inference, llmService: llmService)
+        let triage = TriageService(inference: inference)
         let eventBus = EventBus()
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: llmService,
             triageService: triage,
+            inference: InferenceState(),
             eventBus: eventBus
         )
 
@@ -639,13 +1046,79 @@ struct ChatCoordinatorResearchPersistenceTests {
             chatState: chatState,
             pipelineService: pipeline,
             inferenceState: inference,
-            soarState: SOARState(),
             vaultSync: VaultSyncService(modelContainer: container),
             modelContainer: container,
             eventBus: eventBus,
             llmService: llmService,
             notesUI: NotesUIState()
         )
+    }
+
+    private func makeCoordinatorHarness(container: ModelContainer) -> (ChatCoordinator, ChatState) {
+        let bootstrap = AppBootstrap.shared ?? AppBootstrap()
+        let chatState = ChatState()
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        let llmService = LLMService(inference: inference)
+        let triage = TriageService(inference: inference)
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: llmService,
+            triageService: triage,
+            inference: InferenceState(),
+            eventBus: eventBus
+        )
+
+        let coordinator = ChatCoordinator(
+            bootstrap: bootstrap,
+            chatState: chatState,
+            pipelineService: pipeline,
+            inferenceState: inference,
+            vaultSync: VaultSyncService(modelContainer: container),
+            modelContainer: container,
+            eventBus: eventBus,
+            llmService: llmService,
+            notesUI: NotesUIState()
+        )
+        return (coordinator, chatState)
+    }
+
+    private func makeCoordinatorHarness(
+        container: ModelContainer,
+        llmClient: any LLMClientProtocol
+    ) -> (ChatCoordinator, ChatState, PipelineService, AppBootstrap) {
+        let bootstrap = AppBootstrap.shared ?? AppBootstrap()
+        let chatState = ChatState()
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        let llmService = LLMService(inference: inference, localLLMClient: llmClient)
+        let triage = TriageService(inference: inference, localLLMService: llmClient)
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: llmService,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let coordinator = ChatCoordinator(
+            bootstrap: bootstrap,
+            chatState: chatState,
+            pipelineService: pipeline,
+            inferenceState: inference,
+            vaultSync: VaultSyncService(modelContainer: container),
+            modelContainer: container,
+            eventBus: eventBus,
+            llmService: llmService,
+            notesUI: NotesUIState()
+        )
+        return (coordinator, chatState, pipeline, bootstrap)
     }
 
     private func makeLaymanDualMessage() -> DualMessage {
@@ -691,15 +1164,155 @@ struct ChatCoordinatorResearchPersistenceTests {
         }
     }
 
+    @Test("shared notes context resolver requires explicit mentions and supports all-notes context")
+    func sharedNotesContextResolverRequiresExplicitMentionsAndSupportsAllNotesContext() async {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "alpha-id",
+                    title: "Alpha",
+                    tags: ["focus"],
+                    folderName: nil,
+                    wordCount: 120,
+                    snippet: "Alpha summary",
+                    updatedAt: now,
+                    createdAt: now
+                ),
+                VaultManifest.ManifestEntry(
+                    pageId: "beta-id",
+                    title: "Beta",
+                    tags: ["archive"],
+                    folderName: nil,
+                    wordCount: 80,
+                    snippet: "Beta summary",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+        let manifestEntries = manifest.entries
+
+        let first = await ChatCoordinator.resolveNotesContext(
+            query: "@[Alpha] compare this with today",
+            manifest: manifest,
+            loadedNoteIds: [],
+            loadedNoteTitles: [],
+            findNotesByTitle: { query in
+                query == "Alpha" ? manifestEntries : []
+            },
+            fetchNoteBodies: { ids in
+                ids.contains("alpha-id")
+                    ? [VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")]
+                    : []
+            }
+        )
+
+        #expect(first.cleanedQuery == "Alpha compare this with today")
+        #expect(first.loadedNoteIds == Set(["alpha-id"]))
+        #expect(first.loadedNoteTitles == ["Alpha"])
+        #expect(first.context?.contains("### Referenced Note: Alpha") == true)
+
+        let second = await ChatCoordinator.resolveNotesContext(
+            query: "Use the same note again",
+            manifest: manifest,
+            loadedNoteIds: first.loadedNoteIds,
+            loadedNoteTitles: first.loadedNoteTitles,
+            findNotesByTitle: { _ in [] },
+            fetchNoteBodies: { ids in
+                ids.contains("alpha-id")
+                    ? [VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")]
+                    : []
+            }
+        )
+
+        #expect(second.cleanedQuery == "Use the same note again")
+        #expect(second.context == nil)
+        #expect(second.loadedNoteIds.isEmpty)
+        #expect(second.loadedNoteTitles.isEmpty)
+
+        let third = await ChatCoordinator.resolveNotesContext(
+            query: "@[All Notes] compare themes across the vault",
+            manifest: manifest,
+            loadedNoteIds: [],
+            loadedNoteTitles: [],
+            findNotesByTitle: { _ in [] },
+            fetchNoteBodies: { _ in [] }
+        )
+
+        #expect(third.cleanedQuery == "compare themes across the vault")
+        #expect(third.context?.contains("## Vault") == true)
+        #expect(third.context?.contains("- title: my mind") == true)
+        #expect(third.context?.contains("## Vault Overview (2 listed notes)") == true)
+        #expect(third.context?.contains("Alpha") == true)
+        #expect(third.context?.contains("Beta") == true)
+        #expect(third.loadedNoteIds.isEmpty)
+        #expect(third.loadedNoteTitles.isEmpty)
+    }
+
+    @Test("pipeline direct stream uses bare prompts and only appends explicit note context")
+    @MainActor func pipelineDirectStreamUsesBarePrompts() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = ["Direct", " answer"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let stream = pipeline.run(
+            query: "What is truth?",
+            mode: .api,
+            notesContext: nil,
+            skipEnrichment: true
+        )
+        for try await _ in stream {}
+
+        #expect(mock.streamCalls.count == 1)
+        #expect(mock.streamCalls[0].systemPrompt == nil)
+        #expect(mock.streamCalls[0].prompt == "What is truth?")
+        #expect(!mock.streamCalls[0].prompt.contains("You are Epistemos"))
+        #expect(!mock.streamCalls[0].prompt.contains("User's Knowledge Vault"))
+
+        mock.streamCalls.removeAll()
+        let streamWithNotes = pipeline.run(
+            query: "Compare this with today",
+            mode: .api,
+            notesContext: "### Referenced Note: Alpha\nAlpha full body",
+            skipEnrichment: true
+        )
+        for try await _ in streamWithNotes {}
+
+        #expect(mock.streamCalls.count == 1)
+        #expect(mock.streamCalls[0].systemPrompt == nil)
+        #expect(mock.streamCalls[0].prompt.contains("### Referenced Note: Alpha"))
+        #expect(mock.streamCalls[0].prompt.contains("Compare this with today"))
+    }
+
     @Test("persistEnrichment updates the same saved assistant message by id")
     func persistEnrichmentUpdatesSavedAssistantMessageById() throws {
         let container = try makeContainer()
         let context = container.mainContext
         let coordinator = makeCoordinator(container: container)
 
-        let chatId = "chat-research"
-        let assistantId = "assistant-research"
-        let start = Date(timeIntervalSince1970: 2_468)
+        let chatId = "chat-persist"
+        let assistantId = "assistant-persist"
 
         let completedMessage = ChatMessage(
             id: assistantId,
@@ -708,9 +1321,7 @@ struct ChatCoordinatorResearchPersistenceTests {
             content: "Initial answer",
             mode: .api,
             reasoningText: "Thinking...",
-            reasoningDuration: 1.25,
-            isResearchResult: true,
-            researchStartTime: start
+            reasoningDuration: 1.25
         )
 
         coordinator.persistChatCompletion(
@@ -719,11 +1330,10 @@ struct ChatCoordinatorResearchPersistenceTests {
             answer: "Initial answer",
             dual: nil,
             truth: nil,
-            confidence: 0.5,
-            grade: .c,
+            confidence: nil,
+            grade: nil,
             mode: .api,
-            assistantMessage: completedMessage,
-            isResearch: true
+            assistantMessage: completedMessage
         )
 
         let enrichedMessage = ChatMessage(
@@ -737,10 +1347,7 @@ struct ChatCoordinatorResearchPersistenceTests {
             evidenceGrade: .b,
             mode: .api,
             reasoningText: "Thinking...",
-            reasoningDuration: 1.25,
-            isResearchResult: true,
-            researchDuration: 33,
-            researchStartTime: start
+            reasoningDuration: 1.25
         )
 
         coordinator.persistEnrichment(
@@ -760,22 +1367,133 @@ struct ChatCoordinatorResearchPersistenceTests {
         #expect(savedAssistant.id == assistantId)
         #expect(savedAssistant.dualMessageData != nil)
         #expect(savedAssistant.truthAssessmentData != nil)
-        #expect(savedAssistant.researchDuration == 33)
-        #expect(savedAssistant.researchStartTime == start)
     }
 
-    @Test("research completion notification payload includes chat title and deep link id")
-    func researchCompletionNotificationPayloadIncludesChatTitleAndDeepLink() {
-        let payload = ChatCoordinator.makeResearchCompletionNotificationPayload(
-            chatId: "chat-42",
-            chatTitle: "Bayesian Updating",
-            hasFullResearch: true
+    @Test("persistChatCompletion preserves user message ordering when chat reloads")
+    func persistChatCompletionPreservesUserMessageOrdering() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let (coordinator, chatState) = makeCoordinatorHarness(container: container)
+
+        let chatId = "chat-ordering"
+        let userCreatedAt = Date(timeIntervalSince1970: 1_000)
+        let assistantCreatedAt = Date(timeIntervalSince1970: 1_005)
+        let userMessage = ChatMessage(
+            id: "user-ordering",
+            chatId: chatId,
+            role: .user,
+            content: "Explain the tradeoff",
+            createdAt: userCreatedAt
+        )
+        let assistantMessage = ChatMessage(
+            id: "assistant-ordering",
+            chatId: chatId,
+            role: .assistant,
+            content: "Here is the tradeoff.",
+            mode: .local,
+            createdAt: assistantCreatedAt
+        )
+        chatState.loadMessages([userMessage, assistantMessage])
+
+        coordinator.persistChatCompletion(
+            chatId: chatId,
+            query: userMessage.content,
+            answer: assistantMessage.content,
+            dual: nil,
+            truth: nil,
+            confidence: nil,
+            grade: nil,
+            mode: .local,
+            assistantMessage: assistantMessage
         )
 
-        #expect(payload.title == "Full Research Complete")
-        #expect(payload.subtitle == "Bayesian Updating")
-        #expect(payload.body.contains("Bayesian Updating"))
-        #expect(payload.userInfo["chatId"] as? String == "chat-42")
+        let chats = try context.fetch(FetchDescriptor<SDChat>())
+        let savedChat = try #require(chats.first)
+        let loaded = savedChat.loadedMessages
+
+        #expect(loaded.map(\.role) == [.user, .assistant])
+        #expect(loaded[0].id == userMessage.id)
+        #expect(loaded[0].createdAt == userCreatedAt)
+        #expect(loaded[1].id == assistantMessage.id)
+        #expect(loaded[1].createdAt == assistantCreatedAt)
+    }
+
+    @Test("persistChatCompletion keeps chats on the plain path")
+    func persistChatCompletionKeepsChatsOnPlainPath() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let coordinator = makeCoordinator(container: container)
+
+        coordinator.persistChatCompletion(
+            chatId: "chat-42",
+            query: "Bayesian updating",
+            answer: "Here is the answer.",
+            dual: nil,
+            truth: nil,
+            confidence: nil,
+            grade: nil,
+            mode: .local,
+            assistantMessage: nil
+        )
+
+        let chats = try context.fetch(FetchDescriptor<SDChat>())
+        let chat = try #require(chats.first)
+        #expect(chat.hasDeepResearch != true)
+    }
+
+    @Test("vault briefing completes through the shared uncapped stream path")
+    func vaultBriefingCompletesThroughSharedStreamPath() async throws {
+        let container = try makeContainer()
+        let mock = MockLLMClient()
+        mock.snapshot = LLMSnapshot(
+            provider: .localMLX,
+            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            reasoningMode: .fast
+        )
+        mock.streamTokens = ["This is a full ", "vault briefing."]
+
+        let (coordinator, chatState, pipeline, bootstrap) = makeCoordinatorHarness(
+            container: container,
+            llmClient: mock
+        )
+
+        chatState.vaultBriefingManifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "note-1",
+                    title: "Epistemology",
+                    tags: ["philosophy"],
+                    folderName: "Notes",
+                    wordCount: 120,
+                    snippet: "A note about justification.",
+                    updatedAt: .now,
+                    createdAt: .now
+                )
+            ],
+            recentBodies: [
+                VaultManifest.NoteBody(
+                    pageId: "note-1",
+                    title: "Epistemology",
+                    body: "Knowledge, belief, and justification."
+                )
+            ],
+            generatedAt: .now
+        )
+
+        chatState.submitQuery("[VAULT_BRIEFING]")
+        coordinator.handleQuery("[VAULT_BRIEFING]", pipeline: pipeline, chatState: chatState)
+        await bootstrap.queryTask?.value
+
+        let assistant = try #require(chatState.messages.last)
+        #expect(assistant.role == .assistant)
+        #expect(assistant.content == "This is a full vault briefing.")
+        #expect(assistant.isVaultBriefing)
+        #expect(chatState.vaultBriefingManifest == nil)
+        #expect(mock.streamCalls.count == 1)
+        #expect(mock.streamCalls[0].maxTokens == 0)
     }
 }
 
@@ -862,6 +1580,9 @@ struct AmbientManifestRefreshDriverTests {
     private func makeManifest(title: String) -> VaultManifest {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         return VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
             entries: [
                 VaultManifest.ManifestEntry(
                     pageId: UUID().uuidString,

@@ -71,6 +71,11 @@ struct TaggedMarkdownTextView: View {
     var rippleStyle: MarkdownRippleStyle = .none
     var foregroundOverride: Color? = nil
     private let blocks: [MarkdownBlock]
+    private static let bodyFontSize: CGFloat = 15
+    private static let bodyLineSpacing: CGFloat = 5
+    private static let listMarkerWidth: CGFloat = 16
+    private static let listIndent: CGFloat = 8
+    private static let listSpacing: CGFloat = 10
 
     /// Matches epistemic tags with optional qualifiers:
     /// [DATA], [DATA - Tier 2], [CONFLICT], [MODEL - Framework], [UNCERTAIN - High], etc.
@@ -100,7 +105,7 @@ struct TaggedMarkdownTextView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 renderBlock(block)
             }
@@ -273,59 +278,67 @@ struct TaggedMarkdownTextView: View {
         case .paragraph(let text):
             taggedInlineMarkdown(
                 text,
-                baseFontSize: 15,
+                baseFontSize: Self.bodyFontSize,
                 strongForegroundColor: theme.chatStrongForeground
             )
-                .font(.system(size: 15))
+                .font(.system(size: Self.bodyFontSize))
+                .lineSpacing(Self.bodyLineSpacing)
                 .foregroundStyle(bodyForeground)
-                .padding(.vertical, 5)
+                .padding(.vertical, 3)
                 .asciiRippleOverlay(
                     text: MarkdownRippleTextExtractor.displayText(from: text),
-                    font: .system(size: 15),
+                    font: .system(size: Self.bodyFontSize),
                     color: bodyForeground,
                     enabled: rippleStyle.includesBodyBlocks
                 )
         case .bulletItem(let text):
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .top, spacing: Self.listSpacing) {
                 Text("\u{2022}")
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(theme.accent)
+                    .frame(width: Self.listMarkerWidth, alignment: .center)
+                    .padding(.top, 1)
                 taggedInlineMarkdown(
                     text,
-                    baseFontSize: 15,
+                    baseFontSize: Self.bodyFontSize,
                     strongForegroundColor: theme.chatStrongForeground
                 )
-                    .font(.system(size: 15))
+                    .font(.system(size: Self.bodyFontSize))
+                    .lineSpacing(Self.bodyLineSpacing)
                     .foregroundStyle(bodyForeground)
                     .asciiRippleOverlay(
                         text: MarkdownRippleTextExtractor.displayText(from: text),
-                        font: .system(size: 15),
+                        font: .system(size: Self.bodyFontSize),
                         color: bodyForeground,
                         enabled: rippleStyle.includesBodyBlocks
                     )
             }
-            .padding(.leading, 16)
-            .padding(.vertical, 3)
+            .padding(.leading, Self.listIndent)
+            .padding(.vertical, 2)
         case .numberedItem(let number, let text):
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .top, spacing: Self.listSpacing) {
                 Text(number)
-                    .font(.system(size: 15).monospacedDigit())
+                    .font(.system(size: Self.bodyFontSize, weight: .semibold).monospacedDigit())
                     .foregroundStyle(theme.accent)
+                    .frame(minWidth: 24, alignment: .trailing)
+                    .padding(.top, 1)
                 taggedInlineMarkdown(
                     text,
-                    baseFontSize: 15,
+                    baseFontSize: Self.bodyFontSize,
                     strongForegroundColor: theme.chatStrongForeground
                 )
-                    .font(.system(size: 15))
+                    .font(.system(size: Self.bodyFontSize))
+                    .lineSpacing(Self.bodyLineSpacing)
                     .foregroundStyle(bodyForeground)
                     .asciiRippleOverlay(
                         text: MarkdownRippleTextExtractor.displayText(from: text),
-                        font: .system(size: 15),
+                        font: .system(size: Self.bodyFontSize),
                         color: bodyForeground,
                         enabled: rippleStyle.includesBodyBlocks
                     )
             }
-            .padding(.leading, 16)
-            .padding(.vertical, 3)
+            .padding(.leading, Self.listIndent)
+            .padding(.vertical, 2)
         case .blockquote(let text):
             HStack(spacing: 0) {
                 RoundedRectangle(cornerRadius: 1)
@@ -333,21 +346,22 @@ struct TaggedMarkdownTextView: View {
                     .frame(width: 3)
                 taggedInlineMarkdown(
                     text,
-                    baseFontSize: 15,
+                    baseFontSize: Self.bodyFontSize,
                     strongForegroundColor: theme.chatStrongForeground
                 )
-                    .font(.system(size: 15))
+                    .font(.system(size: Self.bodyFontSize))
+                    .lineSpacing(Self.bodyLineSpacing)
                     .italic()
                     .foregroundStyle(theme.textSecondary)
                     .padding(.leading, 12)
                     .asciiRippleOverlay(
                         text: MarkdownRippleTextExtractor.displayText(from: text),
-                        font: .system(size: 15),
+                        font: .system(size: Self.bodyFontSize),
                         color: theme.textSecondary,
                         enabled: rippleStyle.includesBodyBlocks
                     )
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
         case .codeBlock(let language, let code):
             VStack(alignment: .leading, spacing: 4) {
                 if !language.isEmpty {

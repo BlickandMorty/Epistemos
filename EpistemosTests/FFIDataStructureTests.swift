@@ -434,7 +434,7 @@ struct FFIDataStructureTests {
     
     @Test("Semantic vector with large dimension")
     func semanticVectorLarge() {
-        let dim: UInt32 = 1536 // OpenAI embedding dimension
+        let dim: UInt32 = 1536 // common embedding dimension
         let vector: [Float] = Array(repeating: 0.1, count: Int(dim))
         
         #expect(vector.count == 1536)

@@ -1,14 +1,12 @@
 import AppIntents
 
 // MARK: - Epistemos Shortcuts Provider
-// Top 10 discoverable Siri phrases (macOS limit). Strategy: lead with intents
-// no competitor has (AI analysis, research), then essentials.
-// All 23 intents work in Shortcuts.app — this controls discoverability only.
+// Discoverable Siri phrases (macOS limit) focused on notes, graph, and plain AI help.
 
 struct EpistemosShortcutsProvider: AppShortcutsProvider {
     nonisolated(unsafe) static var appShortcuts: [AppShortcut] {
 
-        // MARK: Only Lucid Can Do This
+        // MARK: AI Analysis
 
         AppShortcut(
             intent: DeepAnalyzeIntent(),
@@ -18,26 +16,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             ],
             shortTitle: "Deep Analyze",
             systemImageName: "waveform.path.ecg"
-        )
-
-        AppShortcut(
-            intent: ResearchTopicIntent(),
-            phrases: [
-                "Research this in \(.applicationName)",
-                "Find papers in \(.applicationName)",
-            ],
-            shortTitle: "Research Topic",
-            systemImageName: "text.book.closed"
-        )
-
-        AppShortcut(
-            intent: FactCheckIntent(),
-            phrases: [
-                "Fact check in \(.applicationName)",
-                "Check this claim in \(.applicationName)",
-            ],
-            shortTitle: "Fact Check",
-            systemImageName: "checkmark.shield"
         )
 
         // MARK: Apple Intelligence Composable
@@ -96,16 +74,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             systemImageName: "square.and.pencil"
         )
 
-        AppShortcut(
-            intent: FindGapsIntent(),
-            phrases: [
-                "Find gaps in \(.applicationName)",
-                "What am I missing in \(.applicationName)",
-            ],
-            shortTitle: "Find Gaps",
-            systemImageName: "exclamationmark.magnifyingglass"
-        )
-
         // MARK: Daily Intelligence
 
         AppShortcut(
@@ -129,7 +97,7 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
 enum IntentError: Error, CustomLocalizedStringResourceConvertible {
     case appNotReady
     case noActiveNote
-    case noApiKey
+    case noLocalModel
     case noVault
     case noteNotFound
     case analysisFailed
@@ -141,8 +109,8 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
             "Epistemos isn't ready yet. Please open the app first."
         case .noActiveNote:
             "No note is open. Open a note first, then try again."
-        case .noApiKey:
-            "No API key configured. Open Settings to add your key."
+        case .noLocalModel:
+            "No local Qwen model is installed. Open Settings to install one."
         case .noVault:
             "No vault is active. Open a vault folder first."
         case .noteNotFound:

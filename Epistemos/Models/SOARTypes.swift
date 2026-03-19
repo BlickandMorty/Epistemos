@@ -281,7 +281,7 @@ nonisolated func getSOARLimitations(for mode: InferenceMode) -> SOARLimitations 
             supportsRapidIteration: false,
             supportsLogprobs: false,
             supportsWeightUpdates: false,
-            estimatedCostPerIteration: "~$0.02-0.15 per iteration (GPT-4o/Claude)",
+            estimatedCostPerIteration: "On-device local inference",
             estimatedLatencyPerIteration: "3-12s per round-trip",
             learningPersistence: .inContext,
             limitations: [

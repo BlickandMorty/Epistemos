@@ -20,15 +20,6 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var reasoningDuration: Double?
     var isVaultBriefing: Bool
     var loadedNoteTitles: [String]?
-    /// True when this message was produced in research mode — UI suppresses
-    /// raw Pass 1 text once Lucid Lens enrichment arrives.
-    var isResearchResult: Bool
-    /// Elapsed seconds from research start to enrichment completion.
-    /// Set by enrichMessage(id:) when enrichment finishes.
-    var researchDuration: Double?
-    /// When this research message was created — drives the live timer in ResearchBadge.
-    /// Set at `.completed` time for research results; nil for regular messages.
-    var researchStartTime: Date?
 
     init(
         id: String = UUID().uuidString,
@@ -46,10 +37,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         reasoningText: String? = nil,
         reasoningDuration: Double? = nil,
         isVaultBriefing: Bool = false,
-        loadedNoteTitles: [String]? = nil,
-        isResearchResult: Bool = false,
-        researchDuration: Double? = nil,
-        researchStartTime: Date? = nil
+        loadedNoteTitles: [String]? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -67,9 +55,6 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.reasoningDuration = reasoningDuration
         self.isVaultBriefing = isVaultBriefing
         self.loadedNoteTitles = loadedNoteTitles
-        self.isResearchResult = isResearchResult
-        self.researchDuration = researchDuration
-        self.researchStartTime = researchStartTime
     }
 }
 
@@ -79,9 +64,8 @@ struct ChatThread: Identifiable, Codable, Sendable {
     var label: String
     var messages: [AssistantMessage]
     var pageId: String?
-    var provider: String?
-    var model: String?
-    var useLocal: Bool
+    var loadedNoteIds: [String]
+    var loadedNoteTitles: [String]
     var createdAt: Date
 
     init(
@@ -90,9 +74,8 @@ struct ChatThread: Identifiable, Codable, Sendable {
         label: String = "Thread",
         messages: [AssistantMessage] = [],
         pageId: String? = nil,
-        provider: String? = nil,
-        model: String? = nil,
-        useLocal: Bool = false,
+        loadedNoteIds: [String] = [],
+        loadedNoteTitles: [String] = [],
         createdAt: Date = .now
     ) {
         self.id = id
@@ -100,9 +83,8 @@ struct ChatThread: Identifiable, Codable, Sendable {
         self.label = label
         self.messages = messages
         self.pageId = pageId
-        self.provider = provider
-        self.model = model
-        self.useLocal = useLocal
+        self.loadedNoteIds = loadedNoteIds
+        self.loadedNoteTitles = loadedNoteTitles
         self.createdAt = createdAt
     }
 }
@@ -111,13 +93,20 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
     var id: String
     var role: MessageRole
     var content: String
+    var loadedNoteTitles: [String]?
     var createdAt: Date
 
-    init(id: String = UUID().uuidString, role: MessageRole, content: String, createdAt: Date = .now) {
+    init(
+        id: String = UUID().uuidString,
+        role: MessageRole,
+        content: String,
+        loadedNoteTitles: [String]? = nil,
+        createdAt: Date = .now
+    ) {
         self.id = id
         self.role = role
         self.content = content
+        self.loadedNoteTitles = loadedNoteTitles
         self.createdAt = createdAt
     }
 }
-

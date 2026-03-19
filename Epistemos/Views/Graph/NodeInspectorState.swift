@@ -5,8 +5,8 @@ import SwiftData
 // MARK: - NodeInspectorState
 // Observable state for the hologram node inspector panel.
 // Manages: selected node info, AI summary, chat messages, streaming state.
-// Summaries use Apple Intelligence directly (fast, free, on-device).
-// Chat uses TriageService for deeper reasoning with cloud fallback.
+// Summaries use Apple Intelligence directly for quick on-device work.
+// Chat uses TriageService for deeper local reasoning.
 
 @MainActor @Observable
 final class NodeInspectorState {
@@ -160,7 +160,7 @@ final class NodeInspectorState {
             Write 3-5 sentences. Be analytical, not surface-level.
             """
 
-            // Try Apple Intelligence first (fast, free, on-device), then cloud API fallback.
+            // Try Apple Intelligence first for a fast on-device summary, then local Qwen.
             do {
                 let result = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt,
@@ -168,7 +168,7 @@ final class NodeInspectorState {
                 )
                 guard !Task.isCancelled else { return }
 
-                if TriageService.shouldFallbackToAPI(result) {
+                if TriageService.shouldRetryWithLocalModel(result) {
                     throw AppleIntelligenceError.unavailable("Response inadequate")
                 }
                 summaryText = result
@@ -176,15 +176,15 @@ final class NodeInspectorState {
                 startSummaryReveal()
             } catch {
                 guard !Task.isCancelled else { return }
-                Log.engine.info("Apple Intelligence unavailable for summary, trying cloud API: \(error.localizedDescription, privacy: .public)")
-                // Fallback: use the user's configured cloud API via triage service.
+                Log.engine.info("Apple Intelligence unavailable for summary, trying local Qwen: \(error.localizedDescription, privacy: .public)")
                 if let triage = AppBootstrap.shared?.triageService {
                     do {
                         let result = try await triage.generateGeneral(
                             prompt: prompt,
                             systemPrompt: systemPrompt,
                             operation: .brainstorm,
-                            contentLength: prompt.count
+                            contentLength: prompt.count,
+                            localSurface: .graph
                         )
                         guard !Task.isCancelled else { return }
                         if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -194,9 +194,13 @@ final class NodeInspectorState {
                             summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                         }
                         startSummaryReveal()
+                    } catch let error as LocalInferenceRoutingError {
+                        guard !Task.isCancelled else { return }
+                        summaryText = error.localizedDescription
+                        startSummaryReveal()
                     } catch {
                         guard !Task.isCancelled else { return }
-                        Log.engine.info("Cloud API also unavailable for summary: \(error.localizedDescription, privacy: .public)")
+                        Log.engine.info("Local Qwen also unavailable for summary: \(error.localizedDescription, privacy: .public)")
                         summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                         startSummaryReveal()
                     }

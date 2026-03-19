@@ -898,12 +898,12 @@ final class VaultSyncService {
 
     /// Build lightweight ambient manifest (entries only, no bodies).
     func buildAmbientManifest() async -> VaultManifest? {
-        await indexActor?.buildAmbientManifest()
+        await indexActor?.buildAmbientManifest(vaultTitle: canonicalVaultTitle())
     }
 
     /// Build complete vault manifest with recent bodies (for vault briefing).
     func buildVaultManifest() async -> VaultManifest? {
-        await indexActor?.buildVaultManifest()
+        await indexActor?.buildVaultManifest(vaultTitle: canonicalVaultTitle())
     }
 
     /// Fetch full note bodies by ID for @-mention resolution.
@@ -953,6 +953,14 @@ final class VaultSyncService {
         } catch {
             return []
         }
+    }
+
+    private func canonicalVaultTitle() -> String {
+        let rawTitle = vaultURL?.lastPathComponent
+            ?? defaults.string(forKey: Self.lastVaultPathKey).map { URL(fileURLWithPath: $0).lastPathComponent }
+            ?? Self.defaultRecoveryVaultURL.lastPathComponent
+        let trimmed = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Vault" : trimmed
     }
 
     /// Manually trigger a full FTS5 index rebuild.

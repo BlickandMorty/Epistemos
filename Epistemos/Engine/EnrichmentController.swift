@@ -2,7 +2,7 @@ import Foundation
 import os
 
 // MARK: - Enrichment Controller
-// Namespace for enrichment API calls (Call 2: analysis, Call 3: consolidated) and helpers.
+// Namespace for enrichment passes (Pass 2: analysis, Pass 3: consolidated) and helpers.
 // Every method is static and nonisolated — no instance state, no Sendable concerns.
 
 nonisolated enum EnrichmentController {
@@ -73,7 +73,7 @@ nonisolated enum EnrichmentController {
             )
         } catch {
             Log.pipeline.info(
-                "🔬 Pass 2 HTTP ERROR — \(error.localizedDescription, privacy: .public)")
+                "🔬 Pass 2 generation error — \(error.localizedDescription, privacy: .public)")
             return ""
         }
     }
@@ -195,12 +195,12 @@ nonisolated enum EnrichmentController {
         let userPrompt =
             "Analyze this query through the full Epistemos pipeline: \"\(queryAnalysis.coreQuestion)\""
 
-        // Research mode always uses cloud API — never Apple Intelligence.
-        // Apple Intelligence is too limited for deep analytical prose.
+        // Research mode uses the deeper local reasoning path instead of Apple Intelligence.
+        // Apple Intelligence is too limited for this analytical prose.
         // Uses nonisolated static generate to avoid MainActor deadlock in enrichment.
         // Pass 2 is the heaviest pass (6000 tokens, massive system prompt).
-        // Observed: 84.1s for 4000 tokens with Opus 4.6 (~21ms/token).
-        // 6000 tokens ≈ 126s typical; timeout=200s covers slow API days.
+        // 6000 tokens is intentionally generous for the analytical pass.
+        // The larger timeout covers slow local generations without truncating downstream work.
         // Previous cap of 4000 tokens caused mid-sentence truncation — downstream
         // passes (3-6) diagnosed the cut-off and flagged it in their output.
         return try await LLMService.generate(
@@ -695,17 +695,11 @@ nonisolated enum EnrichmentController {
     // MARK: - Helpers
 
     /// Extracts the outermost JSON object from a string.
-    /// Handles: markdown code fences (```json...```), <thinking> blocks,
-    /// prose-before-JSON, and trailing commas (common with GPT/Gemini).
+    /// Handles: markdown code fences (```json...```), reasoning blocks,
+    /// prose-before-JSON, and trailing commas from imperfect model JSON.
     static func extractJSON(from text: String) -> [String: Any]? {
-        // 1. Strip <thinking> blocks (extended thinking models).
-        // Use manual range search instead of regex to avoid catastrophic
-        // backtracking on malformed input (unclosed <thinking> tag).
-        var cleaned = text
-        while let startRange = cleaned.range(of: "<thinking>"),
-              let endRange = cleaned.range(of: "</thinking>", range: startRange.upperBound..<cleaned.endIndex) {
-            cleaned.removeSubrange(startRange.lowerBound..<endRange.upperBound)
-        }
+        // 1. Strip model-emitted reasoning blocks before JSON extraction.
+        var cleaned = text.strippingThinkingBlocks()
         // 2. Strip markdown code fences — LLMs commonly wrap JSON in ```json ... ```
         //    This is the #1 cause of JSON parse failures (observed in Passes 4, 5).
         cleaned = cleaned.replacingOccurrences(
@@ -737,7 +731,7 @@ nonisolated enum EnrichmentController {
         }
         var jsonStr = String(cleaned[firstBrace...endBrace])
 
-        // 4. Strip trailing commas before } or ] — common with GPT/Gemini/Kimi.
+        // 4. Strip trailing commas before } or ] — common with imperfect model JSON.
         //    Standard JSON doesn't allow trailing commas; JSONSerialization rejects them.
         jsonStr = jsonStr.replacingOccurrences(
             of: ",\\s*([}\\]])",

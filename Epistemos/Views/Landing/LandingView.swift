@@ -65,7 +65,6 @@ struct LandingView: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
-    @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
 
     // Recent data for Daily Brief context
@@ -337,9 +336,7 @@ struct LandingView: View {
 
                         // Google Material Style: Controls inside the bar
                         HStack(spacing: 4) {
-                            ResearchModeControl(variant: .toolbar)
-
-                            landingProviderMenu
+                            landingRoutingMenu
 
                             if !landingSearchText.isEmpty {
                                 Button {
@@ -431,41 +428,18 @@ struct LandingView: View {
         .buttonStyle(.plain)
     }
 
-    private var landingProviderMenu: some View {
-        Menu {
-            ForEach(LLMProviderType.allCases, id: \.self) { provider in
-                Button {
-                    inference.apiProvider = provider
-                } label: {
-                    HStack {
-                        Image(systemName: provider.iconName)
-                        Text(provider.displayName)
-                        if inference.apiProvider == provider {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: inference.apiProvider.iconName)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(inference.apiProvider.displayName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(theme.textTertiary)
-            }
-            .foregroundStyle(theme.textSecondary)
-            .padding(.horizontal, 12)
-            .frame(height: 30)
-            .hoverGlassCapsule(flatBackground: theme.muted.opacity(0.1))
-        }
-        .menuStyle(.borderlessButton)
-        .help("Provider")
-        .accessibilityLabel("Provider")
+    private var landingRoutingMenu: some View {
+        InferenceControlPopoverButton(
+            titleStyle: .routing,
+            variant: .toolbar,
+            stableWidth: NativeControlSystem.reservedWidth(
+                for: LocalRoutingMode.allCases.map(\.displayName),
+                variant: .toolbar,
+                includesDisclosureGlyph: true
+            ),
+            idealPopoverWidth: 336
+        )
+        .accessibilityLabel("Routing Mode")
     }
 
     private func activateLandingSearch() {
@@ -677,7 +651,7 @@ struct LandingView: View {
             sections.append(notesSection)
         }
 
-        // ── Chat metadata with analysis scores ──
+        // ── Chat metadata ──
         if !recentChats.isEmpty {
             var chatsSection = "## Conversation History (sorted by most recent)\n\n"
             for chatItem in recentChats {
@@ -686,13 +660,6 @@ struct LandingView: View {
                 let daysSinceChat =
                     Calendar.current.dateComponents([.day], from: chatItem.updatedAt, to: .now).day
                     ?? 0
-                let isResearch = chatItem.hasDeepResearch == true
-
-                // Extract last assistant confidence + grade
-                let lastAssistant = msgs.last { $0.role == "assistant" }
-                let confidence =
-                    lastAssistant?.confidenceScore.map { String(format: "%.0f%%", $0 * 100) } ?? "—"
-                let grade = lastAssistant?.evidenceGrade ?? "—"
 
                 // Last user query snippet
                 let lastUserQuery = msgs.last { $0.role == "user" }?.content.prefix(120) ?? ""
@@ -700,8 +667,8 @@ struct LandingView: View {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
 
                 chatsSection += """
-                    - **\(chatItem.title)**\(isResearch ? " 🔬" : "")
-                      Messages: \(msgCount) | Confidence: \(confidence) | Grade: \(grade) | \(dateFormatter.string(from: chatItem.updatedAt)) (\(daysSinceChat)d ago)
+                    - **\(chatItem.title)**
+                      Messages: \(msgCount) | \(dateFormatter.string(from: chatItem.updatedAt)) (\(daysSinceChat)d ago)
                       Last query: \(snippet.isEmpty ? "(none)" : "\(snippet)…")\n
                     """
             }
@@ -710,11 +677,9 @@ struct LandingView: View {
             let totalMsgs = recentChats.reduce(0) {
                 $0 + ($1.messages?.count ?? 0)
             }
-            let researchCount = recentChats.filter { $0.hasDeepResearch == true }.count
             chatsSection += "\n### Aggregate Chat Stats\n"
             chatsSection +=
                 "- Total conversations: \(recentChats.count) | Total messages: \(totalMsgs)\n"
-            chatsSection += "- Research chats: \(researchCount)\n"
 
             sections.append(chatsSection)
         }
@@ -743,10 +708,10 @@ struct LandingView: View {
 
         return """
             Perform a deep multi-perspective analysis of my knowledge base. \
-            You have full metadata below — word counts, dates, tags, confidence scores, evidence grades. \
+            You have full metadata below — word counts, dates, tags, and conversation history. \
             Use ALL of this data to produce a rigorous synthesis:
 
-            1. **Statistical Patterns** — What do the numbers (word counts, edit frequency, message counts, confidence scores) reveal about my activity?
+            1. **Statistical Patterns** — What do the numbers (word counts, edit frequency, message counts) reveal about my activity?
             2. **Thematic Clusters** — Group my notes and chats into emergent themes. What clusters form naturally?
             3. **Temporal Evolution** — How has my focus shifted? What appeared recently vs. weeks ago? What was abandoned?
             4. **Knowledge Gaps** — Based on what I'm researching, what adjacent topics am I missing?

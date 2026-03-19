@@ -6,10 +6,11 @@ enum ChatLayout {
     static let messageColumnMaxWidth: CGFloat = 760
     static let mainComposerMaxWidth: CGFloat = 860
     static let mainComposerHorizontalPadding: CGFloat = 10
+    static let transcriptSpacing: CGFloat = 28
 }
 
 enum ChatStreamingDisplayPolicy {
-    static let showsLiveResponseText = false
+    static let showsLiveResponseText = true
 }
 
 struct ChatTranscriptRow: Identifiable, Sendable {
@@ -39,7 +40,7 @@ nonisolated func makeChatTranscriptRows(from messages: [ChatMessage]) -> [ChatTr
 // MARK: - Chat View
 // Full chat interface matching v2's conversation mode.
 // Shows when user has submitted a query from landing page.
-// Layout: header bar + research mode bar + scrolling messages + input bar.
+// Layout: header bar + scrolling messages + input bar.
 
 struct ChatView: View {
     @Environment(UIState.self) private var ui
@@ -62,7 +63,7 @@ struct ChatView: View {
                 ScrollView {
                     HStack {
                         Spacer(minLength: 0)
-                        LazyVStack(spacing: 24) {
+                        LazyVStack(spacing: ChatLayout.transcriptSpacing) {
                             ForEach(transcriptRows) { row in
                                 MessageBubble(
                                     message: row.message,
@@ -111,7 +112,7 @@ struct ChatView: View {
                     // Throttle to ~4fps during streaming for "smooth" feel
                     let now = ContinuousClock.now
                     guard autoFollow.isFollowingBottom,
-                          (ChatStreamingDisplayPolicy.showsLiveResponseText || !chat.isStreaming || chat.isResearchMode),
+                          (ChatStreamingDisplayPolicy.showsLiveResponseText || !chat.isStreaming),
                           now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
                     else { return }
                     lastScrollTime = now
@@ -145,9 +146,6 @@ struct ChatView: View {
                 }
                 .help("Export Chat")
 
-                if chat.isResearchMode {
-                    ResearchHintButton()
-                }
             }
         }
     }
@@ -172,187 +170,6 @@ struct ChatView: View {
 }
 
 // ChatHeaderBar removed — buttons now live in the toolbar (see ChatView.body .toolbar {})
-
-// MARK: - Research Mode Control
-
-struct ResearchModeControl: View {
-    @Environment(ChatState.self) private var chat
-    var variant: NativeControlVariant = .toolbar
-
-    static let showsSecondaryOptionsBox = false
-
-    var body: some View {
-        ExpandingModeButton(
-            title: "Research",
-            systemImage: chat.isResearchMode ? "flask.fill" : "flask",
-            isActive: chat.isResearchMode,
-            variant: variant,
-            helpText: chat.isResearchMode ? "Research Mode On" : "Enable Research Mode",
-            stableWidth: NativeControlSystem.reservedWidth(for: "Research", variant: variant)
-        ) {
-            if chat.isResearchMode {
-                chat.disableResearchMode()
-            } else {
-                chat.enableResearchMode()
-            }
-        }
-        .help("Research Mode")
-    }
-}
-
-// MARK: - Research Hint Button
-// Toolbar button — tap to see API cost + About Lucid Lens pipeline info.
-// Honest about how many API calls each query uses.
-
-private struct ResearchHintButton: View {
-    @Environment(UIState.self) private var ui
-    @State private var showPopover = false
-    @State private var showAbout = false
-
-    private var theme: EpistemosTheme { ui.theme }
-
-    // The 6 passes that run per research query — each with its own specialized focus:
-    private static let pipelineSteps: [(title: String, detail: String)] = [
-        ("Pass 1 — Direct Answer", "Streaming response with evidence hierarchy + source citations (1 API call)"),
-        ("Pass 2 — Deep Analysis", "Full analytical math: effect sizes, Bradford Hill, meta-analysis, epistemic tagging — the research powerhouse (1 API call)"),
-        ("Pass 3 — Layman Summary", "Translates expert analysis into accessible 5-section breakdown — no math noise, pure clarity (1 API call)"),
-        ("Pass 4 — Reflection", "Adversarial self-critique: 6 attack techniques + cognitive bias audit of Pass 2 (1 API call)"),
-        ("Pass 5 — Arbitration", "5 independent engines (statistical, causal, Bayesian, meta-analysis, adversarial) each with distinct epistemological lens (1 API call)"),
-        ("Pass 6 — Truth Assessment", "Research-backed calibration: CoT-then-Confidence, DINCO-lite cross-check, 7 hard calibration rules (1 API call)"),
-    ]
-
-    var body: some View {
-        Button { showPopover.toggle() } label: {
-            Label("Research", systemImage: "lightbulb.max")
-        }
-        .help("About Research Mode")
-        .popover(isPresented: $showPopover, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
-                // API cost breakdown
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "server.rack")
-                            .font(.epHeading)
-                            .foregroundStyle(theme.accent)
-                        Text("API Usage Per Query")
-                            .font(.epBodyMedium)
-                            .foregroundStyle(theme.foreground)
-                    }
-
-                    // Regular mode
-                    HStack(spacing: 6) {
-                        Text("1")
-                            .font(.epMono)
-                            .fontWeight(.bold)
-                            .foregroundStyle(theme.success)
-                        Text("API call — Regular Mode")
-                            .font(.epSmall)
-                            .foregroundStyle(theme.textSecondary)
-                    }
-
-                    // Research mode
-                    HStack(spacing: 6) {
-                        Text("6")
-                            .font(.epMono)
-                            .fontWeight(.bold)
-                            .foregroundStyle(theme.warning)
-                        Text("API calls — Research Mode")
-                            .font(.epSmall)
-                            .foregroundStyle(theme.textSecondary)
-                    }
-
-                    Text("Research Mode runs 6 sequential passes with distributed analytical scaffolding. Each pass carries only the math it needs. Expect 1–3 minutes and 6× the token cost.")
-                        .font(.epSmall)
-                        .foregroundStyle(theme.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
-
-                // Divider
-                Rectangle()
-                    .fill(theme.glassBorder)
-                    .frame(height: 0.5)
-                    .padding(.horizontal, 10)
-
-                // About — expandable pipeline breakdown
-                // Always rendered (never if/else) to avoid NSPopover resize crash.
-                // Visibility controlled via opacity + frame height clipping.
-                VStack(alignment: .leading, spacing: 0) {
-                    Button {
-                        showAbout.toggle()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "info.circle.fill")
-                                .font(.epCaption)
-                                .foregroundStyle(theme.accent.opacity(0.7))
-
-                            Text("6-Pass Breakdown")
-                                .font(.epCaption)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(theme.foreground.opacity(0.85))
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.epSmall)
-                                .fontWeight(.bold)
-                                .foregroundStyle(theme.textTertiary)
-                                .rotationEffect(.degrees(showAbout ? 90 : 0))
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(Self.pipelineSteps.enumerated()), id: \.offset) { index, step in
-                            HStack(alignment: .top, spacing: 10) {
-                                ZStack {
-                                    Circle()
-                                        .fill(theme.accent.opacity(0.12))
-                                        .frame(width: 24, height: 24)
-                                    Text("\(index + 1)")
-                                        .font(.epMono)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(theme.accent)
-                                }
-
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(step.title)
-                                        .font(.epSmall)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(theme.foreground)
-                                    Text(step.detail)
-                                        .font(.epSmall)
-                                        .foregroundStyle(theme.textTertiary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                        }
-
-                        // Additional context
-                        Text("Each pass carries only the math it needs — Pass 2 owns the heavy analytical scaffolding, while Passes 3–6 focus on their specific role without instruction noise. The 10-stage pipeline runs locally before Pass 1 (0 API calls). Title generation adds +1 call on first message.")
-                            .font(.epSmall)
-                            .foregroundStyle(theme.textTertiary.opacity(0.7))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 4)
-                    }
-                    .padding(.top, showAbout ? 10 : 0)
-                    .frame(maxHeight: showAbout ? .infinity : 0)
-                    .clipped()
-                    .opacity(showAbout ? 1 : 0)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-            }
-            .padding(.bottom, 4)
-            .frame(width: 320)
-            .background(.ultraThinMaterial)
-            .preferredColorScheme(ui.preferredColorScheme)
-        }
-    }
-}
 
 // MARK: - Streaming Indicator
 
@@ -381,18 +198,13 @@ private struct StreamingIndicator: View {
             }
 
             if ChatStreamingDisplayPolicy.showsLiveResponseText, !chat.streamingText.isEmpty {
-                Text(chat.streamingText)
-                    .font(.epBody)
-                    .foregroundStyle(theme.foreground)
-                    .textSelection(.enabled)
-                    .lineSpacing(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                TaggedMarkdownTextView(
+                    content: chat.streamingText + (chat.isStreaming ? " ▍" : ""),
+                    theme: theme
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else if !chat.isStreaming, !chat.streamingText.isEmpty {
-                Text(chat.streamingText)
-                    .font(.epBody)
-                    .foregroundStyle(theme.foreground)
-                    .textSelection(.enabled)
-                    .lineSpacing(3)
+                TaggedMarkdownTextView(content: chat.streamingText, theme: theme)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if !chat.isReasoning {
                 // Thinking dots — only when not in reasoning phase
@@ -415,6 +227,9 @@ private struct StreamingIndicator: View {
                 }
             }
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .assistantInsetChrome(theme: theme, cornerRadius: 20, isEmphasized: chat.isReasoning)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

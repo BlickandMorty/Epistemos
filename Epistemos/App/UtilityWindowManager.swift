@@ -149,6 +149,7 @@ enum UtilityPanelChrome {
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "SettingsToolbar")
+        toolbar.showsBaselineSeparator = false
         panel.toolbar = toolbar
         panel.toolbarStyle = .unifiedCompact
     }

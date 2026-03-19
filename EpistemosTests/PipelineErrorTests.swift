@@ -8,7 +8,8 @@ struct PipelineErrorTests {
     func noLLMServiceDescription() {
         let err = Epistemos.PipelineError.noLLMService
         #expect(err.errorDescription != nil)
-        #expect(err.errorDescription!.contains("API key") || err.errorDescription!.contains("LLM"))
+        #expect(err.errorDescription!.contains("local"))
+        #expect(err.errorDescription!.contains("Qwen"))
     }
 
     @Test("analysisFailure includes the message")

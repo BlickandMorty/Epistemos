@@ -17,7 +17,8 @@ final class SDChat {
 
     // MARK: - Content
     var title: String = "New Chat"
-    var chatType: String = "chat"       // "chat", "notes", "research"
+    var chatType: String = "chat"       // "chat", "notes"
+    // Legacy persisted field kept for lightweight migration compatibility.
     var hasDeepResearch: Bool? = false
     /// Page ID of the note this chat is linked to (note chats + cross-system association).
     var linkedPageId: String?
@@ -40,8 +41,24 @@ final class SDChat {
         self.updatedAt = .now
     }
 
+    private static func messageSortRank(for role: String) -> Int {
+        switch role {
+        case "user": 0
+        case "assistant": 1
+        default: 2
+        }
+    }
+
     var sortedMessages: [SDMessage] {
-        (messages ?? []).sorted { $0.createdAt < $1.createdAt }
+        (messages ?? []).sorted { lhs, rhs in
+            if lhs.createdAt == rhs.createdAt {
+                let lhsRank = Self.messageSortRank(for: lhs.role)
+                let rhsRank = Self.messageSortRank(for: rhs.role)
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+                return lhs.id < rhs.id
+            }
+            return lhs.createdAt < rhs.createdAt
+        }
     }
 
     @MainActor

@@ -170,7 +170,7 @@ private struct MiniChatThread: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var activeThread: ChatThread? {
-        threadState.chatThreads.first { $0.id == threadState.activeThreadId }
+        threadState.activeThread()
     }
 
     private var hasContent: Bool {
@@ -292,7 +292,10 @@ private struct MiniChatBubble: View {
                     .textSelection(.enabled)
 
                 AssistantSourcesFooter(
-                    sources: AssistantSourceReference.extract(from: message.content),
+                    sources: AssistantSourceReference.extract(
+                        from: message.content,
+                        noteTitles: message.loadedNoteTitles ?? []
+                    ),
                     theme: theme,
                     compact: true
                 )
@@ -646,67 +649,59 @@ private struct MiniChatInputBar: View {
 
         let actionLabel: String
         let prompt: String
-        let systemPrompt: String
-
-        // Gather vault-wide tag list for consistency
-        let vaultTagList: String = {
-            guard let manifest = AppBootstrap.shared?.ambientManifest else { return "" }
-            var freq: [String: Int] = [:]
-            for entry in manifest.entries {
-                for tag in entry.tags { freq[tag, default: 0] += 1 }
-            }
-            let sorted = freq.sorted { $0.value > $1.value }.prefix(60)
-            return sorted.map { "\($0.key) (\($0.value))" }.joined(separator: ", ")
-        }()
-
-        // Ambient manifest for cross-note awareness
-        let manifestContext: String = {
-            guard let manifest = AppBootstrap.shared?.ambientManifest else { return "" }
-            return "\n\n## Vault Index\n" + manifest.asManifestOnly()
-        }()
 
         switch action {
         case .autoTag:
             let existing = page.tags.joined(separator: ", ")
             actionLabel = "Auto-tag"
-            prompt = "Suggest 3-5 tags for this note. Current tags: [\(existing.isEmpty ? "none" : existing)]\n\n# \(pageTitle)\n\(snippet)"
-            systemPrompt = """
-            You are a note organizer with knowledge of the user's entire vault. \
-            Suggest short, lowercase tags (1-2 words each) that are consistent with existing vault tags. \
-            Prefer reusing existing tags over creating new ones when they fit. \
-            Return your suggestions as a comma-separated list on the first line, then optionally explain briefly. \
-            Format: tags: tag1, tag2, tag3\
-            \(vaultTagList.isEmpty ? "" : "\n\nExisting vault tags (by frequency): \(vaultTagList)")
+            prompt = """
+            Suggest 3-5 short lowercase tags for this note.
+            Return the first line as:
+            tags: tag1, tag2, tag3
+
+            Current tags: [\(existing.isEmpty ? "none" : existing)]
+
+            # \(pageTitle)
+            \(snippet)
             """
         case .summarize:
             actionLabel = "Summarize"
-            prompt = "Summarize this note:\n\n# \(pageTitle)\n\(snippet)\(manifestContext)"
-            systemPrompt = """
-            Produce a rich contextual summary (4-6 sentences). Capture key ideas, arguments, and open questions. \
-            If related notes exist in the vault index, mention 1-2 connections that add context.
+            prompt = """
+            Summarize this note in 4-6 sentences. Capture the key ideas, arguments, and open questions.
+
+            # \(pageTitle)
+            \(snippet)
             """
         case .findRelated:
             let vault = searchVault(query: pageTitle)
             let searchResults = vault.isEmpty ? "" : "\n\n## Search Results\n" + vault.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
             actionLabel = "Find Related"
-            prompt = "Find connections between this note and the rest of the vault.\n\n## Current Note: \(pageTitle)\n\(snippet)\(searchResults)\(manifestContext)"
-            systemPrompt = """
-            You have access to the user's full vault index. Identify: \
-            (1) Directly related notes — shared themes, arguments, or references. \
-            (2) Surprising connections — notes the user might not realize are related. \
-            (3) Gaps — topics this note touches on that aren't covered elsewhere. \
-            Be specific: quote titles, explain what connects them, and suggest cross-links worth creating.
+            prompt = """
+            Find connections between this note and these search results. Identify:
+            1. directly related notes
+            2. surprising connections
+            3. gaps or missing follow-ups
+
+            Be specific about what connects them.
+
+            ## Current Note: \(pageTitle)
+            \(snippet)\(searchResults)
             """
         case .createFromNote:
             actionLabel = "Create From Note"
-            prompt = "Based on this note, suggest a good follow-up note to write.\n\n# \(pageTitle)\n\(snippet)\(manifestContext)"
-            systemPrompt = """
-            You can see the user's full vault index. Suggest one follow-up note that: \
-            (1) doesn't duplicate an existing note, \
-            (2) fills a gap in their knowledge graph, \
-            (3) builds on ideas in this note. \
-            Format: Title: [title]\nOutline:\n- point 1\n- point 2\n- point 3\
-            \nExplain briefly why this note would strengthen their vault.
+            prompt = """
+            Based on this note, suggest one follow-up note to write.
+            Format:
+            Title: [title]
+            Outline:
+            - point 1
+            - point 2
+            - point 3
+
+            Then explain briefly why this note would be useful.
+
+            # \(pageTitle)
+            \(snippet)
             """
         }
 
@@ -726,7 +721,7 @@ private struct MiniChatInputBar: View {
                 var accumulated = ""
 
                 for try await chunk in triage.streamGeneral(
-                    prompt: prompt, systemPrompt: systemPrompt,
+                    prompt: prompt, systemPrompt: nil,
                     operation: .brainstorm, contentLength: contentLength
                 ) {
                     guard !Task.isCancelled else { break }
@@ -806,94 +801,62 @@ private struct MiniChatInputBar: View {
             }
             do {
                 // Build context from active note + vault search
-                var contextParts: [String] = []
                 let page = activePage()
+                let currentThread = threadState.activeThread()
 
-                if let page {
-                    let snapshot = snapshotStore.snapshot(
-                        for: page,
-                        preferredBody: preferredBodySnapshot(for: page)
+                let notesContext: ChatCoordinator.NotesContextResolution
+                if ChatCoordinator.queryContainsExplicitNoteContext(trimmed) {
+                    notesContext = await ChatCoordinator.resolveNotesContext(
+                        query: trimmed,
+                        manifest: AppBootstrap.shared?.ambientManifest,
+                        loadedNoteIds: Set(currentThread?.loadedNoteIds ?? []),
+                        loadedNoteTitles: currentThread?.loadedNoteTitles ?? [],
+                        findNotesByTitle: { title in
+                            await vaultSync.findNotesByTitle(title)
+                        },
+                        fetchNoteBodies: { ids in
+                            await vaultSync.fetchNoteBodies(ids: ids)
+                        }
                     )
-                    if snapshot.hasBody {
-                        contextParts.append(
-                            "## Active Note: \(snapshot.title)\nTags: [\(snapshot.tags.joined(separator: ", "))]\n\(snapshot.promptSnippet)"
-                        )
-                    }
-                }
-
-                let vaultSnippets = searchVault(query: trimmed)
-                if !vaultSnippets.isEmpty {
-                    let snippetText = vaultSnippets.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
-                    contextParts.append("## Related Notes from Vault\n\(snippetText)")
-                }
-
-                // Inject ambient vault manifest for cross-note awareness
-                if let manifest = AppBootstrap.shared?.ambientManifest {
-                    contextParts.append(manifest.asManifestOnly())
-                }
-
-                // Build folder list for move actions
-                var folderNames: [String] = []
-                let folderDescriptor = FetchDescriptor<SDFolder>(sortBy: [SortDescriptor(\.sortOrder)])
-                if let folders = try? modelContext.fetch(folderDescriptor) {
-                    folderNames = folders.map(\.name)
-                }
-
-                // Check if this is a multi-turn conversation
-                let hasHistory = {
-                    let thread = threadState.chatThreads.first { $0.id == threadState.activeThreadId }
-                    return (thread?.messages.count ?? 0) > 1
-                }()
-                let conversationNote = hasHistory
-                    ? " The user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
-                    : ""
-
-                let systemPrompt: String
-                if contextParts.isEmpty {
-                    systemPrompt = "You are Epistemos, a research assistant. Answer clearly and helpfully. Use markdown formatting.\(conversationNote)"
                 } else {
-                    let actionInstructions = page != nil ? """
-
-                    ## Vault Actions
-                    When the user asks to modify a note (tag, move, rename, etc.), include an action marker at the END of your response:
-                    - To add tags: `[ACTION:TAG tag1, tag2, tag3]`
-                    - To move to folder: `[ACTION:MOVE FolderName]`
-                    - To create a new note: `[ACTION:CREATE Title of New Note]`
-                    Available folders: [\(folderNames.joined(separator: ", "))]
-                    Only include an action marker if the user explicitly asks to modify something. Otherwise just answer normally.
-                    """ : ""
-
-                    systemPrompt = """
-                    You are Epistemos, a research assistant with access to the user's notes vault. \
-                    Reference the user's notes naturally when relevant — quote specific content, \
-                    connect ideas across notes, or point out things the user might not have noticed. \
-                    Answer clearly and helpfully. Use markdown formatting.\(conversationNote)\(actionInstructions)
-
-                    \(contextParts.joined(separator: "\n\n"))
-                    """
+                    notesContext = ChatCoordinator.NotesContextResolution(
+                        context: nil,
+                        cleanedQuery: trimmed,
+                        loadedNoteIds: [],
+                        loadedNoteTitles: []
+                    )
                 }
+                threadState.updateActiveThreadLoadedNotes(
+                    ids: notesContext.loadedNoteIds,
+                    titles: notesContext.loadedNoteTitles
+                )
 
                 // Build conversation-aware prompt from thread history
                 let activeThread = threadState.chatThreads.first { $0.id == threadState.activeThreadId }
                 let allMessages = activeThread?.messages ?? []
 
-                let conversationPrompt: String
+                var promptParts: [String] = []
+                if let context = notesContext.context {
+                    promptParts.append(context)
+                }
                 if allMessages.count > 1 {
                     let history = allMessages.dropLast().suffix(10)
                     let historyText = history.map { msg in
                         msg.role == .user ? "User: \(msg.content)" : "Assistant: \(msg.content)"
                     }.joined(separator: "\n\n")
-                    conversationPrompt = "\(historyText)\n\nUser: \(trimmed)"
+                    promptParts.append(historyText)
+                    promptParts.append("User: \(notesContext.cleanedQuery)")
                 } else {
-                    conversationPrompt = trimmed
+                    promptParts.append(notesContext.cleanedQuery)
                 }
+                let conversationPrompt = promptParts.joined(separator: "\n\n")
 
-                let contentLength = conversationPrompt.count + contextParts.joined().count
+                let contentLength = conversationPrompt.count
                 var accumulated = ""
 
                 for try await chunk in triage.streamGeneral(
                     prompt: conversationPrompt,
-                    systemPrompt: systemPrompt,
+                    systemPrompt: nil,
                     operation: .chatResponse(query: trimmed),
                     contentLength: contentLength
                 ) {
@@ -912,7 +875,8 @@ private struct MiniChatInputBar: View {
 
                 threadState.addThreadMessage(AssistantMessage(
                     role: .assistant,
-                    content: final.isEmpty ? "No response generated." : final
+                    content: final.isEmpty ? "No response generated." : final,
+                    loadedNoteTitles: notesContext.loadedNoteTitles
                 ))
 
             } catch is CancellationError {
@@ -997,9 +961,16 @@ private struct MiniChatInputBar: View {
         return cleaned
     }
 
-    private func insertMention(_ entry: VaultManifest.ManifestEntry) {
+    private func insertMention(_ choice: NoteMentionChoice) {
+        let token: String
+        switch choice {
+        case .allNotes:
+            token = ChatCoordinator.allNotesMentionToken
+        case .entry(let entry):
+            token = entry.title
+        }
         if let atIdx = text.lastIndex(of: "@") {
-            text = String(text[text.startIndex..<atIdx]) + "@[\(entry.title)] "
+            text = String(text[text.startIndex..<atIdx]) + "@[\(token)] "
         }
         showMentionDropdown = false
         mentionFilter = ""

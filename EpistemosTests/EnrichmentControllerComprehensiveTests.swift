@@ -60,6 +60,19 @@ struct EnrichmentControllerJSONTests {
         #expect(result?["verdict"] as? String == "supported")
         #expect(result?["confidence"] as? Double == 0.85)
     }
+
+    @Test("extractJSON strips qwen think blocks")
+    func stripsQwenThinkBlocks() {
+        let raw = """
+        <think>I need to analyze this carefully...</think>
+        {"verdict": "supported", "confidence": 0.85}
+        """
+        let result = EnrichmentController.extractJSON(from: raw)
+
+        #expect(result != nil)
+        #expect(result?["verdict"] as? String == "supported")
+        #expect(result?["confidence"] as? Double == 0.85)
+    }
     
     @Test("extractJSON strips multiple thinking blocks")
     func stripsMultipleThinkingBlocks() {

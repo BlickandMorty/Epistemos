@@ -53,46 +53,30 @@ enum NavTab: String, Codable, Sendable, CaseIterable {
 
 /// LLM providers
 enum LLMProviderType: String, Codable, Sendable, CaseIterable {
-    case anthropic
-    case openai
-    case google
-    case kimi
-    case ollama
     case appleIntelligence
+    case localMLX
 
     /// Display name shown in badges and UI.
     nonisolated var displayName: String {
         switch self {
-        case .anthropic: "Claude"
-        case .openai: "GPT"
-        case .google: "Gemini"
-        case .kimi: "Kimi"
-        case .ollama: "Ollama"
-        case .appleIntelligence: "Apple AI"
+        case .appleIntelligence: "Apple Intelligence"
+        case .localMLX: "Qwen 3.5 Local"
         }
     }
 
     /// SF Symbol for provider badge.
     nonisolated var iconName: String {
         switch self {
-        case .anthropic: "sparkle"
-        case .openai: "circle.hexagongrid"
-        case .google: "diamond"
-        case .kimi: "moon.stars"
-        case .ollama: "server.rack"
         case .appleIntelligence: "apple.intelligence"
+        case .localMLX: "memorychip"
         }
     }
 
     /// Brand color for each provider.
     var badgeColor: Color {
         switch self {
-        case .anthropic: Color(red: 0.85, green: 0.55, blue: 0.20)  // Warm amber
-        case .openai: Color(red: 0.06, green: 0.64, blue: 0.50)  // Emerald green
-        case .google: Color(red: 0.26, green: 0.52, blue: 0.96)  // Google blue
-        case .kimi: Color(red: 0.45, green: 0.35, blue: 0.85)  // Moonlight purple
-        case .ollama: Color(red: 0.30, green: 0.75, blue: 0.55)  // Teal green
         case .appleIntelligence: Color.purple
+        case .localMLX: Color(red: 0.22, green: 0.64, blue: 0.78)
         }
     }
 }

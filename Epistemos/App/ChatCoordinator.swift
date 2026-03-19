@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import UserNotifications
 import os
 
 // MARK: - Chat Coordinator
@@ -9,20 +8,19 @@ import os
 
 @MainActor
 final class ChatCoordinator {
-    struct ResearchCompletionNotificationPayload {
-        let identifier: String
-        let title: String
-        let subtitle: String
-        let body: String
-        let userInfo: [AnyHashable: Any]
+    struct NotesContextResolution: Sendable {
+        let context: String?
+        let cleanedQuery: String
+        let loadedNoteIds: Set<String>
+        let loadedNoteTitles: [String]
     }
 
-    private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    static let allNotesMentionToken = "All Notes"
+
     private unowned let bootstrap: AppBootstrap
     private let chatState: ChatState
     private let pipelineService: PipelineService
     private let inferenceState: InferenceState
-    private let soarState: SOARState
     private let vaultSync: VaultSyncService
     private let modelContainer: ModelContainer
     private let eventBus: EventBus
@@ -34,7 +32,6 @@ final class ChatCoordinator {
         chatState: ChatState,
         pipelineService: PipelineService,
         inferenceState: InferenceState,
-        soarState: SOARState,
         vaultSync: VaultSyncService,
         modelContainer: ModelContainer,
         eventBus: EventBus,
@@ -45,7 +42,6 @@ final class ChatCoordinator {
         self.chatState = chatState
         self.pipelineService = pipelineService
         self.inferenceState = inferenceState
-        self.soarState = soarState
         self.vaultSync = vaultSync
         self.modelContainer = modelContainer
         self.eventBus = eventBus
@@ -59,41 +55,31 @@ final class ChatCoordinator {
     func handleQuery(_ query: String, pipeline: PipelineService, chatState: ChatState) {
         bootstrap.queryTask?.cancel()
 
-        // Early guard: if the provider needs an API key, we have none,
-        // AND Apple Intelligence is unavailable, block the query.
-        // When Apple Intelligence IS available, let triage route it on-device.
         let aiFresh = AppleIntelligenceService.shared.checkAvailability()
         inferenceState.appleIntelligenceAvailable = aiFresh.available
         inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
-        if inferenceState.needsApiKey && inferenceState.apiKey.isEmpty && !aiFresh.available {
-            chatState.addErrorMessage("No API key configured for \(inferenceState.apiProvider.displayName) and Apple Intelligence is unavailable. Add a key in Settings (⌘,).")
-            return
-        }
 
         let isVaultBriefing = query == "[VAULT_BRIEFING]"
         chatState.isCurrentVaultBriefing = isVaultBriefing
         chatState.startStreaming()
 
-        if chatState.isResearchMode {
-            chatState.researchStartTime = Date()
-        }
-
         bootstrap.queryTask = Task {
             do {
                 let mode = inferenceState.inferenceMode
-                let isResearch = chatState.isResearchMode
                 let hasVault = bootstrap.ambientManifest != nil
-                Log.pipeline.warning("🔬 handleQuery — isResearch=\(isResearch) hasVault=\(hasVault) skipEnrichment=\(!isResearch)")
+                Log.pipeline.info("handleQuery — hasVault=\(hasVault) skipEnrichment=true")
 
                 let notesContext: String?
                 let resolvedQuery: String
-                if hasVault {
+                if hasVault, Self.queryContainsExplicitNoteContext(query) {
                     let (ctx, cleaned) = await self.buildNotesContext(query: query, chatState: chatState)
                     notesContext = ctx
                     resolvedQuery = cleaned
                 } else {
                     notesContext = nil
                     resolvedQuery = query
+                    chatState.loadedNoteIds = []
+                    chatState.loadedNoteTitles = []
                 }
 
                 // For vault briefing, override notesContext with full manifest (includes bodies)
@@ -128,38 +114,14 @@ final class ChatCoordinator {
 
                 let pendingAssistantId = UUID().uuidString
                 let capturedChatId = chatState.activeChatId
-                let capturedIsIncognito = chatState.isIncognito
-
-                // Enrichment callback — survives queryTask cancellation.
-                let onEnriched: @MainActor @Sendable (DualMessage, TruthAssessment) -> Void = { [weak self] dual, truth in
-                    guard let self else { return }
-                    Log.pipeline.info("[enriched] Callback — layman=\(dual.laymanSummary != nil) rawLen=\(dual.rawAnalysis.count) truth=\(Int(truth.overallTruthLikelihood * 100))% targetMsg=\(pendingAssistantId.prefix(8))")
-                    chatState.enrichMessage(id: pendingAssistantId, dualMessage: dual, truthAssessment: truth)
-                    if !capturedIsIncognito {
-                        self.persistEnrichment(
-                            chatId: capturedChatId,
-                            messageId: pendingAssistantId,
-                            dualMessage: dual,
-                            truthAssessment: truth,
-                            message: chatState.messages.first(where: { $0.id == pendingAssistantId })
-                        )
-                        self.postResearchCompletionNotification(
-                            chatId: capturedChatId,
-                            fallbackQuery: query,
-                            dualMessage: dual
-                        )
-                    }
-                }
-
                 let stream = pipeline.run(
                     query: effectiveQuery,
                     mode: mode,
                     controls: .defaults,
-                    soarConfig: self.soarState.soarConfig,
                     notesContext: effectiveNotesContext,
-                    skipEnrichment: !isResearch,
+                    skipEnrichment: true,
                     conversationHistory: conversationHistory,
-                    onEnriched: isResearch ? onEnriched : nil
+                    onEnriched: nil
                 )
 
                 for try await event in stream {
@@ -178,16 +140,16 @@ final class ChatCoordinator {
                         break
 
                     case .completed(let dual, let truth):
-                        let confidence = truth?.overallTruthLikelihood ?? 0.5
-                        let grade = Self.gradeFromConfidence(confidence)
+                        let dualMessage = Self.persistableDualMessage(from: dual, truth: truth)
+                        let confidence = truth?.overallTruthLikelihood
+                        let grade = confidence.map(Self.gradeFromConfidence)
                         chatState.completeProcessing(
                             messageId: pendingAssistantId,
-                            dualMessage: dual,
+                            dualMessage: dualMessage,
                             confidence: confidence,
                             grade: grade,
                             mode: mode,
-                            truthAssessment: truth,
-                            isResearchResult: isResearch
+                            truthAssessment: truth
                         )
 
                         if let lastMsg = chatState.messages.last {
@@ -204,13 +166,12 @@ final class ChatCoordinator {
                                 chatId: capturedChatId,
                                 query: query,
                                 answer: chatState.messages.last?.content ?? "",
-                                dual: dual,
+                                dual: dualMessage,
                                 truth: truth,
                                 confidence: confidence,
                                 grade: grade,
                                 mode: mode,
                                 assistantMessage: chatState.messages.last,
-                                isResearch: isResearch,
                                 isNotes: hasVault
                             )
                         }
@@ -278,15 +239,28 @@ final class ChatCoordinator {
 
     // MARK: - Vault Context
 
-    func buildNotesContext(query: String, chatState: ChatState) async -> (String?, String) {
-        guard bootstrap.ambientManifest != nil else { return (nil, query) }
-
-        var contextParts: [String] = []
-        var cleanedQuery = query
-
-        if let manifest = bootstrap.ambientManifest {
-            contextParts.append(manifest.asManifestOnly())
+    static func resolveNotesContext(
+        query: String,
+        manifest: VaultManifest?,
+        loadedNoteIds: Set<String>,
+        loadedNoteTitles: [String] = [],
+        findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
+        fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody]
+    ) async -> NotesContextResolution {
+        guard let manifest else {
+            return NotesContextResolution(
+                context: nil,
+                cleanedQuery: query,
+                loadedNoteIds: [],
+                loadedNoteTitles: []
+            )
         }
+
+        var cleanedQuery = query
+        var referencedNotes: [VaultManifest.NoteBody] = []
+        var nextLoadedNoteIds: Set<String> = []
+        var nextLoadedTitles: [String] = []
+        var includeManifest = false
 
         let mentionPattern = #"@\[([^\]]+)\]"#
         if let regex = try? NSRegularExpression(pattern: mentionPattern) {
@@ -299,37 +273,67 @@ final class ChatCoordinator {
                 let title = String(query[titleRange])
                 titlesToResolve.append(title)
                 if let fullRange = Range(match.range, in: cleanedQuery) {
-                    cleanedQuery.replaceSubrange(fullRange, with: title)
+                    let replacement = title.caseInsensitiveCompare(Self.allNotesMentionToken) == .orderedSame ? "" : title
+                    cleanedQuery.replaceSubrange(fullRange, with: replacement)
                 }
             }
 
             if !titlesToResolve.isEmpty {
                 for title in titlesToResolve {
-                    let found = await vaultSync.findNotesByTitle(title)
-                    let ids = found.map(\.pageId).filter { !chatState.loadedNoteIds.contains($0) }
+                    if title.caseInsensitiveCompare(Self.allNotesMentionToken) == .orderedSame {
+                        includeManifest = true
+                        continue
+                    }
+                    let found = await findNotesByTitle(title)
+                    let ids = found.map(\.pageId).filter { !nextLoadedNoteIds.contains($0) }
                     if !ids.isEmpty {
-                        let bodies = await vaultSync.fetchNoteBodies(ids: ids)
+                        let bodies = await fetchNoteBodies(ids)
                         for body in bodies {
-                            contextParts.append("### Referenced Note: \(body.title)\n\(body.body)")
-                            chatState.loadedNoteIds.insert(body.pageId)
-                            chatState.loadedNoteTitles.append(body.title)
+                            referencedNotes.append(body)
+                            nextLoadedNoteIds.insert(body.pageId)
+                            if !nextLoadedTitles.contains(body.title) {
+                                nextLoadedTitles.append(body.title)
+                            }
                         }
                     }
                 }
             }
         }
 
-        if !chatState.loadedNoteIds.isEmpty {
-            let alreadyLoaded = await vaultSync.fetchNoteBodies(ids: Array(chatState.loadedNoteIds))
-            for body in alreadyLoaded {
-                if !contextParts.contains(where: { $0.contains("### Referenced Note: \(body.title)") }) {
-                    contextParts.append("### Previously Referenced: \(body.title)\n\(body.body)")
-                }
-            }
-        }
+        let pack = VaultContextPack(
+            manifest: manifest,
+            includeManifest: includeManifest,
+            referencedNotes: referencedNotes,
+            cleanedQuery: cleanedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        return NotesContextResolution(
+            context: pack.renderedContext(),
+            cleanedQuery: pack.cleanedQuery,
+            loadedNoteIds: nextLoadedNoteIds,
+            loadedNoteTitles: nextLoadedTitles
+        )
+    }
 
-        let context = contextParts.isEmpty ? nil : contextParts.joined(separator: "\n\n")
-        return (context, cleanedQuery.trimmingCharacters(in: .whitespacesAndNewlines))
+    func buildNotesContext(query: String, chatState: ChatState) async -> (String?, String) {
+        let resolution = await Self.resolveNotesContext(
+            query: query,
+            manifest: bootstrap.ambientManifest,
+            loadedNoteIds: chatState.loadedNoteIds,
+            loadedNoteTitles: chatState.loadedNoteTitles,
+            findNotesByTitle: { [vaultSync] title in
+                await vaultSync.findNotesByTitle(title)
+            },
+            fetchNoteBodies: { [vaultSync] ids in
+                await vaultSync.fetchNoteBodies(ids: ids)
+            }
+        )
+        chatState.loadedNoteIds = resolution.loadedNoteIds
+        chatState.loadedNoteTitles = resolution.loadedNoteTitles
+        return (resolution.context, resolution.cleanedQuery)
+    }
+
+    static func queryContainsExplicitNoteContext(_ query: String) -> Bool {
+        query.contains("@[")
     }
 
     // MARK: - Vault Action Execution
@@ -427,11 +431,10 @@ final class ChatCoordinator {
         answer: String,
         dual: DualMessage?,
         truth: TruthAssessment?,
-        confidence: Double,
-        grade: EvidenceGrade,
+        confidence: Double?,
+        grade: EvidenceGrade?,
         mode: InferenceMode,
         assistantMessage: ChatMessage?,
-        isResearch: Bool = false,
         isNotes: Bool = false
     ) {
         guard let chatId else { return }
@@ -450,10 +453,18 @@ final class ChatCoordinator {
             chat.id = chatId
             context.insert(chat)
         }
-        if isResearch { chat.hasDeepResearch = true }
         if isNotes { chat.chatType = "notes" }
 
+        let sourceUserMessage = persistedUserMessage(
+            chatId: chatId,
+            query: query,
+            assistantMessage: assistantMessage
+        )
         let userMsg = SDMessage(role: "user", content: query)
+        if let sourceUserMessage {
+            userMsg.id = sourceUserMessage.id
+            userMsg.createdAt = sourceUserMessage.createdAt
+        }
         userMsg.chat = chat
         context.insert(userMsg)
 
@@ -469,10 +480,7 @@ final class ChatCoordinator {
             evidenceGrade: grade,
             mode: mode,
             reasoningText: assistantMessage?.reasoningText,
-            reasoningDuration: assistantMessage?.reasoningDuration,
-            isResearchResult: assistantMessage?.isResearchResult ?? isResearch,
-            researchDuration: assistantMessage?.researchDuration,
-            researchStartTime: assistantMessage?.researchStartTime
+            reasoningDuration: assistantMessage?.reasoningDuration
         )
         assistantMsg.chat = chat
         context.insert(assistantMsg)
@@ -489,6 +497,28 @@ final class ChatCoordinator {
             Log.db.info("Persisted chat \(chatId, privacy: .public): user + assistant messages")
         } catch {
             Log.db.error("Failed to persist chat: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func persistedUserMessage(
+        chatId: String,
+        query: String,
+        assistantMessage: ChatMessage?
+    ) -> ChatMessage? {
+        let currentMessages = chatState.messages
+        guard !currentMessages.isEmpty else { return nil }
+
+        if let assistantMessage,
+           let assistantIndex = currentMessages.lastIndex(where: { $0.id == assistantMessage.id }) {
+            return currentMessages[..<assistantIndex].last {
+                $0.chatId == chatId && $0.role == .user
+            }
+        }
+
+        return currentMessages.last {
+            $0.chatId == chatId && $0.role == .user && $0.content == query
+        } ?? currentMessages.last {
+            $0.chatId == chatId && $0.role == .user
         }
     }
 
@@ -519,10 +549,7 @@ final class ChatCoordinator {
             evidenceGrade: grade,
             mode: message?.mode ?? lastAssistant.inferenceMode.flatMap(InferenceMode.init(rawValue:)),
             reasoningText: message?.reasoningText ?? lastAssistant.reasoningText,
-            reasoningDuration: message?.reasoningDuration ?? lastAssistant.reasoningDuration,
-            isResearchResult: message?.isResearchResult ?? lastAssistant.isResearchResult,
-            researchDuration: message?.researchDuration ?? lastAssistant.researchDuration,
-            researchStartTime: message?.researchStartTime ?? lastAssistant.researchStartTime
+            reasoningDuration: message?.reasoningDuration ?? lastAssistant.reasoningDuration
         )
 
         do {
@@ -530,126 +557,6 @@ final class ChatCoordinator {
             Log.db.info("Persisted enrichment for chat \(chatId, privacy: .public)")
         } catch {
             Log.db.error("Failed to persist enrichment: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    static func makeResearchCompletionNotificationPayload(
-        chatId: String,
-        chatTitle: String,
-        hasFullResearch: Bool
-    ) -> ResearchCompletionNotificationPayload {
-        let title = hasFullResearch ? "Full Research Complete" : "Enrichment Complete"
-        return ResearchCompletionNotificationPayload(
-            identifier: "research-complete-\(chatId)",
-            title: title,
-            subtitle: chatTitle,
-            body: "\(chatTitle) is ready. Click to open the chat.",
-            userInfo: ["chatId": chatId]
-        )
-    }
-
-    private func postResearchCompletionNotification(
-        chatId: String?,
-        fallbackQuery: String,
-        dualMessage: DualMessage
-    ) {
-        guard let chatId else { return }
-        let chatTitle = resolvedChatTitle(chatId: chatId, fallbackQuery: fallbackQuery)
-        let payload = Self.makeResearchCompletionNotificationPayload(
-            chatId: chatId,
-            chatTitle: chatTitle,
-            hasFullResearch: !dualMessage.rawAnalysis.isEmpty
-        )
-        Self.scheduleResearchCompletionNotification(payload)
-    }
-
-    private func resolvedChatTitle(chatId: String, fallbackQuery: String) -> String {
-        let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<SDChat>(
-            predicate: #Predicate<SDChat> { $0.id == chatId }
-        )
-        if let chat = try? context.fetch(descriptor).first,
-           !chat.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return chat.title
-        }
-        if let title = chatState.chatTitle,
-           !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return title
-        }
-        let trimmed = fallbackQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.count > 50 {
-            return String(trimmed.prefix(50)) + "…"
-        }
-        return trimmed.isEmpty ? "Research Chat" : trimmed
-    }
-
-    private static func scheduleResearchCompletionNotification(
-        _ payload: ResearchCompletionNotificationPayload
-    ) {
-        guard !isRunningTests else { return }
-
-        let center = UNUserNotificationCenter.current()
-        Task {
-            let authorizationStatus = await notificationAuthorizationStatus(center: center)
-            let isAuthorized: Bool
-
-            switch authorizationStatus {
-            case .notDetermined:
-                isAuthorized = await requestNotificationAuthorization(center: center)
-            case .authorized, .provisional, .ephemeral:
-                isAuthorized = true
-            case .denied:
-                isAuthorized = false
-            @unknown default:
-                isAuthorized = false
-            }
-
-            guard isAuthorized else {
-                Log.pipeline.info("Research completion notification skipped — notifications not authorized")
-                return
-            }
-
-            let content = UNMutableNotificationContent()
-            content.title = payload.title
-            content.subtitle = payload.subtitle
-            content.body = payload.body
-            content.sound = .default
-            content.userInfo = payload.userInfo
-
-            let request = UNNotificationRequest(
-                identifier: payload.identifier,
-                content: content,
-                trigger: nil
-            )
-
-            center.add(request) { error in
-                if let error {
-                    Log.pipeline.error("Failed to schedule research completion notification: \(error.localizedDescription, privacy: .public)")
-                }
-            }
-        }
-    }
-
-    private static func notificationAuthorizationStatus(
-        center: UNUserNotificationCenter
-    ) async -> UNAuthorizationStatus {
-        await withCheckedContinuation { continuation in
-            center.getNotificationSettings { settings in
-                continuation.resume(returning: settings.authorizationStatus)
-            }
-        }
-    }
-
-    private static func requestNotificationAuthorization(
-        center: UNUserNotificationCenter
-    ) async -> Bool {
-        await withCheckedContinuation { continuation in
-            center.requestAuthorization(options: [.alert, .sound]) { granted, error in
-                if let error {
-                    Log.pipeline.error("Failed to request notification authorization: \(error.localizedDescription, privacy: .public)")
-                }
-                continuation.resume(returning: granted)
-            }
         }
     }
 
@@ -661,6 +568,23 @@ final class ChatCoordinator {
         case 0.30..<0.50: .d
         default: .f
         }
+    }
+
+    private static func persistableDualMessage(
+        from dual: DualMessage,
+        truth: TruthAssessment?
+    ) -> DualMessage? {
+        guard truth != nil ||
+            !dual.rawAnalysis.isEmpty ||
+            !dual.uncertaintyTags.isEmpty ||
+            !dual.modelVsDataFlags.isEmpty ||
+            dual.laymanSummary != nil ||
+            dual.reflection != nil ||
+            dual.arbitration != nil
+        else {
+            return nil
+        }
+        return dual
     }
 
     // MARK: - Cross-System Note Association

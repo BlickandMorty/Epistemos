@@ -32,6 +32,7 @@ final class SDMessage {
     var inferenceMode: String?          // "local", "api", "appleIntelligence"
     var reasoningText: String?
     var reasoningDuration: Double?
+    // Legacy persisted fields kept for lightweight migration compatibility.
     var isResearchResult: Bool = false
     var researchDuration: Double?
     var researchStartTime: Date?
@@ -72,19 +73,13 @@ final class SDMessage {
         evidenceGrade: EvidenceGrade?,
         mode: InferenceMode?,
         reasoningText: String?,
-        reasoningDuration: Double?,
-        isResearchResult: Bool,
-        researchDuration: Double?,
-        researchStartTime: Date?
+        reasoningDuration: Double?
     ) {
         self.confidenceScore = confidence
         self.evidenceGrade = evidenceGrade?.rawValue
         self.inferenceMode = mode?.rawValue
         self.reasoningText = reasoningText
         self.reasoningDuration = reasoningDuration
-        self.isResearchResult = isResearchResult
-        self.researchDuration = researchDuration
-        self.researchStartTime = researchStartTime
 
         if let dualMessage {
             do {
@@ -121,10 +116,7 @@ final class SDMessage {
             mode: inferenceMode.flatMap(InferenceMode.init(rawValue:)),
             createdAt: createdAt,
             reasoningText: reasoningText,
-            reasoningDuration: reasoningDuration,
-            isResearchResult: isResearchResult,
-            researchDuration: researchDuration,
-            researchStartTime: researchStartTime
+            reasoningDuration: reasoningDuration
         )
     }
 }

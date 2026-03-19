@@ -1005,12 +1005,11 @@ actor VaultIndexActor {
 
     /// Build a lightweight manifest for ambient vault awareness.
     /// Entries only — no recent bodies (those are loaded on-demand via @-mentions).
-    func buildAmbientManifest() -> VaultManifest? {
+    func buildAmbientManifest(vaultTitle: String) -> VaultManifest? {
         var descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
-        descriptor.fetchLimit = 500
 
         guard let pages = try? modelContext.fetch(descriptor), !pages.isEmpty else { return nil }
 
@@ -1028,6 +1027,9 @@ actor VaultIndexActor {
         }
 
         return VaultManifest(
+            vaultTitle: vaultTitle,
+            totalNoteCount: pages.count,
+            isInventoryComplete: true,
             entries: entries,
             recentBodies: [],
             generatedAt: .now
@@ -1036,12 +1038,11 @@ actor VaultIndexActor {
 
     /// Build a complete vault manifest for vault briefing.
     /// Includes metadata for ALL non-archived notes + full bodies of the 20 most recent.
-    func buildVaultManifest() -> VaultManifest? {
+    func buildVaultManifest(vaultTitle: String) -> VaultManifest? {
         var descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
-        descriptor.fetchLimit = 500
 
         guard let pages = try? modelContext.fetch(descriptor), !pages.isEmpty else { return nil }
 
@@ -1070,6 +1071,9 @@ actor VaultIndexActor {
         }
 
         return VaultManifest(
+            vaultTitle: vaultTitle,
+            totalNoteCount: pages.count,
+            isInventoryComplete: true,
             entries: entries,
             recentBodies: recentBodies,
             generatedAt: .now

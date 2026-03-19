@@ -135,12 +135,15 @@ struct VaultIndexActorTests {
         )
         try context.save()
 
-        guard let manifest = await actor.buildAmbientManifest() else {
+        guard let manifest = await actor.buildAmbientManifest(vaultTitle: "my mind") else {
             Issue.record("Expected non-nil ambient manifest")
             return
         }
         #expect(manifest.entries.count == 2)
         #expect(manifest.recentBodies.isEmpty)
+        #expect(manifest.vaultTitle == "my mind")
+        #expect(manifest.totalNoteCount == 2)
+        #expect(manifest.isInventoryComplete)
 
         let noteB = manifest.entries.first { $0.title == "Note B" }
         #expect(noteB?.snippet == "Note B")
@@ -164,7 +167,7 @@ struct VaultIndexActorTests {
         }
         try context.save()
 
-        guard let manifest = await actor.buildVaultManifest() else {
+        guard let manifest = await actor.buildVaultManifest(vaultTitle: "my mind") else {
             Issue.record("Expected non-nil vault manifest")
             return
         }
@@ -172,6 +175,8 @@ struct VaultIndexActorTests {
         #expect(manifest.recentBodies.count == 20)
         #expect(manifest.recentBodies.first?.title == "P24")
         #expect(manifest.recentBodies.last?.title == "P5")
+        #expect(manifest.vaultTitle == "my mind")
+        #expect(manifest.totalNoteCount == 25)
     }
 
     @Test("fetchNoteBodies returns only existing IDs in request order")

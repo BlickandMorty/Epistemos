@@ -6,6 +6,9 @@ import Foundation
 // ~30-40 tokens per entry (manifest-only) or ~50-80 (with snippets).
 
 struct VaultManifest: Sendable {
+    let vaultTitle: String
+    let totalNoteCount: Int
+    let isInventoryComplete: Bool
     let entries: [ManifestEntry]
     let recentBodies: [NoteBody]
     let generatedAt: Date
@@ -34,7 +37,12 @@ struct VaultManifest: Sendable {
     func asContext() -> String {
         var parts: [String] = []
 
-        parts.append("## Vault Overview (\(entries.count) notes)")
+        parts.append("## Vault")
+        parts.append("- title: \(vaultTitle)")
+        parts.append("- notes: \(totalNoteCount)")
+        parts.append("- inventory: \(isInventoryComplete ? "complete" : "partial")")
+        parts.append("")
+        parts.append("## Vault Overview (\(entries.count) listed notes)")
         for entry in entries {
             let tags = entry.tags.isEmpty ? "" : " [tags: \(entry.tags.joined(separator: ", "))]"
             let folder = entry.folderName.map { " in \($0)" } ?? ""
@@ -56,7 +64,12 @@ struct VaultManifest: Sendable {
     /// Omits snippets and recent note bodies to minimize token overhead (~30-40 tokens/entry).
     func asManifestOnly() -> String {
         var parts: [String] = []
-        parts.append("## Vault Overview (\(entries.count) notes)")
+        parts.append("## Vault")
+        parts.append("- title: \(vaultTitle)")
+        parts.append("- notes: \(totalNoteCount)")
+        parts.append("- inventory: \(isInventoryComplete ? "complete" : "partial")")
+        parts.append("")
+        parts.append("## Vault Overview (\(entries.count) listed notes)")
         for entry in entries {
             let tags = entry.tags.isEmpty ? "" : " [tags: \(entry.tags.joined(separator: ", "))]"
             let folder = entry.folderName.map { " in \($0)" } ?? ""
@@ -64,5 +77,27 @@ struct VaultManifest: Sendable {
             parts.append("- **\(entry.title)**\(folder)\(tags) — \(entry.wordCount) words, updated \(date)")
         }
         return parts.joined(separator: "\n")
+    }
+}
+
+struct VaultContextPack: Sendable {
+    let manifest: VaultManifest?
+    let includeManifest: Bool
+    let referencedNotes: [VaultManifest.NoteBody]
+    let cleanedQuery: String
+
+    func renderedContext() -> String? {
+        var parts: [String] = []
+        if includeManifest, let manifest {
+            parts.append(manifest.asManifestOnly())
+        }
+
+        var seenNoteIDs = Set<String>()
+        for note in referencedNotes {
+            guard seenNoteIDs.insert(note.pageId).inserted else { continue }
+            parts.append("### Referenced Note: \(note.title)\n\(note.body)")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
     }
 }

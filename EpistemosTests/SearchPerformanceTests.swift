@@ -36,50 +36,48 @@ struct SearchPerformanceTests {
         return best ?? .zero
     }
     
-    // MARK: - Rust FST Search Latency
+    // MARK: - Graph Search Latency
     
-    @Test("Rust FST search latency - small graph")
+    @Test("Graph fuzzy search latency - small graph")
     func rustFSTSearchSmall() async throws {
         let store = GraphStore()
         let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 100)
         store.loadDirect(nodes: nodes, edges: edges)
-        
-        // Note: Without actual Rust engine, we test the Swift fallback
-        // In production with Rust, this would use FST index
+
         let searchTime = bestDuration {
             let _ = store.fuzzySearch(query: "Node", limit: 20)
         }
-        
-        #expect(searchTime < .milliseconds(100), "Rust FST search took \(searchTime), expected < 100ms")
+
+        #expect(searchTime < .milliseconds(100), "Graph fuzzy search took \(searchTime), expected < 100ms")
     }
-    
-    @Test("Rust FST search latency - medium graph")
+
+    @Test("Graph fuzzy search latency - medium graph")
     func rustFSTSearchMedium() async throws {
         let store = GraphStore()
         let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 500)
         store.loadDirect(nodes: nodes, edges: edges)
-        
+
         let searchTime = bestDuration {
             let _ = store.fuzzySearch(query: "Test", limit: 20)
         }
-        
-        #expect(searchTime < .milliseconds(100), "Rust FST search on 500 nodes took \(searchTime)")
+
+        #expect(searchTime < .milliseconds(100), "Graph fuzzy search on 500 nodes took \(searchTime)")
     }
-    
-    @Test("Rust FST search latency - large graph")
+
+    @Test("Graph fuzzy search latency - large graph")
     func rustFSTSearchLarge() async throws {
         let store = GraphStore()
         let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 2000)
         store.loadDirect(nodes: nodes, edges: edges)
-        
+
         let searchTime = bestDuration {
             let _ = store.fuzzySearch(query: "Node", limit: 20)
         }
-        
-        #expect(searchTime < .milliseconds(175), "Rust FST search on 2000 nodes took \(searchTime)")
+
+        #expect(searchTime < .milliseconds(175), "Graph fuzzy search on 2000 nodes took \(searchTime)")
     }
-    
-    @Test("Rust FST search - multiple queries")
+
+    @Test("Graph fuzzy search - multiple queries")
     func rustFSTMultipleQueries() async throws {
         let store = GraphStore()
         let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 1000)

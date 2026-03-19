@@ -3,7 +3,7 @@ import AppIntents
 // MARK: - Analysis Result Entity
 // Represents the output of a pipeline analysis — evidence grade,
 // confidence, summary, and identified weaknesses.
-// Used by DeepAnalyzeIntent and FactCheckIntent.
+// Used by DeepAnalyzeIntent.
 
 struct AnalysisResultEntity: AppEntity, Sendable {
     nonisolated(unsafe) static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Analysis Result")

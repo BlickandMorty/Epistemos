@@ -27,7 +27,7 @@ struct DailyBriefingIntent: AppIntent {
         \(summary)\(manifestHint)
         """
 
-        // Use the same daily brief pipeline (Apple Intelligence first, cloud fallback)
+        // Use the same daily brief pipeline (Apple Intelligence first, then local Qwen)
         if let result = await bootstrap.dailyBriefState.onDailyBriefGenerate?(prompt) {
             return .result(dialog: "\(String(result.prefix(500)))")
         } else {

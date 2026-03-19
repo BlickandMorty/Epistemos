@@ -48,4 +48,14 @@ final class ThreadState {
         guard let idx = chatThreads.firstIndex(where: { $0.id == tid }) else { return }
         chatThreads[idx].messages.append(message)
     }
+
+    func activeThread() -> ChatThread? {
+        chatThreads.first { $0.id == activeThreadId }
+    }
+
+    func updateActiveThreadLoadedNotes(ids: Set<String>, titles: [String]) {
+        guard let idx = chatThreads.firstIndex(where: { $0.id == activeThreadId }) else { return }
+        chatThreads[idx].loadedNoteIds = Array(ids).sorted()
+        chatThreads[idx].loadedNoteTitles = titles
+    }
 }

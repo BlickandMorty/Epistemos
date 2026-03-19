@@ -6,7 +6,7 @@ import os
 
 /// Classifies each notes AI operation with a base complexity score.
 /// Simple transforms (grammar, summarize) route to Apple Intelligence;
-/// complex reasoning (analyze, learn) routes to the user's API provider.
+/// deeper reasoning routes to local Qwen.
 nonisolated enum NotesOperation: Sendable {
     case grammarFix        // 0.15 — simple transform, ideal for on-device
     case summarize         // 0.20 — focused extraction
@@ -16,7 +16,7 @@ nonisolated enum NotesOperation: Sendable {
     case outline           // 0.40 — structural analysis
     case expand            // 0.50 — needs creative depth
     case analyze           // 0.60 — deep reasoning
-    case learn             // 0.70 — multi-step protocol, always API
+    case learn             // 0.70 — multi-step protocol, always local Qwen
 
     var baseComplexity: Double {
         switch self {
@@ -54,14 +54,14 @@ nonisolated enum GeneralOperation: Sendable {
     case chatResponse(query: String)  // 0.35 — user-facing streaming answer
     case epistemicLens                    // 0.65 — multi-paragraph analytical prose
     case brainstorm                   // 0.25 — creative, short output
-    case apiOnly                      // 1.00 — JSON-dependent stages
+    case structuredAnalysis           // 1.00 — structured local-only analysis
 
     var baseComplexity: Double {
         switch self {
         case .chatResponse: 0.35
         case .epistemicLens:    0.65
         case .brainstorm:   0.25
-        case .apiOnly:      1.00
+        case .structuredAnalysis: 1.00
         }
     }
 
@@ -70,7 +70,559 @@ nonisolated enum GeneralOperation: Sendable {
         case .chatResponse: "Chat Response"
         case .epistemicLens:    "Epistemic Lens"
         case .brainstorm:   "Brainstorm"
-        case .apiOnly:      "API Only"
+        case .structuredAnalysis: "Structured Analysis"
+        }
+    }
+}
+
+nonisolated enum InferenceTaskIntent: Sendable, Equatable {
+    case simpleAsk
+    case rewrite
+    case summarize
+    case brainstorm
+    case coding
+    case debugging
+    case comparison
+    case synthesis
+    case noteAnalysis
+    case graphAnalysis
+    case structuredAnalysis
+}
+
+nonisolated enum InferenceRouteKind: String, Sendable, Equatable {
+    case appleIntelligence
+    case localQwen
+}
+
+nonisolated enum InferenceComplexityTier: String, Sendable, Equatable {
+    case trivial
+    case light
+    case moderate
+    case heavy
+    case extreme
+}
+
+nonisolated enum InferenceContextTier: String, Sendable, Equatable {
+    case tiny
+    case small
+    case medium
+    case large
+    case oversized
+}
+
+nonisolated enum InferenceDecisionReasonCode: String, Sendable, Equatable, Hashable {
+    case simpleTaskAppleEligible
+    case appleUnavailable
+    case appleBypassedForComplexity
+    case localModeForced
+    case automaticSelectionDisabled
+    case explicitThinkingRequested
+    case explicitFastRequested
+    case warmModelSufficient
+    case runtimeConstrained
+    case preferredLocalModelUsed
+    case noInstalledLocalModel
+}
+
+nonisolated struct InferenceRequestProfile: Sendable, Equatable {
+    let surface: LocalModelSelectionSurface
+    let intent: InferenceTaskIntent
+    let contentLength: Int
+    let promptLength: Int
+    let contextBlockCount: Int
+    let estimatedTokenLoad: Int
+    let baseComplexity: Double
+    let queryComplexity: Double
+    let requestedReasoningMode: LocalReasoningMode
+    let explicitThinkingRequested: Bool
+    let explicitFastRequested: Bool
+    let visibleThinkingRequested: Bool
+}
+
+nonisolated struct InferencePolicyContext: Sendable, Equatable {
+    let routingMode: LocalRoutingMode
+    let appleIntelligenceAvailable: Bool
+    let automaticLocalModelSelectionEnabled: Bool
+    let preferredLocalTextModelID: String
+    let preferredLocalReasoningMode: LocalReasoningMode
+    let installedLocalTextModelIDs: Set<String>
+    let warmLocalTextModelID: String?
+    let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
+    let runtimeConditions: LocalRuntimeConditions
+}
+
+nonisolated struct InferenceRouteDecision: Sendable, Equatable {
+    let selectedRoute: InferenceRouteKind
+    let selectedReasoningMode: LocalReasoningMode
+    let localSelection: LocalModelSelection?
+    let reuseWarmModel: Bool
+    let complexityTier: InferenceComplexityTier
+    let contextTier: InferenceContextTier
+    let reasonCodes: Set<InferenceDecisionReasonCode>
+
+    var selectedLocalModelID: String? {
+        localSelection?.modelID
+    }
+}
+
+nonisolated struct InferencePolicyEngine {
+    private let maxAppleIntelligenceContentLength = 6_000
+
+    func decide(
+        profile: InferenceRequestProfile,
+        context: InferencePolicyContext
+    ) -> InferenceRouteDecision {
+        let complexityTier = self.complexityTier(for: profile)
+        let contextTier = self.contextTier(for: profile)
+        var reasonCodes: Set<InferenceDecisionReasonCode> = []
+
+        let localSelection = localSelection(
+            for: profile,
+            context: context,
+            complexityTier: complexityTier,
+            contextTier: contextTier,
+            reasonCodes: &reasonCodes
+        )
+
+        if context.routingMode == .localOnly {
+            reasonCodes.insert(.localModeForced)
+            return InferenceRouteDecision(
+                selectedRoute: .localQwen,
+                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                    for: profile,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                ),
+                localSelection: localSelection.selection,
+                reuseWarmModel: localSelection.reuseWarmModel,
+                complexityTier: complexityTier,
+                contextTier: contextTier,
+                reasonCodes: reasonCodes
+            )
+        }
+
+        if appleEligible(
+            profile: profile,
+            context: context,
+            complexityTier: complexityTier,
+            contextTier: contextTier,
+            reasonCodes: &reasonCodes
+        ) {
+            return InferenceRouteDecision(
+                selectedRoute: .appleIntelligence,
+                selectedReasoningMode: .fast,
+                localSelection: nil,
+                reuseWarmModel: false,
+                complexityTier: complexityTier,
+                contextTier: contextTier,
+                reasonCodes: reasonCodes
+            )
+        }
+
+        return InferenceRouteDecision(
+            selectedRoute: .localQwen,
+            selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                for: profile,
+                complexityTier: complexityTier,
+                contextTier: contextTier
+            ),
+            localSelection: localSelection.selection,
+            reuseWarmModel: localSelection.reuseWarmModel,
+            complexityTier: complexityTier,
+            contextTier: contextTier,
+            reasonCodes: reasonCodes
+        )
+    }
+
+    func resolvedPreferredLocalSelection(
+        in context: InferencePolicyContext,
+        reasoningMode: LocalReasoningMode? = nil
+    ) -> LocalModelSelection? {
+        let installedModels = supportedInstalledModels(in: context)
+        guard !installedModels.isEmpty else { return nil }
+
+        let runtimeRecommended = context.hardwareCapabilitySnapshot.recommendedLocalTextModelID(
+            for: context.runtimeConditions
+        )
+        let preferredModel = LocalTextModelID(rawValue: context.preferredLocalTextModelID) ?? runtimeRecommended
+        let cappedPreferred = context.runtimeConditions.prefersConstrainedLocalModel
+            && preferredModel.minimumRecommendedMemoryGB > runtimeRecommended.minimumRecommendedMemoryGB
+            ? runtimeRecommended
+            : preferredModel
+        guard let resolved = resolvedInstalledLocalTextModel(
+            preferredModel: cappedPreferred,
+            installedModels: installedModels
+        ) else {
+            return nil
+        }
+
+        let selectedReasoningMode = reasoningMode ?? context.preferredLocalReasoningMode
+        return LocalModelSelection(
+            modelID: resolved.rawValue,
+            reasoningMode: selectedReasoningMode,
+            contentBudget: context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
+                for: context.runtimeConditions,
+                reasoningMode: selectedReasoningMode
+            )
+        )
+    }
+
+    func localSelection(
+        for profile: InferenceRequestProfile,
+        context: InferencePolicyContext
+    ) -> LocalModelSelection? {
+        var reasonCodes: Set<InferenceDecisionReasonCode> = []
+        return localSelection(
+            for: profile,
+            context: context,
+            complexityTier: complexityTier(for: profile),
+            contextTier: contextTier(for: profile),
+            reasonCodes: &reasonCodes
+        ).selection
+    }
+
+    private func appleEligible(
+        profile: InferenceRequestProfile,
+        context: InferencePolicyContext,
+        complexityTier: InferenceComplexityTier,
+        contextTier: InferenceContextTier,
+        reasonCodes: inout Set<InferenceDecisionReasonCode>
+    ) -> Bool {
+        guard context.appleIntelligenceAvailable else {
+            reasonCodes.insert(.appleUnavailable)
+            return false
+        }
+        guard profile.contentLength <= maxAppleIntelligenceContentLength else {
+            reasonCodes.insert(.appleBypassedForComplexity)
+            return false
+        }
+        guard !profile.explicitThinkingRequested,
+              profile.requestedReasoningMode != .thinking else {
+            reasonCodes.insert(.appleBypassedForComplexity)
+            return false
+        }
+
+        let appleFriendlyIntent: Bool
+        switch profile.intent {
+        case .rewrite, .summarize, .simpleAsk, .brainstorm:
+            appleFriendlyIntent = true
+        case .coding, .debugging, .comparison, .synthesis, .noteAnalysis, .graphAnalysis, .structuredAnalysis:
+            appleFriendlyIntent = false
+        }
+        guard appleFriendlyIntent else {
+            reasonCodes.insert(.appleBypassedForComplexity)
+            return false
+        }
+
+        switch (complexityTier, contextTier) {
+        case (.trivial, _), (.light, .tiny), (.light, .small):
+            reasonCodes.insert(.simpleTaskAppleEligible)
+            return true
+        default:
+            reasonCodes.insert(.appleBypassedForComplexity)
+            return false
+        }
+    }
+
+    private func localSelection(
+        for profile: InferenceRequestProfile,
+        context: InferencePolicyContext,
+        complexityTier: InferenceComplexityTier,
+        contextTier: InferenceContextTier,
+        reasonCodes: inout Set<InferenceDecisionReasonCode>
+    ) -> (selection: LocalModelSelection?, reuseWarmModel: Bool) {
+        if !context.automaticLocalModelSelectionEnabled {
+            reasonCodes.insert(.automaticSelectionDisabled)
+            let preferred = resolvedPreferredLocalSelection(
+                in: context,
+                reasoningMode: reasoningMode(
+                    for: profile,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                )
+            )
+            if preferred != nil {
+                reasonCodes.insert(.preferredLocalModelUsed)
+            } else {
+                reasonCodes.insert(.noInstalledLocalModel)
+            }
+            return (preferred, false)
+        }
+
+        let installedModels = supportedInstalledModels(in: context)
+        guard !installedModels.isEmpty else {
+            reasonCodes.insert(.noInstalledLocalModel)
+            return (nil, false)
+        }
+
+        let selectedReasoningMode = reasoningMode(
+            for: profile,
+            complexityTier: complexityTier,
+            contextTier: contextTier
+        )
+        if profile.explicitThinkingRequested {
+            reasonCodes.insert(.explicitThinkingRequested)
+        }
+        if profile.explicitFastRequested {
+            reasonCodes.insert(.explicitFastRequested)
+        }
+
+        let contentBudget = context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
+            for: context.runtimeConditions,
+            reasoningMode: selectedReasoningMode
+        )
+
+        let targetModel = targetLocalTextModel(
+            for: profile,
+            complexityTier: complexityTier,
+            contextTier: contextTier
+        )
+        let runtimeCap = context.hardwareCapabilitySnapshot.recommendedLocalTextModelID(
+            for: context.runtimeConditions
+        )
+        let cappedTarget = context.runtimeConditions.prefersConstrainedLocalModel
+            && targetModel.minimumRecommendedMemoryGB > runtimeCap.minimumRecommendedMemoryGB
+            ? runtimeCap
+            : targetModel
+        if cappedTarget != targetModel {
+            reasonCodes.insert(.runtimeConstrained)
+        }
+
+        let candidate = installedModels.first {
+            $0.minimumRecommendedMemoryGB >= cappedTarget.minimumRecommendedMemoryGB
+        } ?? installedModels.last
+        guard let candidate else {
+            reasonCodes.insert(.noInstalledLocalModel)
+            return (nil, false)
+        }
+
+        let stickySelection = stickyModelSelection(
+            candidate: candidate,
+            installedModels: installedModels,
+            context: context
+        )
+        if stickySelection.reuseWarmModel {
+            reasonCodes.insert(.warmModelSufficient)
+        }
+        return (
+            LocalModelSelection(
+                modelID: stickySelection.model.rawValue,
+                reasoningMode: selectedReasoningMode,
+                contentBudget: contentBudget
+            ),
+            stickySelection.reuseWarmModel
+        )
+    }
+
+    private func targetLocalTextModel(
+        for profile: InferenceRequestProfile,
+        complexityTier: InferenceComplexityTier,
+        contextTier: InferenceContextTier
+    ) -> LocalTextModelID {
+        switch (profile.surface, complexityTier, profile.intent) {
+        case (.mainChat, .trivial, .simpleAsk),
+             (.mainChat, .light, .simpleAsk),
+             (.mainChat, .trivial, .brainstorm),
+             (.mainChat, .light, .brainstorm),
+             (.miniChat, .trivial, .simpleAsk),
+             (.miniChat, .light, .simpleAsk),
+             (.miniChat, .trivial, .brainstorm),
+             (.miniChat, .light, .brainstorm):
+            return .qwen35_2B4Bit
+        default:
+            break
+        }
+
+        switch (complexityTier, contextTier, profile.intent) {
+        case (.extreme, _, _), (_, .oversized, _):
+            return .qwen35_27B4Bit
+        case (.heavy, _, .graphAnalysis), (.heavy, _, .structuredAnalysis), (.heavy, .large, _):
+            return .qwen35_9B4Bit
+        case (.heavy, _, _), (.moderate, .large, _), (.moderate, _, .coding), (.moderate, _, .debugging), (.moderate, _, .comparison), (.moderate, _, .synthesis), (.moderate, _, .noteAnalysis), (.moderate, _, .graphAnalysis), (.moderate, _, .structuredAnalysis):
+            return .qwen35_4B4Bit
+        case (.moderate, _, _), (.light, .medium, _), (.light, _, .brainstorm):
+            return .qwen35_2B4Bit
+        default:
+            return .qwen35_0_8B4Bit
+        }
+    }
+
+    private func reasoningMode(
+        for profile: InferenceRequestProfile,
+        complexityTier: InferenceComplexityTier,
+        contextTier: InferenceContextTier
+    ) -> LocalReasoningMode {
+        if profile.explicitFastRequested {
+            return .fast
+        }
+        if profile.explicitThinkingRequested {
+            return .thinking
+        }
+        if profile.intent == .structuredAnalysis {
+            return contextTier == .oversized ? .thinking : .fast
+        }
+        switch complexityTier {
+        case .heavy, .extreme:
+            return .thinking
+        case .moderate:
+            switch (profile.intent, contextTier, profile.requestedReasoningMode) {
+            case (.debugging, _, _), (.graphAnalysis, _, _), (.structuredAnalysis, .large, _), (_, .large, .thinking):
+                return .thinking
+            default:
+                return .fast
+            }
+        case .trivial, .light:
+            return .fast
+        }
+    }
+
+    private func stickyModelSelection(
+        candidate: LocalTextModelID,
+        installedModels: [LocalTextModelID],
+        context: InferencePolicyContext
+    ) -> (model: LocalTextModelID, reuseWarmModel: Bool) {
+        guard context.automaticLocalModelSelectionEnabled,
+              !context.runtimeConditions.prefersConstrainedLocalModel,
+              let warmLocalTextModelID = context.warmLocalTextModelID,
+              let warmModel = LocalTextModelID(rawValue: warmLocalTextModelID),
+              installedModels.contains(warmModel),
+              let candidateIndex = LocalTextModelID.ascendingBySize.firstIndex(of: candidate),
+              let warmIndex = LocalTextModelID.ascendingBySize.firstIndex(of: warmModel) else {
+            return (candidate, false)
+        }
+
+        if warmIndex >= candidateIndex && warmIndex - candidateIndex <= 1 {
+            return (warmModel, true)
+        }
+
+        return (candidate, false)
+    }
+
+    private func supportedInstalledModels(in context: InferencePolicyContext) -> [LocalTextModelID] {
+        context.installedLocalTextModelIDs
+            .compactMap(LocalTextModelID.init(rawValue:))
+            .filter { context.hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue) }
+            .sorted { lhs, rhs in
+                lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
+            }
+    }
+
+    private func resolvedInstalledLocalTextModel(
+        preferredModel: LocalTextModelID,
+        installedModels: [LocalTextModelID]
+    ) -> LocalTextModelID? {
+        guard !installedModels.isEmpty else { return nil }
+        if installedModels.contains(preferredModel) {
+            return preferredModel
+        }
+        if let nearestSmallerOrEqual = installedModels.last(where: {
+            $0.minimumRecommendedMemoryGB <= preferredModel.minimumRecommendedMemoryGB
+        }) {
+            return nearestSmallerOrEqual
+        }
+        return installedModels.first(where: {
+            $0.minimumRecommendedMemoryGB > preferredModel.minimumRecommendedMemoryGB
+        }) ?? installedModels.last
+    }
+
+    private func complexityTier(for profile: InferenceRequestProfile) -> InferenceComplexityTier {
+        let contextTier = contextTier(for: profile)
+        var score = profile.baseComplexity
+        score += min(0.28, profile.queryComplexity * 0.50)
+        score += contextComplexityWeight(for: contextTier)
+        score += intentComplexityWeight(for: profile.intent)
+
+        switch profile.surface {
+        case .mainChat:
+            break
+        case .noteChat:
+            score += 0.03
+        case .graph:
+            score += 0.06
+        }
+
+        if profile.explicitThinkingRequested {
+            score += 0.14
+        }
+        if profile.visibleThinkingRequested {
+            score += 0.06
+        }
+        if profile.requestedReasoningMode == .thinking {
+            score += 0.04
+        }
+        if profile.explicitFastRequested {
+            score -= 0.05
+        }
+
+        let clamped = max(0, min(1, score))
+        switch clamped {
+        case ..<0.18:
+            return .trivial
+        case ..<0.34:
+            return .light
+        case ..<0.58:
+            return .moderate
+        case ..<0.78:
+            return .heavy
+        default:
+            return .extreme
+        }
+    }
+
+    private func contextTier(for profile: InferenceRequestProfile) -> InferenceContextTier {
+        switch (profile.contentLength, profile.estimatedTokenLoad, profile.contextBlockCount) {
+        case (...400, ...160, ...1):
+            return .tiny
+        case (...1_800, ...600, ...2):
+            return .small
+        case (...6_000, ...1_800, ...4):
+            return .medium
+        case (...12_000, ...3_500, ...8):
+            return .large
+        default:
+            return .oversized
+        }
+    }
+
+    private func contextComplexityWeight(for tier: InferenceContextTier) -> Double {
+        switch tier {
+        case .tiny:
+            0
+        case .small:
+            0.03
+        case .medium:
+            0.10
+        case .large:
+            0.18
+        case .oversized:
+            0.28
+        }
+    }
+
+    private func intentComplexityWeight(for intent: InferenceTaskIntent) -> Double {
+        switch intent {
+        case .simpleAsk:
+            0
+        case .rewrite:
+            -0.04
+        case .summarize:
+            -0.02
+        case .brainstorm:
+            0.03
+        case .coding:
+            0.12
+        case .debugging:
+            0.18
+        case .comparison:
+            0.10
+        case .synthesis:
+            0.14
+        case .noteAnalysis:
+            0.16
+        case .graphAnalysis:
+            0.20
+        case .structuredAnalysis:
+            0.24
         }
     }
 }
@@ -79,21 +631,37 @@ nonisolated enum GeneralOperation: Sendable {
 
 nonisolated enum TriageDecision: Sendable, Equatable {
     case appleIntelligence
-    case apiProvider
+    case localMLX
 
-    var isOnDevice: Bool { self == .appleIntelligence }
+    var isOnDevice: Bool {
+        true
+    }
 
     var label: String {
         switch self {
         case .appleIntelligence: "On-device"
-        case .apiProvider:       "Cloud"
+        case .localMLX:          "Local MLX"
         }
     }
 
     var icon: String {
         switch self {
         case .appleIntelligence: "cpu"
-        case .apiProvider:       "cloud"
+        case .localMLX:          "memorychip"
+        }
+    }
+}
+
+nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
+    case modelRequired
+    case runtimeUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .modelRequired:
+            "Local Only requires an installed Qwen 3.5 model. Open Settings and install one or switch routing modes."
+        case .runtimeUnavailable:
+            "The local Qwen runtime is not available yet. Install or re-enable the local model runtime in Settings."
         }
     }
 }
@@ -101,20 +669,12 @@ nonisolated enum TriageDecision: Sendable, Equatable {
 // MARK: - Triage Service
 
 /// Routes AI operations between Apple Intelligence (on-device) and the user's
-/// configured cloud API provider based on automatic complexity scoring.
-///
-/// Apple Intelligence is always-on when available — it silently handles simple
-/// operations (grammar, summarize, short queries) on-device for free.
-/// Complex operations route to whatever cloud API the user configured.
-/// If Apple Intelligence refuses or fails, the cloud API is used as fallback.
+/// local Qwen runtime based on automatic complexity scoring.
 @MainActor @Observable
 final class TriageService {
 
     private let inference: InferenceState
-    private let llmService: any LLMClientProtocol
-
-    private let complexityThreshold: Double = 0.25
-    private let maxAppleIntelligenceContentLength: Int = 6_000
+    private let localLLMService: (any LLMClientProtocol)?
 
     var lastDecision: TriageDecision?
 
@@ -185,13 +745,13 @@ final class TriageService {
         return false
     }
 
-    /// Combined check: is the response a failure that should trigger API fallback?
-    nonisolated static func shouldFallbackToAPI(_ text: String) -> Bool {
+    /// Combined check: is the Apple response a failure that should trigger a local retry?
+    nonisolated static func shouldRetryWithLocalModel(_ text: String) -> Bool {
         isRefusalResponse(text) || isTruncatedResponse(text)
     }
 
     /// Apple Intelligence on-device model has ~4096 tokens of context.
-    /// Replaces the cloud-grade system prompt with a simple one Apple AI can follow,
+    /// Replaces the heavier research-grade system prompt with a simple one Apple AI can follow,
     /// and trims the user prompt to fit within the remaining context budget.
     private static func trimForAppleIntelligence(prompt: String, systemPrompt: String?) -> (String, String?) {
         // Apple Intelligence can't follow complex research prompts (evidence tiers,
@@ -215,46 +775,30 @@ final class TriageService {
         return (trimmedPrompt, simpleSystem)
     }
 
-    init(inference: InferenceState, llmService: any LLMClientProtocol) {
+    init(
+        inference: InferenceState,
+        localLLMService: (any LLMClientProtocol)? = nil
+    ) {
         self.inference = inference
-        self.llmService = llmService
+        self.localLLMService = localLLMService
     }
 
     // MARK: - Triage Logic
 
-    /// Routes a notes operation to Apple Intelligence or the cloud API.
-    /// Apple Intelligence is always-on: if available and the operation is simple enough,
-    /// it runs on-device. The user's selected cloud provider handles everything else.
-    func triage(operation: NotesOperation, contentLength: Int, query: String? = nil) -> TriageDecision {
-        // If the selected provider has no key, prefer on-device over a guaranteed
-        // cloud failure whenever Apple Intelligence is available.
-        if inference.apiKey.isEmpty && inference.appleIntelligenceAvailable {
-            return .appleIntelligence
-        }
-
-        // Apple Intelligence must be available on this Mac
-        guard inference.appleIntelligenceAvailable else { return .apiProvider }
-
-        // Simple operations (grammar, summarize, rewrite) always prefer Apple Intelligence.
-        // Prompts are trimmed automatically to fit the 4096-token context window.
-        let isSimple = operation.baseComplexity <= complexityThreshold
-        if !isSimple {
-            guard contentLength <= maxAppleIntelligenceContentLength else { return .apiProvider }
-        }
-
-        var effectiveComplexity = operation.baseComplexity
-        if !isSimple {
-            let lengthFactor = min(0.20, Double(contentLength) / 60_000)
-            effectiveComplexity += lengthFactor
-        }
-
-        if case .ask(let q) = operation, !q.isEmpty {
-            let analysis = QueryAnalyzer.analyze(query: q)
-            effectiveComplexity += analysis.complexity * 0.20
-        }
-
-        effectiveComplexity = min(1.0, effectiveComplexity)
-        return effectiveComplexity <= complexityThreshold ? .appleIntelligence : .apiProvider
+    /// Routes a notes operation to Apple Intelligence or local Qwen.
+    func triage(
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String? = nil,
+        localReasoningMode: LocalReasoningMode? = nil
+    ) -> TriageDecision {
+        let decision = routeDecisionForNotes(
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            localReasoningMode: localReasoningMode ?? inference.preferredLocalReasoningMode
+        )
+        return triageDecision(for: decision.selectedRoute)
     }
 
     // MARK: - Stream with Triage
@@ -264,17 +808,32 @@ final class TriageService {
         systemPrompt: String? = nil,
         operation: NotesOperation,
         contentLength: Int,
-        query: String? = nil
+        query: String? = nil,
+        localReasoningMode: LocalReasoningMode = .fast
     ) -> AsyncThrowingStream<String, Error> {
-        let decision = triage(operation: operation, contentLength: contentLength, query: query)
-        lastDecision = decision
-        Log.engine.info("Triage: \(operation.displayName) → \(decision.label) (content: \(contentLength) chars)")
+        let decision = routeDecisionForNotes(
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            localReasoningMode: localReasoningMode
+        )
+        let triageDecision = triageDecision(for: decision.selectedRoute)
+        lastDecision = triageDecision
+        Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
 
-        switch decision {
+        switch triageDecision {
         case .appleIntelligence:
-            return appleIntelligenceStreamWithFallback(prompt: prompt, systemPrompt: systemPrompt)
-        case .apiProvider:
-            return apiStreamWithAppleIntelligenceFallback(prompt: prompt, systemPrompt: systemPrompt)
+            return appleIntelligenceStreamWithFallback(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                localSelection: decision.localSelection
+            )
+        case .localMLX:
+            return localStreamOrFallback(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                selection: decision.localSelection
+            )
         }
     }
 
@@ -285,89 +844,101 @@ final class TriageService {
         systemPrompt: String? = nil,
         operation: NotesOperation,
         contentLength: Int,
-        query: String? = nil
+        query: String? = nil,
+        localReasoningMode: LocalReasoningMode = .fast
     ) async throws -> String {
-        let decision = triage(operation: operation, contentLength: contentLength, query: query)
-        lastDecision = decision
-        Log.engine.info("Triage: \(operation.displayName) → \(decision.label) (content: \(contentLength) chars)")
+        let decision = routeDecisionForNotes(
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            localReasoningMode: localReasoningMode
+        )
+        let triageDecision = triageDecision(for: decision.selectedRoute)
+        lastDecision = triageDecision
+        Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
 
-        switch decision {
+        switch triageDecision {
         case .appleIntelligence:
             let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
             do {
                 let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
-                if Self.shouldFallbackToAPI(result) {
-                    Log.engine.info("Apple Intelligence response inadequate, falling back to API silently")
-                    lastDecision = .apiProvider
-                    return try await llmService.generate(prompt: prompt, systemPrompt: systemPrompt)
+                if Self.shouldRetryWithLocalModel(result) {
+                    Log.engine.info("Apple Intelligence response inadequate, falling back to local Qwen")
+                    lastDecision = .localMLX
+                    return try await localGenerateOrFallback(
+                        prompt: prompt,
+                        systemPrompt: systemPrompt,
+                        selection: decision.localSelection
+                    )
                 }
                 return result
             } catch {
-                Log.engine.warning("Apple Intelligence failed, falling back to API silently: \(error.localizedDescription, privacy: .public)")
-                lastDecision = .apiProvider
-                return try await llmService.generate(prompt: prompt, systemPrompt: systemPrompt)
+                Log.engine.warning("Apple Intelligence failed, falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
+                lastDecision = .localMLX
+                return try await localGenerateOrFallback(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    selection: decision.localSelection
+                )
             }
-        case .apiProvider:
-            return try await llmService.generate(prompt: prompt, systemPrompt: systemPrompt)
+        case .localMLX:
+            return try await localGenerateOrFallback(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                selection: decision.localSelection
+            )
         }
     }
 
     // MARK: - General Triage Logic
 
-    /// Routes a general operation to Apple Intelligence or the cloud API.
-    /// Same always-on logic as notes triage.
-    ///
-    /// **Fallback rule**: When the user's selected cloud provider has no API key
-    /// but Apple Intelligence IS available, force-route to on-device regardless of
-    /// complexity. This prevents 401 errors for users who haven't entered a key yet.
-    func triageGeneral(operation: GeneralOperation, contentLength: Int) -> TriageDecision {
-        // If the selected provider has no key, prefer on-device over a guaranteed
-        // cloud failure whenever Apple Intelligence is available.
-        if inference.apiKey.isEmpty && inference.appleIntelligenceAvailable {
-            return .appleIntelligence
-        }
-
-        guard operation.baseComplexity < 1.0 else { return .apiProvider }
-        guard inference.appleIntelligenceAvailable else { return .apiProvider }
-
-        // Simple operations (summaries, brainstorm/daily briefs) always prefer Apple
-        // Intelligence — prompts are trimmed automatically to fit the 4096-token context.
-        // Only complex operations check content length to avoid losing critical detail.
-        let isSimple = operation.baseComplexity <= complexityThreshold
-        if !isSimple {
-            guard contentLength <= maxAppleIntelligenceContentLength else { return .apiProvider }
-        }
-
-        var effectiveComplexity = operation.baseComplexity
-        if !isSimple {
-            let lengthFactor = min(0.20, Double(contentLength) / 60_000)
-            effectiveComplexity += lengthFactor
-        }
-
-        if case .chatResponse(let query) = operation, !query.isEmpty {
-            let analysis = QueryAnalyzer.analyze(query: query)
-            effectiveComplexity += analysis.complexity * 0.30
-        }
-
-        effectiveComplexity = min(1.0, effectiveComplexity)
-        return effectiveComplexity <= complexityThreshold ? .appleIntelligence : .apiProvider
+    /// Routes a general operation to Apple Intelligence or local Qwen.
+    func triageGeneral(
+        operation: GeneralOperation,
+        contentLength: Int,
+        localReasoningMode: LocalReasoningMode? = nil,
+        localSurface: LocalModelSelectionSurface = .mainChat
+    ) -> TriageDecision {
+        let decision = routeDecisionForGeneral(
+            operation: operation,
+            contentLength: contentLength,
+            localReasoningMode: localReasoningMode ?? inference.preferredLocalReasoningMode,
+            localSurface: localSurface
+        )
+        return triageDecision(for: decision.selectedRoute)
     }
 
     func streamGeneral(
         prompt: String,
         systemPrompt: String? = nil,
         operation: GeneralOperation,
-        contentLength: Int
+        contentLength: Int,
+        localReasoningMode: LocalReasoningMode = .fast,
+        localSurface: LocalModelSelectionSurface = .mainChat
     ) -> AsyncThrowingStream<String, Error> {
-        let decision = triageGeneral(operation: operation, contentLength: contentLength)
-        lastDecision = decision
-        Log.engine.info("Triage: \(operation.displayName) → \(decision.label) (content: \(contentLength) chars)")
+        let decision = routeDecisionForGeneral(
+            operation: operation,
+            contentLength: contentLength,
+            localReasoningMode: localReasoningMode,
+            localSurface: localSurface
+        )
+        let triageDecision = triageDecision(for: decision.selectedRoute)
+        lastDecision = triageDecision
+        Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
 
-        switch decision {
+        switch triageDecision {
         case .appleIntelligence:
-            return appleIntelligenceStreamWithFallback(prompt: prompt, systemPrompt: systemPrompt)
-        case .apiProvider:
-            return apiStreamWithAppleIntelligenceFallback(prompt: prompt, systemPrompt: systemPrompt)
+            return appleIntelligenceStreamWithFallback(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                localSelection: decision.localSelection
+            )
+        case .localMLX:
+            return localStreamOrFallback(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                selection: decision.localSelection
+            )
         }
     }
 
@@ -375,124 +946,65 @@ final class TriageService {
         prompt: String,
         systemPrompt: String? = nil,
         operation: GeneralOperation,
-        contentLength: Int
+        contentLength: Int,
+        localReasoningMode: LocalReasoningMode = .fast,
+        localSurface: LocalModelSelectionSurface = .mainChat
     ) async throws -> String {
-        let decision = triageGeneral(operation: operation, contentLength: contentLength)
-        lastDecision = decision
-        Log.engine.info("Triage: \(operation.displayName) → \(decision.label) (content: \(contentLength) chars)")
+        let decision = routeDecisionForGeneral(
+            operation: operation,
+            contentLength: contentLength,
+            localReasoningMode: localReasoningMode,
+            localSurface: localSurface
+        )
+        let triageDecision = triageDecision(for: decision.selectedRoute)
+        lastDecision = triageDecision
+        Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
 
-        switch decision {
+        switch triageDecision {
         case .appleIntelligence:
             let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
             do {
                 let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
-                if Self.shouldFallbackToAPI(result) {
-                    Log.engine.info("Apple Intelligence response inadequate (general), falling back to API silently")
-                    lastDecision = .apiProvider
-                    return try await llmService.generate(prompt: prompt, systemPrompt: systemPrompt)
+                if Self.shouldRetryWithLocalModel(result) {
+                    Log.engine.info("Apple Intelligence response inadequate (general), falling back to local Qwen")
+                    lastDecision = .localMLX
+                    return try await localGenerateOrFallback(
+                        prompt: prompt,
+                        systemPrompt: systemPrompt,
+                        selection: decision.localSelection
+                    )
                 }
                 return result
             } catch {
-                Log.engine.warning("Apple Intelligence failed (general), falling back to API silently: \(error.localizedDescription, privacy: .public)")
-                lastDecision = .apiProvider
-                return try await llmService.generate(prompt: prompt, systemPrompt: systemPrompt)
+                Log.engine.warning("Apple Intelligence failed (general), falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
+                lastDecision = .localMLX
+                return try await localGenerateOrFallback(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    selection: decision.localSelection
+                )
             }
-        case .apiProvider:
-            do {
-                return try await llmService.generate(prompt: prompt, systemPrompt: systemPrompt)
-            } catch let apiError as LLMError where apiError.isAuthError {
-                // Check Apple Intelligence availability FRESH — cached flag may be stale
-                let aiFresh = AppleIntelligenceService.shared.checkAvailability()
-                guard aiFresh.available else {
-                    Log.engine.warning("Cloud API auth error (generate) but Apple Intelligence unavailable (\(aiFresh.reason ?? "unknown", privacy: .public))")
-                    throw apiError
-                }
-                Log.engine.warning("Cloud API auth error (generate), falling back to Apple Intelligence")
-                lastDecision = .appleIntelligence
-                inference.appleIntelligenceAvailable = aiFresh.available
-                let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
-                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
-                if Self.shouldFallbackToAPI(result) {
-                    throw apiError // Both failed — propagate the original API error
-                }
-                return result
-            }
-        }
-    }
-
-    // MARK: - Cloud API Stream with Apple Intelligence Fallback
-
-    /// Streams from the cloud API, falling back to Apple Intelligence if:
-    /// - The API returns an auth/validation error (400, 401, 403)
-    /// - Apple Intelligence is available on this Mac
-    /// This covers the case where a user has an invalid API key but Apple Intelligence works.
-    private func apiStreamWithAppleIntelligenceFallback(
-        prompt: String,
-        systemPrompt: String?
-    ) -> AsyncThrowingStream<String, Error> {
-        let llm = self.llmService
-        let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
-
-        return AsyncThrowingStream { continuation in
-            let task = Task { [weak self] in
-                do {
-                    let cloudStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
-                    for try await chunk in cloudStream {
-                        continuation.yield(chunk)
-                    }
-                    continuation.finish()
-                } catch let apiError as LLMError where apiError.isAuthError {
-                    // Check Apple Intelligence availability FRESH — the cached flag in
-                    // InferenceState may be stale (set once at app launch).
-                    let aiFresh = AppleIntelligenceService.shared.checkAvailability()
-                    guard aiFresh.available else {
-                        Log.engine.warning("Cloud API auth error but Apple Intelligence unavailable (\(aiFresh.reason ?? "unknown", privacy: .public))")
-                        continuation.finish(throwing: apiError)
-                        return
-                    }
-                    Log.engine.warning("Cloud API auth error, falling back to Apple Intelligence: \(apiError.localizedDescription, privacy: .public)")
-                    await MainActor.run {
-                        self?.lastDecision = .appleIntelligence
-                        self?.inference.appleIntelligenceAvailable = aiFresh.available
-                    }
-                    // Seamless fallback — user sees Apple Intelligence response instead of error.
-                    // Prompt is trimmed to fit the on-device model's ~4096 token context.
-                    do {
-                        let result = try await AppleIntelligenceService.shared.generate(
-                            prompt: aiPrompt,
-                            systemPrompt: aiSystem
-                        )
-                        if !Self.isRefusalResponse(result) {
-                            continuation.yield(result)
-                            continuation.finish()
-                        } else {
-                            // Apple Intelligence also refused — propagate original API error
-                            continuation.finish(throwing: apiError)
-                        }
-                    } catch {
-                        // Apple Intelligence also failed — propagate original API error (not the AI error)
-                        continuation.finish(throwing: apiError)
-                    }
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in task.cancel() }
+        case .localMLX:
+            return try await localGenerateOrFallback(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                selection: decision.localSelection
+            )
         }
     }
 
     // MARK: - Apple Intelligence Stream with Fallback
 
-    /// Streams from Apple Intelligence, falling back to the cloud API seamlessly if:
+    /// Streams from Apple Intelligence, falling back to local Qwen seamlessly if:
     /// - Apple Intelligence throws an error (timeout, unavailable)
     /// - The response is a polite refusal ("I can't help with that")
     /// - The response appears truncated (stops mid-sentence)
     /// The user never sees the failed response — fallback replaces it entirely.
     private func appleIntelligenceStreamWithFallback(
         prompt: String,
-        systemPrompt: String?
+        systemPrompt: String?,
+        localSelection: LocalModelSelection?
     ) -> AsyncThrowingStream<String, Error> {
-        let llm = self.llmService
         let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
 
         return AsyncThrowingStream { continuation in
@@ -504,21 +1016,26 @@ final class TriageService {
                     )
 
                     // Check for refusal, truncation, or suspiciously short response
-                    if Self.shouldFallbackToAPI(result) {
-                        Log.engine.info("Apple Intelligence response inadequate (stream), falling back to API silently")
-                        await MainActor.run { self?.lastDecision = .apiProvider }
-                        // Try cloud API — but if it also fails, use the Apple Intelligence
-                        // response rather than throwing. A slightly truncated answer beats nothing.
+                    if Self.shouldRetryWithLocalModel(result) {
+                        Log.engine.info("Apple Intelligence response inadequate (stream), falling back to local Qwen")
+                        await MainActor.run { self?.lastDecision = .localMLX }
                         do {
-                            let fallbackStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
+                            guard let self else {
+                                continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
+                                return
+                            }
+                            let fallbackStream = self.localStreamOrFallback(
+                                prompt: prompt,
+                                systemPrompt: systemPrompt,
+                                selection: localSelection
+                            )
                             for try await chunk in fallbackStream {
                                 continuation.yield(chunk)
                             }
                             continuation.finish()
                         } catch {
-                            Log.engine.info("Cloud API fallback also failed — using Apple Intelligence response")
+                            Log.engine.info("Local Qwen fallback also failed — using Apple Intelligence response")
                             if !Self.isRefusalResponse(result) {
-                                // Not a refusal, just truncated — still usable
                                 continuation.yield(result)
                                 continuation.finish()
                             } else {
@@ -531,11 +1048,18 @@ final class TriageService {
                     continuation.yield(result)
                     continuation.finish()
                 } catch {
-                    Log.engine.warning("Apple Intelligence failed (stream), falling back to API silently: \(error.localizedDescription, privacy: .public)")
-                    await MainActor.run { self?.lastDecision = .apiProvider }
-                    // Seamless fallback — user sees nothing from the failed attempt
-                    let fallbackStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
+                    Log.engine.warning("Apple Intelligence failed (stream), falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
+                    await MainActor.run { self?.lastDecision = .localMLX }
                     do {
+                        guard let self else {
+                            continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
+                            return
+                        }
+                        let fallbackStream = self.localStreamOrFallback(
+                            prompt: prompt,
+                            systemPrompt: systemPrompt,
+                            selection: localSelection
+                        )
                         for try await chunk in fallbackStream {
                             continuation.yield(chunk)
                         }
@@ -543,6 +1067,339 @@ final class TriageService {
                     } catch {
                         continuation.finish(throwing: error)
                     }
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    // MARK: - Shared Triage Heuristics
+
+    private func routeDecisionForNotes(
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String?,
+        localReasoningMode: LocalReasoningMode
+    ) -> InferenceRouteDecision {
+        inference.routeDecision(
+            for: requestProfileForNotes(
+                operation: operation,
+                contentLength: contentLength,
+                query: query,
+                localReasoningMode: localReasoningMode
+            )
+        )
+    }
+
+    private func routeDecisionForGeneral(
+        operation: GeneralOperation,
+        contentLength: Int,
+        localReasoningMode: LocalReasoningMode,
+        localSurface: LocalModelSelectionSurface
+    ) -> InferenceRouteDecision {
+        inference.routeDecision(
+            for: requestProfileForGeneral(
+                operation: operation,
+                contentLength: contentLength,
+                localReasoningMode: localReasoningMode,
+                localSurface: localSurface
+            )
+        )
+    }
+
+    private func requestProfileForNotes(
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String?,
+        localReasoningMode: LocalReasoningMode
+    ) -> InferenceRequestProfile {
+        let queryText: String
+        if case .ask(let prompt) = operation, !prompt.isEmpty {
+            queryText = prompt
+        } else {
+            queryText = query ?? ""
+        }
+        let analysis = queryText.isEmpty ? nil : QueryAnalyzer.analyze(query: queryText)
+        let promptLength = max(contentLength, queryText.count)
+        let explicitThinking = Self.explicitThinkingRequested(in: queryText)
+        let explicitFast = Self.explicitFastRequested(in: queryText)
+        let requestedReasoningMode = explicitThinking ? .thinking : localReasoningMode
+
+        return InferenceRequestProfile(
+            surface: .noteChat,
+            intent: taskIntent(for: operation, queryText: queryText),
+            contentLength: contentLength,
+            promptLength: promptLength,
+            contextBlockCount: contextBlockCount(
+                contentLength: contentLength,
+                promptLength: promptLength,
+                surface: .noteChat
+            ),
+            estimatedTokenLoad: estimatedTokenLoad(
+                contentLength: contentLength,
+                promptLength: promptLength
+            ),
+            baseComplexity: operation.baseComplexity,
+            queryComplexity: analysis?.complexity ?? 0,
+            requestedReasoningMode: requestedReasoningMode,
+            explicitThinkingRequested: explicitThinking,
+            explicitFastRequested: explicitFast,
+            visibleThinkingRequested: explicitThinking && inference.showLocalThinkingPanel
+        )
+    }
+
+    private func requestProfileForGeneral(
+        operation: GeneralOperation,
+        contentLength: Int,
+        localReasoningMode: LocalReasoningMode,
+        localSurface: LocalModelSelectionSurface
+    ) -> InferenceRequestProfile {
+        let queryText: String
+        if case .chatResponse(let prompt) = operation {
+            queryText = prompt
+        } else {
+            queryText = ""
+        }
+        let analysis = queryText.isEmpty ? nil : QueryAnalyzer.analyze(query: queryText)
+        let promptLength = max(contentLength, queryText.count)
+        let explicitThinking = Self.explicitThinkingRequested(in: queryText)
+        let explicitFast = Self.explicitFastRequested(in: queryText)
+        let requestedReasoningMode = explicitThinking ? .thinking : localReasoningMode
+
+        return InferenceRequestProfile(
+            surface: localSurface,
+            intent: taskIntent(for: operation, queryText: queryText, surface: localSurface),
+            contentLength: contentLength,
+            promptLength: promptLength,
+            contextBlockCount: contextBlockCount(
+                contentLength: contentLength,
+                promptLength: promptLength,
+                surface: localSurface
+            ),
+            estimatedTokenLoad: estimatedTokenLoad(
+                contentLength: contentLength,
+                promptLength: promptLength
+            ),
+            baseComplexity: operation.baseComplexity,
+            queryComplexity: analysis?.complexity ?? 0,
+            requestedReasoningMode: requestedReasoningMode,
+            explicitThinkingRequested: explicitThinking,
+            explicitFastRequested: explicitFast,
+            visibleThinkingRequested: explicitThinking && inference.showLocalThinkingPanel
+        )
+    }
+
+    private static func explicitThinkingRequested(in text: String) -> Bool {
+        let normalized = text.lowercased()
+        let cues = [
+            "think step by step",
+            "step by step",
+            "reason step by step",
+            "show your reasoning",
+            "show thinking",
+            "deep reasoning",
+            "think through",
+            "analyze deeply",
+            "debug this",
+        ]
+        return cues.contains { normalized.contains($0) }
+    }
+
+    private static func explicitFastRequested(in text: String) -> Bool {
+        let normalized = text.lowercased()
+        let cues = [
+            "be brief",
+            "be concise",
+            "fast answer",
+            "quick answer",
+            "short answer",
+            "just the answer",
+        ]
+        return cues.contains { normalized.contains($0) }
+    }
+
+    private func triageDecision(for route: InferenceRouteKind) -> TriageDecision {
+        switch route {
+        case .appleIntelligence:
+            .appleIntelligence
+        case .localQwen:
+            .localMLX
+        }
+    }
+
+    private func estimatedTokenLoad(contentLength: Int, promptLength: Int) -> Int {
+        max(1, max(contentLength, promptLength) / 4)
+    }
+
+    private func contextBlockCount(
+        contentLength: Int,
+        promptLength: Int,
+        surface: LocalModelSelectionSurface
+    ) -> Int {
+        let divisor: Double
+        switch surface {
+        case .mainChat:
+            divisor = 2_400
+        case .noteChat:
+            divisor = 1_800
+        case .graph:
+            divisor = 1_500
+        }
+        let combined = max(contentLength, promptLength)
+        return max(1, Int(ceil(Double(combined) / divisor)))
+    }
+
+    private func taskIntent(
+        for operation: NotesOperation,
+        queryText: String
+    ) -> InferenceTaskIntent {
+        switch operation {
+        case .grammarFix, .rewrite:
+            return .rewrite
+        case .summarize:
+            return .summarize
+        case .continueWriting:
+            return .brainstorm
+        case .ask:
+            return inferredTaskIntent(from: queryText, surface: .noteChat)
+        case .outline, .expand:
+            return .synthesis
+        case .analyze, .learn:
+            return .noteAnalysis
+        }
+    }
+
+    private func taskIntent(
+        for operation: GeneralOperation,
+        queryText: String,
+        surface: LocalModelSelectionSurface
+    ) -> InferenceTaskIntent {
+        switch operation {
+        case .chatResponse:
+            return inferredTaskIntent(from: queryText, surface: surface)
+        case .epistemicLens, .structuredAnalysis:
+            return .structuredAnalysis
+        case .brainstorm:
+            return .brainstorm
+        }
+    }
+
+    private func inferredTaskIntent(
+        from queryText: String,
+        surface: LocalModelSelectionSurface
+    ) -> InferenceTaskIntent {
+        if surface == .graph {
+            return .graphAnalysis
+        }
+
+        let normalized = queryText.lowercased()
+        if normalized.contains("```")
+            || normalized.contains(" stack trace")
+            || normalized.contains(" compiler ")
+            || normalized.contains(" compile ")
+            || normalized.contains(" bug ")
+            || normalized.contains(" debug") {
+            return .debugging
+        }
+        if normalized.contains("swift")
+            || normalized.contains("rust")
+            || normalized.contains("python")
+            || normalized.contains("javascript")
+            || normalized.contains("typescript")
+            || normalized.contains(" code") {
+            return .coding
+        }
+        if normalized.contains("compare")
+            || normalized.contains("versus")
+            || normalized.contains(" vs ")
+            || normalized.contains("tradeoff")
+            || normalized.contains("difference between") {
+            return .comparison
+        }
+        if normalized.contains("synthesize")
+            || normalized.contains("combine")
+            || normalized.contains("across notes")
+            || normalized.contains("across sources") {
+            return .synthesis
+        }
+        if normalized.contains("analyze")
+            || normalized.contains("reason through")
+            || normalized.contains("failure mode")
+            || normalized.contains("why") {
+            return .noteAnalysis
+        }
+        return .simpleAsk
+    }
+
+    // MARK: - Local MLX Fallback
+
+    private func localGenerateOrFallback(
+        prompt: String,
+        systemPrompt: String?,
+        selection: LocalModelSelection?
+    ) async throws -> String {
+        guard let selection else {
+            throw LocalInferenceRoutingError.modelRequired
+        }
+        guard let localLLMService else {
+            throw LocalInferenceRoutingError.runtimeUnavailable
+        }
+
+        do {
+            inference.recordLocalModelSelection(selection)
+            if let configurable = localLLMService as? any LocalConfigurableLLMClient {
+                return try await configurable.generate(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    maxTokens: 0,
+                    reasoningMode: selection.reasoningMode,
+                    modelID: selection.modelID
+                )
+            }
+            return try await localLLMService.generate(prompt: prompt, systemPrompt: systemPrompt)
+        } catch {
+            throw error
+        }
+    }
+
+    private func localStreamOrFallback(
+        prompt: String,
+        systemPrompt: String?,
+        selection: LocalModelSelection?
+    ) -> AsyncThrowingStream<String, Error> {
+        guard let selection else {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: LocalInferenceRoutingError.modelRequired)
+            }
+        }
+        guard let localLLMService else {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
+            }
+        }
+        inference.recordLocalModelSelection(selection)
+
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let stream: AsyncThrowingStream<String, Error>
+                    if let configurable = localLLMService as? any LocalConfigurableLLMClient {
+                        stream = configurable.stream(
+                            prompt: prompt,
+                            systemPrompt: systemPrompt,
+                            maxTokens: 0,
+                            reasoningMode: selection.reasoningMode,
+                            modelID: selection.modelID
+                        )
+                    } else {
+                        stream = localLLMService.stream(prompt: prompt, systemPrompt: systemPrompt)
+                    }
+                    for try await chunk in stream {
+                        continuation.yield(chunk)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }

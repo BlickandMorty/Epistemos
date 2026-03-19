@@ -122,9 +122,9 @@ Saves ~46MB at 50K nodes vs previous String-keyed dictionaries.
 ### 4.3 AI Pipeline
 
 **TriageService** routes by complexity:
-- `< 0.30` → On-device (Apple Intelligence / Neural Engine)
-- `0.30–0.50` → Threshold-dependent
-- `> 0.50` → Cloud (Anthropic/OpenAI)
+- light rewrite / summarize / simple ask → Apple Intelligence when the context stays small
+- deeper reasoning / coding / graph / long-context work → local Qwen 3.5
+- no cloud fallback in the live app
 
 **PipelineService** runs 3-pass analytical pipeline:
 - Pass 1: Streaming answer

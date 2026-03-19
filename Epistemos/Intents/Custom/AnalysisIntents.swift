@@ -3,7 +3,7 @@ import SwiftData
 
 // MARK: - Analysis Intents (Custom)
 // Quick AI operations that route through TriageService for
-// automatic Apple Intelligence / cloud API selection.
+// automatic Apple Intelligence / local Qwen selection.
 
 // MARK: Run Analysis (Quick — Pass 1 only)
 

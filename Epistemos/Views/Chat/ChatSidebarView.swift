@@ -13,15 +13,11 @@ struct ChatSidebarView: View {
 
     @State private var recentChats: [SDChat] = []
     @State private var searchText = ""
-    @State private var showResearchOnly = false
     @State private var showNotesOnly = false
     private var theme: EpistemosTheme { ui.theme }
 
     private var filteredChats: [SDChat] {
         var result = recentChats
-        if showResearchOnly {
-            result = result.filter { $0.hasDeepResearch == true }
-        }
         if showNotesOnly {
             result = result.filter { $0.linkedPageId != nil }
         }
@@ -44,22 +40,7 @@ struct ChatSidebarView: View {
             HStack(spacing: 6) {
                 Button {
                     withAnimation(Motion.quick) {
-                        showResearchOnly.toggle()
-                        if showResearchOnly { showNotesOnly = false }
-                    }
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "flask")
-                        Text("Research")
-                    }
-                    .font(.epSmall)
-                }
-                .buttonStyle(NativePillButtonStyle(isActive: showResearchOnly, activeColor: theme.accent))
-
-                Button {
-                    withAnimation(Motion.quick) {
                         showNotesOnly.toggle()
-                        if showNotesOnly { showResearchOnly = false }
                     }
                 } label: {
                     HStack(spacing: 3) {

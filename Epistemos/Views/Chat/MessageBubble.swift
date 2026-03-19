@@ -33,84 +33,7 @@ private func stripBracketTags(_ text: String) -> String {
 // MARK: - Full Export Builder
 
 private func buildFullExport(message: ChatMessage) -> String {
-    var sections: [String] = []
-
-    sections.append(stripBracketTags(message.content))
-
-    if let dual = message.dualMessage {
-        if let ls = dual.laymanSummary {
-            sections.append("\n---\n\n## Layman Summary")
-            sections.append(contentsOf: laymanSummarySections(ls))
-        }
-
-        if !dual.rawAnalysis.isEmpty {
-            sections.append("\n---\n\n## Research Analysis\n\(dual.rawAnalysis)")
-        }
-
-        if let ref = dual.reflection {
-            if !ref.selfCriticalQuestions.isEmpty {
-                sections.append("\n---\n\n## Reflection")
-                sections.append(
-                    "### Self-Critical Questions\n"
-                        + ref.selfCriticalQuestions.map { "- \($0)" }.joined(separator: "\n"))
-                if !ref.adjustments.isEmpty {
-                    sections.append(
-                        "### Adjustments\n"
-                            + ref.adjustments.map { "- \($0)" }.joined(separator: "\n"))
-                }
-                if !ref.leastDefensibleClaim.isEmpty {
-                    sections.append("### Least Defensible Claim\n\(ref.leastDefensibleClaim)")
-                }
-                if !ref.precisionVsEvidenceCheck.isEmpty {
-                    sections.append("### Precision vs Evidence\n\(ref.precisionVsEvidenceCheck)")
-                }
-            }
-        }
-
-        if let arb = dual.arbitration {
-            sections.append("\n---\n\n## Arbitration")
-            sections.append("**Consensus:** \(arb.consensus ? "Yes" : "No")")
-            if !arb.resolution.isEmpty {
-                sections.append("**Resolution:** \(arb.resolution)")
-            }
-            if !arb.votes.isEmpty {
-                sections.append("### Engine Votes")
-                for v in arb.votes {
-                    sections.append(
-                        "- **\(v.engine.rawValue)** — \(v.position) (\(Int(v.confidence * 100))%): \(v.reasoning)"
-                    )
-                }
-            }
-            if !arb.disagreements.isEmpty {
-                sections.append(
-                    "### Disagreements\n"
-                        + arb.disagreements.map { "- \($0)" }.joined(separator: "\n"))
-            }
-        }
-
-        if !dual.uncertaintyTags.isEmpty {
-            sections.append("\n---\n\n## Uncertainty Tags")
-            for t in dual.uncertaintyTags {
-                sections.append("- **[\(t.tag.rawValue.uppercased())]** \(t.claim)")
-            }
-        }
-
-        if !dual.modelVsDataFlags.isEmpty {
-            sections.append("\n---\n\n## Data vs Model Flags")
-            for f in dual.modelVsDataFlags {
-                sections.append("- **\(f.source.rawValue)**: \(f.claim)")
-            }
-        }
-    }
-
-    if let conf = message.confidence {
-        sections.append("\n---\n\n**Confidence:** \(Int(conf * 100))%")
-        if let grade = message.evidenceGrade {
-            sections.append("**Evidence Grade:** \(grade.rawValue)")
-        }
-    }
-
-    return sections.joined(separator: "\n\n")
+    stripBracketTags(message.content)
 }
 
 // MARK: - Message Bubble
@@ -129,9 +52,6 @@ struct MessageBubble: View {
     private var theme: EpistemosTheme { ui.theme }
     private var isUser: Bool { message.role == .user }
 
-    /// Research results use full-width layout (no avatar, no right spacer).
-    private var isResearchLayout: Bool { message.isResearchResult }
-
     private var sourceReferences: [AssistantSourceReference] {
         AssistantSourceReference.extract(
             from: cleanedText,
@@ -147,8 +67,6 @@ struct MessageBubble: View {
                 userBubble
             } else if message.isError {
                 errorBubble
-            } else if isResearchLayout {
-                researchBubble
             } else {
                 assistantBubble
             }
@@ -178,8 +96,8 @@ struct MessageBubble: View {
                 rippleStyle: .none,
                 foregroundOverride: theme.userBubbleText
             )
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
                 .background(theme.userBubbleBg, in: UserBubbleShape())
 
             if !message.attachments.isEmpty {
@@ -214,79 +132,9 @@ struct MessageBubble: View {
         }
     }
 
-    // MARK: - Research Bubble (full-width, no avatar)
-    // Shows the streaming answer immediately — no blocking "analyzing" gate.
-    // Enrichment cards (layman summary, reflection, truth, consensus) appear
-    // below the answer when background Passes 2-6 complete.
-
-    private var researchBubble: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            // Research mode badge — visible proof this message went through research pipeline
-            // with live enrichment timer that ticks every second.
-            ResearchBadge(
-                isEnriched: message.dualMessage?.laymanSummary != nil,
-                researchDuration: message.researchDuration,
-                researchStartTime: message.researchStartTime,
-                theme: theme
-            )
-
-            // Thinking accordion — for completed messages with reasoning
-            if let reasoning = message.reasoningText, !reasoning.isEmpty {
-                ThinkingAccordion(
-                    reasoningText: reasoning,
-                    duration: message.reasoningDuration,
-                    isLive: false
-                )
-            }
-
-            // Response heading — auto-extracted topic
-            if let heading = extractHeading(from: message.content) {
-                Text(heading)
-                    .font(AppHeadingRole.h2.font)
-                    .foregroundStyle(theme.fontAccent)
-            }
-
-            // Answer text — rendered instantly because streaming already provided
-            // progressive reveal with haptics. TypewriterMarkdown here caused a
-            // double-animation: text appeared during streaming, vanished on completion,
-            // then re-animated character by character.
-            TaggedMarkdownTextView(content: cleanedText, theme: theme)
-
-            // Confidence bar — only shown after enrichment completes.
-            // Pre-enrichment value is a placeholder 0.5 from Pass 1; not meaningful.
-            if let confidence = message.confidence,
-                message.dualMessage?.laymanSummary != nil
-            {
-                ConfidenceBar(confidence: confidence, evidenceGrade: message.evidenceGrade)
-            }
-
-            AssistantSourcesFooter(sources: sourceReferences, theme: theme)
-
-            // Enrichment cards — non-blocking, fade in when background passes complete
-            EpistemicLensPanel(message: message)
-
-            // Toolbar
-            MessageToolbar(
-                message: message,
-                originalQuery: originalQuery,
-                allowsResubmit: allowsResubmit,
-                onResubmit: onResubmit,
-                copied: $copied,
-                rating: $rating
-            )
-            .opacity(isHovered ? 1 : 0)
-            .animation(Motion.quick, value: isHovered)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
-    }
-
-    // MARK: - Assistant Bubble
-
     private var assistantBubble: some View {
         assistantBubbleChrome {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
             // Vault briefing header — Notes Mode auto-briefing indicator
                 if message.isVaultBriefing {
                     HStack(spacing: 6) {
@@ -318,13 +166,9 @@ struct MessageBubble: View {
                         .foregroundStyle(theme.fontAccent)
                 }
 
-                // Response content — regular mode display.
-                // Research results are routed to researchBubble above.
-                // Confidence bar and ConsensusReportCard are research-only features
-                // and are NOT shown here — regular chat has no real enrichment data.
                 TaggedMarkdownTextView(content: cleanedText, theme: theme)
 
-                AssistantSourcesFooter(sources: sourceReferences, theme: theme)
+                AssistantSourcesFooter(sources: sourceReferences, theme: theme, style: .popoverPanel)
 
                 // Toolbar — always rendered at fixed height, opacity-only transition
                 MessageToolbar(
@@ -380,11 +224,11 @@ struct MessageBubble: View {
     ) -> some View {
         if theme.assistantBubbleBackgroundHex != nil {
             content()
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, 12)
-                .background(theme.assistantBubbleBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(theme.assistantBubbleBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .strokeBorder(theme.border.opacity(0.85), lineWidth: 0.8)
                 )
         } else {
@@ -465,67 +309,8 @@ private struct ConfidenceBar: View {
     }
 }
 
-// MARK: - Research Badge
-// Shows research mode status with a live ticking timer during enrichment.
-
-private struct ResearchBadge: View {
-    let isEnriched: Bool
-    let researchDuration: TimeInterval?
-    /// Per-message start time — drives the live timer independently of global state.
-    let researchStartTime: Date?
-    let theme: EpistemosTheme
-
-    /// Format seconds into "Xm Ys" or just "Xs".
-    private func formatDuration(_ seconds: TimeInterval) -> String {
-        let s = Int(seconds)
-        if s >= 60 {
-            return "\(s / 60)m \(s % 60)s"
-        }
-        return "\(s)s"
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "flask.fill")
-                .font(.epSmall)
-            Text("Research Mode")
-                .font(.epSmall)
-
-            if isEnriched {
-                // Enrichment complete — show final duration
-                if let dur = researchDuration {
-                    Text("Pipeline Complete \(formatDuration(dur))")
-                        .font(.epSmall)
-                        .foregroundStyle(theme.emerald)
-                } else {
-                    Text("Pipeline Complete")
-                        .font(.epSmall)
-                        .foregroundStyle(theme.emerald)
-                }
-            } else if let start = researchStartTime {
-                // Enrichment in progress — live ticking timer using the message's own start time.
-                // This persists even when the user sends a new query.
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let elapsed = context.date.timeIntervalSince(start)
-                    Text("Enriching \(formatDuration(elapsed))")
-                        .font(.epMono)
-                        .foregroundStyle(theme.accent.opacity(0.7))
-                }
-            } else {
-                Text("Enriching...")
-                    .font(.epSmall)
-                    .foregroundStyle(theme.mutedForeground)
-            }
-        }
-        .foregroundStyle(theme.accent)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(theme.accent.opacity(0.08), in: Capsule())
-    }
-}
-
 // MARK: - Epistemic Lens Panel
-// Non-blocking enrichment cards for research mode.
+// Non-blocking enrichment cards for persisted older messages.
 // Shows nothing while enrichment is running — the answer is already visible
 // in the parent bubble. When Passes 2-6 complete, cards fade in below.
 

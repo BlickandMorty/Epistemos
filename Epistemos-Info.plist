@@ -8,10 +8,6 @@
 	<string>com.epistemos.app</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Epistemos uses on-device speech recognition for voice-to-text.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Epistemos needs microphone access for dictation.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>com.epistemos.openNote</string>
