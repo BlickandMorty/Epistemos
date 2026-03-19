@@ -658,6 +658,176 @@ uint8_t graph_engine_btk_payload_row(
     BtkSubscriptionRowFFI* out
 );
 
+// ── Knowledge Core (Shared-Memory Reactive FFI) ────────────────────────────
+
+typedef struct KnowledgeCore KnowledgeCore;
+
+typedef struct {
+    uint8_t* ptr;
+    uint64_t len;
+} GraphEngineSharedMemoryRegion;
+
+typedef struct {
+    uint64_t head_offset;
+    uint64_t tail_offset;
+    uint64_t slots_offset;
+    uint64_t slot_stride;
+    uint64_t slot_payload_offset;
+    uint32_t slot_count;
+    uint32_t slot_payload_bytes;
+} GraphEngineRingLayout;
+
+typedef struct {
+    uint8_t row_kind;
+    uint8_t _pad[3];
+    GraphEngineStringSlice page_id;
+    GraphEngineStringSlice block_id;
+    GraphEngineStringSlice parent_id;
+    GraphEngineStringSlice target_id;
+    GraphEngineStringSlice content;
+    GraphEngineStringSlice property_key;
+    GraphEngineStringSlice property_value;
+    GraphEngineStringSlice task_marker;
+    GraphEngineStringSlice order_key;
+    uint16_t depth;
+    uint8_t ref_type;
+    uint8_t task_done;
+} KnowledgeQueryRowFFI;
+
+typedef struct {
+    uint64_t tx_id;
+    uint64_t subscription_id;
+    uint8_t kind;
+    uint8_t _pad[3];
+    uint32_t added_count;
+    uint32_t updated_count;
+    uint32_t removed_count;
+} KnowledgePayloadSummaryFFI;
+
+typedef struct {
+    uint64_t published_frames;
+    uint64_t dropped_frames;
+    uint64_t coalesced_frames;
+    uint64_t ring_full_failures;
+} KnowledgeCoreTransportStatsFFI;
+
+/// Create a shared-memory knowledge core.
+KnowledgeCore* graph_engine_kc_create(
+    uint32_t slot_count,
+    uint32_t slot_payload_bytes,
+    uint64_t peer_id
+);
+
+/// Destroy a knowledge core and release the mapped ring buffer.
+void graph_engine_kc_destroy(KnowledgeCore* core);
+
+/// Return the mapped shared-memory region backing the SPSC ring.
+GraphEngineSharedMemoryRegion graph_engine_kc_ring_region(KnowledgeCore* core);
+
+/// Return offsets and capacities for reading ring slots from Swift.
+GraphEngineRingLayout graph_engine_kc_ring_layout(KnowledgeCore* core);
+
+/// Atomic ring index helpers.
+uint64_t graph_engine_kc_ring_head(KnowledgeCore* core);
+uint64_t graph_engine_kc_ring_tail(KnowledgeCore* core);
+void graph_engine_kc_ring_set_tail(KnowledgeCore* core, uint64_t tail);
+
+/// Register subscriptions. Initial snapshots are emitted into the ring.
+uint64_t graph_engine_kc_subscribe_outline(KnowledgeCore* core, const char* page_id);
+uint64_t graph_engine_kc_subscribe_tasks(KnowledgeCore* core, const char* page_id);
+uint64_t graph_engine_kc_subscribe_properties(
+    KnowledgeCore* core,
+    const char* page_id,
+    const char* key
+);
+uint8_t graph_engine_kc_unsubscribe(KnowledgeCore* core, uint64_t subscription_id);
+
+/// Ingest or mutate document state. format: 0 = Markdown, 1 = Org.
+uint8_t graph_engine_kc_ingest_document(
+    KnowledgeCore* core,
+    const char* page_id,
+    uint8_t format,
+    const char* text
+);
+uint8_t graph_engine_kc_insert_block(
+    KnowledgeCore* core,
+    const char* page_id,
+    const char* block_id,
+    const char* parent_id,
+    uint32_t index,
+    const char* content
+);
+uint8_t graph_engine_kc_move_block(
+    KnowledgeCore* core,
+    const char* page_id,
+    const char* block_id,
+    const char* new_parent_id,
+    uint32_t index
+);
+uint8_t graph_engine_kc_delete_block(
+    KnowledgeCore* core,
+    const char* page_id,
+    const char* block_id
+);
+
+/// Last staged knowledge-core error code for this core:
+/// 0 = none
+/// 1 = invalid argument
+/// 2 = ring full
+/// 3 = payload too large
+/// 4 = generic ring error
+/// 5 = missing block
+/// 6 = missing outline node
+/// 7 = generic store error
+/// 8 = generic outline error
+/// 9 = serialization error
+uint8_t graph_engine_kc_last_error_code(KnowledgeCore* core);
+
+/// Borrowed UTF-8 message for the last staged knowledge-core error.
+/// The slice remains valid until the next knowledge-core call on `core`.
+GraphEngineStringSlice graph_engine_kc_last_error_message(KnowledgeCore* core);
+
+/// Current staged backpressure mode.
+/// 0 = fail-fast
+uint8_t graph_engine_kc_backpressure_policy(KnowledgeCore* core);
+
+/// Read transport counters for the staged shared-memory bridge.
+KnowledgeCoreTransportStatsFFI graph_engine_kc_transport_stats(KnowledgeCore* core);
+
+/// Map ring frame kind values back to query domains:
+/// 0 = outline, 1 = tasks, 2 = properties, 3 = links, 255 = invalid.
+uint8_t graph_engine_kc_subscription_kind(uint16_t kind);
+
+/// Inspect archived knowledge-core payload metadata.
+uint64_t graph_engine_kc_payload_tx_id(const uint8_t* data, uint64_t len);
+uint64_t graph_engine_kc_payload_subscription_id(const uint8_t* data, uint64_t len);
+uint16_t graph_engine_kc_payload_kind(const uint8_t* data, uint64_t len);
+uint8_t graph_engine_kc_payload_summary(
+    const uint8_t* data,
+    uint64_t len,
+    KnowledgePayloadSummaryFFI* out
+);
+uint32_t graph_engine_kc_payload_row_count(
+    const uint8_t* data,
+    uint64_t len,
+    uint8_t section
+);
+uint8_t graph_engine_kc_payload_row(
+    const uint8_t* data,
+    uint64_t len,
+    uint8_t section,
+    uint32_t index,
+    KnowledgeQueryRowFFI* out
+);
+uint32_t graph_engine_kc_payload_rows(
+    const uint8_t* data,
+    uint64_t len,
+    uint8_t section,
+    uint32_t start_index,
+    KnowledgeQueryRowFFI* out,
+    uint32_t max_rows
+);
+
 // ── Dialogue ────────────────────────────────────────────────────────────────
 
 /// Open dialogue on a node (activates face geometry + dialogue box).

@@ -71,6 +71,33 @@ impl FractionalIndex {
         key
     }
 
+    /// Parse a lexical sort key previously produced by `as_sort_key`.
+    pub fn from_sort_key(key: &str) -> Option<Self> {
+        let mut parts = key.splitn(3, '-');
+        let digits_hex = parts.next()?;
+        let peer_hex = parts.next()?;
+        let discriminator_hex = parts.next()?;
+
+        if digits_hex.len() % 2 != 0 {
+            return None;
+        }
+
+        let mut digits = Vec::with_capacity(digits_hex.len() / 2);
+        let mut cursor = 0usize;
+        while cursor < digits_hex.len() {
+            let next = cursor + 2;
+            let byte = u8::from_str_radix(&digits_hex[cursor..next], 16).ok()?;
+            digits.push(byte);
+            cursor = next;
+        }
+
+        Some(Self {
+            digits,
+            peer_id: u32::from_str_radix(peer_hex, 16).ok()?,
+            discriminator: u32::from_str_radix(discriminator_hex, 16).ok()?,
+        })
+    }
+
     fn after(left: &Self, peer_id: u32, discriminator: u32) -> Self {
         let mut digits = left.digits.clone();
         digits.push(128);
@@ -136,5 +163,19 @@ mod tests {
             assert!(current < next);
             current = next;
         }
+    }
+
+    #[test]
+    fn sort_key_roundtrips() {
+        let index = FractionalIndex::between(
+            Some(&FractionalIndex::from_position(1)),
+            Some(&FractionalIndex::from_position(2)),
+            7,
+            42,
+        );
+
+        let roundtrip = FractionalIndex::from_sort_key(&index.as_sort_key())
+            .expect("sort key should parse");
+        assert_eq!(roundtrip, index);
     }
 }

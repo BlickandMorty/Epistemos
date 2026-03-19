@@ -12,6 +12,49 @@ enum NoteMentionChoice: Identifiable {
     }
 }
 
+enum ComposerReferenceHelpers {
+    static func mentionFilter(in text: String) -> String? {
+        guard let atIndex = text.lastIndex(of: "@") else { return nil }
+        let suffix = text[text.index(after: atIndex)...]
+        guard !suffix.contains("]"),
+              !suffix.contains(where: \.isWhitespace) else { return nil }
+        return String(suffix)
+    }
+
+    static func removingTrailingMention(from text: String) -> String {
+        guard let atIndex = text.lastIndex(of: "@") else { return text }
+        return String(text[..<atIndex])
+    }
+
+    static var allNotesAttachment: ContextAttachment {
+        ContextAttachment(
+            kind: .allNotes,
+            targetId: ChatCoordinator.allNotesMentionToken,
+            title: "All Notes",
+            subtitle: "Vault"
+        )
+    }
+
+    static func contextAttachment(for choice: ComposerReferenceChoice) -> ContextAttachment {
+        switch choice {
+        case .note(let noteChoice):
+            switch noteChoice {
+            case .allNotes:
+                allNotesAttachment
+            case .entry(let entry):
+                ContextAttachment(
+                    kind: .note,
+                    targetId: entry.pageId,
+                    title: entry.title,
+                    subtitle: entry.folderName
+                )
+            }
+        case .chat(let result):
+            result.attachment
+        }
+    }
+}
+
 enum ComposerReferenceChoice: Identifiable {
     case note(NoteMentionChoice)
     case chat(ChatCoordinator.ChatReferenceResult)
@@ -23,6 +66,98 @@ enum ComposerReferenceChoice: Identifiable {
         case .chat(let chat):
             "chat:\(chat.id)"
         }
+    }
+}
+
+struct ComposerContextShortcutBar: View {
+    let noteLabel: String
+    let vaultLabel: String
+    let onChatWithNote: () -> Void
+    let onChatWithVault: () -> Void
+
+    @Environment(UIState.self) private var ui
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            actionButton(
+                title: noteLabel,
+                icon: "doc.text.magnifyingglass",
+                action: onChatWithNote
+            )
+            actionButton(
+                title: vaultLabel,
+                icon: "books.vertical",
+                action: onChatWithVault
+            )
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func actionButton(
+        title: String,
+        icon: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(theme.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+        .assistantInsetChrome(theme: theme, cornerRadius: 15)
+    }
+}
+
+struct ComposerReferencePopover: View {
+    let results: ChatCoordinator.ReferenceSearchResults
+    let onSelect: (ComposerReferenceChoice) -> Void
+    let idealWidth: CGFloat
+    let maxHeight: CGFloat
+
+    init(
+        results: ChatCoordinator.ReferenceSearchResults,
+        idealWidth: CGFloat = 320,
+        maxHeight: CGFloat = 300,
+        onSelect: @escaping (ComposerReferenceChoice) -> Void
+    ) {
+        self.results = results
+        self.onSelect = onSelect
+        self.idealWidth = idealWidth
+        self.maxHeight = maxHeight
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = min(idealWidth, max(220, proxy.size.width - 12))
+
+            ScrollView(.vertical, showsIndicators: false) {
+                NotesMentionDropdown(
+                    results: results,
+                    onSelect: onSelect
+                )
+                .padding(.vertical, 6)
+            }
+            .frame(width: width, alignment: .topLeading)
+            .frame(maxHeight: maxHeight, alignment: .topLeading)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.14), radius: 12, y: -2)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .offset(y: -8)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+        .frame(maxWidth: .infinity, maxHeight: maxHeight + 12, alignment: .topLeading)
     }
 }
 

@@ -107,6 +107,14 @@ struct ChatInputBar: View {
             .animation(Motion.quick, value: chat.pendingAttachments.count + chat.pendingContextAttachments.count)
 
             VStack(alignment: .leading, spacing: 0) {
+                ComposerContextShortcutBar(
+                    noteLabel: "Chat with Note",
+                    vaultLabel: "Chat with Vault",
+                    onChatWithNote: openNotePicker,
+                    onChatWithVault: attachVaultContext
+                )
+                .padding(.bottom, 8)
+
                 composerTextArea
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
@@ -133,19 +141,12 @@ struct ChatInputBar: View {
         )
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
-                NotesMentionDropdown(
+                ComposerReferencePopover(
                     results: mentionSearchResults,
+                    idealWidth: 320,
+                    maxHeight: 300,
                     onSelect: attachMentionReference
                 )
-                .frame(maxWidth: 320)
-                .background {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .offset(y: -8)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .padding(.horizontal, ChatLayout.mainComposerHorizontalPadding)
@@ -186,15 +187,12 @@ struct ChatInputBar: View {
         .frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)
         .layoutPriority(1)
         .onChange(of: text) { _, newVal in
-            if let atIdx = newVal.lastIndex(of: "@") {
-                let afterAt = String(newVal[newVal.index(after: atIdx)...])
-                if !afterAt.contains("]") && !afterAt.contains(" ") {
-                    mentionFilter = afterAt
-                    if !showMentionDropdown { showMentionDropdown = true }
-                    return
-                }
+            if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
+                mentionFilter = filter
+                if !showMentionDropdown { showMentionDropdown = true }
+            } else if showMentionDropdown {
+                showMentionDropdown = false
             }
-            if showMentionDropdown { showMentionDropdown = false }
         }
     }
 
@@ -289,35 +287,19 @@ struct ChatInputBar: View {
         mentionFilter = ""
     }
 
+    private func openNotePicker() {
+        mentionFilter = ""
+        showMentionDropdown = true
+        isFocused = true
+    }
+
+    private func attachVaultContext() {
+        chat.addContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
+    }
+
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
-        switch choice {
-        case .note(let noteChoice):
-            switch noteChoice {
-            case .allNotes:
-                chat.addContextAttachment(
-                    ContextAttachment(
-                        kind: .allNotes,
-                        targetId: ChatCoordinator.allNotesMentionToken,
-                        title: "All Notes",
-                        subtitle: "Vault"
-                    )
-                )
-            case .entry(let entry):
-                chat.addContextAttachment(
-                    ContextAttachment(
-                        kind: .note,
-                        targetId: entry.pageId,
-                        title: entry.title,
-                        subtitle: entry.folderName
-                    )
-                )
-            }
-        case .chat(let result):
-            chat.addContextAttachment(result.attachment)
-        }
-        if let atIdx = text.lastIndex(of: "@") {
-            text = String(text[text.startIndex..<atIdx])
-        }
+        chat.addContextAttachment(ComposerReferenceHelpers.contextAttachment(for: choice))
+        text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
         mentionFilter = ""
     }

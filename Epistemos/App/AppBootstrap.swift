@@ -13,6 +13,7 @@ final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private nonisolated static let knowledgeCoreShadowDefaultsKey = "epistemos.knowledgeCore.shadow"
 
     // MARK: - Model Container
     let modelContainer: ModelContainer
@@ -33,6 +34,7 @@ final class AppBootstrap {
     let threadState = ThreadState()
     let graphState = GraphState()
     let queryEngine = QueryEngine()
+    let knowledgeCoreShadow: KnowledgeCoreShadowRuntime?
     let physicsCoordinator = PhysicsCoordinator()
     let dialogueChatState = DialogueChatState()
 
@@ -143,6 +145,13 @@ final class AppBootstrap {
             soarService: soar
         )
         self.pipelineService = pipeline
+
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: Self.knowledgeCoreShadowDefaultsKey) {
+            knowledgeCoreShadow = KnowledgeCoreShadowRuntime()
+        } else {
+            knowledgeCoreShadow = nil
+        }
 
         // Wire event bus to chat state
         chatState.eventBus = eventBus

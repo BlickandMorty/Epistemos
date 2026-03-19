@@ -28,6 +28,12 @@ $(SRCROOT)/graph-engine/src/engine.rs
 $(SRCROOT)/graph-engine/src/forces.rs
 $(SRCROOT)/graph-engine/src/graph_tests.rs
 $(SRCROOT)/graph-engine/src/hardened_race_tests.rs
+$(SRCROOT)/graph-engine/src/knowledge_core/archived.rs
+$(SRCROOT)/graph-engine/src/knowledge_core/crdt.rs
+$(SRCROOT)/graph-engine/src/knowledge_core/mod.rs
+$(SRCROOT)/graph-engine/src/knowledge_core/parser.rs
+$(SRCROOT)/graph-engine/src/knowledge_core/ring.rs
+$(SRCROOT)/graph-engine/src/knowledge_core/store.rs
 $(SRCROOT)/graph-engine/src/lib.rs
 $(SRCROOT)/graph-engine/src/markdown.rs
 $(SRCROOT)/graph-engine/src/physics_audit_test.rs

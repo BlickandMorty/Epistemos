@@ -170,6 +170,12 @@ struct CommandPaletteOverlay: View {
                 isChatFocused = true
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .commandPaletteOpenNotePicker)) { _ in
+            openNotePicker()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .commandPaletteAttachAllNotes)) { _ in
+            attachVaultContext()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .commandPaletteDidHide)) { _ in
             isSearchFocused = false
             isChatFocused = false
@@ -283,6 +289,12 @@ struct CommandPaletteOverlay: View {
 
                     if searchText.isEmpty {
                         HStack(spacing: 8) {
+                            paletteChip(label: "Chat with Note", icon: "doc.text.magnifyingglass") {
+                                switchToChatAndOpenNotePicker()
+                            }
+                            paletteChip(label: "Chat with Vault", icon: "books.vertical") {
+                                switchToChatAndAttachVault()
+                            }
                             paletteChip(label: "Note", icon: "doc.badge.plus") {
                                 CommandPaletteWindowController.shared.hide()
                                 Task { @MainActor in
@@ -615,6 +627,13 @@ struct CommandPaletteOverlay: View {
 
     private var chatInputBar: some View {
         VStack(spacing: 8) {
+            ComposerContextShortcutBar(
+                noteLabel: "Chat with Note",
+                vaultLabel: "Chat with Vault",
+                onChatWithNote: openNotePicker,
+                onChatWithVault: attachVaultContext
+            )
+
             if !activeContextAttachments.isEmpty || lockedScopedPageAttachment != nil {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -669,15 +688,12 @@ struct CommandPaletteOverlay: View {
                     .focused($isChatFocused)
                     .onSubmit { sendChatMessage() }
                     .onChange(of: chatInput) { _, newValue in
-                        if let atIndex = newValue.lastIndex(of: "@") {
-                            let afterAt = String(newValue[newValue.index(after: atIndex)...])
-                            if !afterAt.contains("]") && !afterAt.contains(" ") {
-                                mentionFilter = afterAt
-                                if !showMentionDropdown { showMentionDropdown = true }
-                                return
-                            }
+                        if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
+                            mentionFilter = filter
+                            if !showMentionDropdown { showMentionDropdown = true }
+                        } else if showMentionDropdown {
+                            showMentionDropdown = false
                         }
-                        if showMentionDropdown { showMentionDropdown = false }
                     }
 
                 AssistantSendButton(
@@ -704,19 +720,12 @@ struct CommandPaletteOverlay: View {
         .padding(.top, 10)
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
-                NotesMentionDropdown(
+                ComposerReferencePopover(
                     results: mentionSearchResults,
+                    idealWidth: 320,
+                    maxHeight: 300,
                     onSelect: attachMentionReference
                 )
-                .frame(maxWidth: 320)
-                .background {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .offset(y: -8)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
     }
@@ -1206,36 +1215,48 @@ struct CommandPaletteOverlay: View {
         if let activeTabId {
             threadState.setActiveThread(activeTabId)
         }
-        switch choice {
-        case .note(let noteChoice):
-            switch noteChoice {
-            case .allNotes:
-                threadState.addActiveThreadContextAttachment(
-                    ContextAttachment(
-                        kind: .allNotes,
-                        targetId: ChatCoordinator.allNotesMentionToken,
-                        title: "All Notes",
-                        subtitle: "Vault"
-                    )
-                )
-            case .entry(let entry):
-                threadState.addActiveThreadContextAttachment(
-                    ContextAttachment(
-                        kind: .note,
-                        targetId: entry.pageId,
-                        title: entry.title,
-                        subtitle: entry.folderName
-                    )
-                )
-            }
-        case .chat(let result):
-            threadState.addActiveThreadContextAttachment(result.attachment)
-        }
-        if let atIndex = chatInput.lastIndex(of: "@") {
-            chatInput = String(chatInput[..<atIndex])
-        }
+        threadState.addActiveThreadContextAttachment(
+            ComposerReferenceHelpers.contextAttachment(for: choice)
+        )
+        chatInput = ComposerReferenceHelpers.removingTrailingMention(from: chatInput)
         showMentionDropdown = false
         mentionFilter = ""
+    }
+
+    private func openNotePicker() {
+        withAnimation(Motion.smooth) { mode = .chat }
+        ensureActiveTab()
+        mentionFilter = ""
+        showMentionDropdown = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            isChatFocused = true
+        }
+    }
+
+    private func attachVaultContext() {
+        withAnimation(Motion.smooth) { mode = .chat }
+        ensureActiveTab()
+        threadState.addActiveThreadContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            isChatFocused = true
+        }
+    }
+
+    private func switchToChatAndOpenNotePicker() {
+        withAnimation(Motion.smooth) { mode = .chat }
+        ensureActiveTab()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            openNotePicker()
+        }
+    }
+
+    private func switchToChatAndAttachVault() {
+        withAnimation(Motion.smooth) { mode = .chat }
+        ensureActiveTab()
+        attachVaultContext()
     }
 
     private func handleEscape() {

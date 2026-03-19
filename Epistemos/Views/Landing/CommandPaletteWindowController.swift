@@ -5,6 +5,8 @@ import SwiftUI
 extension Notification.Name {
     static let commandPaletteSwitchToChat = Notification.Name("commandPaletteSwitchToChat")
     static let commandPaletteDidHide = Notification.Name("commandPaletteDidHide")
+    static let commandPaletteOpenNotePicker = Notification.Name("commandPaletteOpenNotePicker")
+    static let commandPaletteAttachAllNotes = Notification.Name("commandPaletteAttachAllNotes")
 }
 
 // MARK: - Command Palette Window Controller

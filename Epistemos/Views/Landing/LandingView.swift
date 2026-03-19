@@ -76,6 +76,9 @@ struct LandingView: View {
     @State private var landingSearchText = ""
     @State private var landingComposerHeight: CGFloat = 32 // Better initial height for 22px font
     @State private var isLandingSearchFocused = false
+    @State private var showLandingMentionDropdown = false
+    @State private var landingMentionFilter = ""
+    @State private var landingContextAttachments: [ContextAttachment] = []
     @State private var pointerState = LandingPointerState()
 
     // Cached vocabulary — rebuilt only when allPages changes, not every body evaluation.
@@ -94,6 +97,14 @@ struct LandingView: View {
     }
     private var trimmedLandingSearchText: String {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var landingMentionSearchResults: ChatCoordinator.ReferenceSearchResults {
+        ChatCoordinator.searchReferenceResults(
+            filter: landingMentionFilter,
+            manifest: AppBootstrap.shared?.ambientManifest,
+            chats: recentChats(limit: 20),
+            threads: AppBootstrap.shared?.threadState.chatThreads ?? []
+        )
     }
 
     private func rebuildVocabulary() {
@@ -292,7 +303,43 @@ struct LandingView: View {
                  .allowsHitTesting(false)
 
             VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ComposerContextShortcutBar(
+                        noteLabel: "Chat with Note",
+                        vaultLabel: "Chat with Vault",
+                        onChatWithNote: openLandingNotePicker,
+                        onChatWithVault: attachLandingVaultContext
+                    )
+
+                    if !landingContextAttachments.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(landingContextAttachments) { attachment in
+                                    HStack(spacing: 4) {
+                                        Image(systemName: iconForContextAttachment(attachment))
+                                            .font(.system(size: 10, weight: .medium))
+                                        Text(attachment.title)
+                                            .font(.system(size: 11, weight: .medium))
+                                            .lineLimit(1)
+                                        Button {
+                                            removeLandingContextAttachment(attachment.id)
+                                        } label: {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .font(.system(size: 10))
+                                                .foregroundStyle(theme.textTertiary.opacity(0.5))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .glassEffect(.regular.interactive(), in: Capsule())
+                                    .foregroundStyle(theme.textSecondary)
+                                }
+                            }
+                            .padding(.horizontal, 2)
+                        }
+                    }
+
                     HStack(alignment: .bottom, spacing: LandingSearchLayout.topRowSpacing) {
                         HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
                             Image(systemName: "sparkles")
@@ -308,7 +355,7 @@ struct LandingView: View {
                                         endPoint: .bottomTrailing
                                    )
                                 )
-                                .padding(.top, 8) // Align with first line of 22pt text
+                                .padding(.top, 8)
 
                             ZStack(alignment: .topLeading) {
                                 ChatComposerTextEditor(
@@ -323,6 +370,16 @@ struct LandingView: View {
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(height: landingComposerHeight)
+                                .onChange(of: landingSearchText) { _, newValue in
+                                    if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
+                                        landingMentionFilter = filter
+                                        if !showLandingMentionDropdown {
+                                            showLandingMentionDropdown = true
+                                        }
+                                    } else if showLandingMentionDropdown {
+                                        showLandingMentionDropdown = false
+                                    }
+                                }
 
                                 if landingSearchText.isEmpty {
                                     Text("Ask Epistemos\u{2026}")
@@ -334,7 +391,6 @@ struct LandingView: View {
                             }
                         }
 
-                        // Google Material Style: Controls inside the bar
                         HStack(spacing: 4) {
                             landingRoutingMenu
 
@@ -342,6 +398,8 @@ struct LandingView: View {
                                 Button {
                                     landingSearchText = ""
                                     landingComposerHeight = ChatComposerInputMetrics.minHeight
+                                    showLandingMentionDropdown = false
+                                    landingMentionFilter = ""
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.system(size: 14, weight: .semibold))
@@ -364,15 +422,25 @@ struct LandingView: View {
                             .accessibilityLabel("Send prompt")
                         }
                     }
-                    .padding(.horizontal, LandingSearchLayout.horizontalPadding)
-                    .padding(.top, LandingSearchLayout.topPadding)
-                    .padding(.bottom, LandingSearchLayout.bottomPadding)
-                    .assistantGlassInputChrome(
-                        theme: theme,
-                        cornerRadius: LandingSearchLayout.cornerRadius,
-                        isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty
-                    )
+                    .overlay(alignment: .topLeading) {
+                        if showLandingMentionDropdown {
+                            ComposerReferencePopover(
+                                results: landingMentionSearchResults,
+                                idealWidth: 360,
+                                maxHeight: 300,
+                                onSelect: attachLandingMentionReference
+                            )
+                        }
+                    }
                 }
+                .padding(.horizontal, LandingSearchLayout.horizontalPadding)
+                .padding(.top, LandingSearchLayout.topPadding)
+                .padding(.bottom, LandingSearchLayout.bottomPadding)
+                .assistantGlassInputChrome(
+                    theme: theme,
+                    cornerRadius: LandingSearchLayout.cornerRadius,
+                    isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty || !landingContextAttachments.isEmpty
+                )
                 .frame(maxWidth: LandingSearchLayout.maxWidth)
             }
             .padding(.horizontal, Spacing.xxl)
@@ -456,15 +524,56 @@ struct LandingView: View {
         landingSearchText = ""
         landingComposerHeight = ChatComposerInputMetrics.minHeight
         isLandingSearchFocused = false
+        showLandingMentionDropdown = false
+        landingMentionFilter = ""
+        landingContextAttachments = []
     }
 
     private func submitLandingSearch() {
         let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let attachments = landingContextAttachments
         dismissLandingSearch()
         chat.startNewChat()
+        for attachment in attachments {
+            chat.addContextAttachment(attachment)
+        }
         chat.submitQuery(trimmed)
         ui.setActivePanel(.home)
+    }
+
+    private func openLandingNotePicker() {
+        landingMentionFilter = ""
+        showLandingMentionDropdown = true
+        isLandingSearchFocused = true
+    }
+
+    private func attachLandingVaultContext() {
+        let attachment = ComposerReferenceHelpers.allNotesAttachment
+        guard !landingContextAttachments.contains(attachment) else { return }
+        landingContextAttachments.append(attachment)
+    }
+
+    private func attachLandingMentionReference(_ choice: ComposerReferenceChoice) {
+        let attachment = ComposerReferenceHelpers.contextAttachment(for: choice)
+        if !landingContextAttachments.contains(attachment) {
+            landingContextAttachments.append(attachment)
+        }
+        landingSearchText = ComposerReferenceHelpers.removingTrailingMention(from: landingSearchText)
+        showLandingMentionDropdown = false
+        landingMentionFilter = ""
+    }
+
+    private func removeLandingContextAttachment(_ id: String) {
+        landingContextAttachments.removeAll { $0.id == id }
+    }
+
+    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
+        switch attachment.kind {
+        case .note: "doc.text"
+        case .chat: "bubble.left.and.bubble.right"
+        case .allNotes: "books.vertical"
+        }
     }
 
     // MARK: - Daily Brief Content (replaces greeting in-place)

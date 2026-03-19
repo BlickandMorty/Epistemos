@@ -67,7 +67,10 @@ struct LandingExperienceSettingsTests {
         #expect(customOnly.map(\.text) == ["First custom", "Second custom"])
         #expect(customOnly[0].durationSeconds == LandingGreetingEntry.minimumDurationSeconds)
         #expect(customOnly[1].durationSeconds == LandingGreetingEntry.maximumDurationSeconds)
-        #expect(mixed.prefix(LandingGreetingResolver.defaultPlaylist.count) == LandingGreetingResolver.defaultPlaylist)
+        #expect(
+            Array(mixed.prefix(LandingGreetingResolver.defaultPlaylist.count))
+                == LandingGreetingResolver.defaultPlaylist
+        )
         #expect(Array(mixed.suffix(2)).map(\.text) == ["First custom", "Second custom"])
     }
 

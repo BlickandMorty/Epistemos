@@ -8,9 +8,12 @@ crate-type = ["staticlib"]
 
 [dependencies]
 cozo = "0.7.6"
+libc = "0.2"
+loro = "1.10"
 metal = "0.31"
 memchr = "2.7"
 objc = "0.2"
+orgize = "0.9"
 parking_lot = "0.12"
 rayon = "=1.10.0"
 rkyv = { version = "0.8.15", features = ["std"] }

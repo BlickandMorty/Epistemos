@@ -507,6 +507,13 @@ private struct MiniChatInputBar: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            ComposerContextShortcutBar(
+                noteLabel: "Chat with Note",
+                vaultLabel: "Chat with Vault",
+                onChatWithNote: openNotePicker,
+                onChatWithVault: attachVaultContext
+            )
+
             // Quick action chips when a note is active
             if explicitScopedPageID != nil, activePage() != nil, !isProcessing {
                 quickActions
@@ -526,15 +533,12 @@ private struct MiniChatInputBar: View {
                     .foregroundStyle(theme.foreground)
                     .onSubmit { send() }
                     .onChange(of: text) { _, newVal in
-                        if let atIdx = newVal.lastIndex(of: "@") {
-                            let afterAt = String(newVal[newVal.index(after: atIdx)...])
-                            if !afterAt.contains("]") && !afterAt.contains(" ") {
-                                mentionFilter = afterAt
-                                if !showMentionDropdown { showMentionDropdown = true }
-                                return
-                            }
+                        if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
+                            mentionFilter = filter
+                            if !showMentionDropdown { showMentionDropdown = true }
+                        } else if showMentionDropdown {
+                            showMentionDropdown = false
                         }
-                        if showMentionDropdown { showMentionDropdown = false }
                     }
 
                 AssistantSendButton(
@@ -562,19 +566,12 @@ private struct MiniChatInputBar: View {
         }
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
-                NotesMentionDropdown(
+                ComposerReferencePopover(
                     results: mentionSearchResults,
+                    idealWidth: 300,
+                    maxHeight: 300,
                     onSelect: attachMentionReference
                 )
-                .frame(maxWidth: 280)
-                .background {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.12), radius: 10, y: -2)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .offset(y: -8)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
     }
@@ -1007,36 +1004,22 @@ private struct MiniChatInputBar: View {
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
-        switch choice {
-        case .note(let noteChoice):
-            switch noteChoice {
-            case .allNotes:
-                threadState.addActiveThreadContextAttachment(
-                    ContextAttachment(
-                        kind: .allNotes,
-                        targetId: ChatCoordinator.allNotesMentionToken,
-                        title: "All Notes",
-                        subtitle: "Vault"
-                    )
-                )
-            case .entry(let entry):
-                threadState.addActiveThreadContextAttachment(
-                    ContextAttachment(
-                        kind: .note,
-                        targetId: entry.pageId,
-                        title: entry.title,
-                        subtitle: entry.folderName
-                    )
-                )
-            }
-        case .chat(let result):
-            threadState.addActiveThreadContextAttachment(result.attachment)
-        }
-        if let atIdx = text.lastIndex(of: "@") {
-            text = String(text[text.startIndex..<atIdx])
-        }
+        threadState.addActiveThreadContextAttachment(
+            ComposerReferenceHelpers.contextAttachment(for: choice)
+        )
+        text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
         mentionFilter = ""
+    }
+
+    private func openNotePicker() {
+        mentionFilter = ""
+        showMentionDropdown = true
+        isFocused = true
+    }
+
+    private func attachVaultContext() {
+        threadState.addActiveThreadContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
     }
 
     private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {

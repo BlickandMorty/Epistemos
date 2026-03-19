@@ -10,6 +10,7 @@ pub mod edge_aggregation;
 pub mod embedding;
 pub mod engine;
 pub mod forces;
+pub mod knowledge_core;
 pub mod markdown;
 pub mod quadtree;
 pub mod renderer;
@@ -68,6 +69,11 @@ mod theme_ecs_tests;
 use std::ffi::{CStr, CString, c_char, c_void};
 
 use crate::engine::Engine;
+use crate::knowledge_core::archived::SubscriptionKind as KnowledgeSubscriptionKind;
+use crate::knowledge_core::{
+    DocumentFormat, KnowledgeCore, KnowledgeCoreBackpressurePolicy, KnowledgeCoreError,
+    KnowledgeCoreErrorCode,
+};
 
 #[repr(C)]
 pub struct GraphEngineByteBuffer {
@@ -80,11 +86,31 @@ pub struct GraphEngineByteBuffer {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct GraphEngineStringSlice {
     /// Borrowed UTF-8 pointer into an archived payload buffer.
     pub ptr: *const u8,
     /// Byte length of the borrowed string.
     pub len: u32,
+}
+
+#[repr(C)]
+pub struct GraphEngineSharedMemoryRegion {
+    /// Base pointer of a mapped shared-memory region owned by Rust.
+    pub ptr: *mut u8,
+    /// Total mapped byte length.
+    pub len: u64,
+}
+
+#[repr(C)]
+pub struct GraphEngineRingLayout {
+    pub head_offset: u64,
+    pub tail_offset: u64,
+    pub slots_offset: u64,
+    pub slot_stride: u64,
+    pub slot_payload_offset: u64,
+    pub slot_count: u32,
+    pub slot_payload_bytes: u32,
 }
 
 #[repr(C)]
@@ -115,6 +141,45 @@ pub struct BtkSubscriptionRowFFI {
     pub task_done: u8,
     /// Traversal hop count for link rows.
     pub hop_count: u8,
+}
+
+#[repr(C)]
+pub struct KnowledgeQueryRowFFI {
+    /// 0=block, 1=task, 2=property, 3=link.
+    pub row_kind: u8,
+    pub _pad: [u8; 3],
+    pub page_id: GraphEngineStringSlice,
+    pub block_id: GraphEngineStringSlice,
+    pub parent_id: GraphEngineStringSlice,
+    pub target_id: GraphEngineStringSlice,
+    pub content: GraphEngineStringSlice,
+    pub property_key: GraphEngineStringSlice,
+    pub property_value: GraphEngineStringSlice,
+    pub task_marker: GraphEngineStringSlice,
+    pub order_key: GraphEngineStringSlice,
+    pub depth: u16,
+    pub ref_type: u8,
+    pub task_done: u8,
+}
+
+#[repr(C)]
+pub struct KnowledgePayloadSummaryFFI {
+    pub tx_id: u64,
+    pub subscription_id: u64,
+    /// 0=outline, 1=tasks, 2=properties, 3=links, 255=invalid.
+    pub kind: u8,
+    pub _pad: [u8; 3],
+    pub added_count: u32,
+    pub updated_count: u32,
+    pub removed_count: u32,
+}
+
+#[repr(C)]
+pub struct KnowledgeCoreTransportStatsFFI {
+    pub published_frames: u64,
+    pub dropped_frames: u64,
+    pub coalesced_frames: u64,
+    pub ring_full_failures: u64,
 }
 
 /// Null-guard for engine pointer in void-returning FFI functions.
@@ -158,6 +223,13 @@ fn empty_byte_buffer() -> GraphEngineByteBuffer {
     }
 }
 
+fn empty_shared_region() -> GraphEngineSharedMemoryRegion {
+    GraphEngineSharedMemoryRegion {
+        ptr: std::ptr::null_mut(),
+        len: 0,
+    }
+}
+
 fn byte_buffer_from_vec(mut bytes: Vec<u8>) -> GraphEngineByteBuffer {
     let buffer = GraphEngineByteBuffer {
         ptr: bytes.as_mut_ptr(),
@@ -190,9 +262,164 @@ fn with_subscription_payload<T>(
     Some(f(payload))
 }
 
+fn with_knowledge_payload<T>(
+    data: *const u8,
+    len: u64,
+    f: impl FnOnce(&crate::knowledge_core::archived::ArchivedQueryDiffEnvelope) -> T,
+) -> Option<T> {
+    if data.is_null() || len == 0 {
+        return None;
+    }
+    // SAFETY: Caller provides a stable byte slice from a mapped ring slot or
+    // a Rust-owned archived payload. `rkyv::access` validates the archive
+    // before producing the borrowed view.
+    let bytes = unsafe { std::slice::from_raw_parts(data, len as usize) };
+    let payload = rkyv::access::<
+        crate::knowledge_core::archived::ArchivedQueryDiffEnvelope,
+        rkyv::rancor::Error,
+    >(bytes)
+    .ok()?;
+    Some(f(payload))
+}
+
 fn fill_string_slice(out: &mut GraphEngineStringSlice, value: &str) {
     out.ptr = value.as_ptr();
     out.len = value.len() as u32;
+}
+
+fn clear_string_slice(out: &mut GraphEngineStringSlice) {
+    out.ptr = std::ptr::null();
+    out.len = 0;
+}
+
+fn string_slice(value: &str) -> GraphEngineStringSlice {
+    GraphEngineStringSlice {
+        ptr: value.as_ptr(),
+        len: value.len() as u32,
+    }
+}
+
+fn empty_string_slice() -> GraphEngineStringSlice {
+    GraphEngineStringSlice {
+        ptr: std::ptr::null(),
+        len: 0,
+    }
+}
+
+fn kc_fail_with(core: &mut KnowledgeCore, code: KnowledgeCoreErrorCode, message: &str) -> u8 {
+    core.set_last_error(code, message);
+    0
+}
+
+fn kc_finish_result(core: &mut KnowledgeCore, result: Result<(), KnowledgeCoreError>) -> u8 {
+    match result {
+        Ok(()) => {
+            core.clear_last_error();
+            1
+        }
+        Err(error) => {
+            core.set_last_error_from(&error);
+            0
+        }
+    }
+}
+
+fn kc_finish_subscription(core: &mut KnowledgeCore, result: Result<u64, KnowledgeCoreError>) -> u64 {
+    match result {
+        Ok(subscription_id) => {
+            core.clear_last_error();
+            subscription_id
+        }
+        Err(error) => {
+            core.set_last_error_from(&error);
+            0
+        }
+    }
+}
+
+fn archived_knowledge_kind_code(
+    kind: &crate::knowledge_core::archived::ArchivedSubscriptionKind,
+) -> u16 {
+    match kind {
+        crate::knowledge_core::archived::ArchivedSubscriptionKind::Outline => {
+            KnowledgeSubscriptionKind::Outline.code()
+        }
+        crate::knowledge_core::archived::ArchivedSubscriptionKind::Tasks => {
+            KnowledgeSubscriptionKind::Tasks.code()
+        }
+        crate::knowledge_core::archived::ArchivedSubscriptionKind::Properties => {
+            KnowledgeSubscriptionKind::Properties.code()
+        }
+        crate::knowledge_core::archived::ArchivedSubscriptionKind::Links => {
+            KnowledgeSubscriptionKind::Links.code()
+        }
+    }
+}
+
+fn reset_knowledge_summary(out: &mut KnowledgePayloadSummaryFFI) {
+    out.tx_id = 0;
+    out.subscription_id = 0;
+    out.kind = u8::MAX;
+    out._pad = [0; 3];
+    out.added_count = 0;
+    out.updated_count = 0;
+    out.removed_count = 0;
+}
+
+fn reset_knowledge_row(out: &mut KnowledgeQueryRowFFI) {
+    out.row_kind = u8::MAX;
+    out._pad = [0; 3];
+    clear_string_slice(&mut out.page_id);
+    clear_string_slice(&mut out.block_id);
+    clear_string_slice(&mut out.parent_id);
+    clear_string_slice(&mut out.target_id);
+    clear_string_slice(&mut out.content);
+    clear_string_slice(&mut out.property_key);
+    clear_string_slice(&mut out.property_value);
+    clear_string_slice(&mut out.task_marker);
+    clear_string_slice(&mut out.order_key);
+    out.depth = 0;
+    out.ref_type = 0;
+    out.task_done = 0;
+}
+
+fn fill_knowledge_row_from_archived(
+    out_row: &mut KnowledgeQueryRowFFI,
+    archived_row: &crate::knowledge_core::archived::ArchivedQueryRow,
+) {
+    reset_knowledge_row(out_row);
+    match archived_row {
+        crate::knowledge_core::archived::ArchivedQueryRow::Block(row) => {
+            out_row.row_kind = 0;
+            fill_string_slice(&mut out_row.page_id, row.page_id.as_str());
+            fill_string_slice(&mut out_row.block_id, row.block_id.as_str());
+            fill_string_slice(&mut out_row.parent_id, row.parent_id.as_str());
+            fill_string_slice(&mut out_row.order_key, row.order_key.as_str());
+            fill_string_slice(&mut out_row.content, row.content.as_str());
+            out_row.depth = row.depth.to_native();
+        }
+        crate::knowledge_core::archived::ArchivedQueryRow::Task(row) => {
+            out_row.row_kind = 1;
+            fill_string_slice(&mut out_row.page_id, row.page_id.as_str());
+            fill_string_slice(&mut out_row.block_id, row.block_id.as_str());
+            fill_string_slice(&mut out_row.task_marker, row.marker.as_str());
+            out_row.task_done = u8::from(row.done);
+        }
+        crate::knowledge_core::archived::ArchivedQueryRow::Property(row) => {
+            out_row.row_kind = 2;
+            fill_string_slice(&mut out_row.page_id, row.page_id.as_str());
+            fill_string_slice(&mut out_row.block_id, row.block_id.as_str());
+            fill_string_slice(&mut out_row.property_key, row.key.as_str());
+            fill_string_slice(&mut out_row.property_value, row.value.as_str());
+        }
+        crate::knowledge_core::archived::ArchivedQueryRow::Link(row) => {
+            out_row.row_kind = 3;
+            fill_string_slice(&mut out_row.page_id, row.page_id.as_str());
+            fill_string_slice(&mut out_row.block_id, row.block_id.as_str());
+            fill_string_slice(&mut out_row.target_id, row.target_id.as_str());
+            out_row.ref_type = row.ref_type;
+        }
+    }
 }
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
@@ -1519,6 +1746,524 @@ pub extern "C" fn graph_engine_free_bytes(buffer: GraphEngineByteBuffer) {
     }
 }
 
+// ── Knowledge Core (Shared-Memory Reactive FFI) ────────────────────────────
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_create(
+    slot_count: u32,
+    slot_payload_bytes: u32,
+    peer_id: u64,
+) -> *mut KnowledgeCore {
+    match KnowledgeCore::new(slot_count as usize, slot_payload_bytes as usize, peer_id) {
+        Ok(core) => Box::into_raw(Box::new(core)),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_destroy(core: *mut KnowledgeCore) {
+    if !core.is_null() {
+        unsafe {
+            drop(Box::from_raw(core));
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_ring_region(
+    core: *mut KnowledgeCore,
+) -> GraphEngineSharedMemoryRegion {
+    if core.is_null() {
+        return empty_shared_region();
+    }
+    let core = unsafe { &mut *core };
+    let region = core.shared_region();
+    GraphEngineSharedMemoryRegion {
+        ptr: region.ptr,
+        len: region.len,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_ring_layout(core: *mut KnowledgeCore) -> GraphEngineRingLayout {
+    if core.is_null() {
+        return GraphEngineRingLayout {
+            head_offset: 0,
+            tail_offset: 0,
+            slots_offset: 0,
+            slot_stride: 0,
+            slot_payload_offset: 0,
+            slot_count: 0,
+            slot_payload_bytes: 0,
+        };
+    }
+    let core = unsafe { &mut *core };
+    let layout = core.ring_layout();
+    GraphEngineRingLayout {
+        head_offset: layout.head_offset,
+        tail_offset: layout.tail_offset,
+        slots_offset: layout.slots_offset,
+        slot_stride: layout.slot_stride,
+        slot_payload_offset: layout.slot_payload_offset,
+        slot_count: layout.slot_count,
+        slot_payload_bytes: layout.slot_payload_bytes,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_ring_head(core: *mut KnowledgeCore) -> u64 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    core.load_head()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_ring_tail(core: *mut KnowledgeCore) -> u64 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    core.load_tail()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_ring_set_tail(core: *mut KnowledgeCore, tail: u64) {
+    if core.is_null() {
+        return;
+    }
+    let core = unsafe { &mut *core };
+    core.store_tail(tail);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_subscribe_outline(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+) -> u64 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    let page_id = ffi_cstr!(page_id);
+    if page_id.is_empty() {
+        core.set_last_error(
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "outline subscriptions require a non-empty page id",
+        );
+        return 0;
+    }
+    let result = core.subscribe_outline(page_id);
+    kc_finish_subscription(core, result)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_subscribe_tasks(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+) -> u64 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    let page_id = if page_id.is_null() {
+        None
+    } else {
+        Some(ffi_cstr!(page_id))
+    };
+    if matches!(page_id, Some("")) {
+        core.set_last_error(
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "task subscriptions use either nil or a non-empty page id",
+        );
+        return 0;
+    }
+    let result = core.subscribe_tasks(page_id);
+    kc_finish_subscription(core, result)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_subscribe_properties(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+    key: *const c_char,
+) -> u64 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    let page_id = if page_id.is_null() {
+        None
+    } else {
+        Some(ffi_cstr!(page_id))
+    };
+    let key = if key.is_null() {
+        None
+    } else {
+        Some(ffi_cstr!(key))
+    };
+    if matches!(page_id, Some("")) || matches!(key, Some("")) {
+        core.set_last_error(
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "property subscriptions use nil or non-empty page/key values",
+        );
+        return 0;
+    }
+    let result = core.subscribe_properties(page_id, key);
+    kc_finish_subscription(core, result)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_unsubscribe(
+    core: *mut KnowledgeCore,
+    subscription_id: u64,
+) -> u8 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    if core.unsubscribe(subscription_id) {
+        core.clear_last_error();
+        1
+    } else {
+        kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "subscription id was not registered",
+        )
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_ingest_document(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+    format: u8,
+    text: *const c_char,
+) -> u8 {
+    if core.is_null() {
+        return 0;
+    }
+    let Some(format) = DocumentFormat::from_ffi(format) else {
+        let core = unsafe { &mut *core };
+        return kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "document format must be 0 (markdown) or 1 (org)",
+        );
+    };
+    let core = unsafe { &mut *core };
+    let page_id = ffi_cstr!(page_id);
+    if page_id.is_empty() {
+        return kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "ingest_document requires a non-empty page id",
+        );
+    }
+    let result = core.ingest_document(page_id, format, ffi_cstr!(text));
+    kc_finish_result(core, result)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_insert_block(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+    block_id: *const c_char,
+    parent_id: *const c_char,
+    index: u32,
+    content: *const c_char,
+) -> u8 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    let page_id = ffi_cstr!(page_id);
+    let block_id = ffi_cstr!(block_id);
+    if page_id.is_empty() || block_id.is_empty() {
+        return kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "insert_block requires non-empty page and block ids",
+        );
+    }
+    let parent = if parent_id.is_null() {
+        None
+    } else {
+        Some(ffi_cstr!(parent_id))
+    };
+    if matches!(parent, Some("")) {
+        return kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "insert_block uses nil or a non-empty parent id",
+        );
+    }
+    let result = core.insert_block(page_id, block_id, parent, index as usize, ffi_cstr!(content));
+    kc_finish_result(core, result)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_move_block(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+    block_id: *const c_char,
+    new_parent_id: *const c_char,
+    index: u32,
+) -> u8 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    let page_id = ffi_cstr!(page_id);
+    let block_id = ffi_cstr!(block_id);
+    if page_id.is_empty() || block_id.is_empty() {
+        return kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "move_block requires non-empty page and block ids",
+        );
+    }
+    let parent = if new_parent_id.is_null() {
+        None
+    } else {
+        Some(ffi_cstr!(new_parent_id))
+    };
+    if matches!(parent, Some("")) {
+        return kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "move_block uses nil or a non-empty parent id",
+        );
+    }
+    let result = core.move_block(page_id, block_id, parent, index as usize);
+    kc_finish_result(core, result)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_delete_block(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+    block_id: *const c_char,
+) -> u8 {
+    if core.is_null() {
+        return 0;
+    }
+    let core = unsafe { &mut *core };
+    let page_id = ffi_cstr!(page_id);
+    let block_id = ffi_cstr!(block_id);
+    if page_id.is_empty() || block_id.is_empty() {
+        return kc_fail_with(
+            core,
+            KnowledgeCoreErrorCode::InvalidArgument,
+            "delete_block requires non-empty page and block ids",
+        );
+    }
+    let result = core.delete_block(page_id, block_id);
+    kc_finish_result(core, result)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_last_error_code(core: *mut KnowledgeCore) -> u8 {
+    if core.is_null() {
+        return KnowledgeCoreErrorCode::InvalidArgument as u8;
+    }
+    let core = unsafe { &mut *core };
+    core.last_error_code()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_last_error_message(
+    core: *mut KnowledgeCore,
+) -> GraphEngineStringSlice {
+    if core.is_null() {
+        return empty_string_slice();
+    }
+    let core = unsafe { &mut *core };
+    string_slice(core.last_error_message())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_backpressure_policy(core: *mut KnowledgeCore) -> u8 {
+    if core.is_null() {
+        return KnowledgeCoreBackpressurePolicy::FailFast as u8;
+    }
+    let core = unsafe { &mut *core };
+    core.backpressure_policy() as u8
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_transport_stats(
+    core: *mut KnowledgeCore,
+) -> KnowledgeCoreTransportStatsFFI {
+    if core.is_null() {
+        return KnowledgeCoreTransportStatsFFI {
+            published_frames: 0,
+            dropped_frames: 0,
+            coalesced_frames: 0,
+            ring_full_failures: 0,
+        };
+    }
+    let core = unsafe { &mut *core };
+    let stats = core.transport_stats();
+    KnowledgeCoreTransportStatsFFI {
+        published_frames: stats.published_frames,
+        dropped_frames: stats.dropped_frames,
+        coalesced_frames: stats.coalesced_frames,
+        ring_full_failures: stats.ring_full_failures,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_subscription_kind(kind: u16) -> u8 {
+    match kind {
+        x if x == KnowledgeSubscriptionKind::Outline.code() => 0,
+        x if x == KnowledgeSubscriptionKind::Tasks.code() => 1,
+        x if x == KnowledgeSubscriptionKind::Properties.code() => 2,
+        x if x == KnowledgeSubscriptionKind::Links.code() => 3,
+        _ => u8::MAX,
+    }
+}
+
+/// Read the archived tx id from a knowledge-core payload.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_payload_tx_id(data: *const u8, len: u64) -> u64 {
+    with_knowledge_payload(data, len, |payload| payload.tx_id.to_native()).unwrap_or(0)
+}
+
+/// Read the archived subscription id from a knowledge-core payload.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_payload_subscription_id(
+    data: *const u8,
+    len: u64,
+) -> u64 {
+    with_knowledge_payload(data, len, |payload| payload.subscription_id.to_native()).unwrap_or(0)
+}
+
+/// Read the archived subscription kind code from a knowledge-core payload.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_payload_kind(data: *const u8, len: u64) -> u16 {
+    with_knowledge_payload(data, len, |payload| archived_knowledge_kind_code(&payload.kind))
+        .unwrap_or(u16::MAX)
+}
+
+/// Read all archived summary metadata in one validated pass.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_payload_summary(
+    data: *const u8,
+    len: u64,
+    out: *mut KnowledgePayloadSummaryFFI,
+) -> u8 {
+    if out.is_null() {
+        return 0;
+    }
+
+    with_knowledge_payload(data, len, |payload| {
+        // SAFETY: `out` points to caller-owned storage for one `KnowledgePayloadSummaryFFI`.
+        let out_summary = unsafe { &mut *out };
+        reset_knowledge_summary(out_summary);
+        out_summary.tx_id = payload.tx_id.to_native();
+        out_summary.subscription_id = payload.subscription_id.to_native();
+        out_summary.kind = graph_engine_kc_subscription_kind(archived_knowledge_kind_code(&payload.kind));
+        out_summary.added_count = payload.added.len() as u32;
+        out_summary.updated_count = payload.updated.len() as u32;
+        out_summary.removed_count = payload.removed.len() as u32;
+        1
+    })
+    .unwrap_or(0)
+}
+
+/// Row count for section 0=added, 1=updated, 2=removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_payload_row_count(
+    data: *const u8,
+    len: u64,
+    section: u8,
+) -> u32 {
+    with_knowledge_payload(data, len, |payload| match section {
+        0 => payload.added.len(),
+        1 => payload.updated.len(),
+        2 => payload.removed.len(),
+        _ => 0,
+    } as u32)
+    .unwrap_or(0)
+}
+
+/// Read one archived row from section 0=added, 1=updated, 2=removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_payload_row(
+    data: *const u8,
+    len: u64,
+    section: u8,
+    index: u32,
+    out: *mut KnowledgeQueryRowFFI,
+) -> u8 {
+    if out.is_null() {
+        return 0;
+    }
+
+    with_knowledge_payload(data, len, |payload| {
+        let archived_row = match section {
+            0 => payload.added.get(index as usize),
+            1 => payload.updated.get(index as usize),
+            2 => payload.removed.get(index as usize),
+            _ => None,
+        };
+        let Some(archived_row) = archived_row else {
+            return 0;
+        };
+
+        // SAFETY: `out` points to caller-owned storage for one `KnowledgeQueryRowFFI`.
+        let out_row = unsafe { &mut *out };
+        fill_knowledge_row_from_archived(out_row, archived_row);
+        1
+    })
+    .unwrap_or(0)
+}
+
+/// Read a contiguous batch of archived rows from section 0=added, 1=updated, 2=removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_payload_rows(
+    data: *const u8,
+    len: u64,
+    section: u8,
+    start_index: u32,
+    out: *mut KnowledgeQueryRowFFI,
+    max_rows: u32,
+) -> u32 {
+    if out.is_null() || max_rows == 0 {
+        return 0;
+    }
+
+    with_knowledge_payload(data, len, |payload| {
+        let rows = match section {
+            0 => &payload.added,
+            1 => &payload.updated,
+            2 => &payload.removed,
+            _ => return 0,
+        };
+
+        let start = start_index as usize;
+        if start >= rows.len() {
+            return 0;
+        }
+
+        let write_count = usize::min(max_rows as usize, rows.len() - start);
+        // SAFETY: `out` points to caller-owned storage for at least `max_rows`
+        // `KnowledgeQueryRowFFI` values, and `write_count <= max_rows`.
+        let out_rows = unsafe { std::slice::from_raw_parts_mut(out, write_count) };
+        for (out_row, archived_row) in out_rows
+            .iter_mut()
+            .zip(rows.iter().skip(start).take(write_count))
+        {
+            fill_knowledge_row_from_archived(out_row, archived_row);
+        }
+        write_count as u32
+    })
+    .unwrap_or(0)
+}
+
 /// Register an outline subscription for a page.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_subscribe_outline(
@@ -1756,4 +2501,362 @@ pub extern "C" fn graph_engine_dialogue_node_screen_pos(engine: *mut Engine, out
 pub extern "C" fn graph_engine_dialogue_is_active(engine: *mut Engine) -> u8 {
     ffi_engine_or!(engine, 0);
     u8::from(engine.dialogue_is_active())
+}
+
+#[cfg(test)]
+mod knowledge_core_ffi_tests {
+    use std::ffi::CString;
+    use std::hint::black_box;
+    use std::time::Instant;
+
+    use super::{
+        GraphEngineRingLayout, GraphEngineSharedMemoryRegion, GraphEngineStringSlice,
+        KnowledgePayloadSummaryFFI, KnowledgeQueryRowFFI, graph_engine_kc_backpressure_policy,
+        graph_engine_kc_create, graph_engine_kc_destroy,
+        graph_engine_kc_ingest_document, graph_engine_kc_last_error_code,
+        graph_engine_kc_last_error_message, graph_engine_kc_move_block, graph_engine_kc_payload_kind,
+        graph_engine_kc_payload_row, graph_engine_kc_payload_row_count, graph_engine_kc_payload_rows,
+        graph_engine_kc_payload_summary, graph_engine_kc_payload_subscription_id,
+        graph_engine_kc_payload_tx_id, graph_engine_kc_ring_head, graph_engine_kc_ring_layout,
+        graph_engine_kc_ring_region, graph_engine_kc_subscribe_outline,
+        graph_engine_kc_subscription_kind, graph_engine_kc_transport_stats,
+    };
+
+    #[repr(C)]
+    struct TestSlotHeader {
+        len: u32,
+        kind: u16,
+        flags: u16,
+        version: u64,
+    }
+
+    #[test]
+    fn knowledge_core_payload_accessors_roundtrip_archived_rows() {
+        let core = graph_engine_kc_create(4, 2048, 77);
+        assert!(!core.is_null());
+
+        let page = CString::new("page-1").expect("page id should be valid");
+        let text = CString::new("- First\n- Second").expect("text should be valid");
+        let subscription_id = graph_engine_kc_subscribe_outline(core, page.as_ptr());
+        assert_ne!(subscription_id, 0);
+        assert_eq!(
+            graph_engine_kc_ingest_document(core, page.as_ptr(), 0, text.as_ptr()),
+            1
+        );
+
+        let region = graph_engine_kc_ring_region(core);
+        let layout = graph_engine_kc_ring_layout(core);
+        assert_eq!(graph_engine_kc_ring_head(core), 2);
+
+        let (initial_ptr, initial_len) = slot_payload(&region, &layout, 0);
+        assert_eq!(graph_engine_kc_payload_row_count(initial_ptr, initial_len, 0), 0);
+
+        let (payload_ptr, payload_len) = slot_payload(&region, &layout, 1);
+        let mut summary = empty_summary();
+        assert_eq!(
+            graph_engine_kc_payload_summary(payload_ptr, payload_len, &mut summary),
+            1
+        );
+        assert_eq!(summary.tx_id, 1);
+        assert_eq!(summary.subscription_id, subscription_id);
+        assert_eq!(summary.kind, 0);
+        assert_eq!(summary.added_count, 2);
+        assert_eq!(summary.updated_count, 0);
+        assert_eq!(summary.removed_count, 0);
+        assert_eq!(graph_engine_kc_payload_tx_id(payload_ptr, payload_len), 1);
+        assert_eq!(
+            graph_engine_kc_payload_subscription_id(payload_ptr, payload_len),
+            subscription_id
+        );
+        let raw_kind = graph_engine_kc_payload_kind(payload_ptr, payload_len);
+        assert_eq!(graph_engine_kc_subscription_kind(raw_kind), 0);
+        assert_eq!(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 0), 2);
+
+        let mut first_row = empty_row();
+        let mut second_row = empty_row();
+        assert_eq!(
+            graph_engine_kc_payload_row(payload_ptr, payload_len, 0, 0, &mut first_row),
+            1
+        );
+        assert_eq!(
+            graph_engine_kc_payload_row(payload_ptr, payload_len, 0, 1, &mut second_row),
+            1
+        );
+        assert_eq!(first_row.row_kind, 0);
+        assert_eq!(second_row.row_kind, 0);
+        assert_eq!(decode(first_row.page_id), "page-1");
+        assert_eq!(decode(second_row.page_id), "page-1");
+
+        let mut contents = [decode(first_row.content), decode(second_row.content)];
+        contents.sort();
+        assert_eq!(contents, ["First".to_string(), "Second".to_string()]);
+
+        let mut batched_rows = [empty_row(), empty_row()];
+        assert_eq!(
+            graph_engine_kc_payload_rows(
+                payload_ptr,
+                payload_len,
+                0,
+                0,
+                batched_rows.as_mut_ptr(),
+                batched_rows.len() as u32,
+            ),
+            2
+        );
+        let mut batched_contents = [
+            decode(batched_rows[0].content),
+            decode(batched_rows[1].content),
+        ];
+        batched_contents.sort();
+        assert_eq!(batched_contents, ["First".to_string(), "Second".to_string()]);
+
+        graph_engine_kc_destroy(core);
+    }
+
+    #[test]
+    fn knowledge_core_reports_missing_node_failures() {
+        let core = graph_engine_kc_create(4, 2048, 91);
+        assert!(!core.is_null());
+
+        let page = CString::new("page-missing").expect("page id should be valid");
+        let block = CString::new("missing-block").expect("block id should be valid");
+
+        assert_eq!(
+            graph_engine_kc_move_block(core, page.as_ptr(), block.as_ptr(), std::ptr::null(), 0),
+            0
+        );
+        assert_eq!(graph_engine_kc_last_error_code(core), 6);
+        assert_eq!(
+            decode(graph_engine_kc_last_error_message(core)),
+            "missing outline node: missing-block"
+        );
+
+        graph_engine_kc_destroy(core);
+    }
+
+    #[test]
+    fn knowledge_core_reports_ring_backpressure() {
+        let core = graph_engine_kc_create(1, 2048, 92);
+        assert!(!core.is_null());
+
+        let page = CString::new("page-full").expect("page id should be valid");
+        let text = CString::new("- Filled").expect("text should be valid");
+
+        let subscription_id = graph_engine_kc_subscribe_outline(core, page.as_ptr());
+        assert_ne!(subscription_id, 0);
+        assert_eq!(graph_engine_kc_ring_head(core), 1);
+
+        assert_eq!(
+            graph_engine_kc_ingest_document(core, page.as_ptr(), 0, text.as_ptr()),
+            0
+        );
+        assert_eq!(graph_engine_kc_last_error_code(core), 2);
+        assert_eq!(
+            decode(graph_engine_kc_last_error_message(core)),
+            "shared-memory ring is full"
+        );
+        assert_eq!(graph_engine_kc_backpressure_policy(core), 0);
+        let stats = graph_engine_kc_transport_stats(core);
+        assert_eq!(stats.published_frames, 1);
+        assert_eq!(stats.ring_full_failures, 1);
+        assert_eq!(stats.dropped_frames, 0);
+        assert_eq!(stats.coalesced_frames, 0);
+
+        graph_engine_kc_destroy(core);
+    }
+
+    #[test]
+    #[ignore = "benchmark"]
+    fn benchmark_knowledge_core_payload_summary_accessor() {
+        let core = graph_engine_kc_create(4, 4096, 93);
+        assert!(!core.is_null());
+
+        let page = CString::new("page-bench").expect("page id should be valid");
+        let text =
+            CString::new("- Alpha\n- Beta\n- Gamma\n- Delta").expect("text should be valid");
+        let subscription_id = graph_engine_kc_subscribe_outline(core, page.as_ptr());
+        assert_ne!(subscription_id, 0);
+        assert_eq!(
+            graph_engine_kc_ingest_document(core, page.as_ptr(), 0, text.as_ptr()),
+            1
+        );
+
+        let region = graph_engine_kc_ring_region(core);
+        let layout = graph_engine_kc_ring_layout(core);
+        let (payload_ptr, payload_len) = slot_payload(&region, &layout, 1);
+        let iterations = 200_000u32;
+
+        let start_scalar = Instant::now();
+        for _ in 0..iterations {
+            black_box(graph_engine_kc_payload_tx_id(payload_ptr, payload_len));
+            black_box(graph_engine_kc_payload_subscription_id(payload_ptr, payload_len));
+            let raw_kind = black_box(graph_engine_kc_payload_kind(payload_ptr, payload_len));
+            black_box(graph_engine_kc_subscription_kind(raw_kind));
+            black_box(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 0));
+            black_box(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 1));
+            black_box(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 2));
+        }
+        let scalar_elapsed = start_scalar.elapsed();
+
+        let start_summary = Instant::now();
+        for _ in 0..iterations {
+            let mut summary = empty_summary();
+            black_box(graph_engine_kc_payload_summary(
+                payload_ptr,
+                payload_len,
+                &mut summary,
+            ));
+            black_box(summary.tx_id);
+            black_box(summary.subscription_id);
+            black_box(summary.kind);
+            black_box(summary.added_count);
+            black_box(summary.updated_count);
+            black_box(summary.removed_count);
+        }
+        let summary_elapsed = start_summary.elapsed();
+
+        eprintln!(
+            "knowledge_core_payload_summary scalar_ns_per_decode={} summary_ns_per_decode={} speedup_x={:.2}",
+            scalar_elapsed.as_nanos() / u128::from(iterations),
+            summary_elapsed.as_nanos() / u128::from(iterations),
+            scalar_elapsed.as_secs_f64() / summary_elapsed.as_secs_f64()
+        );
+
+        graph_engine_kc_destroy(core);
+    }
+
+    #[test]
+    #[ignore = "benchmark"]
+    fn benchmark_knowledge_core_payload_rows_batch_accessor() {
+        let core = graph_engine_kc_create(4, 4096, 94);
+        assert!(!core.is_null());
+
+        let page = CString::new("page-batch").expect("page id should be valid");
+        let text = CString::new("- One\n- Two\n- Three\n- Four").expect("text should be valid");
+        let subscription_id = graph_engine_kc_subscribe_outline(core, page.as_ptr());
+        assert_ne!(subscription_id, 0);
+        assert_eq!(
+            graph_engine_kc_ingest_document(core, page.as_ptr(), 0, text.as_ptr()),
+            1
+        );
+
+        let region = graph_engine_kc_ring_region(core);
+        let layout = graph_engine_kc_ring_layout(core);
+        let (payload_ptr, payload_len) = slot_payload(&region, &layout, 1);
+        let row_count = graph_engine_kc_payload_row_count(payload_ptr, payload_len, 0);
+        assert_eq!(row_count, 4);
+        let iterations = 50_000u32;
+
+        let start_scalar = Instant::now();
+        for _ in 0..iterations {
+            for index in 0..row_count {
+                let mut row = empty_row();
+                black_box(graph_engine_kc_payload_row(
+                    payload_ptr,
+                    payload_len,
+                    0,
+                    index,
+                    &mut row,
+                ));
+                black_box(row.row_kind);
+                black_box(row.content.len);
+            }
+        }
+        let scalar_elapsed = start_scalar.elapsed();
+
+        let start_batch = Instant::now();
+        for _ in 0..iterations {
+            let mut rows = [empty_row(), empty_row(), empty_row(), empty_row()];
+            let written = graph_engine_kc_payload_rows(
+                payload_ptr,
+                payload_len,
+                0,
+                0,
+                rows.as_mut_ptr(),
+                row_count,
+            );
+            black_box(written);
+            for row in rows.iter().take(written as usize) {
+                black_box(row.row_kind);
+                black_box(row.content.len);
+            }
+        }
+        let batch_elapsed = start_batch.elapsed();
+
+        eprintln!(
+            "knowledge_core_payload_rows scalar_ns_per_payload={} batch_ns_per_payload={} speedup_x={:.2}",
+            scalar_elapsed.as_nanos() / u128::from(iterations),
+            batch_elapsed.as_nanos() / u128::from(iterations),
+            scalar_elapsed.as_secs_f64() / batch_elapsed.as_secs_f64()
+        );
+
+        graph_engine_kc_destroy(core);
+    }
+
+    fn slot_payload(
+        region: &GraphEngineSharedMemoryRegion,
+        layout: &GraphEngineRingLayout,
+        sequence: u64,
+    ) -> (*const u8, u64) {
+        let slot_index = (sequence % u64::from(layout.slot_count)) as usize;
+        let slot_offset =
+            layout.slots_offset as usize + (slot_index * layout.slot_stride as usize);
+        let payload_offset = layout.slot_payload_offset as usize;
+        // SAFETY: The region and layout come from `graph_engine_kc_ring_region/layout`
+        // for the same core, and the test only reads published slots below `head`.
+        let slot_base = unsafe { region.ptr.add(slot_offset) };
+        // SAFETY: Slot headers are written by Rust with `repr(C)` layout.
+        let header = unsafe { &*slot_base.cast::<TestSlotHeader>() };
+        assert!(header.len as u32 <= layout.slot_payload_bytes);
+        let payload_ptr = unsafe { slot_base.add(payload_offset) };
+        (payload_ptr.cast::<u8>(), u64::from(header.len))
+    }
+
+    fn empty_row() -> KnowledgeQueryRowFFI {
+        KnowledgeQueryRowFFI {
+            row_kind: u8::MAX,
+            _pad: [0; 3],
+            page_id: empty_slice(),
+            block_id: empty_slice(),
+            parent_id: empty_slice(),
+            target_id: empty_slice(),
+            content: empty_slice(),
+            property_key: empty_slice(),
+            property_value: empty_slice(),
+            task_marker: empty_slice(),
+            order_key: empty_slice(),
+            depth: 0,
+            ref_type: 0,
+            task_done: 0,
+        }
+    }
+
+    fn empty_summary() -> KnowledgePayloadSummaryFFI {
+        KnowledgePayloadSummaryFFI {
+            tx_id: 0,
+            subscription_id: 0,
+            kind: u8::MAX,
+            _pad: [0; 3],
+            added_count: 0,
+            updated_count: 0,
+            removed_count: 0,
+        }
+    }
+
+    fn empty_slice() -> GraphEngineStringSlice {
+        GraphEngineStringSlice {
+            ptr: std::ptr::null(),
+            len: 0,
+        }
+    }
+
+    fn decode(slice: GraphEngineStringSlice) -> String {
+        if slice.ptr.is_null() || slice.len == 0 {
+            return String::new();
+        }
+        let bytes = unsafe { std::slice::from_raw_parts(slice.ptr, slice.len as usize) };
+        std::str::from_utf8(bytes)
+            .expect("slice should be valid utf-8")
+            .to_string()
+    }
 }

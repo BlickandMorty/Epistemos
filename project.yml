@@ -24,10 +24,13 @@ targets:
       - path: Epistemos
         excludes:
           - "**/.DS_Store"
+          - "AppIcon.icon"
+          - "AppIcon.icon/**"
           - "Epistemos.entitlements"
           - "PrivacyInfo.xcprivacy"
     resources:
       - path: Epistemos/Resources
+      - path: Epistemos/AppIcon.icon
       - path: Epistemos/PrivacyInfo.xcprivacy
     entitlements:
       path: Epistemos/Epistemos.entitlements
