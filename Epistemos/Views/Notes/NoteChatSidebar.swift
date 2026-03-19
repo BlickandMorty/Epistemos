@@ -58,9 +58,11 @@ struct NoteChatSidebar: View {
                 }
             }
             .onAppear {
-                guard let last = noteChat.messages.last else { return }
-                autoFollow.markProgrammaticScrollToBottom()
-                proxy.scrollTo(last.id, anchor: .bottom)
+                Task { @MainActor in
+                    guard let last = noteChat.messages.last else { return }
+                    autoFollow.markProgrammaticScrollToBottom()
+                    proxy.scrollTo(last.id, anchor: .bottom)
+                }
             }
         }
     }

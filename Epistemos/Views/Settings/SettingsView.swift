@@ -440,9 +440,11 @@ private struct InferenceDetailView: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .onAppear {
-            let saved = inference.chatOutputTokens
-            tokenCapEnabled = saved > 0
-            if saved > 0 { tokenCapDraft = saved }
+            Task { @MainActor in
+                let saved = inference.chatOutputTokens
+                tokenCapEnabled = saved > 0
+                if saved > 0 { tokenCapDraft = saved }
+            }
         }
         .sheet(isPresented: $showLocalModelManager) {
             LocalModelManagerSheet()
@@ -650,7 +652,9 @@ private struct AppearanceDetailContainer: View {
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
             .onAppear {
-                regularModeDraft = ui.displayMode == .regular
+                Task { @MainActor in
+                    regularModeDraft = ui.displayMode == .regular
+                }
             }
             .onChange(of: ui.displayMode) { _, mode in
                 regularModeDraft = mode == .regular

@@ -897,19 +897,21 @@ struct NoteDetailWorkspaceView: View {
             .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
             .environment(noteChatState)
             .onAppear {
-                noteChatState.loadPersistedMessages(modelContext)
-                refreshTabCount()
-                if let page = pages.first {
-                    let body = persistedBodyFor(page)
-                    if persistedBody != body {
-                        persistedBody = body
+                Task { @MainActor in
+                    noteChatState.loadPersistedMessages(modelContext)
+                    refreshTabCount()
+                    if let page = pages.first {
+                        let body = persistedBodyFor(page)
+                        if persistedBody != body {
+                            persistedBody = body
+                        }
+                        scheduleMetricsRefresh(
+                            body: body,
+                            includeMarkdownHeadings: true
+                        )
+                    } else {
+                        queueMissingPageRecovery()
                     }
-                    scheduleMetricsRefresh(
-                        body: body,
-                        includeMarkdownHeadings: true
-                    )
-                } else {
-                    queueMissingPageRecovery()
                 }
             }
             .onDisappear {

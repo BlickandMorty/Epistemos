@@ -65,7 +65,11 @@ struct ChatSidebarView: View {
 
             Spacer(minLength: 0)
         }
-        .onAppear { loadChats() }
+        .onAppear {
+            Task { @MainActor in
+                loadChats()
+            }
+        }
         .onHover { inside in
             if inside {
                 // Force cursor visible — landing page may have hidden it via NSCursor.hide().

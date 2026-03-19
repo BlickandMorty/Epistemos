@@ -163,16 +163,20 @@ struct HologramNodeInspector: View {
         .frame(maxHeight: .infinity)
         .frame(minHeight: inspectorState.inspectorMode == .editor ? 500 : 300)
         .onAppear {
-            let body = NoteFileStorage.readBody(pageId: pageId)
-            editorText = body
-            lastPersistedBody = body
+            Task { @MainActor in
+                let body = NoteFileStorage.readBody(pageId: pageId)
+                editorText = body
+                lastPersistedBody = body
+            }
         }
         .onChange(of: pageId) { oldId, newId in
-            // Flush old note BEFORE loading new one — prevents data loss
-            flushEditorIfNeeded(pageId: oldId)
-            let body = NoteFileStorage.readBody(pageId: newId)
-            editorText = body
-            lastPersistedBody = body
+            Task { @MainActor in
+                // Flush old note BEFORE loading new one — prevents data loss
+                flushEditorIfNeeded(pageId: oldId)
+                let body = NoteFileStorage.readBody(pageId: newId)
+                editorText = body
+                lastPersistedBody = body
+            }
         }
         .onChange(of: editorText) {
             guard editorText != lastPersistedBody else { return }

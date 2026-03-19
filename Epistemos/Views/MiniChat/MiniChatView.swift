@@ -32,7 +32,8 @@ struct MiniChatView: View {
         .animation(Motion.snap, value: showRecentChats)
         .frame(width: 400, height: 520)
         .onAppear {
-            if threadState.chatThreads.isEmpty {
+            Task { @MainActor in
+                guard threadState.chatThreads.isEmpty else { return }
                 threadState.createThread(label: "Chat 1")
             }
         }
@@ -245,8 +246,10 @@ private struct MiniChatThread: View {
                         proxy.scrollTo("bottom", anchor: .bottom)
                     }
                     .onAppear {
-                        autoFollow.markProgrammaticScrollToBottom()
-                        proxy.scrollTo("bottom", anchor: .bottom)
+                        Task { @MainActor in
+                            autoFollow.markProgrammaticScrollToBottom()
+                            proxy.scrollTo("bottom", anchor: .bottom)
+                        }
                     }
                 }
             } else {

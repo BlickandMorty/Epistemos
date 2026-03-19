@@ -120,8 +120,10 @@ struct ChatView: View {
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
                 .onAppear {
-                    autoFollow.markProgrammaticScrollToBottom()
-                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                    Task { @MainActor in
+                        autoFollow.markProgrammaticScrollToBottom()
+                        proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                    }
                 }
             }
 

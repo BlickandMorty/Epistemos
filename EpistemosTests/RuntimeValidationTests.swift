@@ -37,6 +37,27 @@ struct RuntimeValidationTests {
         #expect(!settings.contains(".task {\n            localModelManager.refreshFromDisk()"))
     }
 
+    @Test("chat, note, graph, and settings surfaces defer on-appear state mutations off the active view update")
+    func statefulSurfacesDeferOnAppearMutations() throws {
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let noteSidebar = try loadRepoTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
+        let chatSidebar = try loadRepoTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
+        let palette = try loadRepoTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let workspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(miniChat.contains(".onAppear {\n            Task { @MainActor in"))
+        #expect(chatView.contains(".onAppear {\n                    Task { @MainActor in"))
+        #expect(noteSidebar.contains(".onAppear {\n                Task { @MainActor in"))
+        #expect(chatSidebar.contains(".onAppear {\n            Task { @MainActor in"))
+        #expect(palette.contains(".onAppear {\n            Task { @MainActor in"))
+        #expect(settings.contains(".onAppear {\n            Task { @MainActor in"))
+        #expect(inspector.contains(".onAppear {\n            Task { @MainActor in"))
+        #expect(workspace.contains(".onAppear {\n                Task { @MainActor in"))
+    }
+
     @Test("settings window keeps a native source-list layout with a persistent sidebar toggle")
     func settingsWindowUsesNativeSourceListChrome() throws {
         let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")

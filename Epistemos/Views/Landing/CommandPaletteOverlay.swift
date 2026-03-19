@@ -125,11 +125,10 @@ struct CommandPaletteOverlay: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: appeared)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: preferredPaletteWidth)
         .onAppear {
-            appeared = true
-            syncPaletteSize()
-            // Immediate focus claim — then retry after layout settles.
-            isSearchFocused = true
             Task { @MainActor in
+                appeared = true
+                syncPaletteSize()
+                isSearchFocused = true
                 try? await Task.sleep(for: .milliseconds(50))
                 if !isSearchFocused { isSearchFocused = true }
             }
@@ -583,8 +582,10 @@ struct CommandPaletteOverlay: View {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
             .onAppear {
-                chatAutoFollow.markProgrammaticScrollToBottom()
-                proxy.scrollTo("bottom", anchor: .bottom)
+                Task { @MainActor in
+                    chatAutoFollow.markProgrammaticScrollToBottom()
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
             }
         }
     }
