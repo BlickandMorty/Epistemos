@@ -476,6 +476,7 @@ private struct MiniChatInputBar: View {
     // @-mention dropdown
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
+    @State private var referenceSearch = ComposerReferenceSearchState()
     @State private var snapshotStore = MiniChatSnapshotStore()
 
     private var theme: EpistemosTheme { ui.theme }
@@ -501,7 +502,9 @@ private struct MiniChatInputBar: View {
             filter: mentionFilter,
             manifest: AppBootstrap.shared?.ambientManifest,
             chats: recentChats(),
-            threads: threadState.chatThreads
+            threads: threadState.chatThreads,
+            indexedNoteIDs: referenceSearch.indexedNoteIDs,
+            indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
     }
 
@@ -536,8 +539,14 @@ private struct MiniChatInputBar: View {
                         if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
                             mentionFilter = filter
                             if !showMentionDropdown { showMentionDropdown = true }
+                            referenceSearch.update(
+                                filter: filter,
+                                manifest: AppBootstrap.shared?.ambientManifest,
+                                vaultSync: vaultSync
+                            )
                         } else if showMentionDropdown {
                             showMentionDropdown = false
+                            referenceSearch.reset()
                         }
                     }
 
@@ -568,8 +577,8 @@ private struct MiniChatInputBar: View {
             if showMentionDropdown {
                 ComposerReferencePopover(
                     results: mentionSearchResults,
-                    idealWidth: 300,
-                    maxHeight: 300,
+                    idealWidth: 360,
+                    maxHeight: 330,
                     onSelect: attachMentionReference
                 )
             }
@@ -1014,12 +1023,14 @@ private struct MiniChatInputBar: View {
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
         mentionFilter = ""
+        referenceSearch.reset()
     }
 
     private func openNotePicker() {
         mentionFilter = ""
         showMentionDropdown = true
         isFocused = true
+        referenceSearch.reset()
     }
 
     private func attachVaultContext() {

@@ -80,6 +80,7 @@ struct LandingView: View {
     @State private var isLandingSearchFocused = false
     @State private var showLandingMentionDropdown = false
     @State private var landingMentionFilter = ""
+    @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
     @State private var pointerState = LandingPointerState()
 
@@ -105,7 +106,9 @@ struct LandingView: View {
             filter: landingMentionFilter,
             manifest: AppBootstrap.shared?.ambientManifest,
             chats: recentChats(limit: 20),
-            threads: AppBootstrap.shared?.threadState.chatThreads ?? []
+            threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
+            indexedNoteIDs: landingReferenceSearch.indexedNoteIDs,
+            indexedNoteSnippets: landingReferenceSearch.indexedNoteSnippetsByPageID
         )
     }
 
@@ -342,7 +345,7 @@ struct LandingView: View {
                         }
                     }
 
-                    HStack(alignment: .bottom, spacing: LandingSearchLayout.topRowSpacing) {
+                    VStack(alignment: .leading, spacing: LandingSearchLayout.controlRowTopPadding) {
                         HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 18, weight: .medium))
@@ -379,8 +382,14 @@ struct LandingView: View {
                                         if !showLandingMentionDropdown {
                                             showLandingMentionDropdown = true
                                         }
+                                        landingReferenceSearch.update(
+                                            filter: filter,
+                                            manifest: AppBootstrap.shared?.ambientManifest,
+                                            vaultSync: vaultSync
+                                        )
                                     } else if showLandingMentionDropdown {
                                         showLandingMentionDropdown = false
+                                        landingReferenceSearch.reset()
                                     }
                                 }
 
@@ -394,8 +403,10 @@ struct LandingView: View {
                             }
                         }
 
-                        HStack(spacing: 4) {
+                        HStack(spacing: LandingSearchLayout.controlRowSpacing) {
                             landingRoutingMenu
+
+                            Spacer(minLength: 0)
 
                             if !landingSearchText.isEmpty {
                                 Button {
@@ -403,6 +414,7 @@ struct LandingView: View {
                                     landingComposerHeight = LandingSearchLayout.inputMinHeight
                                     showLandingMentionDropdown = false
                                     landingMentionFilter = ""
+                                    landingReferenceSearch.reset()
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.system(size: 14, weight: .semibold))
@@ -429,13 +441,13 @@ struct LandingView: View {
                         if showLandingMentionDropdown {
                             ComposerReferencePopover(
                                 results: landingMentionSearchResults,
-                                idealWidth: 360,
-                                maxHeight: 300,
+                                idealWidth: 420,
+                                maxHeight: 340,
                                 onSelect: attachLandingMentionReference
                             )
+                            }
                         }
                     }
-                }
                 .padding(.horizontal, LandingSearchLayout.horizontalPadding)
                 .padding(.top, LandingSearchLayout.topPadding)
                 .padding(.bottom, LandingSearchLayout.bottomPadding)
@@ -529,6 +541,7 @@ struct LandingView: View {
         isLandingSearchFocused = false
         showLandingMentionDropdown = false
         landingMentionFilter = ""
+        landingReferenceSearch.reset()
         landingContextAttachments = []
     }
 
@@ -549,6 +562,7 @@ struct LandingView: View {
         landingMentionFilter = ""
         showLandingMentionDropdown = true
         isLandingSearchFocused = true
+        landingReferenceSearch.reset()
     }
 
     private func attachLandingVaultContext() {
@@ -565,6 +579,7 @@ struct LandingView: View {
         landingSearchText = ComposerReferenceHelpers.removingTrailingMention(from: landingSearchText)
         showLandingMentionDropdown = false
         landingMentionFilter = ""
+        landingReferenceSearch.reset()
     }
 
     private func removeLandingContextAttachment(_ id: String) {

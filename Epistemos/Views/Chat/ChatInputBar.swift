@@ -22,6 +22,7 @@ struct ChatInputBar: View {
 
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
+    @Environment(VaultSyncService.self) private var vaultSync
     @Environment(\.modelContext) private var modelContext
 
     @State private var text = ""
@@ -31,6 +32,7 @@ struct ChatInputBar: View {
     // Notes Mode @-mention dropdown
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
+    @State private var referenceSearch = ComposerReferenceSearchState()
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -41,7 +43,9 @@ struct ChatInputBar: View {
             filter: mentionFilter,
             manifest: AppBootstrap.shared?.ambientManifest,
             chats: recentChats(),
-            threads: AppBootstrap.shared?.threadState.chatThreads ?? []
+            threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
+            indexedNoteIDs: referenceSearch.indexedNoteIDs,
+            indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
     }
     private var composerIsActive: Bool {
@@ -143,8 +147,8 @@ struct ChatInputBar: View {
             if showMentionDropdown {
                 ComposerReferencePopover(
                     results: mentionSearchResults,
-                    idealWidth: 320,
-                    maxHeight: 300,
+                    idealWidth: 392,
+                    maxHeight: 340,
                     onSelect: attachMentionReference
                 )
             }
@@ -190,8 +194,14 @@ struct ChatInputBar: View {
             if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
                 mentionFilter = filter
                 if !showMentionDropdown { showMentionDropdown = true }
+                referenceSearch.update(
+                    filter: filter,
+                    manifest: AppBootstrap.shared?.ambientManifest,
+                    vaultSync: vaultSync
+                )
             } else if showMentionDropdown {
                 showMentionDropdown = false
+                referenceSearch.reset()
             }
         }
     }
@@ -285,12 +295,14 @@ struct ChatInputBar: View {
         composerHeight = ChatComposerInputMetrics.minHeight
         showMentionDropdown = false
         mentionFilter = ""
+        referenceSearch.reset()
     }
 
     private func openNotePicker() {
         mentionFilter = ""
         showMentionDropdown = true
         isFocused = true
+        referenceSearch.reset()
     }
 
     private func attachVaultContext() {
@@ -302,6 +314,7 @@ struct ChatInputBar: View {
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
         mentionFilter = ""
+        referenceSearch.reset()
     }
 
     private func recentChats() -> [SDChat] {

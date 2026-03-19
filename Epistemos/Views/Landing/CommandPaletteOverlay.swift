@@ -57,6 +57,7 @@ struct CommandPaletteOverlay: View {
     @State private var chatInput = ""
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
+    @State private var referenceSearch = ComposerReferenceSearchState()
     @State private var lastScrollTime: ContinuousClock.Instant = .now
     @State private var chatAutoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
     @FocusState private var isChatFocused: Bool
@@ -69,7 +70,9 @@ struct CommandPaletteOverlay: View {
             filter: mentionFilter,
             manifest: AppBootstrap.shared?.ambientManifest,
             chats: allChats,
-            threads: threadState.chatThreads
+            threads: threadState.chatThreads,
+            indexedNoteIDs: referenceSearch.indexedNoteIDs,
+            indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
     }
     private var activeContextAttachments: [ContextAttachment] {
@@ -691,8 +694,14 @@ struct CommandPaletteOverlay: View {
                         if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
                             mentionFilter = filter
                             if !showMentionDropdown { showMentionDropdown = true }
+                            referenceSearch.update(
+                                filter: filter,
+                                manifest: AppBootstrap.shared?.ambientManifest,
+                                vaultSync: vaultSync
+                            )
                         } else if showMentionDropdown {
                             showMentionDropdown = false
+                            referenceSearch.reset()
                         }
                     }
 
@@ -722,8 +731,8 @@ struct CommandPaletteOverlay: View {
             if showMentionDropdown {
                 ComposerReferencePopover(
                     results: mentionSearchResults,
-                    idealWidth: 320,
-                    maxHeight: 300,
+                    idealWidth: 380,
+                    maxHeight: 340,
                     onSelect: attachMentionReference
                 )
             }
@@ -1225,6 +1234,7 @@ struct CommandPaletteOverlay: View {
         chatInput = ComposerReferenceHelpers.removingTrailingMention(from: chatInput)
         showMentionDropdown = false
         mentionFilter = ""
+        referenceSearch.reset()
     }
 
     private func openNotePicker() {
@@ -1232,6 +1242,7 @@ struct CommandPaletteOverlay: View {
         ensureActiveTab()
         mentionFilter = ""
         showMentionDropdown = true
+        referenceSearch.reset()
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(100))
             isChatFocused = true

@@ -22,6 +22,8 @@ final class ChatCoordinator {
         let vaultNoteCount: Int
         let isInventoryComplete: Bool
         let query: String
+        let indexedMatchedNoteIDs: Set<String>
+        let indexedNoteSnippetsByPageID: [String: String]
     }
 
     struct NotesContextResolution: Sendable {
@@ -366,11 +368,14 @@ final class ChatCoordinator {
         manifest: VaultManifest?,
         chats: [SDChat],
         threads: [ChatThread],
-        limitPerSection: Int = 6
+        limitPerSection: Int = 6,
+        indexedNoteIDs: [String] = [],
+        indexedNoteSnippets: [String: String] = [:]
     ) -> ReferenceSearchResults {
         let normalizedFilter = normalizedSearchField(
             filter.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+        let uniqueIndexedNoteIDs = uniquePreservingOrder(indexedNoteIDs)
 
         let noteChoices: [NoteMentionChoice] = {
             guard let manifest else { return [] }
@@ -390,9 +395,17 @@ final class ChatCoordinator {
             }
 
             let terms = searchTerms(from: normalizedFilter)
+            let indexedBoosts = indexedNoteBoosts(
+                pageIDs: uniqueIndexedNoteIDs,
+                limit: limitPerSection * 2
+            )
             let matched = manifest.entries
                 .compactMap { entry -> (entry: VaultManifest.ManifestEntry, score: Int)? in
-                    let score = noteSearchScore(for: entry, normalizedFilter: normalizedFilter, terms: terms)
+                    let score = noteSearchScore(
+                        for: entry,
+                        normalizedFilter: normalizedFilter,
+                        terms: terms
+                    ) + (indexedBoosts[entry.pageId] ?? 0)
                     return score > 0 ? (entry, score) : nil
                 }
                 .sorted {
@@ -450,7 +463,9 @@ final class ChatCoordinator {
             vaultTitle: manifest?.vaultTitle,
             vaultNoteCount: manifest?.totalNoteCount ?? 0,
             isInventoryComplete: manifest?.isInventoryComplete ?? false,
-            query: normalizedFilter
+            query: normalizedFilter,
+            indexedMatchedNoteIDs: Set(uniqueIndexedNoteIDs),
+            indexedNoteSnippetsByPageID: indexedNoteSnippets
         )
     }
 
@@ -467,6 +482,14 @@ final class ChatCoordinator {
             .split(whereSeparator: \.isWhitespace)
             .map(String.init)
             .filter { !$0.isEmpty }
+    }
+
+    private static func indexedNoteBoosts(pageIDs: [String], limit: Int) -> [String: Int] {
+        var boosts: [String: Int] = [:]
+        for (offset, pageID) in uniquePreservingOrder(pageIDs).prefix(limit).enumerated() {
+            boosts[pageID] = max(18, 74 - (offset * 8))
+        }
+        return boosts
     }
 
     private static func noteSearchScore(

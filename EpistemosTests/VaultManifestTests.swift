@@ -110,6 +110,7 @@ struct VaultManifestTests {
             referencedNotes: [
                 VaultManifest.NoteBody(pageId: "p1", title: "Quantum Notes", body: "Referenced body A"),
             ],
+            matchedVaultNotes: [],
             cleanedQuery: "Compare Quantum Notes"
         )
 
@@ -131,6 +132,7 @@ struct VaultManifestTests {
             manifest: nil,
             includeManifest: false,
             referencedNotes: [],
+            matchedVaultNotes: [],
             cleanedQuery: "Hello"
         )
 

@@ -132,6 +132,70 @@ struct ComposerReferenceHelpersTests {
         #expect(notePageIDs(results.notes) == ["folder", "snippet"])
     }
 
+    @Test("reference search includes indexed deep-body matches when manifest metadata misses them")
+    func referenceSearchIncludesIndexedDeepBodyMatches() {
+        let manifest = makeManifest(entries: [
+            .init(
+                pageId: "deep",
+                title: "Orbitals",
+                tags: ["chemistry"],
+                folderName: "Research",
+                wordCount: 320,
+                snippet: "Electron shell observations",
+                updatedAt: Date(timeIntervalSince1970: 200),
+                createdAt: .distantPast
+            ),
+            .init(
+                pageId: "plain",
+                title: "Meeting Notes",
+                tags: ["ops"],
+                folderName: "Team",
+                wordCount: 210,
+                snippet: "Weekly staff sync",
+                updatedAt: Date(timeIntervalSince1970: 100),
+                createdAt: .distantPast
+            ),
+        ])
+
+        let results = ChatCoordinator.searchReferenceResults(
+            filter: "decoherence",
+            manifest: manifest,
+            chats: [],
+            threads: [],
+            indexedNoteIDs: ["deep"]
+        )
+
+        #expect(notePageIDs(results.notes) == ["deep"])
+    }
+
+    @Test("reference search keeps indexed snippet metadata for deep body matches")
+    func referenceSearchKeepsIndexedSnippetMetadata() {
+        let manifest = makeManifest(entries: [
+            .init(
+                pageId: "deep",
+                title: "Orbitals",
+                tags: ["chemistry"],
+                folderName: "Research",
+                wordCount: 320,
+                snippet: "Electron shell observations",
+                updatedAt: Date(timeIntervalSince1970: 200),
+                createdAt: .distantPast
+            ),
+        ])
+
+        let results = ChatCoordinator.searchReferenceResults(
+            filter: "decoherence",
+            manifest: manifest,
+            chats: [],
+            threads: [],
+            indexedNoteIDs: ["deep"],
+            indexedNoteSnippets: ["deep": "Field decoherence in trapped ions"]
+        )
+
+        #expect(results.indexedMatchedNoteIDs == Set(["deep"]))
+        #expect(results.indexedNoteSnippetsByPageID["deep"] == "Field decoherence in trapped ions")
+    }
+
     @Test("empty note search surfaces all notes first and then recent notes")
     func emptyNoteSearchSurfacesAllNotesFirstAndThenRecentNotes() {
         let manifest = makeManifest(entries: [

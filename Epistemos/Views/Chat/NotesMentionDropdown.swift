@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 
 enum NoteMentionChoice: Identifiable {
@@ -85,6 +86,84 @@ enum ComposerReferenceChoice: Identifiable {
     }
 }
 
+@MainActor @Observable
+final class ComposerReferenceSearchState {
+    var indexedNoteIDs: [String] = []
+    var indexedNoteSnippetsByPageID: [String: String] = [:]
+
+    @ObservationIgnored
+    private var searchTask: Task<Void, Never>?
+
+    func update(
+        filter: String,
+        manifest: VaultManifest?,
+        vaultSync: VaultSyncService
+    ) {
+        let trimmedFilter = filter.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedFilter.isEmpty, let manifest else {
+            reset()
+            return
+        }
+
+        let manifestPageIDs = Set(manifest.entries.map(\.pageId))
+        searchTask?.cancel()
+        searchTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+            let hits = await vaultSync.searchFullAsync(query: trimmedFilter, limit: 12)
+            let matchedHits = hits.filter { manifestPageIDs.contains($0.pageId) }
+            let matchedIDs = Self.uniquePreservingOrder(matchedHits.map(\.pageId))
+            let snippets = Self.snippetsByPageID(for: matchedHits)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.indexedNoteIDs = matchedIDs
+                self?.indexedNoteSnippetsByPageID = snippets
+            }
+        }
+    }
+
+    func reset() {
+        searchTask?.cancel()
+        searchTask = nil
+        indexedNoteIDs = []
+        indexedNoteSnippetsByPageID = [:]
+    }
+
+    deinit {
+        searchTask?.cancel()
+    }
+
+    private static func uniquePreservingOrder(_ ids: [String]) -> [String] {
+        var seen = Set<String>()
+        var results: [String] = []
+        results.reserveCapacity(ids.count)
+        for id in ids where seen.insert(id).inserted {
+            results.append(id)
+        }
+        return results
+    }
+
+    private static func snippetsByPageID(for hits: [SearchResult]) -> [String: String] {
+        var snippets: [String: String] = [:]
+        for hit in hits where snippets[hit.pageId] == nil {
+            let snippet = normalizedSnippet(hit.snippet)
+            guard !snippet.isEmpty else { continue }
+            snippets[hit.pageId] = snippet
+        }
+        return snippets
+    }
+
+    private static func normalizedSnippet(_ snippet: String) -> String {
+        snippet
+            .replacingOccurrences(of: "<b>", with: "")
+            .replacingOccurrences(of: "</b>", with: "")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 struct ComposerContextShortcutBar: View {
     let noteLabel: String
     let vaultLabel: String
@@ -155,7 +234,7 @@ struct ComposerReferencePopover: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = min(idealWidth, max(260, proxy.size.width - 8))
+            let width = min(idealWidth, max(320, proxy.size.width - 20))
 
             VStack(alignment: .leading, spacing: 0) {
                 popoverHeader
@@ -180,8 +259,15 @@ struct ComposerReferencePopover: View {
             .frame(width: width, alignment: .topLeading)
             .frame(maxHeight: maxHeight, alignment: .topLeading)
             .assistantPopoverChrome(theme: theme)
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.white.opacity(theme.isDark ? 0.04 : 0.18))
+                    .frame(height: 1)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 1)
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .offset(y: -8)
+            .offset(y: 6)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
         }
         .frame(maxWidth: .infinity, maxHeight: maxHeight + 12, alignment: .topLeading)
@@ -219,7 +305,7 @@ struct ComposerReferencePopover: View {
         if results.query.isEmpty {
             return "Attach a note, search your vault, or bring the whole index into this turn."
         }
-        return "Searching titles, folders, tags, and snippets for “\(results.query)”."
+        return "Searching titles, folders, tags, and body excerpts for “\(results.query)”."
     }
 
     private var footerHint: some View {
@@ -227,7 +313,9 @@ struct ComposerReferencePopover: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(theme.textSecondary)
-            Text("Rich matches come from your vault inventory and recent note excerpts.")
+            Text(results.indexedMatchedNoteIDs.isEmpty
+                 ? "Rich matches come from your vault inventory and recent note excerpts."
+                 : "Body matches are boosted from the live vault index and labeled below.")
                 .font(.system(size: 10.5))
                 .foregroundStyle(theme.textTertiary)
             Spacer(minLength: 0)
@@ -342,6 +430,9 @@ struct NotesMentionDropdown: View {
         if results.query.isEmpty {
             return "Browse \(results.vaultNoteCount) notes or attach the whole vault as context."
         }
+        if !results.indexedMatchedNoteIDs.isEmpty {
+            return "Matching titles, tags, and \(results.indexedMatchedNoteIDs.count) deep body hits in \(results.vaultNoteCount) notes."
+        }
         return "Matching across titles, folders, tags, and snippets in \(results.vaultNoteCount) notes."
     }
 
@@ -390,44 +481,65 @@ struct NotesMentionDropdown: View {
 
         case .entry(let entry):
             rowChrome {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(entry.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
-                        .lineLimit(1)
+                HStack(alignment: .top, spacing: 10) {
+                    rowIcon(
+                        systemName: results.indexedMatchedNoteIDs.contains(entry.pageId)
+                            ? "doc.text.magnifyingglass"
+                            : "doc.text.fill",
+                        tint: results.indexedMatchedNoteIDs.contains(entry.pageId)
+                            ? theme.accent.opacity(0.95)
+                            : theme.textSecondary
+                    )
 
-                    HStack(spacing: 6) {
-                        if let folder = entry.folderName, !folder.isEmpty {
-                            Label(folder, systemImage: "folder")
-                                .labelStyle(.titleAndIcon)
-                                .font(.system(size: 10.5, weight: .medium))
-                                .foregroundStyle(theme.textSecondary)
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(alignment: .center, spacing: 8) {
+                            Text(entry.title)
+                                .font(.system(size: 12.5, weight: .semibold))
+                                .foregroundStyle(theme.foreground)
                                 .lineLimit(1)
-                        }
-                        Text(entry.updatedAt.formatted(.relative(presentation: .named)))
-                            .font(.system(size: 10))
-                            .foregroundStyle(theme.textTertiary.opacity(0.7))
-                    }
-
-                    if !entry.tags.isEmpty {
-                        HStack(spacing: 4) {
-                            ForEach(Array(entry.tags.prefix(3)), id: \.self) { tag in
-                                Text("#\(tag)")
+                            if results.indexedMatchedNoteIDs.contains(entry.pageId) {
+                                Text("Body Match")
                                     .font(.system(size: 9.5, weight: .semibold))
-                                    .foregroundStyle(theme.textSecondary)
+                                    .foregroundStyle(theme.accent.opacity(0.95))
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 3)
-                                    .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                                    .background(Capsule().fill(theme.accent.opacity(theme.isDark ? 0.16 : 0.10)))
                             }
                         }
-                    }
 
-                    if !entry.snippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text(entry.snippet)
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(theme.textTertiary.opacity(0.88))
-                            .lineLimit(results.query.isEmpty ? 1 : 2)
-                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: 4) {
+                            if let folder = entry.folderName, !folder.isEmpty {
+                                Label(folder, systemImage: "folder")
+                                    .labelStyle(.titleAndIcon)
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .foregroundStyle(theme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                            Text(entry.updatedAt.formatted(.relative(presentation: .named)))
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.textTertiary.opacity(0.7))
+                        }
+
+                        if !entry.tags.isEmpty {
+                            HStack(spacing: 4) {
+                                ForEach(Array(entry.tags.prefix(3)), id: \.self) { tag in
+                                    Text("#\(tag)")
+                                        .font(.system(size: 9.5, weight: .semibold))
+                                        .foregroundStyle(theme.textSecondary)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                                }
+                            }
+                        }
+
+                        if let snippet = displaySnippet(for: entry) {
+                            Text(snippet)
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(theme.textTertiary.opacity(0.88))
+                                .lineLimit(results.query.isEmpty ? 1 : 3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
             }
@@ -436,43 +548,70 @@ struct NotesMentionDropdown: View {
 
     private func chatRow(_ result: ChatCoordinator.ChatReferenceResult) -> some View {
         rowChrome {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(result.attachment.title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(theme.foreground)
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    if let subtitle = result.attachment.subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 10))
-                            .foregroundStyle(theme.textTertiary)
-                    }
-                    if let preview = result.preview, !preview.isEmpty {
-                        Text(preview)
-                            .font(.system(size: 10))
-                            .foregroundStyle(theme.textTertiary.opacity(0.7))
-                            .lineLimit(1)
+            HStack(alignment: .top, spacing: 10) {
+                rowIcon(systemName: "bubble.left.and.bubble.right.fill", tint: theme.textSecondary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(result.attachment.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        if let subtitle = result.attachment.subtitle {
+                            Text(subtitle)
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                        if let preview = result.preview, !preview.isEmpty {
+                            Text(preview)
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.textTertiary.opacity(0.7))
+                                .lineLimit(1)
+                        }
                     }
                 }
             }
         }
     }
 
+    private func rowIcon(systemName: String, tint: Color) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 24, height: 24)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(tint.opacity(theme.isDark ? 0.12 : 0.08))
+            )
+    }
+
+    private func displaySnippet(for entry: VaultManifest.ManifestEntry) -> String? {
+        let indexedSnippet = results.indexedNoteSnippetsByPageID[entry.pageId]?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        if let indexedSnippet, !indexedSnippet.isEmpty {
+            return indexedSnippet
+        }
+
+        let manifestSnippet = entry.snippet.trimmingCharacters(in: .whitespacesAndNewlines)
+        return manifestSnippet.isEmpty ? nil : manifestSnippet
+    }
+
     private func rowChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(theme.foreground.opacity(theme.isDark ? 0.08 : 0.04))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.32 : 0.20), lineWidth: 0.75)
                     }
             )
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
