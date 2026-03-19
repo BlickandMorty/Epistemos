@@ -84,6 +84,7 @@ struct VaultContextPack: Sendable {
     let manifest: VaultManifest?
     let includeManifest: Bool
     let referencedNotes: [VaultManifest.NoteBody]
+    let matchedVaultNotes: [VaultManifest.NoteBody]
     let cleanedQuery: String
 
     func renderedContext() -> String? {
@@ -96,6 +97,14 @@ struct VaultContextPack: Sendable {
         for note in referencedNotes {
             guard seenNoteIDs.insert(note.pageId).inserted else { continue }
             parts.append("### Referenced Note: \(note.title)\n\(note.body)")
+        }
+
+        if !matchedVaultNotes.isEmpty {
+            parts.append("## Matched Vault Notes")
+            for note in matchedVaultNotes {
+                guard seenNoteIDs.insert(note.pageId).inserted else { continue }
+                parts.append("### Vault Match: \(note.title)\n\(note.body)")
+            }
         }
 
         return parts.isEmpty ? nil : parts.joined(separator: "\n\n")

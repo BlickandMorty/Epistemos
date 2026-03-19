@@ -1203,6 +1203,7 @@ struct ChatCoordinatorPersistenceTests {
             manifest: manifest,
             loadedNoteIds: [],
             loadedNoteTitles: [],
+            includeAllNotesContext: false,
             findNotesByTitle: { query in
                 query == "Alpha" ? manifestEntries : []
             },
@@ -1210,7 +1211,8 @@ struct ChatCoordinatorPersistenceTests {
                 ids.contains("alpha-id")
                     ? [VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")]
                     : []
-            }
+            },
+            searchNoteIDs: { _ in [] }
         )
 
         #expect(first.cleanedQuery == "Alpha compare this with today")
@@ -1223,12 +1225,14 @@ struct ChatCoordinatorPersistenceTests {
             manifest: manifest,
             loadedNoteIds: first.loadedNoteIds,
             loadedNoteTitles: first.loadedNoteTitles,
+            includeAllNotesContext: false,
             findNotesByTitle: { _ in [] },
             fetchNoteBodies: { ids in
                 ids.contains("alpha-id")
                     ? [VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")]
                     : []
-            }
+            },
+            searchNoteIDs: { _ in [] }
         )
 
         #expect(second.cleanedQuery == "Use the same note again")
@@ -1241,8 +1245,23 @@ struct ChatCoordinatorPersistenceTests {
             manifest: manifest,
             loadedNoteIds: [],
             loadedNoteTitles: [],
+            includeAllNotesContext: false,
             findNotesByTitle: { _ in [] },
-            fetchNoteBodies: { _ in [] }
+            fetchNoteBodies: { ids in
+                ids.compactMap { id in
+                    switch id {
+                    case "beta-id":
+                        VaultManifest.NoteBody(pageId: "beta-id", title: "Beta", body: "Beta full body")
+                    case "alpha-id":
+                        VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")
+                    default:
+                        nil
+                    }
+                }
+            },
+            searchNoteIDs: { query in
+                query == "compare themes across the vault" ? ["beta-id", "alpha-id"] : []
+            }
         )
 
         #expect(third.cleanedQuery == "compare themes across the vault")
@@ -1251,8 +1270,11 @@ struct ChatCoordinatorPersistenceTests {
         #expect(third.context?.contains("## Vault Overview (2 listed notes)") == true)
         #expect(third.context?.contains("Alpha") == true)
         #expect(third.context?.contains("Beta") == true)
-        #expect(third.loadedNoteIds.isEmpty)
-        #expect(third.loadedNoteTitles.isEmpty)
+        #expect(third.context?.contains("## Matched Vault Notes") == true)
+        #expect(third.context?.contains("### Vault Match: Beta") == true)
+        #expect(third.context?.contains("Beta full body") == true)
+        #expect(third.loadedNoteIds == Set(["beta-id", "alpha-id"]))
+        #expect(third.loadedNoteTitles == ["Beta", "Alpha"])
 
         let attached = await ChatCoordinator.resolveAttachedContext(
             query: "Compare this to that older conversation",
@@ -1262,8 +1284,10 @@ struct ChatCoordinatorPersistenceTests {
             manifest: manifest,
             loadedNoteIds: [],
             loadedNoteTitles: [],
+            includeAllNotesContext: false,
             findNotesByTitle: { _ in [] },
             fetchNoteBodies: { _ in [] },
+            searchNoteIDs: { _ in [] },
             fetchChatMessages: { id in
                 await MainActor.run {
                     id == "chat-1"
@@ -1280,6 +1304,86 @@ struct ChatCoordinatorPersistenceTests {
         #expect(attached.context?.contains("Attached chat context: Older Thread") == true)
         #expect(attached.context?.contains("User: What is imperialism?") == true)
         #expect(attached.context?.contains("Assistant: A system of domination.") == true)
+    }
+
+    @Test("attached notes resolve by exact page id and do not drift through title search")
+    func attachedNotesResolveByExactPageID() async {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "alpha-id",
+                    title: "Project Atlas",
+                    tags: [],
+                    folderName: "Plans",
+                    wordCount: 120,
+                    snippet: "Alpha snippet",
+                    updatedAt: now,
+                    createdAt: now
+                ),
+                VaultManifest.ManifestEntry(
+                    pageId: "beta-id",
+                    title: "Project Atlas",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 140,
+                    snippet: "Beta snippet",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let resolution = await ChatCoordinator.resolveAttachedContext(
+            query: "Compare this with the selected note",
+            attachments: [
+                ContextAttachment(kind: .note, targetId: "beta-id", title: "Project Atlas", subtitle: "Research")
+            ],
+            manifest: manifest,
+            loadedNoteIds: [],
+            loadedNoteTitles: [],
+            includeAllNotesContext: false,
+            findNotesByTitle: { _ in
+                [
+                    VaultManifest.ManifestEntry(
+                        pageId: "alpha-id",
+                        title: "Project Atlas",
+                        tags: [],
+                        folderName: "Plans",
+                        wordCount: 120,
+                        snippet: "Alpha snippet",
+                        updatedAt: now,
+                        createdAt: now
+                    )
+                ]
+            },
+            fetchNoteBodies: { ids in
+                ids.compactMap { id in
+                    switch id {
+                    case "alpha-id":
+                        VaultManifest.NoteBody(pageId: "alpha-id", title: "Project Atlas", body: "Alpha full body")
+                    case "beta-id":
+                        VaultManifest.NoteBody(pageId: "beta-id", title: "Project Atlas", body: "Beta full body")
+                    default:
+                        nil
+                    }
+                }
+            },
+            searchNoteIDs: { _ in [] },
+            fetchChatMessages: { _ in [] }
+        )
+
+        #expect(resolution.cleanedQuery == "Compare this with the selected note")
+        #expect(resolution.context?.contains("### Attached Note: Project Atlas") == true)
+        #expect(resolution.context?.contains("Beta full body") == true)
+        #expect(resolution.context?.contains("Alpha full body") == false)
+        #expect(resolution.loadedNoteIds == Set(["beta-id"]))
+        #expect(resolution.loadedNoteTitles == ["Project Atlas"])
     }
 
     @Test("pipeline direct stream uses bare prompts and only appends explicit note context")

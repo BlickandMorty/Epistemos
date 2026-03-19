@@ -8,13 +8,21 @@ struct ComposerReferenceHelpersTests {
     func mentionFilterExtractsActiveQuery() {
         #expect(ComposerReferenceHelpers.mentionFilter(in: "Ask @alp") == "alp")
         #expect(ComposerReferenceHelpers.mentionFilter(in: "@") == "")
+        #expect(ComposerReferenceHelpers.mentionFilter(in: "Ask @my mind map") == "my mind map")
     }
 
-    @Test("mention filter ignores closed or whitespace-terminated mentions")
-    func mentionFilterIgnoresClosedOrWhitespaceMentions() {
+    @Test("mention filter ignores closed mentions and inline emails")
+    func mentionFilterIgnoresClosedMentionsAndEmails() {
         #expect(ComposerReferenceHelpers.mentionFilter(in: "Ask @[Alpha]") == nil)
-        #expect(ComposerReferenceHelpers.mentionFilter(in: "Ask @alpha beta") == nil)
+        #expect(ComposerReferenceHelpers.mentionFilter(in: "mail me at alpha@example.com") == nil)
         #expect(ComposerReferenceHelpers.mentionFilter(in: "Ask alpha") == nil)
+    }
+
+    @Test("removing trailing mention trims the full active multi-word query")
+    func removingTrailingMentionTrimsFullActiveMention() {
+        #expect(ComposerReferenceHelpers.removingTrailingMention(from: "Ask @my mind map") == "Ask ")
+        #expect(ComposerReferenceHelpers.removingTrailingMention(from: "mail me at alpha@example.com") == "mail me at alpha@example.com")
+        #expect(ComposerReferenceHelpers.removingTrailingMention(from: "Ask @[Alpha]") == "Ask @[Alpha]")
     }
 
     @Test("context attachment builder maps note and vault choices")

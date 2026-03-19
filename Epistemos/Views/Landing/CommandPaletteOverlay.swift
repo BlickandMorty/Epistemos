@@ -765,11 +765,15 @@ struct CommandPaletteOverlay: View {
                     manifest: AppBootstrap.shared?.ambientManifest,
                     loadedNoteIds: [],
                     loadedNoteTitles: [],
+                    includeAllNotesContext: false,
                     findNotesByTitle: { [vaultSync] title in
                         await vaultSync.findNotesByTitle(title)
                     },
                     fetchNoteBodies: { [vaultSync] ids in
                         await vaultSync.fetchNoteBodies(ids: ids)
+                    },
+                    searchNoteIDs: { [vaultSync] query in
+                        await vaultSync.searchIndex(query: query)
                     },
                     fetchChatMessages: { [self] chatID in
                         await MainActor.run {

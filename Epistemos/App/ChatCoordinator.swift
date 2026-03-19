@@ -271,8 +271,10 @@ final class ChatCoordinator {
         manifest: VaultManifest?,
         loadedNoteIds: Set<String>,
         loadedNoteTitles: [String] = [],
+        includeAllNotesContext: Bool = false,
         findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
-        fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody]
+        fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody],
+        searchNoteIDs: @escaping @Sendable (String) async -> [String]
     ) async -> NotesContextResolution {
         guard let manifest else {
             return NotesContextResolution(
@@ -285,9 +287,10 @@ final class ChatCoordinator {
 
         var cleanedQuery = query
         var referencedNotes: [VaultManifest.NoteBody] = []
+        var matchedVaultNotes: [VaultManifest.NoteBody] = []
         var nextLoadedNoteIds: Set<String> = []
         var nextLoadedTitles: [String] = []
-        var includeManifest = false
+        var includeManifest = includeAllNotesContext
 
         let mentionPattern = #"@\[([^\]]+)\]"#
         if let regex = try? NSRegularExpression(pattern: mentionPattern) {
@@ -312,18 +315,34 @@ final class ChatCoordinator {
                         continue
                     }
                     let found = await findNotesByTitle(title)
-                    let ids = found.map(\.pageId).filter { !nextLoadedNoteIds.contains($0) }
+                    let ids = uniquePreservingOrder(found.map(\.pageId))
                     if !ids.isEmpty {
                         let bodies = await fetchNoteBodies(ids)
-                        for body in bodies {
-                            referencedNotes.append(body)
-                            nextLoadedNoteIds.insert(body.pageId)
-                            if !nextLoadedTitles.contains(body.title) {
-                                nextLoadedTitles.append(body.title)
-                            }
-                        }
+                        appendLoadedNotes(
+                            bodies,
+                            to: &referencedNotes,
+                            loadedIDs: &nextLoadedNoteIds,
+                            loadedTitles: &nextLoadedTitles
+                        )
                     }
                 }
+            }
+        }
+
+        if includeManifest {
+            let matchedIDs = await matchedVaultNoteIDs(
+                for: cleanedQuery,
+                manifest: manifest,
+                searchNoteIDs: searchNoteIDs
+            )
+            if !matchedIDs.isEmpty {
+                let bodies = await fetchNoteBodies(matchedIDs)
+                appendLoadedNotes(
+                    bodies,
+                    to: &matchedVaultNotes,
+                    loadedIDs: &nextLoadedNoteIds,
+                    loadedTitles: &nextLoadedTitles
+                )
             }
         }
 
@@ -331,6 +350,7 @@ final class ChatCoordinator {
             manifest: manifest,
             includeManifest: includeManifest,
             referencedNotes: referencedNotes,
+            matchedVaultNotes: matchedVaultNotes,
             cleanedQuery: cleanedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         return NotesContextResolution(
@@ -538,11 +558,15 @@ final class ChatCoordinator {
             manifest: bootstrap.ambientManifest,
             loadedNoteIds: chatState.loadedNoteIds,
             loadedNoteTitles: chatState.loadedNoteTitles,
+            includeAllNotesContext: false,
             findNotesByTitle: { [vaultSync] title in
                 await vaultSync.findNotesByTitle(title)
             },
             fetchNoteBodies: { [vaultSync] ids in
                 await vaultSync.fetchNoteBodies(ids: ids)
+            },
+            searchNoteIDs: { [vaultSync] query in
+                await vaultSync.searchIndex(query: query)
             }
         )
         chatState.loadedNoteIds = resolution.loadedNoteIds
@@ -555,31 +579,21 @@ final class ChatCoordinator {
         attachments: [ContextAttachment],
         chatState: ChatState
     ) async -> (String?, String) {
-        let syntheticNoteMentions = attachments.compactMap { attachment -> String? in
-            switch attachment.kind {
-            case .note:
-                return "@[\(attachment.title)]"
-            case .allNotes:
-                return "@[\(Self.allNotesMentionToken)]"
-            case .chat:
-                return nil
-            }
-        }
-        let noteSeedQuery = syntheticNoteMentions.isEmpty
-            ? query
-            : syntheticNoteMentions.joined(separator: " ") + " " + query
-
         let resolution = await Self.resolveAttachedContext(
-            query: noteSeedQuery,
+            query: query,
             attachments: attachments,
             manifest: bootstrap.ambientManifest,
             loadedNoteIds: chatState.loadedNoteIds,
             loadedNoteTitles: chatState.loadedNoteTitles,
+            includeAllNotesContext: false,
             findNotesByTitle: { [vaultSync] title in
                 await vaultSync.findNotesByTitle(title)
             },
             fetchNoteBodies: { [vaultSync] ids in
                 await vaultSync.fetchNoteBodies(ids: ids)
+            },
+            searchNoteIDs: { [vaultSync] query in
+                await vaultSync.searchIndex(query: query)
             },
             fetchChatMessages: { [bootstrap, modelContainer] chatID in
                 await MainActor.run {
@@ -610,49 +624,155 @@ final class ChatCoordinator {
         manifest: VaultManifest?,
         loadedNoteIds: Set<String>,
         loadedNoteTitles: [String],
+        includeAllNotesContext: Bool = false,
         findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
         fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody],
+        searchNoteIDs: @escaping @Sendable (String) async -> [String],
         fetchChatMessages: @escaping @Sendable (String) async -> [AssistantMessage]
     ) async -> AttachedContextResolution {
-        let syntheticNoteMentions = attachments.compactMap { attachment -> String? in
-            switch attachment.kind {
-            case .note:
-                return "@[\(attachment.title)]"
-            case .allNotes:
-                return "@[\(Self.allNotesMentionToken)]"
-            case .chat:
-                return nil
-            }
-        }
-        let noteSeedQuery = syntheticNoteMentions.isEmpty
-            ? query
-            : syntheticNoteMentions.joined(separator: " ") + " " + query
-
         let noteResolution = await resolveNotesContext(
-            query: noteSeedQuery,
+            query: query,
             manifest: manifest,
             loadedNoteIds: loadedNoteIds,
             loadedNoteTitles: loadedNoteTitles,
+            includeAllNotesContext: includeAllNotesContext
+                || attachments.contains(where: { $0.kind == .allNotes }),
+            findNotesByTitle: findNotesByTitle,
+            fetchNoteBodies: fetchNoteBodies,
+            searchNoteIDs: searchNoteIDs
+        )
+
+        let attachedNoteContext = await buildAttachedNoteContext(
+            for: attachments.filter { $0.kind == .note },
+            excluding: noteResolution.loadedNoteIds,
             findNotesByTitle: findNotesByTitle,
             fetchNoteBodies: fetchNoteBodies
         )
-
         let chatContext = await buildChatContextPack(
             for: attachments.filter { $0.kind == .chat },
             fetchChatMessages: fetchChatMessages
         )
         var parts: [String] = []
+        if let attachedNoteContext = attachedNoteContext.context, !attachedNoteContext.isEmpty {
+            parts.append(attachedNoteContext)
+        }
         if let context = noteResolution.context, !context.isEmpty {
             parts.append(context)
         }
         if let chatContext, !chatContext.isEmpty {
             parts.append(chatContext)
         }
+        let combinedLoadedNoteIDs = noteResolution.loadedNoteIds.union(attachedNoteContext.loadedNoteIds)
+        var combinedLoadedTitles = noteResolution.loadedNoteTitles
+        for title in attachedNoteContext.loadedNoteTitles where !combinedLoadedTitles.contains(title) {
+            combinedLoadedTitles.append(title)
+        }
         return AttachedContextResolution(
             context: parts.isEmpty ? nil : parts.joined(separator: "\n\n"),
             cleanedQuery: noteResolution.cleanedQuery,
-            loadedNoteIds: noteResolution.loadedNoteIds,
-            loadedNoteTitles: noteResolution.loadedNoteTitles
+            loadedNoteIds: combinedLoadedNoteIDs,
+            loadedNoteTitles: combinedLoadedTitles
+        )
+    }
+
+    private static func uniquePreservingOrder(_ ids: [String]) -> [String] {
+        var seen = Set<String>()
+        var results: [String] = []
+        results.reserveCapacity(ids.count)
+        for id in ids where seen.insert(id).inserted {
+            results.append(id)
+        }
+        return results
+    }
+
+    private static func appendLoadedNotes(
+        _ bodies: [VaultManifest.NoteBody],
+        to destination: inout [VaultManifest.NoteBody],
+        loadedIDs: inout Set<String>,
+        loadedTitles: inout [String]
+    ) {
+        for body in bodies {
+            guard loadedIDs.insert(body.pageId).inserted else { continue }
+            destination.append(body)
+            if !loadedTitles.contains(body.title) {
+                loadedTitles.append(body.title)
+            }
+        }
+    }
+
+    private static func matchedVaultNoteIDs(
+        for query: String,
+        manifest: VaultManifest,
+        searchNoteIDs: @escaping @Sendable (String) async -> [String],
+        limit: Int = 4
+    ) async -> [String] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            let ranked = uniquePreservingOrder(await searchNoteIDs(trimmedQuery))
+            if !ranked.isEmpty {
+                return Array(ranked.prefix(limit))
+            }
+        }
+
+        return manifest.entries
+            .sorted {
+                if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
+                return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            }
+            .prefix(limit)
+            .map(\.pageId)
+    }
+
+    private static func buildAttachedNoteContext(
+        for attachments: [ContextAttachment],
+        excluding excludedIDs: Set<String>,
+        findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
+        fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody]
+    ) async -> NotesContextResolution {
+        guard !attachments.isEmpty else {
+            return NotesContextResolution(
+                context: nil,
+                cleanedQuery: "",
+                loadedNoteIds: [],
+                loadedNoteTitles: []
+            )
+        }
+
+        let directIDs = uniquePreservingOrder(attachments.map(\.targetId))
+        let directBodies = await fetchNoteBodies(directIDs)
+        var bodiesByID = Dictionary(uniqueKeysWithValues: directBodies.map { ($0.pageId, $0) })
+
+        for attachment in attachments where bodiesByID[attachment.targetId] == nil {
+            let fallbackIDs = uniquePreservingOrder(
+                (await findNotesByTitle(attachment.title)).map(\.pageId)
+            )
+            guard !fallbackIDs.isEmpty else { continue }
+            let fallbackBodies = await fetchNoteBodies(fallbackIDs)
+            for body in fallbackBodies where bodiesByID[body.pageId] == nil {
+                bodiesByID[body.pageId] = body
+            }
+        }
+
+        var seenIDs = excludedIDs
+        var sections: [String] = []
+        var loadedIDs = Set<String>()
+        var loadedTitles: [String] = []
+
+        for attachment in attachments {
+            guard let body = bodiesByID[attachment.targetId] else { continue }
+            guard seenIDs.insert(body.pageId).inserted else { continue }
+            sections.append("### Attached Note: \(body.title)\n\(body.body)")
+            loadedIDs.insert(body.pageId)
+            if !loadedTitles.contains(body.title) {
+                loadedTitles.append(body.title)
+            }
+        }
+
+        return NotesContextResolution(
+            context: sections.isEmpty ? nil : sections.joined(separator: "\n\n"),
+            cleanedQuery: "",
+            loadedNoteIds: loadedIDs,
+            loadedNoteTitles: loadedTitles
         )
     }
 

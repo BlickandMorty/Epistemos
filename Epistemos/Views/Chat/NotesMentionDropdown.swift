@@ -13,17 +13,33 @@ enum NoteMentionChoice: Identifiable {
 }
 
 enum ComposerReferenceHelpers {
-    static func mentionFilter(in text: String) -> String? {
+    private static func isMentionTriggerBoundary(_ character: Character) -> Bool {
+        !(character.isLetter || character.isNumber || character == "_" || character == "." || character == "-")
+    }
+
+    private static func activeMentionRange(in text: String) -> Range<String.Index>? {
         guard let atIndex = text.lastIndex(of: "@") else { return nil }
-        let suffix = text[text.index(after: atIndex)...]
+        if atIndex > text.startIndex {
+            let previous = text[text.index(before: atIndex)]
+            guard isMentionTriggerBoundary(previous) else { return nil }
+        }
+
+        let suffixStart = text.index(after: atIndex)
+        let suffix = text[suffixStart...]
         guard !suffix.contains("]"),
-              !suffix.contains(where: \.isWhitespace) else { return nil }
-        return String(suffix)
+              !suffix.contains("\n"),
+              !suffix.contains("\r") else { return nil }
+        return atIndex..<text.endIndex
+    }
+
+    static func mentionFilter(in text: String) -> String? {
+        guard let range = activeMentionRange(in: text) else { return nil }
+        return String(text[range].dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func removingTrailingMention(from text: String) -> String {
-        guard let atIndex = text.lastIndex(of: "@") else { return text }
-        return String(text[..<atIndex])
+        guard let range = activeMentionRange(in: text) else { return text }
+        return String(text[..<range.lowerBound])
     }
 
     static var allNotesAttachment: ContextAttachment {
@@ -122,10 +138,13 @@ struct ComposerReferencePopover: View {
     let idealWidth: CGFloat
     let maxHeight: CGFloat
 
+    @Environment(UIState.self) private var ui
+    private var theme: EpistemosTheme { ui.theme }
+
     init(
         results: ChatCoordinator.ReferenceSearchResults,
-        idealWidth: CGFloat = 320,
-        maxHeight: CGFloat = 300,
+        idealWidth: CGFloat = 380,
+        maxHeight: CGFloat = 340,
         onSelect: @escaping (ComposerReferenceChoice) -> Void
     ) {
         self.results = results
@@ -136,32 +155,85 @@ struct ComposerReferencePopover: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = min(idealWidth, max(220, proxy.size.width - 12))
+            let width = min(idealWidth, max(260, proxy.size.width - 8))
 
-            ScrollView(.vertical, showsIndicators: false) {
-                NotesMentionDropdown(
-                    results: results,
-                    onSelect: onSelect
-                )
-                .padding(.vertical, 6)
+            VStack(alignment: .leading, spacing: 0) {
+                popoverHeader
+                Divider()
+                    .overlay(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.28))
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    NotesMentionDropdown(
+                        results: results,
+                        onSelect: onSelect
+                    )
+                    .padding(.vertical, 8)
+                }
+                .frame(maxHeight: maxHeight - 62, alignment: .topLeading)
+
+                if results.vaultNoteCount > 0 {
+                    Divider()
+                        .overlay(theme.glassBorder.opacity(theme.isDark ? 0.4 : 0.24))
+                    footerHint
+                }
             }
             .frame(width: width, alignment: .topLeading)
             .frame(maxHeight: maxHeight, alignment: .topLeading)
-            .background {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(.white.opacity(0.08), lineWidth: 0.8)
-                    }
-                    .shadow(color: .black.opacity(0.14), radius: 12, y: -2)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .assistantPopoverChrome(theme: theme)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .offset(y: -8)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
         }
         .frame(maxWidth: .infinity, maxHeight: maxHeight + 12, alignment: .topLeading)
+    }
+
+    private var popoverHeader: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: results.query.isEmpty ? "books.vertical.fill" : "magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.accent.opacity(0.92))
+                .frame(width: 26, height: 26)
+                .background(
+                    Circle()
+                        .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.10))
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(results.query.isEmpty ? "Browse Note Context" : "Search Notes and Chats")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(theme.foreground)
+                Text(popoverSubtitle)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+    }
+
+    private var popoverSubtitle: String {
+        if results.query.isEmpty {
+            return "Attach a note, search your vault, or bring the whole index into this turn."
+        }
+        return "Searching titles, folders, tags, and snippets for “\(results.query)”."
+    }
+
+    private var footerHint: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
+            Text("Rich matches come from your vault inventory and recent note excerpts.")
+                .font(.system(size: 10.5))
+                .foregroundStyle(theme.textTertiary)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 }
 
@@ -389,18 +461,18 @@ struct NotesMentionDropdown: View {
     private func rowChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(theme.foreground.opacity(theme.isDark ? 0.07 : 0.045))
+                    .fill(theme.foreground.opacity(theme.isDark ? 0.08 : 0.04))
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.28 : 0.18), lineWidth: 0.8)
+                            .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.32 : 0.20), lineWidth: 0.75)
                     }
             )
             .padding(.horizontal, 6)
-            .padding(.vertical, 2)
+            .padding(.vertical, 3)
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }

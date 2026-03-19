@@ -844,11 +844,15 @@ private struct MiniChatInputBar: View {
                     manifest: AppBootstrap.shared?.ambientManifest,
                     loadedNoteIds: Set(currentThread?.loadedNoteIds ?? []),
                     loadedNoteTitles: currentThread?.loadedNoteTitles ?? [],
+                    includeAllNotesContext: false,
                     findNotesByTitle: { title in
                         await vaultSync.findNotesByTitle(title)
                     },
                     fetchNoteBodies: { ids in
                         await vaultSync.fetchNoteBodies(ids: ids)
+                    },
+                    searchNoteIDs: { query in
+                        await vaultSync.searchIndex(query: query)
                     },
                     fetchChatMessages: { [self] chatID in
                         await MainActor.run {
