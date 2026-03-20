@@ -452,27 +452,24 @@ nonisolated struct InferencePolicyEngine {
         complexityTier: InferenceComplexityTier,
         contextTier: InferenceContextTier
     ) -> LocalReasoningMode {
+        _ = complexityTier
+        _ = contextTier
         if profile.explicitFastRequested {
             return .fast
         }
         if profile.explicitThinkingRequested {
             return .thinking
         }
-        if profile.intent == .structuredAnalysis {
-            return contextTier == .oversized ? .thinking : .fast
-        }
-        switch complexityTier {
-        case .heavy, .extreme:
-            return .thinking
-        case .moderate:
-            switch (profile.intent, contextTier, profile.requestedReasoningMode) {
-            case (.debugging, _, _), (.graphAnalysis, _, _), (.structuredAnalysis, .large, _), (_, .large, .thinking):
-                return .thinking
-            default:
-                return .fast
-            }
-        case .trivial, .light:
+
+        guard profile.requestedReasoningMode == .thinking else {
             return .fast
+        }
+
+        switch profile.intent {
+        case .simpleAsk, .rewrite, .summarize, .brainstorm:
+            return .fast
+        case .coding, .debugging, .comparison, .synthesis, .noteAnalysis, .graphAnalysis, .structuredAnalysis:
+            return .thinking
         }
     }
 
@@ -1195,14 +1192,13 @@ final class TriageService {
         let normalized = text.lowercased()
         let cues = [
             "think step by step",
-            "step by step",
             "reason step by step",
             "show your reasoning",
+            "show your thinking",
             "show thinking",
-            "deep reasoning",
-            "think through",
-            "analyze deeply",
-            "debug this",
+            "use thinking mode",
+            "reason out loud",
+            "think aloud",
         ]
         return cues.contains { normalized.contains($0) }
     }

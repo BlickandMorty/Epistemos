@@ -367,7 +367,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
 
 #if canImport(MLX) && canImport(MLXLMCommon) && canImport(MLXLLM)
 actor MLXInferenceService: LocalMLXRuntime {
-    private nonisolated static let maxContinuationCount = 2
+    private nonisolated static let maxContinuationCount = 1
     private nonisolated static let continuationTailLength = 1_600
     private nonisolated static let minimumOverlapLength = 24
     private nonisolated static let truncationNotice = "\n\n[Local response reached the current generation limit before finishing.]"
@@ -670,9 +670,12 @@ actor MLXInferenceService: LocalMLXRuntime {
 
             guard stopReason == .length else { break }
 
-            let shouldContinue = Self.shouldContinue(afterLengthStopIn: combinedText)
+            let shouldContinue = Self.shouldAttemptContinuation(
+                afterLengthStopIn: combinedText,
+                continuationCount: continuationCount
+            )
             guard continuationCount < Self.maxContinuationCount, shouldContinue else {
-                needsTruncationNotice = shouldContinue
+                needsTruncationNotice = Self.requiresTruncationNotice(afterLengthStopIn: combinedText)
                 break
             }
 
@@ -771,10 +774,18 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     private func additionalContext(for request: LocalMLXRequest) -> [String: any Sendable]? {
-        ["enable_thinking": request.reasoningMode == .thinking]
+        _ = request
+        return nil
     }
 
-    private nonisolated static func shouldContinue(afterLengthStopIn text: String) -> Bool {
+    nonisolated static func shouldAttemptContinuation(
+        afterLengthStopIn text: String,
+        continuationCount: Int
+    ) -> Bool {
+        continuationCount == 0 && requiresTruncationNotice(afterLengthStopIn: text)
+    }
+
+    private nonisolated static func requiresTruncationNotice(afterLengthStopIn text: String) -> Bool {
         let visible = continuationVisibleText(from: text)
         let trimmed = visible.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }

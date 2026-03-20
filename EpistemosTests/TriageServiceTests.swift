@@ -775,6 +775,113 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
+    @Test("plain debugging phrasing does not force local thinking mode")
+    func debuggingCueDoesNotForceThinkingMode() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.routingMode = .auto
+        inference.setPreferredLocalReasoningMode(.fast)
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: client)
+
+        _ = try await triage.generateGeneral(
+            prompt: "Debug this query path and tell me the most likely bug.",
+            systemPrompt: "Be direct.",
+            operation: .chatResponse(query: "Debug this query path and tell me the most likely bug."),
+            contentLength: 54
+        )
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.reasoningMode == .fast)
+    }
+
+    @MainActor
+    @Test("step by step phrasing alone does not force local thinking mode")
+    func stepByStepCueDoesNotForceThinkingMode() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.routingMode = .auto
+        inference.setPreferredLocalReasoningMode(.fast)
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: client)
+
+        _ = try await triage.generateGeneral(
+            prompt: "Explain step by step how this parser works.",
+            systemPrompt: "Be clear.",
+            operation: .chatResponse(query: "Explain step by step how this parser works."),
+            contentLength: 43
+        )
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.reasoningMode == .fast)
+    }
+
+    @MainActor
+    @Test("explicit reasoning request still opts into local thinking mode")
+    func explicitReasoningCueStillUsesThinkingMode() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.routingMode = .auto
+        inference.setPreferredLocalReasoningMode(.fast)
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: client)
+
+        _ = try await triage.generateGeneral(
+            prompt: "Show your reasoning and compare both implementations.",
+            systemPrompt: "Be thorough.",
+            operation: .chatResponse(query: "Show your reasoning and compare both implementations."),
+            contentLength: 53
+        )
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.reasoningMode == .thinking)
+    }
+
+    @Test("length continuation is one-shot and only for visibly truncated answers")
+    func continuationGuardIsOneShot() {
+        let truncated = "This response ends abruptly without punctuation"
+        #expect(MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: truncated, continuationCount: 0))
+        #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: truncated, continuationCount: 1))
+        #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: "This response is complete.", continuationCount: 0))
+    }
+
+    @MainActor
     @Test("automatic local selection reuses a justified warm tier instead of bouncing down immediately")
     func automaticSelectionSticksToWarmTier() async throws {
         let paths = temporaryLocalModelPaths()
