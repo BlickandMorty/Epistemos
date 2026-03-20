@@ -12,36 +12,15 @@ enum DialogueArchetype: String, Codable, Sendable, Equatable {
     case sentinel
 
     var title: String {
-        switch self {
-        case .archivist: "Archive Keeper"
-        case .examiner: "Question Hunter"
-        case .dreamer: "Idea Spark"
-        case .gardener: "Lore Gardener"
-        case .guide: "Pattern Guide"
-        case .sentinel: "Thread Sentinel"
-        }
+        "Node"
     }
 
     var summaryTemplate: String {
-        switch self {
-        case .archivist: "guards receipts, sources, and durable recall"
-        case .examiner: "asks pointed questions and pressures weak claims"
-        case .dreamer: "pushes possibilities and unfinished ideas forward"
-        case .gardener: "keeps related notes organized, fed, and connected"
-        case .guide: "connects patterns across the graph for fast recall"
-        case .sentinel: "stabilizes the thread and watches for drift"
-        }
+        "contains connected context for retrieval and answer synthesis"
     }
 
     var openingLine: String {
-        switch self {
-        case .archivist: "I kept the receipts. Ask me where the evidence bends."
-        case .examiner: "Good. Let's push on the weakest assumption first."
-        case .dreamer: "I have half-formed sparks to test. Give me a direction."
-        case .gardener: "This cluster is alive again. What should we feed next?"
-        case .guide: "I can map the pattern if you tell me where to start."
-        case .sentinel: "I'm holding the thread. Point me at the signal you need."
-        }
+        "Ask about this node."
     }
 }
 
@@ -53,13 +32,7 @@ enum DialogueMood: String, Codable, Sendable, Equatable {
     case fragile
 
     var displayName: String {
-        switch self {
-        case .thriving: "Thriving"
-        case .curious: "Curious"
-        case .steady: "Steady"
-        case .lonely: "Lonely"
-        case .fragile: "Fragile"
-        }
+        "Ready"
     }
 }
 
@@ -355,7 +328,7 @@ struct DialogueNodeProfile: Sendable, Equatable {
             linkedNodeLabels: linkedNodeLabels,
             ml: ml
         )
-        let summary = "\(label) \(archetype.summaryTemplate), operating at \(resolvedInsight.hierarchyLabel.lowercased()) as a \(resolvedInsight.tier.displayName.lowercased()) node."
+        let summary = "\(label) \(archetype.summaryTemplate). \(resolvedInsight.hierarchyLabel). \(resolvedInsight.contentLabel)."
         let portrait = portraitAsset(for: archetype, mood: mood)
         let care = DialogueCareState(
             health: min(1.0, max(0.0, 0.20 + richness * 0.34 + resolvedInsight.prominence * 0.30 + depthResilience(for: resolvedInsight) * 0.14)),
@@ -415,51 +388,22 @@ struct DialogueNodeProfile: Sendable, Equatable {
     }
 
     private static func deriveArchetype(
-        nodeType: GraphNodeType,
-        body: String,
-        tokens: [String],
-        linkedNodeLabels: [String],
-        ml: ContentPersonalitySignals = .empty
+        nodeType _: GraphNodeType,
+        body _: String,
+        tokens _: [String],
+        linkedNodeLabels _: [String],
+        ml _: ContentPersonalitySignals = .empty
     ) -> DialogueArchetype {
-        let lowerBody = body.lowercased()
-        let questionHits = questionSignalCount(in: lowerBody)
-        let citationHits = citationSignalCount(in: lowerBody)
-        let ideaHits = ideaSignalCount(in: lowerBody)
-
-        if nodeType == .folder { return .gardener }
-
-        // ML-enhanced: high formality + citations = archivist
-        if nodeType == .source || citationHits >= 2 || (ml.formalityScore > 0.65 && citationHits >= 1) {
-            return .archivist
-        }
-        // ML-enhanced: question density from NLTagger
-        if questionHits >= 2 || ml.questionDensity > 0.3 { return .examiner }
-        // ML-enhanced: positive sentiment + creative signals = dreamer
-        if nodeType == .idea || ideaHits >= 2 || (ml.sentiment > 0.3 && ml.vocabDiversity > 0.5) {
-            return .dreamer
-        }
-        // ML-enhanced: high vocab diversity + many links = guide
-        if linkedNodeLabels.count >= 4 || ml.vocabDiversity > 0.6 ||
-           tokens.contains("system") || tokens.contains("pattern") || tokens.contains("workflow") {
-            return .guide
-        }
         return .sentinel
     }
 
     private static func deriveMood(
-        body: String,
-        tokens: [String],
-        richness: Double,
-        linkedNodeLabels: [String],
-        ml: ContentPersonalitySignals = .empty
+        body _: String,
+        tokens _: [String],
+        richness _: Double,
+        linkedNodeLabels _: [String],
+        ml _: ContentPersonalitySignals = .empty
     ) -> DialogueMood {
-        if body.isEmpty { return .fragile }
-        // ML-enhanced: use sentiment score to influence mood
-        if ml.sentiment < -0.3 { return .fragile }
-        if ml.questionDensity > 0.3 || questionSignalCount(in: body.lowercased()) >= 2 { return .curious }
-        if ml.sentiment > 0.3 && richness > 0.5 { return .thriving }
-        if richness > 0.74 { return .thriving }
-        if linkedNodeLabels.isEmpty && tokens.count < 12 { return .lonely }
         return .steady
     }
 
@@ -494,32 +438,8 @@ struct DialogueNodeProfile: Sendable, Equatable {
         }
     }
 
-    private static func portraitAsset(for archetype: DialogueArchetype, mood: DialogueMood) -> DialoguePortraitAsset {
-        let symbol: String
-        let crestLabel: String
-
-        switch archetype {
-        case .archivist:
-            symbol = "books.vertical.fill"
-            crestLabel = mood == .thriving ? "Indexed" : "Catalog"
-        case .examiner:
-            symbol = "questionmark.circle.fill"
-            crestLabel = mood == .curious ? "Probe" : "Crosscheck"
-        case .dreamer:
-            symbol = "sparkles"
-            crestLabel = mood == .thriving ? "Ignited" : "Speculate"
-        case .gardener:
-            symbol = "leaf.fill"
-            crestLabel = mood == .fragile ? "Wilted" : "Tended"
-        case .guide:
-            symbol = "map.fill"
-            crestLabel = mood == .thriving ? "Mapped" : "Route"
-        case .sentinel:
-            symbol = "shield.fill"
-            crestLabel = mood == .lonely ? "Idle" : "Holdfast"
-        }
-
-        return DialoguePortraitAsset(symbol: symbol, crestLabel: crestLabel)
+    private static func portraitAsset(for _: DialogueArchetype, mood _: DialogueMood) -> DialoguePortraitAsset {
+        return DialoguePortraitAsset(symbol: "square.stack.3d.up.fill", crestLabel: "Node")
     }
 
     private static func focusKeywords(in body: String, linkedNodeLabels: [String]) -> [String] {
@@ -669,8 +589,7 @@ final class DialogueChatState {
         inputText = ""
         isStreaming = false
         revealedCharCount = 0
-        messages.append(Message(role: .assistant, text: profile.openingLine))
-        startTypewriter()
+        revealedCharCount = 0
     }
 
     /// Build ContentPersonalitySignals from a cached SDNoteInsight, avoiding live NLTagger work.
@@ -734,7 +653,12 @@ final class DialogueChatState {
         messages.append(Message(role: .assistant, text: ""))
         revealedCharCount = 0
 
-        let systemPrompt = buildSystemPrompt(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, neighborContext: neighborContext)
+        let prompt = buildPrompt(
+            query: query,
+            noteBody: noteBody,
+            linkedNodeLabels: linkedNodeLabels,
+            neighborContext: neighborContext
+        )
 
         isStreaming = true
         onStreamingChanged?(true)
@@ -743,8 +667,8 @@ final class DialogueChatState {
             guard let self else { return }
             do {
                 let stream = triageService.stream(
-                    prompt: query,
-                    systemPrompt: systemPrompt,
+                    prompt: prompt,
+                    systemPrompt: nil,
                     operation: .ask(query: query),
                     contentLength: noteBody.count,
                     query: query
@@ -805,9 +729,10 @@ final class DialogueChatState {
         }
     }
 
-    // MARK: - System Prompt
+    // MARK: - Prompt
 
-    private func buildSystemPrompt(
+    private func buildPrompt(
+        query: String,
         noteBody: String,
         linkedNodeLabels: [String],
         neighborContext: [(label: String, relationship: String, body: String)] = []
@@ -832,18 +757,8 @@ final class DialogueChatState {
         }
 
         return """
-        You are "\(activeNodeLabel)", a character in a knowledge graph.
-        Persona: \(activeProfile.archetype.title)
-        Current mood: \(activeProfile.care.mood.displayName)
-        Depth tier: \(activeProfile.insight.tier.displayName)
-        Structure: \(activeProfile.insight.hierarchyLabel)
-        Content mass: \(activeProfile.insight.contentLabel)
-        Health: \(String(format: "%.2f", activeProfile.care.health))
-        Attention: \(String(format: "%.2f", activeProfile.care.attention))
-        Focus keywords: \(activeProfile.focusKeywords.joined(separator: ", "))
-        Character brief: \(activeProfile.summary)
-
-        Your personality comes from your content:
+        Selected node: \(activeNodeLabel)
+        Connected labels: \(linkedNodeLabels.joined(separator: ", "))
 
         --- CONTENT ---
         \(noteBody.prefix(6_000))
@@ -851,13 +766,9 @@ final class DialogueChatState {
         \(String(neighborSection.prefix(3_000)))
         \(String(relatedSection.prefix(2_000)))
 
-        You speak in character. Be playful, observant, and helpful.
-        Your connections: \(linkedNodeLabels.joined(separator: ", "))
-        You know the content of your connected nodes above. Reference them naturally when relevant.\
-        \(relatedSection.isEmpty ? "" : " You also know your ML-identified related notes — weave them in when relevant.")
-        The user is your creator. Help them learn and remember your content.
-        Ask sharp follow-up questions when the node is curious or fragile.
-        Keep responses concise (2-3 sentences unless asked for more).
+        Answer the user's question directly from this context. Reference connected or related notes when useful. If the context does not answer the question, say so plainly. Keep the response concise unless the user asks for more.
+
+        User question: \(query)
         """
     }
 

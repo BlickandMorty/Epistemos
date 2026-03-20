@@ -109,46 +109,21 @@ final class AppCoordinator {
     private func wireDailyBrief() {
         dailyBriefState.onDailyBriefGenerate = { [weak self] prompt in
             guard let self else { return nil }
-            let briefSystemPrompt = """
-            You are a concise research analyst preparing a daily intelligence brief. \
-            Reference actual note titles and specific content. Identify patterns the user hasn't connected. \
-            Flag stalled work. Recommend concrete actions referencing specific materials. \
-            Use markdown headers (###) and **bold**. Aim for 300-500 words.
-            """
-            // Use triage service — it handles Apple Intelligence → local Qwen routing + fallback.
             return try? await self.triageService.generateGeneral(
                 prompt: prompt,
-                systemPrompt: briefSystemPrompt,
+                systemPrompt: nil,
                 operation: .brainstorm,
                 contentLength: prompt.count
             )
         }
 
-        dailyBriefState.onGoDeepGenerate = { [weak self] prompt in
-            guard let self else { return nil }
-            let deepSystemPrompt = """
-            You are a deep knowledge analyst performing multi-perspective synthesis. \
-            Analyze from: statistical patterns, thematic clusters, temporal evolution, \
-            knowledge gaps, unexpected connections. Cite actual note titles, dates, and details. \
-            Use ### headers per perspective. Be substantive and intellectually challenging. \
-            End with 3-5 provocative questions.
-            """
-            // Use triage service — it handles Apple Intelligence → local Qwen routing + fallback.
-            return try? await self.triageService.generateGeneral(
-                prompt: prompt,
-                systemPrompt: deepSystemPrompt,
-                operation: .structuredAnalysis,
-                contentLength: prompt.count
-            )
-        }
-
-        dailyBriefState.onDailyBriefSave = { [weak self] content, isDeep in
+        dailyBriefState.onDailyBriefSave = { [weak self] content in
             guard let self else { return }
-            self.saveDailyBrief(content: content, isDeep: isDeep)
+            self.saveDailyBrief(content: content)
         }
     }
 
-    private func saveDailyBrief(content: String, isDeep: Bool) {
+    private func saveDailyBrief(content: String) {
         let context = modelContainer.mainContext
 
         let folderPred = #Predicate<SDFolder> { $0.name == "Daily Briefs" }
@@ -164,8 +139,8 @@ final class AppCoordinator {
         }
 
         let dateStr = Date.now.formatted(date: .abbreviated, time: .omitted)
-        let title = isDeep ? "Deep Brief — \(dateStr)" : "Daily Brief — \(dateStr)"
-        let emoji = isDeep ? "🔬" : "🌅"
+        let title = "Daily Brief — \(dateStr)"
+        let emoji = "🌅"
 
         let dupPred = #Predicate<SDPage> { $0.title == title }
         let dupDesc = FetchDescriptor<SDPage>(predicate: dupPred)

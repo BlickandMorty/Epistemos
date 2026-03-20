@@ -694,104 +694,26 @@ struct ConcurrencyFilterEngineTests {
 @Suite("Concurrency - Pipeline State")
 @MainActor
 struct ConcurrencyPipelineStateTests {
-    
-    @Test("Pipeline progress updates")
-    func pipelineProgressUpdates() {
+    @Test("Pipeline state tracks only processing lifecycle")
+    func pipelineLifecycle() {
         let state = PipelineState()
 
-        state.startProcessing()
-        for stage in PipelineStage.allCases {
-            state.advanceStage(
-                stage,
-                result: StageResult(
-                    stage: stage,
-                    status: .completed,
-                    data: nil,
-                    durationMs: nil,
-                    error: nil,
-                    detail: nil,
-                    value: nil
-                )
-            )
-        }
+        #expect(state.isProcessing == false)
+        #expect(state.currentError == nil)
 
-        #expect(state.currentProgress == 1.0)
-
-        state.completeProcessing()
-        #expect(!state.isProcessing)
-    }
-    
-    @Test("Stage transitions")
-    func stageTransitions() {
-        let state = PipelineState()
-
-        state.startProcessing()
-        let stages: [PipelineStage] = [.triage, .memory, .routing, .synthesis, .calibration]
-
-        for stage in stages {
-            state.advanceStage(
-                stage,
-                result: StageResult(
-                    stage: stage,
-                    status: .running,
-                    data: nil,
-                    durationMs: nil,
-                    error: nil,
-                    detail: nil,
-                    value: nil
-                )
-            )
-            #expect(state.activeStage == stage)
-        }
-    }
-    
-    @Test("Reset during operation")
-    func resetDuringOperation() {
-        let state = PipelineState()
-
-        state.updateSignals(SignalUpdate(concepts: ["alpha", "beta"]))
         state.setError("boom")
-        state.startProcessing()
+        #expect(state.currentError == "boom")
 
+        state.startProcessing()
         #expect(state.isProcessing)
         #expect(state.currentError == nil)
-        #expect(state.pipelineStages.count == PipelineStage.allCases.count)
-    }
-    
-    @Test("Progress clamping")
-    func progressClamping() {
-        let state = PipelineState()
 
-        state.startProcessing()
-        #expect((0...1).contains(state.currentProgress))
+        state.completeProcessing()
+        #expect(state.isProcessing == false)
 
-        for stage in PipelineStage.allCases {
-            state.advanceStage(
-                stage,
-                result: StageResult(
-                    stage: stage,
-                    status: .completed,
-                    data: nil,
-                    durationMs: nil,
-                    error: nil,
-                    detail: nil,
-                    value: nil
-                )
-            )
-        }
-
-        #expect((0...1).contains(state.currentProgress))
-    }
-    
-    @Test("Signal history cap")
-    func signalHistoryCap() {
-        let state = PipelineState()
-
-        for i in 0..<150 {
-            state.updateSignals(SignalUpdate(confidence: Double(i) / 150))
-        }
-
-        #expect(state.signalHistory.count == 100)
+        state.reset()
+        #expect(state.isProcessing == false)
+        #expect(state.currentError == nil)
     }
 }
 

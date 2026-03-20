@@ -258,16 +258,7 @@ struct RootView: View {
     }
 
     private var modelToolbarButton: some View {
-        InferenceControlPopoverButton(
-            titleStyle: .localAI,
-            variant: .toolbar,
-            stableWidth: NativeControlSystem.reservedWidth(
-                for: ["Local AI", "Local Only"],
-                variant: .toolbar,
-                includesDisclosureGlyph: true
-            ),
-            idealPopoverWidth: 336
-        )
+        LocalModelToolbarMenu(variant: .toolbar)
         .fixedSize()
     }
 
@@ -332,74 +323,14 @@ struct RootView: View {
     }
 }
 
-enum InferenceControlTitleStyle {
-    case routing
-    case localAI
-}
-
-struct InferenceControlPopoverButton: View {
-    let titleStyle: InferenceControlTitleStyle
+struct LocalModelToolbarMenu: View {
     var variant: NativeControlVariant = .toolbar
-    var stableWidth: CGFloat? = nil
-    var idealPopoverWidth: CGFloat? = nil
-    var chromePolicy: NativeControlChromePolicy = .bareUntilPressed
 
-    @Environment(InferenceState.self) private var inference
-    @State private var isPresented = false
-
-    private var systemImage: String {
-        inference.routingMode == .auto ? "apple.intelligence" : "memorychip"
-    }
-
-    private var title: String {
-        switch titleStyle {
-        case .routing:
-            inference.routingMode.displayName
-        case .localAI:
-            inference.routingMode == .auto ? "Local AI" : "Local Only"
-        }
-    }
-
-    private var helpText: String {
-        switch titleStyle {
-        case .routing:
-            "Routing Mode"
-        case .localAI:
-            "Local inference controls"
-        }
-    }
-
-    var body: some View {
-        AnchoredPopoverButton(
-            title: title,
-            systemImage: systemImage,
-            isPresented: $isPresented,
-            isActive: inference.routingMode == .localOnly,
-            variant: variant,
-            showsLabelWhenCollapsed: true,
-            helpText: helpText,
-            idealPopoverWidth: idealPopoverWidth,
-            stableWidth: stableWidth,
-            chromePolicy: chromePolicy
-        ) {
-            InferenceControlPopover()
-        }
-    }
-}
-
-private struct InferenceControlPopover: View {
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
     @Environment(LocalModelManager.self) private var localModelManager
 
     private var theme: EpistemosTheme { ui.theme }
-
-    private var routingBinding: Binding<LocalRoutingMode> {
-        Binding(
-            get: { inference.routingMode },
-            set: { inference.setRoutingMode($0) }
-        )
-    }
 
     private var installedSelectableModels: [LocalModelDescriptor] {
         localModelManager.textDescriptors.filter { descriptor in
@@ -408,164 +339,81 @@ private struct InferenceControlPopover: View {
         }
     }
 
-    private var preferredDescriptor: LocalModelDescriptor? {
-        LocalModelCatalog.descriptor(for: inference.preferredLocalTextModelID)
+    private var selectedDescriptor: LocalModelDescriptor? {
+        if let modelID = inference.activeLocalTextModelID,
+           let descriptor = LocalModelCatalog.descriptor(for: modelID),
+           installedSelectableModels.contains(descriptor) {
+            return descriptor
+        }
+        if let descriptor = LocalModelCatalog.descriptor(for: inference.preferredLocalTextModelID),
+           installedSelectableModels.contains(descriptor) {
+            return descriptor
+        }
+        return installedSelectableModels.first
     }
 
-    private var summaryText: String {
-        switch inference.routingMode {
-        case .auto:
-            "Apple Intelligence handles lighter edits first. Your selected Qwen tier handles local work when the app routes locally."
-        case .localOnly:
-            "Everything routes through your selected local Qwen tier."
+    private var labelText: String {
+        selectedDescriptor?.displayName ?? "Install Local Model"
+    }
+
+    private var labelFont: Font {
+        switch variant {
+        case .toolbar:
+            .system(size: 14, weight: .medium)
+        case .content:
+            .system(size: 13.5, weight: .medium)
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .center, spacing: 10) {
-                    Label("Local Intelligence", systemImage: inference.routingMode == .auto ? "apple.intelligence" : "memorychip")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
-
-                    Spacer(minLength: 12)
-
-                    Text(localModelManager.hardwareSummary)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(theme.textSecondary)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .assistantInsetChrome(theme: theme, cornerRadius: 100)
+        Menu {
+            if installedSelectableModels.isEmpty {
+                Text("No supported local models installed")
+                Divider()
+                Button("Open Settings") {
+                    UtilityWindowManager.shared.show(.settings)
+                    NSApp.activate()
                 }
-
-                Text(summaryText)
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(theme.textSecondary.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            VStack(alignment: .leading, spacing: 9) {
-                InferencePopoverSectionLabel("Routing")
-
-                Picker("Routing", selection: routingBinding) {
-                    Text("Auto").tag(LocalRoutingMode.auto)
-                    Text("Local Only").tag(LocalRoutingMode.localOnly)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
-
-            VStack(alignment: .leading, spacing: 9) {
-                InferencePopoverSectionLabel("Choose Local Tier")
-
-                if installedSelectableModels.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("No supported local Qwen models are installed yet.")
-                            .font(.system(size: 12.5, weight: .medium))
-                            .foregroundStyle(theme.textSecondary)
-
-                        Button("Open Settings") {
-                            UtilityWindowManager.shared.show(.settings)
-                            NSApp.activate()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
-                    .assistantInsetChrome(theme: theme, cornerRadius: 16)
-                } else {
-                    VStack(spacing: 8) {
-                        ForEach(installedSelectableModels, id: \.id) { model in
-                            Button {
-                                withAnimation(Motion.quick) {
-                                    inference.setPreferredLocalTextModelID(model.id)
-                                }
-                            } label: {
-                                HStack(alignment: .center, spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(model.displayName)
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(theme.foreground)
-                                            .multilineTextAlignment(.leading)
-
-                                        Text(model.summary)
-                                            .font(.system(size: 11.5, weight: .medium))
-                                            .foregroundStyle(theme.textSecondary)
-                                            .lineLimit(2)
-                                            .multilineTextAlignment(.leading)
-                                    }
-
-                                    Spacer(minLength: 12)
-
-                                    if model.id == preferredDescriptor?.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundStyle(theme.accent)
-                                    }
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 11)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .assistantInsetChrome(
-                                    theme: theme,
-                                    cornerRadius: 16,
-                                    isEmphasized: model.id == preferredDescriptor?.id
-                                )
+            } else {
+                ForEach(installedSelectableModels, id: \.id) { model in
+                    Button {
+                        inference.setPreferredLocalTextModelID(model.id)
+                    } label: {
+                        HStack {
+                            Text(model.displayName)
+                            if model.id == selectedDescriptor?.id {
+                                Image(systemName: "checkmark")
                             }
-                            .buttonStyle(.plain)
                         }
                     }
-                    .animation(Motion.quick, value: preferredDescriptor?.id)
+                }
+
+                Divider()
+
+                Button("Open Settings") {
+                    UtilityWindowManager.shared.show(.settings)
+                    NSApp.activate()
                 }
             }
+        } label: {
+            HStack(spacing: 5) {
+                ASCIIRippleText(
+                    text: labelText,
+                    font: labelFont,
+                    color: theme.textSecondary,
+                    configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
+                )
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary)
+            }
+            .fixedSize()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .assistantPopoverChrome(theme: theme)
-        .animation(Motion.quick, value: inference.routingMode)
-    }
-}
-
-private struct InferencePopoverSectionLabel: View {
-    let title: String
-
-    init(_ title: String) {
-        self.title = title
-    }
-
-    var body: some View {
-        Text(title.uppercased())
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(.secondary.opacity(0.7))
-            .tracking(1.0)
-    }
-}
-
-private struct InferencePopoverInfoRow: View {
-    @Environment(UIState.self) private var ui
-
-    let title: String
-    let value: String
-
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(theme.textTertiary)
-
-            Spacer(minLength: 12)
-
-            Text(value)
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(theme.foreground)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .assistantInsetChrome(theme: theme, cornerRadius: 16)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(labelText)
+        .accessibilityLabel(labelText)
     }
 }
 

@@ -65,9 +65,14 @@ struct SummarizeNoteIntent: AppIntent {
         }
 
         let response = try await bootstrap.triageService.generate(
-            prompt: "Summarize this note:\n\n# \(page.title)\n\n\(String(content.prefix(3000)))",
-            systemPrompt:
-                "You are a research assistant. Produce a concise summary (3-5 sentences) of the note. Capture the key ideas, arguments, and any open questions. Use markdown for emphasis.",
+            prompt: """
+            Summarize this note in 3-5 sentences. Capture the key ideas, arguments, and open questions.
+
+            # \(page.title)
+
+            \(String(content.prefix(3000)))
+            """,
+            systemPrompt: nil,
             operation: .summarize,
             contentLength: content.count
         )

@@ -4,9 +4,9 @@ import SwiftUI
 // MARK: - Command Palette Overlay
 // Unified global search + floating chat. Replaces both the command palette
 // and MiniChat. Starts as a frosted-glass search bar (Option+Space), morphs
-// into a tabbed floating chat on query submission (blur-replace transition).
+// into a floating chat on query submission (blur-replace transition).
 // Context-aware: from landing page → navigates to main chat; from anywhere
-// else → inline floating chat with thread tabs.
+// else → inline floating chat on one dedicated palette thread.
 
 private enum PaletteMode: Equatable {
     case search
@@ -27,7 +27,6 @@ struct CommandPaletteOverlay: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(InferenceState.self) private var inference
     @Environment(GraphState.self) private var graphState
 
     @Environment(ThreadState.self) private var threadState
@@ -52,7 +51,6 @@ struct CommandPaletteOverlay: View {
     // MARK: - Chat State
 
     @State private var mode: PaletteMode = .search
-    @State private var activeTabId: String?
     @State private var streamTask: Task<Void, Never>?
     @State private var chatInput = ""
     @State private var showMentionDropdown = false
@@ -77,7 +75,7 @@ struct CommandPaletteOverlay: View {
         )
     }
     private var activeContextAttachments: [ContextAttachment] {
-        activeThread?.contextAttachments ?? []
+        paletteThread?.contextAttachments ?? []
     }
     private var lockedScopedPageAttachment: ContextAttachment? {
         guard activeContextAttachments.isEmpty, let page = scopedPage() else { return nil }
@@ -127,8 +125,6 @@ struct CommandPaletteOverlay: View {
                     } else {
                         VStack(spacing: 0) {
                             paletteDivider
-                            chatTabBar
-                            paletteDivider.opacity(0.82)
                             chatSection
                             chatInputBar
                         }
@@ -168,7 +164,7 @@ struct CommandPaletteOverlay: View {
         .onExitCommand { handleEscape() }
         .onReceive(NotificationCenter.default.publisher(for: .commandPaletteSwitchToChat)) { _ in
             withAnimation(Motion.smooth) { mode = .chat }
-            ensureActiveTab()
+            ensurePaletteChatThread()
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(100))
                 isChatFocused = true
@@ -216,17 +212,7 @@ struct CommandPaletteOverlay: View {
 
                     Spacer()
 
-                    HStack(spacing: 6) {
-                        Image(systemName: paletteRoutingIcon)
-                            .font(.system(size: 10, weight: .medium))
-                        Text(inference.routingMode.displayName)
-                            .font(.system(size: 11, weight: .medium))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(theme.textTertiary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .assistantInsetChrome(theme: theme, cornerRadius: 15)
+                    LocalModelToolbarMenu(variant: .toolbar)
 
                     if threadState.paletteIsStreaming {
                         ProgressView()
@@ -466,85 +452,13 @@ struct CommandPaletteOverlay: View {
         return ordered
     }
 
-    // MARK: - Chat Tab Bar
-
-    // MARK: - Mode Picker
-
-    private var paletteModeMenu: some View {
-        Menu {
-            Button {
-                inference.setRoutingMode(.auto)
-            } label: {
-                Label("Auto", systemImage: "sparkles")
-            }
-
-            Button {
-                inference.setRoutingMode(.localOnly)
-            } label: {
-                Label("Local Only", systemImage: "memorychip")
-            }
-        } label: {
-            Image(systemName: paletteRoutingIcon)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(inference.routingMode == .auto ? theme.textTertiary : theme.accent)
-                .frame(width: 30, height: 30)
-                .contentShape(Circle())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(inference.routingMode.displayName)
-    }
-
-    private var chatTabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(paletteThreads) { thread in
-                    Button {
-                        withAnimation(Motion.quick) { activeTabId = thread.id }
-                        threadState.setActiveThread(thread.id)
-                    } label: {
-                        Text(thread.label)
-                            .font(.system(size: 11, weight: activeTabId == thread.id ? .semibold : .regular))
-                            .foregroundStyle(activeTabId == thread.id ? theme.foreground : theme.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                    }
-                    .buttonStyle(.plain)
-                    .assistantInsetChrome(
-                        theme: theme,
-                        cornerRadius: 14,
-                        isEmphasized: activeTabId == thread.id
-                    )
-                }
-
-                Button {
-                    let newId = threadState.createThread(type: "palette", label: "Chat \(paletteThreads.count + 1)")
-                    withAnimation(Motion.quick) { activeTabId = newId }
-                    threadState.setActiveThread(newId)
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(theme.textTertiary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                }
-                .buttonStyle(.plain)
-                .assistantInsetChrome(theme: theme, cornerRadius: 14)
-            }
-            .padding(.horizontal, 2)
-            .padding(.vertical, 2)
-        }
-        .padding(.bottom, 2)
-    }
-
     // MARK: - Chat Section
 
     private var chatSection: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    if let thread = activeThread {
+                    if let thread = paletteThread {
                         if thread.messages.isEmpty && !threadState.paletteIsStreaming {
                             VStack(spacing: 8) {
                                 Image(systemName: "bubble.left.and.bubble.right")
@@ -605,7 +519,7 @@ struct CommandPaletteOverlay: View {
                 guard nextState != chatAutoFollow else { return }
                 chatAutoFollow = nextState
             }
-            .onChange(of: activeThread?.messages.count) { _, _ in
+            .onChange(of: paletteThread?.messages.count) { _, _ in
                 guard chatAutoFollow.isFollowingBottom else { return }
                 chatAutoFollow.markProgrammaticScrollToBottom()
                 withAnimation(Motion.quick) {
@@ -652,7 +566,7 @@ struct CommandPaletteOverlay: View {
                                     .font(.system(size: 11, weight: .medium))
                                     .lineLimit(1)
                                 Button {
-                                    threadState.removeActiveThreadContextAttachment(attachment.id)
+                                    threadState.removePaletteContextAttachment(attachment.id)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.system(size: 10))
@@ -685,9 +599,6 @@ struct CommandPaletteOverlay: View {
             }
 
             HStack(spacing: 10) {
-                // Routing/model picker
-                paletteModeMenu
-
                 TextField("Ask anything\u{2026}", text: $chatInput)
                     .font(.system(size: 14))
                     .textFieldStyle(.plain)
@@ -751,13 +662,8 @@ struct CommandPaletteOverlay: View {
         let trimmed = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !threadState.paletteIsStreaming else { return }
 
-        ensureActiveTab()
-        guard let tid = activeTabId else { return }
-
-        threadState.addThreadMessage(
-            AssistantMessage(role: .user, content: trimmed),
-            threadId: tid
-        )
+        threadState.ensurePaletteThread()
+        threadState.addPaletteMessage(AssistantMessage(role: .user, content: trimmed))
         chatInput = ""
         threadState.paletteIsStreaming = true
         threadState.paletteStreamingText = ""
@@ -770,7 +676,7 @@ struct CommandPaletteOverlay: View {
                 }
             }
             do {
-                let activeMessages = activeThread?.messages ?? []
+                let activeMessages = paletteThread?.messages ?? []
                 let attachments = activeContextAttachments.isEmpty
                     ? lockedScopedPageAttachment.map { [$0] } ?? []
                     : activeContextAttachments
@@ -816,7 +722,7 @@ struct CommandPaletteOverlay: View {
                         loadedNoteTitles: []
                     )
                 }
-                threadState.updateActiveThreadLoadedNotes(
+                threadState.updatePaletteLoadedNotes(
                     ids: notesContext.loadedNoteIds,
                     titles: notesContext.loadedNoteTitles
                 )
@@ -865,14 +771,13 @@ struct CommandPaletteOverlay: View {
                     final = executeActions(in: final, page: page)
                 }
 
-                threadState.addThreadMessage(
+                threadState.addPaletteMessage(
                     AssistantMessage(
                         role: .assistant,
                         content: final.isEmpty ? "No response." : final,
                         loadedNoteTitles: notesContext.loadedNoteTitles,
                         contextAttachments: attachments
-                    ),
-                    threadId: tid
+                    )
                 )
 
             } catch is CancellationError {
@@ -882,18 +787,8 @@ struct CommandPaletteOverlay: View {
                 // Guard: cancelStream() may have already cleared streaming
                 guard threadState.paletteIsStreaming else { return }
                 threadState.paletteStreamingText = ""
-                threadState.addThreadMessage(
-                    AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"),
-                    threadId: tid
-                )
+                threadState.addPaletteMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
             }
-        }
-    }
-
-    private var paletteRoutingIcon: String {
-        switch inference.routingMode {
-        case .auto: "sparkles"
-        case .localOnly: "memorychip"
         }
     }
 
@@ -906,40 +801,26 @@ struct CommandPaletteOverlay: View {
         let partial = UserFacingModelOutput.finalVisibleText(from: threadState.paletteStreamingText)
         threadState.paletteStreamingText = ""
         threadState.paletteIsStreaming = false
-        if !partial.isEmpty, let tid = activeTabId {
-            threadState.addThreadMessage(
-                AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"),
-                threadId: tid
+        if !partial.isEmpty {
+            threadState.addPaletteMessage(
+                AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*")
             )
         }
     }
 
-    private func ensureActiveTab() {
-        if activeTabId == nil || paletteThreads.isEmpty {
-            let newId = threadState.createThread(type: "palette", label: "Chat 1")
-            activeTabId = newId
-            threadState.setActiveThread(newId)
-            return
-        }
-        if let activeTabId {
-            threadState.setActiveThread(activeTabId)
-        }
+    private func ensurePaletteChatThread() {
+        _ = threadState.ensurePaletteThread()
     }
 
-    private var paletteThreads: [ChatThread] {
-        threadState.chatThreads.filter { $0.type == "palette" }
-    }
-
-    private var activeThread: ChatThread? {
-        guard let id = activeTabId else { return nil }
-        return threadState.chatThreads.first { $0.id == id }
+    private var paletteThread: ChatThread? {
+        threadState.paletteThread()
     }
 
     // MARK: - Note Context
 
     private func scopedPage() -> SDPage? {
-        let noteAttachmentID = activeThread?.contextAttachments.first(where: { $0.kind == .note })?.targetId
-        guard let targetId = noteAttachmentID ?? activeThread?.pageId else { return nil }
+        let noteAttachmentID = paletteThread?.contextAttachments.first(where: { $0.kind == .note })?.targetId
+        guard let targetId = noteAttachmentID ?? paletteThread?.pageId else { return nil }
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
         return try? modelContext.fetch(descriptor).first
     }
@@ -1239,11 +1120,8 @@ struct CommandPaletteOverlay: View {
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
-        ensureActiveTab()
-        if let activeTabId {
-            threadState.setActiveThread(activeTabId)
-        }
-        threadState.addActiveThreadContextAttachment(
+        ensurePaletteChatThread()
+        threadState.addPaletteContextAttachment(
             ComposerReferenceHelpers.contextAttachment(for: choice)
         )
         chatInput = ComposerReferenceHelpers.removingTrailingMention(from: chatInput)
@@ -1255,7 +1133,7 @@ struct CommandPaletteOverlay: View {
 
     private func openNotePicker() {
         withAnimation(Motion.smooth) { mode = .chat }
-        ensureActiveTab()
+        ensurePaletteChatThread()
         mentionFilter = ""
         mentionPickerAutofocus = true
         showMentionDropdown = true
@@ -1268,8 +1146,8 @@ struct CommandPaletteOverlay: View {
 
     private func attachVaultContext() {
         withAnimation(Motion.smooth) { mode = .chat }
-        ensureActiveTab()
-        threadState.addActiveThreadContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
+        ensurePaletteChatThread()
+        threadState.addPaletteContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(100))
             isChatFocused = true
@@ -1278,7 +1156,7 @@ struct CommandPaletteOverlay: View {
 
     private func switchToChatAndOpenNotePicker() {
         withAnimation(Motion.smooth) { mode = .chat }
-        ensureActiveTab()
+        ensurePaletteChatThread()
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(100))
             openNotePicker()
@@ -1287,7 +1165,7 @@ struct CommandPaletteOverlay: View {
 
     private func switchToChatAndAttachVault() {
         withAnimation(Motion.smooth) { mode = .chat }
-        ensureActiveTab()
+        ensurePaletteChatThread()
         attachVaultContext()
     }
 

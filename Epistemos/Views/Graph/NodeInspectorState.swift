@@ -25,7 +25,7 @@ final class NodeInspectorState {
     var displayedSummary: String = ""
     var isSummarizing: Bool = false
 
-    // MARK: - Profile (stats from dialogue system)
+    // MARK: - Profile (neutral node context)
 
     var profile: DialogueNodeProfile?
 
@@ -155,16 +155,12 @@ final class NodeInspectorState {
             }
 
             let prompt = buildSummaryPrompt(node: node, content: content)
-            let systemPrompt = """
-            Summarize this note concisely. Cover the main ideas, key arguments, and any notable connections. \
-            Write 3-5 sentences. Be analytical, not surface-level.
-            """
 
             // Try Apple Intelligence first for a fast on-device summary, then local Qwen.
             do {
                 let result = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt,
-                    systemPrompt: systemPrompt
+                    systemPrompt: nil
                 )
                 guard !Task.isCancelled else { return }
 
@@ -181,7 +177,7 @@ final class NodeInspectorState {
                     do {
                         let result = try await triage.generateGeneral(
                             prompt: prompt,
-                            systemPrompt: systemPrompt,
+                            systemPrompt: nil,
                             operation: .brainstorm,
                             contentLength: prompt.count,
                             localSurface: .graph
@@ -237,16 +233,16 @@ final class NodeInspectorState {
 
         switch node.type {
         case .folder:
-            return "Summarize this folder's contents. What themes connect these items?\n\n\(trimmed)"
+            return "Summarize this folder's contents in 3-5 sentences. Focus on the main themes that connect these items.\n\n\(trimmed)"
         case .quote:
             if let quoteText = node.metadata.quoteText {
-                return "What is the author saying in this quote, and why does it matter?\n\n\"\(quoteText)\"\n\nContext:\n\(trimmed)"
+                return "Explain what this quote is saying and why it matters in 3-5 sentences.\n\n\"\(quoteText)\"\n\nContext:\n\(trimmed)"
             }
-            return "Summarize the key arguments and themes:\n\n\(trimmed)"
+            return "Summarize the key arguments and themes in 3-5 sentences.\n\n\(trimmed)"
         case .tag:
-            return "This tag connects multiple notes. What patterns emerge across the related content?\n\n\(trimmed)"
+            return "Summarize the main patterns that emerge across the notes connected by this tag.\n\n\(trimmed)"
         default:
-            return "Summarize this note — cover the main arguments, key insights, and implications:\n\n\(trimmed)"
+            return "Summarize this note in 3-5 sentences. Cover the main arguments, key insights, and implications.\n\n\(trimmed)"
         }
     }
 
@@ -354,14 +350,9 @@ final class NodeInspectorState {
                 return
             }
 
-            let systemPrompt = """
-                You are a note analyst for Epistemos. Answer the user's question about this specific node. \
-                Be concise, analytical, and helpful. If the content doesn't address their question, say so.
-                """
-
             let stream = triage.streamGeneral(
                 prompt: context,
-                systemPrompt: systemPrompt,
+                systemPrompt: nil,
                 operation: .chatResponse(query: query),
                 contentLength: context.count
             )
@@ -392,6 +383,7 @@ final class NodeInspectorState {
         let nodeContent = await fetchContent(for: node, store: store, modelContext: modelContext)
         var context = "Selected node: \(node.label) (\(node.type.displayName))\n\n"
         context += "Content:\n\(String(nodeContent.prefix(3000)))\n\n"
+        context += "Answer the user's question directly from this content. If the content does not answer it, say so plainly.\n\n"
         context += "User question: \(query)"
         return context
     }

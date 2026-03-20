@@ -162,7 +162,6 @@ struct NoteChatStateTests {
         state.submitQuery(
             "Rewrite this:\n\nSelected text",
             operation: .rewrite,
-            systemPrompt: "You are a writing assistant. Output ONLY the rewritten text.",
             triageService: triage
         )
 

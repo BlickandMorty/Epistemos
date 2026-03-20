@@ -44,7 +44,6 @@ struct TriageServiceTests {
         #expect(NotesOperation.ask(query: "test").baseComplexity < NotesOperation.outline.baseComplexity)
         #expect(NotesOperation.outline.baseComplexity < NotesOperation.expand.baseComplexity)
         #expect(NotesOperation.expand.baseComplexity < NotesOperation.analyze.baseComplexity)
-        #expect(NotesOperation.analyze.baseComplexity < NotesOperation.learn.baseComplexity)
     }
 
     @Test("triage decisions expose labels and icons")
@@ -155,38 +154,6 @@ struct InferencePolicyEngineTests {
         #expect(decision.selectedRoute == .localQwen)
         #expect(decision.localSelection?.reasoningMode == .fast)
         #expect(!decision.reasonCodes.contains(.explicitThinkingRequested))
-    }
-
-    @Test("structured analysis keeps local mode fast even when thinking is requested")
-    func structuredAnalysisKeepsFastMode() {
-        let engine = InferencePolicyEngine()
-        let decision = engine.decide(
-            profile: InferenceRequestProfile(
-                surface: .mainChat,
-                intent: .structuredAnalysis,
-                contentLength: 6_800,
-                promptLength: 6_200,
-                contextBlockCount: 4,
-                estimatedTokenLoad: 1_900,
-                baseComplexity: 0.65,
-                queryComplexity: 0.42,
-                requestedReasoningMode: .thinking,
-                explicitThinkingRequested: false,
-                explicitFastRequested: false,
-                visibleThinkingRequested: true
-            ),
-            context: makeContext(
-                appleAvailable: true,
-                installed: [
-                    .qwen35_2B4Bit,
-                    .qwen35_4B4Bit,
-                ]
-            )
-        )
-
-        #expect(decision.selectedRoute == .localQwen)
-        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
-        #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
     @Test("thinking panel visibility does not force trivial prompts into thinking mode")
@@ -466,7 +433,7 @@ struct TriageServiceIntegrationTests {
 
         #expect(triage.triage(operation: .continueWriting, contentLength: 1_000) == .localMLX)
         #expect(triage.triage(operation: .analyze, contentLength: 2_000) == .localMLX)
-        #expect(triage.triage(operation: .learn, contentLength: 4_000) == .localMLX)
+        #expect(triage.triage(operation: .expand, contentLength: 4_000) == .localMLX)
     }
 
     @Test("Apple unavailable routes notes work to local qwen")
@@ -498,7 +465,6 @@ struct TriageServiceIntegrationTests {
                 contentLength: 5_000
             ) == .localMLX
         )
-        #expect(triage.triageGeneral(operation: .structuredAnalysis, contentLength: 10_000) == .localMLX)
     }
 
     @Test("local only bypasses Apple Intelligence")
@@ -1091,6 +1057,40 @@ struct TriageServiceIntegrationTests {
         )
 
         #expect(request.resolvedMaxTokens == 6000)
+    }
+
+    @Test("local qwen requests disable template thinking mode")
+    func localQwenRequestsDisableTemplateThinkingMode() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            prompt: "Answer directly.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .fast
+        )
+
+        #expect(request.chatTemplateContext?["enable_thinking"] == false)
+    }
+
+    @Test("cancelled local stream stop keeps completed output when text was produced")
+    func cancelledLocalStreamStopKeepsCompletedOutput() {
+        #expect(
+            MLXInferenceService.shouldTreatCancelledStopAsCompletion(
+                outputCharacterCount: 128,
+                chunkCount: 6
+            )
+        )
+    }
+
+    @Test("cancelled local stream stop still cancels when no output was produced")
+    func cancelledLocalStreamStopWithoutOutputStillCancels() {
+        #expect(
+            !MLXInferenceService.shouldTreatCancelledStopAsCompletion(
+                outputCharacterCount: 0,
+                chunkCount: 0
+            )
+        )
     }
 
     @MainActor

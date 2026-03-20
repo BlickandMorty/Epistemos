@@ -5,21 +5,6 @@ import AppIntents
 
 struct EpistemosShortcutsProvider: AppShortcutsProvider {
     nonisolated(unsafe) static var appShortcuts: [AppShortcut] {
-
-        // MARK: AI Analysis
-
-        AppShortcut(
-            intent: DeepAnalyzeIntent(),
-            phrases: [
-                "Analyze this in \(.applicationName)",
-                "Grade the evidence in \(.applicationName)",
-            ],
-            shortTitle: "Deep Analyze",
-            systemImageName: "waveform.path.ecg"
-        )
-
-        // MARK: Apple Intelligence Composable
-
         AppShortcut(
             intent: CreateNoteIntent(),
             phrases: [
@@ -39,8 +24,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Search",
             systemImageName: "magnifyingglass"
         )
-
-        // MARK: AI Note Intelligence
 
         AppShortcut(
             intent: AskAboutNotesIntent(),
@@ -62,8 +45,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             systemImageName: "doc.text.magnifyingglass"
         )
 
-        // MARK: Quick Workflows
-
         AppShortcut(
             intent: QuickCaptureIntent(),
             phrases: [
@@ -74,8 +55,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             systemImageName: "square.and.pencil"
         )
 
-        // MARK: Daily Intelligence
-
         AppShortcut(
             intent: DailyBriefingIntent(),
             phrases: [
@@ -85,10 +64,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Daily Brief",
             systemImageName: "newspaper"
         )
-
-        // NOTE: FindConnectionsIntent, GenerateQuestionsIntent, OpenMiniChatIntent,
-        // and MoveNoteToFolderIntent are available in Shortcuts.app but not listed
-        // here due to the macOS 10-shortcut limit on AppShortcutsProvider.
     }
 }
 

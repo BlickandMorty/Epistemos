@@ -790,19 +790,28 @@ struct ThemePairTests {
         #expect(!messageBubble.contains("reasoningText"))
     }
 
-    @Test("Landing and active chat inference controls use the shared popover selector")
-    func landingAndActiveChatUseSharedInferencePopoverSelector() throws {
+    @Test("Landing and active chat use the shared plain local model menu")
+    func landingAndActiveChatUseSharedPlainLocalModelMenu() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
+        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+        let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
-        #expect(landingView.contains("InferenceControlPopoverButton("))
-        #expect(rootView.contains("AnchoredPopoverButton("))
-        #expect(!landingView.contains("private var landingInferenceControl: some View {\n        Menu {"))
-        #expect(!rootView.contains("private var modelToolbarButton: some View {\n        Menu {"))
-        #expect(rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
-        #expect(rootView.contains(".pickerStyle(.segmented)"))
-        #expect(rootView.contains(".assistantPopoverChrome("))
-        #expect(rootView.contains("struct InferenceControlPopoverButton: View"))
+        #expect(landingView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        #expect(rootView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        #expect(commandPalette.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .content)"))
+        #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
+        #expect(rootView.contains("ASCIIRippleText("))
+        #expect(rootView.contains(".menuStyle(.borderlessButton)"))
+        #expect(!commandPalette.contains("chatTabBar"))
+        #expect(!commandPalette.contains("paletteModeMenu"))
+        #expect(!commandPalette.contains("activeTabId"))
+        #expect(!commandPalette.contains("Label(\"Local Only\""))
+        #expect(!noteWorkspace.contains("Label(\"Local Only\""))
+        #expect(!rootView.contains("AnchoredPopoverButton("))
+        #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
+        #expect(!rootView.contains("InferenceControlPopoverButton"))
     }
 
     @Test("Bare until pressed chrome stays invisible until press or active selection")
@@ -903,7 +912,6 @@ struct ThemePairTests {
     @Test("Chat chrome no longer carries enrichment-era cards or confidence overlays")
     func chatChromeDropsEnrichmentPanels() throws {
         let bubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        let learningIntents = try loadTextFile("Epistemos/Intents/Custom/LearningIntents.swift")
         let project = try loadTextFile("Epistemos.xcodeproj/project.pbxproj")
 
         #expect(!bubble.contains("laymanSummarySections"))
@@ -912,7 +920,7 @@ struct ThemePairTests {
         #expect(!bubble.contains("TruthAssessmentCard"))
         #expect(!bubble.contains("ConsensusReportCard"))
         #expect(!project.contains("ConfidenceOverlay.swift"))
-        #expect(!learningIntents.contains(".epistemicLens"))
+        #expect(!project.contains("LearningIntents.swift"))
     }
 
     @Test("Toolbar control metrics stay compact and boxy inside the outer pill")
@@ -986,7 +994,7 @@ struct ThemePairTests {
         #expect(miniChat.contains("ChatCoordinator.resolveAttachedContext("))
         #expect(miniChat.contains("loadedNoteTitles: notesContext.loadedNoteTitles"))
         #expect(miniChat.contains("contextAttachments: attachments"))
-        #expect(threadState.contains("func addActiveThreadContextAttachment(_ attachment: ContextAttachment)"))
+        #expect(threadState.contains("func addMiniChatContextAttachment(_ attachment: ContextAttachment)"))
     }
 
     @Test("@ mentions search notes and chats through one shared picker")
@@ -1012,8 +1020,10 @@ struct ThemePairTests {
         #expect(commandPalette.contains("ComposerReferencePopover("))
         #expect(commandPalette.contains("ChatCoordinator.searchReferenceResults("))
         #expect(commandPalette.contains("ChatCoordinator.resolveAttachedContext("))
-        #expect(commandPalette.contains("threadState.addActiveThreadContextAttachment("))
-        #expect(commandPalette.contains("threadState.removeActiveThreadContextAttachment("))
+        #expect(commandPalette.contains("threadState.ensurePaletteThread()"))
+        #expect(commandPalette.contains("threadState.addPaletteContextAttachment("))
+        #expect(commandPalette.contains("threadState.removePaletteContextAttachment("))
+        #expect(commandPalette.contains("threadState.paletteThread()"))
         #expect(!commandPalette.contains("focusedPageId"))
         #expect(!commandPalette.contains("notesUI.activePageId"))
     }
@@ -1074,36 +1084,33 @@ struct ThemePairTests {
         #expect(uiState.landingCursorAnimationEnabled)
     }
 
-    @Test("Icon composer package points at exported white black and clear renders")
-    func iconComposerSupportsNeutralLightDarkAndClearRenders() throws {
+    @Test("Icon composer package uses the layered export 11 icon bundle")
+    func iconComposerUsesExport11LayeredBundle() throws {
         let json = try loadIconComposerJSON()
         #expect(json.contains("\"appearance\" : \"dark\""))
         #expect(json.contains("\"appearance\" : \"tinted\""))
-        #expect(json.contains("Ep (mag)-iOS-Default-1024x1024@1x.png"))
-        #expect(json.contains("Ep (mag)-iOS-Dark-1024x1024@1x.png"))
-        #expect(json.contains("Ep (mag)-iOS-ClearLight-1024x1024@1x.png"))
-        #expect(!json.contains("Ep (mag)-iOS-TintedLight-1024x1024@1x.png"))
-        #expect(!json.contains("Ep (mag)-iOS-TintedDark-1024x1024@1x.png"))
-        #expect(!json.contains("0.55431,0.92592,1.00000"))
-        #expect(!json.contains("1.00000,0.58324,0.84645"))
-        #expect(!json.contains("0.29863,0.11682,0.19897"))
-        #expect(!json.contains("Gemini Generated Image"))
+        #expect(json.contains("Gemini Generated Image 5.png"))
+        #expect(json.contains("Gemini Generated Image (8).png"))
+        #expect(json.contains("Gemini Generated Image 5 (4).png"))
+        #expect(json.contains("0.55431,0.92592,1.00000"))
+        #expect(json.contains("1.00000,0.58324,0.84645"))
+        #expect(json.contains("0.29863,0.11682,0.19897"))
+        #expect(!json.contains("Ep (mag)-iOS-Default-1024x1024@1x.png"))
     }
 
-    @Test("Icon composer package keeps the exported icon source bundle from Exports 2")
-    func iconComposerKeepsReplacementSourceBundle() throws {
+    @Test("Icon composer package keeps the export 11 asset bundle")
+    func iconComposerKeepsExport11AssetBundle() throws {
         let assetNames = try FileManager.default.contentsOfDirectory(
             atPath: repoRootURL().appendingPathComponent("Epistemos/AppIcon.icon/Assets").path
         )
-        #expect(assetNames.count == 7)
-        #expect(assetNames.contains("Ep (mag)-iOS-Default-1024x1024@1x.png"))
-        #expect(assetNames.contains("Ep (mag)-iOS-Dark-1024x1024@1x.png"))
-        #expect(assetNames.contains("Ep (mag)-iOS-ClearLight-1024x1024@1x.png"))
-        #expect(assetNames.contains("Ep (mag)-iOS-ClearDark-1024x1024@1x.png"))
-        #expect(assetNames.contains("Ep (mag)-iOS-TintedLight-1024x1024@1x.png"))
-        #expect(assetNames.contains("Ep (mag)-iOS-TintedDark-1024x1024@1x.png"))
-        #expect(assetNames.contains("Ep (mag)-watchOS-Default-1088x1088@1x.png"))
-        #expect(!assetNames.contains("Gemini Generated Image 5.png"))
+        #expect(assetNames.count == 6)
+        #expect(assetNames.contains("Gemini Generated Image 5.png"))
+        #expect(assetNames.contains("Gemini Generated Image (8).png"))
+        #expect(assetNames.contains("Gemini Generated Image 5 (1) 2.png"))
+        #expect(assetNames.contains("Gemini Generated Image 5 (1) 3.png"))
+        #expect(assetNames.contains("Gemini Generated Image 5 (2).png"))
+        #expect(assetNames.contains("Gemini Generated Image 5 (4).png"))
+        #expect(!assetNames.contains("Ep (mag)-watchOS-Default-1088x1088@1x.png"))
     }
 
     @Test("Bundle plist points at the icon composer asset")
@@ -1451,6 +1458,52 @@ struct ThemePairTests {
         #expect(source.contains("Request: \\(trimmed)"))
         #expect(source.contains("systemPrompt: nil"))
         #expect(!source.contains("let fullSystemPrompt"))
+    }
+
+    @Test("daily brief stays single pass without deep analysis scaffolding")
+    func dailyBriefDropsSecondPassScaffolding() throws {
+        let state = try loadTextFile("Epistemos/State/DailyBriefState.swift")
+        let landing = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let coordinator = try loadTextFile("Epistemos/App/AppCoordinator.swift")
+        let intent = try loadTextFile("Epistemos/Intents/Custom/DailyBriefingIntent.swift")
+
+        #expect(!state.contains("isDeepBrief"))
+        #expect(!state.contains("onGoDeepGenerate"))
+        #expect(!state.contains("requestGoDeep"))
+        #expect(!state.contains("deep actionable intelligence report"))
+        #expect(!state.contains("research analyst's morning brief"))
+        #expect(!landing.contains("Go Deeper"))
+        #expect(!landing.contains("buildGoDeepPrompt"))
+        #expect(!landing.contains("deep multi-perspective analysis"))
+        #expect(!coordinator.contains("onGoDeepGenerate"))
+        #expect(!intent.contains("daily intelligence brief"))
+    }
+
+    @Test("user-facing AI surfaces avoid hidden research personas and system wrappers")
+    func userFacingAISurfacesDropHiddenPersonas() throws {
+        let analysisIntents = try loadTextFile("Epistemos/Intents/Custom/AnalysisIntents.swift")
+        let noteActions = try loadTextFile("Epistemos/Intents/Custom/NoteActionIntents.swift")
+        let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let nodeInspector = try loadTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+        let dialogue = try loadTextFile("Epistemos/State/DialogueChatState.swift")
+        let hologramInspector = try loadTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let vaultOrganizer = try loadTextFile("Epistemos/Views/Notes/VaultOrganizerView.swift")
+        let triage = try loadTextFile("Epistemos/Engine/TriageService.swift")
+
+        #expect(!analysisIntents.contains("research assistant"))
+        #expect(!noteActions.contains("research assistant"))
+        #expect(!noteWorkspace.contains("systemPrompt: mapping.systemPrompt"))
+        #expect(!noteWorkspace.contains("You are a writing assistant."))
+        #expect(!nodeInspector.contains("You are a note analyst"))
+        #expect(!dialogue.contains("You are \"\\(activeNodeLabel)\", a character in a knowledge graph."))
+        #expect(!dialogue.contains("You speak in character."))
+        #expect(!dialogue.contains("messages.append(Message(role: .assistant, text: profile.openingLine))"))
+        #expect(!hologramInspector.contains("p.archetype.title"))
+        #expect(!hologramInspector.contains("p.care.mood.displayName"))
+        #expect(!hologramInspector.contains("p.portrait.symbol"))
+        #expect(!hologramInspector.contains("statMeter(label: \"Focus\""))
+        #expect(!vaultOrganizer.contains("You are a note organization assistant."))
+        #expect(!triage.contains("let simpleSystem ="))
     }
 
     @Test("mini chat only resolves vault context for explicit note mentions")

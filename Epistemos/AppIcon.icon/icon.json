@@ -3,19 +3,39 @@
   "fill-specializations" : [
     {
       "value" : {
-        "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+        "linear-gradient" : [
+          "display-p3:0.55431,0.92592,1.00000,1.00000",
+          "display-p3:1.00000,0.58324,0.84645,1.00000"
+        ],
+        "orientation" : {
+          "start" : {
+            "x" : 0.5,
+            "y" : 0
+          },
+          "stop" : {
+            "x" : 0.5,
+            "y" : 0.7
+          }
+        }
       }
     },
     {
       "appearance" : "dark",
       "value" : {
-        "solid" : "extended-gray:0.00000,1.00000"
-      }
-    },
-    {
-      "appearance" : "tinted",
-      "value" : {
-        "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+        "linear-gradient" : [
+          "display-p3:0.29863,0.11682,0.19897,1.00000",
+          "display-p3:0.22704,0.09763,0.17008,1.00000"
+        ],
+        "orientation" : {
+          "start" : {
+            "x" : 0.5,
+            "y" : 0
+          },
+          "stop" : {
+            "x" : 0.5,
+            "y" : 0.7
+          }
+        }
       }
     }
   ],
@@ -39,84 +59,125 @@
             {
               "appearance" : "dark",
               "value" : "normal"
-            },
-            {
-              "appearance" : "tinted",
-              "value" : "normal"
             }
           ],
           "fill" : "none",
           "glass-specializations" : [
             {
-              "value" : false
+              "value" : true
             },
             {
               "appearance" : "dark",
-              "value" : false
-            },
-            {
-              "appearance" : "tinted",
-              "value" : false
+              "value" : true
             }
           ],
           "hidden" : false,
-          "image-name" : "Ep (mag)-iOS-Default-1024x1024@1x.png",
-          "name" : "Default",
+          "image-name" : "Gemini Generated Image 5 (1) 3.png",
+          "name" : "Gemini Generated Image 5 (1) 3",
           "opacity-specializations" : [
             {
-              "value" : 1
+              "value" : 0
             },
             {
               "appearance" : "dark",
-              "value" : 0
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0
+              "value" : 0.8
             }
           ],
           "position" : {
-            "scale" : 1,
+            "scale" : 0.57,
             "translation-in-points" : [
-              0,
-              0
+              9.120000000000118,
+              40.38937499999986
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:1.00000,0.58324,0.84645,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Gemini Generated Image (8).png",
+          "name" : "Gemini Generated Image (8)",
+          "opacity-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              13.495000000000005,
+              47.29499999999996
             ]
           }
         },
         {
           "blend-mode-specializations" : [
             {
-              "value" : "normal"
+              "value" : "hard-light"
             },
             {
               "appearance" : "dark",
-              "value" : "normal"
-            },
-            {
-              "appearance" : "tinted",
               "value" : "normal"
             }
           ],
-          "fill" : "none",
-          "glass-specializations" : [
+          "fill-specializations" : [
             {
-              "value" : false
+              "value" : {
+                "linear-gradient" : [
+                  "extended-srgb:0.79608,0.18824,0.87843,1.00000",
+                  "display-p3:0.82194,0.67514,1.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.7904810872116287,
+                    "y" : 0.817741528577238
+                  },
+                  "stop" : {
+                    "x" : 0.3235742422511589,
+                    "y" : 0.28390727323757875
+                  }
+                }
+              }
             },
             {
               "appearance" : "dark",
-              "value" : false
+              "value" : {
+                "automatic-gradient" : "display-p3:1.00000,0.58324,0.84645,1.00000"
+              }
             },
             {
               "appearance" : "tinted",
-              "value" : false
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : true
+            },
+            {
+              "appearance" : "dark",
+              "value" : true
             }
           ],
           "hidden" : false,
-          "image-name" : "Ep (mag)-iOS-Dark-1024x1024@1x.png",
-          "name" : "Dark",
+          "image-name" : "Gemini Generated Image 5.png",
+          "name" : "Gemini Generated Image 5",
           "opacity-specializations" : [
             {
-              "value" : 0
+              "value" : 1
             },
             {
               "appearance" : "dark",
@@ -124,55 +185,65 @@
             },
             {
               "appearance" : "tinted",
-              "value" : 0
+              "value" : 1
             }
           ],
           "position" : {
-            "scale" : 1,
+            "scale" : 0.6,
             "translation-in-points" : [
-              0,
-              0
+              -14.134999999999991,
+              -4.265625
             ]
           }
         },
         {
           "blend-mode-specializations" : [
             {
-              "value" : "normal"
+              "value" : "hard-light"
             },
             {
               "appearance" : "dark",
               "value" : "normal"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : {
+                "automatic-gradient" : "display-p3:0.62032,0.90398,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "gray:1.00000,1.00000"
+              }
             },
             {
               "appearance" : "tinted",
-              "value" : "normal"
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
             }
           ],
-          "fill" : "none",
           "glass-specializations" : [
             {
               "value" : false
             },
             {
               "appearance" : "dark",
-              "value" : false
-            },
-            {
-              "appearance" : "tinted",
-              "value" : false
+              "value" : true
             }
           ],
           "hidden" : false,
-          "image-name" : "Ep (mag)-iOS-ClearLight-1024x1024@1x.png",
-          "name" : "Clear Light",
+          "image-name" : "Gemini Generated Image 5.png",
+          "name" : "Gemini Generated Image 5",
           "opacity-specializations" : [
             {
-              "value" : 0
+              "value" : 1
             },
             {
               "appearance" : "dark",
-              "value" : 0
+              "value" : 1
             },
             {
               "appearance" : "tinted",
@@ -180,10 +251,10 @@
             }
           ],
           "position" : {
-            "scale" : 1,
+            "scale" : 0.6,
             "translation-in-points" : [
-              0,
-              0
+              -14.134999999999991,
+              -4.265625
             ]
           }
         }
@@ -226,6 +297,500 @@
           "value" : {
             "enabled" : true,
             "value" : 0.5
+          }
+        }
+      ]
+    },
+    {
+      "blend-mode-specializations" : [
+        {
+          "value" : "hard-light"
+        },
+        {
+          "appearance" : "dark",
+          "value" : "plus-lighter"
+        }
+      ],
+      "blur-material-specializations" : [
+        {
+          "value" : 1
+        },
+        {
+          "appearance" : "dark",
+          "value" : 0.1
+        },
+        {
+          "appearance" : "tinted",
+          "value" : null
+        }
+      ],
+      "layers" : [
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "normal"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "plus-darker"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "normal"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : "none"
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.00000,0.00000,0.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : true
+            },
+            {
+              "appearance" : "dark",
+              "value" : true
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "Gemini Generated Image 5 (2).png",
+          "name" : "Gemini Generated Image 5 (2)",
+          "opacity-specializations" : [
+            {
+              "value" : 0.5
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              0.4375,
+              49.694999999999936
+            ]
+          }
+        },
+        {
+          "blend-mode" : "overlay",
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "extended-gray:0.75000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : true
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5 (1) 2.png",
+          "name" : "Gemini Generated Image 5 (1) 2",
+          "opacity" : 0.3,
+          "position" : {
+            "scale" : 0.5,
+            "translation-in-points" : [
+              8,
+              17.87781250000012
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "normal"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "normal"
+            }
+          ],
+          "fill" : "none",
+          "glass" : true,
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5 (1) 3.png",
+          "name" : "Gemini Generated Image 5 (1) 3",
+          "opacity-specializations" : [
+            {
+              "value" : 0.5
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.57,
+            "translation-in-points" : [
+              9.120000000000118,
+              40.38937499999986
+            ]
+          }
+        }
+      ],
+      "lighting-specializations" : [
+        {
+          "value" : "combined"
+        },
+        {
+          "appearance" : "dark",
+          "value" : "individual"
+        }
+      ],
+      "name" : "Group",
+      "opacity-specializations" : [
+        {
+          "value" : 1
+        },
+        {
+          "appearance" : "dark",
+          "value" : 0.7
+        },
+        {
+          "appearance" : "tinted",
+          "value" : 1
+        }
+      ],
+      "shadow-specializations" : [
+        {
+          "value" : {
+            "kind" : "neutral",
+            "opacity" : 1
+          }
+        },
+        {
+          "appearance" : "dark",
+          "value" : {
+            "kind" : "layer-color",
+            "opacity" : 0.25
+          }
+        }
+      ],
+      "specular-specializations" : [
+        {
+          "value" : true
+        },
+        {
+          "appearance" : "dark",
+          "value" : true
+        }
+      ],
+      "translucency-specializations" : [
+        {
+          "value" : {
+            "enabled" : true,
+            "value" : 0.2
+          }
+        },
+        {
+          "appearance" : "dark",
+          "value" : {
+            "enabled" : true,
+            "value" : 0.5
+          }
+        }
+      ]
+    },
+    {
+      "blend-mode-specializations" : [
+        {
+          "value" : "soft-light"
+        },
+        {
+          "appearance" : "dark",
+          "value" : "hard-light"
+        },
+        {
+          "appearance" : "tinted",
+          "value" : "lighten"
+        }
+      ],
+      "blur-material-specializations" : [
+        {
+          "value" : 0.4
+        },
+        {
+          "appearance" : "dark",
+          "value" : 0.5
+        },
+        {
+          "appearance" : "tinted",
+          "value" : 0.5
+        }
+      ],
+      "hidden" : false,
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "srgb:1.00000,0.00000,0.00094,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Gemini Generated Image (8).png",
+          "name" : "Gemini Generated Image (8)",
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              13.495000000000005,
+              47.29499999999996
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : "screen"
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "Gemini Generated Image 5 (4).png",
+          "name" : "Gemini Generated Image 5 (4)",
+          "opacity-specializations" : [
+            {
+              "value" : 0.3
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 0.1
+            }
+          ],
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              11.761674854424541,
+              -1
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+          },
+          "image-name" : "Gemini Generated Image (8).png",
+          "name" : "Gemini Generated Image (8)",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              13.495000000000005,
+              47.29499999999996
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "Gemini Generated Image 5 (4).png",
+          "name" : "Gemini Generated Image 5 (4)",
+          "opacity-specializations" : [
+            {
+              "value" : 0.1
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 0.05
+            }
+          ],
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              213.409446148038,
+              107.6970426112286
+            ]
+          }
+        },
+        {
+          "glass-specializations" : [
+            {
+              "value" : false
+            },
+            {
+              "appearance" : "tinted",
+              "value" : false
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "Gemini Generated Image 5 (4).png",
+          "name" : "Gemini Generated Image 5 (4)",
+          "opacity-specializations" : [
+            {
+              "value" : 0.05
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 0.05
+            }
+          ],
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              289.604542074247,
+              -256.4763237429401
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-srgb:0.38039,0.33333,0.96078,1.00000"
+              }
+            }
+          ],
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "Gemini Generated Image 5 (4).png",
+          "name" : "Gemini Generated Image 5 (4)",
+          "opacity-specializations" : [
+            {
+              "value" : 0.12
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 0.05
+            }
+          ],
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -256.23832514557546,
+              -226.84489754941438
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "Gemini Generated Image 5 (4).png",
+          "name" : "Gemini Generated Image 5 (4)",
+          "opacity-specializations" : [
+            {
+              "value" : 0.1
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 0.05
+            }
+          ],
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -268,
+              136.9380780179111
+            ]
+          }
+        }
+      ],
+      "lighting-specializations" : [
+        {
+          "value" : "individual"
+        },
+        {
+          "appearance" : "tinted",
+          "value" : "combined"
+        }
+      ],
+      "name" : "Group",
+      "opacity-specializations" : [
+        {
+          "appearance" : "dark",
+          "value" : 0
+        }
+      ],
+      "shadow-specializations" : [
+        {
+          "value" : {
+            "kind" : "layer-color",
+            "opacity" : 1
+          }
+        },
+        {
+          "appearance" : "dark",
+          "value" : {
+            "kind" : "layer-color",
+            "opacity" : 0.65
+          }
+        },
+        {
+          "appearance" : "tinted",
+          "value" : {
+            "kind" : "neutral",
+            "opacity" : 0.65
+          }
+        }
+      ],
+      "specular-specializations" : [
+        {
+          "value" : true
+        },
+        {
+          "appearance" : "dark",
+          "value" : true
+        },
+        {
+          "appearance" : "tinted",
+          "value" : true
+        }
+      ],
+      "translucency-specializations" : [
+        {
+          "value" : {
+            "enabled" : false,
+            "value" : 0.5
+          }
+        },
+        {
+          "appearance" : "dark",
+          "value" : {
+            "enabled" : true,
+            "value" : 0.5
+          }
+        },
+        {
+          "appearance" : "tinted",
+          "value" : {
+            "enabled" : false,
+            "value" : 1
           }
         }
       ]

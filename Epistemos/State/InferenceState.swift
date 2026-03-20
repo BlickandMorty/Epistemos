@@ -287,7 +287,7 @@ final class InferenceState {
         "epistemos.preferredFallbackLocalTextModelID",
     ]
 
-    var inferenceMode: InferenceMode = .analytical
+    var inferenceMode: InferenceMode = .api
     var routingMode: LocalRoutingMode = .auto
     var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     private(set) var installedLocalTextModelIDs: Set<String> = []
@@ -318,9 +318,6 @@ final class InferenceState {
            LocalTextModelID(rawValue: saved) != nil {
             self.preferredLocalTextModelID = saved
         }
-        defaults.removeObject(forKey: "epistemos.automaticLocalModelSelectionEnabled")
-        defaults.removeObject(forKey: "epistemos.preferredLocalReasoningMode")
-        defaults.removeObject(forKey: "epistemos.showLocalThinkingPanel")
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)

@@ -157,7 +157,6 @@ final class NoteChatState {
     func submitQuery(
         _ query: String,
         operation: NotesOperation,
-        systemPrompt: String,
         triageService: TriageService
     ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -176,7 +175,6 @@ final class NoteChatState {
 
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
-        _ = systemPrompt
         let fullPrompt: String
         if noteSnippet.isEmpty {
             fullPrompt = "Request: \(trimmed)"

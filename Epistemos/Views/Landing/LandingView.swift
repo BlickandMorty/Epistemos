@@ -524,17 +524,8 @@ struct LandingView: View {
     }
 
     private var landingInferenceControl: some View {
-        InferenceControlPopoverButton(
-            titleStyle: .routing,
-            variant: .toolbar,
-            stableWidth: NativeControlSystem.reservedWidth(
-                for: LocalRoutingMode.allCases.map(\.displayName),
-                variant: .toolbar,
-                includesDisclosureGlyph: true
-            ),
-            idealPopoverWidth: 336
-        )
-        .accessibilityLabel("Routing Mode")
+        LocalModelToolbarMenu(variant: .toolbar)
+            .accessibilityLabel("Local Model")
     }
 
     private func activateLandingSearch() {
@@ -640,10 +631,7 @@ struct LandingView: View {
                     ProgressView()
                         .controlSize(.regular)
                         .tint(theme.fontAccent.opacity(0.6))
-                    Text(
-                        dailyBrief.isDeepBrief
-                            ? "Deep analysis in progress…" : "Scanning your notes & conversations…"
-                    )
+                    Text("Scanning your notes & conversations…")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundStyle(theme.mutedForeground.opacity(0.4))
                 }
@@ -693,27 +681,6 @@ struct LandingView: View {
                 }
                 .buttonStyle(.plain)
 
-                // "Go Deeper" button — visible only after initial brief loads, before deep mode
-                if !dailyBrief.isDailyBriefLoading && !dailyBrief.isDeepBrief
-                    && !dailyBrief.dailyBriefContent.isEmpty
-                {
-                    Button {
-                        dailyBrief.requestGoDeep(prompt: buildGoDeepPrompt())
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.down.right.and.arrow.up.left")
-                                .font(.system(size: 11, weight: .medium))
-                            Text("Go Deeper")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundStyle(theme.accent)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(theme.accent.opacity(0.12)))
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.scale.combined(with: .opacity))
-                }
             }
             .padding(.bottom, 24)
         }
@@ -742,136 +709,6 @@ struct LandingView: View {
 
     private func buildDailyBriefPrompt() -> String {
         DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: recentChats(limit: 12))
-    }
-
-    // MARK: - Go Deeper Prompt
-
-    /// Builds the follow-up daily brief prompt from current note and chat metadata.
-    private func buildGoDeepPrompt() -> String {
-        let recentChats = recentChats(limit: 10)
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-        dateFormatter.timeStyle = .none
-
-        var sections: [String] = []
-
-        // ── Note metadata with rich stats ──
-        let activeNotes =
-            allPages
-            .filter { $0.templateId == nil && !$0.isArchived }
-            .prefix(15)
-
-        if !activeNotes.isEmpty {
-            var notesSection = "## Notes Inventory (sorted by most recently edited)\n\n"
-            for note in activeNotes {
-                let daysSinceEdit =
-                    Calendar.current.dateComponents([.day], from: note.updatedAt, to: .now).day ?? 0
-                let daysSinceCreated =
-                    Calendar.current.dateComponents([.day], from: note.createdAt, to: .now).day ?? 0
-                let tags = note.tags.isEmpty ? "none" : note.tags.joined(separator: ", ")
-                let emoji = note.emoji.isEmpty ? "" : "\(note.emoji) "
-
-                notesSection += """
-                    - **\(emoji)\(note.title.isEmpty ? "Untitled" : note.title)**
-                      Words: \(note.wordCount) | Tags: \(tags) | Created: \(dateFormatter.string(from: note.createdAt)) (\(daysSinceCreated)d ago) | Last edited: \(dateFormatter.string(from: note.updatedAt)) (\(daysSinceEdit)d ago)\n
-                    """
-            }
-
-            // Aggregate stats
-            let totalWords = activeNotes.reduce(0) { $0 + $1.wordCount }
-            let allTags = activeNotes.flatMap(\.tags)
-            let tagFreq = Dictionary(allTags.map { ($0, 1) }, uniquingKeysWith: +)
-                .sorted { $0.value > $1.value }
-                .prefix(10)
-                .map { "\($0.key) (\($0.value))" }
-            let longestNote = activeNotes.max(by: { $0.wordCount < $1.wordCount })
-
-            notesSection += "\n### Aggregate Note Stats\n"
-            notesSection += "- Total notes: \(activeNotes.count) | Total words: \(totalWords)\n"
-            if let longest = longestNote {
-                notesSection +=
-                    "- Longest note: \"\(longest.title)\" (\(longest.wordCount) words)\n"
-            }
-            if !tagFreq.isEmpty {
-                notesSection += "- Top tags by frequency: \(tagFreq.joined(separator: ", "))\n"
-            }
-
-            sections.append(notesSection)
-        }
-
-        // ── Chat metadata ──
-        if !recentChats.isEmpty {
-            var chatsSection = "## Conversation History (sorted by most recent)\n\n"
-            for chatItem in recentChats {
-                let msgs = chatItem.sortedMessages
-                let msgCount = msgs.count
-                let daysSinceChat =
-                    Calendar.current.dateComponents([.day], from: chatItem.updatedAt, to: .now).day
-                    ?? 0
-
-                // Last user query snippet
-                let lastUserQuery = msgs.last { $0.role == "user" }?.content.prefix(120) ?? ""
-                let snippet = String(lastUserQuery).replacingOccurrences(of: "\n", with: " ")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-
-                chatsSection += """
-                    - **\(chatItem.title)**
-                      Messages: \(msgCount) | \(dateFormatter.string(from: chatItem.updatedAt)) (\(daysSinceChat)d ago)
-                      Last query: \(snippet.isEmpty ? "(none)" : "\(snippet)…")\n
-                    """
-            }
-
-            // Chat aggregate
-            let totalMsgs = recentChats.reduce(0) {
-                $0 + ($1.messages?.count ?? 0)
-            }
-            chatsSection += "\n### Aggregate Chat Stats\n"
-            chatsSection +=
-                "- Total conversations: \(recentChats.count) | Total messages: \(totalMsgs)\n"
-
-            sections.append(chatsSection)
-        }
-
-        // ── Cross-reference ──
-        let noteTagSet = Set(allPages.prefix(15).flatMap(\.tags))
-        let chatTitles = recentChats.map { $0.title.lowercased() }
-        let overlaps = noteTagSet.filter { tag in
-            chatTitles.contains { $0.contains(tag) }
-        }
-        if !overlaps.isEmpty {
-            sections.append(
-                "## Cross-References\nTags that also appear in chat titles: **\(overlaps.sorted().joined(separator: ", "))**"
-            )
-        }
-
-        let contextBlock =
-            sections.isEmpty
-            ? ""
-            : """
-
-            Here is the full metadata from my knowledge base for deep analysis:
-
-            \(sections.joined(separator: "\n\n"))
-            """
-
-        return """
-            Perform a deep multi-perspective analysis of my knowledge base. \
-            You have full metadata below — word counts, dates, tags, and conversation history. \
-            Use ALL of this data to produce a rigorous synthesis:
-
-            1. **Statistical Patterns** — What do the numbers (word counts, edit frequency, message counts) reveal about my activity?
-            2. **Thematic Clusters** — Group my notes and chats into emergent themes. What clusters form naturally?
-            3. **Temporal Evolution** — How has my focus shifted? What appeared recently vs. weeks ago? What was abandoned?
-            4. **Knowledge Gaps** — Based on what I'm researching, what adjacent topics am I missing?
-            5. **Unexpected Connections** — Find non-obvious links between seemingly unrelated notes and conversations.
-
-            End with 3-5 provocative questions I should consider based on the patterns you see.
-
-            Format: Use ### headers for each perspective. Use **bold** for emphasis. Be specific — cite actual \
-            note titles, chat topics, dates, word counts, and scores. This should feel like a research briefing, \
-            not a summary.
-            \(contextBlock)
-            """
     }
 
     private func recentChats(limit: Int) -> [SDChat] {

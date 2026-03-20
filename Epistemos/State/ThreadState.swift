@@ -9,6 +9,8 @@ import Observation
 final class ThreadState {
     private static let miniChatThreadID = "mini-chat"
     private static let miniChatThreadType = "miniChat"
+    private static let paletteThreadID = "palette-chat"
+    private static let paletteThreadType = "palette"
 
     // MARK: - Threads
 
@@ -34,39 +36,25 @@ final class ThreadState {
         label: String = "Mini Chat",
         pageId: String? = nil
     ) -> String {
-        let matches = chatThreads.indices.filter { idx in
-            let thread = chatThreads[idx]
-            return thread.id == Self.miniChatThreadID || thread.type == Self.miniChatThreadType
-        }
-
-        if let keepIndex = matches.first {
-            chatThreads[keepIndex].id = Self.miniChatThreadID
-            chatThreads[keepIndex].type = Self.miniChatThreadType
-            chatThreads[keepIndex].label = label
-            if let pageId {
-                chatThreads[keepIndex].pageId = pageId
-            }
-
-            for index in matches.dropFirst().reversed() {
-                let removedID = chatThreads[index].id
-                chatThreads.remove(at: index)
-                if activeThreadId == removedID {
-                    activeThreadId = ""
-                }
-            }
-            normalizeActiveThreadSelection()
-            return Self.miniChatThreadID
-        }
-
-        chatThreads.append(
-            ChatThread(
-                id: Self.miniChatThreadID,
-                type: Self.miniChatThreadType,
-                label: label,
-                pageId: pageId
-            )
+        ensureDedicatedThread(
+            id: Self.miniChatThreadID,
+            type: Self.miniChatThreadType,
+            label: label,
+            pageId: pageId
         )
-        return Self.miniChatThreadID
+    }
+
+    @discardableResult
+    func ensurePaletteThread(
+        label: String = "Chat",
+        pageId: String? = nil
+    ) -> String {
+        ensureDedicatedThread(
+            id: Self.paletteThreadID,
+            type: Self.paletteThreadType,
+            label: label,
+            pageId: pageId
+        )
     }
 
     @discardableResult
@@ -78,7 +66,7 @@ final class ThreadState {
     }
 
     func closeThread(_ threadId: String) {
-        guard threadId != Self.miniChatThreadID else { return }
+        guard threadId != Self.miniChatThreadID, threadId != Self.paletteThreadID else { return }
         chatThreads.removeAll { $0.id == threadId }
         if activeThreadId == threadId {
             activeThreadId = chatThreads.last?.id ?? ""
@@ -98,12 +86,21 @@ final class ThreadState {
         addThreadMessage(message, threadId: threadID)
     }
 
+    func addPaletteMessage(_ message: AssistantMessage) {
+        let threadID = ensurePaletteThread()
+        addThreadMessage(message, threadId: threadID)
+    }
+
     func activeThread() -> ChatThread? {
         chatThreads.first { $0.id == activeThreadId }
     }
 
     func miniChatThread() -> ChatThread? {
         chatThreads.first { $0.id == Self.miniChatThreadID || $0.type == Self.miniChatThreadType }
+    }
+
+    func paletteThread() -> ChatThread? {
+        chatThreads.first { $0.id == Self.paletteThreadID || $0.type == Self.paletteThreadType }
     }
 
     func updateActiveThreadLoadedNotes(ids: Set<String>, titles: [String]) {
@@ -114,6 +111,13 @@ final class ThreadState {
 
     func updateMiniChatLoadedNotes(ids: Set<String>, titles: [String]) {
         let threadID = ensureMiniChatThread()
+        guard let idx = chatThreads.firstIndex(where: { $0.id == threadID }) else { return }
+        chatThreads[idx].loadedNoteIds = Array(ids).sorted()
+        chatThreads[idx].loadedNoteTitles = titles
+    }
+
+    func updatePaletteLoadedNotes(ids: Set<String>, titles: [String]) {
+        let threadID = ensurePaletteThread()
         guard let idx = chatThreads.firstIndex(where: { $0.id == threadID }) else { return }
         chatThreads[idx].loadedNoteIds = Array(ids).sorted()
         chatThreads[idx].loadedNoteTitles = titles
@@ -137,13 +141,27 @@ final class ThreadState {
         chatThreads[idx].contextAttachments.append(attachment)
     }
 
+    func addPaletteContextAttachment(_ attachment: ContextAttachment) {
+        let threadID = ensurePaletteThread()
+        guard let idx = chatThreads.firstIndex(where: { $0.id == threadID }) else { return }
+        if chatThreads[idx].contextAttachments.contains(attachment) { return }
+        chatThreads[idx].contextAttachments.append(attachment)
+    }
+
     func removeActiveThreadContextAttachment(_ attachmentID: String) {
         guard let idx = chatThreads.firstIndex(where: { $0.id == activeThreadId }) else { return }
         chatThreads[idx].contextAttachments.removeAll { $0.id == attachmentID }
     }
 
     func removeMiniChatContextAttachment(_ attachmentID: String) {
-        guard let idx = chatThreads.firstIndex(where: { $0.id == Self.miniChatThreadID }) else { return }
+        let threadID = ensureMiniChatThread()
+        guard let idx = chatThreads.firstIndex(where: { $0.id == threadID }) else { return }
+        chatThreads[idx].contextAttachments.removeAll { $0.id == attachmentID }
+    }
+
+    func removePaletteContextAttachment(_ attachmentID: String) {
+        let threadID = ensurePaletteThread()
+        guard let idx = chatThreads.firstIndex(where: { $0.id == threadID }) else { return }
         chatThreads[idx].contextAttachments.removeAll { $0.id == attachmentID }
     }
 
@@ -153,5 +171,47 @@ final class ThreadState {
             activeThreadId = chatThreads.last?.id ?? ""
             return
         }
+    }
+
+    @discardableResult
+    private func ensureDedicatedThread(
+        id: String,
+        type: String,
+        label: String,
+        pageId: String?
+    ) -> String {
+        let matches = chatThreads.indices.filter { idx in
+            let thread = chatThreads[idx]
+            return thread.id == id || thread.type == type
+        }
+
+        if let keepIndex = matches.first {
+            chatThreads[keepIndex].id = id
+            chatThreads[keepIndex].type = type
+            chatThreads[keepIndex].label = label
+            if let pageId {
+                chatThreads[keepIndex].pageId = pageId
+            }
+
+            for index in matches.dropFirst().reversed() {
+                let removedID = chatThreads[index].id
+                chatThreads.remove(at: index)
+                if activeThreadId == removedID {
+                    activeThreadId = ""
+                }
+            }
+            normalizeActiveThreadSelection()
+            return id
+        }
+
+        chatThreads.append(
+            ChatThread(
+                id: id,
+                type: type,
+                label: label,
+                pageId: pageId
+            )
+        )
+        return id
     }
 }

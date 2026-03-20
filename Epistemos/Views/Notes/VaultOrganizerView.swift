@@ -247,7 +247,7 @@ struct VaultOrganizerView: View {
             do {
                 let result = try await triage.generateGeneral(
                     prompt: prompt,
-                    systemPrompt: "You are a note organization assistant. Return only valid JSON arrays.",
+                    systemPrompt: nil,
                     operation: .brainstorm,
                     contentLength: prompt.count
                 )
@@ -327,7 +327,7 @@ struct VaultOrganizerView: View {
             do {
                 let result = try await triage.generateGeneral(
                     prompt: prompt,
-                    systemPrompt: "You are a note organization assistant. Return only valid JSON arrays.",
+                    systemPrompt: nil,
                     operation: .brainstorm,
                     contentLength: prompt.count
                 )
@@ -366,7 +366,7 @@ struct VaultOrganizerView: View {
         do {
             let result = try await triage.generateGeneral(
                 prompt: prompt,
-                systemPrompt: "You are a note organization assistant. Return only valid JSON arrays.",
+                systemPrompt: nil,
                 operation: .brainstorm,
                 contentLength: prompt.count
             )

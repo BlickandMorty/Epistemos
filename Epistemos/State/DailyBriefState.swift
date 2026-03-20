@@ -4,7 +4,7 @@ import SwiftData
 import SwiftUI
 
 // MARK: - Daily Brief State
-// Manages the daily brief overlay: generation, loading, "Go Deeper" pass, and auto-save.
+// Manages the daily brief overlay: generation, loading, and auto-save.
 // Extracted from UIState to keep UI state focused on navigation and chrome.
 
 @MainActor @Observable
@@ -18,17 +18,11 @@ final class DailyBriefState {
     /// True while the LLM is generating the daily brief answer.
     var isDailyBriefLoading = false
 
-    /// True when the user tapped "Go Deeper" — drives UI (loading text, button visibility).
-    var isDeepBrief = false
-
     /// Callback wired by AppBootstrap — calls the triage service to generate the brief.
     var onDailyBriefGenerate: (@MainActor @Sendable (String) async -> String?)?
 
-    /// Callback for the deeper synthesis — uses a richer system prompt via AppBootstrap.
-    var onGoDeepGenerate: (@MainActor @Sendable (String) async -> String?)?
-
     /// Callback wired by AppBootstrap — persists daily brief content as a note in the "Daily Briefs" folder.
-    var onDailyBriefSave: (@MainActor @Sendable (String, Bool) async -> Void)?
+    var onDailyBriefSave: (@MainActor @Sendable (String) async -> Void)?
 
     private var dailyBriefTask: Task<Void, Never>?
 
@@ -46,34 +40,10 @@ final class DailyBriefState {
                     isDailyBriefLoading = false
                 }
                 // Auto-save to notes
-                await onDailyBriefSave?(result, false)
+                await onDailyBriefSave?(result)
             } else {
                 isDailyBriefLoading = false
-                dailyBriefContent = "Unable to generate your daily brief. Install a local Qwen model in Settings."
-            }
-        }
-    }
-
-    /// Trigger a deeper synthesis pass on the daily brief data.
-    /// Reuses the same loading/content state but calls the richer `onGoDeepGenerate` callback.
-    func requestGoDeep(prompt: String) {
-        isDeepBrief = true
-        isDailyBriefLoading = true
-        dailyBriefContent = ""
-
-        dailyBriefTask?.cancel()
-        dailyBriefTask = Task {
-            if let result = await onGoDeepGenerate?(prompt) {
-                guard !Task.isCancelled else { return }
-                withAnimation(Motion.smooth) {
-                    dailyBriefContent = result
-                    isDailyBriefLoading = false
-                }
-                // Auto-save to notes (deep variant)
-                await onDailyBriefSave?(result, true)
-            } else {
-                isDailyBriefLoading = false
-                dailyBriefContent = "Unable to generate deep analysis. Install a local Qwen model in Settings."
+                dailyBriefContent = "Unable to generate a brief."
             }
         }
     }
@@ -89,7 +59,6 @@ final class DailyBriefState {
             try? await Task.sleep(for: .milliseconds(500))
             dailyBriefContent = ""
             isDailyBriefLoading = false
-            isDeepBrief = false
         }
     }
 
@@ -184,39 +153,21 @@ final class DailyBriefState {
 
         let contextBlock = context.isEmpty ? "" : """
 
-            Here is my full recent activity and vault overview for deep analysis:
+            Here is my recent activity and vault overview:
 
             \(context.joined(separator: "\n"))
             """
 
         return """
-            Generate my daily brief — a deep, actionable intelligence report on my knowledge work. \
-            Analyze everything below comprehensively, then produce:
+            Summarize my recent notes and conversations into a short daily brief.
 
-            ### What I'm Working On
-            Identify the 3-5 major threads of work/research I'm currently engaged in. For each thread, \
-            explain what stage it's at (just starting, deep in progress, wrapping up, stalled).
+            Include:
+            - the main threads I am actively working on
+            - notable recent changes or repeated topics
+            - open loops or unfinished work
+            - 3-5 concrete next steps
 
-            ### Key Insights & Connections
-            Find the most interesting connections between my notes and conversations. Surface patterns I \
-            might not have noticed — thematic overlaps, conceptual tensions, evolving perspectives. \
-            Be specific: cite actual note titles and conversation topics.
-
-            ### Open Loops & Incomplete Work
-            Flag anything that looks started but unfinished, questions I asked but didn't follow up on, \
-            notes that seem like fragments of larger ideas. These are my highest-priority knowledge debts.
-
-            ### Recommended Actions
-            Based on all the above, give me 4-6 concrete next steps I should take today. Prioritize by \
-            impact. Each action should reference a specific note, conversation, or topic.
-
-            ### Emerging Themes
-            Step back and describe the bigger picture — what intellectual territory am I mapping? How do \
-            my different projects and interests connect at a higher level?
-
-            Format: Use **bold** for note titles and key concepts. Write in substantive prose — \
-            this should read like a research analyst's morning brief, not a bulleted summary. \
-            Be warm but rigorous. Reference specific content to prove you've actually read everything.
+            Be direct. Reference specific note titles or conversations when useful. Do not add roleplay, hidden reasoning, or preamble.
             \(contextBlock)
             """
     }

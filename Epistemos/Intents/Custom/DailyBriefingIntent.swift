@@ -2,11 +2,11 @@ import AppIntents
 import SwiftData
 
 // MARK: - Daily Briefing Intent
-// Generates a daily intelligence brief from the user's vault.
+// Generates a daily brief from the user's vault.
 
 struct DailyBriefingIntent: AppIntent {
     nonisolated(unsafe) static var title: LocalizedStringResource = "Daily Brief"
-    nonisolated(unsafe) static var description: IntentDescription = "Generates a daily intelligence brief from your notes and research."
+    nonisolated(unsafe) static var description: IntentDescription = "Generates a daily brief from your recent notes and chats."
     nonisolated(unsafe) static var openAppWhenRun = true
 
     @MainActor
@@ -23,7 +23,7 @@ struct DailyBriefingIntent: AppIntent {
         let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""
 
         let prompt = """
-        Generate a daily intelligence brief based on my recent activity and notes:
+        Summarize my recent notes and chats into a short daily brief:
         \(summary)\(manifestHint)
         """
 

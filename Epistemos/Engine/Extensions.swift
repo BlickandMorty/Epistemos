@@ -490,8 +490,12 @@ nonisolated enum UserFacingModelOutput {
     private static let reasoningParagraphPrefixes = [
         "here's a thinking process",
         "here is a thinking process",
+        "here's the thinking process",
+        "here is the thinking process",
         "thinking process:",
+        "thinking process",
         "thought process:",
+        "thought process",
         "reasoning:",
         "deconstruct the request",
         "analyze the request",
@@ -604,6 +608,9 @@ nonisolated enum UserFacingModelOutput {
         if ThinkingPreludeSyntax.proseOpeningDetected(in: cleaned) {
             return true
         }
+        if hasIncompleteReasoningLeadIn(cleaned) {
+            return true
+        }
 
         return paragraphs(in: cleaned).contains(where: isReasoningParagraph)
     }
@@ -645,12 +652,7 @@ nonisolated enum UserFacingModelOutput {
     }
 
     private static func isReasoningParagraph(_ paragraph: String) -> Bool {
-        let normalized = paragraph
-            .replacingOccurrences(of: "*", with: "")
-            .replacingOccurrences(of: "#", with: "")
-            .replacingOccurrences(of: "`", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
+        let normalized = normalizedReasoningText(paragraph)
 
         guard !normalized.isEmpty else { return true }
 
@@ -674,6 +676,24 @@ nonisolated enum UserFacingModelOutput {
         }
 
         return false
+    }
+
+    private static func hasIncompleteReasoningLeadIn(_ text: String) -> Bool {
+        let normalized = normalizedReasoningText(text)
+        guard normalized.count >= 8 else { return false }
+
+        return reasoningParagraphPrefixes.contains { prefix in
+            prefix.hasPrefix(normalized)
+        }
+    }
+
+    private static func normalizedReasoningText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: "`", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 }
 

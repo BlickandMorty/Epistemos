@@ -307,10 +307,7 @@ final class AppBootstrap {
             ThemeMode.defaultsKey,
             "epistemos.theme.pair",
             "epistemos.localRoutingMode",
-            "epistemos.automaticLocalModelSelectionEnabled",
             "epistemos.preferredLocalTextModelID",
-            "epistemos.preferredLocalReasoningMode",
-            "epistemos.showLocalThinkingPanel",
         ]
         InferenceState.purgeLegacyRemoteConfiguration(defaults: defaults)
         for key in keysToRemove {
@@ -319,7 +316,7 @@ final class AppBootstrap {
 
         chatState.clearMessages()
         notesUI.resetForVaultSwitch()
-        pipelineState.clearConcepts()
+        pipelineState.reset()
 
         inferenceState.setRoutingMode(.auto)
         inferenceState.setPreferredLocalTextModelID(

@@ -113,4 +113,11 @@ struct UserFacingModelOutputTests {
                 == "Ice floats because hydrogen bonds create an open lattice."
         )
     }
+
+    @Test("streaming text suppresses incomplete reasoning lead-ins")
+    func streamingTextSuppressesIncompleteReasoningLeadIns() {
+        #expect(UserFacingModelOutput.streamingVisibleText(from: "Here's a thinking").isEmpty)
+        #expect(UserFacingModelOutput.streamingVisibleText(from: "Thinking Process").isEmpty)
+        #expect(UserFacingModelOutput.streamingVisibleText(from: "Thought Process").isEmpty)
+    }
 }

@@ -284,8 +284,6 @@ enum InferenceMode: String, Codable, Sendable, CaseIterable {
     case local
     case api
     case appleIntelligence
-
-    static var analytical: InferenceMode { .api }
 }
 
 // MARK: - File Attachments

@@ -170,8 +170,8 @@ struct PipelineServiceTests {
             if case .completed = event { return true }
             return false
         })
-        #expect(pipelineState.pipelineStages.isEmpty)
-        #expect(pipelineState.signalHistory.isEmpty)
+        #expect(pipelineState.isProcessing == false)
+        #expect(pipelineState.currentError == nil)
     }
 
     @Test("Default pipeline run no longer falls back to enrichment-era analytical stages")
@@ -210,8 +210,8 @@ struct PipelineServiceTests {
             if case .textDelta = event { return true }
             return false
         })
-        #expect(pipelineState.pipelineStages.isEmpty)
-        #expect(pipelineState.signalHistory.isEmpty)
+        #expect(pipelineState.isProcessing == false)
+        #expect(pipelineState.currentError == nil)
     }
 
     @Test("Pipeline strips tagged local reasoning before emitting visible text")
@@ -293,6 +293,48 @@ struct PipelineServiceTests {
         #expect(texts.joined() == "Ice floats because hydrogen bonds create an open lattice.")
     }
 
+    @Test("Pipeline suppresses incomplete reasoning lead-ins until the answer appears")
+    @MainActor func pipelineSuppressesIncompleteReasoningLeadIn() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "Here's a thinking",
+            " process that leads to the comparison:\n\n",
+            "Final Answer:\n",
+            "Use the DPO adapter as the main local reasoner."
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Which local model should I use?",
+            mode: .api
+        )
+
+        for try await event in stream {
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        #expect(texts.joined() == "Use the DPO adapter as the main local reasoner.")
+    }
+
     @Test("Plain chat completion carries no analytical metadata")
     @MainActor func plainChatCompletionCarriesNoAnalyticalMetadata() async throws {
         let mock = MockLLMClient()
@@ -332,7 +374,8 @@ struct PipelineServiceTests {
         #expect(completedDual?.rawAnalysis.isEmpty == true)
         #expect(completedDual?.uncertaintyTags.isEmpty == true)
         #expect(completedDual?.modelVsDataFlags.isEmpty == true)
-        #expect(pipelineState.signalHistory.isEmpty)
+        #expect(pipelineState.isProcessing == false)
+        #expect(pipelineState.currentError == nil)
     }
 
     @Test("Mock can be injected into PipelineService and TriageService")

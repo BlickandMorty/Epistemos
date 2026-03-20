@@ -477,7 +477,7 @@ struct HologramNodeInspector: View {
 
     private var profilePreview: String {
         guard let p = inspectorState.profile else { return "" }
-        return "\(p.archetype.title) · \(p.care.mood.displayName)"
+        return "\(p.insight.hierarchyLabel) · \(p.insight.contentLabel)"
     }
 
     // MARK: - Profile Body
@@ -486,31 +486,10 @@ struct HologramNodeInspector: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 if let p = inspectorState.profile {
-                    // Archetype + Mood row
-                    HStack(spacing: 8) {
-                        Image(systemName: p.portrait.symbol)
-                            .font(.title3)
-                            .foregroundStyle(p.care.mood == .thriving ? .green : p.care.mood == .fragile ? .red : .secondary)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(p.archetype.title)
-                                .font(.callout.bold())
-                            Text(p.care.mood.displayName)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(p.insight.tier.displayName)
-                            .font(.caption.monospaced())
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(.quaternary, in: Capsule())
-                    }
-
-                    // Stats meters
-                    VStack(spacing: 6) {
-                        statMeter(label: "Focus", value: p.care.attention, color: .blue)
-                        statMeter(label: "Mass", value: p.insight.prominence, color: .orange)
-                    }
+                    Text(p.summary)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     // Node vitals: Age, Drift, Resonance
                     if let node = inspectorState.selectedNode {
@@ -521,6 +500,7 @@ struct HologramNodeInspector: View {
                     HStack(spacing: 12) {
                         Label(p.insight.contentLabel, systemImage: "doc.text")
                         Label(p.insight.hierarchyLabel, systemImage: "arrow.up.arrow.down")
+                        Label(p.insight.tier.displayName, systemImage: "square.stack.3d.up")
                     }
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -545,29 +525,6 @@ struct HologramNodeInspector: View {
                 }
             }
             .padding(16)
-        }
-    }
-
-    private func statMeter(label: String, value: Double, color: Color) -> some View {
-        HStack(spacing: 8) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .frame(width: 40, alignment: .trailing)
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(.quaternary)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(color.opacity(0.7))
-                        .frame(width: geo.size.width * max(0, min(1, value)))
-                }
-            }
-            .frame(height: 6)
-            Text("\(Int(value * 100))%")
-                .font(.caption2.monospaced())
-                .foregroundStyle(.tertiary)
-                .frame(width: 32, alignment: .trailing)
         }
     }
 

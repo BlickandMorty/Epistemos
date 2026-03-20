@@ -601,7 +601,6 @@ struct NoteDetailWorkspaceView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
-    @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
@@ -1276,102 +1275,86 @@ struct NoteDetailWorkspaceView: View {
         let instructionSuffix =
             trimmedInstruction.isEmpty ? "" : "\n\nAdditional instruction: \(trimmedInstruction)"
 
-        let mapping: (operation: NotesOperation, systemPrompt: String, userPrompt: String) = {
+        let mapping: (operation: NotesOperation, userPrompt: String) = {
             switch op {
             case "rewrite":
                 return (
                     .rewrite,
-                    "You are a writing assistant. Rewrite the selected text to improve clarity and flow. Output ONLY the rewritten text.",
-                    "Rewrite this:\n\n\(text)\(instructionSuffix)"
+                    "Rewrite the selected text to improve clarity and flow. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
                 )
             case "proofread":
                 return (
                     .rewrite,
-                    "You are a proofreading assistant. Fix grammar, spelling, and punctuation errors. Preserve the original meaning and tone. Output ONLY the corrected text.",
-                    "Proofread and correct this:\n\n\(text)\(instructionSuffix)"
+                    "Fix grammar, spelling, and punctuation while preserving the original meaning and tone. Return only the corrected text.\n\n\(text)\(instructionSuffix)"
                 )
             case "rewrite_friendly":
                 return (
                     .rewrite,
-                    "You are a writing assistant. Rewrite the text in a warm, friendly, conversational tone. Output ONLY the rewritten text.",
-                    "Rewrite in a friendly tone:\n\n\(text)\(instructionSuffix)"
+                    "Rewrite the text in a warm, friendly, conversational tone. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
                 )
             case "rewrite_professional":
                 return (
                     .rewrite,
-                    "You are a writing assistant. Rewrite the text in a polished, professional tone. Output ONLY the rewritten text.",
-                    "Rewrite in a professional tone:\n\n\(text)\(instructionSuffix)"
+                    "Rewrite the text in a polished, professional tone. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
                 )
             case "rewrite_concise":
                 return (
                     .rewrite,
-                    "You are a writing assistant. Rewrite the text to be as concise as possible while preserving the key meaning. Output ONLY the rewritten text.",
-                    "Rewrite concisely:\n\n\(text)\(instructionSuffix)"
+                    "Rewrite the text as concisely as possible while preserving the key meaning. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
                 )
             case "summarize":
                 return (
                     .summarize,
-                    "You are a summarization assistant. Summarize the selected text concisely. Output ONLY the summary.",
-                    "Summarize this:\n\n\(text)\(instructionSuffix)"
+                    "Summarize the selected text concisely. Return only the summary.\n\n\(text)\(instructionSuffix)"
                 )
             case "keyPoints":
                 return (
                     .summarize,
-                    "You are an analysis assistant. Extract the key points from the text as a concise markdown bullet list. Output ONLY the bullet list.",
-                    "Extract key points:\n\n\(text)\(instructionSuffix)"
+                    "Extract the key points from the text as a concise markdown bullet list. Return only the bullet list.\n\n\(text)\(instructionSuffix)"
                 )
             case "expand":
                 return (
                     .expand,
-                    "You are a writing assistant. Expand the selected text with more detail and depth. Maintain the same tone.",
-                    "Expand on this:\n\n\(text)\(instructionSuffix)"
+                    "Expand the selected text with more detail and depth while keeping the same tone.\n\n\(text)\(instructionSuffix)"
                 )
             case "simplify":
                 return (
                     .rewrite,
-                    "You are a writing assistant. Simplify the text to be easier to understand. Use shorter sentences. Output ONLY the simplified text.",
-                    "Simplify this:\n\n\(text)\(instructionSuffix)"
+                    "Simplify the text so it is easier to understand. Use shorter sentences. Return only the simplified text.\n\n\(text)\(instructionSuffix)"
                 )
             case "toList":
                 return (
                     .outline,
-                    "You are a formatting assistant. Convert the text into a clean markdown bullet list. Output ONLY the list.",
-                    "Convert to a bullet list:\n\n\(text)\(instructionSuffix)"
+                    "Convert the text into a clean markdown bullet list. Return only the list.\n\n\(text)\(instructionSuffix)"
                 )
             case "toTable":
                 return (
                     .outline,
-                    "You are a formatting assistant. Convert the text into a markdown table. Output ONLY the table.",
-                    "Convert to a markdown table:\n\n\(text)\(instructionSuffix)"
+                    "Convert the text into a markdown table. Return only the table.\n\n\(text)\(instructionSuffix)"
                 )
             case "continue":
                 return (
                     .continueWriting,
-                    "You are a writing assistant. Continue writing from where the note left off. Match the tone and style. Output ONLY the continuation.",
-                    "Continue writing from where this note ends.\(instructionSuffix)"
+                    "Continue writing from where this note ends. Match the existing tone and style. Return only the continuation.\(instructionSuffix)"
                 )
             case "outline":
                 return (
                     .outline,
-                    "You are a structural analysis assistant. Generate a structured outline using markdown headers and bullet points. Output ONLY the outline.",
-                    "Generate a structured outline for this note.\(instructionSuffix)"
+                    "Generate a structured outline for this note using markdown headers and bullet points. Return only the outline.\(instructionSuffix)"
                 )
             case "structure":
                 return (
                     .analyze,
-                    "You are a note organization assistant. Suggest a better structure for this note. Output a reorganized version.",
-                    "Suggest a better structure for this note.\(instructionSuffix)"
+                    "Suggest a better structure for this note. Return only the reorganized version.\(instructionSuffix)"
                 )
             case "restructure":
                 return (
                     .analyze,
-                    "You are a note restructuring assistant. Completely reorganize the entire note for better clarity, flow, and logical progression. Preserve ALL content. Use proper markdown formatting. Output the COMPLETE restructured note.",
-                    "Restructure this entire note for better organization and flow.\(instructionSuffix)"
+                    "Completely reorganize this note for better clarity, flow, and logical progression. Preserve all content and use markdown. Return only the full rewritten note.\(instructionSuffix)"
                 )
             default:
                 return (
                     .ask(query: text.isEmpty ? "Help me with this note." : text),
-                    "You are a helpful note assistant. Answer concisely based on the note content.",
                     text.isEmpty
                         ? "Help me with this note.\(instructionSuffix)"
                         : "\(text)\(instructionSuffix)"
@@ -1382,7 +1365,6 @@ struct NoteDetailWorkspaceView: View {
         noteChatState.submitQuery(
             mapping.userPrompt,
             operation: mapping.operation,
-            systemPrompt: mapping.systemPrompt,
             triageService: triageService
         )
     }
@@ -1672,30 +1654,7 @@ struct NoteDetailWorkspaceView: View {
             if let attachment = noteChatContextAttachment {
                 noteChatAttachmentChip(attachment, compact: true)
             }
-            Menu {
-                Button {
-                    inference.setRoutingMode(.auto)
-                } label: {
-                    Label("Auto", systemImage: "apple.intelligence")
-                }
-
-                Button {
-                    inference.setRoutingMode(.localOnly)
-                } label: {
-                    Label(
-                        "Local Only",
-                        systemImage: "memorychip"
-                    )
-                }
-            } label: {
-                Image(systemName: noteChatRoutingIcon)
-                    .font(.system(size: 11))
-                    .foregroundStyle(ui.theme.mutedForeground)
-                    .frame(width: NoteToolbarMetrics.buttonSide, height: NoteToolbarMetrics.buttonSide)
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(NoteToolbarDisplay.hidesMenuIndicators ? .hidden : .visible)
-            .help(noteChatRoutingLabel)
+            LocalModelToolbarMenu(variant: .content)
 
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
@@ -2042,20 +2001,6 @@ struct NoteDetailWorkspaceView: View {
                 selection: tv.selectedRange()
             )
         )
-    }
-
-    private var noteChatRoutingIcon: String {
-        switch inference.routingMode {
-        case .auto: "apple.intelligence"
-        case .localOnly: "memorychip"
-        }
-    }
-
-    private var noteChatRoutingLabel: String {
-        switch inference.routingMode {
-        case .auto: "Auto routing"
-        case .localOnly: "Local only"
-        }
     }
 
     // MARK: - Info Panel
@@ -2556,7 +2501,7 @@ private struct IdeasPanel: View {
         Task {
             do {
                 let prompt = """
-                    You are rewriting a section of a note titled "\(noteTitle)".
+                    Rewrite a section of the note titled "\(noteTitle)".
 
                     CONTEXT BEFORE the target section:
                     \(textBefore.isEmpty ? "(start of note)" : textBefore)
@@ -2583,8 +2528,7 @@ private struct IdeasPanel: View {
 
                 let result = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt,
-                    systemPrompt:
-                        "You are a writing assistant that rewrites text sections. You deeply merge new ideas into existing prose. You never append or list ideas separately — you weave them into the fabric of the existing text. Return only the rewritten text, nothing else."
+                    systemPrompt: nil
                 )
 
                 let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2640,8 +2584,7 @@ private struct IdeasPanel: View {
 
                 let result = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt,
-                    systemPrompt:
-                        "You clean up raw brain dumps into coherent, readable text. Preserve the author's voice and ideas."
+                    systemPrompt: nil
                 )
 
                 let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)

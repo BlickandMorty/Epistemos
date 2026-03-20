@@ -18,17 +18,8 @@
 		<string>CreateJournalIntent</string>
 		<string>SearchJournalIntent</string>
 		<string>SystemSearchIntent</string>
-		<string>DeepAnalyzeIntent</string>
-		<string>RunAnalysisIntent</string>
 		<string>AskAboutNotesIntent</string>
-		<string>ResearchTopicIntent</string>
-		<string>FactCheckIntent</string>
-		<string>FindGapsIntent</string>
-		<string>ReviewPaperIntent</string>
-		<string>FindCitationsIntent</string>
 		<string>DailyBriefingIntent</string>
-		<string>FindConnectionsIntent</string>
-		<string>GenerateQuestionsIntent</string>
 		<string>QuickCaptureIntent</string>
 		<string>SummarizeNoteIntent</string>
 		<string>OpenVaultFileIntent</string>

@@ -4,22 +4,28 @@ import Testing
 @Suite("Thread State")
 struct ThreadStateTests {
     @MainActor
-    @Test("mini chat reuses one dedicated thread and leaves palette selection alone")
-    func miniChatReusesDedicatedThreadAndLeavesPaletteSelectionAlone() {
+    @Test("utility chat surfaces reuse one dedicated thread each and do not steal active selection")
+    func utilityThreadsReuseDedicatedThreadsWithoutStealingSelection() {
         let state = ThreadState()
-        let paletteThreadID = state.createThread(type: "palette", label: "Palette 1")
-        state.setActiveThread(paletteThreadID)
+        let mainThreadID = state.createThread(type: "chat", label: "Main")
+        state.setActiveThread(mainThreadID)
 
         let firstMiniChatID = state.ensureMiniChatThread()
         let secondMiniChatID = state.ensureMiniChatThread()
+        let firstPaletteID = state.ensurePaletteThread()
+        let secondPaletteID = state.ensurePaletteThread()
 
         #expect(firstMiniChatID == secondMiniChatID)
+        #expect(firstPaletteID == secondPaletteID)
         #expect(state.chatThreads.filter { $0.type == "miniChat" }.count == 1)
-        #expect(state.activeThreadId == paletteThreadID)
+        #expect(state.chatThreads.filter { $0.type == "palette" }.count == 1)
+        #expect(state.activeThreadId == mainThreadID)
 
         state.addMiniChatMessage(AssistantMessage(role: .user, content: "hello"))
+        state.addPaletteMessage(AssistantMessage(role: .assistant, content: "world"))
 
         #expect(state.miniChatThread()?.messages.map(\.content) == ["hello"])
-        #expect(state.activeThreadId == paletteThreadID)
+        #expect(state.paletteThread()?.messages.map(\.content) == ["world"])
+        #expect(state.activeThreadId == mainThreadID)
     }
 }

@@ -24,6 +24,20 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
         let maxAllowed = 12_000
         return min(max(1, maxTokens), maxAllowed)
     }
+
+    var chatTemplateContext: [String: Bool]? {
+        switch modelID {
+        case LocalTextModelID.qwen35_0_8B4Bit.rawValue,
+             LocalTextModelID.qwen35_2B4Bit.rawValue,
+             LocalTextModelID.qwen35_4B4Bit.rawValue,
+             LocalTextModelID.qwen35_9B4Bit.rawValue,
+             LocalTextModelID.qwen35_27B4Bit.rawValue,
+             LocalTextModelID.qwen35_35BA3B4Bit.rawValue:
+            ["enable_thinking": false]
+        default:
+            nil
+        }
+    }
 }
 
 protocol LocalMLXRuntime: Sendable {
@@ -263,7 +277,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         do {
             let output = try await generate(
                 prompt: "Reply with exactly: OK",
-                systemPrompt: "You are validating local model readiness. Reply with exactly OK.",
+                systemPrompt: nil,
                 maxTokens: 16
             )
             return ConnectionTestResult(success: true, message: "Local MLX ready — \(output.prefix(40))")
@@ -489,7 +503,15 @@ actor MLXInferenceService: LocalMLXRuntime {
                     self.log.info(
                         "Local stream model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) firstTokenMs=\(response.firstTokenLatencyMS ?? -1, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) chunks=\(response.chunkCount, privacy: .public) stop=\(Self.stopReasonLabel(response.stopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
                     )
-                    if Task.isCancelled || response.stopReason == .cancelled {
+                    if Task.isCancelled {
+                        continuation.finish(throwing: CancellationError())
+                        return
+                    }
+                    if response.stopReason == .cancelled,
+                       !Self.shouldTreatCancelledStopAsCompletion(
+                           outputCharacterCount: response.outputCharacterCount,
+                           chunkCount: response.chunkCount
+                       ) {
                         continuation.finish(throwing: CancellationError())
                         return
                     }
@@ -705,8 +727,14 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     private func additionalContext(for request: LocalMLXRequest) -> [String: any Sendable]? {
-        _ = request
-        return nil
+        request.chatTemplateContext
+    }
+
+    nonisolated static func shouldTreatCancelledStopAsCompletion(
+        outputCharacterCount: Int,
+        chunkCount: Int
+    ) -> Bool {
+        outputCharacterCount > 0 && chunkCount > 0
     }
 
     private nonisolated static func stopReasonLabel(_ stopReason: GenerateStopReason) -> String {

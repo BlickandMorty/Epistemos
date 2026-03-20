@@ -75,10 +75,7 @@ final class PipelineService {
                 }
 
                 do {
-                    pipelineState.isProcessing = true
-                    pipelineState.currentError = nil
-                    pipelineState.pipelineStages = []
-                    pipelineState.activeStage = nil
+                    pipelineState.startProcessing()
 
                     var emittedVisibleText = ""
                     let directStream = generateDirectStream(

@@ -213,7 +213,7 @@ final class ChatCoordinator {
             do {
                 let title = try await llmService.generate(
                     prompt: prompt,
-                    systemPrompt: "You generate concise chat titles. Return only the title text, nothing else.",
+                    systemPrompt: nil,
                     maxTokens: 30
                 )
                 let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -16,7 +16,6 @@ nonisolated enum NotesOperation: Sendable {
     case outline           // 0.40 — structural analysis
     case expand            // 0.50 — needs creative depth
     case analyze           // 0.60 — deep reasoning
-    case learn             // 0.70 — multi-step protocol, always local Qwen
 
     var baseComplexity: Double {
         switch self {
@@ -28,7 +27,6 @@ nonisolated enum NotesOperation: Sendable {
         case .outline:         0.40
         case .expand:          0.50
         case .analyze:         0.60
-        case .learn:           0.70
         }
     }
 
@@ -42,7 +40,6 @@ nonisolated enum NotesOperation: Sendable {
         case .outline:         "Outline"
         case .expand:          "Expand"
         case .analyze:         "Analyze"
-        case .learn:           "Learn"
         }
     }
 }
@@ -53,13 +50,11 @@ nonisolated enum NotesOperation: Sendable {
 nonisolated enum GeneralOperation: Sendable {
     case chatResponse(query: String)  // 0.35 — user-facing streaming answer
     case brainstorm                   // 0.25 — creative, short output
-    case structuredAnalysis           // 1.00 — structured local-only analysis
 
     var baseComplexity: Double {
         switch self {
         case .chatResponse: 0.35
         case .brainstorm:   0.25
-        case .structuredAnalysis: 1.00
         }
     }
 
@@ -67,7 +62,6 @@ nonisolated enum GeneralOperation: Sendable {
         switch self {
         case .chatResponse: "Chat Response"
         case .brainstorm:   "Brainstorm"
-        case .structuredAnalysis: "Structured Analysis"
         }
     }
 }
@@ -83,7 +77,6 @@ nonisolated enum InferenceTaskIntent: Sendable, Equatable {
     case synthesis
     case noteAnalysis
     case graphAnalysis
-    case structuredAnalysis
 }
 
 nonisolated enum InferenceRouteKind: String, Sendable, Equatable {
@@ -283,7 +276,7 @@ nonisolated struct InferencePolicyEngine {
         switch profile.intent {
         case .rewrite, .summarize, .simpleAsk, .brainstorm:
             appleFriendlyIntent = true
-        case .coding, .debugging, .comparison, .synthesis, .noteAnalysis, .graphAnalysis, .structuredAnalysis:
+        case .coding, .debugging, .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
             appleFriendlyIntent = false
         }
         guard appleFriendlyIntent else {
@@ -432,8 +425,6 @@ nonisolated struct InferencePolicyEngine {
             0.16
         case .graphAnalysis:
             0.20
-        case .structuredAnalysis:
-            0.24
         }
     }
 }
@@ -562,15 +553,9 @@ final class TriageService {
     }
 
     /// Apple Intelligence on-device model has ~4096 tokens of context.
-    /// Replaces the heavier research-grade system prompt with a simple one Apple AI can follow,
-    /// and trims the user prompt to fit within the remaining context budget.
+    /// Trim the prompt to fit without silently replacing the caller's instructions.
     private static func trimForAppleIntelligence(prompt: String, systemPrompt: String?) -> (String, String?) {
-        // Apple Intelligence can't follow complex research prompts (evidence tiers,
-        // Bayesian analysis, etc.). Give it a simple system prompt — a truncated
-        // research prompt confuses it into producing confident-sounding hallucinations.
-        let simpleSystem = "You are a helpful assistant. Answer the user's question directly and concisely. Use plain language. Be accurate and honest about uncertainty. If you don't know something, say so."
-
-        // Budget: ~4096 tokens ≈ 12,000 chars. System ~200 chars, reserve ~3,000 for response.
+        // Budget: ~4096 tokens ≈ 12,000 chars. Reserve room for the response.
         let promptBudget = 8_000
 
         let trimmedPrompt: String
@@ -583,7 +568,7 @@ final class TriageService {
             trimmedPrompt = prompt
         }
 
-        return (trimmedPrompt, simpleSystem)
+        return (trimmedPrompt, systemPrompt)
     }
 
     init(
@@ -1060,7 +1045,7 @@ final class TriageService {
             return inferredTaskIntent(from: queryText, surface: .noteChat)
         case .outline, .expand:
             return .synthesis
-        case .analyze, .learn:
+        case .analyze:
             return .noteAnalysis
         }
     }
@@ -1073,8 +1058,6 @@ final class TriageService {
         switch operation {
         case .chatResponse:
             return inferredTaskIntent(from: queryText, surface: surface)
-        case .structuredAnalysis:
-            return .structuredAnalysis
         case .brainstorm:
             return .brainstorm
         }
