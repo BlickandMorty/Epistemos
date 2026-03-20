@@ -534,6 +534,15 @@ typedef struct {
     uint8_t hop_count;
 } BtkSubscriptionRowFFI;
 
+typedef struct {
+    uint64_t version;
+    uint8_t kind;
+    uint8_t _pad[3];
+    uint32_t added_count;
+    uint32_t updated_count;
+    uint32_t removed_count;
+} BtkSubscriptionPayloadSummaryFFI;
+
 /// Initialize BTK for a page. Call once when a page is opened.
 uint8_t graph_engine_btk_init(Engine* engine, const char* page_id);
 
@@ -640,6 +649,11 @@ uint64_t graph_engine_btk_latest_subscription_seq(Engine* engine);
 /// Inspect archived subscription payload metadata.
 uint64_t graph_engine_btk_payload_version(const uint8_t* data, uint64_t len);
 uint8_t graph_engine_btk_payload_kind(const uint8_t* data, uint64_t len);
+uint8_t graph_engine_btk_payload_summary(
+    const uint8_t* data,
+    uint64_t len,
+    BtkSubscriptionPayloadSummaryFFI* out
+);
 
 /// Row count for payload sections: 0=added, 1=updated, 2=removed.
 uint32_t graph_engine_btk_payload_row_count(
@@ -656,6 +670,16 @@ uint8_t graph_engine_btk_payload_row(
     uint8_t section,
     uint32_t index,
     BtkSubscriptionRowFFI* out
+);
+
+/// Read a contiguous batch of payload rows into `out`.
+uint32_t graph_engine_btk_payload_rows(
+    const uint8_t* data,
+    uint64_t len,
+    uint8_t section,
+    uint32_t start_index,
+    BtkSubscriptionRowFFI* out,
+    uint32_t max_rows
 );
 
 // ── Knowledge Core (Shared-Memory Reactive FFI) ────────────────────────────

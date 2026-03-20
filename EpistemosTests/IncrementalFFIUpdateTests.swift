@@ -427,8 +427,8 @@ struct IncrementalFFIUpdateTests {
 
 @Suite("BTK Subscription Rows")
 struct BTKSubscriptionRowTests {
-    @Test("identity is precomputed from stable row fields")
-    func identityIsStable() {
+    @Test("key is derived from stable identity fields without a joined identity string")
+    func keyIsStable() {
         let row = GraphEngine.BTKSubscriptionRow(
             pageId: "page",
             blockId: "block",
@@ -445,6 +445,15 @@ struct BTKSubscriptionRowTests {
             hopCount: 3
         )
 
-        #expect(row.identity == "page|block|parent|target|status|3")
+        #expect(
+            row.key == GraphEngine.BTKSubscriptionRow.Key(
+                pageId: "page",
+                blockId: "block",
+                parentId: "parent",
+                targetId: "target",
+                propertyKey: "status",
+                hopCount: 3
+            )
+        )
     }
 }

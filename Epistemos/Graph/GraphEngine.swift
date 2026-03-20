@@ -49,6 +49,7 @@ final class GraphEngine {
     // MARK: - Properties
 
     nonisolated(unsafe) private var handle: OpaquePointer?
+    private let btkStringCache = BorrowedUTF8StringCache()
 
     /// Direct access to the opaque handle for any uncovered FFI calls.
     /// Prefer adding typed methods instead of using this directly.
@@ -449,7 +450,33 @@ extension GraphEngine {
         case links = 2
     }
 
+    struct BTKSubscriptionPayloadSummary: Equatable, Sendable {
+        let version: UInt64
+        let kind: BTKSubscriptionKind
+        let addedCount: Int
+        let updatedCount: Int
+        let removedCount: Int
+    }
+
     struct BTKSubscriptionRow: Equatable, Sendable {
+        struct Key: Hashable, Comparable, Sendable {
+            let pageId: String
+            let blockId: String
+            let parentId: String
+            let targetId: String
+            let propertyKey: String
+            let hopCount: UInt8
+
+            static func < (lhs: Self, rhs: Self) -> Bool {
+                if lhs.pageId != rhs.pageId { return lhs.pageId < rhs.pageId }
+                if lhs.blockId != rhs.blockId { return lhs.blockId < rhs.blockId }
+                if lhs.parentId != rhs.parentId { return lhs.parentId < rhs.parentId }
+                if lhs.targetId != rhs.targetId { return lhs.targetId < rhs.targetId }
+                if lhs.propertyKey != rhs.propertyKey { return lhs.propertyKey < rhs.propertyKey }
+                return lhs.hopCount < rhs.hopCount
+            }
+        }
+
         let pageId: String
         let blockId: String
         let parentId: String
@@ -463,7 +490,7 @@ extension GraphEngine {
         let refType: UInt8
         let taskDone: Bool
         let hopCount: UInt8
-        let identity: String
+        let key: Key
 
         init(
             pageId: String,
@@ -493,7 +520,7 @@ extension GraphEngine {
             self.refType = refType
             self.taskDone = taskDone
             self.hopCount = hopCount
-            self.identity = Self.makeIdentity(
+            self.key = Key(
                 pageId: pageId,
                 blockId: blockId,
                 parentId: parentId,
@@ -501,39 +528,6 @@ extension GraphEngine {
                 propertyKey: propertyKey,
                 hopCount: hopCount
             )
-        }
-
-        private static func makeIdentity(
-            pageId: String,
-            blockId: String,
-            parentId: String,
-            targetId: String,
-            propertyKey: String,
-            hopCount: UInt8
-        ) -> String {
-            let hopCountString = String(hopCount)
-            var identity = String()
-            identity.reserveCapacity(
-                pageId.count
-                    + blockId.count
-                    + parentId.count
-                    + targetId.count
-                    + propertyKey.count
-                    + hopCountString.count
-                    + 5
-            )
-            identity.append(pageId)
-            identity.append("|")
-            identity.append(blockId)
-            identity.append("|")
-            identity.append(parentId)
-            identity.append("|")
-            identity.append(targetId)
-            identity.append("|")
-            identity.append(propertyKey)
-            identity.append("|")
-            identity.append(hopCountString)
-            return identity
         }
     }
 
@@ -595,18 +589,16 @@ extension GraphEngine {
     }
 
     private func decodeBTKPayload(buffer: GraphEngineByteBuffer) -> BTKSubscriptionPayload? {
-        guard let data = takeBTKBuffer(buffer) else { return nil }
-        return data.withUnsafeBytes { bytes in
+        guard let lease = takeBTKBuffer(buffer) else { return nil }
+        return lease.withUnsafeBytes { bytes in
             guard let base = bytes.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
-            let version = graph_engine_btk_payload_version(base, UInt64(bytes.count))
-            let rawKind = graph_engine_btk_payload_kind(base, UInt64(bytes.count))
-            guard let kind = BTKSubscriptionKind(rawValue: rawKind) else { return nil }
-            let added = decodeBTKRows(section: 0, base: base, count: bytes.count)
-            let updated = decodeBTKRows(section: 1, base: base, count: bytes.count)
-            let removed = decodeBTKRows(section: 2, base: base, count: bytes.count)
+            guard let summary = decodeBTKSummary(base: base, count: bytes.count) else { return nil }
+            let added = decodeBTKRows(section: 0, rowCount: summary.addedCount, base: base, count: bytes.count)
+            let updated = decodeBTKRows(section: 1, rowCount: summary.updatedCount, base: base, count: bytes.count)
+            let removed = decodeBTKRows(section: 2, rowCount: summary.removedCount, base: base, count: bytes.count)
             return BTKSubscriptionPayload(
-                version: version,
-                kind: kind,
+                version: summary.version,
+                kind: summary.kind,
                 added: added,
                 updated: updated,
                 removed: removed
@@ -614,14 +606,64 @@ extension GraphEngine {
         }
     }
 
+    private func decodeBTKSummary(
+        base: UnsafePointer<UInt8>,
+        count: Int
+    ) -> BTKSubscriptionPayloadSummary? {
+        var summary = BtkSubscriptionPayloadSummaryFFI()
+        guard graph_engine_btk_payload_summary(base, UInt64(count), &summary) != 0,
+              let kind = BTKSubscriptionKind(rawValue: summary.kind) else {
+            return nil
+        }
+        return BTKSubscriptionPayloadSummary(
+            version: summary.version,
+            kind: kind,
+            addedCount: Int(summary.added_count),
+            updatedCount: Int(summary.updated_count),
+            removedCount: Int(summary.removed_count)
+        )
+    }
+
     private func decodeBTKRows(
         section: UInt8,
+        rowCount: Int,
         base: UnsafePointer<UInt8>,
         count: Int
     ) -> [BTKSubscriptionRow] {
-        let rowCount = graph_engine_btk_payload_row_count(base, UInt64(count), section)
         guard rowCount > 0 else { return [] }
+        let ffiRowCount = UInt32(rowCount)
 
+        return withUnsafeTemporaryAllocation(of: BtkSubscriptionRowFFI.self, capacity: rowCount) { buffer in
+            guard let baseAddress = buffer.baseAddress else {
+                return decodeBTKRowsScalar(section: section, rowCount: ffiRowCount, base: base, count: count)
+            }
+            let written = graph_engine_btk_payload_rows(
+                base,
+                UInt64(count),
+                section,
+                0,
+                baseAddress,
+                ffiRowCount
+            )
+            guard written == ffiRowCount else {
+                return decodeBTKRowsScalar(section: section, rowCount: ffiRowCount, base: base, count: count)
+            }
+
+            var rows: [BTKSubscriptionRow] = []
+            rows.reserveCapacity(rowCount)
+            for index in 0..<rowCount {
+                rows.append(decodeBTKRow(buffer[index]))
+            }
+            return rows
+        }
+    }
+
+    private func decodeBTKRowsScalar(
+        section: UInt8,
+        rowCount: UInt32,
+        base: UnsafePointer<UInt8>,
+        count: Int
+    ) -> [BTKSubscriptionRow] {
         var rows: [BTKSubscriptionRow] = []
         rows.reserveCapacity(Int(rowCount))
         for index in 0..<rowCount {
@@ -629,45 +671,41 @@ extension GraphEngine {
             guard graph_engine_btk_payload_row(base, UInt64(count), section, index, &ffiRow) != 0 else {
                 continue
             }
-            rows.append(BTKSubscriptionRow(
-                pageId: decode(slice: ffiRow.page_id),
-                blockId: decode(slice: ffiRow.block_id),
-                parentId: decode(slice: ffiRow.parent_id),
-                targetId: decode(slice: ffiRow.target_id),
-                content: decode(slice: ffiRow.content),
-                propertyKey: decode(slice: ffiRow.property_key),
-                propertyValue: decode(slice: ffiRow.property_value),
-                taskMarker: decode(slice: ffiRow.task_marker),
-                orderKey: decode(slice: ffiRow.order_key),
-                depth: ffiRow.depth,
-                refType: ffiRow.ref_type,
-                taskDone: ffiRow.task_done != 0,
-                hopCount: ffiRow.hop_count
-            ))
+            rows.append(decodeBTKRow(ffiRow))
         }
         return rows
     }
 
-    private func takeBTKBuffer(_ buffer: GraphEngineByteBuffer) -> Data? {
+    private func decodeBTKRow(_ row: BtkSubscriptionRowFFI) -> BTKSubscriptionRow {
+        BTKSubscriptionRow(
+            pageId: decode(slice: row.page_id),
+            blockId: decode(slice: row.block_id),
+            parentId: decode(slice: row.parent_id),
+            targetId: decode(slice: row.target_id),
+            content: decode(slice: row.content),
+            propertyKey: decode(slice: row.property_key),
+            propertyValue: decode(slice: row.property_value),
+            taskMarker: decode(slice: row.task_marker),
+            orderKey: decode(slice: row.order_key),
+            depth: row.depth,
+            refType: row.ref_type,
+            taskDone: row.task_done != 0,
+            hopCount: row.hop_count
+        )
+    }
+
+    private func takeBTKBuffer(_ buffer: GraphEngineByteBuffer) -> BTKPayloadLease? {
         guard let ptr = buffer.ptr, buffer.len > 0 else {
             if buffer.capacity > 0 {
                 graph_engine_free_bytes(buffer)
             }
             return nil
         }
-        return Data(
-            bytesNoCopy: ptr,
-            count: Int(buffer.len),
-            deallocator: .custom { _, _ in
-                graph_engine_free_bytes(buffer)
-            }
-        )
+        return BTKPayloadLease(buffer: buffer, ptr: ptr)
     }
 
     private func decode(slice: GraphEngineStringSlice) -> String {
-        guard let ptr = slice.ptr, slice.len > 0 else { return "" }
-        let buffer = UnsafeBufferPointer(start: ptr, count: Int(slice.len))
-        return String(decoding: buffer, as: UTF8.self)
+        btkStringCache.string(for: slice)
     }
 }
 
@@ -676,7 +714,7 @@ extension GraphEngine {
 final class BTKSubscriptionState {
     private let engine: GraphEngine
     private let subscriptionId: UInt64
-    private var rowMap: [String: GraphEngine.BTKSubscriptionRow]
+    private var rowMap: [GraphEngine.BTKSubscriptionRow.Key: GraphEngine.BTKSubscriptionRow]
 
     private(set) var version: UInt64
     private(set) var kind: GraphEngine.BTKSubscriptionKind
@@ -693,8 +731,8 @@ final class BTKSubscriptionState {
         self.subscriptionId = subscriptionId
         self.version = initial.version
         self.kind = initial.kind
-        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.identity, $0) })
-        self.rows = initial.added.sorted { $0.identity < $1.identity }
+        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.key, $0) })
+        self.rows = initial.added.sorted { $0.key < $1.key }
     }
 
     init?(engine: GraphEngine, propertyKey: String, propertyValue: String? = nil) {
@@ -706,8 +744,8 @@ final class BTKSubscriptionState {
         self.subscriptionId = subscriptionId
         self.version = initial.version
         self.kind = initial.kind
-        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.identity, $0) })
-        self.rows = initial.added.sorted { $0.identity < $1.identity }
+        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.key, $0) })
+        self.rows = initial.added.sorted { $0.key < $1.key }
     }
 
     init?(engine: GraphEngine, linkedBlockId: String, maxDepth: UInt8) {
@@ -719,8 +757,8 @@ final class BTKSubscriptionState {
         self.subscriptionId = subscriptionId
         self.version = initial.version
         self.kind = initial.kind
-        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.identity, $0) })
-        self.rows = initial.added.sorted { $0.identity < $1.identity }
+        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.key, $0) })
+        self.rows = initial.added.sorted { $0.key < $1.key }
     }
 
     func startPolling(interval: Duration = .milliseconds(150)) {
@@ -754,16 +792,42 @@ final class BTKSubscriptionState {
 
     private func apply(_ payload: GraphEngine.BTKSubscriptionPayload) {
         for row in payload.removed {
-            rowMap.removeValue(forKey: row.identity)
+            rowMap.removeValue(forKey: row.key)
         }
         for row in payload.added {
-            rowMap[row.identity] = row
+            rowMap[row.key] = row
         }
         for row in payload.updated {
-            rowMap[row.identity] = row
+            rowMap[row.key] = row
         }
         version = payload.version
         kind = payload.kind
-        rows = rowMap.values.sorted { $0.identity < $1.identity }
+        rows = rowMap.values.sorted { $0.key < $1.key }
+    }
+}
+
+nonisolated private final class BTKPayloadLease {
+    private let ptr: UnsafeMutablePointer<UInt8>
+    private let count: Int
+    private let capacity: UInt64
+
+    init(buffer: GraphEngineByteBuffer, ptr: UnsafeMutablePointer<UInt8>) {
+        self.ptr = ptr
+        self.count = Int(buffer.len)
+        self.capacity = buffer.capacity
+    }
+
+    deinit {
+        graph_engine_free_bytes(
+            GraphEngineByteBuffer(
+                ptr: ptr,
+                len: UInt64(count),
+                capacity: capacity
+            )
+        )
+    }
+
+    func withUnsafeBytes<T>(_ body: (UnsafeRawBufferPointer) -> T?) -> T? {
+        body(UnsafeRawBufferPointer(start: UnsafeRawPointer(ptr), count: count))
     }
 }

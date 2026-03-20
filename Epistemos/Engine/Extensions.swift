@@ -462,3 +462,56 @@ extension String {
         return String(self[trimmedStart...])
     }
 }
+
+nonisolated struct BorrowedUTF8StringCacheStats: Sendable, Equatable {
+    let hits: UInt64
+    let misses: UInt64
+    let uniqueStrings: Int
+}
+
+nonisolated final class BorrowedUTF8StringCache {
+    private var buckets: [UInt64: [String]] = [:]
+    private(set) var hits: UInt64 = 0
+    private(set) var misses: UInt64 = 0
+
+    init() {}
+
+    func string(for slice: GraphEngineStringSlice) -> String {
+        guard let ptr = slice.ptr, slice.len > 0 else { return "" }
+        let bytes = UnsafeBufferPointer(start: ptr, count: Int(slice.len))
+        let hash = Self.hash(bytes)
+        if let bucket = buckets[hash] {
+            for candidate in bucket where Self.matches(candidate, bytes: bytes) {
+                hits &+= 1
+                return candidate
+            }
+        }
+
+        let decoded = String(decoding: bytes, as: UTF8.self)
+        buckets[hash, default: []].append(decoded)
+        misses &+= 1
+        return decoded
+    }
+
+    func stats() -> BorrowedUTF8StringCacheStats {
+        BorrowedUTF8StringCacheStats(
+            hits: hits,
+            misses: misses,
+            uniqueStrings: buckets.values.reduce(0) { $0 + $1.count }
+        )
+    }
+
+    private static func hash(_ bytes: UnsafeBufferPointer<UInt8>) -> UInt64 {
+        var value: UInt64 = 0xcbf29ce484222325
+        for byte in bytes {
+            value ^= UInt64(byte)
+            value &*= 0x100000001b3
+        }
+        return value
+    }
+
+    private static func matches(_ candidate: String, bytes: UnsafeBufferPointer<UInt8>) -> Bool {
+        guard candidate.utf8.count == bytes.count else { return false }
+        return candidate.utf8.elementsEqual(bytes)
+    }
+}

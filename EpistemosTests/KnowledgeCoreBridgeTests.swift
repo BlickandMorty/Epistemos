@@ -140,6 +140,59 @@ struct KnowledgeCoreBridgeTests {
         }
     }
 
+    @Test("shadow runtime reuses projected strings across repeated row applies")
+    func shadowRuntimeReusesProjectedStrings() async throws {
+        let runtime = try await MainActor.run {
+            try #require(KnowledgeCoreShadowRuntime(peerId: 17))
+        }
+
+        let subscriptionId = await runtime.subscribeOutline(pageId: "page-cache")
+        #expect(subscriptionId != nil)
+        _ = await runtime.ingestDocument(
+            pageId: "page-cache",
+            format: .markdown,
+            text: "- Alpha\n- Beta"
+        )
+
+        try? await Task.sleep(for: .milliseconds(40))
+
+        let firstStats = await MainActor.run {
+            (
+                runtime.projectedRowCount,
+                runtime.stringCacheHits,
+                runtime.stringCacheMisses
+            )
+        }
+
+        #expect(firstStats.0 == 2)
+        #expect(firstStats.2 > 0)
+
+        let updated = await runtime.ingestDocument(
+            pageId: "page-cache",
+            format: .markdown,
+            text: "- Beta\n- Alpha"
+        )
+        #expect(updated)
+
+        try? await Task.sleep(for: .milliseconds(40))
+
+        let secondStats = await MainActor.run {
+            (
+                runtime.projectedRowCount,
+                runtime.stringCacheHits,
+                runtime.stringCacheMisses
+            )
+        }
+
+        #expect(secondStats.0 == 2)
+        #expect(secondStats.1 > firstStats.1)
+        #expect(secondStats.2 >= firstStats.2)
+
+        await MainActor.run {
+            runtime.stop()
+        }
+    }
+
     @Test("bridge surfaces typed last error for staged mutation failures")
     func bridgeSurfacesTypedLastError() async throws {
         let bridge = try #require(KnowledgeCoreBridge(peerId: 14))

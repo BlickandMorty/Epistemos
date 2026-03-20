@@ -86,7 +86,7 @@ pub struct GraphEngineByteBuffer {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct GraphEngineStringSlice {
     /// Borrowed UTF-8 pointer into an archived payload buffer.
     pub ptr: *const u8,
@@ -114,6 +114,7 @@ pub struct GraphEngineRingLayout {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct BtkSubscriptionRowFFI {
     /// Page identifier for the row.
     pub page_id: GraphEngineStringSlice,
@@ -144,6 +145,19 @@ pub struct BtkSubscriptionRowFFI {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct BtkSubscriptionPayloadSummaryFFI {
+    pub version: u64,
+    /// 0=outline, 1=property, 2=links.
+    pub kind: u8,
+    pub _pad: [u8; 3],
+    pub added_count: u32,
+    pub updated_count: u32,
+    pub removed_count: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct KnowledgeQueryRowFFI {
     /// 0=block, 1=task, 2=property, 3=link.
     pub row_kind: u8,
@@ -163,6 +177,7 @@ pub struct KnowledgeQueryRowFFI {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct KnowledgePayloadSummaryFFI {
     pub tx_id: u64,
     pub subscription_id: u64,
@@ -359,6 +374,54 @@ fn archived_knowledge_kind_code(
             KnowledgeSubscriptionKind::Links.code()
         }
     }
+}
+
+fn reset_btk_summary(out: &mut BtkSubscriptionPayloadSummaryFFI) {
+    out.version = 0;
+    out.kind = u8::MAX;
+    out._pad = [0; 3];
+    out.added_count = 0;
+    out.updated_count = 0;
+    out.removed_count = 0;
+}
+
+fn reset_btk_row(out: &mut BtkSubscriptionRowFFI) {
+    clear_string_slice(&mut out.page_id);
+    clear_string_slice(&mut out.block_id);
+    clear_string_slice(&mut out.parent_id);
+    clear_string_slice(&mut out.target_id);
+    clear_string_slice(&mut out.content);
+    clear_string_slice(&mut out.property_key);
+    clear_string_slice(&mut out.property_value);
+    clear_string_slice(&mut out.task_marker);
+    clear_string_slice(&mut out.order_key);
+    out.depth = 0;
+    out.ref_type = 0;
+    out.task_done = 0;
+    out.hop_count = 0;
+}
+
+fn fill_btk_row_from_archived(
+    out_row: &mut BtkSubscriptionRowFFI,
+    archived_row: &crate::block_kernel::query_kernel::ArchivedQueryResultRow,
+) {
+    reset_btk_row(out_row);
+    fill_string_slice(&mut out_row.page_id, archived_row.page_id.as_str());
+    fill_string_slice(&mut out_row.block_id, archived_row.block_id.as_str());
+    fill_string_slice(&mut out_row.parent_id, archived_row.parent_id.as_str());
+    fill_string_slice(&mut out_row.target_id, archived_row.target_id.as_str());
+    fill_string_slice(&mut out_row.content, archived_row.content.as_str());
+    fill_string_slice(&mut out_row.property_key, archived_row.property_key.as_str());
+    fill_string_slice(
+        &mut out_row.property_value,
+        archived_row.property_value.as_str(),
+    );
+    fill_string_slice(&mut out_row.task_marker, archived_row.task_marker.as_str());
+    fill_string_slice(&mut out_row.order_key, archived_row.order_key.as_str());
+    out_row.depth = archived_row.depth.to_native();
+    out_row.ref_type = archived_row.ref_type;
+    out_row.task_done = u8::from(archived_row.task_done);
+    out_row.hop_count = archived_row.hop_count;
 }
 
 fn reset_knowledge_summary(out: &mut KnowledgePayloadSummaryFFI) {
@@ -2398,6 +2461,31 @@ pub extern "C" fn graph_engine_btk_payload_kind(data: *const u8, len: u64) -> u8
     with_subscription_payload(data, len, |payload| payload.kind).unwrap_or(0)
 }
 
+/// Read all archived BTK summary metadata in one validated pass.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_payload_summary(
+    data: *const u8,
+    len: u64,
+    out: *mut BtkSubscriptionPayloadSummaryFFI,
+) -> u8 {
+    if out.is_null() {
+        return 0;
+    }
+
+    with_subscription_payload(data, len, |payload| {
+        // SAFETY: `out` points to caller-owned storage for one `BtkSubscriptionPayloadSummaryFFI`.
+        let out_summary = unsafe { &mut *out };
+        reset_btk_summary(out_summary);
+        out_summary.version = payload.version.to_native();
+        out_summary.kind = payload.kind;
+        out_summary.added_count = payload.added.len() as u32;
+        out_summary.updated_count = payload.updated.len() as u32;
+        out_summary.removed_count = payload.removed.len() as u32;
+        1
+    })
+    .unwrap_or(0)
+}
+
 /// Row count for section 0=added, 1=updated, 2=removed.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_payload_row_count(
@@ -2439,26 +2527,47 @@ pub extern "C" fn graph_engine_btk_payload_row(
 
         // SAFETY: `out` is caller-owned memory for one BtkSubscriptionRowFFI.
         let out_row = unsafe { &mut *out };
-        fill_string_slice(&mut out_row.page_id, archived_row.page_id.as_str());
-        fill_string_slice(&mut out_row.block_id, archived_row.block_id.as_str());
-        fill_string_slice(&mut out_row.parent_id, archived_row.parent_id.as_str());
-        fill_string_slice(&mut out_row.target_id, archived_row.target_id.as_str());
-        fill_string_slice(&mut out_row.content, archived_row.content.as_str());
-        fill_string_slice(
-            &mut out_row.property_key,
-            archived_row.property_key.as_str(),
-        );
-        fill_string_slice(
-            &mut out_row.property_value,
-            archived_row.property_value.as_str(),
-        );
-        fill_string_slice(&mut out_row.task_marker, archived_row.task_marker.as_str());
-        fill_string_slice(&mut out_row.order_key, archived_row.order_key.as_str());
-        out_row.depth = archived_row.depth.to_native();
-        out_row.ref_type = archived_row.ref_type;
-        out_row.task_done = u8::from(archived_row.task_done);
-        out_row.hop_count = archived_row.hop_count;
+        fill_btk_row_from_archived(out_row, archived_row);
         1
+    })
+    .unwrap_or(0)
+}
+
+/// Read a contiguous batch of archived BTK rows from section 0=added, 1=updated, 2=removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_payload_rows(
+    data: *const u8,
+    len: u64,
+    section: u8,
+    start_index: u32,
+    out: *mut BtkSubscriptionRowFFI,
+    max_rows: u32,
+) -> u32 {
+    if out.is_null() || max_rows == 0 {
+        return 0;
+    }
+
+    with_subscription_payload(data, len, |payload| {
+        let rows = match section {
+            0 => &payload.added,
+            1 => &payload.updated,
+            2 => &payload.removed,
+            _ => return 0,
+        };
+
+        let start = start_index as usize;
+        if start >= rows.len() {
+            return 0;
+        }
+
+        let end = (start + max_rows as usize).min(rows.len());
+        let slice = &rows[start..end];
+        for (idx, archived_row) in slice.iter().enumerate() {
+            // SAFETY: `out` points to caller-owned storage for `max_rows` entries.
+            let out_row = unsafe { &mut *out.add(idx) };
+            fill_btk_row_from_archived(out_row, archived_row);
+        }
+        slice.len() as u32
     })
     .unwrap_or(0)
 }
@@ -2760,6 +2869,33 @@ mod knowledge_core_ffi_tests {
     }
 
     #[test]
+    fn knowledge_core_payload_accessors_reject_malformed_payload() {
+        let junk = [0xFFu8, 0x00, 0xAA, 0x55, 0x10];
+        let mut summary = empty_summary();
+        let mut row = empty_row();
+
+        assert_eq!(
+            graph_engine_kc_payload_summary(junk.as_ptr(), junk.len() as u64, &mut summary),
+            0
+        );
+        assert_eq!(
+            graph_engine_kc_payload_row(junk.as_ptr(), junk.len() as u64, 0, 0, &mut row),
+            0
+        );
+        assert_eq!(
+            graph_engine_kc_payload_rows(
+                junk.as_ptr(),
+                junk.len() as u64,
+                0,
+                0,
+                &mut row,
+                1,
+            ),
+            0
+        );
+    }
+
+    #[test]
     #[ignore = "benchmark"]
     fn benchmark_knowledge_core_payload_summary_accessor() {
         let core = graph_engine_kc_create(4, 4096, 93);
@@ -2965,5 +3101,211 @@ mod knowledge_core_ffi_tests {
         std::str::from_utf8(bytes)
             .expect("slice should be valid utf-8")
             .to_string()
+    }
+}
+
+#[cfg(test)]
+mod btk_ffi_tests {
+    use std::hint::black_box;
+    use std::time::Instant;
+
+    use super::{
+        BtkSubscriptionPayloadSummaryFFI, BtkSubscriptionRowFFI, graph_engine_btk_payload_row,
+        graph_engine_btk_payload_row_count, graph_engine_btk_payload_rows,
+        graph_engine_btk_payload_summary,
+    };
+    use crate::block_kernel::query_kernel::{QueryResultRow, SubscriptionPayload};
+
+    fn sample_row(block_id: &str, content: &str) -> QueryResultRow {
+        QueryResultRow {
+            page_id: "page-1".to_string(),
+            block_id: block_id.to_string(),
+            parent_id: String::new(),
+            target_id: String::new(),
+            content: content.to_string(),
+            property_key: String::new(),
+            property_value: String::new(),
+            task_marker: String::new(),
+            order_key: "0000000001".to_string(),
+            depth: 0,
+            ref_type: 0,
+            task_done: false,
+            hop_count: 0,
+        }
+    }
+
+    fn decode(slice: super::GraphEngineStringSlice) -> String {
+        guard_slice(slice)
+    }
+
+    fn guard_slice(slice: super::GraphEngineStringSlice) -> String {
+        if slice.ptr.is_null() || slice.len == 0 {
+            return String::new();
+        }
+        // SAFETY: The string slices come from an archived payload borrowed for the duration of this test.
+        let bytes = unsafe { std::slice::from_raw_parts(slice.ptr, slice.len as usize) };
+        std::str::from_utf8(bytes)
+            .expect("test payload slices should be valid utf-8")
+            .to_string()
+    }
+
+    #[test]
+    fn btk_payload_rows_batch_matches_scalar_rows() {
+        let payload = SubscriptionPayload {
+            version: 7,
+            kind: 0,
+            added: vec![sample_row("block-a", "Alpha"), sample_row("block-b", "Beta")],
+            updated: Vec::new(),
+            removed: Vec::new(),
+        };
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&payload)
+            .expect("subscription payload should archive");
+
+        let mut scalar_rows = [BtkSubscriptionRowFFI::default(), BtkSubscriptionRowFFI::default()];
+        for (index, row) in scalar_rows.iter_mut().enumerate() {
+            assert_eq!(
+                graph_engine_btk_payload_row(bytes.as_ptr(), bytes.len() as u64, 0, index as u32, row),
+                1
+            );
+        }
+
+        let mut batched_rows = [BtkSubscriptionRowFFI::default(), BtkSubscriptionRowFFI::default()];
+        let written = graph_engine_btk_payload_rows(
+            bytes.as_ptr(),
+            bytes.len() as u64,
+            0,
+            0,
+            batched_rows.as_mut_ptr(),
+            batched_rows.len() as u32,
+        );
+        assert_eq!(written, 2);
+        assert_eq!(decode(scalar_rows[0].content), decode(batched_rows[0].content));
+        assert_eq!(decode(scalar_rows[1].content), decode(batched_rows[1].content));
+        assert_eq!(decode(batched_rows[0].block_id), "block-a");
+        assert_eq!(decode(batched_rows[1].block_id), "block-b");
+    }
+
+    #[test]
+    #[ignore = "benchmark"]
+    fn benchmark_btk_payload_rows_batch_accessor() {
+        let payload = SubscriptionPayload {
+            version: 11,
+            kind: 0,
+            added: vec![
+                sample_row("block-a", "Alpha"),
+                sample_row("block-b", "Beta"),
+                sample_row("block-c", "Gamma"),
+                sample_row("block-d", "Delta"),
+            ],
+            updated: Vec::new(),
+            removed: Vec::new(),
+        };
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&payload)
+            .expect("subscription payload should archive");
+        let payload_ptr = bytes.as_ptr();
+        let payload_len = bytes.len() as u64;
+        let row_count = graph_engine_btk_payload_row_count(payload_ptr, payload_len, 0);
+        assert_eq!(row_count, 4);
+
+        let iterations = 50_000u32;
+
+        let start_scalar = Instant::now();
+        for _ in 0..iterations {
+            for index in 0..row_count {
+                let mut row = BtkSubscriptionRowFFI::default();
+                black_box(graph_engine_btk_payload_row(
+                    payload_ptr,
+                    payload_len,
+                    0,
+                    index,
+                    &mut row,
+                ));
+                black_box(row.content.len);
+                black_box(row.block_id.len);
+            }
+        }
+        let scalar_elapsed = start_scalar.elapsed();
+
+        let start_batch = Instant::now();
+        for _ in 0..iterations {
+            let mut rows = [
+                BtkSubscriptionRowFFI::default(),
+                BtkSubscriptionRowFFI::default(),
+                BtkSubscriptionRowFFI::default(),
+                BtkSubscriptionRowFFI::default(),
+            ];
+            let written = graph_engine_btk_payload_rows(
+                payload_ptr,
+                payload_len,
+                0,
+                0,
+                rows.as_mut_ptr(),
+                row_count,
+            );
+            black_box(written);
+            for row in rows.iter().take(written as usize) {
+                black_box(row.content.len);
+                black_box(row.block_id.len);
+            }
+        }
+        let batch_elapsed = start_batch.elapsed();
+
+        eprintln!(
+            "btk_payload_rows scalar_ns_per_payload={} batch_ns_per_payload={} speedup_x={:.2}",
+            scalar_elapsed.as_nanos() / u128::from(iterations),
+            batch_elapsed.as_nanos() / u128::from(iterations),
+            scalar_elapsed.as_secs_f64() / batch_elapsed.as_secs_f64()
+        );
+    }
+
+    #[test]
+    fn btk_payload_summary_reports_section_counts() {
+        let payload = SubscriptionPayload {
+            version: 9,
+            kind: 1,
+            added: vec![sample_row("block-a", "Alpha")],
+            updated: vec![sample_row("block-b", "Beta")],
+            removed: vec![sample_row("block-c", "Gamma")],
+        };
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&payload)
+            .expect("subscription payload should archive");
+
+        let mut summary = BtkSubscriptionPayloadSummaryFFI::default();
+        assert_eq!(
+            graph_engine_btk_payload_summary(bytes.as_ptr(), bytes.len() as u64, &mut summary),
+            1
+        );
+        assert_eq!(summary.version, 9);
+        assert_eq!(summary.kind, 1);
+        assert_eq!(summary.added_count, 1);
+        assert_eq!(summary.updated_count, 1);
+        assert_eq!(summary.removed_count, 1);
+    }
+
+    #[test]
+    fn btk_payload_accessors_reject_malformed_payload() {
+        let junk = [0xFFu8, 0x00, 0xAA, 0x55, 0x10];
+        let mut summary = BtkSubscriptionPayloadSummaryFFI::default();
+        let mut row = BtkSubscriptionRowFFI::default();
+
+        assert_eq!(
+            graph_engine_btk_payload_summary(junk.as_ptr(), junk.len() as u64, &mut summary),
+            0
+        );
+        assert_eq!(
+            graph_engine_btk_payload_row(junk.as_ptr(), junk.len() as u64, 0, 0, &mut row),
+            0
+        );
+        assert_eq!(
+            graph_engine_btk_payload_rows(
+                junk.as_ptr(),
+                junk.len() as u64,
+                0,
+                0,
+                &mut row,
+                1,
+            ),
+            0
+        );
     }
 }
