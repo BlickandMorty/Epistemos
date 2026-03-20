@@ -376,6 +376,7 @@ final class ChatCoordinator {
             filter.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         let uniqueIndexedNoteIDs = uniquePreservingOrder(indexedNoteIDs)
+        let noteResultLimit = normalizedFilter.isEmpty ? max(limitPerSection, 10) : limitPerSection
 
         let noteChoices: [NoteMentionChoice] = {
             guard let manifest else { return [] }
@@ -389,7 +390,7 @@ final class ChatCoordinator {
                         if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
                         return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
                     }
-                    .prefix(limitPerSection)
+                    .prefix(noteResultLimit)
                 results.append(contentsOf: recentEntries.map(NoteMentionChoice.entry))
                 return results
             }
@@ -415,7 +416,7 @@ final class ChatCoordinator {
                     }
                     return $0.entry.title.localizedCaseInsensitiveCompare($1.entry.title) == .orderedAscending
                 }
-            results.append(contentsOf: matched.prefix(limitPerSection).map { .entry($0.entry) })
+            results.append(contentsOf: matched.prefix(noteResultLimit).map { .entry($0.entry) })
             return results
         }()
 
@@ -450,7 +451,7 @@ final class ChatCoordinator {
         let filteredChats = (recentChats + transientThreads).filter { result in
             seenChatIDs.insert(result.id).inserted
         }.filter { result in
-            if normalizedFilter.isEmpty { return true }
+            if normalizedFilter.isEmpty { return false }
             let haystack = [result.attachment.title, result.attachment.subtitle, result.preview]
                 .compactMap { $0?.lowercased() }
                 .joined(separator: "\n")

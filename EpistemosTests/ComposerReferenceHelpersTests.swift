@@ -232,6 +232,44 @@ struct ComposerReferenceHelpersTests {
         #expect(noteChoiceIDs(results.notes) == ["all-notes", "newer", "older"])
     }
 
+    @Test("empty note browse hides chat matches until the user searches")
+    func emptyNoteBrowseHidesChatsUntilTheUserSearches() {
+        let manifest = makeManifest(entries: [
+            .init(
+                pageId: "newer",
+                title: "Newer Note",
+                tags: [],
+                folderName: nil,
+                wordCount: 75,
+                snippet: "",
+                updatedAt: Date(timeIntervalSince1970: 200),
+                createdAt: .distantPast
+            ),
+        ])
+
+        let chat = SDChat(title: "Atlas planning")
+        chat.id = "chat-1"
+        chat.createdAt = .distantPast
+        chat.updatedAt = .distantPast
+        let thread = ChatThread(
+            id: "thread-1",
+            label: "Palette thread",
+            type: "palette",
+            messages: [AssistantMessage(role: .user, content: "atlas")],
+            createdAt: .distantPast
+        )
+
+        let results = ChatCoordinator.searchReferenceResults(
+            filter: "",
+            manifest: manifest,
+            chats: [chat],
+            threads: [thread]
+        )
+
+        #expect(noteChoiceIDs(results.notes) == ["all-notes", "newer"])
+        #expect(results.chats.isEmpty)
+    }
+
     @Test("popover layout keeps a generous width when there is room")
     func popoverLayoutKeepsGenerousWidthWhenThereIsRoom() {
         let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
