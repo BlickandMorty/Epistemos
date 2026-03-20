@@ -499,32 +499,35 @@ struct AssistantSourceChromeMetrics: Equatable {
     )
 }
 
-enum AssistantSourceKind: String, Hashable {
+enum AssistantSourceKind: String, Hashable, Sendable {
     case note
     case link
 }
 
-struct AssistantSourceReference: Identifiable, Equatable, Hashable {
+struct AssistantSourceReference: Identifiable, Equatable, Hashable, Sendable {
     let kind: AssistantSourceKind
     let title: String
     let subtitle: String
     let url: URL?
 
-    var id: String {
+    nonisolated var id: String {
         if let url {
             return "\(kind.rawValue):\(url.absoluteString.lowercased())"
         }
         return "\(kind.rawValue):\(title.lowercased())"
     }
 
-    private static let markdownLinkRegex = try! NSRegularExpression(
+    private nonisolated static let markdownLinkRegex = try! NSRegularExpression(
         pattern: #"\[([^\]]+)\]\((https?://[^\s\)]+)\)"#
     )
-    private static let rawURLRegex = try! NSRegularExpression(
+    private nonisolated static let rawURLRegex = try! NSRegularExpression(
         pattern: #"https?://[^\s\)\]>\"']+"#
     )
 
-    static func extract(from text: String, noteTitles: [String] = []) -> [AssistantSourceReference] {
+    nonisolated static func extract(
+        from text: String,
+        noteTitles: [String] = []
+    ) -> [AssistantSourceReference] {
         var results: [AssistantSourceReference] = []
         var seen = Set<String>()
 
@@ -577,16 +580,16 @@ struct AssistantSourceReference: Identifiable, Equatable, Hashable {
         return results
     }
 
-    private static func sanitizedURLString(_ string: String) -> String {
+    private nonisolated static func sanitizedURLString(_ string: String) -> String {
         string.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:!?"))
     }
 
-    private static func hostTitle(for url: URL) -> String {
+    private nonisolated static func hostTitle(for url: URL) -> String {
         let host = url.host ?? url.absoluteString
         return host.replacingOccurrences(of: #"^www\."#, with: "", options: .regularExpression)
     }
 
-    private static func linkTitle(for url: URL) -> String {
+    private nonisolated static func linkTitle(for url: URL) -> String {
         let components = url.pathComponents.filter { $0 != "/" }
         if let last = components.last, !last.isEmpty {
             let cleaned = last

@@ -2,6 +2,58 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+private enum ChatPresentationFormatter {
+    // SAFETY: Hardcoded literal pattern — `try!` only fails on invalid regex syntax.
+    nonisolated static let userModePrefixRegex = try! NSRegularExpression(
+        pattern: #"^\[[A-Z ]+MODE\]\s*"#
+    )
+
+    nonisolated static func displayContent(for message: ChatMessage) -> String {
+        let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard message.role == .user else { return trimmed }
+
+        let fullRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+        let stripped = userModePrefixRegex.stringByReplacingMatches(
+            in: trimmed,
+            range: fullRange,
+            withTemplate: ""
+        )
+        return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated static func heading(forAssistantText text: String) -> String? {
+        let lines = text.components(separatedBy: .newlines)
+        guard
+            let firstNonEmpty = lines.first(where: {
+                !$0.trimmingCharacters(in: .whitespaces).isEmpty
+            })
+        else { return nil }
+        if firstNonEmpty.trimmingCharacters(in: .whitespaces).hasPrefix("#") { return nil }
+
+        let cleaned = firstNonEmpty
+            .replacingOccurrences(
+                of: "^(Sure|Certainly|Of course|Great question|Absolutely)[,!.]?\\s*",
+                with: "",
+                options: .regularExpression
+            )
+            .replacingOccurrences(of: "\\*\\*|\\*|`", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleaned.count > 10 else { return nil }
+        return String(cleaned.prefix(50))
+    }
+
+    nonisolated static func sourceReferences(
+        for message: ChatMessage,
+        displayContent: String
+    ) -> [AssistantSourceReference] {
+        guard message.role == .assistant, !message.isError else { return [] }
+        return AssistantSourceReference.extract(
+            from: displayContent,
+            noteTitles: message.loadedNoteTitles ?? []
+        )
+    }
+}
+
 enum ChatLayout {
     static let messageColumnMaxWidth: CGFloat = 760
     static let mainComposerMaxWidth: CGFloat = 860
@@ -16,6 +68,9 @@ enum ChatStreamingDisplayPolicy {
 struct ChatTranscriptRow: Identifiable, Sendable {
     let message: ChatMessage
     let originalQuery: String?
+    let displayContent: String
+    let heading: String?
+    let sourceReferences: [AssistantSourceReference]
 
     var id: String { message.id }
 }
@@ -26,11 +81,31 @@ nonisolated func makeChatTranscriptRows(from messages: [ChatMessage]) -> [ChatTr
     rows.reserveCapacity(messages.count)
 
     for message in messages {
+        let displayContent = ChatPresentationFormatter.displayContent(for: message)
         if message.role == .user {
             lastUserQuery = message.content
-            rows.append(ChatTranscriptRow(message: message, originalQuery: nil))
+            rows.append(
+                ChatTranscriptRow(
+                    message: message,
+                    originalQuery: nil,
+                    displayContent: displayContent,
+                    heading: nil,
+                    sourceReferences: []
+                )
+            )
         } else {
-            rows.append(ChatTranscriptRow(message: message, originalQuery: lastUserQuery))
+            rows.append(
+                ChatTranscriptRow(
+                    message: message,
+                    originalQuery: lastUserQuery,
+                    displayContent: displayContent,
+                    heading: ChatPresentationFormatter.heading(forAssistantText: displayContent),
+                    sourceReferences: ChatPresentationFormatter.sourceReferences(
+                        for: message,
+                        displayContent: displayContent
+                    )
+                )
+            )
         }
     }
 
@@ -48,13 +123,11 @@ struct ChatView: View {
     @Environment(PipelineState.self) private var pipeline
     @Environment(InferenceState.self) private var inference
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
+    @State private var transcriptRows: [ChatTranscriptRow] = []
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
 
     private var theme: EpistemosTheme { ui.theme }
-    private var transcriptRows: [ChatTranscriptRow] {
-        makeChatTranscriptRows(from: chat.messages)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,6 +141,9 @@ struct ChatView: View {
                                 MessageBubble(
                                     message: row.message,
                                     originalQuery: row.originalQuery,
+                                    displayContent: row.displayContent,
+                                    heading: row.heading,
+                                    sourceReferences: row.sourceReferences,
                                     allowsResubmit: !pipeline.isProcessing,
                                     onResubmit: { query in
                                         chat.submitQuery(query)
@@ -108,6 +184,9 @@ struct ChatView: View {
                     autoFollow.markProgrammaticScrollToBottom()
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
+                .onChange(of: chat.transcriptRevision) { _, _ in
+                    transcriptRows = makeChatTranscriptRows(from: chat.messages)
+                }
                 .onChange(of: chat.streamingText) { _, _ in
                     // Throttle to ~4fps during streaming for "smooth" feel
                     let now = ContinuousClock.now
@@ -120,6 +199,7 @@ struct ChatView: View {
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
                 .onAppear {
+                    transcriptRows = makeChatTranscriptRows(from: chat.messages)
                     Task { @MainActor in
                         autoFollow.markProgrammaticScrollToBottom()
                         proxy.scrollTo("bottom-anchor", anchor: .bottom)

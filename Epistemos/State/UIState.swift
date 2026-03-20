@@ -15,7 +15,7 @@ enum LandingCursorVisibilityMode: String, CaseIterable, Codable, Sendable {
     case both
     case neither
 
-    static let defaultValue: Self = .both
+    static let defaultValue: Self = .landingOnly
 
     func shows(on surface: LandingCursorSurface) -> Bool {
         switch (self, surface) {
@@ -443,13 +443,13 @@ final class UIState {
                 forKey: LandingCursorAnimationPolicy.defaultsKey
             )
             landingCursorAnimationEnabled = legacyEnabled
-            landingCursorVisibilityMode = legacyEnabled ? .both : .neither
+            landingCursorVisibilityMode = legacyEnabled ? .landingOnly : .neither
         } else {
-            landingCursorVisibilityMode = .both
+            landingCursorVisibilityMode = .landingOnly
             landingCursorAnimationEnabled = true
         }
         lastEnabledLandingCursorVisibilityMode = landingCursorVisibilityMode == .neither
-            ? .both
+            ? .landingOnly
             : landingCursorVisibilityMode
         if let storedGreetingSourceMode = UserDefaults.standard.string(
             forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey

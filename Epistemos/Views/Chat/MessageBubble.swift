@@ -41,6 +41,9 @@ private func buildFullExport(message: ChatMessage) -> String {
 struct MessageBubble: View {
     let message: ChatMessage
     let originalQuery: String?
+    let displayContent: String
+    let heading: String?
+    let sourceReferences: [AssistantSourceReference]
     let allowsResubmit: Bool
     let onResubmit: (String) -> Void
 
@@ -52,12 +55,6 @@ struct MessageBubble: View {
     private var theme: EpistemosTheme { ui.theme }
     private var isUser: Bool { message.role == .user }
 
-    private var sourceReferences: [AssistantSourceReference] {
-        AssistantSourceReference.extract(
-            from: cleanedText,
-            noteTitles: message.loadedNoteTitles ?? []
-        )
-    }
     private var contextAttachments: [ContextAttachment] {
         message.contextAttachments ?? []
     }
@@ -81,20 +78,10 @@ struct MessageBubble: View {
 
     // MARK: - User Bubble
 
-    private var userDisplayContent: String {
-        message.content
-            .replacingOccurrences(
-                of: #"^\[[A-Z ]+MODE\]\s*"#,
-                with: "",
-                options: .regularExpression
-            )
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     private var userBubble: some View {
         VStack(alignment: .trailing, spacing: Spacing.xs) {
             TaggedMarkdownTextView(
-                content: userDisplayContent,
+                content: displayContent,
                 theme: theme,
                 rippleStyle: .none,
                 foregroundOverride: theme.userBubbleText
@@ -167,13 +154,13 @@ struct MessageBubble: View {
                 }
 
                 // Response heading — auto-extracted topic
-                if let heading = extractHeading(from: message.content) {
+                if let heading {
                     Text(heading)
                         .font(AppHeadingRole.h2.font)
                         .foregroundStyle(theme.fontAccent)
                 }
 
-                TaggedMarkdownTextView(content: cleanedText, theme: theme)
+                TaggedMarkdownTextView(content: displayContent, theme: theme)
 
                 if !contextAttachments.isEmpty {
                     ContextAttachmentBadgeRow(attachments: contextAttachments)
@@ -199,35 +186,6 @@ struct MessageBubble: View {
     }
 
     // MARK: - Helpers
-
-    private func extractHeading(from text: String) -> String? {
-        let lines = text.components(separatedBy: .newlines)
-        guard
-            let firstNonEmpty = lines.first(where: {
-                !$0.trimmingCharacters(in: .whitespaces).isEmpty
-            })
-        else { return nil }
-        if firstNonEmpty.trimmingCharacters(in: .whitespaces).hasPrefix("#") { return nil }
-        let cleaned =
-            firstNonEmpty
-            .replacingOccurrences(
-                of: "^(Sure|Certainly|Of course|Great question|Absolutely)[,!.]?\\s*",
-                with: "",
-                options: .regularExpression
-            )
-            .replacingOccurrences(of: "\\*\\*|\\*|`", with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cleaned.count > 10 else { return nil }
-        return String(cleaned.prefix(50))
-    }
-
-    /// Content with non-epistemic brackets stripped.
-    /// [DATA]/[MODEL]/[UNCERTAIN]/[CONFLICT] are preserved for TaggedMarkdownTextView
-    /// to render as colored badges. Other orphan brackets like [CAUSAL INFERENCE] are
-    /// stripped by TaggedMarkdownTextView's inlineMarkdown() safety-net regex.
-    private var cleanedText: String {
-        message.content.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 
     @ViewBuilder
     private func assistantBubbleChrome<Content: View>(

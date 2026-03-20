@@ -101,7 +101,7 @@ struct LandingExperienceSettingsTests {
         defaults.set(true, forKey: LandingCursorAnimationPolicy.defaultsKey)
         defaults.removeObject(forKey: LandingWakeFieldPolicy.visibilityModeDefaultsKey)
         let enabledState = UIState()
-        #expect(enabledState.landingCursorVisibilityMode == .both)
+        #expect(enabledState.landingCursorVisibilityMode == .landingOnly)
     }
 
     @MainActor

@@ -8,6 +8,31 @@ struct LandingASCIIWakeFieldTests {
         #expect(LiquidGreeting.restingGreeting == "welcome back")
     }
 
+    @Test("landing wake surface turns off once chat owns the screen")
+    func landingWakeSurfaceTurnsOffWhenChatOwnsScreen() {
+        #expect(
+            LandingWakeSurfacePolicy.activeSurface(
+                showLanding: false,
+                showingBrief: false,
+                showingSearch: false
+            ) == nil
+        )
+        #expect(
+            LandingWakeSurfacePolicy.activeSurface(
+                showLanding: true,
+                showingBrief: false,
+                showingSearch: false
+            ) == .landing
+        )
+        #expect(
+            LandingWakeSurfacePolicy.activeSurface(
+                showLanding: true,
+                showingBrief: false,
+                showingSearch: true
+            ) == .search
+        )
+    }
+
     @Test("landing wake surface avoids static dash artifacts")
     func landingWakeSurfaceAvoidsStaticDashArtifacts() {
         let configuration = LandingASCIIWakeFieldConfiguration()
@@ -22,18 +47,20 @@ struct LandingASCIIWakeFieldTests {
         #expect(configuration.restingSurfaceOpacity == 0)
     }
 
-    @Test("landing wake field balances responsiveness with a longer stream")
-    func landingWakeFieldBalancesResponsivenessWithLongerStream() {
+    @Test("landing wake field stays within the lighter real-time budget")
+    func landingWakeFieldStaysWithinRealtimeBudget() {
         let configuration = LandingASCIIWakeFieldConfiguration()
 
-        #expect(configuration.duration >= 1.05)
-        #expect(configuration.duration <= 1.3)
-        #expect(configuration.initialRadius >= 0.5)
-        #expect(configuration.peakProgress >= 0.6)
-        #expect(configuration.maxTrailCount >= 140)
-        #expect(configuration.streamTailLength >= 3)
+        #expect(configuration.duration >= 0.8)
+        #expect(configuration.duration <= 1.0)
+        #expect(configuration.initialRadius >= 0.4)
+        #expect(configuration.peakProgress >= 0.58)
+        #expect(configuration.maxTrailCount <= 112)
+        #expect(configuration.streamTailLength <= 2.6)
         #expect(configuration.streamBubbleStride >= 2)
         #expect(configuration.streamBubbleRadiusScale < 1)
+        #expect(configuration.maxColumns <= 160)
+        #expect(configuration.maxRows <= 48)
     }
 
     @Test("landing wake field targets smooth 60 fps refresh rate")
@@ -41,6 +68,7 @@ struct LandingASCIIWakeFieldTests {
         let configuration = LandingASCIIWakeFieldConfiguration()
 
         #expect(configuration.frameInterval <= (1.0 / 60.0) + 0.0001)
+        #expect(configuration.idleFrameInterval >= (1.0 / 24.0) - 0.0001)
     }
 
     @Test("landing wake field tuning exposes bounded cursor physics controls")
@@ -61,6 +89,7 @@ struct LandingASCIIWakeFieldTests {
         )
 
         #expect(compact.frameInterval == expressive.frameInterval)
+        #expect(compact.idleFrameInterval == expressive.idleFrameInterval)
         #expect(expressive.duration < compact.duration)
         #expect(expressive.maxRadius > compact.maxRadius)
         #expect(expressive.initialRadius > compact.initialRadius)
@@ -93,6 +122,27 @@ struct LandingASCIIWakeFieldTests {
         #expect(upgraded.maxRadius > baseline.maxRadius)
         #expect(upgraded.streamSwingMaxOffset > baseline.streamSwingMaxOffset)
         #expect(upgraded.streamSwingCycles > baseline.streamSwingCycles)
+    }
+
+    @Test("search wake field profile is cheaper than the landing hero profile")
+    func searchWakeFieldProfileIsCheaperThanLandingHeroProfile() {
+        let landing = LandingASCIIWakeFieldConfiguration.tuned(
+            response: LandingWakeFieldPolicy.defaultResponse,
+            spread: LandingWakeFieldPolicy.defaultSpread,
+            trail: LandingWakeFieldPolicy.defaultTrail,
+            viscosity: LandingWakeFieldPolicy.defaultViscosity,
+            turbulence: LandingWakeFieldPolicy.defaultTurbulence,
+            opacity: LandingWakeFieldPolicy.defaultOpacity,
+            blur: LandingWakeFieldPolicy.defaultBlur
+        )
+        let search = landing.performanceTuned(for: .search)
+
+        #expect(search.duration < landing.duration)
+        #expect(search.maxTrailCount < landing.maxTrailCount)
+        #expect(search.maxColumns < landing.maxColumns)
+        #expect(search.maxRows < landing.maxRows)
+        #expect(search.frameInterval > landing.frameInterval)
+        #expect(search.streamTailLength < landing.streamTailLength)
     }
 
     @Test("blast samples scale with configured blast power")
@@ -182,6 +232,19 @@ struct LandingASCIIWakeFieldTests {
         #expect(layout.surfaceCharacters.count == 20)
         #expect(layout.blankCharacters.count == 20)
         #expect(layout.hiddenText.split(separator: "\n", omittingEmptySubsequences: false).count == 3)
+    }
+
+    @Test("grid size clamps dense wake surfaces to the configured ceiling")
+    func gridSizeClampsDenseWakeSurfaces() {
+        let grid = LandingASCIIWakeFieldEngine.gridSize(
+            for: CGSize(width: 3200, height: 1800),
+            charWidth: 7,
+            lineHeight: 12,
+            configuration: LandingASCIIWakeFieldConfiguration(maxColumns: 150, maxRows: 40)
+        )
+
+        #expect(grid.columns == 150)
+        #expect(grid.rows == 40)
     }
 
     @Test("overlay text reveals hidden characters inside the wake radius")

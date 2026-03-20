@@ -657,10 +657,10 @@ private struct HomeRouter: View {
         ZStack {
             if showChat {
                 ChatView()
-                    .transition(.opacity.combined(with: .blurReplace))
+                    .transition(.opacity.combined(with: .scale(scale: 0.99)))
             } else {
                 LandingView()
-                    .transition(.opacity.combined(with: .blurReplace))
+                    .transition(.opacity.combined(with: .scale(scale: 0.99)))
             }
         }
         .animation(Motion.smooth, value: showChat)
@@ -771,6 +771,7 @@ private struct LandingCursorControlsView: View {
 
             Button("Reset Cursor Defaults") {
                 ui.landingCursorAnimationEnabled = LandingCursorAnimationPolicy.defaultValue
+                ui.landingCursorVisibilityMode = LandingCursorVisibilityMode.defaultValue
                 ui.landingCursorResponse = LandingWakeFieldPolicy.defaultResponse
                 ui.landingCursorSpread = LandingWakeFieldPolicy.defaultSpread
                 ui.landingCursorTrail = LandingWakeFieldPolicy.defaultTrail

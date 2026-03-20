@@ -28,6 +28,7 @@ final class ChatState {
     // MARK: - In-memory messages (current session)
     var messages: [ChatMessage] = []
     var hasMessages = false
+    private(set) var transcriptRevision: UInt = 0
 
     /// Controls whether the landing page or chat view is shown on the Home panel.
     /// `true` = landing page visible (even if messages exist in memory).
@@ -56,6 +57,10 @@ final class ChatState {
     // MARK: - Init
 
     init() {}
+
+    private func markTranscriptChanged() {
+        transcriptRevision &+= 1
+    }
 
     // MARK: - Error
 
@@ -92,6 +97,7 @@ final class ChatState {
         pendingReasoningTokens = ""
 
         messages = []
+        markTranscriptChanged()
         hasMessages = false
         streamingText = ""
         isStreaming = false
@@ -134,6 +140,7 @@ final class ChatState {
             contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
         )
         messages.append(userMessage)
+        markTranscriptChanged()
         hasMessages = true
 
         pendingAttachments = []
@@ -196,6 +203,7 @@ final class ChatState {
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id) rawAnalysisLen=\(dualMessage?.rawAnalysis.count ?? 0)")
         messages.append(assistantMessage)
+        markTranscriptChanged()
 
         streamingText = ""
         isStreaming = false
@@ -206,6 +214,7 @@ final class ChatState {
     func updateLastMessageContent(_ newContent: String) {
         guard !messages.isEmpty else { return }
         messages[messages.count - 1].content = newContent
+        markTranscriptChanged()
     }
 
     // MARK: - Error Messages
@@ -220,6 +229,7 @@ final class ChatState {
             isError: true
         )
         messages.append(errorMessage)
+        markTranscriptChanged()
         streamingText = ""
         isStreaming = false
     }
@@ -366,6 +376,7 @@ final class ChatState {
             return
         }
         messages[idx] = updated
+        markTranscriptChanged()
 
         log.warning("🔬 [enrich] DONE — layman=\(updated.dualMessage?.laymanSummary != nil)")
     }
@@ -383,6 +394,7 @@ final class ChatState {
 
     func loadMessages(_ msgs: [ChatMessage]) {
         messages = msgs
+        markTranscriptChanged()
         hasMessages = !msgs.isEmpty
         showLanding = msgs.isEmpty
         pendingAttachments = []
@@ -400,6 +412,7 @@ final class ChatState {
         pendingReasoningTokens = ""
 
         messages = []
+        markTranscriptChanged()
         hasMessages = false
         streamingText = ""
         isStreaming = false

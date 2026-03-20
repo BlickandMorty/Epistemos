@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 // MARK: - Epistemic Tag
@@ -76,6 +77,12 @@ struct TaggedMarkdownTextView: View {
     private static let listMarkerWidth: CGFloat = 16
     private static let listIndent: CGFloat = 8
     private static let listSpacing: CGFloat = 10
+    private static let blockCacheLimit = 48
+    private static let blockCacheLock = NSLock()
+    private static var blockCache: [String: [MarkdownBlock]] = [:]
+    private static var blockCacheOrder: [String] = []
+    private static var blockCacheHits = 0
+    private static var blockCacheMisses = 0
 
     /// Matches epistemic tags with optional qualifiers:
     /// [DATA], [DATA - Tier 2], [CONFLICT], [MODEL - Framework], [UNCERTAIN - High], etc.
@@ -101,7 +108,7 @@ struct TaggedMarkdownTextView: View {
         self.theme = theme
         self.rippleStyle = rippleStyle
         self.foregroundOverride = foregroundOverride
-        self.blocks = Self.mergeTableBlocks(Self.parseBlocks(content))
+        self.blocks = Self.cachedBlocks(for: content)
     }
 
     var body: some View {
@@ -131,7 +138,64 @@ struct TaggedMarkdownTextView: View {
         case table(rows: [[String]], headerCount: Int)
     }
 
+    struct BlockCacheStats: Equatable {
+        let hits: Int
+        let misses: Int
+    }
+
     // MARK: - Block Parsing
+
+    static func resetBlockCacheForTesting() {
+        blockCacheLock.lock()
+        blockCache.removeAll(keepingCapacity: false)
+        blockCacheOrder.removeAll(keepingCapacity: false)
+        blockCacheHits = 0
+        blockCacheMisses = 0
+        blockCacheLock.unlock()
+    }
+
+    static func cachedBlockCount(for text: String) -> Int {
+        cachedBlocks(for: text).count
+    }
+
+    static func blockCacheStatsForTesting() -> BlockCacheStats {
+        blockCacheLock.lock()
+        let stats = BlockCacheStats(hits: blockCacheHits, misses: blockCacheMisses)
+        blockCacheLock.unlock()
+        return stats
+    }
+
+    private static func cachedBlocks(for text: String) -> [MarkdownBlock] {
+        blockCacheLock.lock()
+        if let cached = blockCache[text] {
+            blockCacheHits += 1
+            blockCacheLock.unlock()
+            return cached
+        }
+        blockCacheLock.unlock()
+
+        let parsed = mergeTableBlocks(parseBlocks(text))
+
+        blockCacheLock.lock()
+        if let cached = blockCache[text] {
+            blockCacheHits += 1
+            blockCacheLock.unlock()
+            return cached
+        }
+
+        blockCacheMisses += 1
+        blockCache[text] = parsed
+        blockCacheOrder.append(text)
+        if blockCacheOrder.count > blockCacheLimit {
+            let overflow = blockCacheOrder.count - blockCacheLimit
+            for _ in 0..<overflow {
+                let evicted = blockCacheOrder.removeFirst()
+                blockCache.removeValue(forKey: evicted)
+            }
+        }
+        blockCacheLock.unlock()
+        return parsed
+    }
 
     private static func parseBlocks(_ text: String) -> [MarkdownBlock] {
         var blocks: [MarkdownBlock] = []
