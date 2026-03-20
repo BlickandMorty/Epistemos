@@ -134,7 +134,8 @@ final class NoteChatState {
                     return
                 }
                 self.isStreaming = false
-                let final = self.responseText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let final = UserFacingModelOutput.finalVisibleText(from: self.responseText)
+                self.responseText = final
                 if !final.isEmpty {
                     self.messages.append(AssistantMessage(role: .assistant, content: final))
                 }
@@ -208,7 +209,8 @@ final class NoteChatState {
                     return
                 }
                 self.isStreaming = false
-                let final = self.responseText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let final = UserFacingModelOutput.finalVisibleText(from: self.responseText)
+                self.responseText = final
                 if !final.isEmpty {
                     self.messages.append(AssistantMessage(role: .assistant, content: final))
                 }

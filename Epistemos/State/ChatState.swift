@@ -25,7 +25,7 @@ final class ChatState {
 
     /// Controls whether the landing page or chat view is shown on the Home panel.
     /// `true` = landing page visible (even if messages exist in memory).
-    /// Messages stay alive so background enrichment can still update them.
+    /// Messages stay alive while the user navigates away and back.
     var showLanding = true
 
     // MARK: - Incognito
@@ -73,7 +73,7 @@ final class ChatState {
     }
 
     /// Navigate to the landing page without destroying the chat session.
-    /// Messages stay alive so in-flight enrichment can still update them.
+    /// Messages stay alive so the user can return to the same thread.
     func goHome() {
         showLanding = true
     }
@@ -140,20 +140,14 @@ final class ChatState {
 
     func completeProcessing(
         messageId: String = UUID().uuidString,
-        dualMessage: DualMessage? = nil,
-        confidence: Double? = nil,
-        grade: EvidenceGrade? = nil,
-        mode: InferenceMode,
-        truthAssessment: TruthAssessment? = nil
+        mode: InferenceMode
     ) {
         guard let chatId = activeChatId else { return }
 
         // Flush any buffered tokens before reading streamingText
         flushStreamingTokens()
 
-        // Strip [CONCEPTS: ...] tag if the LLM included it (parsed by EnrichmentController)
-        let (_, cleaned) = EnrichmentController.parseConceptsTag(from: streamingText)
-        let answerText = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
 
         // Capture Notes Mode flags for this message, then reset for next turn
         let briefing = isCurrentVaultBriefing
@@ -167,16 +161,12 @@ final class ChatState {
             chatId: chatId,
             role: .assistant,
             content: answerText,
-            dualMessage: dualMessage,
-            truthAssessment: truthAssessment,
-            confidence: confidence,
-            evidenceGrade: grade,
             mode: mode,
             isVaultBriefing: briefing,
             loadedNoteTitles: noteTitles,
             contextAttachments: contextAttachments
         )
-        log.info("[complete] Appending assistant message \(assistantMessage.id) rawAnalysisLen=\(dualMessage?.rawAnalysis.count ?? 0)")
+        log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
         markTranscriptChanged()
 
@@ -272,49 +262,6 @@ final class ChatState {
 
     func removeContextAttachment(_ id: String) {
         pendingContextAttachments.removeAll { $0.id == id }
-    }
-
-    // MARK: - Background Enrichment
-
-    func enrichMessage(id: String, dualMessage: DualMessage, truthAssessment: TruthAssessment) {
-        guard let idx = messages.firstIndex(where: { $0.id == id }) else {
-            log.warning("[enrich] Message \(id) not found — may have been cleared")
-            return
-        }
-        let hasLayman = dualMessage.laymanSummary != nil
-        let rawLen = dualMessage.rawAnalysis.count
-        let hasReflection = dualMessage.reflection != nil
-        let hasArbitration = dualMessage.arbitration != nil
-        log.warning("🔬 [enrich] Enriching message \(id) — layman=\(hasLayman) rawLen=\(rawLen) reflection=\(hasReflection) arbitration=\(hasArbitration)")
-
-        // Explicit full-element reassignment — guarantees @Observable property
-        // setter fires, avoiding a subtle issue where in-place subscript mutation
-        // via _modify may not trigger SwiftUI observation notifications.
-        var updated = messages[idx]
-        updated.dualMessage = dualMessage
-        updated.truthAssessment = truthAssessment
-        // Update confidence + grade with real enrichment values (replaces placeholder 0.5)
-        updated.confidence = truthAssessment.overallTruthLikelihood
-        updated.evidenceGrade = AppBootstrap.gradeFromConfidence(truthAssessment.overallTruthLikelihood)
-        // Guard against stale index — messages array may have changed between
-        // firstIndex lookup and this write (e.g., user started new chat).
-        guard idx < messages.count, messages[idx].id == id else {
-            log.warning("[enrich] Message \(id) moved or removed during enrichment — skipping")
-            return
-        }
-        messages[idx] = updated
-        markTranscriptChanged()
-
-        log.warning("🔬 [enrich] DONE — layman=\(updated.dualMessage?.laymanSummary != nil)")
-    }
-
-    /// Legacy enrichment helper — targets the latest assistant message.
-    func enrichLastMessage(dualMessage: DualMessage, truthAssessment: TruthAssessment) {
-        guard let lastAssistant = messages.last(where: { $0.role == .assistant }) else {
-            log.warning("[enrich] No assistant message found to enrich")
-            return
-        }
-        enrichMessage(id: lastAssistant.id, dualMessage: dualMessage, truthAssessment: truthAssessment)
     }
 
     // MARK: - Load / Clear

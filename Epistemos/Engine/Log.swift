@@ -46,7 +46,7 @@ nonisolated enum Log {
     /// Security & keychain operations
     static let security = Logger(subsystem: subsystem, category: "security")
 
-    /// Engine services (triage, SOAR, signals)
+    /// Engine services
     static let engine = Logger(subsystem: subsystem, category: "engine")
 
     /// Graph rendering, physics, and performance instrumentation

@@ -60,7 +60,6 @@ final class MockLLMClient: LLMClientProtocol {
     }
 
     func configSnapshot() -> LLMSnapshot { snapshot }
-    func enrichmentSnapshot() -> LLMSnapshot { snapshot }
 }
 
 // MARK: - Protocol Conformance Tests
@@ -160,27 +159,63 @@ struct PipelineServiceTests {
         var events: [PipelineEvent] = []
         let stream = pipeline.run(
             query: "What is consciousness?",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         )
 
         for try await event in stream {
             events.append(event)
         }
 
-        let stageEvents = events.compactMap { event -> PipelineStage? in
-            if case .stageAdvanced(let stage, let result) = event, result.status == .completed {
-                return stage
-            }
-            return nil
-        }
-        #expect(stageEvents.isEmpty)
+        #expect(events.contains { event in
+            if case .completed = event { return true }
+            return false
+        })
         #expect(pipelineState.pipelineStages.isEmpty)
         #expect(pipelineState.signalHistory.isEmpty)
     }
 
-    @Test("Pipeline passes tagged local output through as plain visible text")
-    @MainActor func pipelinePassesTaggedThinkingThroughUntouched() async throws {
+    @Test("Default pipeline run no longer falls back to enrichment-era analytical stages")
+    @MainActor func defaultRunBypassesEnrichmentEraPipeline() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = ["Direct", " answer"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var events: [PipelineEvent] = []
+        let stream = pipeline.run(
+            query: "Explain this directly.",
+            mode: .api
+        )
+
+        for try await event in stream {
+            events.append(event)
+        }
+
+        #expect(events.contains { event in
+            if case .textDelta = event { return true }
+            return false
+        })
+        #expect(pipelineState.pipelineStages.isEmpty)
+        #expect(pipelineState.signalHistory.isEmpty)
+    }
+
+    @Test("Pipeline strips tagged local reasoning before emitting visible text")
+    @MainActor func pipelineStripsTaggedThinkingFromVisibleOutput() async throws {
         let mock = MockLLMClient()
         mock.streamTokens = ["<think>", "I need to think", "</think>", "Final answer"]
 
@@ -204,8 +239,7 @@ struct PipelineServiceTests {
         var texts: [String] = []
         let stream = pipeline.run(
             query: "Think about this",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         )
 
         for try await event in stream {
@@ -214,11 +248,11 @@ struct PipelineServiceTests {
             }
         }
 
-        #expect(texts.joined() == "<think>I need to think</think>Final answer")
+        #expect(texts.joined() == "Final answer")
     }
 
-    @Test("Pipeline no longer strips prose reasoning preludes into a separate thinking channel")
-    @MainActor func pipelinePassesReasoningPreludeThroughUntouched() async throws {
+    @Test("Pipeline suppresses prose reasoning preludes and emits only the answer")
+    @MainActor func pipelineSuppressesReasoningPrelude() async throws {
         let mock = MockLLMClient()
         mock.streamTokens = [
             "Thinking Process:\n",
@@ -247,8 +281,7 @@ struct PipelineServiceTests {
         var texts: [String] = []
         let stream = pipeline.run(
             query: "Explain why ice floats on water.",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         )
 
         for try await event in stream {
@@ -257,9 +290,7 @@ struct PipelineServiceTests {
             }
         }
 
-        #expect(texts.joined().contains("Thinking Process:"))
-        #expect(texts.joined().contains("Final Answer:"))
-        #expect(texts.joined().contains("hydrogen bonds create an open lattice"))
+        #expect(texts.joined() == "Ice floats because hydrogen bonds create an open lattice.")
     }
 
     @Test("Plain chat completion carries no analytical metadata")
@@ -287,8 +318,7 @@ struct PipelineServiceTests {
         var completedTruth: TruthAssessment?
         let stream = pipeline.run(
             query: "What is quantum entanglement?",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         )
 
         for try await event in stream {
@@ -329,67 +359,10 @@ struct PipelineServiceTests {
     }
 }
 
-// MARK: - Pipeline Contract Tests (Phase 7.5)
-// Tests for consolidated enrichment, cost tracking, and cancellation.
+// MARK: - Pipeline Contract Tests
 
 @Suite("Pipeline Contracts")
 struct PipelineContractTests {
-
-    // MARK: - Consolidated Enrichment JSON Parsing
-
-    @Test("extractJSON handles clean JSON")
-    func extractJSONClean() {
-        let raw = """
-        {"laymanSummary": "Test", "confidence": 0.8}
-        """
-        let result = EnrichmentController.extractJSON(from: raw)
-        #expect(result != nil)
-        #expect(result?["confidence"] as? Double == 0.8)
-    }
-
-    @Test("extractJSON strips markdown code fences")
-    func extractJSONCodeFences() {
-        let raw = """
-        Here is the analysis:
-        ```json
-        {"grade": "A", "score": 95}
-        ```
-        """
-        let result = EnrichmentController.extractJSON(from: raw)
-        #expect(result != nil)
-        #expect(result?["grade"] as? String == "A")
-    }
-
-    @Test("extractJSON strips thinking blocks")
-    func extractJSONThinkingBlocks() {
-        let raw = """
-        <thinking>I should analyze carefully...</thinking>
-        {"verdict": "supported", "confidence": 0.75}
-        """
-        let result = EnrichmentController.extractJSON(from: raw)
-        #expect(result != nil)
-        #expect(result?["verdict"] as? String == "supported")
-    }
-
-    @Test("extractJSON returns nil for non-JSON")
-    func extractJSONNonJSON() {
-        let result = EnrichmentController.extractJSON(from: "Just a plain text response with no JSON")
-        #expect(result == nil)
-    }
-
-    @Test("extractJSON handles prose-then-JSON")
-    func extractJSONProseThenJSON() {
-        let raw = """
-        After careful consideration of the evidence, here is my structured assessment:
-
-        {"overallTruthLikelihood": 0.72, "evidenceGrade": "B", "weaknesses": ["Small sample size"]}
-        """
-        let result = EnrichmentController.extractJSON(from: raw)
-        #expect(result != nil)
-        #expect(result?["evidenceGrade"] as? String == "B")
-        let weaknesses = result?["weaknesses"] as? [String]
-        #expect(weaknesses?.count == 1)
-    }
 
     // MARK: - Cancellation
 
@@ -417,8 +390,7 @@ struct PipelineContractTests {
         var receivedTokens = 0
         let stream = pipeline.run(
             query: "Tell me everything",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         )
 
         // Start consuming but cancel quickly
@@ -463,8 +435,7 @@ struct PipelineContractTests {
         var receivedCompleted = false
         let stream = pipeline.run(
             query: "Give me a very long answer.",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         )
 
         let consumer = Task { @MainActor in
@@ -492,49 +463,6 @@ struct PipelineContractTests {
         #expect(!receivedCompleted)
     }
 
-    // MARK: - Event Ordering
-
-    @Test("Pipeline stage events arrive in deterministic order")
-    @MainActor func stageOrdering() async throws {
-        let mock = MockLLMClient()
-        mock.streamTokens = ["Answer"]
-
-        let pipelineState = PipelineState()
-        let inference = InferenceState()
-        inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        let triage = TriageService(inference: inference, localLLMService: mock)
-        let eventBus = EventBus()
-
-        let pipeline = PipelineService(
-            pipelineState: pipelineState,
-            llmService: mock,
-            triageService: triage,
-            inference: InferenceState(),
-            eventBus: eventBus
-        )
-
-        var completedStages: [PipelineStage] = []
-        let stream = pipeline.run(
-            query: "Test ordering",
-            mode: .api,
-            skipEnrichment: true
-        )
-
-        for try await event in stream {
-            if case .stageAdvanced(let stage, let result) = event, result.status == .completed {
-                completedStages.append(stage)
-            }
-        }
-
-        // Verify strict ordering: each stage's ordinal should be monotonically increasing
-        for i in 1..<completedStages.count {
-            let prev = PipelineStage.allCases.firstIndex(of: completedStages[i - 1])!
-            let curr = PipelineStage.allCases.firstIndex(of: completedStages[i])!
-            #expect(curr > prev, "Stage \(completedStages[i]) arrived before \(completedStages[i - 1])")
-        }
-    }
-
     @Test("Pipeline emits completed event with DualMessage")
     @MainActor func completedEvent() async throws {
         let mock = MockLLMClient()
@@ -558,15 +486,13 @@ struct PipelineContractTests {
         var gotCompleted = false
         let stream = pipeline.run(
             query: "What is the meaning of life?",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         )
 
         for try await event in stream {
             if case .completed(let dual, _) = event {
                 gotCompleted = true
-                // DualMessage should contain the raw analysis text
-                #expect(!dual.rawAnalysis.isEmpty)
+                #expect(dual.rawAnalysis.isEmpty)
             }
         }
 
@@ -784,37 +710,6 @@ struct ChatCoordinatorPersistenceTests {
             notesUI: NotesUIState()
         )
         return (coordinator, chatState, pipeline, bootstrap)
-    }
-
-    private func makeLaymanDualMessage() -> DualMessage {
-        DualMessage(
-            rawAnalysis: "Full raw analysis",
-            uncertaintyTags: [],
-            modelVsDataFlags: [],
-            laymanSummary: LaymanSummary(
-                whatWasTried: "Compared the evidence",
-                whatIsLikelyTrue: "The claim is likely true",
-                confidenceExplanation: "Multiple signals aligned",
-                whatCouldChange: "New contradictory data",
-                whoShouldTrust: "Researchers familiar with the topic",
-                sectionLabels: nil
-            ),
-            reflection: nil,
-            arbitration: nil
-        )
-    }
-
-    private func makeTruthAssessment() -> TruthAssessment {
-        TruthAssessment(
-            overallTruthLikelihood: 0.84,
-            signalInterpretation: "Strongly supported",
-            weaknesses: [],
-            improvements: [],
-            blindSpots: [],
-            confidenceCalibration: "Calibrated",
-            dataVsModelBalance: "Balanced",
-            recommendedActions: []
-        )
     }
 
     @Test("research persistence coordinator reuses the shared bootstrap")
@@ -1075,8 +970,7 @@ struct ChatCoordinatorPersistenceTests {
         let stream = pipeline.run(
             query: "What is truth?",
             mode: .api,
-            notesContext: nil,
-            skipEnrichment: true
+            notesContext: nil
         )
         for try await _ in stream {}
 
@@ -1090,8 +984,7 @@ struct ChatCoordinatorPersistenceTests {
         let streamWithNotes = pipeline.run(
             query: "Compare this with today",
             mode: .api,
-            notesContext: "### Referenced Note: Alpha\nAlpha full body",
-            skipEnrichment: true
+            notesContext: "### Referenced Note: Alpha\nAlpha full body"
         )
         for try await _ in streamWithNotes {}
 
@@ -1101,72 +994,8 @@ struct ChatCoordinatorPersistenceTests {
         #expect(mock.streamCalls[0].prompt.contains("Compare this with today"))
     }
 
-    @Test("persistEnrichment updates the same saved assistant message by id")
-    func persistEnrichmentUpdatesSavedAssistantMessageById() throws {
-        let container = try makeContainer()
-        let context = container.mainContext
-        let coordinator = makeCoordinator(container: container)
-
-        let chatId = "chat-persist"
-        let assistantId = "assistant-persist"
-
-        let completedMessage = ChatMessage(
-            id: assistantId,
-            chatId: chatId,
-            role: .assistant,
-            content: "Initial answer",
-            mode: .api,
-            reasoningText: "Thinking...",
-            reasoningDuration: 1.25
-        )
-
-        coordinator.persistChatCompletion(
-            chatId: chatId,
-            query: "What does the evidence show?",
-            answer: "Initial answer",
-            dual: nil,
-            truth: nil,
-            confidence: nil,
-            grade: nil,
-            mode: .api,
-            assistantMessage: completedMessage
-        )
-
-        let enrichedMessage = ChatMessage(
-            id: assistantId,
-            chatId: chatId,
-            role: .assistant,
-            content: "Initial answer",
-            dualMessage: makeLaymanDualMessage(),
-            truthAssessment: makeTruthAssessment(),
-            confidence: 0.84,
-            evidenceGrade: .b,
-            mode: .api,
-            reasoningText: "Thinking...",
-            reasoningDuration: 1.25
-        )
-
-        coordinator.persistEnrichment(
-            chatId: chatId,
-            messageId: assistantId,
-            dualMessage: makeLaymanDualMessage(),
-            truthAssessment: makeTruthAssessment(),
-            message: enrichedMessage
-        )
-
-        let chats = try context.fetch(FetchDescriptor<SDChat>())
-        let chat = try #require(chats.first)
-        let assistantMessages = (chat.messages ?? []).filter { $0.role == "assistant" }
-        let savedAssistant = try #require(assistantMessages.first)
-
-        #expect(assistantMessages.count == 1)
-        #expect(savedAssistant.id == assistantId)
-        #expect(savedAssistant.dualMessageData != nil)
-        #expect(savedAssistant.truthAssessmentData != nil)
-    }
-
-    @Test("persisted assistant messages no longer carry runtime reasoning metadata")
-    func persistedAssistantMessagesDoNotCarryReasoningMetadata() throws {
+    @Test("persisted assistant messages keep only plain inference metadata")
+    func persistedAssistantMessagesKeepOnlyPlainInferenceMetadata() throws {
         let container = try makeContainer()
         let context = container.mainContext
         let coordinator = makeCoordinator(container: container)
@@ -1176,26 +1005,19 @@ struct ChatCoordinatorPersistenceTests {
             chatId: "chat-no-reasoning",
             role: .assistant,
             content: "Plain answer",
-            mode: .api,
-            reasoningText: "Old thinking text",
-            reasoningDuration: 2.0
+            mode: .api
         )
 
         coordinator.persistChatCompletion(
             chatId: "chat-no-reasoning",
             query: "What matters here?",
             answer: "Plain answer",
-            dual: nil,
-            truth: nil,
-            confidence: nil,
-            grade: nil,
             mode: .api,
             assistantMessage: assistantMessage
         )
 
         let saved = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first { $0.role == "assistant" })
-        #expect(saved.reasoningText == nil)
-        #expect(saved.reasoningDuration == nil)
+        #expect(saved.inferenceMode == InferenceMode.api.rawValue)
     }
 
     @Test("persistChatCompletion preserves user message ordering when chat reloads")
@@ -1228,10 +1050,6 @@ struct ChatCoordinatorPersistenceTests {
             chatId: chatId,
             query: userMessage.content,
             answer: assistantMessage.content,
-            dual: nil,
-            truth: nil,
-            confidence: nil,
-            grade: nil,
             mode: .local,
             assistantMessage: assistantMessage
         )
@@ -1287,10 +1105,6 @@ struct ChatCoordinatorPersistenceTests {
             chatId: "chat-context",
             query: userMessage.content,
             answer: assistantMessage.content,
-            dual: nil,
-            truth: nil,
-            confidence: nil,
-            grade: nil,
             mode: .local,
             assistantMessage: assistantMessage
         )
@@ -1315,17 +1129,13 @@ struct ChatCoordinatorPersistenceTests {
             chatId: "chat-42",
             query: "Bayesian updating",
             answer: "Here is the answer.",
-            dual: nil,
-            truth: nil,
-            confidence: nil,
-            grade: nil,
             mode: .local,
             assistantMessage: nil
         )
 
         let chats = try context.fetch(FetchDescriptor<SDChat>())
         let chat = try #require(chats.first)
-        #expect(chat.hasDeepResearch != true)
+        #expect(chat.chatType == "chat")
     }
 
     @Test("vault briefing completes through the shared uncapped stream path")

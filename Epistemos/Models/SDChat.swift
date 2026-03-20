@@ -18,8 +18,6 @@ final class SDChat {
     // MARK: - Content
     var title: String = "New Chat"
     var chatType: String = "chat"       // "chat", "notes"
-    // Legacy persisted field kept for lightweight migration compatibility.
-    var hasDeepResearch: Bool? = false
     /// Page ID of the note this chat is linked to (note chats + cross-system association).
     var linkedPageId: String?
 

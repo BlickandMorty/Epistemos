@@ -27,7 +27,6 @@ final class AppBootstrap {
     let pipelineState = PipelineState()
     let uiState = UIState()
     let notesUI = NotesUIState()
-    let soarState = SOARState()
     let inferenceState: InferenceState
     let localModelManager: LocalModelManager
     let dailyBriefState = DailyBriefState()
@@ -56,7 +55,6 @@ final class AppBootstrap {
     let vaultSync: VaultSyncService
     let noteInsightService: NoteInsightService
     let pipelineService: PipelineService
-    let soarService: SOARService
 
     // MARK: - Coordinators
     private(set) var coordinator: AppCoordinator!
@@ -131,18 +129,13 @@ final class AppBootstrap {
         // NoteInsightService — on-device ML analysis for all notes
         self.noteInsightService = NoteInsightService(modelContainer: container)
 
-        // SOARService — teacher-student-reward learning engine
-        let soar = SOARService(soarState: soarState, llmService: llm, eventBus: eventBus)
-        self.soarService = soar
-
-        // PipelineService — 6-pass analytical engine
+        // PipelineService — direct local answer streaming
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: llm,
             triageService: triage,
             inference: inference,
-            eventBus: eventBus,
-            soarService: soar
+            eventBus: eventBus
         )
         self.pipelineService = pipeline
 
@@ -294,7 +287,6 @@ final class AppBootstrap {
     func resetAllData() {
         queryTask?.cancel()
         queryTask = nil
-        pipelineService.cancelAllEnrichment()
         ambientManifest = nil
 
         let context = modelContainer.mainContext
@@ -319,7 +311,6 @@ final class AppBootstrap {
             "epistemos.preferredLocalTextModelID",
             "epistemos.preferredLocalReasoningMode",
             "epistemos.showLocalThinkingPanel",
-            "epistemos.soar.config",
         ]
         InferenceState.purgeLegacyRemoteConfiguration(defaults: defaults)
         for key in keysToRemove {
@@ -327,7 +318,6 @@ final class AppBootstrap {
         }
 
         chatState.clearMessages()
-        soarState.reset()
         notesUI.resetForVaultSwitch()
         pipelineState.clearConcepts()
 

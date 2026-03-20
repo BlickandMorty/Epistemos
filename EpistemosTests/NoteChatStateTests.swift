@@ -176,6 +176,41 @@ struct NoteChatStateTests {
         #expect(capturedPrompt.contains("Rewrite this:"))
         #expect(capturedPrompt.contains("Original note body."))
     }
+
+    @Test("note chat stores only the sanitized assistant answer")
+    @MainActor func noteChatStoresOnlySanitizedAssistantAnswer() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        llm.streamTokens = [
+            "<think>I should inspect the framing.</think>",
+            "\n\nFinal Answer:\n",
+            "Treat it as a modern hegemonic label unless the source defines it more narrowly.",
+        ]
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-10")
+        state.noteBodyProvider = { "A note body." }
+        state.submitQuery("Explain this phrase.", triageService: triage)
+
+        for _ in 0..<50 where state.isStreaming {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(
+            state.responseText
+                == "Treat it as a modern hegemonic label unless the source defines it more narrowly."
+        )
+        #expect(state.messages.count == 2)
+        #expect(
+            state.messages.last?.content
+                == "Treat it as a modern hegemonic label unless the source defines it more narrowly."
+        )
+    }
 }
 
 @MainActor
@@ -212,12 +247,12 @@ private final class SlowStreamingLLMClient: LLMClientProtocol {
         )
     }
 
-    func enrichmentSnapshot() -> LLMSnapshot { configSnapshot() }
 }
 
 @MainActor
 private final class CapturingStreamingLLMClient: LLMClientProtocol {
     private(set) var lastStreamPrompt: String?
+    var streamTokens: [String] = ["ok"]
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
         "unused"
@@ -226,8 +261,13 @@ private final class CapturingStreamingLLMClient: LLMClientProtocol {
     func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
         lastStreamPrompt = prompt
         return AsyncThrowingStream { continuation in
-            continuation.yield("ok")
-            continuation.finish()
+            let tokens = streamTokens
+            Task {
+                for token in tokens {
+                    continuation.yield(token)
+                }
+                continuation.finish()
+            }
         }
     }
 
@@ -243,5 +283,4 @@ private final class CapturingStreamingLLMClient: LLMClientProtocol {
         )
     }
 
-    func enrichmentSnapshot() -> LLMSnapshot { configSnapshot() }
 }

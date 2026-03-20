@@ -783,7 +783,7 @@ struct ThemePairTests {
         let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
 
         #expect(chatView.contains("TaggedMarkdownTextView("))
-        #expect(chatView.contains("content: chat.streamingText + (chat.isStreaming ? \" ▍\" : \"\")"))
+        #expect(chatView.contains("UserFacingModelOutput.streamingVisibleText"))
         #expect(!chatView.contains("ThinkingAccordion"))
         #expect(!chatView.contains("chat.isReasoning"))
         #expect(!messageBubble.contains("ThinkingAccordion"))
@@ -795,11 +795,12 @@ struct ThemePairTests {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
 
-        #expect(landingView.contains("AnchoredPopoverButton("))
+        #expect(landingView.contains("InferenceControlPopoverButton("))
         #expect(rootView.contains("AnchoredPopoverButton("))
-        #expect(!landingView.contains("private var landingRoutingMenu: some View {\n        Menu {"))
+        #expect(!landingView.contains("private var landingInferenceControl: some View {\n        Menu {"))
         #expect(!rootView.contains("private var modelToolbarButton: some View {\n        Menu {"))
-        #expect(rootView.contains("Toggle(\"\", isOn: automaticSelectionBinding)"))
+        #expect(rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
+        #expect(rootView.contains(".pickerStyle(.segmented)"))
         #expect(rootView.contains(".assistantPopoverChrome("))
         #expect(rootView.contains("struct InferenceControlPopoverButton: View"))
     }
@@ -860,6 +861,58 @@ struct ThemePairTests {
         #expect(!landing.contains("Confidence:"))
         #expect(!landing.contains("confidence scores"))
         #expect(!landing.contains("evidence grades"))
+    }
+
+    @Test("Live runtime no longer keeps enrichment or SOAR hooks in the chat path")
+    func liveRuntimeDropsEnrichmentAndSOARHooks() throws {
+        let pipeline = try loadTextFile("Epistemos/Engine/PipelineService.swift")
+        let coordinator = try loadTextFile("Epistemos/App/ChatCoordinator.swift")
+        let chatState = try loadTextFile("Epistemos/State/ChatState.swift")
+        let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
+        let environment = try loadTextFile("Epistemos/App/AppEnvironment.swift")
+        let appCoordinator = try loadTextFile("Epistemos/App/AppCoordinator.swift")
+        let engineTypes = try loadTextFile("Epistemos/Models/EngineTypes.swift")
+        let eventBus = try loadTextFile("Epistemos/State/EventBus.swift")
+
+        #expect(!pipeline.contains("EnrichmentController"))
+        #expect(!pipeline.contains("soarService"))
+        #expect(!pipeline.contains("skipEnrichment"))
+        #expect(!pipeline.contains("onEnriched"))
+        #expect(!pipeline.contains("cancelAllEnrichment"))
+
+        #expect(!coordinator.contains("case .enriched"))
+        #expect(!coordinator.contains("case .soarEvent"))
+        #expect(!coordinator.contains("persistEnrichment("))
+        #expect(!coordinator.contains("persistableDualMessage"))
+
+        #expect(!chatState.contains("EnrichmentController.parseConceptsTag"))
+        #expect(!chatState.contains("enrichMessage("))
+        #expect(!chatState.contains("enrichLastMessage("))
+
+        #expect(!bootstrap.contains("let soarState"))
+        #expect(!bootstrap.contains("let soarService"))
+        #expect(!bootstrap.contains("cancelAllEnrichment()"))
+        #expect(!environment.contains(".environment(bootstrap.soarState)"))
+        #expect(!appCoordinator.contains(".epistemicLens"))
+        #expect(!appCoordinator.contains("cancelAllEnrichment()"))
+        #expect(!engineTypes.contains("case enriched("))
+        #expect(!engineTypes.contains("case soarEvent("))
+        #expect(!eventBus.contains("case soarEvent("))
+    }
+
+    @Test("Chat chrome no longer carries enrichment-era cards or confidence overlays")
+    func chatChromeDropsEnrichmentPanels() throws {
+        let bubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        let learningIntents = try loadTextFile("Epistemos/Intents/Custom/LearningIntents.swift")
+        let project = try loadTextFile("Epistemos.xcodeproj/project.pbxproj")
+
+        #expect(!bubble.contains("laymanSummarySections"))
+        #expect(!bubble.contains("EpistemicLensPanel"))
+        #expect(!bubble.contains("ReflectionCard"))
+        #expect(!bubble.contains("TruthAssessmentCard"))
+        #expect(!bubble.contains("ConsensusReportCard"))
+        #expect(!project.contains("ConfidenceOverlay.swift"))
+        #expect(!learningIntents.contains(".epistemicLens"))
     }
 
     @Test("Toolbar control metrics stay compact and boxy inside the outer pill")
@@ -932,7 +985,7 @@ struct ThemePairTests {
 
         #expect(miniChat.contains("ChatCoordinator.resolveAttachedContext("))
         #expect(miniChat.contains("loadedNoteTitles: notesContext.loadedNoteTitles"))
-        #expect(miniChat.contains("contextAttachments: currentThread?.contextAttachments"))
+        #expect(miniChat.contains("contextAttachments: attachments"))
         #expect(threadState.contains("func addActiveThreadContextAttachment(_ attachment: ContextAttachment)"))
     }
 
@@ -956,7 +1009,7 @@ struct ThemePairTests {
     func commandPaletteUsesSharedAttachmentPickerAndResolver() throws {
         let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
 
-        #expect(commandPalette.contains("NotesMentionDropdown("))
+        #expect(commandPalette.contains("ComposerReferencePopover("))
         #expect(commandPalette.contains("ChatCoordinator.searchReferenceResults("))
         #expect(commandPalette.contains("ChatCoordinator.resolveAttachedContext("))
         #expect(commandPalette.contains("threadState.addActiveThreadContextAttachment("))
@@ -1270,7 +1323,7 @@ struct ThemePairTests {
 
         #expect(settings.contains("Routing Mode"))
         #expect(settings.contains("Active Local Model"))
-        #expect(settings.contains("Show Thinking Panel"))
+        #expect(!settings.contains("Show Thinking Panel"))
         #expect(!settings.contains("Automatic Model Selection"))
         #expect(!settings.contains("Local Response Mode"))
         #expect(inferenceState.contains("Qwen 3.5"))

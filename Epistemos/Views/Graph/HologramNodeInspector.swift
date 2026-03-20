@@ -768,16 +768,19 @@ struct HologramNodeInspector: View {
     // MARK: - Chat Row
 
     private func chatRow(_ message: InspectorChatMessage) -> some View {
-        HStack(alignment: .top, spacing: 0) {
+        let displayText = message.role == .assistant
+            ? UserFacingModelOutput.finalVisibleText(from: message.text)
+            : message.text
+        return HStack(alignment: .top, spacing: 0) {
             if message.role == .user { Spacer(minLength: 48) }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
-                if message.role == .assistant && message.text.isEmpty {
+                if message.role == .assistant && displayText.isEmpty {
                     ProgressView()
                         .controlSize(.small)
                         .frame(minWidth: 40, minHeight: 20)
                 } else {
-                    Text(message.text)
+                    Text(displayText)
                         .font(.callout)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)

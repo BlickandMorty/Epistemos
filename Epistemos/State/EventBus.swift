@@ -4,10 +4,7 @@ import Observation
 // MARK: - App Event
 
 enum AppEvent: Sendable {
-    case signalUpdate(SignalUpdate)
-    case stageComplete(PipelineStage)
     case pipelineComplete
-    case soarEvent(SOAREvent)
     case error(String)
     case toast(String, ToastType)
     case vaultChanged
@@ -97,7 +94,6 @@ enum AnySendable: Sendable {
     case int(Int)
     case double(Double)
     case bool(Bool)
-    case probe(LearnabilityProbe)
     case array([AnySendable])
     case dictionary([String: AnySendable])
 }

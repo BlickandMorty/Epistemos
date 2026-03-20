@@ -2,9 +2,8 @@ import Foundation
 import SwiftData
 
 // MARK: - SDMessage
-// Chat message with full analysis metadata. Replaces v2's MessageRecord (GRDB).
-// Rich analysis data (DualMessage, TruthAssessment) stored as JSON-encoded Data
-// because these are complex nested Codable types that SwiftData can't natively index.
+// Chat message model. Replaces v2's MessageRecord (GRDB).
+// Legacy analysis blobs remain JSON-encoded for lightweight migration compatibility.
 //
 // CloudKit-compatible: all properties optional or defaulted.
 
@@ -30,12 +29,6 @@ final class SDMessage {
     var confidenceScore: Double?
     var safetyState: String?            // "green", "yellow", "orange", "red"
     var inferenceMode: String?          // "local", "api", "appleIntelligence"
-    var reasoningText: String?
-    var reasoningDuration: Double?
-    // Legacy persisted fields kept for lightweight migration compatibility.
-    var isResearchResult: Bool = false
-    var researchDuration: Double?
-    var researchStartTime: Date?
 
     // MARK: - Attachments
     var attachmentsData: Data?          // Encoded [FileAttachment]
@@ -143,8 +136,6 @@ final class SDMessage {
             mode: inferenceMode.flatMap(InferenceMode.init(rawValue:)),
             attachments: decodedAttachments(),
             createdAt: createdAt,
-            reasoningText: reasoningText,
-            reasoningDuration: reasoningDuration,
             loadedNoteTitles: decodedLoadedNoteTitles(),
             contextAttachments: decodedContextAttachments()
         )

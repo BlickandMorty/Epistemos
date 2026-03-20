@@ -9,7 +9,6 @@ protocol LLMClientProtocol: AnyObject {
     func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error>
     func testConnection() async -> ConnectionTestResult
     func configSnapshot() -> LLMSnapshot
-    func enrichmentSnapshot() -> LLMSnapshot
 }
 
 @MainActor
@@ -166,10 +165,6 @@ final class LLMService: LLMClientProtocol {
     }
 
     func configSnapshot() -> LLMSnapshot {
-        resolvedSnapshot()
-    }
-
-    func enrichmentSnapshot() -> LLMSnapshot {
         resolvedSnapshot()
     }
 

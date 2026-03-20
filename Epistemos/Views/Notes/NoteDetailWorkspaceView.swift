@@ -1553,7 +1553,10 @@ struct NoteDetailWorkspaceView: View {
                 } else {
                     Button {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(noteChatState.responseText, forType: .string)
+                        NSPasteboard.general.setString(
+                            UserFacingModelOutput.finalVisibleText(from: noteChatState.responseText),
+                            forType: .string
+                        )
                     } label: {
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 10, weight: .medium))
@@ -1570,10 +1573,13 @@ struct NoteDetailWorkspaceView: View {
             Divider().opacity(0.3)
 
             ScrollView {
-                if noteChatState.responseText.isEmpty && noteChatState.isStreaming {
+                let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(from: noteChatState.responseText)
+                let visibleFinalText = UserFacingModelOutput.finalVisibleText(from: noteChatState.responseText)
+
+                if visibleStreamingText.isEmpty && noteChatState.isStreaming {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Thinking\u{2026}")
+                        Text("Responding\u{2026}")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
@@ -1581,7 +1587,7 @@ struct NoteDetailWorkspaceView: View {
                     .padding(16)
                 } else {
                     Text(
-                        noteChatState.responseText
+                        (noteChatState.isStreaming ? visibleStreamingText : visibleFinalText)
                             + (noteChatState.isStreaming ? " \u{258D}" : "")
                     )
                     .font(.system(size: 13))

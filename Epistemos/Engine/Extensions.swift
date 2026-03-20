@@ -35,14 +35,14 @@ nonisolated enum ThinkingPreludeSyntax {
     ]
 
     private static let answerMarkers = [
-        "\nFinal Answer:",
-        "\nAnswer:",
-        "\nFinal Response:",
-        "\nResponse:",
-        "\n## Final Answer",
-        "\n## Answer",
-        "\n**Final Answer:**",
-        "\n**Answer:**",
+        "Final Answer:",
+        "Answer:",
+        "Final Response:",
+        "Response:",
+        "## Final Answer",
+        "## Answer",
+        "**Final Answer:**",
+        "**Answer:**",
     ]
 
     private static let proseOpeningCues = [
@@ -109,7 +109,30 @@ nonisolated enum ThinkingPreludeSyntax {
     }
 
     static func answerMatch(in text: String) -> Range<String.Index>? {
-        firstMatch(in: text, markers: answerMarkers, range: text.startIndex..<text.endIndex, anchored: false)
+        let searchRange = text.startIndex..<text.endIndex
+        var lineStart = searchRange.lowerBound
+
+        while lineStart < searchRange.upperBound {
+            let contentStart = text[lineStart...]
+                .firstIndex(where: { !$0.isWhitespace && !$0.isNewline })
+                ?? searchRange.upperBound
+            if contentStart < searchRange.upperBound,
+               let match = firstMatch(
+                   in: text,
+                   markers: answerMarkers,
+                   range: contentStart..<searchRange.upperBound,
+                   anchored: true
+               ) {
+                return match
+            }
+
+            guard let nextNewline = text[lineStart..<searchRange.upperBound].firstIndex(of: "\n") else {
+                break
+            }
+            lineStart = text.index(after: nextNewline)
+        }
+
+        return nil
     }
 
     static func proseOpeningDetected(in text: String) -> Bool {
@@ -460,6 +483,197 @@ extension String {
     nonisolated func trimmingLeadingWhitespaceAndNewlines() -> String {
         let trimmedStart = firstIndex(where: { !$0.isWhitespace && !$0.isNewline }) ?? endIndex
         return String(self[trimmedStart...])
+    }
+}
+
+nonisolated enum UserFacingModelOutput {
+    private static let reasoningParagraphPrefixes = [
+        "here's a thinking process",
+        "here is a thinking process",
+        "thinking process:",
+        "thought process:",
+        "reasoning:",
+        "deconstruct the request",
+        "analyze the request",
+        "analyze the input",
+        "implicit need:",
+        "correction/refinement:",
+        "most likely interpretation:",
+        "self-correction during drafting:",
+        "final review against safety guidelines:",
+        "refining the tone:",
+        "final answer:",
+        "final response:",
+        "answer:",
+        "response:",
+        "let's check if",
+        "lets check if",
+        "wait, one more possibility",
+        "wait, is it possible",
+        "wait, could it be",
+        "does this promote hate speech?",
+        "is it politically sensitive?",
+        "ensure i don't validate",
+        "maintain neutrality.",
+        "acknowledge the complexity.",
+        "topic:",
+        "comparison:",
+        "user query:",
+    ]
+
+    static func streamingVisibleText(from raw: String) -> String {
+        let cleaned = cleanedStreamingText(from: raw)
+        guard !cleaned.isEmpty else { return "" }
+
+        if let directAnswer = directAnswerText(in: cleaned) {
+            return directAnswer
+        }
+
+        guard containsReasoningArtifacts(raw: raw, cleaned: cleaned) else {
+            return cleaned
+        }
+
+        return ""
+    }
+
+    static func finalVisibleText(from raw: String) -> String {
+        let cleaned = cleanedVisibleText(from: raw, suppressIncompleteThinkingTail: true)
+        guard !cleaned.isEmpty else { return "" }
+
+        if let directAnswer = directAnswerText(in: cleaned) {
+            return directAnswer
+        }
+
+        let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
+        guard hasReasoningArtifacts else {
+            return cleaned
+        }
+
+        return bestAnswerCandidate(in: cleaned) ?? ""
+    }
+
+    private static func cleanedVisibleText(
+        from raw: String,
+        suppressIncompleteThinkingTail: Bool
+    ) -> String {
+        strippedThinkingArtifacts(
+            in: raw,
+            suppressIncompleteThinkingTail: suppressIncompleteThinkingTail
+        )
+        .replacingOccurrences(of: "\r\n", with: "\n")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func cleanedStreamingText(from raw: String) -> String {
+        strippedThinkingArtifacts(
+            in: raw,
+            suppressIncompleteThinkingTail: true
+        )
+        .replacingOccurrences(of: "\r\n", with: "\n")
+        .trimmingLeadingWhitespaceAndNewlines()
+    }
+
+    private static func strippedThinkingArtifacts(
+        in raw: String,
+        suppressIncompleteThinkingTail: Bool
+    ) -> String {
+        var cleaned = raw
+        while let match = ThinkingTagSyntax.openingMatch(in: cleaned) {
+            if let endRange = cleaned.range(
+                of: match.closingTag,
+                range: match.range.upperBound..<cleaned.endIndex
+            ) {
+                cleaned.removeSubrange(match.range.lowerBound..<endRange.upperBound)
+                continue
+            }
+
+            guard suppressIncompleteThinkingTail else { break }
+            cleaned.removeSubrange(match.range.lowerBound..<cleaned.endIndex)
+            break
+        }
+        return cleaned
+    }
+
+    private static func containsReasoningArtifacts(raw: String, cleaned: String) -> Bool {
+        if ThinkingTagSyntax.openingMatch(in: raw) != nil {
+            return true
+        }
+        if ThinkingPreludeSyntax.openingMatch(in: cleaned) != nil {
+            return true
+        }
+        if ThinkingPreludeSyntax.proseOpeningDetected(in: cleaned) {
+            return true
+        }
+
+        return paragraphs(in: cleaned).contains(where: isReasoningParagraph)
+    }
+
+    private static func directAnswerText(in text: String) -> String? {
+        guard let answerRange = ThinkingPreludeSyntax.answerMatch(in: text) else { return nil }
+        let answer = String(text[answerRange.upperBound...]).trimmingLeadingWhitespaceAndNewlines()
+        return answer.isEmpty ? nil : answer
+    }
+
+    private static func bestAnswerCandidate(in text: String) -> String? {
+        if let split = ThinkingPreludeSyntax.splitReasoningAndAnswer(in: text) {
+            let answer = split.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !answer.isEmpty {
+                return answer
+            }
+        }
+
+        if let salvaged = ThinkingPreludeSyntax.salvagedAnswer(in: text)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !salvaged.isEmpty,
+           !isReasoningParagraph(salvaged) {
+            return salvaged
+        }
+
+        let filteredParagraphs = paragraphs(in: text).filter { !isReasoningParagraph($0) }
+        if let lastParagraph = filteredParagraphs.last, !lastParagraph.isEmpty {
+            return lastParagraph
+        }
+
+        return nil
+    }
+
+    private static func paragraphs(in text: String) -> [String] {
+        text
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private static func isReasoningParagraph(_ paragraph: String) -> Bool {
+        let normalized = paragraph
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: "`", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !normalized.isEmpty else { return true }
+
+        if reasoningParagraphPrefixes.contains(where: { normalized.hasPrefix($0) }) {
+            return true
+        }
+
+        if normalized.hasPrefix("1.") || normalized.hasPrefix("2.") || normalized.hasPrefix("3.") {
+            return normalized.contains("deconstruct") || normalized.contains("analyze")
+        }
+
+        if normalized.hasPrefix("- ") || normalized.hasPrefix("• ") {
+            return normalized.contains("maintain neutrality") ||
+                normalized.contains("acknowledge the complexity") ||
+                normalized.contains("does this promote hate speech") ||
+                normalized.contains("is it politically sensitive")
+        }
+
+        if normalized.hasPrefix("wait,") || normalized.hasPrefix("let's ") || normalized.hasPrefix("lets ") {
+            return true
+        }
+
+        return false
     }
 }
 

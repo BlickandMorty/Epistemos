@@ -278,8 +278,7 @@ struct ConcurrencyStressTests {
                 Task { @MainActor in
                     let stream = pipeline.run(
                         query: "Query \(i)",
-                        mode: .api,
-                        skipEnrichment: true
+                        mode: .api
                     )
 
                     var received = 0
@@ -339,8 +338,7 @@ struct ConcurrencyStressTests {
                 let task = Task { @MainActor in
                     let stream = pipeline.run(
                         query: "Test \(i)",
-                        mode: .api,
-                        skipEnrichment: true
+                        mode: .api
                     )
                     for try await _ in stream {}
                 }

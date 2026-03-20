@@ -8,7 +8,7 @@ import SwiftData
 
 struct DeepAnalyzeIntent: AppIntent {
     nonisolated(unsafe) static var title: LocalizedStringResource = "Deep Analyze"
-    nonisolated(unsafe) static var description: IntentDescription = "Runs the full multi-pass analysis pipeline with evidence grading on a query or note."
+    nonisolated(unsafe) static var description: IntentDescription = "Runs a direct structured analysis on a query or note."
     nonisolated(unsafe) static var openAppWhenRun = true
 
     @Parameter(title: "Query")
@@ -20,46 +20,21 @@ struct DeepAnalyzeIntent: AppIntent {
     @MainActor
     func perform() async throws -> some ReturnsValue<AnalysisResultEntity> & ProvidesDialog {
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
-        let pipeline = PipelineService(
-            pipelineState: bootstrap.pipelineState,
-            llmService: bootstrap.llmService,
-            triageService: bootstrap.triageService,
-            inference: bootstrap.inferenceState,
-            eventBus: bootstrap.eventBus
+        let rawAnswer = try await bootstrap.triageService.generateGeneral(
+            prompt: query,
+            systemPrompt: "Analyze directly and answer clearly in plain markdown.",
+            operation: .structuredAnalysis,
+            contentLength: query.count
         )
 
-        // Consume the pipeline stream to get the completed/enriched result
-        var rawAnswer = ""
-        var truthAssessment: TruthAssessment?
-
-        let stream = pipeline.run(query: query, mode: .api)
-        for try await event in stream {
-            switch event {
-            case .textDelta(let token):
-                rawAnswer += token
-            case .enriched(_, let truth):
-                truthAssessment = truth
-            default:
-                break
-            }
-        }
-
-        let grade: String
-        let confidence: Double
-        if let truth = truthAssessment {
-            confidence = truth.overallTruthLikelihood
-            grade = confidence > 0.75 ? "A" : confidence > 0.55 ? "B" : confidence > 0.35 ? "C" : "D"
-        } else {
-            grade = "C"
-            confidence = 0.5
-        }
-
         let summary = String(rawAnswer.prefix(500))
-        let weaknesses = truthAssessment?.weaknesses.joined(separator: "; ") ?? ""
+        let weaknesses = ""
+        let confidence = 0.5
+        let grade = "C"
 
         if saveResult {
             let formatted = """
-            # Epistemic Lens: \(query)
+            # Analysis: \(query)
 
             **Grade:** \(grade) | **Confidence:** \(Int(confidence * 100))%
 
@@ -117,7 +92,7 @@ struct FindConnectionsIntent: AppIntent {
         let response = try await bootstrap.triageService.generateGeneral(
             prompt: fullPrompt,
             systemPrompt: "You are a knowledge graph analyst with access to the user's full vault index. Identify 3-5 non-obvious connections — shared concepts, contradictions, complementary ideas, and synthesis opportunities. Reference notes by title. Look beyond the detailed notes to spot patterns in the vault index too.",
-            operation: .epistemicLens,
+            operation: .structuredAnalysis,
             contentLength: fullPrompt.count
         )
 
@@ -165,7 +140,7 @@ struct GenerateQuestionsIntent: AppIntent {
         let response = try await bootstrap.triageService.generateGeneral(
             prompt: fullPrompt,
             systemPrompt: "You are a Socratic research advisor with access to the user's full vault. Generate 5 incisive questions that their notes don't yet answer. Challenge assumptions, probe gaps, suggest new angles. Consider the broader vault index for patterns they might be missing. Format: numbered list with a one-line 'Why it matters' for each.",
-            operation: .epistemicLens,
+            operation: .structuredAnalysis,
             contentLength: fullPrompt.count
         )
 

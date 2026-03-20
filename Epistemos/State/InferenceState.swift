@@ -299,7 +299,6 @@ final class InferenceState {
     var appleIntelligenceUnavailableReason: String?
 
     /// Max tokens for user-visible chat responses. 0 = no cap (model default, ~16k).
-    /// Enrichment passes (research mode) always use their own explicit limits.
     var chatOutputTokens: Int = 0
 
     init() {

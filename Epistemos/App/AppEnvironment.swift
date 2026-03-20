@@ -15,7 +15,6 @@ extension View {
             .environment(bootstrap.chatState)
             .environment(bootstrap.pipelineState)
             .environment(bootstrap.notesUI)
-            .environment(bootstrap.soarState)
             .environment(bootstrap.eventBus)
             .environment(bootstrap.inferenceState)
             .environment(bootstrap.localModelManager)

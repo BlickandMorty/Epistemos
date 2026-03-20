@@ -98,11 +98,11 @@ enum QueryAnalyzer {
         let isFollowUp = context?.previousQueries.isEmpty == false && isFollowUpQuery(query)
         let followUpFocus = isFollowUp ? extractFollowUpFocus(query) : nil
 
-        let enrichedQuery = isFollowUp && context != nil
+        let resolvedQuery = isFollowUp && context != nil
             ? "\(context?.rootQuestion ?? context?.previousQueries.first ?? query) — \(followUpFocus ?? query)"
             : query
 
-        let analysisText = enrichedQuery
+        let analysisText = resolvedQuery
 
         var domain: AnalysisDomain = .general
         for (pattern, d) in domainPatterns {

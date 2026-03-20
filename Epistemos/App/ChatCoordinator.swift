@@ -76,7 +76,7 @@ final class ChatCoordinator {
 
     // MARK: - Query Lifecycle
 
-    /// Process a user query through the 6-pass pipeline, streaming tokens back to ChatState.
+    /// Process a user query through the direct local answer path, streaming tokens back to ChatState.
     func handleQuery(_ query: String, pipeline: PipelineService, chatState: ChatState) {
         bootstrap.queryTask?.cancel()
 
@@ -92,7 +92,7 @@ final class ChatCoordinator {
             do {
                 let mode = inferenceState.inferenceMode
                 let hasVault = bootstrap.ambientManifest != nil
-                Log.pipeline.info("handleQuery — hasVault=\(hasVault) skipEnrichment=true")
+                Log.pipeline.info("handleQuery — hasVault=\(hasVault)")
 
                 let notesContext: String?
                 let resolvedQuery: String
@@ -146,11 +146,8 @@ final class ChatCoordinator {
                 let stream = pipeline.run(
                     query: effectiveQuery,
                     mode: mode,
-                    controls: .defaults,
                     notesContext: effectiveNotesContext,
-                    skipEnrichment: true,
-                    conversationHistory: conversationHistory,
-                    onEnriched: nil
+                    conversationHistory: conversationHistory
                 )
 
                 for try await event in stream {
@@ -158,23 +155,10 @@ final class ChatCoordinator {
                     case .textDelta(let token):
                         chatState.appendStreamingText(token)
 
-                    case .enriched:
-                        break
-
-                    case .stageAdvanced, .signalUpdate, .soarEvent:
-                        break
-
-                    case .completed(let dual, let truth):
-                        let dualMessage = Self.persistableDualMessage(from: dual, truth: truth)
-                        let confidence = truth?.overallTruthLikelihood
-                        let grade = confidence.map(Self.gradeFromConfidence)
+                    case .completed:
                         chatState.completeProcessing(
                             messageId: pendingAssistantId,
-                            dualMessage: dualMessage,
-                            confidence: confidence,
-                            grade: grade,
-                            mode: mode,
-                            truthAssessment: truth
+                            mode: mode
                         )
 
                         if let lastMsg = chatState.messages.last {
@@ -191,10 +175,6 @@ final class ChatCoordinator {
                                 chatId: capturedChatId,
                                 query: query,
                                 answer: chatState.messages.last?.content ?? "",
-                                dual: dualMessage,
-                                truth: truth,
-                                confidence: confidence,
-                                grade: grade,
                                 mode: mode,
                                 assistantMessage: chatState.messages.last,
                                 isNotes: hasVault
@@ -927,10 +907,6 @@ final class ChatCoordinator {
         chatId: String?,
         query: String,
         answer: String,
-        dual: DualMessage?,
-        truth: TruthAssessment?,
-        confidence: Double?,
-        grade: EvidenceGrade?,
         mode: InferenceMode,
         assistantMessage: ChatMessage?,
         isNotes: Bool = false
@@ -981,13 +957,7 @@ final class ChatCoordinator {
             loadedNoteTitles: assistantMessage?.loadedNoteTitles,
             contextAttachments: assistantMessage?.contextAttachments
         )
-        assistantMsg.updateAnalysis(
-            dualMessage: dual,
-            truthAssessment: truth,
-            confidence: confidence,
-            evidenceGrade: grade,
-            mode: mode
-        )
+        assistantMsg.inferenceMode = mode.rawValue
         assistantMsg.chat = chat
         context.insert(assistantMsg)
 
@@ -1028,42 +998,6 @@ final class ChatCoordinator {
         }
     }
 
-    func persistEnrichment(
-        chatId: String?,
-        messageId: String,
-        dualMessage: DualMessage,
-        truthAssessment: TruthAssessment,
-        message: ChatMessage?
-    ) {
-        guard let chatId else { return }
-        let context = modelContainer.mainContext
-
-        // Look up the specific message by ID, not the "latest assistant message",
-        // to avoid enrichment being saved to the wrong message during rapid queries.
-        let msgPredicate = #Predicate<SDMessage> { $0.id == messageId }
-        let msgDescriptor = FetchDescriptor<SDMessage>(predicate: msgPredicate)
-        guard let lastAssistant = try? context.fetch(msgDescriptor).first else {
-            Log.db.warning("persistEnrichment: no message found with id \(messageId.prefix(8), privacy: .public) for chat \(chatId, privacy: .public)")
-            return
-        }
-
-        let grade = Self.gradeFromConfidence(truthAssessment.overallTruthLikelihood)
-        lastAssistant.updateAnalysis(
-            dualMessage: dualMessage,
-            truthAssessment: truthAssessment,
-            confidence: truthAssessment.overallTruthLikelihood,
-            evidenceGrade: grade,
-            mode: message?.mode ?? lastAssistant.inferenceMode.flatMap(InferenceMode.init(rawValue:))
-        )
-
-        do {
-            try context.save()
-            Log.db.info("Persisted enrichment for chat \(chatId, privacy: .public)")
-        } catch {
-            Log.db.error("Failed to persist enrichment: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
     static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade {
         switch confidence {
         case 0.85...: .a
@@ -1072,23 +1006,6 @@ final class ChatCoordinator {
         case 0.30..<0.50: .d
         default: .f
         }
-    }
-
-    private static func persistableDualMessage(
-        from dual: DualMessage,
-        truth: TruthAssessment?
-    ) -> DualMessage? {
-        guard truth != nil ||
-            !dual.rawAnalysis.isEmpty ||
-            !dual.uncertaintyTags.isEmpty ||
-            !dual.modelVsDataFlags.isEmpty ||
-            dual.laymanSummary != nil ||
-            dual.reflection != nil ||
-            dual.arbitration != nil
-        else {
-            return nil
-        }
-        return dual
     }
 
     // MARK: - Cross-System Note Association

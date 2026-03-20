@@ -137,7 +137,7 @@ final class AppCoordinator {
             return try? await self.triageService.generateGeneral(
                 prompt: prompt,
                 systemPrompt: deepSystemPrompt,
-                operation: .epistemicLens,
+                operation: .structuredAnalysis,
                 contentLength: prompt.count
             )
         }
@@ -231,7 +231,6 @@ final class AppCoordinator {
     func cancelActiveQuery() {
         bootstrap.queryTask?.cancel()
         bootstrap.queryTask = nil
-        pipelineService.cancelAllEnrichment()
     }
 
     func requestVaultBriefing(chatState: ChatState) {

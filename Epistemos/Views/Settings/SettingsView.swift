@@ -49,10 +49,10 @@ struct SettingsView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .ignoresSafeArea(.container, edges: .top)
-        .overlay(alignment: .topLeading) {
-            sidebarToggleButton
-                .padding(.leading, 78)
-                .padding(.top, 12)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                sidebarToggleButton
+            }
         }
     }
 

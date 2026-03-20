@@ -280,14 +280,6 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         )
     }
 
-    func enrichmentSnapshot() -> LLMSnapshot {
-        LLMSnapshot(
-            provider: .localMLX,
-            model: inference.effectiveLocalTextModelID ?? "",
-            reasoningMode: .fast
-        )
-    }
-
     private func resolvedRequest(
         prompt: String,
         systemPrompt: String?,

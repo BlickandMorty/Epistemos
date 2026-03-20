@@ -10,7 +10,9 @@ private enum ChatPresentationFormatter {
 
     nonisolated static func displayContent(for message: ChatMessage) -> String {
         let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard message.role == .user else { return trimmed }
+        guard message.role == .user else {
+            return UserFacingModelOutput.finalVisibleText(from: trimmed)
+        }
 
         let fullRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
         let stripped = userModePrefixRegex.stringByReplacingMatches(
@@ -199,8 +201,8 @@ struct ChatView: View {
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
                 .onAppear {
-                    transcriptRows = makeChatTranscriptRows(from: chat.messages)
                     Task { @MainActor in
+                        transcriptRows = makeChatTranscriptRows(from: chat.messages)
                         autoFollow.markProgrammaticScrollToBottom()
                         proxy.scrollTo("bottom-anchor", anchor: .bottom)
                     }
@@ -235,7 +237,8 @@ struct ChatView: View {
     private func exportChat() {
         let lines = chat.messages.map { msg in
             let role = msg.role == .user ? "You" : "Assistant"
-            return "## \(role)\n\n\(msg.content)"
+            let content = ChatPresentationFormatter.displayContent(for: msg)
+            return "## \(role)\n\n\(content)"
         }
         let md = "# Chat Export — \(Date().formatted(date: .abbreviated, time: .omitted))\n\n\(lines.joined(separator: "\n\n---\n\n"))"
 
@@ -263,26 +266,27 @@ private struct StreamingIndicator: View {
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
-        // Streaming text is shown identically for regular and research mode.
-        // Research enrichment cards appear on the completed message (non-blocking).
         streamingView
     }
 
     private var streamingView: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            if ChatStreamingDisplayPolicy.showsLiveResponseText, !chat.streamingText.isEmpty {
+            let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(from: chat.streamingText)
+            let finalStreamingText = UserFacingModelOutput.finalVisibleText(from: chat.streamingText)
+
+            if ChatStreamingDisplayPolicy.showsLiveResponseText, !visibleStreamingText.isEmpty {
                 TaggedMarkdownTextView(
-                    content: chat.streamingText + (chat.isStreaming ? " ▍" : ""),
+                    content: visibleStreamingText + (chat.isStreaming ? " ▍" : ""),
                     theme: theme
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
-            } else if !chat.isStreaming, !chat.streamingText.isEmpty {
-                TaggedMarkdownTextView(content: chat.streamingText, theme: theme)
+            } else if !chat.isStreaming, !finalStreamingText.isEmpty {
+                TaggedMarkdownTextView(content: finalStreamingText, theme: theme)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 // Idle dots while we wait for the first streamed text chunk.
                 HStack(spacing: 4) {
-                    Text("Thinking")
+                    Text("Responding")
                         .font(.epCaption)
                         .foregroundStyle(theme.mutedForeground.opacity(0.6))
                     ForEach(0..<3) { i in

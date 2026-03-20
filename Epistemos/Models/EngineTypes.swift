@@ -260,41 +260,15 @@ struct SignalHistoryEntry: Codable, Sendable {
     var healthScore: Double
 }
 
-// MARK: - Pipeline Controls
-
-struct PipelineControls: Codable, Sendable {
-    var focusDepthOverride: Double?
-    var temperatureOverride: Double?
-    var complexityBias: Double
-    var adversarialIntensity: Double
-    var bayesianPriorStrength: Double
-    var conceptWeights: [String: Double]?
-
-    static let `default` = PipelineControls(
-        focusDepthOverride: nil,
-        temperatureOverride: nil,
-        complexityBias: 0.0,
-        adversarialIntensity: 1.0,
-        bayesianPriorStrength: 1.0,
-        conceptWeights: nil
-    )
-
-    static let defaults = PipelineControls.default
-}
-
 // MARK: - Pipeline Events
 
 enum PipelineEvent: Sendable {
-    case stageAdvanced(PipelineStage, StageResult)
     case textDelta(String)
-    case signalUpdate(SignalUpdate)
     case completed(DualMessage, TruthAssessment?)
-    case enriched(DualMessage, TruthAssessment)
     case error(String)
-    case soarEvent(SOAREventType, [String: AnySendable])
 }
 
-// MARK: - Evidence & Analysis
+// MARK: - Evidence
 
 enum EvidenceGrade: String, Codable, Sendable {
     case a = "A"
@@ -302,13 +276,6 @@ enum EvidenceGrade: String, Codable, Sendable {
     case c = "C"
     case d = "D"
     case f = "F"
-}
-
-enum AnalysisMode: String, Codable, Sendable {
-    case metaAnalytical = "meta-analytical"
-    case philosophicalAnalytical = "philosophical-analytical"
-    case executive
-    case moderate
 }
 
 // MARK: - Inference Mode
@@ -341,62 +308,10 @@ enum AttachmentType: String, Codable, Sendable {
     case other
 }
 
-// MARK: - Reroute (Mid-Stream Cognitive Redirection)
-
-enum RerouteType: String, Codable, Sendable, CaseIterable {
-    case focus
-    case explore
-    case challenge
-    case synthesize
-    case simplify
-
-    nonisolated var label: String {
-        switch self {
-        case .focus: "Focus"
-        case .explore: "Explore"
-        case .challenge: "Challenge"
-        case .synthesize: "Synthesize"
-        case .simplify: "Simplify"
-        }
-    }
-
-    nonisolated var icon: String {
-        switch self {
-        case .focus: "scope"
-        case .explore: "arrow.trianglehead.branch"
-        case .challenge: "shield.lefthalf.filled.trianglebadge.exclamationmark"
-        case .synthesize: "arrow.triangle.merge"
-        case .simplify: "rectangle.compress.vertical"
-        }
-    }
-
-    nonisolated var prompt: String {
-        switch self {
-        case .focus: "Narrow down on key evidence and the strongest arguments. Cut tangential threads."
-        case .explore: "Branch out to related areas, adjacent domains, and alternative framings."
-        case .challenge: "Apply adversarial scrutiny. What are the strongest counter-arguments?"
-        case .synthesize: "Combine findings into a unified conclusion. Reconcile tensions."
-        case .simplify: "Reduce complexity. Express the core insight as plainly as possible."
-        }
-    }
-}
-
-struct RerouteInstruction: Codable, Sendable {
-    var type: RerouteType
-    var detail: String?
-}
-
 // MARK: - Conversation Context
 
 struct ConversationContext: Codable, Sendable {
     var previousQueries: [String]
     var previousEntities: [String]
     var rootQuestion: String?
-}
-
-// MARK: - Analytical Mode (for prompt composer)
-
-enum AnalyticalMode: String, Sendable {
-    case research
-    case plain
 }

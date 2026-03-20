@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Chat Domain Types
-// DualMessage, TruthAssessment, FileAttachment are defined in EngineTypes.swift
+// DualMessage, TruthAssessment, and FileAttachment are defined in EngineTypes.swift.
 
 enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
     case note
@@ -47,8 +47,6 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var attachments: [FileAttachment]
     var isError: Bool
     var createdAt: Date
-    var reasoningText: String?
-    var reasoningDuration: Double?
     var isVaultBriefing: Bool
     var loadedNoteTitles: [String]?
     var contextAttachments: [ContextAttachment]?
@@ -66,8 +64,6 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         attachments: [FileAttachment] = [],
         isError: Bool = false,
         createdAt: Date = .now,
-        reasoningText: String? = nil,
-        reasoningDuration: Double? = nil,
         isVaultBriefing: Bool = false,
         loadedNoteTitles: [String]? = nil,
         contextAttachments: [ContextAttachment]? = nil
@@ -84,8 +80,6 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.attachments = attachments
         self.isError = isError
         self.createdAt = createdAt
-        self.reasoningText = reasoningText
-        self.reasoningDuration = reasoningDuration
         self.isVaultBriefing = isVaultBriefing
         self.loadedNoteTitles = loadedNoteTitles
         self.contextAttachments = contextAttachments

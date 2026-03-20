@@ -2,13 +2,11 @@ import SwiftData
 import SwiftUI
 
 // MARK: - MiniChat View
-// Floating chat panel with thread tabs + input.
+// Floating single-thread chat panel with input.
 
 struct MiniChatView: View {
     @Environment(UIState.self) private var ui
     @Environment(ThreadState.self) private var threadState
-
-    @State private var showRecentChats = false
 
     private var theme: EpistemosTheme { ui.theme }
     private let surfaceMetrics = AssistantSurfaceMetrics.popout
@@ -16,25 +14,15 @@ struct MiniChatView: View {
     var body: some View {
         AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics) {
             VStack(spacing: 0) {
-                MiniChatTabBar(showRecentChats: $showRecentChats)
-                miniChatDivider
-                if showRecentChats {
-                    MiniChatRecentChats(showRecentChats: $showRecentChats)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                } else {
-                    MiniChatThread()
-                        .transition(.opacity)
-                }
+                MiniChatThread()
                 miniChatDivider
                 MiniChatInputBar()
             }
         }
-        .animation(Motion.snap, value: showRecentChats)
         .frame(width: 400, height: 520)
         .onAppear {
             Task { @MainActor in
-                guard threadState.chatThreads.isEmpty else { return }
-                threadState.createThread(label: "Chat 1")
+                threadState.ensureMiniChatThread()
             }
         }
     }
@@ -45,116 +33,6 @@ struct MiniChatView: View {
             .frame(height: 0.5)
             .padding(.horizontal, 2)
             .padding(.vertical, 8)
-    }
-}
-
-// MARK: - Tab Bar
-
-private struct MiniChatTabBar: View {
-    @Environment(UIState.self) private var ui
-    @Environment(ThreadState.self) private var threadState
-    @Binding var showRecentChats: Bool
-
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        HStack(spacing: 0) {
-            // Recent chats toggle
-            Button {
-                withAnimation(Motion.snap) {
-                    showRecentChats.toggle()
-                }
-            } label: {
-                Image(systemName: showRecentChats ? "sidebar.left" : "clock.arrow.circlepath")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(showRecentChats ? theme.foreground : theme.mutedForeground)
-                    .frame(width: 14, height: 14)
-            }
-            .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
-            .help("Recent Chats")
-            .accessibilityLabel("Recent Chats")
-
-            Rectangle()
-                .fill(theme.glassBorder.opacity(0.55))
-                .frame(width: 0.5, height: 18)
-                .padding(.horizontal, 8)
-
-            // Scrollable thread tabs
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(threadState.chatThreads) { thread in
-                        ThreadTab(
-                            thread: thread,
-                            isActive: thread.id == threadState.activeThreadId
-                        )
-                        .onTapGesture { threadState.setActiveThread(thread.id) }
-                    }
-                }
-                .padding(.horizontal, 4)
-            }
-
-            Spacer(minLength: 0)
-
-            // New thread
-            Button {
-                let count = threadState.chatThreads.count + 1
-                threadState.createThread(label: "Chat \(count)")
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(theme.mutedForeground)
-                    .frame(width: 14, height: 14)
-            }
-            .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
-            .help("New Chat")
-            .accessibilityLabel("New Chat")
-        }
-        .padding(.horizontal, 2)
-        .frame(height: 42)
-    }
-}
-
-// MARK: - Thread Tab
-
-private struct ThreadTab: View {
-    let thread: ChatThread
-    let isActive: Bool
-
-    @Environment(UIState.self) private var ui
-    @Environment(ThreadState.self) private var threadState
-    @State private var isHovered = false
-
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Text(thread.label)
-                .font(.system(size: 11, weight: isActive ? .semibold : .regular))
-                .foregroundStyle(isActive ? theme.foreground : theme.mutedForeground)
-                .lineLimit(1)
-                .frame(maxWidth: 90)
-
-            Button {
-                threadState.closeThread(thread.id)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(theme.mutedForeground)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close tab")
-            .opacity(isActive || isHovered ? 1 : 0)
-            .animation(Motion.quick, value: isActive || isHovered)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill((isActive ? theme.accent : theme.textSecondary).opacity(isActive || isHovered ? 0.85 : 0))
-                .frame(height: 1)
-        }
-        .animation(Motion.quick, value: isActive)
-        .onHover { isHovered = $0 }
     }
 }
 
@@ -170,12 +48,12 @@ private struct MiniChatThread: View {
 
     private var theme: EpistemosTheme { ui.theme }
 
-    private var activeThread: ChatThread? {
-        threadState.activeThread()
+    private var miniChatThread: ChatThread? {
+        threadState.miniChatThread()
     }
 
     private var hasContent: Bool {
-        if let thread = activeThread, !thread.messages.isEmpty { return true }
+        if let thread = miniChatThread, !thread.messages.isEmpty { return true }
         return threadState.miniChatIsStreaming
     }
 
@@ -185,7 +63,7 @@ private struct MiniChatThread: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 10) {
-                            if let thread = activeThread {
+                            if let thread = miniChatThread {
                                 ForEach(thread.messages) { msg in
                                     MiniChatBubble(message: msg)
                                         .id(msg.id)
@@ -194,16 +72,19 @@ private struct MiniChatThread: View {
 
                             // Live streaming bubble
                             if threadState.miniChatIsStreaming {
+                                let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(
+                                    from: threadState.miniChatStreamingText
+                                )
                                 VStack(alignment: .leading, spacing: 0) {
-                                    if threadState.miniChatStreamingText.isEmpty {
+                                    if visibleStreamingText.isEmpty {
                                         HStack(spacing: 6) {
                                             ProgressView().controlSize(.small)
-                                            Text("Thinking…")
+                                            Text("Responding…")
                                                 .font(.system(size: 12))
                                                 .foregroundStyle(theme.mutedForeground)
                                         }
                                     } else {
-                                        MarkdownTextView(content: threadState.miniChatStreamingText + " ▍", theme: theme)
+                                        MarkdownTextView(content: visibleStreamingText + " ▍", theme: theme)
                                             .font(.system(size: 13))
                                             .textSelection(.enabled)
                                     }
@@ -228,7 +109,7 @@ private struct MiniChatThread: View {
                         guard nextState != autoFollow else { return }
                         autoFollow = nextState
                     }
-                    .onChange(of: activeThread?.messages.count) { _, _ in
+                    .onChange(of: miniChatThread?.messages.count) { _, _ in
                         guard autoFollow.isFollowingBottom else { return }
                         autoFollow.markProgrammaticScrollToBottom()
                         withAnimation(Motion.quick) {
@@ -279,10 +160,13 @@ private struct MiniChatBubble: View {
     private var isUser: Bool { message.role == .user }
 
     var body: some View {
+        let displayContent = message.role == .assistant
+            ? UserFacingModelOutput.finalVisibleText(from: message.content)
+            : message.content
         if isUser {
             HStack {
                 Spacer(minLength: 24)
-                Text(message.content)
+                Text(displayContent)
                     .font(.system(size: 13))
                     .foregroundStyle(theme.foreground)
                     .textSelection(.enabled)
@@ -290,13 +174,13 @@ private struct MiniChatBubble: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                MarkdownTextView(content: message.content, theme: theme)
+                MarkdownTextView(content: displayContent, theme: theme)
                     .font(.system(size: 13))
                     .textSelection(.enabled)
 
                 AssistantSourcesFooter(
                     sources: AssistantSourceReference.extract(
-                        from: message.content,
+                        from: displayContent,
                         noteTitles: message.loadedNoteTitles ?? []
                     ),
                     theme: theme,
@@ -487,15 +371,19 @@ private struct MiniChatInputBar: View {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing
     }
 
+    private var miniChatThread: ChatThread? {
+        threadState.miniChatThread()
+    }
+
     private var activeContextAttachments: [ContextAttachment] {
-        threadState.activeThread()?.contextAttachments ?? []
+        miniChatThread?.contextAttachments ?? []
     }
 
     private var explicitScopedPageID: String? {
         if let attachedPageID = activeContextAttachments.first(where: { $0.kind == .note })?.targetId {
             return attachedPageID
         }
-        return threadState.activeThread()?.pageId
+        return miniChatThread?.pageId
     }
 
     private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
@@ -599,7 +487,7 @@ private struct MiniChatInputBar: View {
                             .font(.epSmall)
                             .lineLimit(1)
                         Button {
-                            threadState.removeActiveThreadContextAttachment(attachment.id)
+                            threadState.removeMiniChatContextAttachment(attachment.id)
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.epSmall)
@@ -752,7 +640,7 @@ private struct MiniChatInputBar: View {
         }
 
         // Show action as user message
-        threadState.addThreadMessage(AssistantMessage(role: .user, content: "✨ \(actionLabel): \(pageTitle)"))
+        threadState.addMiniChatMessage(AssistantMessage(role: .user, content: "✨ \(actionLabel): \(pageTitle)"))
         isProcessing = true
         threadState.miniChatIsStreaming = true
         threadState.miniChatStreamingText = ""
@@ -775,7 +663,7 @@ private struct MiniChatInputBar: View {
                     threadState.miniChatStreamingText = accumulated
                 }
 
-                let final = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+                let final = UserFacingModelOutput.finalVisibleText(from: accumulated)
                 threadState.miniChatStreamingText = ""
 
                 // Auto-apply certain actions
@@ -786,20 +674,20 @@ private struct MiniChatInputBar: View {
                     page.updatedAt = .now
                 }
 
-                threadState.addThreadMessage(AssistantMessage(
+                threadState.addMiniChatMessage(AssistantMessage(
                     role: .assistant,
                     content: final.isEmpty ? "No response generated." : final
                 ))
 
             } catch is CancellationError {
-                let partial = threadState.miniChatStreamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let partial = UserFacingModelOutput.finalVisibleText(from: threadState.miniChatStreamingText)
                 threadState.miniChatStreamingText = ""
                 if !partial.isEmpty {
-                    threadState.addThreadMessage(AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"))
+                    threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"))
                 }
             } catch {
                 threadState.miniChatStreamingText = ""
-                threadState.addThreadMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
+                threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
             }
         }
     }
@@ -834,7 +722,7 @@ private struct MiniChatInputBar: View {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isProcessing else { return }
 
-        threadState.addThreadMessage(AssistantMessage(role: .user, content: trimmed))
+        threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed))
         text = ""
         isProcessing = true
         threadState.miniChatIsStreaming = true
@@ -846,51 +734,60 @@ private struct MiniChatInputBar: View {
                 threadState.miniChatIsStreaming = false
             }
             do {
-                // Build context from active note + vault search
                 let page = activePage()
-                let currentThread = threadState.activeThread()
+                let currentThread = threadState.miniChatThread()
+                let attachments = currentThread?.contextAttachments ?? []
 
-                let notesContext = await ChatCoordinator.resolveAttachedContext(
-                    query: trimmed,
-                    attachments: currentThread?.contextAttachments ?? [],
-                    manifest: AppBootstrap.shared?.ambientManifest,
-                    loadedNoteIds: Set(currentThread?.loadedNoteIds ?? []),
-                    loadedNoteTitles: currentThread?.loadedNoteTitles ?? [],
-                    includeAllNotesContext: false,
-                    findNotesByTitle: { title in
-                        await vaultSync.findNotesByTitle(title)
-                    },
-                    fetchNoteBodies: { ids in
-                        await vaultSync.fetchNoteBodies(ids: ids)
-                    },
-                    searchNoteIDs: { query in
-                        await vaultSync.searchIndex(query: query)
-                    },
-                    fetchChatMessages: { [self] chatID in
-                        await MainActor.run {
-                            if let thread = threadState.chatThreads.first(where: { $0.id == chatID }) {
-                                return thread.messages
-                            }
-                            let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
-                            guard let chat = try? modelContext.fetch(descriptor).first else { return [] }
-                            return chat.sortedMessages.map { message in
-                                AssistantMessage(
-                                    role: message.role == "user" ? .user : .assistant,
-                                    content: message.content,
-                                    createdAt: message.createdAt
-                                )
+                let notesContext: ChatCoordinator.AttachedContextResolution
+                if ChatCoordinator.queryContainsExplicitNoteContext(trimmed) || !attachments.isEmpty {
+                    notesContext = await ChatCoordinator.resolveAttachedContext(
+                        query: trimmed,
+                        attachments: attachments,
+                        manifest: AppBootstrap.shared?.ambientManifest,
+                        loadedNoteIds: Set(currentThread?.loadedNoteIds ?? []),
+                        loadedNoteTitles: currentThread?.loadedNoteTitles ?? [],
+                        includeAllNotesContext: false,
+                        findNotesByTitle: { title in
+                            await vaultSync.findNotesByTitle(title)
+                        },
+                        fetchNoteBodies: { ids in
+                            await vaultSync.fetchNoteBodies(ids: ids)
+                        },
+                        searchNoteIDs: { query in
+                            await vaultSync.searchIndex(query: query)
+                        },
+                        fetchChatMessages: { [self] chatID in
+                            await MainActor.run {
+                                if let thread = threadState.chatThreads.first(where: { $0.id == chatID }) {
+                                    return thread.messages
+                                }
+                                let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
+                                guard let chat = try? modelContext.fetch(descriptor).first else { return [] }
+                                return chat.sortedMessages.map { message in
+                                    AssistantMessage(
+                                        role: message.role == "user" ? .user : .assistant,
+                                        content: message.content,
+                                        createdAt: message.createdAt
+                                    )
+                                }
                             }
                         }
-                    }
-                )
-                threadState.updateActiveThreadLoadedNotes(
+                    )
+                } else {
+                    notesContext = .init(
+                        context: nil,
+                        cleanedQuery: trimmed,
+                        loadedNoteIds: [],
+                        loadedNoteTitles: []
+                    )
+                }
+                threadState.updateMiniChatLoadedNotes(
                     ids: notesContext.loadedNoteIds,
                     titles: notesContext.loadedNoteTitles
                 )
 
                 // Build conversation-aware prompt from thread history
-                let activeThread = threadState.chatThreads.first { $0.id == threadState.activeThreadId }
-                let allMessages = activeThread?.messages ?? []
+                let allMessages = threadState.miniChatThread()?.messages ?? []
 
                 var promptParts: [String] = []
                 if let context = notesContext.context {
@@ -922,7 +819,7 @@ private struct MiniChatInputBar: View {
                     threadState.miniChatStreamingText = accumulated
                 }
 
-                var final = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+                var final = UserFacingModelOutput.finalVisibleText(from: accumulated)
                 threadState.miniChatStreamingText = ""
 
                 // Parse and execute any action markers
@@ -930,22 +827,22 @@ private struct MiniChatInputBar: View {
                     final = executeActions(in: final, page: page)
                 }
 
-                threadState.addThreadMessage(AssistantMessage(
+                threadState.addMiniChatMessage(AssistantMessage(
                     role: .assistant,
                     content: final.isEmpty ? "No response generated." : final,
                     loadedNoteTitles: notesContext.loadedNoteTitles,
-                    contextAttachments: currentThread?.contextAttachments
+                    contextAttachments: attachments
                 ))
 
             } catch is CancellationError {
-                let partial = threadState.miniChatStreamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let partial = UserFacingModelOutput.finalVisibleText(from: threadState.miniChatStreamingText)
                 threadState.miniChatStreamingText = ""
                 if !partial.isEmpty {
-                    threadState.addThreadMessage(AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"))
+                    threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"))
                 }
             } catch {
                 threadState.miniChatStreamingText = ""
-                threadState.addThreadMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
+                threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
             }
         }
     }
@@ -1020,7 +917,7 @@ private struct MiniChatInputBar: View {
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
-        threadState.addActiveThreadContextAttachment(
+        threadState.addMiniChatContextAttachment(
             ComposerReferenceHelpers.contextAttachment(for: choice)
         )
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
@@ -1039,7 +936,7 @@ private struct MiniChatInputBar: View {
     }
 
     private func attachVaultContext() {
-        threadState.addActiveThreadContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
+        threadState.addMiniChatContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
     }
 
     private func updateMentionReferenceSearch(filter: String) {
@@ -1093,227 +990,6 @@ private struct QuickActionChip: View {
             .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-    }
-}
-
-// MARK: - Recent Chats Drawer
-
-private struct MiniChatRecentChats: View {
-    @Environment(UIState.self) private var ui
-    @Environment(ThreadState.self) private var threadState
-    @Environment(\.modelContext) private var modelContext
-    @Binding var showRecentChats: Bool
-    @State private var mainChats: [SDChat] = []
-
-    private var theme: EpistemosTheme { ui.theme }
-
-    // Show existing mini-chat threads
-    private var recentThreads: [ChatThread] {
-        threadState.chatThreads.filter { !$0.messages.isEmpty }
-    }
-
-    private var hasContent: Bool {
-        !recentThreads.isEmpty || !mainChats.isEmpty
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !hasContent {
-                VStack(spacing: 8) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 24, weight: .light))
-                        .foregroundStyle(theme.mutedForeground.opacity(0.3))
-                    Text("No saved chats")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.mutedForeground.opacity(0.4))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        // Main chat history (persisted via SwiftData)
-                        if !mainChats.isEmpty {
-                            HStack {
-                                Text("MAIN CHATS")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(theme.mutedForeground.opacity(0.7))
-                                    .tracking(0.5)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 10)
-                            .padding(.bottom, 6)
-
-                            ForEach(mainChats, id: \.id) { sdChat in
-                                MainChatRow(sdChat: sdChat) {
-                                    loadSDChatIntoThread(sdChat)
-                                }
-                                Divider()
-                                    .padding(.leading, 16)
-                                    .opacity(0.4)
-                            }
-                        }
-
-                        // Mini-chat threads
-                        if !recentThreads.isEmpty {
-                            HStack {
-                                Text("QUICK CHATS")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(theme.mutedForeground.opacity(0.7))
-                                    .tracking(0.5)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 10)
-                            .padding(.bottom, 6)
-
-                            ForEach(recentThreads) { thread in
-                                RecentChatRow(thread: thread) {
-                                    threadState.setActiveThread(thread.id)
-                                    withAnimation { showRecentChats = false }
-                                }
-                                Divider()
-                                    .padding(.leading, 16)
-                                    .opacity(0.4)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { loadMainChats() }
-    }
-
-    private func loadMainChats() {
-        var descriptor = FetchDescriptor<SDChat>(
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 20
-        mainChats = (try? modelContext.fetch(descriptor)) ?? []
-    }
-
-    private func loadSDChatIntoThread(_ sdChat: SDChat) {
-        let sorted = sdChat.sortedMessages
-        let messages = sorted.map { msg in
-            AssistantMessage(
-                role: msg.role == "user" ? .user : .assistant,
-                content: msg.content,
-                createdAt: msg.createdAt
-            )
-        }
-        let threadId = threadState.createThread(type: "chat", label: sdChat.title)
-        for msg in messages {
-            threadState.addThreadMessage(msg, threadId: threadId)
-        }
-        threadState.setActiveThread(threadId)
-        withAnimation { showRecentChats = false }
-    }
-}
-
-private struct MainChatRow: View {
-    let sdChat: SDChat
-    let action: () -> Void
-
-    @Environment(UIState.self) private var ui
-    @State private var isHovered = false
-    private var theme: EpistemosTheme { ui.theme }
-
-    private var messageCount: Int { sdChat.sortedMessages.count }
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(sdChat.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(theme.foreground)
-                        .lineLimit(1)
-                    if let last = sdChat.sortedMessages.last {
-                        Text(last.content.prefix(60))
-                            .font(.system(size: 11))
-                            .foregroundStyle(theme.mutedForeground)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(relativeDate(sdChat.updatedAt))
-                        .font(.system(size: 9))
-                        .foregroundStyle(theme.textTertiary)
-                    Text("\(messageCount) msgs")
-                        .font(.system(size: 9))
-                        .foregroundStyle(theme.textTertiary)
-                        .monospacedDigit()
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10))
-                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(
-            isHovered ? theme.foreground.opacity(0.06) : Color.clear,
-            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-        )
-        .onHover { isHovered = $0 }
-    }
-
-    private func relativeDate(_ date: Date) -> String {
-        let diff = Date.now.timeIntervalSince(date)
-        if diff < 60 { return "Just now" }
-        if diff < 3600 { return "\(Int(diff / 60))m ago" }
-        if diff < 86400 { return "\(Int(diff / 3600))h ago" }
-        if diff < 604800 { return "\(Int(diff / 86400))d ago" }
-        return date.formatted(.dateTime.month(.abbreviated).day())
-    }
-}
-
-private struct RecentChatRow: View {
-    let thread: ChatThread
-    let action: () -> Void
-
-    @Environment(UIState.self) private var ui
-    @State private var isHovered = false
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(thread.label)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(theme.foreground)
-                        .lineLimit(1)
-                    if let lastMsg = thread.messages.last {
-                        Text(lastMsg.content.prefix(60))
-                            .font(.system(size: 11))
-                            .foregroundStyle(theme.mutedForeground)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer()
-                Text("\(thread.messages.count)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(theme.textTertiary)
-                    .monospacedDigit()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10))
-                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(
-            isHovered ? theme.foreground.opacity(0.06) : Color.clear,
-            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-        )
         .onHover { isHovered = $0 }
     }
 }

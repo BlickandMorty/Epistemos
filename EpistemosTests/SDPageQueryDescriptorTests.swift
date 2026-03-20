@@ -313,31 +313,8 @@ struct SDPageQueryDescriptorTests {
         #expect(page.ideas.map(\.title) == ["Second"])
     }
 
-    @Test("chat message mapping preserves legacy reasoning metadata")
-    func chatMessageMappingPreservesLegacyReasoningMetadata() throws {
-        let container = try makeContainer()
-        let context = container.mainContext
-
-        let chat = SDChat(title: "General", chatType: "chat")
-        let message = SDMessage(role: "assistant", content: "Answer")
-
-        message.reasoningText = "Thinking..."
-        message.reasoningDuration = 2.5
-        message.chat = chat
-
-        context.insert(chat)
-        context.insert(message)
-        try context.save()
-
-        let fetched = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first)
-        let mapped = fetched.chatMessage(chatId: chat.id)
-
-        #expect(mapped.reasoningText == "Thinking...")
-        #expect(mapped.reasoningDuration == 2.5)
-    }
-
-    @Test("sd chat loaded messages preserve legacy enriched reasoning metadata")
-    func sdChatLoadedMessagesPreserveLegacyReasoningMetadata() throws {
+    @Test("sd chat loaded messages preserve legacy analysis metadata")
+    func sdChatLoadedMessagesPreserveLegacyAnalysisMetadata() throws {
         let container = try makeContainer()
         let context = container.mainContext
 
@@ -377,8 +354,6 @@ struct SDPageQueryDescriptorTests {
             evidenceGrade: .b,
             mode: .api
         )
-        message.reasoningText = "Thinking..."
-        message.reasoningDuration = 3.5
         message.chat = chat
 
         context.insert(chat)
@@ -389,7 +364,8 @@ struct SDPageQueryDescriptorTests {
         let mapped = try #require(fetched.loadedMessages.first)
 
         #expect(mapped.dualMessage?.laymanSummary?.whatWasTried == "Tried")
-        #expect(mapped.reasoningText == "Thinking...")
-        #expect(mapped.reasoningDuration == 3.5)
+        #expect(mapped.truthAssessment?.overallTruthLikelihood == 0.82)
+        #expect(mapped.evidenceGrade == .b)
+        #expect(mapped.mode == .api)
     }
 }

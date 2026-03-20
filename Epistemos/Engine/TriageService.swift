@@ -52,14 +52,12 @@ nonisolated enum NotesOperation: Sendable {
 /// Classifies non-notes AI operations for triage routing.
 nonisolated enum GeneralOperation: Sendable {
     case chatResponse(query: String)  // 0.35 — user-facing streaming answer
-    case epistemicLens                    // 0.65 — multi-paragraph analytical prose
     case brainstorm                   // 0.25 — creative, short output
     case structuredAnalysis           // 1.00 — structured local-only analysis
 
     var baseComplexity: Double {
         switch self {
         case .chatResponse: 0.35
-        case .epistemicLens:    0.65
         case .brainstorm:   0.25
         case .structuredAnalysis: 1.00
         }
@@ -68,7 +66,6 @@ nonisolated enum GeneralOperation: Sendable {
     var displayName: String {
         switch self {
         case .chatResponse: "Chat Response"
-        case .epistemicLens:    "Epistemic Lens"
         case .brainstorm:   "Brainstorm"
         case .structuredAnalysis: "Structured Analysis"
         }
@@ -637,16 +634,20 @@ final class TriageService {
 
         switch triageDecision {
         case .appleIntelligence:
-            return appleIntelligenceStreamWithFallback(
+            return userFacingStream(
+                appleIntelligenceStreamWithFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 localSelection: decision.localSelection
+                )
             )
         case .localMLX:
-            return localStreamOrFallback(
+            return userFacingStream(
+                localStreamOrFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 selection: decision.localSelection
+                )
             )
         }
     }
@@ -679,28 +680,28 @@ final class TriageService {
                 if Self.shouldRetryWithLocalModel(result) {
                     Log.engine.info("Apple Intelligence response inadequate, falling back to local Qwen")
                     lastDecision = .localMLX
-                    return try await localGenerateOrFallback(
+                    return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
                         selection: decision.localSelection
-                    )
+                    ))
                 }
-                return result
+                return UserFacingModelOutput.finalVisibleText(from: result)
             } catch {
                 Log.engine.warning("Apple Intelligence failed, falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
                 lastDecision = .localMLX
-                return try await localGenerateOrFallback(
+                return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
                     selection: decision.localSelection
-                )
+                ))
             }
         case .localMLX:
-            return try await localGenerateOrFallback(
+            return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 selection: decision.localSelection
-            )
+            ))
         }
     }
 
@@ -742,16 +743,20 @@ final class TriageService {
 
         switch triageDecision {
         case .appleIntelligence:
-            return appleIntelligenceStreamWithFallback(
+            return userFacingStream(
+                appleIntelligenceStreamWithFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 localSelection: decision.localSelection
+                )
             )
         case .localMLX:
-            return localStreamOrFallback(
+            return userFacingStream(
+                localStreamOrFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 selection: decision.localSelection
+                )
             )
         }
     }
@@ -782,28 +787,28 @@ final class TriageService {
                 if Self.shouldRetryWithLocalModel(result) {
                     Log.engine.info("Apple Intelligence response inadequate (general), falling back to local Qwen")
                     lastDecision = .localMLX
-                    return try await localGenerateOrFallback(
+                    return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
                         selection: decision.localSelection
-                    )
+                    ))
                 }
-                return result
+                return UserFacingModelOutput.finalVisibleText(from: result)
             } catch {
                 Log.engine.warning("Apple Intelligence failed (general), falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
                 lastDecision = .localMLX
-                return try await localGenerateOrFallback(
+                return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
                     selection: decision.localSelection
-                )
+                ))
             }
         case .localMLX:
-            return try await localGenerateOrFallback(
+            return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 selection: decision.localSelection
-            )
+            ))
         }
     }
 
@@ -1068,7 +1073,7 @@ final class TriageService {
         switch operation {
         case .chatResponse:
             return inferredTaskIntent(from: queryText, surface: surface)
-        case .epistemicLens, .structuredAnalysis:
+        case .structuredAnalysis:
             return .structuredAnalysis
         case .brainstorm:
             return .brainstorm
@@ -1185,6 +1190,54 @@ final class TriageService {
                     for try await chunk in stream {
                         continuation.yield(chunk)
                     }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func userFacingStream(
+        _ upstream: AsyncThrowingStream<String, Error>
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                var rawText = ""
+                var emittedVisibleText = ""
+
+                do {
+                    for try await chunk in upstream {
+                        rawText += chunk
+                        let visibleText = UserFacingModelOutput.streamingVisibleText(from: rawText)
+                        guard visibleText.hasPrefix(emittedVisibleText) else { continue }
+
+                        let deltaStart = visibleText.index(
+                            visibleText.startIndex,
+                            offsetBy: emittedVisibleText.count
+                        )
+                        let delta = String(visibleText[deltaStart...])
+                        if !delta.isEmpty {
+                            emittedVisibleText = visibleText
+                            continuation.yield(delta)
+                        }
+                    }
+
+                    let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)
+                    if finalVisibleText.hasPrefix(emittedVisibleText) {
+                        let deltaStart = finalVisibleText.index(
+                            finalVisibleText.startIndex,
+                            offsetBy: emittedVisibleText.count
+                        )
+                        let delta = String(finalVisibleText[deltaStart...])
+                        if !delta.isEmpty {
+                            continuation.yield(delta)
+                        }
+                    } else if emittedVisibleText.isEmpty, !finalVisibleText.isEmpty {
+                        continuation.yield(finalVisibleText)
+                    }
+
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)

@@ -68,6 +68,9 @@ struct NoteChatSidebar: View {
     }
 
     private func messageRow(_ msg: AssistantMessage) -> some View {
+        let displayContent = msg.role == .assistant
+            ? UserFacingModelOutput.finalVisibleText(from: msg.content)
+            : msg.content
         return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Text(msg.role == .user ? "You" : "Assistant")
@@ -79,7 +82,7 @@ struct NoteChatSidebar: View {
                     .font(.system(size: 9))
                     .foregroundStyle(theme.textTertiary.opacity(0.5))
             }
-            Text(msg.content)
+            Text(displayContent)
                 .font(.system(size: 12))
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)

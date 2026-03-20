@@ -564,17 +564,20 @@ struct CommandPaletteOverlay: View {
                     }
 
                     if threadState.paletteIsStreaming {
+                        let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(
+                            from: threadState.paletteStreamingText
+                        )
                         VStack(alignment: .leading, spacing: 0) {
-                            if threadState.paletteStreamingText.isEmpty {
+                            if visibleStreamingText.isEmpty {
                                 HStack(spacing: 6) {
                                     ProgressView().controlSize(.small)
-                                    Text("Thinking\u{2026}")
+                                    Text("Responding\u{2026}")
                                         .font(.system(size: 12))
                                         .foregroundStyle(theme.mutedForeground)
                                 }
                             } else {
                                 MarkdownTextView(
-                                    content: threadState.paletteStreamingText + " \u{258D}",
+                                    content: visibleStreamingText + " \u{258D}",
                                     theme: theme
                                 )
                                 .font(.system(size: 13))
@@ -771,38 +774,48 @@ struct CommandPaletteOverlay: View {
                 let attachments = activeContextAttachments.isEmpty
                     ? lockedScopedPageAttachment.map { [$0] } ?? []
                     : activeContextAttachments
-                let notesContext = await ChatCoordinator.resolveAttachedContext(
-                    query: trimmed,
-                    attachments: attachments,
-                    manifest: AppBootstrap.shared?.ambientManifest,
-                    loadedNoteIds: [],
-                    loadedNoteTitles: [],
-                    includeAllNotesContext: false,
-                    findNotesByTitle: { [vaultSync] title in
-                        await vaultSync.findNotesByTitle(title)
-                    },
-                    fetchNoteBodies: { [vaultSync] ids in
-                        await vaultSync.fetchNoteBodies(ids: ids)
-                    },
-                    searchNoteIDs: { [vaultSync] query in
-                        await vaultSync.searchIndex(query: query)
-                    },
-                    fetchChatMessages: { [self] chatID in
-                        await MainActor.run {
-                            if let thread = threadState.chatThreads.first(where: { $0.id == chatID }) {
-                                return thread.messages
-                            }
-                            guard let chat = allChats.first(where: { $0.id == chatID }) else { return [] }
-                            return chat.sortedMessages.map { message in
-                                AssistantMessage(
-                                    role: message.role == "user" ? .user : .assistant,
-                                    content: message.content,
-                                    createdAt: message.createdAt
-                                )
+                let notesContext: ChatCoordinator.AttachedContextResolution
+                if ChatCoordinator.queryContainsExplicitNoteContext(trimmed) || !attachments.isEmpty {
+                    notesContext = await ChatCoordinator.resolveAttachedContext(
+                        query: trimmed,
+                        attachments: attachments,
+                        manifest: AppBootstrap.shared?.ambientManifest,
+                        loadedNoteIds: [],
+                        loadedNoteTitles: [],
+                        includeAllNotesContext: false,
+                        findNotesByTitle: { [vaultSync] title in
+                            await vaultSync.findNotesByTitle(title)
+                        },
+                        fetchNoteBodies: { [vaultSync] ids in
+                            await vaultSync.fetchNoteBodies(ids: ids)
+                        },
+                        searchNoteIDs: { [vaultSync] query in
+                            await vaultSync.searchIndex(query: query)
+                        },
+                        fetchChatMessages: { [self] chatID in
+                            await MainActor.run {
+                                if let thread = threadState.chatThreads.first(where: { $0.id == chatID }) {
+                                    return thread.messages
+                                }
+                                guard let chat = allChats.first(where: { $0.id == chatID }) else { return [] }
+                                return chat.sortedMessages.map { message in
+                                    AssistantMessage(
+                                        role: message.role == "user" ? .user : .assistant,
+                                        content: message.content,
+                                        createdAt: message.createdAt
+                                    )
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                } else {
+                    notesContext = .init(
+                        context: nil,
+                        cleanedQuery: trimmed,
+                        loadedNoteIds: [],
+                        loadedNoteTitles: []
+                    )
+                }
                 threadState.updateActiveThreadLoadedNotes(
                     ids: notesContext.loadedNoteIds,
                     titles: notesContext.loadedNoteTitles
@@ -844,7 +857,7 @@ struct CommandPaletteOverlay: View {
                 // Guard: cancelStream() may have already handled this
                 guard threadState.paletteIsStreaming else { return }
 
-                var final = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+                var final = UserFacingModelOutput.finalVisibleText(from: accumulated)
                 threadState.paletteStreamingText = ""
 
                 // Parse and execute action markers
@@ -890,7 +903,7 @@ struct CommandPaletteOverlay: View {
         // Immediately clear streaming state so UI unblocks.
         // The cancelled task's defer block will also set this, but it may
         // be blocked waiting on the stream iterator — clear it now.
-        let partial = threadState.paletteStreamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let partial = UserFacingModelOutput.finalVisibleText(from: threadState.paletteStreamingText)
         threadState.paletteStreamingText = ""
         threadState.paletteIsStreaming = false
         if !partial.isEmpty, let tid = activeTabId {
@@ -1459,10 +1472,13 @@ private struct PaletteChatBubble: View {
     private var isUser: Bool { message.role == .user }
 
     var body: some View {
+        let displayContent = message.role == .assistant
+            ? UserFacingModelOutput.finalVisibleText(from: message.content)
+            : message.content
         if isUser {
             HStack {
                 Spacer(minLength: 24)
-                Text(message.content)
+                Text(displayContent)
                     .font(.system(size: 13))
                     .foregroundStyle(theme.foreground)
                     .textSelection(.enabled)
@@ -1470,12 +1486,12 @@ private struct PaletteChatBubble: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                MarkdownTextView(content: message.content, theme: theme)
+                MarkdownTextView(content: displayContent, theme: theme)
                     .font(.system(size: 13))
                     .textSelection(.enabled)
 
                 AssistantSourcesFooter(
-                    sources: AssistantSourceReference.extract(from: message.content),
+                    sources: AssistantSourceReference.extract(from: displayContent),
                     theme: theme,
                     compact: true
                 )

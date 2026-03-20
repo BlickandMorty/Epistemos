@@ -442,7 +442,6 @@ final class TriageIntegrationMockLLMClient: LLMClientProtocol {
         )
     }
 
-    func enrichmentSnapshot() -> LLMSnapshot { configSnapshot() }
 }
 
 @Suite("TriageService Integration")
@@ -499,7 +498,6 @@ struct TriageServiceIntegrationTests {
                 contentLength: 5_000
             ) == .localMLX
         )
-        #expect(triage.triageGeneral(operation: .epistemicLens, contentLength: 500) == .localMLX)
         #expect(triage.triageGeneral(operation: .structuredAnalysis, contentLength: 10_000) == .localMLX)
     }
 
@@ -577,6 +575,65 @@ struct TriageServiceIntegrationTests {
         #expect(triage.lastDecision == .localMLX)
         #expect(llm.streamCalls.count == 1)
         #expect(llm.streamCalls[0].maxTokens == 0)
+    }
+
+    @Test("local generate strips reasoning artifacts before returning assistant text")
+    @MainActor func localGenerateStripsReasoningArtifacts() async throws {
+        let llm = TriageIntegrationMockLLMClient()
+        llm.generateResult = .success("""
+        <think>I should inspect the framing.</think>
+
+        Final Answer:
+        Use the more constrained interpretation unless the note context defines the term explicitly.
+        """)
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            routingMode: .localOnly,
+            localLLMService: llm
+        )
+
+        let output = try await triage.generateGeneral(
+            prompt: "Explain the phrase.",
+            systemPrompt: nil,
+            operation: .chatResponse(query: "Explain the phrase."),
+            contentLength: 19
+        )
+
+        #expect(
+            output == "Use the more constrained interpretation unless the note context defines the term explicitly."
+        )
+    }
+
+    @Test("local stream suppresses thinking prelude and emits the final answer only")
+    @MainActor func localStreamSuppressesThinkingPrelude() async {
+        let llm = TriageIntegrationMockLLMClient()
+        llm.streamTokens = [
+            "Thinking Process:\n",
+            "I should compare the historical and modern senses first.\n\n",
+            "Final Answer:\n",
+            "It usually refers to the modern US-led imperial order rather than the British Empire itself.",
+        ]
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            routingMode: .localOnly,
+            localLLMService: llm
+        )
+
+        let stream = triage.streamGeneral(
+            prompt: "Explain the phrase.",
+            systemPrompt: nil,
+            operation: .chatResponse(query: "Explain the phrase."),
+            contentLength: 19
+        )
+        let outcome = await LocalRuntimeSmokeSupport.collect(stream)
+
+        #expect(
+            outcome.tokens.joined()
+                == "It usually refers to the modern US-led imperial order rather than the British Empire itself."
+        )
+        #expect(outcome.error == nil)
     }
 
     @Test("missing local model throws in local only mode")
@@ -1182,15 +1239,15 @@ struct TriageServiceIntegrationTests {
 
 @Suite("LLMService Local Snapshots")
 struct LLMServiceLocalSnapshotTests {
-    @Test("enrichment snapshot keeps local mode fast")
-    @MainActor func enrichmentSnapshotKeepsFastMode() {
+    @Test("config snapshot keeps local mode fast")
+    @MainActor func configSnapshotKeepsFastMode() {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
 
         let llm = LLMService(inference: inference)
-        let snapshot = llm.enrichmentSnapshot()
+        let snapshot = llm.configSnapshot()
 
         #expect(snapshot.provider == .localMLX)
         #expect(snapshot.model == LocalTextModelID.qwen35_4B4Bit.rawValue)

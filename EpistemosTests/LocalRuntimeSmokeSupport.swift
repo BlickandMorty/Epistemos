@@ -90,8 +90,7 @@ enum LocalRuntimeSmokeSupport {
         var visibleText = ""
         for try await event in pipeline.run(
             query: "Explain why ice floats on water. Think through it first, then give the answer.",
-            mode: .api,
-            skipEnrichment: true
+            mode: .api
         ) {
             if case .textDelta(let delta) = event {
                 visibleText += delta

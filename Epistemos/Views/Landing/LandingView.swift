@@ -414,7 +414,7 @@ struct LandingView: View {
                         }
 
                         HStack(spacing: LandingSearchLayout.controlRowSpacing) {
-                            landingRoutingMenu
+                            landingInferenceControl
 
                             Spacer(minLength: 0)
 
@@ -523,7 +523,7 @@ struct LandingView: View {
         .buttonStyle(.plain)
     }
 
-    private var landingRoutingMenu: some View {
+    private var landingInferenceControl: some View {
         InferenceControlPopoverButton(
             titleStyle: .routing,
             variant: .toolbar,
@@ -744,9 +744,9 @@ struct LandingView: View {
         DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: recentChats(limit: 12))
     }
 
-    // MARK: - Go Deeper Prompt (metadata-rich)
+    // MARK: - Go Deeper Prompt
 
-    /// Builds an enriched prompt with full note/chat metadata for deep multi-perspective analysis.
+    /// Builds the follow-up daily brief prompt from current note and chat metadata.
     private func buildGoDeepPrompt() -> String {
         let recentChats = recentChats(limit: 10)
         let dateFormatter = DateFormatter()
