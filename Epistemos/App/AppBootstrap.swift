@@ -335,8 +335,6 @@ final class AppBootstrap {
         inferenceState.setPreferredLocalTextModelID(
             inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
         )
-        inferenceState.setPreferredLocalReasoningMode(.fast)
-        inferenceState.setShowLocalThinkingPanel(false)
 
         vaultSync.stopWatching()
 

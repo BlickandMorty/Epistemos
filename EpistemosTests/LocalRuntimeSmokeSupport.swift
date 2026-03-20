@@ -61,10 +61,9 @@ enum LocalRuntimeSmokeSupport {
         let cappedProfile = await bootstrap.localInferenceService.profilingSnapshot()
         #expect(!cappedOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         #expect(!(cappedOutput.contains("[Local response reached the current generation limit before finishing.]")))
-        #expect((cappedProfile?.continuationCount ?? 0) > 0)
+        #expect((cappedProfile?.continuationCount ?? 0) == 0)
         #expect(cappedProfile?.stopReason == "stop" || cappedProfile?.stopReason == "length")
 
-        bootstrap.inferenceState.preferredLocalReasoningMode = .thinking
         let rawThinkingOutcome = await collect(
             bootstrap.localLLMClient.stream(
                 prompt: "Explain briefly why ice floats on water.",
@@ -78,10 +77,6 @@ enum LocalRuntimeSmokeSupport {
         }
         let rawThinkingText = rawThinkingOutcome.tokens.joined()
         #expect(!rawThinkingText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        #expect(
-            rawThinkingText.contains("<think>")
-                || rawThinkingText.localizedCaseInsensitiveContains("thinking process")
-        )
 
         let pipelineState = PipelineState()
         let pipeline = PipelineService(
@@ -92,21 +87,16 @@ enum LocalRuntimeSmokeSupport {
             eventBus: EventBus()
         )
 
-        var deliberation = ""
         var visibleText = ""
         for try await event in pipeline.run(
             query: "Explain why ice floats on water. Think through it first, then give the answer.",
             mode: .api,
             skipEnrichment: true
         ) {
-            if case .deliberationDelta(let delta) = event {
-                deliberation += delta
-            }
             if case .textDelta(let delta) = event {
                 visibleText += delta
             }
         }
-        #expect(!deliberation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         #expect(!visibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
         await bootstrap.localInferenceService.unload()
@@ -117,7 +107,6 @@ enum LocalRuntimeSmokeSupport {
         let graphLoadedMemory = currentMemoryUsage()
 
         bootstrap.inferenceState.routingMode = .localOnly
-        bootstrap.inferenceState.preferredLocalReasoningMode = .fast
 
         let noteChat = NoteChatState(pageId: "local-qwen35-live-smoke")
         noteChat.noteBodyProvider = {
@@ -172,7 +161,6 @@ enum LocalRuntimeSmokeSupport {
         let graphLoadedMemory = currentMemoryUsage()
 
         bootstrap.inferenceState.routingMode = .localOnly
-        bootstrap.inferenceState.preferredLocalReasoningMode = .fast
 
         let noteChat = NoteChatState(pageId: "local-qwen35-memory-profile")
         noteChat.noteBodyProvider = {
@@ -255,8 +243,6 @@ enum LocalRuntimeSmokeSupport {
         bootstrap.inferenceState.appleIntelligenceAvailable = false
         bootstrap.inferenceState.routingMode = .auto
         bootstrap.inferenceState.preferredLocalTextModelID = modelID
-        bootstrap.inferenceState.preferredLocalReasoningMode = .fast
-        bootstrap.inferenceState.showLocalThinkingPanel = true
         let nominalConditions = LocalRuntimeConditions(
             lowPowerModeEnabled: false,
             appActive: true,

@@ -144,15 +144,6 @@ struct MessageBubble: View {
                     .background(theme.accent.opacity(0.1), in: Capsule())
                 }
 
-                // Thinking accordion — for completed messages with reasoning
-                if let reasoning = message.reasoningText, !reasoning.isEmpty {
-                    ThinkingAccordion(
-                        reasoningText: reasoning,
-                        duration: message.reasoningDuration,
-                        isLive: false
-                    )
-                }
-
                 // Response heading — auto-extracted topic
                 if let heading {
                     Text(heading)

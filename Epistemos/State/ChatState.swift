@@ -13,17 +13,10 @@ final class ChatState {
 
     var isStreaming = false
     var streamingText = ""
-    var activeMessageLayer: String = "raw"
     var activeChatId: String?
     var chatTitle: String?
     var pendingAttachments: [FileAttachment] = []
     var pendingContextAttachments: [ContextAttachment] = []
-    var reasoningText = ""
-    var reasoningDuration: Double?
-    var isReasoning = false
-
-    /// Tracks when reasoning started — used to calculate duration on completion.
-    private var reasoningStartTime: ContinuousClock.Instant?
 
     // MARK: - In-memory messages (current session)
     var messages: [ChatMessage] = []
@@ -91,18 +84,13 @@ final class ChatState {
         // Cancel pending token flushes
         streamFlushTask?.cancel()
         streamFlushTask = nil
-        reasoningFlushTask?.cancel()
-        reasoningFlushTask = nil
         pendingStreamTokens = ""
-        pendingReasoningTokens = ""
 
         messages = []
         markTranscriptChanged()
         hasMessages = false
         streamingText = ""
         isStreaming = false
-        reasoningText = ""
-        isReasoning = false
         activeChatId = nil
         chatTitle = nil
         showLanding = false
@@ -146,9 +134,6 @@ final class ChatState {
         pendingAttachments = []
         streamingText = ""
         isStreaming = false
-        reasoningText = ""
-        reasoningDuration = nil
-        isReasoning = false
 
         eventBus?.emit(.querySubmitted(chatId: ChatId(chatId), query: safeQuery))
     }
@@ -165,18 +150,10 @@ final class ChatState {
 
         // Flush any buffered tokens before reading streamingText
         flushStreamingTokens()
-        flushReasoningTokens()
 
         // Strip [CONCEPTS: ...] tag if the LLM included it (parsed by EnrichmentController)
         let (_, cleaned) = EnrichmentController.parseConceptsTag(from: streamingText)
         let answerText = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // End reasoning if it's still active (model produced no streaming tokens)
-        if isReasoning { endReasoning() }
-
-        // Capture reasoning text + duration onto the completed message
-        let reasoning = reasoningText.isEmpty ? nil : reasoningText
-        let thinkDuration = reasoningDuration
 
         // Capture Notes Mode flags for this message, then reset for next turn
         let briefing = isCurrentVaultBriefing
@@ -195,8 +172,6 @@ final class ChatState {
             confidence: confidence,
             evidenceGrade: grade,
             mode: mode,
-            reasoningText: reasoning,
-            reasoningDuration: thinkDuration,
             isVaultBriefing: briefing,
             loadedNoteTitles: noteTitles,
             contextAttachments: contextAttachments
@@ -241,21 +216,15 @@ final class ChatState {
     private var pendingStreamTokens = ""
     private var streamFlushTask: Task<Void, Never>?
 
-    /// Pending reasoning buffer.
-    private var pendingReasoningTokens = ""
-    private var reasoningFlushTask: Task<Void, Never>?
-
     func startStreaming() {
         isStreaming = true
         // Pre-allocate for typical response (~16KB). Avoids repeated reallocation during streaming.
         pendingStreamTokens.reserveCapacity(16_384)
         streamingText.reserveCapacity(16_384)
-        reasoningText.reserveCapacity(4_096)
     }
 
     func stopStreaming() {
         flushStreamingTokens()
-        flushReasoningTokens()
         isStreaming = false
         onStopRequested?()
     }
@@ -264,7 +233,6 @@ final class ChatState {
     /// Live response text is intentionally not flushed into observable UI state unless the
     /// display policy enables it or the buffer grows abnormally large.
     func appendStreamingText(_ text: String) {
-        if isReasoning { endReasoning() }
         pendingStreamTokens += text
         // Safety: flush immediately if buffer grows too large (>64KB).
         if pendingStreamTokens.utf8.count > 65_536 {
@@ -286,47 +254,6 @@ final class ChatState {
         guard !pendingStreamTokens.isEmpty else { return }
         streamingText += pendingStreamTokens
         pendingStreamTokens = ""
-    }
-
-    // MARK: - Reasoning
-
-    func startReasoning() {
-        isReasoning = true
-        reasoningStartTime = .now
-    }
-
-    /// Ends the reasoning phase, calculating duration from start time.
-    private func endReasoning() {
-        guard isReasoning else { return }
-        if let start = reasoningStartTime {
-            let elapsed = ContinuousClock.now - start
-            reasoningDuration = Double(elapsed.components.seconds)
-                + Double(elapsed.components.attoseconds) / 1_000_000_000_000_000_000
-        }
-        isReasoning = false
-        reasoningStartTime = nil
-    }
-
-    func appendReasoningText(_ text: String) {
-        pendingReasoningTokens += text
-        if pendingReasoningTokens.utf8.count > 65_536 {
-            flushReasoningTokens()
-            return
-        }
-        guard reasoningFlushTask == nil else { return }
-        reasoningFlushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(60))
-            guard let self, !Task.isCancelled else { return }
-            self.flushReasoningTokens()
-        }
-    }
-
-    private func flushReasoningTokens() {
-        reasoningFlushTask?.cancel()
-        reasoningFlushTask = nil
-        guard !pendingReasoningTokens.isEmpty else { return }
-        reasoningText += pendingReasoningTokens
-        pendingReasoningTokens = ""
     }
 
     // MARK: - Attachments
@@ -406,18 +333,13 @@ final class ChatState {
         // Cancel pending flushes — we're clearing everything
         streamFlushTask?.cancel()
         streamFlushTask = nil
-        reasoningFlushTask?.cancel()
-        reasoningFlushTask = nil
         pendingStreamTokens = ""
-        pendingReasoningTokens = ""
 
         messages = []
         markTranscriptChanged()
         hasMessages = false
         streamingText = ""
         isStreaming = false
-        reasoningText = ""
-        isReasoning = false
         isIncognito = false
         showLanding = true
         loadedNoteIds = []

@@ -287,8 +287,6 @@ struct PipelineControls: Codable, Sendable {
 enum PipelineEvent: Sendable {
     case stageAdvanced(PipelineStage, StageResult)
     case textDelta(String)
-    case reasoningDelta(String)
-    case deliberationDelta(String)
     case signalUpdate(SignalUpdate)
     case completed(DualMessage, TruthAssessment?)
     case enriched(DualMessage, TruthAssessment)

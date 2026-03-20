@@ -239,7 +239,6 @@ final class PipelineService {
                     }
 
                     // ── Pass 1: Stream the direct LLM answer token-by-token ──────────────
-                    var tokenChunks: [String] = []
                     let directStream = generateDirectStream(
                         query: query,
                         queryAnalysis: queryAnalysis,
@@ -252,176 +251,17 @@ final class PipelineService {
                         chatMode: skipEnrichment ? .plain : .research,
                         conversationHistory: conversationHistory
                     )
-                    enum ThinkingStreamState {
-                        case tagged(closingTag: String)
-                        case prelude
-                    }
-
-                    let openingProbeLimit = max(
-                        ThinkingPreludeSyntax.maxOpeningMarkerLength,
-                        ThinkingPreludeSyntax.maxNarrativeOpeningProbeLength,
-                        24
-                    )
-                    let thinkingFlushTail = max(ThinkingPreludeSyntax.maxAnswerMarkerLength, 32)
-                    let surfaceThinking = inference.showLocalThinkingPanel
-                    var pendingPlainThinkingProbe = true
-                    var thinkingState: ThinkingStreamState?
-                    var textBuffer = ""
                     var emittedVisibleText = ""
 
-                    func emitVisible(_ text: String) {
-                        guard !text.isEmpty else { return }
-                        emittedVisibleText += text
-                        continuation.yield(.textDelta(text))
-                    }
-
-                    func emitThinking(_ text: String) {
-                        guard surfaceThinking, !text.isEmpty else { return }
-                        continuation.yield(.deliberationDelta(text))
-                        continuation.yield(.reasoningDelta(text))
-                    }
-
                     for try await token in directStream {
-                        tokenChunks.append(token)
-                        textBuffer += token
-
-                        if thinkingState == nil,
-                           let openingMatch = ThinkingTagSyntax.openingMatch(in: textBuffer) {
-                            // Flush text before the tag as visible text
-                            let before = String(
-                                textBuffer[textBuffer.startIndex..<openingMatch.range.lowerBound]
-                            )
-                            if !before.isEmpty {
-                                emitVisible(before)
-                            }
-                            textBuffer = String(textBuffer[openingMatch.range.upperBound...])
-                            thinkingState = .tagged(closingTag: openingMatch.closingTag)
-                            pendingPlainThinkingProbe = false
-                        } else if thinkingState == nil,
-                                  pendingPlainThinkingProbe,
-                                  let preludeRange = ThinkingPreludeSyntax.openingMatch(in: textBuffer) {
-                            let before = String(
-                                textBuffer[textBuffer.startIndex..<preludeRange.lowerBound]
-                            )
-                            if !before.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                emitVisible(before)
-                            }
-                            textBuffer = String(textBuffer[preludeRange.upperBound...])
-                                .trimmingLeadingWhitespaceAndNewlines()
-                            thinkingState = .prelude
-                            pendingPlainThinkingProbe = false
-                        } else if thinkingState == nil,
-                                  pendingPlainThinkingProbe,
-                                  ThinkingPreludeSyntax.proseOpeningDetected(in: textBuffer) {
-                            thinkingState = .prelude
-                            pendingPlainThinkingProbe = false
-                        }
-
-                        switch thinkingState {
-                        case .tagged(let closingTag):
-                            if let closeRange = textBuffer.range(of: closingTag) {
-                                let thought = String(
-                                    textBuffer[textBuffer.startIndex..<closeRange.lowerBound])
-                                if !thought.isEmpty {
-                                    emitThinking(thought)
-                                }
-                                textBuffer = String(textBuffer[closeRange.upperBound...])
-                                thinkingState = nil
-                                // Flush any remaining text after the closing tag
-                                if !textBuffer.isEmpty {
-                                    emitVisible(textBuffer)
-                                    textBuffer = ""
-                                }
-                            } else {
-                                // Inside thinking — yield buffered content as deliberation
-                                // Keep last 20 chars in buffer in case closing tag spans tokens
-                                if textBuffer.count > 20 {
-                                    let flushEnd = textBuffer.index(
-                                        textBuffer.endIndex, offsetBy: -20)
-                                    let flush = String(textBuffer[textBuffer.startIndex..<flushEnd])
-                                    emitThinking(flush)
-                                    textBuffer = String(textBuffer[flushEnd...])
-                                }
-                            }
-
-                        case .prelude:
-                            if let boundary = ThinkingPreludeSyntax.answerBoundary(in: textBuffer) {
-                                let thought = String(
-                                    textBuffer[textBuffer.startIndex..<boundary.reasoningEnd]
-                                )
-                                if !thought.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    emitThinking(thought)
-                                }
-                                textBuffer = String(textBuffer[boundary.answerStart...])
-                                    .trimmingLeadingWhitespaceAndNewlines()
-                                thinkingState = nil
-                                if !textBuffer.isEmpty {
-                                    emitVisible(textBuffer)
-                                    textBuffer = ""
-                                }
-                            } else if let split = ThinkingPreludeSyntax.flushableReasoningPrefix(in: textBuffer) {
-                                if !split.flush.isEmpty {
-                                    emitThinking(split.flush)
-                                }
-                                textBuffer = split.remainder
-                            } else if textBuffer.count > thinkingFlushTail,
-                                      !ThinkingPreludeSyntax.likelyAnswerCandidate(in: textBuffer),
-                                      ThinkingPreludeSyntax.salvagedAnswer(in: textBuffer) == nil {
-                                let flushEnd = textBuffer.index(
-                                    textBuffer.endIndex,
-                                    offsetBy: -thinkingFlushTail
-                                )
-                                let flush = String(textBuffer[textBuffer.startIndex..<flushEnd])
-                                if !flush.isEmpty,
-                                   textBuffer[flushEnd...].contains(where: { !$0.isWhitespace && !$0.isNewline }) {
-                                    emitThinking(flush)
-                                }
-                                textBuffer = String(textBuffer[flushEnd...])
-                            }
-
-                        case nil:
-                            if pendingPlainThinkingProbe {
-                                if textBuffer.count < openingProbeLimit {
-                                    continue
-                                }
-                                pendingPlainThinkingProbe = false
-                            }
-                            if !textBuffer.isEmpty {
-                                emitVisible(textBuffer)
-                                textBuffer = ""
-                            }
-                        }
+                        emittedVisibleText += token
+                        continuation.yield(.textDelta(token))
                     }
 
                     guard !Task.isCancelled else {
                         pipelineState.completeProcessing()
                         if finisher.tryFinish() { continuation.finish() }
                         return
-                    }
-
-                    // Flush any remaining buffer
-                    if !textBuffer.isEmpty {
-                        if thinkingState != nil {
-                            if let split = ThinkingPreludeSyntax.splitReasoningAndAnswer(in: textBuffer) {
-                                if !split.reasoning.isEmpty {
-                                    emitThinking(split.reasoning)
-                                }
-                                emitVisible(split.answer)
-                            } else if ThinkingPreludeSyntax.likelyAnswerCandidate(in: textBuffer) {
-                                emitVisible(textBuffer.trimmingLeadingWhitespaceAndNewlines())
-                            } else {
-                                emitThinking(textBuffer)
-                            }
-                        } else {
-                            emitVisible(textBuffer)
-                        }
-                    }
-                    let rawTokenBuffer = tokenChunks.joined()
-
-                    if emittedVisibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                       let salvagedAnswer = ThinkingPreludeSyntax.salvagedAnswer(in: rawTokenBuffer),
-                       !salvagedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        emitVisible(salvagedAnswer)
                     }
 
                     // Guard: if the answer is empty or trivially short, treat as error — don't

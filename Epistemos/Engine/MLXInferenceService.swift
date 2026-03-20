@@ -194,7 +194,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            reasoningMode: inference.preferredLocalReasoningMode
+            reasoningMode: .fast
         )
     }
 
@@ -219,7 +219,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            reasoningMode: inference.preferredLocalReasoningMode
+            reasoningMode: .fast
         )
     }
 
@@ -364,11 +364,6 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
 
 #if canImport(MLX) && canImport(MLXLMCommon) && canImport(MLXLLM)
 actor MLXInferenceService: LocalMLXRuntime {
-    private nonisolated static let maxContinuationCount = 0
-    private nonisolated static let continuationTailLength = 1_600
-    private nonisolated static let minimumOverlapLength = 24
-    private nonisolated static let truncationNotice = "\n\n[Local response reached the current generation limit before finishing.]"
-
     private let log = Logger(subsystem: "com.epistemos", category: "MLXInference")
     private let snapshot: LocalHardwareCapabilitySnapshot
 
@@ -624,74 +619,21 @@ actor MLXInferenceService: LocalMLXRuntime {
         requestStart: ContinuousClock.Instant,
         emit: ((String) -> Void)?
     ) async throws -> GenerationExecutionSummary {
-        var combinedText = ""
-        var totalChunkCount = 0
-        var firstTokenLatencyMS: Double?
-        var continuationCount = 0
-        var prompt = request.prompt
-        var stopReason: GenerateStopReason = .cancelled
-        var needsTruncationNotice = false
-
-        while true {
-            let pass = try await runPass(
-                session: session,
-                prompt: prompt,
-                requestStart: requestStart,
-                emitChunksImmediately: continuationCount == 0,
-                emit: emit
-            )
-            stopReason = pass.stopReason
-            totalChunkCount += pass.chunkCount
-            if firstTokenLatencyMS == nil {
-                firstTokenLatencyMS = pass.firstTokenLatencyMS
-            }
-
-            let passText: String
-            if continuationCount == 0 {
-                passText = pass.text
-            } else {
-                let deduplicated = Self.deduplicatedContinuation(
-                    pass.text,
-                    existing: combinedText
-                )
-                passText = deduplicated
-                if let emit, !deduplicated.isEmpty {
-                    emit(deduplicated)
-                }
-            }
-            combinedText += passText
-
-            if Task.isCancelled {
-                throw CancellationError()
-            }
-
-            guard stopReason == .length else { break }
-
-            let shouldContinue = Self.shouldAttemptContinuation(
-                afterLengthStopIn: combinedText,
-                continuationCount: continuationCount
-            )
-            guard continuationCount < Self.maxContinuationCount, shouldContinue else {
-                needsTruncationNotice = Self.requiresTruncationNotice(afterLengthStopIn: combinedText)
-                break
-            }
-
-            continuationCount += 1
-            prompt = Self.continuationPrompt(for: combinedText)
-        }
-
-        if needsTruncationNotice {
-            combinedText += Self.truncationNotice
-            emit?(Self.truncationNotice)
-        }
+        let pass = try await runPass(
+            session: session,
+            prompt: request.prompt,
+            requestStart: requestStart,
+            emitChunksImmediately: true,
+            emit: emit
+        )
 
         return GenerationExecutionSummary(
-            text: combinedText,
-            firstTokenLatencyMS: firstTokenLatencyMS,
-            chunkCount: totalChunkCount,
-            outputCharacterCount: combinedText.count,
-            continuationCount: continuationCount,
-            stopReason: stopReason
+            text: pass.text,
+            firstTokenLatencyMS: pass.firstTokenLatencyMS,
+            chunkCount: pass.chunkCount,
+            outputCharacterCount: pass.text.count,
+            continuationCount: 0,
+            stopReason: pass.stopReason
         )
     }
 
@@ -773,68 +715,6 @@ actor MLXInferenceService: LocalMLXRuntime {
     private func additionalContext(for request: LocalMLXRequest) -> [String: any Sendable]? {
         _ = request
         return nil
-    }
-
-    nonisolated static func shouldAttemptContinuation(
-        afterLengthStopIn text: String,
-        continuationCount: Int
-    ) -> Bool {
-        _ = text
-        _ = continuationCount
-        return false
-    }
-
-    private nonisolated static func requiresTruncationNotice(afterLengthStopIn text: String) -> Bool {
-        let visible = continuationVisibleText(from: text)
-        let trimmed = visible.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        return TriageService.isTruncatedResponse(trimmed)
-    }
-
-    private nonisolated static func continuationPrompt(for text: String) -> String {
-        let visibleTail = continuationVisibleText(from: text)
-        let tail = String(visibleTail.suffix(continuationTailLength))
-
-        return """
-        Continue the previous answer from exactly where it stopped.
-
-        Rules:
-        - Do not restart from the beginning.
-        - Do not repeat text that was already written unless needed to complete the interrupted sentence.
-        - Output only the continuation.
-
-        Previous answer tail:
-        \(tail)
-        """
-    }
-
-    private nonisolated static func continuationVisibleText(from text: String) -> String {
-        if let salvaged = ThinkingPreludeSyntax.salvagedAnswer(in: text),
-           !salvaged.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return salvaged
-        }
-        return text.strippingThinkingBlocks()
-    }
-
-    private nonisolated static func deduplicatedContinuation(
-        _ continuation: String,
-        existing: String
-    ) -> String {
-        let trimmedContinuation = continuation.trimmingLeadingWhitespaceAndNewlines()
-        guard !trimmedContinuation.isEmpty, !existing.isEmpty else { return trimmedContinuation }
-
-        let maxOverlap = min(240, min(existing.count, trimmedContinuation.count))
-        guard maxOverlap >= minimumOverlapLength else { return trimmedContinuation }
-
-        for overlap in stride(from: maxOverlap, through: minimumOverlapLength, by: -1) {
-            let existingSuffix = String(existing.suffix(overlap))
-            let continuationPrefix = String(trimmedContinuation.prefix(overlap))
-            if existingSuffix == continuationPrefix {
-                return String(trimmedContinuation.dropFirst(overlap)).trimmingLeadingWhitespaceAndNewlines()
-            }
-        }
-
-        return trimmedContinuation
     }
 
     private nonisolated static func stopReasonLabel(_ stopReason: GenerateStopReason) -> String {

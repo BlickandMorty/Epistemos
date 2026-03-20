@@ -777,16 +777,17 @@ struct ThemePairTests {
         #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 16"))
     }
 
-    @Test("Thinking panel uses opulent glass chrome and live status treatment")
-    func thinkingPanelUsesOpulentGlassChromeAndLiveStatusTreatment() throws {
-        let thinkingPanel = try loadTextFile("Epistemos/Views/Chat/ThinkingAccordion.swift")
+    @Test("Chat streaming stays plain and no longer routes through a separate thinking accordion")
+    func chatStreamingStaysPlainWithoutThinkingAccordion() throws {
         let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
 
-        #expect(thinkingPanel.contains(".assistantInsetChrome(theme: theme, cornerRadius: 18"))
-        #expect(thinkingPanel.contains("TimelineView(.periodic(from: .now, by: 0.9))"))
-        #expect(thinkingPanel.contains("Text(isLive ? \"Thinking\" : \"Thought for\")"))
         #expect(chatView.contains("TaggedMarkdownTextView("))
         #expect(chatView.contains("content: chat.streamingText + (chat.isStreaming ? \" ▍\" : \"\")"))
+        #expect(!chatView.contains("ThinkingAccordion"))
+        #expect(!chatView.contains("chat.isReasoning"))
+        #expect(!messageBubble.contains("ThinkingAccordion"))
+        #expect(!messageBubble.contains("reasoningText"))
     }
 
     @Test("Landing and active chat inference controls use the shared popover selector")

@@ -141,7 +141,6 @@ nonisolated struct InferencePolicyContext: Sendable, Equatable {
     let routingMode: LocalRoutingMode
     let appleIntelligenceAvailable: Bool
     let preferredLocalTextModelID: String
-    let preferredLocalReasoningMode: LocalReasoningMode
     let installedLocalTextModelIDs: Set<String>
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
     let runtimeConditions: LocalRuntimeConditions
@@ -366,10 +365,6 @@ nonisolated struct InferencePolicyEngine {
         case .noteChat:
             score += 0.03
         case .graph:
-            score += 0.06
-        }
-
-        if profile.visibleThinkingRequested {
             score += 0.06
         }
 

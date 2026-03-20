@@ -166,7 +166,6 @@
 		7CD48EB0811C20D54F64702B /* VersionPruningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3157FC5646B73873117CEA80 /* VersionPruningTests.swift */; };
 		7ECB964C4B62C21A6CCD5F7D /* NoteSavingStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E1E9FA506FBBDD92B84555C /* NoteSavingStressTests.swift */; };
 		80BA2223A6E33466783A8E20 /* FFIVersionSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA69CF91FC938F36057F1DE2 /* FFIVersionSyncTests.swift */; };
-		80E45036F364CA83D3281B0F /* ThinkingAccordion.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC67C3CEC7EEB23DDAD4E997 /* ThinkingAccordion.swift */; };
 		82276E364C4840E91EC05660 /* ProseEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */; };
 		845E98B4444CEF49262B0891 /* VaultManifestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944B9D366C15E62EEEEA7D55 /* VaultManifestTests.swift */; };
 		8460B8349470DDCE600B8206 /* TransclusionOverlayManager2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B32B3B71EBED259548A390E /* TransclusionOverlayManager2.swift */; };
@@ -550,7 +549,6 @@
 		CAFCEA0AD38C98A549D6693D /* QueryResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryResultsView.swift; sourceTree = "<group>"; };
 		CC25AA679C49E036D64DCD6F /* LLMErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMErrorTests.swift; sourceTree = "<group>"; };
 		CC2760010046AC639AF26F58 /* CollectionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionRegistry.swift; sourceTree = "<group>"; };
-		CC67C3CEC7EEB23DDAD4E997 /* ThinkingAccordion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingAccordion.swift; sourceTree = "<group>"; };
 		CD69BB6CD1E1DF948804FC73 /* NoteWindowManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteWindowManagerTests.swift; sourceTree = "<group>"; };
 		CEB5E38C97E34992A850B56C /* AppBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBootstrap.swift; sourceTree = "<group>"; };
 		D004B24777CF805F33A0CAF9 /* MappedNoteBody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MappedNoteBody.swift; sourceTree = "<group>"; };
@@ -843,7 +841,6 @@
 				DB211887E2C199C35268119F /* NotesMentionDropdown.swift */,
 				41E0418B49EC6B5741FE8DE8 /* PipelineProgressPopover.swift */,
 				FB24375B0C39C436B8F01641 /* TaggedMarkdownTextView.swift */,
-				CC67C3CEC7EEB23DDAD4E997 /* ThinkingAccordion.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -1545,7 +1542,6 @@
 				2EA2110ADE899451EC0C98E9 /* SystemAppearanceObserver.swift in Sources */,
 				2E55344D0A116B5FB263D3E3 /* SystemSearchIntent.swift in Sources */,
 				20670B398A301015B92217C0 /* TaggedMarkdownTextView.swift in Sources */,
-				80E45036F364CA83D3281B0F /* ThinkingAccordion.swift in Sources */,
 				09C925B05E89E8CE0FA4F249 /* ThreadState.swift in Sources */,
 				3FAF5A13AA7F4A81781D3B8A /* ToastOverlay.swift in Sources */,
 				D17991946DBE54386E4B90D0 /* ToolbarGlass.swift in Sources */,

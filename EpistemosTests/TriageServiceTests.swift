@@ -381,7 +381,6 @@ struct InferencePolicyEngineTests {
             routingMode: routingMode,
             appleIntelligenceAvailable: appleAvailable,
             preferredLocalTextModelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
-            preferredLocalReasoningMode: .fast,
             installedLocalTextModelIDs: Set(installed.map(\.rawValue)),
             hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
                 physicalMemoryBytes: 18_000_000_000,
@@ -778,7 +777,6 @@ struct TriageServiceIntegrationTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
-        inference.setPreferredLocalReasoningMode(.fast)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -811,7 +809,6 @@ struct TriageServiceIntegrationTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
-        inference.setPreferredLocalReasoningMode(.fast)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -844,7 +841,6 @@ struct TriageServiceIntegrationTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
-        inference.setPreferredLocalReasoningMode(.fast)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -878,7 +874,6 @@ struct TriageServiceIntegrationTests {
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .localOnly
         inference.setPreferredLocalTextModelID(descriptor.id)
-        inference.setPreferredLocalReasoningMode(.thinking)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -895,14 +890,6 @@ struct TriageServiceIntegrationTests {
         let request = try #require(await runtime.lastGenerateRequest)
         #expect(request.reasoningMode == .fast)
         #expect(request.systemPrompt == "Be helpful.")
-    }
-
-    @Test("length continuation is disabled for local runtime requests")
-    func continuationGuardIsDisabled() {
-        let truncated = "This response ends abruptly without punctuation"
-        #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: truncated, continuationCount: 0))
-        #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: truncated, continuationCount: 1))
-        #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: "This response is complete.", continuationCount: 0))
     }
 
     @MainActor
@@ -925,7 +912,6 @@ struct TriageServiceIntegrationTests {
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_2B4Bit.rawValue)
-        inference.setPreferredLocalReasoningMode(.thinking)
         inference.setInstalledLocalTextModelIDs([small.id, balanced.id, strong.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -1175,7 +1161,6 @@ struct TriageServiceIntegrationTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = appleAvailable
         inference.routingMode = routingMode
-        inference.setPreferredLocalReasoningMode(.fast)
         inference.setInstalledLocalTextModelIDs(Set(localInstalled))
         if let firstInstalled = localInstalled.first {
             inference.setPreferredLocalTextModelID(firstInstalled)
@@ -1197,13 +1182,12 @@ struct TriageServiceIntegrationTests {
 
 @Suite("LLMService Local Snapshots")
 struct LLMServiceLocalSnapshotTests {
-    @Test("enrichment snapshot respects the user's preferred local reasoning mode")
-    @MainActor func enrichmentSnapshotRespectsPreferredReasoningMode() {
+    @Test("enrichment snapshot keeps local mode fast")
+    @MainActor func enrichmentSnapshotKeepsFastMode() {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
-        inference.setPreferredLocalReasoningMode(.fast)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.enrichmentSnapshot()
@@ -1230,13 +1214,12 @@ struct LLMServiceLocalSnapshotTests {
         #expect(snapshot.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
     }
 
-    @Test("local snapshots stay in fast mode even when the saved preference is thinking")
+    @Test("local snapshots stay in fast mode")
     @MainActor func localSnapshotsStayFast() {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
-        inference.setPreferredLocalReasoningMode(.thinking)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.configSnapshot()

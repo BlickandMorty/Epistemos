@@ -158,14 +158,10 @@ final class ChatCoordinator {
                     case .textDelta(let token):
                         chatState.appendStreamingText(token)
 
-                    case .reasoningDelta(let token):
-                        chatState.startReasoning()
-                        chatState.appendReasoningText(token)
-
                     case .enriched:
                         break
 
-                    case .stageAdvanced, .signalUpdate, .soarEvent, .deliberationDelta:
+                    case .stageAdvanced, .signalUpdate, .soarEvent:
                         break
 
                     case .completed(let dual, let truth):
@@ -990,9 +986,7 @@ final class ChatCoordinator {
             truthAssessment: truth,
             confidence: confidence,
             evidenceGrade: grade,
-            mode: mode,
-            reasoningText: assistantMessage?.reasoningText,
-            reasoningDuration: assistantMessage?.reasoningDuration
+            mode: mode
         )
         assistantMsg.chat = chat
         context.insert(assistantMsg)
@@ -1059,9 +1053,7 @@ final class ChatCoordinator {
             truthAssessment: truthAssessment,
             confidence: truthAssessment.overallTruthLikelihood,
             evidenceGrade: grade,
-            mode: message?.mode ?? lastAssistant.inferenceMode.flatMap(InferenceMode.init(rawValue:)),
-            reasoningText: message?.reasoningText ?? lastAssistant.reasoningText,
-            reasoningDuration: message?.reasoningDuration ?? lastAssistant.reasoningDuration
+            mode: message?.mode ?? lastAssistant.inferenceMode.flatMap(InferenceMode.init(rawValue:))
         )
 
         do {

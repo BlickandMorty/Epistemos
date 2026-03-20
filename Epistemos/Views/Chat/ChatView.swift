@@ -263,22 +263,13 @@ private struct StreamingIndicator: View {
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
-        // Streaming text + reasoning shown identically for regular and research mode.
+        // Streaming text is shown identically for regular and research mode.
         // Research enrichment cards appear on the completed message (non-blocking).
         streamingView
     }
 
     private var streamingView: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            // Reasoning accordion — shown when reasoning is active or has content
-            if chat.isReasoning || !chat.reasoningText.isEmpty {
-                ThinkingAccordion(
-                    reasoningText: chat.reasoningText,
-                    duration: chat.reasoningDuration,
-                    isLive: chat.isReasoning
-                )
-            }
-
             if ChatStreamingDisplayPolicy.showsLiveResponseText, !chat.streamingText.isEmpty {
                 TaggedMarkdownTextView(
                     content: chat.streamingText + (chat.isStreaming ? " ▍" : ""),
@@ -288,8 +279,8 @@ private struct StreamingIndicator: View {
             } else if !chat.isStreaming, !chat.streamingText.isEmpty {
                 TaggedMarkdownTextView(content: chat.streamingText, theme: theme)
                     .frame(maxWidth: .infinity, alignment: .leading)
-            } else if !chat.isReasoning {
-                // Thinking dots — only when not in reasoning phase
+            } else {
+                // Idle dots while we wait for the first streamed text chunk.
                 HStack(spacing: 4) {
                     Text("Thinking")
                         .font(.epCaption)
@@ -311,7 +302,7 @@ private struct StreamingIndicator: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
-        .assistantInsetChrome(theme: theme, cornerRadius: 20, isEmphasized: chat.isReasoning)
+        .assistantInsetChrome(theme: theme, cornerRadius: 20)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

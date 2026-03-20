@@ -91,15 +91,11 @@ final class SDMessage {
         truthAssessment: TruthAssessment?,
         confidence: Double?,
         evidenceGrade: EvidenceGrade?,
-        mode: InferenceMode?,
-        reasoningText: String?,
-        reasoningDuration: Double?
+        mode: InferenceMode?
     ) {
         self.confidenceScore = confidence
         self.evidenceGrade = evidenceGrade?.rawValue
         self.inferenceMode = mode?.rawValue
-        self.reasoningText = reasoningText
-        self.reasoningDuration = reasoningDuration
 
         if let dualMessage {
             do {

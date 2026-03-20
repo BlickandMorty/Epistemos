@@ -313,8 +313,8 @@ struct SDPageQueryDescriptorTests {
         #expect(page.ideas.map(\.title) == ["Second"])
     }
 
-    @Test("chat message mapping preserves reasoning metadata")
-    func chatMessageMappingPreservesReasoningMetadata() throws {
+    @Test("chat message mapping preserves legacy reasoning metadata")
+    func chatMessageMappingPreservesLegacyReasoningMetadata() throws {
         let container = try makeContainer()
         let context = container.mainContext
 
@@ -336,8 +336,8 @@ struct SDPageQueryDescriptorTests {
         #expect(mapped.reasoningDuration == 2.5)
     }
 
-    @Test("sd chat loaded messages preserve enriched reasoning metadata")
-    func sdChatLoadedMessagesPreserveReasoningMetadata() throws {
+    @Test("sd chat loaded messages preserve legacy enriched reasoning metadata")
+    func sdChatLoadedMessagesPreserveLegacyReasoningMetadata() throws {
         let container = try makeContainer()
         let context = container.mainContext
 
@@ -375,10 +375,10 @@ struct SDPageQueryDescriptorTests {
             truthAssessment: truth,
             confidence: 0.82,
             evidenceGrade: .b,
-            mode: .api,
-            reasoningText: "Thinking...",
-            reasoningDuration: 3.5
+            mode: .api
         )
+        message.reasoningText = "Thinking..."
+        message.reasoningDuration = 3.5
         message.chat = chat
 
         context.insert(chat)

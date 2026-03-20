@@ -343,14 +343,6 @@ private struct InferenceDetailView: View {
                     }
                 }
 
-                Toggle(
-                    "Show Thinking Panel",
-                    isOn: Binding(
-                        get: { inference.showLocalThinkingPanel },
-                        set: { inference.setShowLocalThinkingPanel($0) }
-                    )
-                )
-
                 Text("Epistemos keeps AI on-device. Epistemos uses the exact Qwen tier you select and sends plain single-pass local requests by default. If that tier is unavailable, choose or install another supported tier.")
                 .font(.system(size: 11))
                 .foregroundStyle(theme.textSecondary)

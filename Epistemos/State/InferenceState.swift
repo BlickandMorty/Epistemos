@@ -290,8 +290,6 @@ final class InferenceState {
     var inferenceMode: InferenceMode = .analytical
     var routingMode: LocalRoutingMode = .auto
     var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
-    var preferredLocalReasoningMode: LocalReasoningMode = .fast
-    var showLocalThinkingPanel: Bool = false
     private(set) var installedLocalTextModelIDs: Set<String> = []
     private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current
@@ -322,13 +320,8 @@ final class InferenceState {
             self.preferredLocalTextModelID = saved
         }
         defaults.removeObject(forKey: "epistemos.automaticLocalModelSelectionEnabled")
-        if let saved = defaults.string(forKey: "epistemos.preferredLocalReasoningMode"),
-           let mode = LocalReasoningMode(rawValue: saved) {
-            self.preferredLocalReasoningMode = mode
-        }
-        if defaults.object(forKey: "epistemos.showLocalThinkingPanel") != nil {
-            self.showLocalThinkingPanel = defaults.bool(forKey: "epistemos.showLocalThinkingPanel")
-        }
+        defaults.removeObject(forKey: "epistemos.preferredLocalReasoningMode")
+        defaults.removeObject(forKey: "epistemos.showLocalThinkingPanel")
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
@@ -351,7 +344,6 @@ final class InferenceState {
             routingMode: routingMode,
             appleIntelligenceAvailable: appleIntelligenceAvailable,
             preferredLocalTextModelID: preferredLocalTextModelID,
-            preferredLocalReasoningMode: preferredLocalReasoningMode,
             installedLocalTextModelIDs: installedLocalTextModelIDs,
             hardwareCapabilitySnapshot: hardwareCapabilitySnapshot,
             runtimeConditions: localRuntimeConditions
@@ -435,16 +427,6 @@ final class InferenceState {
         guard LocalTextModelID(rawValue: modelID) != nil else { return }
         preferredLocalTextModelID = modelID
         UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
-    }
-
-    func setPreferredLocalReasoningMode(_ mode: LocalReasoningMode) {
-        preferredLocalReasoningMode = mode
-        UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.preferredLocalReasoningMode")
-    }
-
-    func setShowLocalThinkingPanel(_ enabled: Bool) {
-        showLocalThinkingPanel = enabled
-        UserDefaults.standard.set(enabled, forKey: "epistemos.showLocalThinkingPanel")
     }
 
     func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {
