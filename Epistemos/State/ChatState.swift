@@ -419,23 +419,26 @@ final class ChatState {
     }
 
     private func restoreConversationContext(from messages: [ChatMessage]) {
-        guard let contextMessage = messages.last(where: {
-            ($0.contextAttachments?.isEmpty == false) || ($0.loadedNoteTitles?.isEmpty == false)
-        }) else {
+        guard let lastMessage = messages.last else {
             pendingContextAttachments = []
             loadedNoteIds = []
             loadedNoteTitles = []
             return
         }
 
-        pendingContextAttachments = contextMessage.contextAttachments ?? []
+        pendingContextAttachments = lastMessage.contextAttachments ?? []
         loadedNoteIds = Set(
             pendingContextAttachments.compactMap { attachment in
                 attachment.kind == .note ? attachment.targetId : nil
             }
         )
 
-        var restoredTitles = contextMessage.loadedNoteTitles ?? []
+        guard !pendingContextAttachments.isEmpty else {
+            loadedNoteTitles = []
+            return
+        }
+
+        var restoredTitles = lastMessage.loadedNoteTitles ?? []
         for attachment in pendingContextAttachments where attachment.kind == .note && !restoredTitles.contains(attachment.title) {
             restoredTitles.append(attachment.title)
         }

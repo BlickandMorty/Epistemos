@@ -1760,6 +1760,33 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.loadedNoteIds == ["note-2"])
         #expect(chatState.loadedNoteTitles == ["Deep Work"])
     }
+
+    @Test("loading messages does not resurrect stale context from older turns")
+    func loadMessagesDoesNotResurrectStaleContext() {
+        let chatState = ChatState()
+        let noteAttachment = ContextAttachment(
+            kind: .note,
+            targetId: "note-3",
+            title: "Archived Context",
+            subtitle: "Vault"
+        )
+
+        chatState.loadMessages([
+            ChatMessage(
+                chatId: "chat",
+                role: .assistant,
+                content: "older grounded turn",
+                loadedNoteTitles: ["Archived Context"],
+                contextAttachments: [noteAttachment]
+            ),
+            ChatMessage(chatId: "chat", role: .user, content: "new plain turn"),
+            ChatMessage(chatId: "chat", role: .assistant, content: "plain follow-up")
+        ])
+
+        #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.loadedNoteIds.isEmpty)
+        #expect(chatState.loadedNoteTitles.isEmpty)
+    }
 }
 
 @Suite("Ambient Manifest Refresh Driver", .serialized)
