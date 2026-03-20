@@ -325,14 +325,6 @@ private struct InferenceDetailView: View {
                         .font(.system(size: 13, design: .monospaced))
                 }
 
-                Toggle(
-                    "Automatic Qwen Model Selection",
-                    isOn: Binding(
-                        get: { inference.automaticLocalModelSelectionEnabled },
-                        set: { inference.setAutomaticLocalModelSelectionEnabled($0) }
-                    )
-                )
-
                 Picker(
                     "Active Local Model",
                     selection: Binding(
@@ -351,18 +343,6 @@ private struct InferenceDetailView: View {
                     }
                 }
 
-                Picker(
-                    "Local Response Mode",
-                    selection: Binding(
-                        get: { inference.preferredLocalReasoningMode },
-                        set: { inference.setPreferredLocalReasoningMode($0) }
-                    )
-                ) {
-                    ForEach(LocalReasoningMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-
                 Toggle(
                     "Show Thinking Panel",
                     isOn: Binding(
@@ -371,17 +351,13 @@ private struct InferenceDetailView: View {
                     )
                 )
 
-                Text(
-                    inference.automaticLocalModelSelectionEnabled
-                        ? "Epistemos keeps AI on-device. Auto mode uses Apple Intelligence for the lightest work, then keeps the current warm Qwen tier when it is sufficient and escalates only when the local task justifies it. The recommended baseline on this Mac is \(LocalTextModelID(rawValue: localModelManager.recommendedTextModelID)?.displayName ?? "Qwen 3.5")."
-                        : "Epistemos keeps AI on-device. The preferred Qwen tier on this Mac is \(LocalTextModelID(rawValue: localModelManager.recommendedTextModelID)?.displayName ?? "Qwen 3.5")."
-                )
+                Text("Epistemos keeps AI on-device. Epistemos uses the exact Qwen tier you select and sends plain single-pass local requests by default. If that tier is unavailable, choose or install another supported tier.")
                 .font(.system(size: 11))
                 .foregroundStyle(theme.textSecondary)
 
                 if let fallback = localModelManager.missingConstrainedFallbackDescriptor {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("For low power mode, background work, and thermal pressure, also install \(fallback.displayName). Epistemos will downshift to it automatically when headroom gets tight.")
+                        Text("If you want a lighter manual fallback for constrained conditions, also install \(fallback.displayName).")
                             .font(.system(size: 11))
                             .foregroundStyle(theme.textSecondary)
 

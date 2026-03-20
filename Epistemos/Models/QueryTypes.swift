@@ -177,3 +177,56 @@ struct QueryPlan: Sendable {
         case sequential    // Steps executed in order, results piped
     }
 }
+
+enum QueryDependencyKey: String, CaseIterable, Hashable, Sendable {
+    case graphNodes
+    case graphEdges
+    case searchPages
+    case searchBlocks
+
+    private static let notificationUserInfoKey = "queryDependencyKeys"
+
+    static func userInfo(for keys: Set<QueryDependencyKey>?) -> [AnyHashable: Any]? {
+        guard let keys, !keys.isEmpty else { return nil }
+        return [notificationUserInfoKey: keys.map(\.rawValue)]
+    }
+
+    static func from(_ notification: Notification) -> Set<QueryDependencyKey>? {
+        guard let rawValues = notification.userInfo?[notificationUserInfoKey] as? [String] else {
+            return nil
+        }
+        return Set(rawValues.compactMap(Self.init(rawValue:)))
+    }
+}
+
+extension QueryPlan {
+    var dependencies: Set<QueryDependencyKey> {
+        var dependencies = Set(steps.flatMap(\.dependencies))
+        for subPlan in subPlans {
+            dependencies.formUnion(subPlan.dependencies)
+        }
+        return dependencies.isEmpty ? Set(QueryDependencyKey.allCases) : dependencies
+    }
+}
+
+extension QueryPlan.QueryStep {
+    var dependencies: Set<QueryDependencyKey> {
+        switch self {
+        case .graphStoreFilter, .inMemoryLabelFilter, .semanticSearch:
+            return [.graphNodes]
+        case .graphStoreEdgeFilter, .graphStorePath, .graphStoreNeighbors:
+            return [.graphNodes, .graphEdges]
+        case .fts5Search(_, let scope):
+            switch scope {
+            case .pages:
+                return [.searchPages]
+            case .blocks:
+                return [.searchBlocks]
+            case .all:
+                return [.searchPages, .searchBlocks]
+            }
+        case .btkPropertyFilter, .btkDepthFilter:
+            return [.graphNodes, .graphEdges]
+        }
+    }
+}

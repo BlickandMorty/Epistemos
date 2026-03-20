@@ -1127,7 +1127,7 @@ final class GraphState {
         guard let page = try? context.fetch(descriptor).first else { return }
         guard let pageNodeId = store.node(bySourceId: pageId, type: .note)?.id else { return }
 
-        let body = page.loadBody()
+        let body = page.loadBody(mapped: true)
         guard !body.isEmpty else { return }
         guard let cStr = body.cString(using: .utf8) else { return }
 

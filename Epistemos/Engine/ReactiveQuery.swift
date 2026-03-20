@@ -3,24 +3,28 @@ import Combine
 
 // MARK: - ReactiveQuery
 // Reactive query results with automatic re-evaluation on data changes.
-// Uses 100ms debounce via Task.sleep to avoid thrashing during rapid edits.
+// Uses a single short debounce window to coalesce rapid edits without making
+// the UI feel stale.
 
 @MainActor
 final class ReactiveQuery {
 
     private let runtime: QueryRuntime
     private let plan: QueryPlan
+    private let dependencies: Set<QueryDependencyKey>
     private var debounceTask: Task<Void, Never>?
     private var lastResult: QueryResult?
     private var cancellables = Set<AnyCancellable>()
     private var continuation: AsyncStream<QueryResult>.Continuation?
 
-    // Backpressure: coalesce rapid invalidations
-    private let debounceInterval: Duration = .milliseconds(100)
+    // Backpressure: coalesce rapid invalidations without stacking visible lag
+    // on top of upstream mutations.
+    private let debounceInterval: Duration = .milliseconds(35)
 
     init(runtime: QueryRuntime, plan: QueryPlan) {
         self.runtime = runtime
         self.plan = plan
+        self.dependencies = plan.dependencies
     }
 
     /// Create a reactive stream that re-evaluates on data changes.
@@ -43,15 +47,15 @@ final class ReactiveQuery {
             // regardless of which thread posted the notification.
             NotificationCenter.default.publisher(for: .graphStoreDidChange)
                 .receive(on: RunLoop.main)
-                .sink { [weak self] _ in
-                    self?.reevaluate()
+                .sink { [weak self] notification in
+                    self?.handleInvalidation(notification)
                 }
                 .store(in: &self.cancellables)
 
             NotificationCenter.default.publisher(for: .searchIndexDidUpdate)
                 .receive(on: RunLoop.main)
-                .sink { [weak self] _ in
-                    self?.reevaluate()
+                .sink { [weak self] notification in
+                    self?.handleInvalidation(notification)
                 }
                 .store(in: &self.cancellables)
 
@@ -77,6 +81,18 @@ final class ReactiveQuery {
                 self.continuation?.yield(result)
             }
         }
+    }
+
+    func shouldInvalidate(for notification: Notification) -> Bool {
+        guard let changedKeys = QueryDependencyKey.from(notification) else {
+            return true
+        }
+        return !dependencies.isDisjoint(with: changedKeys)
+    }
+
+    private func handleInvalidation(_ notification: Notification) {
+        guard shouldInvalidate(for: notification) else { return }
+        reevaluate()
     }
 }
 

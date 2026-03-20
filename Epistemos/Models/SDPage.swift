@@ -196,6 +196,17 @@ final class SDPage {
         return diskBody
     }
 
+    func bodyPrefix(_ limit: Int, mapped: Bool = false) -> String {
+        guard limit > 0 else { return "" }
+        return String(loadBody(mapped: mapped).prefix(limit))
+    }
+
+    func normalizedBodySnippet(limit: Int, mapped: Bool = false) -> String {
+        bodyPrefix(limit, mapped: mapped)
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Save the note body to disk. Also clears the inline body (post-migration).
     func saveBody(_ content: String) {
         NoteFileStorage.writeBody(pageId: id, content: content)

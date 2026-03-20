@@ -142,6 +142,7 @@ Staged files:
 Status:
 
 - Uses `orgize` and `pulldown-cmark` to instantiate/advance parsers.
+- Basic Org property drawers now attach to the preceding heading in staged parsing.
 - Actual normalization is still line-based in important paths, not a canonical event-driven AST pipeline.
 - Not used by the live import/editor/query flow.
 
@@ -184,27 +185,31 @@ Status:
    - and the staged transport now reports explicit `FailFast` policy plus publish/failure counters
 
 8. One measured staged hot path improved materially:
-   - staged scalar summary decode path: `34045 ns/decode`
-   - staged combined summary accessor path: `5481 ns/decode`
-   - measured speedup: `6.21x`
+   - staged scalar summary decode path: `23989 ns/decode`
+   - staged combined summary accessor path: `3773 ns/decode`
+   - measured speedup: `6.36x`
 
 9. A second staged hot path improved materially:
-   - staged scalar row decode path: `12506 ns/payload`
-   - staged batched row accessor path: `3807 ns/payload`
-   - measured speedup: `3.28x`
+   - staged scalar row decode path: `19825 ns/payload`
+   - staged batched row accessor path: `5710 ns/payload`
+   - measured speedup: `3.47x`
 
 10. A third staged hot path improved materially:
-   - staged outline watcher incremental refresh: `69896 ns/tx`
-   - staged control full-rerun path: `6445119 ns/tx`
-   - measured speedup: `92.21x`
+   - staged outline watcher incremental refresh: `84380 ns/tx`
+   - staged control full-rerun path: `6621173 ns/tx`
+   - measured speedup: `78.47x`
 
 11. One live BTK helper hot path improved measurably:
-   - BTK property watcher incremental refresh: `6828786 ns/tx`
-   - BTK control full-rerun path: `12790724 ns/tx`
-   - measured speedup: `1.87x`
+   - BTK property watcher incremental refresh: `6842546 ns/tx`
+   - BTK control full-rerun path: `12698080 ns/tx`
+   - measured speedup: `1.86x`
 
-12. Full app test execution is still blocked by unrelated test-target compile debt:
-   - `LandingExperienceSettingsTests.swift` is fixed now
+12. The parser is still architecturally behind the brief, but it is no longer measurement-free:
+   - staged Markdown parser benchmark: `25566313 ns/parse`
+   - coarse debug-mode throughput: `3.05 MB/s`
+   - this validates only the current line-based scaffold, not the event-normalized design claim
+
+13. Full app test execution is still blocked by unrelated test-target compile debt:
    - broader Swift 6 migration failures remain in unrelated test files such as `ConcurrencyEdgeCaseTests.swift` and `ConcurrencyStressTests.swift`
    - the app build succeeds, but isolated `KnowledgeCoreBridgeTests` still cannot run under `xcodebuild test` until the broader test target compiles again
 

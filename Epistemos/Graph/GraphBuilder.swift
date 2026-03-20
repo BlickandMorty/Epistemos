@@ -146,7 +146,7 @@ final class GraphBuilder: @unchecked Sendable {
 
         for page in pages {
             guard let noteNodeId = sourceIdToNodeId[page.id] else { continue }
-            let body = page.loadBody()
+            let body = page.loadBody(mapped: true)
             guard !body.isEmpty else { continue }
 
             // Block references — ((blockId))

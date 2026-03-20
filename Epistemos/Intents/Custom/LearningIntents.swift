@@ -95,17 +95,20 @@ struct FindConnectionsIntent: AppIntent {
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
         let pages = (try? context.fetch(descriptor)) ?? []
-
-        let relevantPages: [SDPage]
-        if let topic = topic?.lowercased() {
-            relevantPages = Array(pages.filter {
-                $0.title.lowercased().contains(topic) || $0.loadBody().lowercased().contains(topic)
-            }.prefix(10))
-        } else {
-            relevantPages = Array(pages.prefix(10))
+        let pageContexts = pages.map { page in
+            (page: page, body: page.loadBody(mapped: true))
         }
 
-        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.loadBody().prefix(300)))" }.joined(separator: "\n")
+        let relevantPages: [(page: SDPage, body: String)]
+        if let topic = topic?.lowercased() {
+            relevantPages = Array(pageContexts.filter {
+                $0.page.title.lowercased().contains(topic) || $0.body.lowercased().contains(topic)
+            }.prefix(10))
+        } else {
+            relevantPages = Array(pageContexts.prefix(10))
+        }
+
+        let notesSummary = relevantPages.map { "- \($0.page.title): \(String($0.body.prefix(300)))" }.joined(separator: "\n")
 
         // Inject vault manifest for full vault awareness
         let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""
@@ -140,17 +143,20 @@ struct GenerateQuestionsIntent: AppIntent {
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
         let pages = (try? context.fetch(descriptor)) ?? []
-
-        let relevantPages: [SDPage]
-        if let topic = topic?.lowercased() {
-            relevantPages = Array(pages.filter {
-                $0.title.lowercased().contains(topic) || $0.loadBody().lowercased().contains(topic)
-            }.prefix(10))
-        } else {
-            relevantPages = Array(pages.prefix(10))
+        let pageContexts = pages.map { page in
+            (page: page, body: page.loadBody(mapped: true))
         }
 
-        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.loadBody().prefix(300)))" }.joined(separator: "\n")
+        let relevantPages: [(page: SDPage, body: String)]
+        if let topic = topic?.lowercased() {
+            relevantPages = Array(pageContexts.filter {
+                $0.page.title.lowercased().contains(topic) || $0.body.lowercased().contains(topic)
+            }.prefix(10))
+        } else {
+            relevantPages = Array(pageContexts.prefix(10))
+        }
+
+        let notesSummary = relevantPages.map { "- \($0.page.title): \(String($0.body.prefix(300)))" }.joined(separator: "\n")
 
         // Inject vault manifest for full vault awareness
         let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""

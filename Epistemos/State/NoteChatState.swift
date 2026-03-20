@@ -118,8 +118,7 @@ final class NoteChatState {
             systemPrompt: nil,
             operation: .ask(query: trimmed),
             contentLength: noteBody.count,
-            query: trimmed,
-            localReasoningMode: .fast
+            query: trimmed
         )
         log.info("Note chat: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
 
@@ -176,17 +175,12 @@ final class NoteChatState {
 
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
+        _ = systemPrompt
         let fullPrompt: String
         if noteSnippet.isEmpty {
-            fullPrompt = """
-            \(systemPrompt)
-
-            Request: \(trimmed)
-            """
+            fullPrompt = "Request: \(trimmed)"
         } else {
             fullPrompt = """
-            \(systemPrompt)
-
             Note content:
             \(noteSnippet)
 

@@ -9,10 +9,10 @@
 
 ## Performance risks
 
-1. Fresh Cozo DB build/import on every relevant query.
-2. Per-row FFI helper calls and repeated archive validation.
-3. Swift string/array materialization on every staged payload.
-4. Live query invalidation floor remains about 150 ms.
+1. Live BTK linked-reference queries and snapshot paths still rebuild fresh in-memory Cozo state.
+2. Swift string/array materialization still dominates every staged payload decode.
+3. Live query invalidation floor remains about 150 ms.
+4. Parser remains line-based and string-heavy even after the property-drawer fix.
 
 ## Operational risks
 

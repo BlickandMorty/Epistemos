@@ -103,6 +103,7 @@ struct VaultIndexActorTests {
         let result = await actor.buildVaultContext(for: "quantum field derivation")
         #expect(result != nil)
         #expect(result?.contains("### Quantum Field Theory") == true)
+        #expect(result?.contains("Field operators, derivation, and perturbation.") == true)
         #expect(result?.contains("Cooking Notes") == false)
         #expect(result?.contains("## Vault Actions") == true)
         #expect(result?.contains("[ACTION:TAG") == true)

@@ -21,7 +21,7 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
 
     var resolvedMaxTokens: Int? {
         guard maxTokens > 0 else { return nil }
-        let maxAllowed = reasoningMode == .thinking ? 12_000 : 8_000
+        let maxAllowed = 12_000
         return min(max(1, maxTokens), maxAllowed)
     }
 }
@@ -194,7 +194,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            reasoningMode: .fast
+            reasoningMode: inference.preferredLocalReasoningMode
         )
     }
 
@@ -219,7 +219,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            reasoningMode: .fast
+            reasoningMode: inference.preferredLocalReasoningMode
         )
     }
 
@@ -284,7 +284,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         LLMSnapshot(
             provider: .localMLX,
             model: inference.effectiveLocalTextModelID ?? "",
-            reasoningMode: .thinking
+            reasoningMode: .fast
         )
     }
 
@@ -295,6 +295,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil
     ) throws -> LocalMLXRequest {
+        let normalizedReasoningMode: LocalReasoningMode = .fast
         guard let modelID = modelID ?? inference.effectiveLocalTextModelID,
               let descriptor = LocalModelCatalog.descriptor(for: modelID) else {
             throw LocalInferenceRoutingError.modelRequired
@@ -309,21 +310,17 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             hardware: inference.hardwareCapabilitySnapshot,
-            reasoningMode: reasoningMode,
+            reasoningMode: normalizedReasoningMode,
             conditions: inference.localRuntimeConditions
-        )
-        let formattedSystemPrompt = Self.formattedSystemPrompt(
-            trimmed.systemPrompt,
-            reasoningMode: reasoningMode
         )
 
         return LocalMLXRequest(
             modelID: modelID,
             modelDirectory: modelDirectory,
             prompt: trimmed.prompt,
-            systemPrompt: formattedSystemPrompt,
+            systemPrompt: trimmed.systemPrompt,
             maxTokens: max(0, maxTokens),
-            reasoningMode: reasoningMode
+            reasoningMode: normalizedReasoningMode
         )
     }
 
@@ -367,7 +364,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
 
 #if canImport(MLX) && canImport(MLXLMCommon) && canImport(MLXLLM)
 actor MLXInferenceService: LocalMLXRuntime {
-    private nonisolated static let maxContinuationCount = 1
+    private nonisolated static let maxContinuationCount = 0
     private nonisolated static let continuationTailLength = 1_600
     private nonisolated static let minimumOverlapLength = 24
     private nonisolated static let truncationNotice = "\n\n[Local response reached the current generation limit before finishing.]"
@@ -767,7 +764,7 @@ actor MLXInferenceService: LocalMLXRuntime {
             kvBits: 4,
             kvGroupSize: 64,
             quantizedKVStart: 0,
-            temperature: request.reasoningMode == .thinking ? 0.65 : 0.45,
+            temperature: 0.45,
             topP: 0.95,
             prefillStepSize: 256
         )
@@ -782,7 +779,9 @@ actor MLXInferenceService: LocalMLXRuntime {
         afterLengthStopIn text: String,
         continuationCount: Int
     ) -> Bool {
-        continuationCount == 0 && requiresTruncationNotice(afterLengthStopIn: text)
+        _ = text
+        _ = continuationCount
+        return false
     }
 
     private nonisolated static func requiresTruncationNotice(afterLengthStopIn text: String) -> Bool {

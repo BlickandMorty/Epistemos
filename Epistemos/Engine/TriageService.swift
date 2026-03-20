@@ -115,12 +115,10 @@ nonisolated enum InferenceDecisionReasonCode: String, Sendable, Equatable, Hasha
     case appleUnavailable
     case appleBypassedForComplexity
     case localModeForced
-    case automaticSelectionDisabled
     case explicitThinkingRequested
     case explicitFastRequested
-    case warmModelSufficient
-    case runtimeConstrained
     case preferredLocalModelUsed
+    case preferredLocalModelUnavailable
     case noInstalledLocalModel
 }
 
@@ -142,11 +140,9 @@ nonisolated struct InferenceRequestProfile: Sendable, Equatable {
 nonisolated struct InferencePolicyContext: Sendable, Equatable {
     let routingMode: LocalRoutingMode
     let appleIntelligenceAvailable: Bool
-    let automaticLocalModelSelectionEnabled: Bool
     let preferredLocalTextModelID: String
     let preferredLocalReasoningMode: LocalReasoningMode
     let installedLocalTextModelIDs: Set<String>
-    let warmLocalTextModelID: String?
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
     let runtimeConditions: LocalRuntimeConditions
 }
@@ -241,24 +237,14 @@ nonisolated struct InferencePolicyEngine {
         let installedModels = supportedInstalledModels(in: context)
         guard !installedModels.isEmpty else { return nil }
 
-        let runtimeRecommended = context.hardwareCapabilitySnapshot.recommendedLocalTextModelID(
-            for: context.runtimeConditions
-        )
-        let preferredModel = LocalTextModelID(rawValue: context.preferredLocalTextModelID) ?? runtimeRecommended
-        let cappedPreferred = context.runtimeConditions.prefersConstrainedLocalModel
-            && preferredModel.minimumRecommendedMemoryGB > runtimeRecommended.minimumRecommendedMemoryGB
-            ? runtimeRecommended
-            : preferredModel
-        guard let resolved = resolvedInstalledLocalTextModel(
-            preferredModel: cappedPreferred,
-            installedModels: installedModels
-        ) else {
+        guard let preferredModel = LocalTextModelID(rawValue: context.preferredLocalTextModelID),
+              installedModels.contains(preferredModel) else {
             return nil
         }
 
-        let selectedReasoningMode = reasoningMode ?? context.preferredLocalReasoningMode
+        let selectedReasoningMode = reasoningMode ?? .fast
         return LocalModelSelection(
-            modelID: resolved.rawValue,
+            modelID: preferredModel.rawValue,
             reasoningMode: selectedReasoningMode,
             contentBudget: context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
                 for: context.runtimeConditions,
@@ -296,11 +282,6 @@ nonisolated struct InferencePolicyEngine {
             reasonCodes.insert(.appleBypassedForComplexity)
             return false
         }
-        guard !profile.explicitThinkingRequested,
-              profile.requestedReasoningMode != .thinking else {
-            reasonCodes.insert(.appleBypassedForComplexity)
-            return false
-        }
 
         let appleFriendlyIntent: Bool
         switch profile.intent {
@@ -331,120 +312,23 @@ nonisolated struct InferencePolicyEngine {
         contextTier: InferenceContextTier,
         reasonCodes: inout Set<InferenceDecisionReasonCode>
     ) -> (selection: LocalModelSelection?, reuseWarmModel: Bool) {
-        if !context.automaticLocalModelSelectionEnabled {
-            reasonCodes.insert(.automaticSelectionDisabled)
-            let preferred = resolvedPreferredLocalSelection(
-                in: context,
-                reasoningMode: reasoningMode(
-                    for: profile,
-                    complexityTier: complexityTier,
-                    contextTier: contextTier
-                )
-            )
-            if preferred != nil {
-                reasonCodes.insert(.preferredLocalModelUsed)
-            } else {
-                reasonCodes.insert(.noInstalledLocalModel)
-            }
-            return (preferred, false)
-        }
-
-        let installedModels = supportedInstalledModels(in: context)
-        guard !installedModels.isEmpty else {
-            reasonCodes.insert(.noInstalledLocalModel)
-            return (nil, false)
-        }
-
         let selectedReasoningMode = reasoningMode(
             for: profile,
             complexityTier: complexityTier,
             contextTier: contextTier
         )
-        if profile.explicitThinkingRequested {
-            reasonCodes.insert(.explicitThinkingRequested)
-        }
-        if profile.explicitFastRequested {
-            reasonCodes.insert(.explicitFastRequested)
-        }
-
-        let contentBudget = context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
-            for: context.runtimeConditions,
+        let preferred = resolvedPreferredLocalSelection(
+            in: context,
             reasoningMode: selectedReasoningMode
         )
-
-        let targetModel = targetLocalTextModel(
-            for: profile,
-            complexityTier: complexityTier,
-            contextTier: contextTier
-        )
-        let runtimeCap = context.hardwareCapabilitySnapshot.recommendedLocalTextModelID(
-            for: context.runtimeConditions
-        )
-        let cappedTarget = context.runtimeConditions.prefersConstrainedLocalModel
-            && targetModel.minimumRecommendedMemoryGB > runtimeCap.minimumRecommendedMemoryGB
-            ? runtimeCap
-            : targetModel
-        if cappedTarget != targetModel {
-            reasonCodes.insert(.runtimeConstrained)
-        }
-
-        let candidate = installedModels.first {
-            $0.minimumRecommendedMemoryGB >= cappedTarget.minimumRecommendedMemoryGB
-        } ?? installedModels.last
-        guard let candidate else {
+        if preferred != nil {
+            reasonCodes.insert(.preferredLocalModelUsed)
+        } else if supportedInstalledModels(in: context).isEmpty {
             reasonCodes.insert(.noInstalledLocalModel)
-            return (nil, false)
+        } else {
+            reasonCodes.insert(.preferredLocalModelUnavailable)
         }
-
-        let stickySelection = stickyModelSelection(
-            candidate: candidate,
-            installedModels: installedModels,
-            context: context
-        )
-        if stickySelection.reuseWarmModel {
-            reasonCodes.insert(.warmModelSufficient)
-        }
-        return (
-            LocalModelSelection(
-                modelID: stickySelection.model.rawValue,
-                reasoningMode: selectedReasoningMode,
-                contentBudget: contentBudget
-            ),
-            stickySelection.reuseWarmModel
-        )
-    }
-
-    private func targetLocalTextModel(
-        for profile: InferenceRequestProfile,
-        complexityTier: InferenceComplexityTier,
-        contextTier: InferenceContextTier
-    ) -> LocalTextModelID {
-        switch (profile.surface, complexityTier, profile.intent) {
-        case (.mainChat, .trivial, .simpleAsk),
-             (.mainChat, .light, .simpleAsk),
-             (.mainChat, .trivial, .brainstorm),
-             (.mainChat, .light, .brainstorm),
-             (.miniChat, .trivial, .simpleAsk),
-             (.miniChat, .light, .simpleAsk),
-             (.miniChat, .trivial, .brainstorm),
-             (.miniChat, .light, .brainstorm):
-            return .qwen35_2B4Bit
-        default:
-            break
-        }
-
-        switch (complexityTier, contextTier, profile.intent) {
-        case (.extreme, _, _), (_, .oversized, _):
-            return .qwen35_27B4Bit
-        case (.heavy, _, .graphAnalysis), (.heavy, _, .structuredAnalysis), (.heavy, .large, _):
-            return .qwen35_9B4Bit
-        case (.heavy, _, _), (.moderate, .large, _), (.moderate, _, .coding), (.moderate, _, .debugging), (.moderate, _, .comparison), (.moderate, _, .synthesis), (.moderate, _, .noteAnalysis), (.moderate, _, .graphAnalysis), (.moderate, _, .structuredAnalysis):
-            return .qwen35_4B4Bit
-        case (.moderate, _, _), (.light, .medium, _), (.light, _, .brainstorm):
-            return .qwen35_2B4Bit
-        default:
-            return .qwen35_0_8B4Bit
-        }
+        return (preferred, false)
     }
 
     private func reasoningMode(
@@ -454,45 +338,8 @@ nonisolated struct InferencePolicyEngine {
     ) -> LocalReasoningMode {
         _ = complexityTier
         _ = contextTier
-        if profile.explicitFastRequested {
-            return .fast
-        }
-        if profile.explicitThinkingRequested {
-            return .thinking
-        }
-
-        guard profile.requestedReasoningMode == .thinking else {
-            return .fast
-        }
-
-        switch profile.intent {
-        case .simpleAsk, .rewrite, .summarize, .brainstorm:
-            return .fast
-        case .coding, .debugging, .comparison, .synthesis, .noteAnalysis, .graphAnalysis, .structuredAnalysis:
-            return .thinking
-        }
-    }
-
-    private func stickyModelSelection(
-        candidate: LocalTextModelID,
-        installedModels: [LocalTextModelID],
-        context: InferencePolicyContext
-    ) -> (model: LocalTextModelID, reuseWarmModel: Bool) {
-        guard context.automaticLocalModelSelectionEnabled,
-              !context.runtimeConditions.prefersConstrainedLocalModel,
-              let warmLocalTextModelID = context.warmLocalTextModelID,
-              let warmModel = LocalTextModelID(rawValue: warmLocalTextModelID),
-              installedModels.contains(warmModel),
-              let candidateIndex = LocalTextModelID.ascendingBySize.firstIndex(of: candidate),
-              let warmIndex = LocalTextModelID.ascendingBySize.firstIndex(of: warmModel) else {
-            return (candidate, false)
-        }
-
-        if warmIndex >= candidateIndex && warmIndex - candidateIndex <= 1 {
-            return (warmModel, true)
-        }
-
-        return (candidate, false)
+        _ = profile
+        return .fast
     }
 
     private func supportedInstalledModels(in context: InferencePolicyContext) -> [LocalTextModelID] {
@@ -502,24 +349,6 @@ nonisolated struct InferencePolicyEngine {
             .sorted { lhs, rhs in
                 lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
             }
-    }
-
-    private func resolvedInstalledLocalTextModel(
-        preferredModel: LocalTextModelID,
-        installedModels: [LocalTextModelID]
-    ) -> LocalTextModelID? {
-        guard !installedModels.isEmpty else { return nil }
-        if installedModels.contains(preferredModel) {
-            return preferredModel
-        }
-        if let nearestSmallerOrEqual = installedModels.last(where: {
-            $0.minimumRecommendedMemoryGB <= preferredModel.minimumRecommendedMemoryGB
-        }) {
-            return nearestSmallerOrEqual
-        }
-        return installedModels.first(where: {
-            $0.minimumRecommendedMemoryGB > preferredModel.minimumRecommendedMemoryGB
-        }) ?? installedModels.last
     }
 
     private func complexityTier(for profile: InferenceRequestProfile) -> InferenceComplexityTier {
@@ -540,17 +369,8 @@ nonisolated struct InferencePolicyEngine {
             score += 0.06
         }
 
-        if profile.explicitThinkingRequested {
-            score += 0.14
-        }
         if profile.visibleThinkingRequested {
             score += 0.06
-        }
-        if profile.requestedReasoningMode == .thinking {
-            score += 0.04
-        }
-        if profile.explicitFastRequested {
-            score -= 0.05
         }
 
         let clamped = max(0, min(1, score))
@@ -795,7 +615,7 @@ final class TriageService {
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: localReasoningMode ?? inference.preferredLocalReasoningMode
+            localReasoningMode: .fast
         )
         return triageDecision(for: decision.selectedRoute)
     }
@@ -808,13 +628,13 @@ final class TriageService {
         operation: NotesOperation,
         contentLength: Int,
         query: String? = nil,
-        localReasoningMode: LocalReasoningMode = .fast
+        localReasoningMode: LocalReasoningMode? = nil
     ) -> AsyncThrowingStream<String, Error> {
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: localReasoningMode
+            localReasoningMode: .fast
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
@@ -844,13 +664,13 @@ final class TriageService {
         operation: NotesOperation,
         contentLength: Int,
         query: String? = nil,
-        localReasoningMode: LocalReasoningMode = .fast
+        localReasoningMode: LocalReasoningMode? = nil
     ) async throws -> String {
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: localReasoningMode
+            localReasoningMode: .fast
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
@@ -901,7 +721,7 @@ final class TriageService {
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: localReasoningMode ?? inference.preferredLocalReasoningMode,
+            localReasoningMode: .fast,
             localSurface: localSurface
         )
         return triageDecision(for: decision.selectedRoute)
@@ -912,13 +732,13 @@ final class TriageService {
         systemPrompt: String? = nil,
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode = .fast,
+        localReasoningMode: LocalReasoningMode? = nil,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) -> AsyncThrowingStream<String, Error> {
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: localReasoningMode,
+            localReasoningMode: .fast,
             localSurface: localSurface
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
@@ -946,13 +766,13 @@ final class TriageService {
         systemPrompt: String? = nil,
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode = .fast,
+        localReasoningMode: LocalReasoningMode? = nil,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) async throws -> String {
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: localReasoningMode,
+            localReasoningMode: .fast,
             localSurface: localSurface
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
@@ -1120,9 +940,7 @@ final class TriageService {
         }
         let analysis = queryText.isEmpty ? nil : QueryAnalyzer.analyze(query: queryText)
         let promptLength = max(contentLength, queryText.count)
-        let explicitThinking = Self.explicitThinkingRequested(in: queryText)
-        let explicitFast = Self.explicitFastRequested(in: queryText)
-        let requestedReasoningMode = explicitThinking ? .thinking : localReasoningMode
+        _ = localReasoningMode
 
         return InferenceRequestProfile(
             surface: .noteChat,
@@ -1140,10 +958,10 @@ final class TriageService {
             ),
             baseComplexity: operation.baseComplexity,
             queryComplexity: analysis?.complexity ?? 0,
-            requestedReasoningMode: requestedReasoningMode,
-            explicitThinkingRequested: explicitThinking,
-            explicitFastRequested: explicitFast,
-            visibleThinkingRequested: explicitThinking && inference.showLocalThinkingPanel
+            requestedReasoningMode: .fast,
+            explicitThinkingRequested: false,
+            explicitFastRequested: false,
+            visibleThinkingRequested: false
         )
     }
 
@@ -1161,9 +979,7 @@ final class TriageService {
         }
         let analysis = queryText.isEmpty ? nil : QueryAnalyzer.analyze(query: queryText)
         let promptLength = max(contentLength, queryText.count)
-        let explicitThinking = Self.explicitThinkingRequested(in: queryText)
-        let explicitFast = Self.explicitFastRequested(in: queryText)
-        let requestedReasoningMode = explicitThinking ? .thinking : localReasoningMode
+        _ = localReasoningMode
 
         return InferenceRequestProfile(
             surface: localSurface,
@@ -1181,39 +997,21 @@ final class TriageService {
             ),
             baseComplexity: operation.baseComplexity,
             queryComplexity: analysis?.complexity ?? 0,
-            requestedReasoningMode: requestedReasoningMode,
-            explicitThinkingRequested: explicitThinking,
-            explicitFastRequested: explicitFast,
-            visibleThinkingRequested: explicitThinking && inference.showLocalThinkingPanel
+            requestedReasoningMode: .fast,
+            explicitThinkingRequested: false,
+            explicitFastRequested: false,
+            visibleThinkingRequested: false
         )
     }
 
     private static func explicitThinkingRequested(in text: String) -> Bool {
-        let normalized = text.lowercased()
-        let cues = [
-            "think step by step",
-            "reason step by step",
-            "show your reasoning",
-            "show your thinking",
-            "show thinking",
-            "use thinking mode",
-            "reason out loud",
-            "think aloud",
-        ]
-        return cues.contains { normalized.contains($0) }
+        _ = text
+        return false
     }
 
     private static func explicitFastRequested(in text: String) -> Bool {
-        let normalized = text.lowercased()
-        let cues = [
-            "be brief",
-            "be concise",
-            "fast answer",
-            "quick answer",
-            "short answer",
-            "just the answer",
-        ]
-        return cues.contains { normalized.contains($0) }
+        _ = text
+        return false
     }
 
     private func triageDecision(for route: InferenceRouteKind) -> TriageDecision {
@@ -1344,7 +1142,6 @@ final class TriageService {
         }
 
         do {
-            inference.recordLocalModelSelection(selection)
             if let configurable = localLLMService as? any LocalConfigurableLLMClient {
                 return try await configurable.generate(
                     prompt: prompt,
@@ -1375,8 +1172,6 @@ final class TriageService {
                 continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
             }
         }
-        inference.recordLocalModelSelection(selection)
-
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {

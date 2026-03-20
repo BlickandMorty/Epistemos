@@ -62,6 +62,27 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
+    @Test("install adopts the first usable local tier when no exact selection is available")
+    func installAdoptsFirstUsableTier() async throws {
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        let inference = InferenceState()
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: root,
+            installer: FakeLocalModelInstaller()
+        )
+
+        try await manager.install(modelID: LocalTextModelID.qwen35_2B4Bit.rawValue)
+
+        #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+    }
+
+    @MainActor
     @Test("refresh restores persisted install records")
     func refreshRestoresManifest() throws {
         let root = makeTemporaryRoot()

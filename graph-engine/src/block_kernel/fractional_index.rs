@@ -166,6 +166,39 @@ mod tests {
     }
 
     #[test]
+    fn alternating_gap_inserts_remain_strictly_sorted() {
+        let mut indices = vec![
+            FractionalIndex::from_position(1),
+            FractionalIndex::from_position(2),
+        ];
+
+        for discriminator in 1..33 {
+            let insert_at = if discriminator % 2 == 0 {
+                1
+            } else {
+                indices.len() - 1
+            };
+            let next = FractionalIndex::between(
+                indices.get(insert_at.wrapping_sub(1)),
+                indices.get(insert_at),
+                7,
+                discriminator,
+            );
+            indices.insert(insert_at, next);
+            assert!(indices.windows(2).all(|window| window[0] < window[1]));
+        }
+    }
+
+    #[test]
+    fn inverted_neighbors_fall_back_after_left() {
+        let left = FractionalIndex::from_position(9);
+        let right = FractionalIndex::from_position(8);
+        let next = FractionalIndex::between(Some(&left), Some(&right), 3, 1);
+
+        assert!(next > left);
+    }
+
+    #[test]
     fn sort_key_roundtrips() {
         let index = FractionalIndex::between(
             Some(&FractionalIndex::from_position(1)),

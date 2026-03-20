@@ -678,46 +678,67 @@ fn execute_links_query(
     max_depth: u8,
     pages: &HashMap<String, MaterializedPage>,
 ) -> Vec<QueryResultRow> {
-    let rows = pages
-        .values()
-        .flat_map(|page| {
-            page.links.iter().map(|link| {
-                vec![
-                    DataValue::from(link.page_id.clone()),
-                    DataValue::from(link.block_id.clone()),
-                    DataValue::from(link.target_id.clone()),
-                    DataValue::from(i64::from(link.ref_type)),
-                ]
-            })
-        })
-        .collect::<Vec<_>>();
-    let db = links_db(rows);
+    if max_depth == 0 {
+        return Vec::new();
+    }
 
-    let mut script = String::new();
-    for depth in 1..=max_depth {
-        if depth == 1 {
-            script.push_str(
-                "l1[target, ref_type] := *link{page, block, target, ref_type}, block = $block\n",
-            );
-            script.push_str("?[target, hops, ref_type] := l1[target, ref_type], hops = 1\n");
-        } else {
-            let previous = depth - 1;
-            script.push_str(&format!(
-                "l{depth}[target, ref_type] := l{previous}[source, _], *link{{page, block, target, ref_type}}, block = source\n",
-            ));
-            script.push_str(&format!(
-                "?[target, hops, ref_type] := l{depth}[target, ref_type], hops = {depth}\n",
-            ));
+    let mut adjacency = HashMap::<&str, Vec<&MaterializedLink>>::new();
+    for page in pages.values() {
+        for link in &page.links {
+            adjacency
+                .entry(link.block_id.as_str())
+                .or_default()
+                .push(link);
         }
     }
-    script.push_str(":order hops");
 
-    let result = db.run_script(
-        &script,
-        BTreeMap::from([("block".to_string(), DataValue::from(block_id.to_string()))]),
-        ScriptMutability::Immutable,
-    );
-    rows_from_links(result.ok())
+    let mut frontier = vec![block_id.to_string()];
+    let mut results = Vec::new();
+    let mut seen = HashSet::<(String, u8, u8)>::new();
+
+    for hop in 1..=max_depth {
+        if frontier.is_empty() {
+            break;
+        }
+
+        let mut next_frontier = Vec::new();
+        for source in frontier {
+            let Some(links) = adjacency.get(source.as_str()) else {
+                continue;
+            };
+            for link in links {
+                let dedupe_key = (link.target_id.clone(), hop, link.ref_type);
+                if !seen.insert(dedupe_key) {
+                    continue;
+                }
+                next_frontier.push(link.target_id.clone());
+                results.push(QueryResultRow {
+                    target_id: link.target_id.clone(),
+                    hop_count: hop,
+                    ref_type: link.ref_type,
+                    page_id: String::new(),
+                    block_id: String::new(),
+                    parent_id: String::new(),
+                    content: String::new(),
+                    property_key: String::new(),
+                    property_value: String::new(),
+                    task_marker: String::new(),
+                    order_key: String::new(),
+                    depth: 0,
+                    task_done: false,
+                });
+            }
+        }
+        frontier = next_frontier;
+    }
+
+    results.sort_by(|left, right| {
+        left.hop_count
+            .cmp(&right.hop_count)
+            .then_with(|| left.target_id.cmp(&right.target_id))
+            .then_with(|| left.ref_type.cmp(&right.ref_type))
+    });
+    results
 }
 
 fn outline_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
@@ -774,31 +795,6 @@ fn property_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
         );
         db.import_relations(to_import)
             .expect("property relation should import");
-    }
-    db
-}
-
-fn links_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
-    let db = DbInstance::new("mem", "", "").expect("Cozo mem DB should initialize");
-    db.run_default(":create link {page: String, block: String, target: String, ref_type: Int}")
-        .expect("link relation should create");
-    if !rows.is_empty() {
-        let mut to_import = BTreeMap::new();
-        to_import.insert(
-            "link".to_string(),
-            NamedRows {
-                headers: vec![
-                    "page".to_string(),
-                    "block".to_string(),
-                    "target".to_string(),
-                    "ref_type".to_string(),
-                ],
-                rows,
-                next: None,
-            },
-        );
-        db.import_relations(to_import)
-            .expect("link relation should import");
     }
     db
 }
@@ -1036,33 +1032,6 @@ fn rows_from_property(result: Option<NamedRows>) -> Vec<QueryResultRow> {
                 ref_type: 0,
                 task_done: false,
                 hop_count: 0,
-            })
-        })
-        .collect()
-}
-
-fn rows_from_links(result: Option<NamedRows>) -> Vec<QueryResultRow> {
-    let Some(result) = result else {
-        return Vec::new();
-    };
-    result
-        .rows
-        .into_iter()
-        .filter_map(|row| {
-            Some(QueryResultRow {
-                target_id: row.first()?.get_str()?.to_string(),
-                hop_count: row.get(1)?.get_int()? as u8,
-                ref_type: row.get(2)?.get_int()? as u8,
-                page_id: String::new(),
-                block_id: String::new(),
-                parent_id: String::new(),
-                content: String::new(),
-                property_key: String::new(),
-                property_value: String::new(),
-                task_marker: String::new(),
-                order_key: String::new(),
-                depth: 0,
-                task_done: false,
             })
         })
         .collect()
@@ -1375,6 +1344,73 @@ mod tests {
                 .added
                 .iter()
                 .any(|row| row.target_id == new_target.to_uuid_string())
+        );
+    }
+
+    #[test]
+    fn snapshot_replays_historical_link_state() {
+        let (mut tree, mut log, page, _) = seed_page();
+        let mut kernel = BtkQueryKernel::new();
+        kernel.sync_page("page-a", &tree, &log);
+        let version_one = kernel.latest_seq();
+        let sub_id = kernel.subscribe_links(&page.to_uuid_string(), 2);
+        let _ = kernel.take_update(sub_id);
+
+        let new_target = BlockId::new();
+        let update = Op::SetRef {
+            block_id: page,
+            target_id: new_target,
+            ref_type: 2,
+        };
+        tree.apply(&update);
+        log.append(update);
+        kernel.sync_page("page-a", &tree, &log);
+
+        let snapshot = kernel
+            .snapshot_bytes(
+                sub_id,
+                version_one,
+                &HashMap::from([("page-a".into(), log)]),
+            )
+            .expect("snapshot bytes should exist");
+        let payload = decode(&snapshot);
+        assert!(
+            payload
+                .added
+                .iter()
+                .all(|row| row.target_id != new_target.to_uuid_string())
+        );
+    }
+
+    #[test]
+    #[ignore = "benchmark"]
+    fn benchmark_link_subscription_refresh() {
+        const BLOCK_COUNT: usize = 400;
+        const ITERATIONS: usize = 300;
+
+        let (mut tree, mut log, page, target) = seed_large_page(BLOCK_COUNT);
+        let mut kernel = BtkQueryKernel::new();
+        kernel.sync_page("page-a", &tree, &log);
+        let sub_id = kernel.subscribe_links(&page.to_uuid_string(), 2);
+        let _ = kernel.take_update(sub_id);
+
+        let start = Instant::now();
+        for idx in 0..ITERATIONS {
+            let update = Op::SetRef {
+                block_id: target,
+                target_id: BlockId::new(),
+                ref_type: (idx % 4) as u8,
+            };
+            tree.apply(&update);
+            log.append(update);
+            kernel.sync_page("page-a", &tree, &log);
+            let _ = kernel.take_update(sub_id);
+        }
+        let elapsed = start.elapsed();
+        let ns_per_tx = elapsed.as_nanos() as f64 / ITERATIONS as f64;
+        println!(
+            "btk_link_subscription_refresh ns_per_tx={}",
+            ns_per_tx.round() as u64
         );
     }
 

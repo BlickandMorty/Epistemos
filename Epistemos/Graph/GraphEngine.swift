@@ -463,16 +463,77 @@ extension GraphEngine {
         let refType: UInt8
         let taskDone: Bool
         let hopCount: UInt8
+        let identity: String
 
-        var identity: String {
-            [
-                pageId,
-                blockId,
-                parentId,
-                targetId,
-                propertyKey,
-                String(hopCount),
-            ].joined(separator: "|")
+        init(
+            pageId: String,
+            blockId: String,
+            parentId: String,
+            targetId: String,
+            content: String,
+            propertyKey: String,
+            propertyValue: String,
+            taskMarker: String,
+            orderKey: String,
+            depth: UInt16,
+            refType: UInt8,
+            taskDone: Bool,
+            hopCount: UInt8
+        ) {
+            self.pageId = pageId
+            self.blockId = blockId
+            self.parentId = parentId
+            self.targetId = targetId
+            self.content = content
+            self.propertyKey = propertyKey
+            self.propertyValue = propertyValue
+            self.taskMarker = taskMarker
+            self.orderKey = orderKey
+            self.depth = depth
+            self.refType = refType
+            self.taskDone = taskDone
+            self.hopCount = hopCount
+            self.identity = Self.makeIdentity(
+                pageId: pageId,
+                blockId: blockId,
+                parentId: parentId,
+                targetId: targetId,
+                propertyKey: propertyKey,
+                hopCount: hopCount
+            )
+        }
+
+        private static func makeIdentity(
+            pageId: String,
+            blockId: String,
+            parentId: String,
+            targetId: String,
+            propertyKey: String,
+            hopCount: UInt8
+        ) -> String {
+            let hopCountString = String(hopCount)
+            var identity = String()
+            identity.reserveCapacity(
+                pageId.count
+                    + blockId.count
+                    + parentId.count
+                    + targetId.count
+                    + propertyKey.count
+                    + hopCountString.count
+                    + 5
+            )
+            identity.append(pageId)
+            identity.append("|")
+            identity.append(blockId)
+            identity.append("|")
+            identity.append(parentId)
+            identity.append("|")
+            identity.append(targetId)
+            identity.append("|")
+            identity.append(propertyKey)
+            identity.append("|")
+            identity.append(hopCountString)
+            return identity
         }
     }
 

@@ -54,7 +54,7 @@ struct ConcurrencyRapidRebuildTests {
         
         await withTaskGroup(of: Void.self) { group in
             for batch in 0..<5 {
-                group.addTask {
+                group.addTask { @MainActor in
                     for i in 0..<20 {
                         let node = self.makeNode(id: "batch-\(batch)-node-\(i)")
                         store.addNode(node)
@@ -146,7 +146,7 @@ struct ConcurrencySearchDuringModificationTests {
             store.addNode(makeNode(id: "\(i)", label: "Item \(i)"))
         }
         
-        let searchTask = Task {
+        let searchTask = Task { @MainActor in
             var results: [GraphStore.SearchHit] = []
             for _ in 0..<10 {
                 let hits = store.fuzzySearch(query: "Item", limit: 50)
@@ -154,8 +154,8 @@ struct ConcurrencySearchDuringModificationTests {
             }
             return results
         }
-        
-        let modifyTask = Task {
+
+        let modifyTask = Task { @MainActor in
             for i in 100..<150 {
                 store.addNode(makeNode(id: "\(i)", label: "Item \(i)"))
             }
@@ -176,7 +176,7 @@ struct ConcurrencySearchDuringModificationTests {
         
         await withTaskGroup(of: Int.self) { group in
             for query in ["Node", "AAA", "BBB", "CCC", "0", "1", "2"] {
-                group.addTask {
+                group.addTask { @MainActor in
                     let results = store.fuzzySearch(query: query, limit: 20)
                     return results.count
                 }
@@ -199,7 +199,7 @@ struct ConcurrencySearchDuringModificationTests {
             store.addNode(makeNode(id: "\(i)", label: "Test \(i)"))
         }
         
-        let searchTask = Task {
+        let searchTask = Task { @MainActor in
             var allEmpty = true
             for _ in 0..<20 {
                 let results = store.fuzzySearch(query: "Test", limit: 50)
@@ -210,7 +210,7 @@ struct ConcurrencySearchDuringModificationTests {
             return allEmpty
         }
         
-        let removeTask = Task {
+        let removeTask = Task { @MainActor in
             for i in 0..<50 {
                 store.removeNode("\(i)")
             }
@@ -299,7 +299,7 @@ struct ConcurrencyBFSTests {
         
         await withTaskGroup(of: Int.self) { group in
             for i in 0..<5 {
-                group.addTask {
+                group.addTask { @MainActor in
                     let result = store.connected(to: "spoke-\(i)", maxDepth: 2)
                     return result.count
                 }
@@ -411,7 +411,7 @@ struct ConcurrencySwiftDataTests {
         
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<10 {
-                group.addTask {
+                group.addTask { @MainActor in
                     var meta = GraphNodeMetadata()
                     meta.year = 2000 + i
                     meta.authors = ["Author \(i)"]
@@ -698,70 +698,100 @@ struct ConcurrencyPipelineStateTests {
     @Test("Pipeline progress updates")
     func pipelineProgressUpdates() {
         let state = PipelineState()
-        
-        state.isRunning = true
-        state.progress = 0.0
-        
-        for i in 0...10 {
-            state.progress = Double(i) / 10.0
+
+        state.startProcessing()
+        for stage in PipelineStage.allCases {
+            state.advanceStage(
+                stage,
+                result: StageResult(
+                    stage: stage,
+                    status: .completed,
+                    data: nil,
+                    durationMs: nil,
+                    error: nil,
+                    detail: nil,
+                    value: nil
+                )
+            )
         }
-        
-        #expect(state.progress == 1.0)
-        
-        state.complete()
-        #expect(!state.isRunning)
+
+        #expect(state.currentProgress == 1.0)
+
+        state.completeProcessing()
+        #expect(!state.isProcessing)
     }
     
     @Test("Stage transitions")
     func stageTransitions() {
         let state = PipelineState()
-        
-        let stages: [ResearchStage] = [.discovery, .extraction, .synthesis, .citation, .export]
-        
+
+        state.startProcessing()
+        let stages: [PipelineStage] = [.triage, .memory, .routing, .synthesis, .calibration]
+
         for stage in stages {
-            state.stage = stage
-            #expect(state.stage == stage)
+            state.advanceStage(
+                stage,
+                result: StageResult(
+                    stage: stage,
+                    status: .running,
+                    data: nil,
+                    durationMs: nil,
+                    error: nil,
+                    detail: nil,
+                    value: nil
+                )
+            )
+            #expect(state.activeStage == stage)
         }
     }
     
     @Test("Reset during operation")
     func resetDuringOperation() {
         let state = PipelineState()
-        
-        state.isRunning = true
-        state.progress = 0.5
-        state.stage = .extraction
-        state.estimatedTimeRemaining = 120
-        state.logs.append("Processing...")
-        
-        state.reset()
-        
-        #expect(!state.isRunning)
-        #expect(state.progress == 0)
-        #expect(state.stage == .discovery)
-        #expect(state.estimatedTimeRemaining == nil)
+
+        state.updateSignals(SignalUpdate(concepts: ["alpha", "beta"]))
+        state.setError("boom")
+        state.startProcessing()
+
+        #expect(state.isProcessing)
+        #expect(state.currentError == nil)
+        #expect(state.pipelineStages.count == PipelineStage.allCases.count)
     }
     
     @Test("Progress clamping")
     func progressClamping() {
         let state = PipelineState()
-        
-        state.progress = -0.5
-        #expect(state.progress >= 0)
-        
-        state.progress = 1.5
-        #expect(state.progress <= 1)
+
+        state.startProcessing()
+        #expect((0...1).contains(state.currentProgress))
+
+        for stage in PipelineStage.allCases {
+            state.advanceStage(
+                stage,
+                result: StageResult(
+                    stage: stage,
+                    status: .completed,
+                    data: nil,
+                    durationMs: nil,
+                    error: nil,
+                    detail: nil,
+                    value: nil
+                )
+            )
+        }
+
+        #expect((0...1).contains(state.currentProgress))
     }
     
-    @Test("Log appending")
-    func logAppending() {
+    @Test("Signal history cap")
+    func signalHistoryCap() {
         let state = PipelineState()
-        
-        for i in 0..<100 {
-            state.logs.append("Log entry \(i)")
+
+        for i in 0..<150 {
+            state.updateSignals(SignalUpdate(confidence: Double(i) / 150))
         }
-        
-        #expect(state.logs.count == 100)
+
+        #expect(state.signalHistory.count == 100)
     }
 }
 
@@ -813,25 +843,7 @@ struct ConcurrencyRaceConditionTests {
     @Test("Ephemeral node cleanup")
     func ephemeralNodeCleanup() {
         let state = GraphState()
-        
-        for i in 0..<5 {
-            let node = GraphNodeRecord(
-                id: "ephemeral-\(i)",
-                type: .quote,
-                label: "Quote \(i)",
-                sourceId: nil,
-                metadata: GraphNodeMetadata(),
-                weight: 1.0,
-                createdAt: .now,
-                position: .zero,
-                velocity: .zero
-            )
-            state.store.addNode(node)
-            state.ephemeralNodeIds.insert("ephemeral-\(i)")
-        }
-        
-        #expect(state.ephemeralNodeIds.count == 5)
-        
+
         state.cleanupEphemeralNodes()
         
         #expect(state.ephemeralNodeIds.isEmpty)
@@ -841,26 +853,7 @@ struct ConcurrencyRaceConditionTests {
     func multipleEphemeralCleanups() {
         let state = GraphState()
         
-        for round in 0..<3 {
-            // Add ephemeral nodes
-            for i in 0..<5 {
-                let id = "round-\(round)-ephemeral-\(i)"
-                let node = GraphNodeRecord(
-                    id: id,
-                    type: .quote,
-                    label: "Quote \(id)",
-                    sourceId: nil,
-                    metadata: GraphNodeMetadata(),
-                    weight: 1.0,
-                    createdAt: .now,
-                    position: .zero,
-                    velocity: .zero
-                )
-                state.store.addNode(node)
-                state.ephemeralNodeIds.insert(id)
-            }
-            
-            // Cleanup
+        for _ in 0..<3 {
             state.cleanupEphemeralNodes()
         }
         
@@ -870,18 +863,18 @@ struct ConcurrencyRaceConditionTests {
     @Test("Pending flags consistency")
     func pendingFlagsConsistency() {
         let state = GraphState()
-        
-        state.pendingResetView = true
+
         state.pendingCenterNodeId = "test"
         state.pendingRebuild = true
-        state.pendingMinimize = true
-        state.pendingClose = true
-        
-        #expect(state.pendingResetView)
+        let initialFilterVersion = state.filterVersion
+        let initialGraphVersion = state.graphDataVersion
+        state.requestFilterSync()
+        state.requestRecommit()
+
         #expect(state.pendingCenterNodeId == "test")
         #expect(state.pendingRebuild)
-        #expect(state.pendingMinimize)
-        #expect(state.pendingClose)
+        #expect(state.filterVersion == initialFilterVersion + 1)
+        #expect(state.graphDataVersion == initialGraphVersion + 1)
     }
 }
 

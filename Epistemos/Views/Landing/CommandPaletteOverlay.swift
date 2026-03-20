@@ -832,8 +832,7 @@ struct CommandPaletteOverlay: View {
                     prompt: conversationPrompt,
                     systemPrompt: nil,
                     operation: .chatResponse(query: trimmed),
-                    contentLength: contentLength,
-                    localReasoningMode: .fast
+                    contentLength: contentLength
                 )
 
                 for try await chunk in stream {

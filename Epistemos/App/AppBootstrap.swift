@@ -332,12 +332,11 @@ final class AppBootstrap {
         pipelineState.clearConcepts()
 
         inferenceState.setRoutingMode(.auto)
-        inferenceState.setAutomaticLocalModelSelectionEnabled(true)
         inferenceState.setPreferredLocalTextModelID(
             inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
         )
         inferenceState.setPreferredLocalReasoningMode(.fast)
-        inferenceState.setShowLocalThinkingPanel(true)
+        inferenceState.setShowLocalThinkingPanel(false)
 
         vaultSync.stopWatching()
 

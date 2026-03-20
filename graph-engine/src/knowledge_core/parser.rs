@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use memchr::memmem;
 use orgize::Org;
 use pulldown_cmark::{Options, Parser};
@@ -69,13 +71,12 @@ pub fn parse_document(page_id: &str, format: DocumentFormat, text: &str) -> Norm
 }
 
 fn parse_markdown(page_id: &str, text: &str) -> NormalizedDocument {
-    let _ = Parser::new_ext(text, Options::all()).count();
+    let _parser = Parser::new_ext(text, Options::all());
     parse_lines(page_id, text.lines(), Syntax::Markdown)
 }
 
 fn parse_org(page_id: &str, text: &str) -> NormalizedDocument {
-    let org = Org::parse(text);
-    let _ = org.iter().count();
+    let _org = Org::parse(text);
     parse_lines(page_id, text.lines(), Syntax::Org)
 }
 
@@ -95,8 +96,38 @@ fn parse_lines<'a>(
         ..NormalizedDocument::default()
     };
     let mut parent_stack: Vec<(u16, String)> = Vec::new();
+    let mut last_block_id: Option<String> = None;
+    let mut in_org_property_drawer = false;
 
     for (index, raw_line) in lines.enumerate() {
+        if matches!(syntax, Syntax::Org) {
+            let trimmed = raw_line.trim();
+            if in_org_property_drawer {
+                if trimmed.eq_ignore_ascii_case(":END:") {
+                    in_org_property_drawer = false;
+                    continue;
+                }
+
+                if let (Some(block_id), Some((key, value))) = (
+                    last_block_id.as_ref(),
+                    parse_org_property_drawer_line(trimmed),
+                ) {
+                    document.properties.push(NormalizedProperty {
+                        page_id: page_id.to_string(),
+                        block_id: block_id.clone(),
+                        key,
+                        value,
+                    });
+                }
+                continue;
+            }
+
+            if trimmed.eq_ignore_ascii_case(":PROPERTIES:") && last_block_id.is_some() {
+                in_org_property_drawer = true;
+                continue;
+            }
+        }
+
         if raw_line.trim().is_empty() {
             continue;
         }
@@ -118,9 +149,10 @@ fn parse_lines<'a>(
             .map(|(_, block_id)| block_id.clone())
             .unwrap_or_default();
         let order_key = format!("{index:010}");
-        let (task_marker, task_done, stripped_content) = parse_task_state(&content);
-        let properties = parse_inline_properties(&stripped_content);
-        let links = parse_links(page_id, &block_id, &stripped_content);
+        let (task_marker, task_done, stripped_content) = parse_task_state(content);
+        let stripped_content_ref = stripped_content.as_ref();
+        let properties = parse_inline_properties(stripped_content_ref);
+        let links = parse_links(page_id, &block_id, stripped_content_ref);
 
         document.blocks.push(NormalizedBlock {
             page_id: page_id.to_string(),
@@ -128,14 +160,14 @@ fn parse_lines<'a>(
             parent_id: parent_id.clone(),
             order_key,
             depth,
-            content: stripped_content.clone(),
+            content: stripped_content.into_owned(),
         });
 
         if let Some(marker) = task_marker {
             document.tasks.push(NormalizedTask {
                 page_id: page_id.to_string(),
                 block_id: block_id.clone(),
-                marker,
+                marker: marker.to_string(),
                 done: task_done,
             });
         }
@@ -151,12 +183,13 @@ fn parse_lines<'a>(
 
         document.links.extend(links);
         parent_stack.push((depth, block_id));
+        last_block_id = document.blocks.last().map(|block| block.block_id.clone());
     }
 
     document
 }
 
-fn parse_markdown_line(line: &str) -> (u16, String) {
+fn parse_markdown_line(line: &str) -> (u16, &str) {
     let mut depth = 0u16;
     let mut cursor = 0usize;
     let bytes = line.as_bytes();
@@ -179,36 +212,36 @@ fn parse_markdown_line(line: &str) -> (u16, String) {
         .trim_start_matches("- ")
         .trim_start_matches("* ")
         .trim_start();
-    (depth, trimmed.to_string())
+    (depth, trimmed)
 }
 
-fn parse_org_line(line: &str) -> (u16, String) {
+fn parse_org_line(line: &str) -> (u16, &str) {
     let trimmed = line.trim_start();
     let stars = trimmed.bytes().take_while(|byte| *byte == b'*').count();
     if stars > 0 {
         let depth = stars.saturating_sub(1) as u16;
-        let content = trimmed[stars..].trim_start().to_string();
+        let content = trimmed[stars..].trim_start();
         (depth, content)
     } else {
-        (0, trimmed.to_string())
+        (0, trimmed)
     }
 }
 
-fn parse_task_state(content: &str) -> (Option<String>, bool, String) {
+fn parse_task_state(content: &str) -> (Option<&'static str>, bool, Cow<'_, str>) {
     let trimmed = content.trim_start();
     if let Some(rest) = trimmed.strip_prefix("[ ] ") {
-        return (Some("TODO".to_string()), false, rest.to_string());
+        return (Some("TODO"), false, Cow::Borrowed(rest));
     }
     if let Some(rest) = trimmed.strip_prefix("[x] ") {
-        return (Some("DONE".to_string()), true, rest.to_string());
+        return (Some("DONE"), true, Cow::Borrowed(rest));
     }
     if let Some(rest) = trimmed.strip_prefix("TODO ") {
-        return (Some("TODO".to_string()), false, rest.to_string());
+        return (Some("TODO"), false, Cow::Borrowed(rest));
     }
     if let Some(rest) = trimmed.strip_prefix("DONE ") {
-        return (Some("DONE".to_string()), true, rest.to_string());
+        return (Some("DONE"), true, Cow::Borrowed(rest));
     }
-    (None, false, content.to_string())
+    (None, false, Cow::Borrowed(content))
 }
 
 fn parse_inline_properties(content: &str) -> Vec<(String, String)> {
@@ -231,6 +264,21 @@ fn parse_inline_properties(content: &str) -> Vec<(String, String)> {
         }
     }
     properties
+}
+
+fn parse_org_property_drawer_line(line: &str) -> Option<(String, String)> {
+    let trimmed = line.trim();
+    if !trimmed.starts_with(':') || trimmed.eq_ignore_ascii_case(":END:") {
+        return None;
+    }
+
+    let after_prefix = trimmed.strip_prefix(':')?;
+    let (key, rest) = after_prefix.split_once(':')?;
+    let value = rest.trim();
+    if key.is_empty() || value.is_empty() {
+        return None;
+    }
+    Some((key.to_string(), value.to_string()))
 }
 
 fn parse_links(page_id: &str, block_id: &str, content: &str) -> Vec<NormalizedLink> {
@@ -286,5 +334,50 @@ mod tests {
         assert_eq!(document.links.len(), 1);
         assert_eq!(document.properties.len(), 1);
         assert_eq!(document.blocks[1].parent_id, document.blocks[0].block_id);
+    }
+
+    #[test]
+    fn org_property_drawers_attach_to_previous_heading() {
+        let document = parse_document(
+            "page-1",
+            DocumentFormat::Org,
+            "* Root\n:PROPERTIES:\n:owner: jojo\n:status: active\n:END:\n** Child",
+        );
+
+        assert_eq!(document.blocks.len(), 2);
+        assert_eq!(document.properties.len(), 2);
+        assert!(document
+            .properties
+            .iter()
+            .all(|property| property.block_id == document.blocks[0].block_id));
+    }
+
+    #[test]
+    #[ignore = "benchmark"]
+    fn benchmark_knowledge_core_parser_markdown_large_document() {
+        use std::time::Instant;
+
+        const LINE_COUNT: usize = 2_000;
+        const ITERATIONS: usize = 100;
+
+        let body = (0..LINE_COUNT)
+            .map(|idx| format!("- [ ] Task {idx} [[link-{idx}]] @owner=jojo"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let start = Instant::now();
+        for _ in 0..ITERATIONS {
+            let document = parse_document("page-bench", DocumentFormat::Markdown, &body);
+            assert_eq!(document.blocks.len(), LINE_COUNT);
+        }
+        let elapsed = start.elapsed();
+        let ns_per_parse = elapsed.as_nanos() as f64 / ITERATIONS as f64;
+        let mb_per_sec =
+            ((body.len() * ITERATIONS) as f64 / (1024.0 * 1024.0)) / elapsed.as_secs_f64();
+        println!(
+            "knowledge_core_parser_markdown ns_per_parse={} throughput_mb_s={:.2}",
+            ns_per_parse.round() as u64,
+            mb_per_sec
+        );
     }
 }

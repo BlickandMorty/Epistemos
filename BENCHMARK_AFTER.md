@@ -34,8 +34,8 @@ Improved path:
 
 Measured result:
 
-- `5481 ns/decode`
-- measured speedup vs scalar summary accessors: `6.21x`
+- `3773 ns/decode`
+- measured speedup vs scalar summary accessors: `6.36x`
 
 ## Interpretation
 
@@ -58,9 +58,9 @@ Improved path:
 
 Measured result:
 
-- scalar row accessor loop: `12506 ns/payload`
-- batched row accessor: `3807 ns/payload`
-- measured speedup vs scalar row accessors: `3.28x`
+- scalar row accessor loop: `19825 ns/payload`
+- batched row accessor: `5710 ns/payload`
+- measured speedup vs scalar row accessors: `3.47x`
 
 ## Interpretation
 
@@ -84,9 +84,9 @@ Improved path:
 
 Measured result:
 
-- incremental watcher refresh: `69896 ns/tx`
-- control full-rerun path: `6445119 ns/tx`
-- measured speedup vs full rerun: `92.21x`
+- incremental watcher refresh: `84380 ns/tx`
+- control full-rerun path: `6621173 ns/tx`
+- measured speedup vs full rerun: `78.47x`
 
 ## Interpretation
 
@@ -109,10 +109,29 @@ Improved path:
 
 Measured result:
 
-- incremental watcher refresh: `6828786 ns/tx`
-- control full-rerun path: `12790724 ns/tx`
-- measured speedup vs full rerun: `1.87x`
+- incremental watcher refresh: `6842546 ns/tx`
+- control full-rerun path: `12698080 ns/tx`
+- measured speedup vs full rerun: `1.86x`
 
 ## Interpretation
 
 This is a smaller but still real win in the live BTK helper path. It is intentionally narrower than the staged-store win because linked-reference traversal subscriptions still use the old full-rerun path.
+
+## Staged parser scaffold throughput
+
+Command:
+
+```bash
+cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml \
+  benchmark_knowledge_core_parser_markdown_large_document \
+  -- --ignored --nocapture
+```
+
+Measured result:
+
+- `25566313 ns/parse`
+- `3.05 MB/s`
+
+## Interpretation
+
+This is a coarse debug-build microbenchmark for the current line parser. It proves the parser is no longer unmeasured, but it does not prove the event-normalized parser architecture from the brief.

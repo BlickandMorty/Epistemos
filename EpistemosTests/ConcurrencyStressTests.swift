@@ -8,6 +8,11 @@ import SwiftData
 @Suite("Concurrency Stress")
 @MainActor
 struct ConcurrencyStressTests {
+    private func measureAsync(_ body: () async -> Void) async -> Duration {
+        let start = ContinuousClock().now
+        await body()
+        return ContinuousClock().now - start
+    }
     
     // MARK: - Concurrent Graph Modifications
     
@@ -19,12 +24,10 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 for i in 0..<concurrentCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         for j in 0..<nodesPerTask {
                             let node = GraphNodeRecord(
                                 id: "concurrent-\(i)-\(j)",
@@ -40,8 +43,6 @@ struct ConcurrencyStressTests {
                     }
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(store.nodeCount == concurrentCount * nodesPerTask,
@@ -74,12 +75,10 @@ struct ConcurrencyStressTests {
         // Add edges concurrently
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 for i in 0..<nodeCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let targetIdx = (i + 1) % nodeCount
                         let edge = GraphEdgeRecord(
                             id: "edge-\(i)",
@@ -93,8 +92,6 @@ struct ConcurrencyStressTests {
                     }
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(store.edgeCount == nodeCount, "Expected \(nodeCount) edges, got \(store.edgeCount)")
@@ -111,12 +108,10 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             results = await withTaskGroup(of: Int.self) { group -> [Int] in
                 for i in 0..<readCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         switch i % 4 {
                         case 0:
                             return store.fuzzySearch(query: "Node", limit: 20).count
@@ -136,8 +131,6 @@ struct ConcurrencyStressTests {
                 }
                 return collected
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(results.count == readCount, "Expected \(readCount) results")
@@ -156,13 +149,11 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 // Readers
                 for i in 0..<operationCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let _ = store.fuzzySearch(query: "Node\(i)", limit: 10)
                         readCount += 1
                     }
@@ -170,7 +161,7 @@ struct ConcurrencyStressTests {
                 
                 // Writers
                 for i in 0..<operationCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let node = GraphNodeRecord(
                             id: "new-\(i)",
                             type: .note,
@@ -185,8 +176,6 @@ struct ConcurrencyStressTests {
                     }
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(readCount == operationCount, "All reads should complete")
@@ -207,12 +196,10 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             totalResults = await withTaskGroup(of: Int.self) { group -> Int in
                 for i in 0..<searchCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let results = store.fuzzySearch(query: "Node\(i % 100)", limit: 20)
                         return results.count
                     }
@@ -224,8 +211,6 @@ struct ConcurrencyStressTests {
                 }
                 return sum
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(totalResults > 0, "Should have search results")
@@ -243,12 +228,10 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             visitedCounts = await withTaskGroup(of: Int.self) { group -> [Int] in
                 for i in 0..<traversalCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let nodeId = nodes[i % nodes.count].id
                         let visited = store.connected(to: nodeId, maxDepth: 5)
                         return visited.count
@@ -261,8 +244,6 @@ struct ConcurrencyStressTests {
                 }
                 return counts
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(visitedCounts.count == traversalCount)
@@ -292,49 +273,39 @@ struct ConcurrencyStressTests {
         var cancelledCount = 0
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
-            await withTaskGroup(of: Bool.self) { group -> Int in
-                // Start multiple pipelines
-                for i in 0..<5 {
-                    group.addTask {
-                        let stream = pipeline.run(
-                            query: "Query \(i)",
-                            mode: .api,
-                            skipEnrichment: true
-                        )
-                        
-                        let task = Task {
-                            var received = 0
-                            for try await _ in stream {
-                                received += 1
-                                if received > 10 {
-                                    break
-                                }
+        totalTime = await measureAsync {
+            let tasks = (0..<5).map { i in
+                Task { @MainActor in
+                    let stream = pipeline.run(
+                        query: "Query \(i)",
+                        mode: .api,
+                        skipEnrichment: true
+                    )
+
+                    var received = 0
+                    do {
+                        for try await _ in stream {
+                            received += 1
+                            if received > 10 {
+                                break
                             }
-                            return received
                         }
-                        
-                        // Cancel after short delay
-                        try? await Task.sleep(for: .milliseconds(50))
-                        task.cancel()
-                        
-                        let _ = try? await task.value
-                        return task.isCancelled
-                    }
+                    } catch {}
+                    return received
                 }
-                
-                var cancelled = 0
-                for await wasCancelled in group {
-                    if wasCancelled {
-                        cancelled += 1
-                    }
-                }
-                return cancelled
             }
-            
-            totalTime = ContinuousClock().now - start
+
+            try? await Task.sleep(for: .milliseconds(50))
+            for task in tasks {
+                task.cancel()
+            }
+
+            for task in tasks {
+                let _ = await task.result
+                if task.isCancelled {
+                    cancelledCount += 1
+                }
+            }
         }
         
         #expect(totalTime < .seconds(3), "Cancellation under load took \(totalTime)")
@@ -347,9 +318,7 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             for i in 0..<iterationCount {
                 let mock = MockLLMClient()
                 mock.streamTokens = ["Response \(i)"]
@@ -367,7 +336,7 @@ struct ConcurrencyStressTests {
                     eventBus: eventBus
                 )
                 
-                let task = Task {
+                let task = Task { @MainActor in
                     let stream = pipeline.run(
                         query: "Test \(i)",
                         mode: .api,
@@ -383,8 +352,6 @@ struct ConcurrencyStressTests {
                     successfulCancels += 1
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(successfulCancels > iterationCount / 2, "Most cancels should succeed")
@@ -400,9 +367,7 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             for i in 0..<frameCount {
                 let frameStart = ContinuousClock().now
                 
@@ -417,8 +382,6 @@ struct ConcurrencyStressTests {
                 
                 frameTimes.append(ContinuousClock().now - frameStart)
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         let avgFrameTime = Double(totalTime.components.attoseconds) / Double(frameCount)
@@ -432,14 +395,12 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             // Simulate physics updates from different sources
-            await withTaskGroup(of: Bool.self) { group -> Int in
+            successfulUpdates = await withTaskGroup(of: Bool.self) { group -> Int in
                 // Simulate render thread updates
                 for i in 0..<updateCount/2 {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         // Simulate position update
                         let _ = i * 2
                         return true
@@ -448,7 +409,7 @@ struct ConcurrencyStressTests {
                 
                 // Simulate physics thread updates
                 for i in 0..<updateCount/2 {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         // Simulate velocity update
                         let _ = i * 2 + 1
                         return true
@@ -463,8 +424,6 @@ struct ConcurrencyStressTests {
                 }
                 return success
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(successfulUpdates == updateCount, "All updates should complete")
@@ -498,13 +457,11 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             totalFetched = await withTaskGroup(of: Int.self) { group -> Int in
                 for i in 0..<readCount {
                     let sourceKey = "source-\(i % 100)"
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let context = ModelContext(container)
                         let descriptor = FetchDescriptor<SDGraphNode>(
                             predicate: #Predicate { $0.sourceId == sourceKey }
@@ -520,8 +477,6 @@ struct ConcurrencyStressTests {
                 }
                 return sum
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(totalFetched == readCount, "Should fetch all nodes")
@@ -541,12 +496,10 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             successfulWrites = await withTaskGroup(of: Bool.self) { group -> Int in
                 for i in 0..<writeCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         do {
                             let context = ModelContext(container)
                             let node = SDGraphNode(
@@ -571,8 +524,6 @@ struct ConcurrencyStressTests {
                 }
                 return success
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(successfulWrites == writeCount, "All writes should succeed")
@@ -601,13 +552,11 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 // Readers
                 for i in 0..<operationCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let context = ModelContext(container)
                         let descriptor = FetchDescriptor<SDGraphNode>()
                         let results = (try? context.fetch(descriptor)) ?? []
@@ -617,7 +566,7 @@ struct ConcurrencyStressTests {
                 
                 // Writers
                 for i in 0..<operationCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         do {
                             let context = ModelContext(container)
                             let node = SDGraphNode(type: .note, label: "New \(i)", sourceId: "new-\(i)")
@@ -628,8 +577,6 @@ struct ConcurrencyStressTests {
                     }
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(writeCount == operationCount, "All writes should complete")
@@ -650,12 +597,10 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
-            await withTaskGroup(of: Bool.self) { group -> Int in
+        totalTime = await measureAsync {
+            successfulAccesses = await withTaskGroup(of: Bool.self) { group -> Int in
                 for i in 0..<accessCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         // Access from @MainActor
                         let _ = graphState.store.nodeCount
                         let _ = graphState.store.fuzzySearch(query: "Node\(i % 10)", limit: 5)
@@ -671,8 +616,6 @@ struct ConcurrencyStressTests {
                 }
                 return success
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(successfulAccesses == accessCount)
@@ -688,13 +631,11 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 for i in 0..<iterationCount {
                     // Add task
-                    group.addTask {
+                    group.addTask { @MainActor in
                         let node = GraphNodeRecord(
                             id: "race-\(i)",
                             type: .note,
@@ -708,13 +649,11 @@ struct ConcurrencyStressTests {
                     }
                     
                     // Remove task (may or may not find the node)
-                    group.addTask {
+                    group.addTask { @MainActor in
                         store.removeNode("race-\(i)")
                     }
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         // Should complete without crash
@@ -742,12 +681,10 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 for i in 0..<modificationCount {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         // Different types of reads
                         let _ = store.neighbors(of: nodeId)
                         let _ = store.edges(for: nodeId)
@@ -755,8 +692,6 @@ struct ConcurrencyStressTests {
                     }
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(totalTime < .seconds(2), "Simultaneous modifications took \(totalTime)")
@@ -775,9 +710,7 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             completedCount = await withTaskGroup(of: Bool.self) { group -> Int in
                 for i in 0..<operationCount {
                     group.addTask { @MainActor in
@@ -798,8 +731,6 @@ struct ConcurrencyStressTests {
                 }
                 return completed
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         #expect(completedCount == operationCount, "All nested operations should complete")
@@ -825,21 +756,17 @@ struct ConcurrencyStressTests {
         
         var totalTime: Duration = .zero
         
-        measure {
-            let start = ContinuousClock().now
-            
+        totalTime = await measureAsync {
             // Concurrent traversals on circular graph
             await withTaskGroup(of: Void.self) { group in
                 for nodeId in ["A", "B", "C"] {
-                    group.addTask {
+                    group.addTask { @MainActor in
                         for _ in 0..<100 {
                             let _ = store.connected(to: nodeId, maxDepth: 10)
                         }
                     }
                 }
             }
-            
-            totalTime = ContinuousClock().now - start
         }
         
         // Should complete without deadlock

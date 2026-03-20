@@ -49,4 +49,4 @@ Baseline path:
 
 Measured result:
 
-- `34045 ns/decode`
+- `23989 ns/decode`

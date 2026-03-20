@@ -939,6 +939,8 @@ actor VaultIndexActor {
         let titleScanPages = pages  // all pages get title scanned (cheap)
         let bodyScanPages = pages.prefix(30)  // only recent pages get body scanned (disk I/O)
         let bodyScanIds = Set(bodyScanPages.map(\.id))
+        var cachedBodies: [String: String] = [:]
+        cachedBodies.reserveCapacity(bodyScanIds.count)
 
         for page in titleScanPages {
             var score: Double = 0
@@ -954,7 +956,9 @@ actor VaultIndexActor {
             // Body matches: only for recent pages, and only if title gave partial signal
             // or this is in the body-scan window. Each body match: +1 base + length bonus
             if bodyScanIds.contains(page.id), score < 8 {
-                let bodyLower = String(page.loadBody(mapped: true).lowercased().prefix(1500))
+                let body = cachedBodies[page.id] ?? page.loadBody(mapped: true)
+                cachedBodies[page.id] = body
+                let bodyLower = String(body.prefix(1500)).lowercased()
                 for term in terms where bodyLower.contains(term) {
                     if !titleLower.contains(term) { matchedTerms += 1 }
                     score += 1.0 + Double(term.count - 4) * 0.3
@@ -979,8 +983,9 @@ actor VaultIndexActor {
         guard !relevant.isEmpty else { return nil }
 
         // ── 6. Format matched notes as context ──────────────────────────
-        let notesSection = relevant.map { scored in
-            "### \(scored.page.title)\nTags: [\(scored.page.tags.joined(separator: ", "))]\n\(String(scored.page.loadBody(mapped: true).prefix(500)))"
+        let notesSection: String = relevant.map { entry -> String in
+            let body = cachedBodies[entry.page.id] ?? entry.page.loadBody(mapped: true)
+            return "### \(entry.page.title)\nTags: [\(entry.page.tags.joined(separator: ", "))]\n\(String(body.prefix(500)))"
         }.joined(separator: "\n\n")
 
         // Build folder list for action instructions

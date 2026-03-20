@@ -322,14 +322,14 @@ actor SearchIndexService {
                 arguments: [blockId, pageId, content]
             )
         }
-        Self.notifyIndexChanged()
+        Self.notifyIndexChanged([.searchBlocks])
     }
 
     nonisolated func deleteBlock(blockId: String) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
         }
-        Self.notifyIndexChanged()
+        Self.notifyIndexChanged([.searchBlocks])
     }
 
     // MARK: - Upsert / Delete
@@ -349,7 +349,7 @@ actor SearchIndexService {
                 arguments: [id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate]
             )
         }
-        Self.notifyIndexChanged()
+        Self.notifyIndexChanged([.searchPages])
     }
 
     nonisolated func upsertPages(
@@ -379,23 +379,27 @@ actor SearchIndexService {
                 )
             }
         }
-        Self.notifyIndexChanged()
+        Self.notifyIndexChanged([.searchPages])
     }
 
     nonisolated func delete(pageId: String) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [pageId])
         }
-        Self.notifyIndexChanged()
+        Self.notifyIndexChanged([.searchPages])
     }
 
     // MARK: - Change Notification
 
-    /// Post searchIndexDidUpdate on main actor. Debounced via Task to coalesce rapid writes.
+    /// Post searchIndexDidUpdate on the main actor with the affected index domains.
     /// Static because nonisolated callers can't access instance state.
-    private nonisolated static func notifyIndexChanged() {
+    private nonisolated static func notifyIndexChanged(_ dependencies: Set<QueryDependencyKey>) {
         Task { @MainActor in
-            NotificationCenter.default.post(name: .searchIndexDidUpdate, object: nil)
+            NotificationCenter.default.post(
+                name: .searchIndexDidUpdate,
+                object: nil,
+                userInfo: QueryDependencyKey.userInfo(for: dependencies)
+            )
         }
     }
 
@@ -424,6 +428,7 @@ actor SearchIndexService {
             }
         }
         log.info("Rebuilt search index with \(pages.count) pages")
+        Self.notifyIndexChanged([.searchPages])
     }
 
     func rebuildFromSwiftDataAsync(
@@ -476,7 +481,11 @@ actor SearchIndexService {
             }
         }
 
-        try upsertPages(pagesToUpsert)
+        if !pagesToUpsert.isEmpty {
+            try upsertPages(pagesToUpsert)
+        } else if !toDelete.isEmpty {
+            Self.notifyIndexChanged([.searchPages])
+        }
 
         log.info("Diff sync complete: \(pagesToUpsert.count) upserted, \(toDelete.count) deleted")
     }

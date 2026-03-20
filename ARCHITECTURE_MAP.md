@@ -210,7 +210,7 @@ File:
 
 ### Staged
 
-- knowledge-core Cozo store is rebuilt in memory per query
+- knowledge-core Cozo store now keeps one resident in-memory `DbInstance`
 - no persisted Cozo backend is wired
 - no persisted knowledge-core transaction log or ring log is wired
 

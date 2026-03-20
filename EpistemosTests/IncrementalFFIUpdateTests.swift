@@ -424,3 +424,27 @@ struct IncrementalFFIUpdateTests {
         }
     }
 }
+
+@Suite("BTK Subscription Rows")
+struct BTKSubscriptionRowTests {
+    @Test("identity is precomputed from stable row fields")
+    func identityIsStable() {
+        let row = GraphEngine.BTKSubscriptionRow(
+            pageId: "page",
+            blockId: "block",
+            parentId: "parent",
+            targetId: "target",
+            content: "content",
+            propertyKey: "status",
+            propertyValue: "open",
+            taskMarker: "TODO",
+            orderKey: "a",
+            depth: 2,
+            refType: 1,
+            taskDone: false,
+            hopCount: 3
+        )
+
+        #expect(row.identity == "page|block|parent|target|status|3")
+    }
+}

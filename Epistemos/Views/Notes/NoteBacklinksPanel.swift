@@ -67,7 +67,7 @@ struct NoteBacklinksPopover: View {
 
         var results: [(id: String, title: String)] = []
         for page in allPages where page.title != titleToFind {
-            let body = page.loadBody()
+            let body = page.loadBody(mapped: true)
             if body.contains(target) {
                 results.append((id: page.id, title: page.title))
             }

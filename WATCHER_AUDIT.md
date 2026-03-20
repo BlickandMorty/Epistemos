@@ -19,7 +19,7 @@ What works:
 - `diff_rows(...)` emits typed row-level `added/updated/removed` envelopes.
 - matched staged subscriptions now update only the touched row identities instead of rerunning the full staged query
 - `matching_updates_refresh_outline_without_full_query_rerun` proves the staged outline watcher avoids a full rerun on matched updates
-- benchmark: `knowledge_core_outline_watcher` measured `69896 ns/tx` incremental vs `6445119 ns/tx` full rerun, about `92.21x` faster
+- benchmark: `knowledge_core_outline_watcher` measured `84380 ns/tx` incremental vs `6621173 ns/tx` full rerun, about `78.47x` faster
 
 What does not match the brief:
 
@@ -38,7 +38,7 @@ What works:
 - row-level diffs are generated
 - matched outline/property subscriptions now refresh from touched facts without rerunning full Cozo queries
 - `matching_property_updates_do_not_reexecute_full_query` proves the live BTK property watcher avoids a full rerun on matched updates
-- benchmark: `btk_property_watcher` measured `6828786 ns/tx` incremental vs `12790724 ns/tx` full rerun, about `1.87x` faster
+- benchmark: `btk_property_watcher` measured `6842546 ns/tx` incremental vs `12698080 ns/tx` full rerun, about `1.86x` faster
 
 What does not match the brief:
 

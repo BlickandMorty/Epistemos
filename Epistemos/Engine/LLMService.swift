@@ -166,19 +166,19 @@ final class LLMService: LLMClientProtocol {
     }
 
     func configSnapshot() -> LLMSnapshot {
-        resolvedSnapshot(preferThinking: false)
+        resolvedSnapshot()
     }
 
     func enrichmentSnapshot() -> LLMSnapshot {
-        resolvedSnapshot(preferThinking: true)
+        resolvedSnapshot()
     }
 
-    private func resolvedSnapshot(preferThinking: Bool) -> LLMSnapshot {
-        if let modelID = inference.activeLocalTextModelID ?? inference.effectiveLocalTextModelID {
+    private func resolvedSnapshot() -> LLMSnapshot {
+        if let modelID = inference.activeLocalTextModelID {
             return LLMSnapshot(
                 provider: .localMLX,
                 model: modelID,
-                reasoningMode: preferThinking ? .thinking : inference.preferredLocalReasoningMode
+                reasoningMode: .fast
             )
         }
 

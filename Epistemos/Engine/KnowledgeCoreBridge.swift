@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Dispatch
 
 enum KnowledgeCoreDocumentFormat: UInt8, Sendable {
     case markdown = 0
@@ -379,25 +380,26 @@ actor KnowledgeCoreBridge {
             txId: summary.txId,
             subscriptionId: summary.subscriptionId,
             kind: summary.kind,
-            added: decodeRows(section: 0, slot: slot),
-            updated: decodeRows(section: 1, slot: slot),
-            removed: decodeRows(section: 2, slot: slot)
+            added: decodeRows(section: 0, rowCount: summary.addedCount, slot: slot),
+            updated: decodeRows(section: 1, rowCount: summary.updatedCount, slot: slot),
+            removed: decodeRows(section: 2, rowCount: summary.removedCount, slot: slot)
         )
     }
 
     private func decodeRows(
         section: UInt8,
+        rowCount: Int,
         slot: (payload: UnsafePointer<UInt8>, len: UInt64)
     ) -> [KnowledgeCoreRowSnapshot] {
-        let rowCount = graph_engine_kc_payload_row_count(slot.payload, slot.len, section)
         guard rowCount > 0 else { return [] }
+        let ffiRowCount = UInt32(rowCount)
 
         return withUnsafeTemporaryAllocation(
             of: KnowledgeQueryRowFFI.self,
-            capacity: Int(rowCount)
+            capacity: rowCount
         ) { buffer in
             guard let base = buffer.baseAddress else {
-                return decodeRowsScalar(section: section, slot: slot, rowCount: rowCount)
+                return decodeRowsScalar(section: section, slot: slot, rowCount: ffiRowCount)
             }
             let written = graph_engine_kc_payload_rows(
                 slot.payload,
@@ -405,15 +407,15 @@ actor KnowledgeCoreBridge {
                 section,
                 0,
                 base,
-                rowCount
+                ffiRowCount
             )
-            guard written == rowCount else {
-                return decodeRowsScalar(section: section, slot: slot, rowCount: rowCount)
+            guard written == ffiRowCount else {
+                return decodeRowsScalar(section: section, slot: slot, rowCount: ffiRowCount)
             }
 
             var rows: [KnowledgeCoreRowSnapshot] = []
-            rows.reserveCapacity(Int(written))
-            for index in 0..<Int(written) {
+            rows.reserveCapacity(rowCount)
+            for index in 0..<rowCount {
                 if let row = decodeRowSnapshot(buffer[index]) {
                     rows.append(row)
                 }
@@ -507,6 +509,12 @@ final class KnowledgeCoreShadowRuntime {
     private(set) var totalBatches: UInt64 = 0
     private(set) var totalFrames: UInt64 = 0
     private(set) var lastBatch: [KnowledgeCorePayloadSummary] = []
+    private(set) var lastDrainDurationNs: UInt64 = 0
+    private(set) var maxDrainDurationNs: UInt64 = 0
+    private(set) var totalDrainDurationNs: UInt64 = 0
+    private(set) var lastApplyDurationNs: UInt64 = 0
+    private(set) var maxApplyDurationNs: UInt64 = 0
+    private(set) var totalApplyDurationNs: UInt64 = 0
     private(set) var lastError: KnowledgeCoreBridgeError?
 
     init?(peerId: UInt64 = 1) {
@@ -566,10 +574,12 @@ final class KnowledgeCoreShadowRuntime {
         guard pollTaskBox.task == nil else { return }
         pollTaskBox.task = Task(priority: .utility) { [weak self, bridge] in
             while !Task.isCancelled {
+                let drainStart = DispatchTime.now().uptimeNanoseconds
                 let summaries = await bridge.drainSummaries(limit: maxFramesPerBatch)
+                let drainDurationNs = DispatchTime.now().uptimeNanoseconds &- drainStart
                 if !summaries.isEmpty {
                     await MainActor.run {
-                        self?.applyBatch(summaries)
+                        self?.applyBatch(summaries, drainDurationNs: drainDurationNs)
                     }
                 }
                 try? await Task.sleep(for: frameInterval)
@@ -582,10 +592,21 @@ final class KnowledgeCoreShadowRuntime {
         pollTaskBox.task = nil
     }
 
-    private func applyBatch(_ summaries: [KnowledgeCorePayloadSummary]) {
+    private func applyBatch(
+        _ summaries: [KnowledgeCorePayloadSummary],
+        drainDurationNs: UInt64
+    ) {
+        let applyStart = DispatchTime.now().uptimeNanoseconds
         totalBatches += 1
         totalFrames += UInt64(summaries.count)
         lastBatch = summaries
+        lastDrainDurationNs = drainDurationNs
+        maxDrainDurationNs = max(maxDrainDurationNs, drainDurationNs)
+        totalDrainDurationNs &+= drainDurationNs
+        let applyDurationNs = DispatchTime.now().uptimeNanoseconds &- applyStart
+        lastApplyDurationNs = applyDurationNs
+        maxApplyDurationNs = max(maxApplyDurationNs, applyDurationNs)
+        totalApplyDurationNs &+= applyDurationNs
     }
 }
 

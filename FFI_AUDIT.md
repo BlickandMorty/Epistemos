@@ -81,6 +81,8 @@ Tests proving transport/layout:
 - `slot_write_roundtrips`
 - `archived_frame_roundtrips_without_intermediate_buffer`
 - `advancing_tail_recovers_capacity_after_full`
+- `knowledge_core_exports_ring_layout_expected_by_swift`
+- `knowledge_core_tail_advance_recovers_capacity_via_ffi`
 
 ## B. Memory ordering correctness
 
@@ -177,9 +179,9 @@ The staged summary path is no longer the worst offender:
 
 Measured improvement:
 
-- scalar summary accessor sequence: `34045 ns/decode`
-- combined summary accessor: `5481 ns/decode`
-- speedup: `6.21x`
+- scalar summary accessor sequence: `23989 ns/decode`
+- combined summary accessor: `3773 ns/decode`
+- speedup: `6.36x`
 
 The remaining FFI-chattiness is row decoding, but it is reduced now:
 
@@ -194,9 +196,9 @@ Full row payload decoding still materializes Swift-owned strings and arrays, but
 
 Measured row-path improvement:
 
-- scalar row accessor loop: `12506 ns/payload`
-- batched row accessor: `3807 ns/payload`
-- speedup: `3.28x`
+- scalar row accessor loop: `19825 ns/payload`
+- batched row accessor: `5710 ns/payload`
+- speedup: `3.47x`
 
 ## D. rkyv correctness
 
@@ -299,6 +301,8 @@ Validated successfully:
 
 - `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml knowledge_core_ffi_tests -- --nocapture`
 - `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml knowledge_core -- --nocapture`
+- `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml knowledge_core::ring::tests -- --nocapture`
+- `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml benchmark_knowledge_core_payload_summary_accessor -- --ignored --nocapture`
 - `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml benchmark_knowledge_core_payload_rows_batch_accessor -- --ignored --nocapture`
 - `xcodebuild -project /Users/jojo/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`
 
@@ -309,15 +313,6 @@ Still blocked:
 Reason:
 
 - the app test target still has pre-existing unrelated Swift 6 migration compile failures outside `knowledge-core`, including `ConcurrencyEdgeCaseTests.swift`, `ConcurrencyStressTests.swift`, and older pipeline/graph tests
-4. Swift shadow consumer:
-   - feature-flagged shared-memory bridge in `KnowledgeCoreBridge.swift`
-5. Rust payload accessors:
-   - typed row projection without `Data` or JSON
-6. Staged FFI error introspection:
-   - `graph_engine_kc_last_error_code`
-   - `graph_engine_kc_last_error_message`
-7. Single-pass staged summary accessor:
-   - `graph_engine_kc_payload_summary`
 
 ## Benchmarks run
 
@@ -345,15 +340,25 @@ cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml \
 
 Result:
 
-- staged scalar summary decode: `34045 ns/decode`
-- staged combined summary decode: `5481 ns/decode`
-- measured summary decode speedup: `6.21x`
+- staged scalar summary decode: `23989 ns/decode`
+- staged combined summary decode: `3773 ns/decode`
+- measured summary decode speedup: `6.36x`
 
-- temp-buffer path: `175 ns/write`
-- direct archive-into-slot path: `64 ns/write`
-- measured speedup: `2.70x`
+Command:
 
-This benchmark only measures the producer write path. It does not validate end-to-end UI latency.
+```bash
+cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml \
+  benchmark_knowledge_core_payload_rows_batch_accessor \
+  -- --ignored --nocapture
+```
+
+Result:
+
+- staged scalar row decode: `19825 ns/payload`
+- staged batched row decode: `5710 ns/payload`
+- measured row decode speedup: `3.47x`
+
+These are microbenchmarks. They prove transport and decode-path improvements, not end-to-end UI latency.
 
 ## Bottom line
 

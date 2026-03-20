@@ -282,6 +282,54 @@ struct PipelineServiceTests {
         #expect(visibleText.contains("Final answer"))
     }
 
+    @Test("Pipeline suppresses tagged thinking output when the thinking panel is off")
+    @MainActor func pipelineSuppressesTaggedThinkingWhenPanelIsOff() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = ["<think>", "I need to think", "</think>", "Final answer"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(false)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var reasoning: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Think about this",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .reasoningDelta(let d) = event {
+                reasoning.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        #expect(deliberations.isEmpty)
+        #expect(reasoning.isEmpty)
+        #expect(texts.joined() == "Final answer")
+    }
+
     @Test("Pipeline handles qwen thinking prelude without think tags")
     @MainActor func pipelineQwenThinkingPrelude() async throws {
         let mock = MockLLMClient()
@@ -336,6 +384,62 @@ struct PipelineServiceTests {
         let visibleText = texts.joined()
         #expect(deliberationText.contains("less dense"))
         #expect(reasoningText.contains("less dense"))
+        #expect(!visibleText.localizedCaseInsensitiveContains("thinking process"))
+        #expect(visibleText.contains("Ice floats because hydrogen bonds"))
+    }
+
+    @Test("Pipeline suppresses reasoning prelude output when the thinking panel is off")
+    @MainActor func pipelineSuppressesReasoningPreludeWhenPanelIsOff() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "Thinking Process:\n",
+            "Ice floats because solid water is less dense than liquid water.\n\n",
+            "Final Answer:\n",
+            "Ice floats because hydrogen bonds create an open lattice."
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setShowLocalThinkingPanel(false)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var deliberations: [String] = []
+        var reasoning: [String] = []
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Explain why ice floats on water.",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .deliberationDelta(let d) = event {
+                deliberations.append(d)
+            }
+            if case .reasoningDelta(let d) = event {
+                reasoning.append(d)
+            }
+            if case .textDelta(let t) = event {
+                texts.append(t)
+            }
+        }
+
+        let visibleText = texts.joined()
+        #expect(deliberations.isEmpty)
+        #expect(reasoning.isEmpty)
         #expect(!visibleText.localizedCaseInsensitiveContains("thinking process"))
         #expect(visibleText.contains("Ice floats because hydrogen bonds"))
     }
@@ -601,7 +705,7 @@ struct PipelineServiceTests {
     @Test("Plain chat completion carries no analytical metadata")
     @MainActor func plainChatCompletionCarriesNoAnalyticalMetadata() async throws {
         let mock = MockLLMClient()
-        mock.streamTokens = ["Answer"]
+        mock.streamTokens = ["Answer complete."]
 
         let pipelineState = PipelineState()
         let inference = InferenceState()

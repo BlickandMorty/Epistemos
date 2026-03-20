@@ -123,6 +123,7 @@ struct NoteChatStateTests {
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
 
         let llm = SlowStreamingLLMClient()
         let triage = TriageService(inference: inference, localLLMService: llm)
@@ -143,6 +144,37 @@ struct NoteChatStateTests {
         #expect(state.responseText == "partial ")
         #expect(state.messages.count == 1)
         #expect(state.messages.last?.role == .user)
+    }
+
+    @Test("operation submit does not embed hidden system formatting directives into the prompt")
+    @MainActor func operationSubmitDoesNotEmbedSystemFormattingDirectives() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-9")
+        state.noteBodyProvider = { "Original note body." }
+        state.submitQuery(
+            "Rewrite this:\n\nSelected text",
+            operation: .rewrite,
+            systemPrompt: "You are a writing assistant. Output ONLY the rewritten text.",
+            triageService: triage
+        )
+
+        for _ in 0..<20 where llm.lastStreamPrompt == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let capturedPrompt = try #require(llm.lastStreamPrompt)
+        #expect(!capturedPrompt.contains("Output ONLY the rewritten text."))
+        #expect(!capturedPrompt.contains("You are a writing assistant."))
+        #expect(capturedPrompt.contains("Rewrite this:"))
+        #expect(capturedPrompt.contains("Original note body."))
     }
 }
 
@@ -165,6 +197,37 @@ private final class SlowStreamingLLMClient: LLMClientProtocol {
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(
+            provider: .localMLX,
+            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            reasoningMode: .fast
+        )
+    }
+
+    func enrichmentSnapshot() -> LLMSnapshot { configSnapshot() }
+}
+
+@MainActor
+private final class CapturingStreamingLLMClient: LLMClientProtocol {
+    private(set) var lastStreamPrompt: String?
+
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        "unused"
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        lastStreamPrompt = prompt
+        return AsyncThrowingStream { continuation in
+            continuation.yield("ok")
+            continuation.finish()
         }
     }
 

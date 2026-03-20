@@ -11,7 +11,7 @@ This traces where bytes and object materialization occur in both the staged know
 | Staged knowledge-core producer | removed in this pass | still present on Swift snapshot build | `PARTIAL` |
 | Staged knowledge-core consumer | no `Data` copy | per-row FFI + Swift `String`/array materialization | `PARTIAL` |
 | Live BTK producer | `Vec<u8>` archive buffer | yes | `FAIL` for zero-copy claim |
-| Live BTK consumer | `Data` + decoded rows/strings | yes | `FAIL` for zero-copy claim |
+| Live BTK consumer | `Data(bytesNoCopy)` handoff, then decoded rows/strings | yes | `FAIL` for zero-copy claim |
 
 ## 1. Staged knowledge-core producer path
 
@@ -122,7 +122,7 @@ graph_engine_btk_take_subscription_update(...)
 ### Copies
 
 - `Vec<u8>` archive allocation on Rust side
-- `Data` wrapping/materialization on Swift side
+- `Data(bytesNoCopy:...)` avoids a second payload memcpy on Swift side
 - row materialization into Swift structs
 - string materialization into Swift `String`
 
@@ -138,7 +138,7 @@ The summary path improved in this pass:
 
 - `decodeSummary()` now uses one FFI call:
   - `graph_engine_kc_payload_summary`
-- measured improvement vs scalar summary accessors: `6.21x`
+- measured improvement vs scalar summary accessors: `6.36x`
 
 The row path improved in this pass too:
 
@@ -155,9 +155,9 @@ Implication:
 
 Measured row-path improvement:
 
-- scalar row accessor loop: `12506 ns/payload`
-- batched row accessor: `3807 ns/payload`
-- speedup: `3.28x`
+- scalar row accessor loop: `19825 ns/payload`
+- batched row accessor: `5710 ns/payload`
+- speedup: `3.47x`
 
 ### Swift snapshot safety tradeoff
 

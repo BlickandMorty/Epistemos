@@ -417,6 +417,7 @@ final class LocalModelManager {
             installRecords[modelID] = record
             try persistManifest()
             syncInferenceInstalledSets()
+            adoptInstalledTextModelIfNeeded(modelID)
             lastErrorMessage = nil
         } catch {
             installErrors[modelID] = error.localizedDescription
@@ -476,6 +477,12 @@ final class LocalModelManager {
         inference.setInstalledLocalTextModelIDs(
             Set(installRecords.values.filter { $0.kind == .text }.map(\.modelID))
         )
+    }
+
+    private func adoptInstalledTextModelIfNeeded(_ modelID: String) {
+        guard LocalTextModelID(rawValue: modelID) != nil else { return }
+        guard inference.effectiveLocalTextModelID == nil else { return }
+        inference.setPreferredLocalTextModelID(modelID)
     }
 
     private func loadManifest() throws -> [String: LocalModelInstallRecord] {

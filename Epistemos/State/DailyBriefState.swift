@@ -95,32 +95,48 @@ final class DailyBriefState {
 
     // MARK: - Prompt Builders
 
+    static func recentContextNotes(
+        pages: [SDPage],
+        limit: Int = 18
+    ) -> [(page: SDPage, body: String)] {
+        pages.compactMap { page in
+            guard page.templateId == nil else { return nil }
+            let body = page.loadBody(mapped: true)
+            guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return (page, body)
+        }
+        .prefix(limit)
+        .map { $0 }
+    }
+
+    static func normalizedSnippet(from body: String, limit: Int) -> String {
+        String(body.prefix(limit))
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Builds the daily brief prompt from recent pages and chats.
     /// Shared by LandingView and CommandPaletteOverlay.
     static func buildBriefPrompt(pages: [SDPage], chats: [SDChat]) -> String {
         var context: [String] = []
 
-        let recentNotes = pages
-            .filter { $0.templateId == nil && !$0.loadBody().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .prefix(18)
+        let recentNotes = recentContextNotes(pages: pages)
 
         if !recentNotes.isEmpty {
             var notesSection = "## Recent Notes (\(recentNotes.count) most recent)\n"
             for note in recentNotes {
-                let snippet = String(note.loadBody().prefix(500))
-                    .replacingOccurrences(of: "\n", with: " ")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                let tags = note.tags.isEmpty ? "" : " [tags: \(note.tags.joined(separator: ", "))]"
+                let snippet = normalizedSnippet(from: note.body, limit: 500)
+                let tags = note.page.tags.isEmpty ? "" : " [tags: \(note.page.tags.joined(separator: ", "))]"
                 let daysSinceEdit =
-                    Calendar.current.dateComponents([.day], from: note.updatedAt, to: .now).day ?? 0
+                    Calendar.current.dateComponents([.day], from: note.page.updatedAt, to: .now).day ?? 0
                 let freshness = daysSinceEdit == 0 ? "today" : daysSinceEdit == 1 ? "yesterday" : "\(daysSinceEdit)d ago"
-                let emoji = note.emoji.isEmpty ? "" : "\(note.emoji) "
+                let emoji = note.page.emoji.isEmpty ? "" : "\(note.page.emoji) "
                 notesSection +=
-                    "- **\(emoji)\(note.title.isEmpty ? "Untitled" : note.title)**\(tags) (\(note.wordCount) words, edited \(freshness)): \(snippet)…\n"
+                    "- **\(emoji)\(note.page.title.isEmpty ? "Untitled" : note.page.title)**\(tags) (\(note.page.wordCount) words, edited \(freshness)): \(snippet)…\n"
             }
 
-            let totalWords = recentNotes.reduce(0) { $0 + $1.wordCount }
-            let allTags = recentNotes.flatMap(\.tags)
+            let totalWords = recentNotes.reduce(0) { $0 + $1.page.wordCount }
+            let allTags = recentNotes.flatMap(\.page.tags)
             let tagFreq = Dictionary(allTags.map { ($0, 1) }, uniquingKeysWith: +)
                 .sorted { $0.value > $1.value }
                 .prefix(8)

@@ -1764,6 +1764,8 @@ pub extern "C" fn graph_engine_kc_create(
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_destroy(core: *mut KnowledgeCore) {
     if !core.is_null() {
+        // SAFETY: `core` was allocated by `graph_engine_kc_create` and ownership
+        // returns to Rust exactly once in this destructor entrypoint.
         unsafe {
             drop(Box::from_raw(core));
         }
@@ -1777,6 +1779,8 @@ pub extern "C" fn graph_engine_kc_ring_region(
     if core.is_null() {
         return empty_shared_region();
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call and is only
+    // borrowed mutably to access the ring metadata.
     let core = unsafe { &mut *core };
     let region = core.shared_region();
     GraphEngineSharedMemoryRegion {
@@ -1798,6 +1802,8 @@ pub extern "C" fn graph_engine_kc_ring_layout(core: *mut KnowledgeCore) -> Graph
             slot_payload_bytes: 0,
         };
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call and is only
+    // borrowed mutably to access the exported layout.
     let core = unsafe { &mut *core };
     let layout = core.ring_layout();
     GraphEngineRingLayout {
@@ -1816,6 +1822,7 @@ pub extern "C" fn graph_engine_kc_ring_head(core: *mut KnowledgeCore) -> u64 {
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null and remains valid for this immediate load.
     let core = unsafe { &mut *core };
     core.load_head()
 }
@@ -1825,6 +1832,7 @@ pub extern "C" fn graph_engine_kc_ring_tail(core: *mut KnowledgeCore) -> u64 {
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null and remains valid for this immediate load.
     let core = unsafe { &mut *core };
     core.load_tail()
 }
@@ -1834,6 +1842,7 @@ pub extern "C" fn graph_engine_kc_ring_set_tail(core: *mut KnowledgeCore, tail: 
     if core.is_null() {
         return;
     }
+    // SAFETY: `core` is non-null and remains valid for this immediate store.
     let core = unsafe { &mut *core };
     core.store_tail(tail);
 }
@@ -1846,6 +1855,7 @@ pub extern "C" fn graph_engine_kc_subscribe_outline(
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let page_id = ffi_cstr!(page_id);
     if page_id.is_empty() {
@@ -1867,6 +1877,7 @@ pub extern "C" fn graph_engine_kc_subscribe_tasks(
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let page_id = if page_id.is_null() {
         None
@@ -1893,6 +1904,7 @@ pub extern "C" fn graph_engine_kc_subscribe_properties(
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let page_id = if page_id.is_null() {
         None
@@ -1923,6 +1935,7 @@ pub extern "C" fn graph_engine_kc_unsubscribe(
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     if core.unsubscribe(subscription_id) {
         core.clear_last_error();
@@ -1947,6 +1960,7 @@ pub extern "C" fn graph_engine_kc_ingest_document(
         return 0;
     }
     let Some(format) = DocumentFormat::from_ffi(format) else {
+        // SAFETY: `core` is non-null in this branch and only used to record the error.
         let core = unsafe { &mut *core };
         return kc_fail_with(
             core,
@@ -1954,6 +1968,7 @@ pub extern "C" fn graph_engine_kc_ingest_document(
             "document format must be 0 (markdown) or 1 (org)",
         );
     };
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let page_id = ffi_cstr!(page_id);
     if page_id.is_empty() {
@@ -1979,6 +1994,7 @@ pub extern "C" fn graph_engine_kc_insert_block(
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let page_id = ffi_cstr!(page_id);
     let block_id = ffi_cstr!(block_id);
@@ -2022,6 +2038,7 @@ pub extern "C" fn graph_engine_kc_move_block(
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let page_id = ffi_cstr!(page_id);
     let block_id = ffi_cstr!(block_id);
@@ -2057,6 +2074,7 @@ pub extern "C" fn graph_engine_kc_delete_block(
     if core.is_null() {
         return 0;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let page_id = ffi_cstr!(page_id);
     let block_id = ffi_cstr!(block_id);
@@ -2076,6 +2094,7 @@ pub extern "C" fn graph_engine_kc_last_error_code(core: *mut KnowledgeCore) -> u
     if core.is_null() {
         return KnowledgeCoreErrorCode::InvalidArgument as u8;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     core.last_error_code()
 }
@@ -2087,6 +2106,7 @@ pub extern "C" fn graph_engine_kc_last_error_message(
     if core.is_null() {
         return empty_string_slice();
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     string_slice(core.last_error_message())
 }
@@ -2096,6 +2116,7 @@ pub extern "C" fn graph_engine_kc_backpressure_policy(core: *mut KnowledgeCore) 
     if core.is_null() {
         return KnowledgeCoreBackpressurePolicy::FailFast as u8;
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     core.backpressure_policy() as u8
 }
@@ -2112,6 +2133,7 @@ pub extern "C" fn graph_engine_kc_transport_stats(
             ring_full_failures: 0,
         };
     }
+    // SAFETY: `core` is non-null for the duration of this FFI call.
     let core = unsafe { &mut *core };
     let stats = core.transport_stats();
     KnowledgeCoreTransportStatsFFI {
@@ -2522,7 +2544,8 @@ mod knowledge_core_ffi_tests {
         graph_engine_kc_payload_row_count, graph_engine_kc_payload_rows,
         graph_engine_kc_payload_subscription_id, graph_engine_kc_payload_summary,
         graph_engine_kc_payload_tx_id, graph_engine_kc_ring_head, graph_engine_kc_ring_layout,
-        graph_engine_kc_ring_region, graph_engine_kc_subscribe_outline,
+        graph_engine_kc_ring_region, graph_engine_kc_ring_set_tail, graph_engine_kc_ring_tail,
+        graph_engine_kc_subscribe_outline,
         graph_engine_kc_subscription_kind, graph_engine_kc_transport_stats,
     };
 
@@ -2674,6 +2697,64 @@ mod knowledge_core_ffi_tests {
         assert_eq!(stats.ring_full_failures, 1);
         assert_eq!(stats.dropped_frames, 0);
         assert_eq!(stats.coalesced_frames, 0);
+
+        graph_engine_kc_destroy(core);
+    }
+
+    #[test]
+    fn knowledge_core_exports_ring_layout_expected_by_swift() {
+        let core = graph_engine_kc_create(4, 2048, 95);
+        assert!(!core.is_null());
+
+        let region = graph_engine_kc_ring_region(core);
+        let layout = graph_engine_kc_ring_layout(core);
+        assert!(!region.ptr.is_null());
+        assert!(region.len >= layout.slots_offset + layout.slot_stride * u64::from(layout.slot_count));
+        assert_eq!(layout.head_offset, 0);
+        assert_eq!(layout.tail_offset, 128);
+        assert_eq!(
+            layout.slot_payload_offset as usize,
+            std::mem::size_of::<TestSlotHeader>()
+        );
+        assert_eq!(layout.slot_stride % 64, 0);
+
+        graph_engine_kc_destroy(core);
+    }
+
+    #[test]
+    fn knowledge_core_tail_advance_recovers_capacity_via_ffi() {
+        let core = graph_engine_kc_create(1, 2048, 96);
+        assert!(!core.is_null());
+
+        let page = CString::new("page-tail").expect("page id should be valid");
+        let initial_text = CString::new("- Initial").expect("text should be valid");
+        let next_text = CString::new("- Next").expect("text should be valid");
+
+        let subscription_id = graph_engine_kc_subscribe_outline(core, page.as_ptr());
+        assert_ne!(subscription_id, 0);
+        assert_eq!(graph_engine_kc_ring_head(core), 1);
+        assert_eq!(graph_engine_kc_ring_tail(core), 0);
+
+        assert_eq!(
+            graph_engine_kc_ingest_document(core, page.as_ptr(), 0, initial_text.as_ptr()),
+            0
+        );
+        assert_eq!(graph_engine_kc_last_error_code(core), 2);
+
+        graph_engine_kc_ring_set_tail(core, graph_engine_kc_ring_head(core));
+        assert_eq!(graph_engine_kc_ring_tail(core), 1);
+
+        assert_eq!(
+            graph_engine_kc_ingest_document(core, page.as_ptr(), 0, next_text.as_ptr()),
+            1
+        );
+        assert_eq!(graph_engine_kc_last_error_code(core), 0);
+        assert_eq!(graph_engine_kc_ring_head(core), 2);
+        assert_eq!(graph_engine_kc_ring_tail(core), 1);
+
+        let stats = graph_engine_kc_transport_stats(core);
+        assert_eq!(stats.published_frames, 2);
+        assert_eq!(stats.ring_full_failures, 1);
 
         graph_engine_kc_destroy(core);
     }

@@ -253,8 +253,8 @@ struct ComposerReferenceHelpersTests {
         chat.updatedAt = .distantPast
         let thread = ChatThread(
             id: "thread-1",
-            label: "Palette thread",
             type: "palette",
+            label: "Palette thread",
             messages: [AssistantMessage(role: .user, content: "atlas")],
             createdAt: .distantPast
         )

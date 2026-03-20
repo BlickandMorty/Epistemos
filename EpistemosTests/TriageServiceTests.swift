@@ -93,7 +93,7 @@ struct InferencePolicyEngineTests {
         #expect(decision.reasonCodes.contains(.simpleTaskAppleEligible))
     }
 
-    @Test("heavier local work picks the smallest sufficient local tier")
+    @Test("heavier local work keeps the selected local tier")
     func heavierLocalWorkPicksBalancedTier() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
@@ -125,8 +125,8 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
-    @Test("explicit deep reasoning request enables thinking mode")
-    func explicitThinkingPrefersThinkingMode() {
+    @Test("explicit deep reasoning request no longer changes local response mode")
+    func explicitThinkingDoesNotChangeLocalMode() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -153,12 +153,12 @@ struct InferencePolicyEngineTests {
         )
 
         #expect(decision.selectedRoute == .localQwen)
-        #expect(decision.localSelection?.reasoningMode == .thinking)
-        #expect(decision.reasonCodes.contains(.explicitThinkingRequested))
+        #expect(decision.localSelection?.reasoningMode == .fast)
+        #expect(!decision.reasonCodes.contains(.explicitThinkingRequested))
     }
 
-    @Test("structured analysis defaults to fast local reasoning unless the user explicitly asks for thinking")
-    func structuredAnalysisDefaultsToFastReasoning() {
+    @Test("structured analysis keeps local mode fast even when thinking is requested")
+    func structuredAnalysisKeepsFastMode() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -241,8 +241,8 @@ struct InferencePolicyEngineTests {
         #expect(decision.selectedRoute == .appleIntelligence)
     }
 
-    @Test("freeform chat keeps a 2B floor for trivial local asks")
-    func freeformChatKeepsBalancedFloorForTrivialLocalAsks() {
+    @Test("freeform chat keeps the selected local tier for trivial local asks")
+    func freeformChatKeepsSelectedLocalTierForTrivialLocalAsks() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -266,11 +266,11 @@ struct InferencePolicyEngineTests {
         )
 
         #expect(decision.selectedRoute == .localQwen)
-        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
     }
 
-    @Test("warm local model is reused when still sufficient")
-    func warmLocalModelIsReusedWhenSufficient() {
+    @Test("preferred local model stays fixed for lightweight local work")
+    func preferredLocalModelStaysFixedForLightweightWork() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -292,15 +292,13 @@ struct InferencePolicyEngineTests {
                 installed: [
                     .qwen35_2B4Bit,
                     .qwen35_4B4Bit,
-                ],
-                warmModel: .qwen35_4B4Bit
+                ]
             )
         )
 
         #expect(decision.selectedRoute == .localQwen)
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
-        #expect(decision.reuseWarmModel)
-        #expect(decision.reasonCodes.contains(.warmModelSufficient))
+        #expect(!decision.reuseWarmModel)
     }
 
     @Test("local only bypasses Apple Intelligence even for trivial work")
@@ -332,7 +330,7 @@ struct InferencePolicyEngineTests {
         #expect(decision.reasonCodes.contains(.localModeForced))
     }
 
-    @Test("constrained runtime downshifts to a safer local tier")
+    @Test("constrained runtime keeps the selected local tier")
     func constrainedRuntimeDownshiftsTier() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
@@ -365,16 +363,14 @@ struct InferencePolicyEngineTests {
         )
 
         #expect(decision.selectedRoute == .localQwen)
-        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
-        #expect(decision.reasonCodes.contains(.runtimeConstrained))
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(decision.reasonCodes.contains(.preferredLocalModelUsed))
     }
 
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,
-        automaticSelectionEnabled: Bool = true,
         installed: [LocalTextModelID] = [.qwen35_2B4Bit, .qwen35_4B4Bit],
-        warmModel: LocalTextModelID? = nil,
         runtimeConditions: LocalRuntimeConditions = LocalRuntimeConditions(
             lowPowerModeEnabled: false,
             appActive: true,
@@ -384,11 +380,9 @@ struct InferencePolicyEngineTests {
         InferencePolicyContext(
             routingMode: routingMode,
             appleIntelligenceAvailable: appleAvailable,
-            automaticLocalModelSelectionEnabled: automaticSelectionEnabled,
             preferredLocalTextModelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             preferredLocalReasoningMode: .fast,
             installedLocalTextModelIDs: Set(installed.map(\.rawValue)),
-            warmLocalTextModelID: warmModel?.rawValue,
             hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
                 physicalMemoryBytes: 18_000_000_000,
                 roundedMemoryGB: 18,
@@ -462,12 +456,7 @@ struct TriageServiceIntegrationTests {
         #expect(triage.triage(operation: .grammarFix, contentLength: 240) == .appleIntelligence)
         #expect(triage.triage(operation: .summarize, contentLength: 240) == .appleIntelligence)
         #expect(triage.triage(operation: .rewrite, contentLength: 240) == .appleIntelligence)
-        #expect(
-            triage.triage(
-                operation: .ask(query: "Summarize the core point of this note."),
-                contentLength: 240
-            ) == .appleIntelligence
-        )
+        #expect(triage.triage(operation: .ask(query: "What is the core point of this note?"), contentLength: 240) == .appleIntelligence)
     }
 
     @Test("notes triage uses local qwen for deeper work")
@@ -707,8 +696,8 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("constrained runtime downshifts local model choice and disables automatic local routing")
-    func constrainedRuntimeDownshiftsModelChoice() {
+    @Test("constrained runtime keeps the chosen local model but disables automatic local routing")
+    func constrainedRuntimeKeepsChosenModel() {
         let inference = InferenceState()
         inference.setInstalledLocalTextModelIDs([
             LocalTextModelID.qwen35_2B4Bit.rawValue,
@@ -734,13 +723,13 @@ struct TriageServiceIntegrationTests {
             )
         )
 
-        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
         #expect(!inference.canRouteToLocalMLX(contentLength: 4_000))
     }
 
     @MainActor
-    @Test("automatic local selection uses a smaller installed tier for simple local work")
-    func automaticSelectionUsesSmallerTierForSimpleLocalWork() async throws {
+    @Test("preferred local tier is used for simple local work")
+    func preferredTierIsUsedForSimpleLocalWork() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -771,7 +760,7 @@ struct TriageServiceIntegrationTests {
         )
 
         let request = try #require(await runtime.lastGenerateRequest)
-        #expect(request.modelID == small.id)
+        #expect(request.modelID == inference.effectiveLocalTextModelID)
     }
 
     @MainActor
@@ -841,8 +830,8 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("explicit reasoning request still opts into local thinking mode")
-    func explicitReasoningCueStillUsesThinkingMode() async throws {
+    @Test("explicit reasoning request no longer opts the local runtime into thinking mode")
+    func explicitReasoningCueStaysFast() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -870,20 +859,55 @@ struct TriageServiceIntegrationTests {
         )
 
         let request = try #require(await runtime.lastGenerateRequest)
-        #expect(request.reasoningMode == .thinking)
+        #expect(request.reasoningMode == .fast)
     }
 
-    @Test("length continuation is one-shot and only for visibly truncated answers")
-    func continuationGuardIsOneShot() {
+    @MainActor
+    @Test("configured thinking mode no longer rewrites local prompts or runtime mode")
+    func configuredThinkingModeDoesNotRewriteLocalRequests() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.routingMode = .localOnly
+        inference.setPreferredLocalTextModelID(descriptor.id)
+        inference.setPreferredLocalReasoningMode(.thinking)
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: client)
+
+        _ = try await triage.generateGeneral(
+            prompt: "Compare these two parser implementations and recommend one.",
+            systemPrompt: "Be helpful.",
+            operation: .chatResponse(query: "Compare these two parser implementations and recommend one."),
+            contentLength: 58
+        )
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.reasoningMode == .fast)
+        #expect(request.systemPrompt == "Be helpful.")
+    }
+
+    @Test("length continuation is disabled for local runtime requests")
+    func continuationGuardIsDisabled() {
         let truncated = "This response ends abruptly without punctuation"
-        #expect(MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: truncated, continuationCount: 0))
+        #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: truncated, continuationCount: 0))
         #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: truncated, continuationCount: 1))
         #expect(!MLXInferenceService.shouldAttemptContinuation(afterLengthStopIn: "This response is complete.", continuationCount: 0))
     }
 
     @MainActor
-    @Test("automatic local selection reuses a justified warm tier instead of bouncing down immediately")
-    func automaticSelectionSticksToWarmTier() async throws {
+    @Test("preferred local tier stays stable across hard and short requests")
+    func preferredTierStaysStableAcrossRequests() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -918,7 +942,7 @@ struct TriageServiceIntegrationTests {
         )
 
         let firstRequest = try #require(await runtime.lastGenerateRequest)
-        #expect(firstRequest.modelID == balanced.id || firstRequest.modelID == strong.id)
+        #expect(firstRequest.reasoningMode == .fast)
 
         _ = try await triage.generateGeneral(
             prompt: "Give me the short practical takeaway.",
@@ -932,8 +956,8 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("disabling automatic local selection keeps the preferred installed tier")
-    func manualLocalSelectionKeepsPreferredTier() async throws {
+    @Test("preferred installed tier stays active for local requests")
+    func preferredInstalledTierStaysActive() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -949,7 +973,6 @@ struct TriageServiceIntegrationTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
-        inference.setAutomaticLocalModelSelectionEnabled(false)
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
         inference.setInstalledLocalTextModelIDs([small.id, balanced.id])
 
@@ -965,7 +988,7 @@ struct TriageServiceIntegrationTests {
         )
 
         let request = try #require(await runtime.lastGenerateRequest)
-        #expect(request.modelID == balanced.id)
+        #expect(request.modelID == inference.effectiveLocalTextModelID)
     }
 
     @MainActor
@@ -981,6 +1004,7 @@ struct TriageServiceIntegrationTests {
         )
 
         let inference = InferenceState()
+        inference.setPreferredLocalTextModelID(descriptor.id)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -993,7 +1017,8 @@ struct TriageServiceIntegrationTests {
         #expect(request.modelID == descriptor.id)
         #expect(request.modelDirectory == paths.activeDirectory(for: descriptor))
         #expect(request.prompt == "Hello")
-        #expect(request.systemPrompt == "System")
+        let systemPrompt = try #require(request.systemPrompt)
+        #expect(systemPrompt == "System")
         #expect(request.maxTokens == 123)
     }
 
@@ -1026,8 +1051,8 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("local client falls back to any installed supported model when preferred choices are unavailable")
-    func usesInstalledAlternativeModel() async throws {
+    @Test("local client requires the exact selected model instead of silently choosing another tier")
+    func requiresExactSelectedModel() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -1044,15 +1069,15 @@ struct TriageServiceIntegrationTests {
         let runtime = RecordingLocalMLXRuntime()
         let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
 
-        _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
-
-        let request = try #require(await runtime.lastGenerateRequest)
-        #expect(request.modelID == installed.id)
+        await #expect(throws: LocalInferenceRoutingError.modelRequired) {
+            _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+        }
+        #expect(await runtime.lastGenerateRequest == nil)
     }
 
     @MainActor
-    @Test("manual local selection falls back to the nearest installed supported tier")
-    func manualSelectionFallsBackToNearestInstalledTier() async throws {
+    @Test("manual local selection does not silently fall back to a different installed tier")
+    func manualSelectionRequiresExactInstalledTier() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -1066,22 +1091,21 @@ struct TriageServiceIntegrationTests {
         }
 
         let inference = InferenceState()
-        inference.setAutomaticLocalModelSelectionEnabled(false)
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
         inference.setInstalledLocalTextModelIDs([smallest.id, smaller.id])
 
         let runtime = RecordingLocalMLXRuntime()
         let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
 
-        _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
-
-        let request = try #require(await runtime.lastGenerateRequest)
-        #expect(request.modelID == smaller.id)
+        await #expect(throws: LocalInferenceRoutingError.modelRequired) {
+            _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+        }
+        #expect(await runtime.lastGenerateRequest == nil)
     }
 
     @MainActor
-    @Test("thinking mode preserves the caller system prompt and marks the request as thinking")
-    func thinkingModePreservesSystemPromptAndRequestMode() async throws {
+    @Test("local stream preserves the caller system prompt and keeps the runtime in fast mode")
+    func streamPreservesSystemPromptAndKeepsFastMode() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -1110,7 +1134,7 @@ struct TriageServiceIntegrationTests {
         let request = try #require(await runtime.lastStreamRequest)
         let systemPrompt = try #require(request.systemPrompt)
         #expect(systemPrompt == "Think first, then answer.")
-        #expect(request.reasoningMode == .thinking)
+        #expect(request.reasoningMode == .fast)
     }
 
     @MainActor
@@ -1152,7 +1176,6 @@ struct TriageServiceIntegrationTests {
         inference.appleIntelligenceAvailable = appleAvailable
         inference.routingMode = routingMode
         inference.setPreferredLocalReasoningMode(.fast)
-        inference.setAutomaticLocalModelSelectionEnabled(true)
         inference.setInstalledLocalTextModelIDs(Set(localInstalled))
         if let firstInstalled = localInstalled.first {
             inference.setPreferredLocalTextModelID(firstInstalled)
@@ -1174,8 +1197,8 @@ struct TriageServiceIntegrationTests {
 
 @Suite("LLMService Local Snapshots")
 struct LLMServiceLocalSnapshotTests {
-    @Test("research enrichment snapshot uses local qwen thinking when a local model is installed")
-    @MainActor func enrichmentSnapshotUsesLocalThinking() {
+    @Test("enrichment snapshot respects the user's preferred local reasoning mode")
+    @MainActor func enrichmentSnapshotRespectsPreferredReasoningMode() {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
@@ -1187,7 +1210,39 @@ struct LLMServiceLocalSnapshotTests {
 
         #expect(snapshot.provider == .localMLX)
         #expect(snapshot.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
-        #expect(snapshot.reasoningMode == .thinking)
+        #expect(snapshot.reasoningMode == .fast)
+    }
+
+    @Test("local snapshots use the selected tier instead of the last routed tier")
+    @MainActor func localSnapshotsUseSelectedTier() {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = true
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen35_2B4Bit.rawValue,
+            LocalTextModelID.qwen35_4B4Bit.rawValue,
+        ])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = LLMService(inference: inference)
+        let snapshot = llm.configSnapshot()
+
+        #expect(snapshot.provider == .localMLX)
+        #expect(snapshot.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
+    }
+
+    @Test("local snapshots stay in fast mode even when the saved preference is thinking")
+    @MainActor func localSnapshotsStayFast() {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = true
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setPreferredLocalReasoningMode(.thinking)
+
+        let llm = LLMService(inference: inference)
+        let snapshot = llm.configSnapshot()
+
+        #expect(snapshot.provider == .localMLX)
+        #expect(snapshot.reasoningMode == .fast)
     }
 }
 

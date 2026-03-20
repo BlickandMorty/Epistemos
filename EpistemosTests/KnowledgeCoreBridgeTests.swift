@@ -31,6 +31,62 @@ struct KnowledgeCoreBridgeTests {
         #expect(payload.added.map(\.content) == ["First", "Second"])
     }
 
+    @Test("outline payload decoding covers added updated and removed sections")
+    func outlinePayloadDecodingCoversAllSections() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 16))
+        let subscriptionId = await bridge.subscribeOutline(pageId: "page-sections")
+        #expect(subscriptionId != nil)
+
+        _ = await bridge.drainPayloads()
+
+        let insertedA = await bridge.insertBlock(
+            pageId: "page-sections",
+            blockId: "block-a",
+            parentId: nil,
+            index: 0,
+            content: "A"
+        )
+        #expect(insertedA)
+
+        let insertedB = await bridge.insertBlock(
+            pageId: "page-sections",
+            blockId: "block-b",
+            parentId: nil,
+            index: 1,
+            content: "B"
+        )
+        #expect(insertedB)
+
+        let inserts = await bridge.drainPayloads()
+        #expect(inserts.count == 2)
+        #expect(inserts.flatMap(\.added).map(\.blockId) == ["block-a", "block-b"])
+
+        let moved = await bridge.moveBlock(
+            pageId: "page-sections",
+            blockId: "block-b",
+            parentId: nil,
+            index: 0
+        )
+        #expect(moved)
+
+        let updates = await bridge.drainPayloads()
+        let updatePayload = try #require(updates.last)
+        #expect(updatePayload.updated.count == 1)
+        #expect(updatePayload.updated.first?.blockId == "block-b")
+        #expect(updatePayload.added.isEmpty)
+        #expect(updatePayload.removed.isEmpty)
+
+        let deleted = await bridge.deleteBlock(pageId: "page-sections", blockId: "block-b")
+        #expect(deleted)
+
+        let removals = await bridge.drainPayloads()
+        let removalPayload = try #require(removals.last)
+        #expect(removalPayload.removed.count == 1)
+        #expect(removalPayload.removed.first?.blockId == "block-b")
+        #expect(removalPayload.added.isEmpty)
+        #expect(removalPayload.updated.isEmpty)
+    }
+
     @Test("draining summaries advances tail and avoids duplicate delivery")
     func drainingSummariesAdvancesTail() async throws {
         let bridge = try #require(KnowledgeCoreBridge(peerId: 12))
@@ -63,11 +119,21 @@ struct KnowledgeCoreBridgeTests {
         try? await Task.sleep(for: .milliseconds(40))
 
         let totals = await MainActor.run {
-            (runtime.totalBatches, runtime.totalFrames, runtime.lastBatch)
+            (
+                runtime.totalBatches,
+                runtime.totalFrames,
+                runtime.lastBatch,
+                runtime.lastDrainDurationNs,
+                runtime.totalDrainDurationNs,
+                runtime.totalApplyDurationNs
+            )
         }
         #expect(totals.0 >= 1)
         #expect(totals.1 >= 1)
         #expect(totals.2.last?.addedCount == 1)
+        #expect(totals.3 > 0)
+        #expect(totals.4 >= totals.3)
+        #expect(totals.5 >= 0)
 
         await MainActor.run {
             runtime.stop()

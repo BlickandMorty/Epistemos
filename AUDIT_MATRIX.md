@@ -11,11 +11,11 @@
 
 | Goal | Status | Why |
 |---|---|---|
-| 1. Low-latency zero-copy FFI via shared-memory SPSC ring | PARTIAL | The staged knowledge-core path now has a real shared-memory ring and Swift shadow consumer, with direct archive-into-slot writes, layout assertions, explicit fail-fast backpressure stats, a measured `6.21x` faster summary accessor path, and a measured `3.28x` faster batched row accessor path. The default live runtime still uses BTK `Vec<u8>` -> `Data` -> Swift row/string materialization, and the staged Swift path still copies when creating Swift snapshots. |
+| 1. Low-latency zero-copy FFI via shared-memory SPSC ring | PARTIAL | The staged knowledge-core path now has a real shared-memory ring and Swift shadow consumer, with direct archive-into-slot writes, layout assertions, explicit fail-fast backpressure stats, a measured `6.36x` faster summary accessor path, and a measured `3.47x` faster batched row accessor path. The default live runtime still uses BTK `Vec<u8>` -> `Data(bytesNoCopy)` -> Swift row/string materialization, and the staged Swift path still copies when creating Swift snapshots. |
 | 2. CozoDB-backed Datalog core | PARTIAL | Cozo is embedded and now stays resident in staged knowledge-core, with staged mutations mirrored incrementally into one in-memory `DbInstance`. It is still not the authoritative persistent transactional core, and the live BTK path still uses Cozo only as a helper. |
 | 3. Reactive subscriptions / watcher diff pipeline | PARTIAL | The staged store now performs dependency-pattern matching plus incremental touched-row refresh, and the live BTK outline/property helpers now skip full reruns on matching updates. The live Swift query UI still relies on coarse `NotificationCenter` invalidation and Swift re-execution. |
 | 4. Loro-based movable-tree CRDT with fractional indexing | FAIL | Loro exists in staged knowledge-core only. The shipping outline path remains BTK `BlockTree` plus a custom index/order system. |
-| 5. Unified Org/Markdown parser using `orgize` + `pulldown-cmark` | FAIL | The staged parser instantiates both parser crates, but normalization still falls back to line-based logic and is not the live ingest path. |
+| 5. Unified Org/Markdown parser using `orgize` + `pulldown-cmark` | FAIL | The staged parser instantiates both parser crates, now handles basic Org property drawers correctly, and has a benchmarked line-parser scaffold. It still is not a true event-normalized AST pipeline and is not the live ingest path. |
 | 6. SwiftUI integration using `@Observable` and correct `MainActor` boundaries | PARTIAL | The shadow runtime is `@Observable`, main-thread batched, and feature-flagged. The production query/view model flow still does not consume knowledge-core diffs. |
 | 7. Mechanical-sympathy performance tuning, RAII, alignment, SIMD, and test coverage | PARTIAL | There is real alignment work in the ring, direct archive writes, and RAII cleanup. There is not yet enough benchmark, fuzz, ABI, or production-path coverage to call the architecture hardened. |
 
@@ -30,8 +30,8 @@
 | Swift shared-memory consumer exists | PASS | `Epistemos/Engine/KnowledgeCoreBridge.swift` |
 | Default app uses the ring | FAIL | only constructed when `epistemos.knowledgeCore.shadow` is enabled |
 | Producer-side zero-copy archive write | PASS | `KnowledgeCore::publish_diff()` -> `SharedRingBuffer::write_archived_frame()` |
-| Summary metadata path is reduced | PASS | `KnowledgeCoreBridge.decodeSummary()` now uses `graph_engine_kc_payload_summary(...)` with measured `6.21x` speedup over the old scalar accessor sequence |
-| Row decode path is reduced | PASS | `KnowledgeCoreBridge.decodeRows()` now uses `graph_engine_kc_payload_rows(...)` with measured `3.28x` speedup over the old scalar row loop |
+| Summary metadata path is reduced | PASS | `KnowledgeCoreBridge.decodeSummary()` now uses `graph_engine_kc_payload_summary(...)` with measured `6.36x` speedup over the old scalar accessor sequence |
+| Row decode path is reduced | PASS | `KnowledgeCoreBridge.decodeRows()` now uses `graph_engine_kc_payload_rows(...)` with measured `3.47x` speedup over the old scalar row loop |
 | End-to-end zero-copy into UI | FAIL | Swift materializes rows and `String`s in `KnowledgeCoreBridge.decodeRows()` |
 | Backpressure policy is explicit | PASS | ring returns `RingError::Full` without overwrite, and staged FFI now exposes `graph_engine_kc_backpressure_policy(...)` plus `graph_engine_kc_transport_stats(...)` |
 
@@ -56,8 +56,8 @@
 | Row-level diff generation exists | PASS | `diff_rows(...)` in `store.rs` |
 | Live UI uses typed diffs | FAIL | live UI still uses `ReactiveQuery` + `NotificationCenter` |
 | Irrelevant updates avoid staged watcher reruns | PASS | tested for non-matching page in `store.rs` tests |
-| Matching staged updates avoid full query reruns | PASS | `matching_updates_refresh_outline_without_full_query_rerun` + `92.21x` staged watcher benchmark |
-| Matching BTK property updates avoid full query reruns | PASS | `matching_property_updates_do_not_reexecute_full_query` + `1.87x` BTK property benchmark |
+| Matching staged updates avoid full query reruns | PASS | `matching_updates_refresh_outline_without_full_query_rerun` + `78.47x` staged watcher benchmark |
+| Matching BTK property updates avoid full query reruns | PASS | `matching_property_updates_do_not_reexecute_full_query` + `1.86x` BTK property benchmark |
 | Irrelevant updates avoid live query reruns | FAIL | top-level live Swift query path is still coarse invalidation |
 
 ### CRDT / ordering
@@ -93,9 +93,9 @@
 |---|---|---|
 | Layout assertions added | PASS | `ring.rs` compile-time and runtime assertions |
 | Direct archive write replaces temp buffer | PASS | `write_archived_frame()` |
-| Unsafe blocks documented/minimized | PARTIAL | ring writer/accessors are documented; full repo safety audit still pending |
+| Unsafe blocks documented/minimized | PARTIAL | ring writer/accessors are documented and the staged knowledge-core FFI entrypoints now carry local `// SAFETY:` justifications; full repo safety audit still pending |
 | Fuzz/property coverage for knowledge-core | FAIL | no dedicated fuzz harness yet |
-| Benchmark evidence for knowledge-core path | PARTIAL | targeted benchmarks now exist for direct archive writes (`2.70x`), combined summary decode (`6.21x`), batched row decode (`3.28x`), staged incremental watcher refresh (`92.21x`), and BTK property watcher refresh (`1.87x`); full UI-apply benchmarks still need expansion |
+| Benchmark evidence for knowledge-core path | PARTIAL | targeted benchmarks now exist for direct archive writes (`2.70x`), combined summary decode (`6.36x`), batched row decode (`3.47x`), staged incremental watcher refresh (`78.47x`), BTK property watcher refresh (`1.86x`), and a coarse staged parser throughput benchmark; full UI-apply benchmarks still need expansion |
 
 ## Current recommendation
 

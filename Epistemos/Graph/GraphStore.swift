@@ -561,7 +561,7 @@ final class GraphStore {
         addToTrigramIndex(nodeIdx: nodeIdx, label: node.label)
         clearSearchCache()
         topologyVersion += 1
-        notifyChange()
+        notifyChange([.graphNodes])
     }
 
     /// Replace a node's non-topology fields while preserving its adjacency slot.
@@ -587,7 +587,7 @@ final class GraphStore {
         if existing.label != node.label {
             clearSearchCache()
         }
-        notifyChange()
+        notifyChange([.graphNodes])
     }
 
     /// Add an edge to the store, updating compact adjacency for both endpoints.
@@ -611,7 +611,7 @@ final class GraphStore {
         _edgesOf[srcIdx].append(edgeIdx)
         _edgesOf[tgtIdx].append(edgeIdx)
         topologyVersion += 1
-        notifyChange()
+        notifyChange([.graphEdges])
     }
 
     /// Remove a node and all its edges, cleaning up compact adjacency.
@@ -649,7 +649,7 @@ final class GraphStore {
         _edgesOf[nodeIdx] = []
         clearSearchCache()
         topologyVersion += 1
-        notifyChange()
+        notifyChange([.graphNodes, .graphEdges])
     }
 
     /// Remove a single edge by ID, cleaning up compact adjacency.
@@ -684,22 +684,19 @@ final class GraphStore {
         _edgeIdx.removeValue(forKey: edgeId)
         _edgeIds[edgeIdx] = ""  // Tombstone
         topologyVersion += 1
-        notifyChange()
+        notifyChange([.graphEdges])
     }
 
     // MARK: - Change Notification (debounced for ReactiveQuery)
 
-    private var changeNotifyTask: Task<Void, Never>?
-
-    /// Coalesce rapid mutations into a single notification (50ms debounce).
-    /// ReactiveQuery adds its own 100ms debounce on top, so total latency is ~150ms.
-    private func notifyChange() {
-        changeNotifyTask?.cancel()
-        changeNotifyTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(50))
-            guard !Task.isCancelled, self != nil else { return }
-            NotificationCenter.default.post(name: .graphStoreDidChange, object: nil)
-        }
+    /// Post an immediate invalidation signal.
+    /// ReactiveQuery owns the only debounce window for this path.
+    private func notifyChange(_ dependencies: Set<QueryDependencyKey>) {
+        NotificationCenter.default.post(
+            name: .graphStoreDidChange,
+            object: nil,
+            userInfo: QueryDependencyKey.userInfo(for: dependencies)
+        )
     }
 
     // MARK: - Fuzzy Search (W13.2 — Trigram-Accelerated)

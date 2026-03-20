@@ -243,6 +243,7 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         for conditions: LocalRuntimeConditions,
         reasoningMode: LocalReasoningMode = .fast
     ) -> Int {
+        _ = reasoningMode
         var total = min(maxRecommendedLocalContentLength, baseLocalRuntimeContentLength)
         if conditions.lowPowerModeEnabled {
             total = Int(Double(total) * 0.82)
@@ -259,9 +260,6 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
             total = Int(Double(total) * 0.75)
         case .critical:
             total = Int(Double(total) * 0.60)
-        }
-        if reasoningMode == .thinking {
-            total = Int(Double(total) * 0.88)
         }
         return max(1_800, total)
     }
@@ -291,13 +289,11 @@ final class InferenceState {
 
     var inferenceMode: InferenceMode = .analytical
     var routingMode: LocalRoutingMode = .auto
-    var automaticLocalModelSelectionEnabled: Bool = true
     var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     var preferredLocalReasoningMode: LocalReasoningMode = .fast
-    var showLocalThinkingPanel: Bool = true
+    var showLocalThinkingPanel: Bool = false
     private(set) var installedLocalTextModelIDs: Set<String> = []
     private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
-    private(set) var lastSelectedLocalTextModelID: String?
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current
     private let policyEngine = InferencePolicyEngine()
 
@@ -325,9 +321,7 @@ final class InferenceState {
            LocalTextModelID(rawValue: saved) != nil {
             self.preferredLocalTextModelID = saved
         }
-        if defaults.object(forKey: "epistemos.automaticLocalModelSelectionEnabled") != nil {
-            self.automaticLocalModelSelectionEnabled = defaults.bool(forKey: "epistemos.automaticLocalModelSelectionEnabled")
-        }
+        defaults.removeObject(forKey: "epistemos.automaticLocalModelSelectionEnabled")
         if let saved = defaults.string(forKey: "epistemos.preferredLocalReasoningMode"),
            let mode = LocalReasoningMode(rawValue: saved) {
             self.preferredLocalReasoningMode = mode
@@ -356,11 +350,9 @@ final class InferenceState {
         InferencePolicyContext(
             routingMode: routingMode,
             appleIntelligenceAvailable: appleIntelligenceAvailable,
-            automaticLocalModelSelectionEnabled: automaticLocalModelSelectionEnabled,
             preferredLocalTextModelID: preferredLocalTextModelID,
             preferredLocalReasoningMode: preferredLocalReasoningMode,
             installedLocalTextModelIDs: installedLocalTextModelIDs,
-            warmLocalTextModelID: lastSelectedLocalTextModelID,
             hardwareCapabilitySnapshot: hardwareCapabilitySnapshot,
             runtimeConditions: localRuntimeConditions
         )
@@ -384,10 +376,6 @@ final class InferenceState {
     }
 
     var activeLocalTextModelID: String? {
-        if let lastSelectedLocalTextModelID,
-           supportedInstalledLocalTextModels.contains(where: { $0.rawValue == lastSelectedLocalTextModelID }) {
-            return lastSelectedLocalTextModelID
-        }
         return effectiveLocalTextModelID
     }
 
@@ -425,7 +413,7 @@ final class InferenceState {
                 estimatedTokenLoad: max(1, contentLength / 4),
                 baseComplexity: 0.35,
                 queryComplexity: 0,
-                requestedReasoningMode: preferredLocalReasoningMode,
+                requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
                 visibleThinkingRequested: false
@@ -449,11 +437,6 @@ final class InferenceState {
         UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
     }
 
-    func setAutomaticLocalModelSelectionEnabled(_ enabled: Bool) {
-        automaticLocalModelSelectionEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: "epistemos.automaticLocalModelSelectionEnabled")
-    }
-
     func setPreferredLocalReasoningMode(_ mode: LocalReasoningMode) {
         preferredLocalReasoningMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.preferredLocalReasoningMode")
@@ -470,9 +453,5 @@ final class InferenceState {
 
     func setInstalledLocalTextModelIDs(_ ids: Set<String>) {
         installedLocalTextModelIDs = ids
-    }
-
-    func recordLocalModelSelection(_ selection: LocalModelSelection) {
-        lastSelectedLocalTextModelID = selection.modelID
     }
 }

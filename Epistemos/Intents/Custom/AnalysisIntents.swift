@@ -59,22 +59,25 @@ struct AskAboutNotesIntent: AppIntent {
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
         let pages = (try? context.fetch(descriptor)) ?? []
+        let pageContexts = pages.map { page in
+            (page: page, body: page.loadBody(mapped: true))
+        }
 
         let queryLower = question.lowercased()
         let keywords = queryLower.split(separator: " ").filter { $0.count > 3 }.map(String.init)
 
-        let relevantPages = pages.filter { page in
-            let titleLower = page.title.lowercased()
-            let bodyLower = page.loadBody().lowercased()
+        let relevantPages = pageContexts.filter { entry in
+            let titleLower = entry.page.title.lowercased()
+            let bodyLower = entry.body.lowercased()
             return keywords.contains(where: { titleLower.contains($0) || bodyLower.contains($0) })
         }.prefix(5)
 
         let deepContext: String
         if relevantPages.isEmpty {
-            let recent = pages.prefix(5)
-            deepContext = recent.map { "## \($0.title)\n\(String($0.loadBody().prefix(500)))" }.joined(separator: "\n\n")
+            let recent = pageContexts.prefix(5)
+            deepContext = recent.map { "## \($0.page.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
         } else {
-            deepContext = relevantPages.map { "## \($0.title)\n\(String($0.loadBody().prefix(500)))" }.joined(separator: "\n\n")
+            deepContext = relevantPages.map { "## \($0.page.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
         }
 
         let fullContext = manifestContext.isEmpty ? deepContext : "\(manifestContext)\n\n## Relevant Note Bodies\n\(deepContext)"

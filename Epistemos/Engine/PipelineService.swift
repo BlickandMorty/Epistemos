@@ -263,8 +263,8 @@ final class PipelineService {
                         24
                     )
                     let thinkingFlushTail = max(ThinkingPreludeSyntax.maxAnswerMarkerLength, 32)
-                    var pendingPlainThinkingProbe =
-                        inference.showLocalThinkingPanel
+                    let surfaceThinking = inference.showLocalThinkingPanel
+                    var pendingPlainThinkingProbe = true
                     var thinkingState: ThinkingStreamState?
                     var textBuffer = ""
                     var emittedVisibleText = ""
@@ -273,6 +273,12 @@ final class PipelineService {
                         guard !text.isEmpty else { return }
                         emittedVisibleText += text
                         continuation.yield(.textDelta(text))
+                    }
+
+                    func emitThinking(_ text: String) {
+                        guard surfaceThinking, !text.isEmpty else { return }
+                        continuation.yield(.deliberationDelta(text))
+                        continuation.yield(.reasoningDelta(text))
                     }
 
                     for try await token in directStream {
@@ -317,8 +323,7 @@ final class PipelineService {
                                 let thought = String(
                                     textBuffer[textBuffer.startIndex..<closeRange.lowerBound])
                                 if !thought.isEmpty {
-                                    continuation.yield(.deliberationDelta(thought))
-                                    continuation.yield(.reasoningDelta(thought))
+                                    emitThinking(thought)
                                 }
                                 textBuffer = String(textBuffer[closeRange.upperBound...])
                                 thinkingState = nil
@@ -334,8 +339,7 @@ final class PipelineService {
                                     let flushEnd = textBuffer.index(
                                         textBuffer.endIndex, offsetBy: -20)
                                     let flush = String(textBuffer[textBuffer.startIndex..<flushEnd])
-                                    continuation.yield(.deliberationDelta(flush))
-                                    continuation.yield(.reasoningDelta(flush))
+                                    emitThinking(flush)
                                     textBuffer = String(textBuffer[flushEnd...])
                                 }
                             }
@@ -346,8 +350,7 @@ final class PipelineService {
                                     textBuffer[textBuffer.startIndex..<boundary.reasoningEnd]
                                 )
                                 if !thought.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    continuation.yield(.deliberationDelta(thought))
-                                    continuation.yield(.reasoningDelta(thought))
+                                    emitThinking(thought)
                                 }
                                 textBuffer = String(textBuffer[boundary.answerStart...])
                                     .trimmingLeadingWhitespaceAndNewlines()
@@ -358,12 +361,12 @@ final class PipelineService {
                                 }
                             } else if let split = ThinkingPreludeSyntax.flushableReasoningPrefix(in: textBuffer) {
                                 if !split.flush.isEmpty {
-                                    continuation.yield(.deliberationDelta(split.flush))
-                                    continuation.yield(.reasoningDelta(split.flush))
+                                    emitThinking(split.flush)
                                 }
                                 textBuffer = split.remainder
                             } else if textBuffer.count > thinkingFlushTail,
-                                      !ThinkingPreludeSyntax.likelyAnswerCandidate(in: textBuffer) {
+                                      !ThinkingPreludeSyntax.likelyAnswerCandidate(in: textBuffer),
+                                      ThinkingPreludeSyntax.salvagedAnswer(in: textBuffer) == nil {
                                 let flushEnd = textBuffer.index(
                                     textBuffer.endIndex,
                                     offsetBy: -thinkingFlushTail
@@ -371,8 +374,7 @@ final class PipelineService {
                                 let flush = String(textBuffer[textBuffer.startIndex..<flushEnd])
                                 if !flush.isEmpty,
                                    textBuffer[flushEnd...].contains(where: { !$0.isWhitespace && !$0.isNewline }) {
-                                    continuation.yield(.deliberationDelta(flush))
-                                    continuation.yield(.reasoningDelta(flush))
+                                    emitThinking(flush)
                                 }
                                 textBuffer = String(textBuffer[flushEnd...])
                             }
@@ -402,15 +404,13 @@ final class PipelineService {
                         if thinkingState != nil {
                             if let split = ThinkingPreludeSyntax.splitReasoningAndAnswer(in: textBuffer) {
                                 if !split.reasoning.isEmpty {
-                                    continuation.yield(.deliberationDelta(split.reasoning))
-                                    continuation.yield(.reasoningDelta(split.reasoning))
+                                    emitThinking(split.reasoning)
                                 }
                                 emitVisible(split.answer)
                             } else if ThinkingPreludeSyntax.likelyAnswerCandidate(in: textBuffer) {
                                 emitVisible(textBuffer.trimmingLeadingWhitespaceAndNewlines())
                             } else {
-                                continuation.yield(.deliberationDelta(textBuffer))
-                                continuation.yield(.reasoningDelta(textBuffer))
+                                emitThinking(textBuffer)
                             }
                         } else {
                             emitVisible(textBuffer)
@@ -712,9 +712,7 @@ final class PipelineService {
         let triageOperation: GeneralOperation = chatMode == .research
             ? .epistemicLens
             : .chatResponse(query: query)
-        let requestedLocalReasoningMode: LocalReasoningMode = chatMode == .research
-            ? .fast
-            : inference.preferredLocalReasoningMode
+        let requestedLocalReasoningMode: LocalReasoningMode = .fast
 
         return triageService.streamGeneral(
             prompt: finalPrompt,

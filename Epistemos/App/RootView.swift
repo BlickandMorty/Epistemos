@@ -401,13 +401,6 @@ private struct InferenceControlPopover: View {
         )
     }
 
-    private var automaticSelectionBinding: Binding<Bool> {
-        Binding(
-            get: { inference.automaticLocalModelSelectionEnabled },
-            set: { inference.setAutomaticLocalModelSelectionEnabled($0) }
-        )
-    }
-
     private var installedSelectableModels: [LocalModelDescriptor] {
         localModelManager.textDescriptors.filter { descriptor in
             localModelManager.installRecords[descriptor.id] != nil
@@ -415,25 +408,16 @@ private struct InferenceControlPopover: View {
         }
     }
 
-    private var activeDescriptor: LocalModelDescriptor? {
-        guard let modelID = inference.activeLocalTextModelID else { return nil }
-        return LocalModelCatalog.descriptor(for: modelID)
-    }
-
     private var preferredDescriptor: LocalModelDescriptor? {
         LocalModelCatalog.descriptor(for: inference.preferredLocalTextModelID)
-    }
-
-    private var recommendedDescriptor: LocalModelDescriptor? {
-        LocalModelCatalog.descriptor(for: localModelManager.recommendedTextModelID)
     }
 
     private var summaryText: String {
         switch inference.routingMode {
         case .auto:
-            "Apple Intelligence handles lighter edits first. Qwen 3.5 takes deeper local work."
+            "Apple Intelligence handles lighter edits first. Your selected Qwen tier handles local work when the app routes locally."
         case .localOnly:
-            "Everything routes through local Qwen 3.5. Automatic selection stays sticky to reduce churn."
+            "Everything routes through your selected local Qwen tier."
         }
     }
 
@@ -472,30 +456,8 @@ private struct InferenceControlPopover: View {
                 .labelsHidden()
             }
 
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Automatic Qwen Model Selection")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
-
-                    Text("Prefer the smallest warm local tier that still fits the task.")
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 12)
-
-                Toggle("", isOn: automaticSelectionBinding)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .assistantInsetChrome(theme: theme, cornerRadius: 16, isEmphasized: inference.automaticLocalModelSelectionEnabled)
-
             VStack(alignment: .leading, spacing: 9) {
-                InferencePopoverSectionLabel(inference.automaticLocalModelSelectionEnabled ? "Current Local Tier" : "Choose Local Tier")
+                InferencePopoverSectionLabel("Choose Local Tier")
 
                 if installedSelectableModels.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
@@ -513,28 +475,6 @@ private struct InferenceControlPopover: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
                     .assistantInsetChrome(theme: theme, cornerRadius: 16)
-                } else if inference.automaticLocalModelSelectionEnabled {
-                    VStack(spacing: 8) {
-                        InferencePopoverInfoRow(
-                            title: "Active",
-                            value: activeDescriptor?.displayName ?? inference.activeLocalTextModelDisplayName
-                        )
-
-                        if let recommendedDescriptor {
-                            InferencePopoverInfoRow(
-                                title: "Recommended",
-                                value: recommendedDescriptor.displayName
-                            )
-                        }
-
-                        if let fallbackID = localModelManager.constrainedFallbackTextModelID,
-                           let fallbackDescriptor = LocalModelCatalog.descriptor(for: fallbackID) {
-                            InferencePopoverInfoRow(
-                                title: "Constrained Fallback",
-                                value: fallbackDescriptor.displayName
-                            )
-                        }
-                    }
                 } else {
                     VStack(spacing: 8) {
                         ForEach(installedSelectableModels, id: \.id) { model in
@@ -584,7 +524,6 @@ private struct InferenceControlPopover: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .assistantPopoverChrome(theme: theme)
         .animation(Motion.quick, value: inference.routingMode)
-        .animation(Motion.quick, value: inference.automaticLocalModelSelectionEnabled)
     }
 }
 

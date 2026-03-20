@@ -154,6 +154,48 @@ struct SDPageQueryDescriptorTests {
         #expect(result.first?.title == "Note 9")
     }
 
+    @Test("daily brief context notes exclude templates and empty bodies")
+    func dailyBriefContextNotesFilterTemplatesAndEmptyBodies() {
+        let full = SDPage(title: "Full")
+        full.body = "Body text"
+
+        let whitespace = SDPage(title: "Whitespace")
+        whitespace.body = "   \n"
+
+        let template = SDPage(title: "Template")
+        template.templateId = "tpl-1"
+        template.body = "Template body"
+
+        let second = SDPage(title: "Second")
+        second.body = "Second body"
+
+        let notes = DailyBriefState.recentContextNotes(
+            pages: [full, whitespace, template, second],
+            limit: 18
+        )
+
+        #expect(notes.map(\.page.title) == ["Full", "Second"])
+        #expect(notes.map(\.body) == ["Body text", "Second body"])
+    }
+
+    @Test("daily brief snippet normalizes newlines and trims whitespace")
+    func dailyBriefSnippetNormalizesWhitespace() {
+        let snippet = DailyBriefState.normalizedSnippet(
+            from: "\nLine one\nLine two   ",
+            limit: 200
+        )
+
+        #expect(snippet == "Line one Line two")
+    }
+
+    @Test("page normalized body snippet trims and replaces newlines")
+    func normalizedBodySnippetTrimsWhitespace() {
+        let page = SDPage(title: "Snippet")
+        page.body = "\nLine one\nLine two   "
+
+        #expect(page.normalizedBodySnippet(limit: 200) == "Line one Line two")
+    }
+
     @Test("templatesDescriptor returns only templates sorted by title")
     func templatesDescriptorFiltersAndSorts() throws {
         let container = try makeContainer()
