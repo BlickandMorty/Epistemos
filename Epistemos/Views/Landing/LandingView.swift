@@ -28,7 +28,7 @@ enum LandingShortcutDisplay {
 }
 
 enum LandingSearchLayout {
-    static let maxWidth: CGFloat = 820
+    static let maxWidth: CGFloat = 900
     static let topRowSpacing: CGFloat = 14
     static let controlRowSpacing: CGFloat = 8
     static let controlRowTopPadding: CGFloat = 10
@@ -80,6 +80,7 @@ struct LandingView: View {
     @State private var isLandingSearchFocused = false
     @State private var showLandingMentionDropdown = false
     @State private var landingMentionFilter = ""
+    @State private var landingMentionPickerAutofocus = false
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
     @State private var pointerState = LandingPointerState()
@@ -379,18 +380,18 @@ struct LandingView: View {
                                 .onChange(of: landingSearchText) { _, newValue in
                                     if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
                                         landingMentionFilter = filter
+                                        landingMentionPickerAutofocus = false
                                         if !showLandingMentionDropdown {
                                             showLandingMentionDropdown = true
                                         }
-                                        landingReferenceSearch.update(
-                                            filter: filter,
-                                            manifest: AppBootstrap.shared?.ambientManifest,
-                                            vaultSync: vaultSync
-                                        )
                                     } else if showLandingMentionDropdown {
                                         showLandingMentionDropdown = false
+                                        landingMentionPickerAutofocus = false
                                         landingReferenceSearch.reset()
                                     }
+                                }
+                                .onChange(of: landingMentionFilter) { _, newValue in
+                                    updateLandingReferenceSearch(filter: newValue)
                                 }
 
                                 if landingSearchText.isEmpty {
@@ -441,8 +442,10 @@ struct LandingView: View {
                         if showLandingMentionDropdown {
                             ComposerReferencePopover(
                                 results: landingMentionSearchResults,
-                                idealWidth: 468,
-                                maxHeight: 360,
+                                query: $landingMentionFilter,
+                                idealWidth: 600,
+                                maxHeight: 430,
+                                autofocusSearchField: landingMentionPickerAutofocus,
                                 onSelect: attachLandingMentionReference
                             )
                             }
@@ -541,6 +544,7 @@ struct LandingView: View {
         isLandingSearchFocused = false
         showLandingMentionDropdown = false
         landingMentionFilter = ""
+        landingMentionPickerAutofocus = false
         landingReferenceSearch.reset()
         landingContextAttachments = []
     }
@@ -560,6 +564,7 @@ struct LandingView: View {
 
     private func openLandingNotePicker() {
         landingMentionFilter = ""
+        landingMentionPickerAutofocus = true
         showLandingMentionDropdown = true
         isLandingSearchFocused = true
         landingReferenceSearch.reset()
@@ -579,11 +584,25 @@ struct LandingView: View {
         landingSearchText = ComposerReferenceHelpers.removingTrailingMention(from: landingSearchText)
         showLandingMentionDropdown = false
         landingMentionFilter = ""
+        landingMentionPickerAutofocus = false
         landingReferenceSearch.reset()
     }
 
     private func removeLandingContextAttachment(_ id: String) {
         landingContextAttachments.removeAll { $0.id == id }
+    }
+
+    private func updateLandingReferenceSearch(filter: String) {
+        let trimmed = filter.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            landingReferenceSearch.reset()
+            return
+        }
+        landingReferenceSearch.update(
+            filter: trimmed,
+            manifest: AppBootstrap.shared?.ambientManifest,
+            vaultSync: vaultSync
+        )
     }
 
     // MARK: - Daily Brief Content (replaces greeting in-place)

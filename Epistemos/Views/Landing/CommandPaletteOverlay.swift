@@ -57,6 +57,7 @@ struct CommandPaletteOverlay: View {
     @State private var chatInput = ""
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
+    @State private var mentionPickerAutofocus = false
     @State private var referenceSearch = ComposerReferenceSearchState()
     @State private var lastScrollTime: ContinuousClock.Instant = .now
     @State private var chatAutoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
@@ -693,16 +694,16 @@ struct CommandPaletteOverlay: View {
                     .onChange(of: chatInput) { _, newValue in
                         if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
                             mentionFilter = filter
+                            mentionPickerAutofocus = false
                             if !showMentionDropdown { showMentionDropdown = true }
-                            referenceSearch.update(
-                                filter: filter,
-                                manifest: AppBootstrap.shared?.ambientManifest,
-                                vaultSync: vaultSync
-                            )
                         } else if showMentionDropdown {
                             showMentionDropdown = false
+                            mentionPickerAutofocus = false
                             referenceSearch.reset()
                         }
+                    }
+                    .onChange(of: mentionFilter) { _, newValue in
+                        updateMentionReferenceSearch(filter: newValue)
                     }
 
                 AssistantSendButton(
@@ -731,8 +732,10 @@ struct CommandPaletteOverlay: View {
             if showMentionDropdown {
                 ComposerReferencePopover(
                     results: mentionSearchResults,
-                    idealWidth: 428,
-                    maxHeight: 360,
+                    query: $mentionFilter,
+                    idealWidth: 560,
+                    maxHeight: 430,
+                    autofocusSearchField: mentionPickerAutofocus,
                     onSelect: attachMentionReference
                 )
             }
@@ -1233,6 +1236,7 @@ struct CommandPaletteOverlay: View {
         )
         chatInput = ComposerReferenceHelpers.removingTrailingMention(from: chatInput)
         showMentionDropdown = false
+        mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
     }
@@ -1241,6 +1245,7 @@ struct CommandPaletteOverlay: View {
         withAnimation(Motion.smooth) { mode = .chat }
         ensureActiveTab()
         mentionFilter = ""
+        mentionPickerAutofocus = true
         showMentionDropdown = true
         referenceSearch.reset()
         Task { @MainActor in
@@ -1272,6 +1277,19 @@ struct CommandPaletteOverlay: View {
         withAnimation(Motion.smooth) { mode = .chat }
         ensureActiveTab()
         attachVaultContext()
+    }
+
+    private func updateMentionReferenceSearch(filter: String) {
+        let trimmed = filter.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            referenceSearch.reset()
+            return
+        }
+        referenceSearch.update(
+            filter: trimmed,
+            manifest: AppBootstrap.shared?.ambientManifest,
+            vaultSync: vaultSync
+        )
     }
 
     private func handleEscape() {

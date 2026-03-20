@@ -232,6 +232,40 @@ struct ComposerReferenceHelpersTests {
         #expect(noteChoiceIDs(results.notes) == ["all-notes", "newer", "older"])
     }
 
+    @Test("popover layout keeps a generous width when there is room")
+    func popoverLayoutKeepsGenerousWidthWhenThereIsRoom() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let anchor = CGRect(x: 420, y: 320, width: 820, height: 120)
+
+        let width = ComposerReferencePopoverLayout.resolvedWidth(
+            idealWidth: 560,
+            anchorFrame: anchor,
+            screenFrame: screen
+        )
+
+        #expect(width >= 520)
+        #expect(width <= 560)
+    }
+
+    @Test("popover layout shifts left when the anchor is near the trailing edge")
+    func popoverLayoutShiftsLeftNearTrailingEdge() {
+        let screen = CGRect(x: 0, y: 0, width: 1200, height: 900)
+        let anchor = CGRect(x: 980, y: 320, width: 220, height: 120)
+        let width = ComposerReferencePopoverLayout.resolvedWidth(
+            idealWidth: 520,
+            anchorFrame: anchor,
+            screenFrame: screen
+        )
+
+        let offset = ComposerReferencePopoverLayout.horizontalOffset(
+            width: width,
+            anchorFrame: anchor,
+            screenFrame: screen
+        )
+
+        #expect(offset < 0)
+    }
+
     private func makeManifest(entries: [VaultManifest.ManifestEntry]) -> VaultManifest {
         VaultManifest(
             vaultTitle: "My Vault",

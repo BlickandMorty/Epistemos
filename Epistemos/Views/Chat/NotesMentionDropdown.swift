@@ -1,3 +1,4 @@
+import AppKit
 import Observation
 import SwiftUI
 
@@ -83,6 +84,44 @@ enum ComposerReferenceChoice: Identifiable {
         case .chat(let chat):
             "chat:\(chat.id)"
         }
+    }
+}
+
+enum ComposerReferencePopoverLayout {
+    static let screenInset: CGFloat = 24
+    static let minimumWidth: CGFloat = 420
+
+    static func resolvedWidth(
+        idealWidth: CGFloat,
+        anchorFrame: CGRect,
+        screenFrame: CGRect
+    ) -> CGFloat {
+        let maxScreenWidth = max(320, screenFrame.width - (screenInset * 2))
+        let clampedIdeal = min(idealWidth, maxScreenWidth)
+        let trailingSpace = max(0, screenFrame.maxX - anchorFrame.minX - screenInset)
+        let leadingSpace = max(0, anchorFrame.maxX - screenFrame.minX - screenInset)
+        let available = max(trailingSpace, leadingSpace)
+        guard available > 0 else { return clampedIdeal }
+        let floor = min(minimumWidth, available)
+        return max(floor, min(clampedIdeal, available))
+    }
+
+    static func horizontalOffset(
+        width: CGFloat,
+        anchorFrame: CGRect,
+        screenFrame: CGRect
+    ) -> CGFloat {
+        let maxAllowedX = screenFrame.maxX - screenInset
+        let minAllowedX = screenFrame.minX + screenInset
+        let proposedMinX = anchorFrame.minX
+        let proposedMaxX = proposedMinX + width
+        if proposedMaxX > maxAllowedX {
+            return maxAllowedX - proposedMaxX
+        }
+        if proposedMinX < minAllowedX {
+            return minAllowedX - proposedMinX
+        }
+        return 0
     }
 }
 
@@ -216,28 +255,55 @@ struct ComposerReferencePopover: View {
     let onSelect: (ComposerReferenceChoice) -> Void
     let idealWidth: CGFloat
     let maxHeight: CGFloat
+    @Binding private var query: String
+    private let autofocusSearchField: Bool
+
+    @FocusState private var isSearchFocused: Bool
 
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
 
     init(
         results: ChatCoordinator.ReferenceSearchResults,
+        query: Binding<String>,
         idealWidth: CGFloat = 428,
         maxHeight: CGFloat = 360,
+        autofocusSearchField: Bool = false,
         onSelect: @escaping (ComposerReferenceChoice) -> Void
     ) {
         self.results = results
+        _query = query
         self.onSelect = onSelect
         self.idealWidth = idealWidth
         self.maxHeight = maxHeight
+        self.autofocusSearchField = autofocusSearchField
     }
 
     var body: some View {
         GeometryReader { proxy in
-            let width = min(idealWidth, max(360, proxy.size.width - 12))
+            let anchorFrame = proxy.frame(in: .global)
+            let screenFrame = screenFrame(containing: anchorFrame) ?? CGRect(
+                x: 0,
+                y: 0,
+                width: max(idealWidth + (ComposerReferencePopoverLayout.screenInset * 2), proxy.size.width),
+                height: 900
+            )
+            let width = ComposerReferencePopoverLayout.resolvedWidth(
+                idealWidth: idealWidth,
+                anchorFrame: anchorFrame,
+                screenFrame: screenFrame
+            )
+            let horizontalOffset = ComposerReferencePopoverLayout.horizontalOffset(
+                width: width,
+                anchorFrame: anchorFrame,
+                screenFrame: screenFrame
+            )
 
             VStack(alignment: .leading, spacing: 0) {
                 popoverHeader
+                popoverSearchField
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
                 Divider()
                     .overlay(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.28))
 
@@ -267,8 +333,13 @@ struct ComposerReferencePopover: View {
                     .padding(.top, 1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .offset(y: 6)
+            .offset(x: horizontalOffset, y: 8)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .task(id: autofocusSearchField) {
+                guard autofocusSearchField else { return }
+                try? await Task.sleep(for: .milliseconds(60))
+                isSearchFocused = true
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: maxHeight + 12, alignment: .topLeading)
     }
@@ -317,6 +388,41 @@ struct ComposerReferencePopover: View {
         return "Searching titles, folders, tags, and body excerpts for “\(results.query)”."
     }
 
+    private var popoverSearchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
+
+            TextField(
+                "Search notes, chats, tags, folders, and snippets",
+                text: $query
+            )
+            .textFieldStyle(.plain)
+            .font(.system(size: 12.5, weight: .medium, design: .rounded))
+            .foregroundStyle(theme.foreground)
+            .focused($isSearchFocused)
+
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .assistantInsetChrome(
+            theme: theme,
+            cornerRadius: 16,
+            isEmphasized: isSearchFocused || !query.isEmpty
+        )
+    }
+
     private var footerHint: some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles")
@@ -335,6 +441,11 @@ struct ComposerReferencePopover: View {
 
     private var resultCount: Int {
         results.notes.count + results.chats.count
+    }
+
+    private func screenFrame(containing anchorFrame: CGRect) -> CGRect? {
+        NSScreen.screens.first(where: { $0.visibleFrame.intersects(anchorFrame) })?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
     }
 }
 
