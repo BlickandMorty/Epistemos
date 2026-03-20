@@ -1549,6 +1549,64 @@ struct ChatCoordinatorPersistenceTests {
         #expect(loaded[1].createdAt == assistantCreatedAt)
     }
 
+    @Test("persistChatCompletion preserves note context snapshots on reload")
+    func persistChatCompletionPreservesNoteContextSnapshots() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let (coordinator, chatState) = makeCoordinatorHarness(container: container)
+
+        let noteAttachment = ContextAttachment(
+            kind: .note,
+            targetId: "page-42",
+            title: "Research Note",
+            subtitle: "Ideas"
+        )
+        let vaultAttachment = ContextAttachment(
+            kind: .allNotes,
+            targetId: ChatCoordinator.allNotesMentionToken,
+            title: "All Notes",
+            subtitle: "Vault"
+        )
+        let userMessage = ChatMessage(
+            id: "user-context",
+            chatId: "chat-context",
+            role: .user,
+            content: "Compare this with @Research Note",
+            loadedNoteTitles: ["Research Note"],
+            contextAttachments: [noteAttachment, vaultAttachment]
+        )
+        let assistantMessage = ChatMessage(
+            id: "assistant-context",
+            chatId: "chat-context",
+            role: .assistant,
+            content: "Here is the comparison.",
+            loadedNoteTitles: ["Research Note"],
+            contextAttachments: [noteAttachment, vaultAttachment]
+        )
+        chatState.loadMessages([userMessage, assistantMessage])
+
+        coordinator.persistChatCompletion(
+            chatId: "chat-context",
+            query: userMessage.content,
+            answer: assistantMessage.content,
+            dual: nil,
+            truth: nil,
+            confidence: nil,
+            grade: nil,
+            mode: .local,
+            assistantMessage: assistantMessage
+        )
+
+        let savedChat = try #require(try context.fetch(FetchDescriptor<SDChat>()).first)
+        let loaded = savedChat.loadedMessages
+
+        #expect(loaded.count == 2)
+        #expect(loaded[0].contextAttachments == [noteAttachment, vaultAttachment])
+        #expect(loaded[1].contextAttachments == [noteAttachment, vaultAttachment])
+        #expect(loaded[0].loadedNoteTitles == ["Research Note"])
+        #expect(loaded[1].loadedNoteTitles == ["Research Note"])
+    }
+
     @Test("persistChatCompletion keeps chats on the plain path")
     func persistChatCompletionKeepsChatsOnPlainPath() throws {
         let container = try makeContainer()
@@ -1625,6 +1683,82 @@ struct ChatCoordinatorPersistenceTests {
         #expect(chatState.vaultBriefingManifest == nil)
         #expect(mock.streamCalls.count == 1)
         #expect(mock.streamCalls[0].maxTokens == 0)
+    }
+}
+
+@Suite("ChatState Context Attachments")
+@MainActor
+struct ChatStateContextAttachmentTests {
+    @Test("submit query snapshots pending context attachments onto the user message")
+    func submitQueryCarriesContextAttachments() {
+        let chatState = ChatState()
+        let attachment = ContextAttachment(
+            kind: .note,
+            targetId: "note-1",
+            title: "Alpha Note",
+            subtitle: "Research"
+        )
+
+        chatState.addContextAttachment(attachment)
+        chatState.submitQuery("Explain this note")
+
+        let message = chatState.messages.last
+        #expect(message?.role == .user)
+        #expect(message?.contextAttachments == [attachment])
+        #expect(chatState.pendingContextAttachments == [attachment])
+    }
+
+    @Test("complete processing snapshots active context attachments onto the assistant message")
+    func completeProcessingCarriesContextAttachments() {
+        let chatState = ChatState()
+        let attachment = ContextAttachment(
+            kind: .allNotes,
+            targetId: ChatCoordinator.allNotesMentionToken,
+            title: "All Notes",
+            subtitle: "Vault"
+        )
+
+        chatState.addContextAttachment(attachment)
+        chatState.submitQuery("Summarize the vault")
+        chatState.startStreaming()
+        chatState.appendStreamingText("Here is the answer.")
+        chatState.completeProcessing(mode: .api)
+
+        let assistant = chatState.messages.last
+        #expect(assistant?.role == .assistant)
+        #expect(assistant?.contextAttachments == [attachment])
+    }
+
+    @Test("loading messages restores latest context attachments for follow-up turns")
+    func loadMessagesRestoresLatestContextAttachments() {
+        let chatState = ChatState()
+        let noteAttachment = ContextAttachment(
+            kind: .note,
+            targetId: "note-2",
+            title: "Deep Work",
+            subtitle: "Vault"
+        )
+        let vaultAttachment = ContextAttachment(
+            kind: .allNotes,
+            targetId: ChatCoordinator.allNotesMentionToken,
+            title: "All Notes",
+            subtitle: "Vault"
+        )
+
+        chatState.loadMessages([
+            ChatMessage(chatId: "chat", role: .user, content: "plain turn"),
+            ChatMessage(
+                chatId: "chat",
+                role: .assistant,
+                content: "grounded turn",
+                loadedNoteTitles: ["Deep Work"],
+                contextAttachments: [noteAttachment, vaultAttachment]
+            )
+        ])
+
+        #expect(chatState.pendingContextAttachments == [noteAttachment, vaultAttachment])
+        #expect(chatState.loadedNoteIds == ["note-2"])
+        #expect(chatState.loadedNoteTitles == ["Deep Work"])
     }
 }
 

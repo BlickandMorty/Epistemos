@@ -39,6 +39,8 @@ final class SDMessage {
 
     // MARK: - Attachments
     var attachmentsData: Data?          // Encoded [FileAttachment]
+    var loadedNoteTitlesData: Data?     // Encoded [String]
+    var contextAttachmentsData: Data?   // Encoded [ContextAttachment]
 
     // MARK: - Timestamps
     var createdAt: Date = Date.now
@@ -63,6 +65,24 @@ final class SDMessage {
     @MainActor
     private func decodedTruthAssessment() -> TruthAssessment? {
         truthAssessmentData.flatMap { try? JSONDecoder().decode(TruthAssessment.self, from: $0) }
+    }
+
+    @MainActor
+    private func decodedAttachments() -> [FileAttachment] {
+        guard let attachmentsData else { return [] }
+        return (try? JSONDecoder().decode([FileAttachment].self, from: attachmentsData)) ?? []
+    }
+
+    @MainActor
+    private func decodedLoadedNoteTitles() -> [String]? {
+        guard let loadedNoteTitlesData else { return nil }
+        return try? JSONDecoder().decode([String].self, from: loadedNoteTitlesData)
+    }
+
+    @MainActor
+    private func decodedContextAttachments() -> [ContextAttachment]? {
+        guard let contextAttachmentsData else { return nil }
+        return try? JSONDecoder().decode([ContextAttachment].self, from: contextAttachmentsData)
     }
 
     @MainActor
@@ -103,6 +123,17 @@ final class SDMessage {
     }
 
     @MainActor
+    func updatePresentationSnapshot(
+        attachments: [FileAttachment],
+        loadedNoteTitles: [String]?,
+        contextAttachments: [ContextAttachment]?
+    ) {
+        attachmentsData = try? JSONEncoder().encode(attachments)
+        loadedNoteTitlesData = try? JSONEncoder().encode(loadedNoteTitles ?? [])
+        contextAttachmentsData = try? JSONEncoder().encode(contextAttachments ?? [])
+    }
+
+    @MainActor
     func chatMessage(chatId: String) -> ChatMessage {
         ChatMessage(
             id: id,
@@ -114,9 +145,12 @@ final class SDMessage {
             confidence: confidenceScore,
             evidenceGrade: evidenceGrade.flatMap(EvidenceGrade.init(rawValue:)),
             mode: inferenceMode.flatMap(InferenceMode.init(rawValue:)),
+            attachments: decodedAttachments(),
             createdAt: createdAt,
             reasoningText: reasoningText,
-            reasoningDuration: reasoningDuration
+            reasoningDuration: reasoningDuration,
+            loadedNoteTitles: decodedLoadedNoteTitles(),
+            contextAttachments: decodedContextAttachments()
         )
     }
 }

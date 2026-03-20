@@ -577,8 +577,8 @@ private struct MiniChatInputBar: View {
             if showMentionDropdown {
                 ComposerReferencePopover(
                     results: mentionSearchResults,
-                    idealWidth: 360,
-                    maxHeight: 330,
+                    idealWidth: 408,
+                    maxHeight: 348,
                     onSelect: attachMentionReference
                 )
             }
@@ -590,7 +590,7 @@ private struct MiniChatInputBar: View {
             HStack(spacing: 6) {
                 ForEach(activeContextAttachments) { attachment in
                     HStack(spacing: 4) {
-                        Image(systemName: iconForContextAttachment(attachment))
+                        Image(systemName: attachment.systemImageName)
                             .font(.epSmall)
                         Text(attachment.title)
                             .font(.epSmall)
@@ -1035,14 +1035,6 @@ private struct MiniChatInputBar: View {
 
     private func attachVaultContext() {
         threadState.addActiveThreadContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
-    }
-
-    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
-        switch attachment.kind {
-        case .note: "doc.text"
-        case .chat: "bubble.left.and.bubble.right"
-        case .allNotes: "books.vertical"
-        }
     }
 
     private func recentChats() -> [SDChat] {

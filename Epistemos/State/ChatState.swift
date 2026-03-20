@@ -130,7 +130,8 @@ final class ChatState {
             chatId: chatId,
             role: .user,
             content: safeQuery,
-            attachments: pendingAttachments
+            attachments: pendingAttachments,
+            contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
         )
         messages.append(userMessage)
         hasMessages = true
@@ -384,6 +385,8 @@ final class ChatState {
         messages = msgs
         hasMessages = !msgs.isEmpty
         showLanding = msgs.isEmpty
+        pendingAttachments = []
+        restoreConversationContext(from: msgs)
     }
 
     func clearMessages() {
@@ -413,5 +416,29 @@ final class ChatState {
         if let chatId {
             eventBus?.emit(.chatCleared(chatId: ChatId(chatId)))
         }
+    }
+
+    private func restoreConversationContext(from messages: [ChatMessage]) {
+        guard let contextMessage = messages.last(where: {
+            ($0.contextAttachments?.isEmpty == false) || ($0.loadedNoteTitles?.isEmpty == false)
+        }) else {
+            pendingContextAttachments = []
+            loadedNoteIds = []
+            loadedNoteTitles = []
+            return
+        }
+
+        pendingContextAttachments = contextMessage.contextAttachments ?? []
+        loadedNoteIds = Set(
+            pendingContextAttachments.compactMap { attachment in
+                attachment.kind == .note ? attachment.targetId : nil
+            }
+        )
+
+        var restoredTitles = contextMessage.loadedNoteTitles ?? []
+        for attachment in pendingContextAttachments where attachment.kind == .note && !restoredTitles.contains(attachment.title) {
+            restoredTitles.append(attachment.title)
+        }
+        loadedNoteTitles = restoredTitles
     }
 }

@@ -642,7 +642,7 @@ struct CommandPaletteOverlay: View {
                     HStack(spacing: 6) {
                         ForEach(activeContextAttachments) { attachment in
                             HStack(spacing: 4) {
-                                Image(systemName: iconForContextAttachment(attachment))
+                                Image(systemName: attachment.systemImageName)
                                     .font(.system(size: 10, weight: .medium))
                                 Text(attachment.title)
                                     .font(.system(size: 11, weight: .medium))
@@ -731,8 +731,8 @@ struct CommandPaletteOverlay: View {
             if showMentionDropdown {
                 ComposerReferencePopover(
                     results: mentionSearchResults,
-                    idealWidth: 380,
-                    maxHeight: 340,
+                    idealWidth: 428,
+                    maxHeight: 360,
                     onSelect: attachMentionReference
                 )
             }
@@ -1287,14 +1287,6 @@ struct CommandPaletteOverlay: View {
             }
         } else {
             dismiss()
-        }
-    }
-
-    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
-        switch attachment.kind {
-        case .note: "doc.text"
-        case .chat: "bubble.left.and.bubble.right"
-        case .allNotes: "books.vertical"
         }
     }
 

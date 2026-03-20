@@ -222,8 +222,8 @@ struct ComposerReferencePopover: View {
 
     init(
         results: ChatCoordinator.ReferenceSearchResults,
-        idealWidth: CGFloat = 380,
-        maxHeight: CGFloat = 340,
+        idealWidth: CGFloat = 428,
+        maxHeight: CGFloat = 360,
         onSelect: @escaping (ComposerReferenceChoice) -> Void
     ) {
         self.results = results
@@ -234,7 +234,7 @@ struct ComposerReferencePopover: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = min(idealWidth, max(320, proxy.size.width - 20))
+            let width = min(idealWidth, max(360, proxy.size.width - 12))
 
             VStack(alignment: .leading, spacing: 0) {
                 popoverHeader
@@ -295,6 +295,15 @@ struct ComposerReferencePopover: View {
             }
 
             Spacer(minLength: 0)
+
+            if resultCount > 0 {
+                Text("\(resultCount)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .assistantInsetChrome(theme: theme, cornerRadius: 12)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
@@ -322,6 +331,10 @@ struct ComposerReferencePopover: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var resultCount: Int {
+        results.notes.count + results.chats.count
     }
 }
 
@@ -599,15 +612,22 @@ struct NotesMentionDropdown: View {
 
     private func rowChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .padding(.horizontal, 13)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(theme.foreground.opacity(theme.isDark ? 0.08 : 0.04))
+                    .fill(theme.foreground.opacity(theme.isDark ? 0.08 : 0.045))
                     .overlay {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.32 : 0.20), lineWidth: 0.75)
+                    }
+                    .overlay(alignment: .top) {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.white.opacity(theme.isDark ? 0.04 : 0.16))
+                            .frame(height: 1)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 1)
                     }
             )
             .padding(.horizontal, 6)

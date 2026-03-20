@@ -28,11 +28,11 @@ enum LandingShortcutDisplay {
 }
 
 enum LandingSearchLayout {
-    static let maxWidth: CGFloat = 720
-    static let topRowSpacing: CGFloat = 12
+    static let maxWidth: CGFloat = 820
+    static let topRowSpacing: CGFloat = 14
     static let controlRowSpacing: CGFloat = 8
     static let controlRowTopPadding: CGFloat = 10
-    static let horizontalPadding: CGFloat = 22
+    static let horizontalPadding: CGFloat = 24
     static let topPadding: CGFloat = 20
     static let bottomPadding: CGFloat = 18
     static let cornerRadius: CGFloat = 24
@@ -321,7 +321,7 @@ struct LandingView: View {
                             HStack(spacing: 6) {
                                 ForEach(landingContextAttachments) { attachment in
                                     HStack(spacing: 4) {
-                                        Image(systemName: iconForContextAttachment(attachment))
+                                        Image(systemName: attachment.systemImageName)
                                             .font(.system(size: 10, weight: .medium))
                                         Text(attachment.title)
                                             .font(.system(size: 11, weight: .medium))
@@ -441,8 +441,8 @@ struct LandingView: View {
                         if showLandingMentionDropdown {
                             ComposerReferencePopover(
                                 results: landingMentionSearchResults,
-                                idealWidth: 420,
-                                maxHeight: 340,
+                                idealWidth: 468,
+                                maxHeight: 360,
                                 onSelect: attachLandingMentionReference
                             )
                             }
@@ -584,14 +584,6 @@ struct LandingView: View {
 
     private func removeLandingContextAttachment(_ id: String) {
         landingContextAttachments.removeAll { $0.id == id }
-    }
-
-    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
-        switch attachment.kind {
-        case .note: "doc.text"
-        case .chat: "bubble.left.and.bubble.right"
-        case .allNotes: "books.vertical"
-        }
     }
 
     // MARK: - Daily Brief Content (replaces greeting in-place)

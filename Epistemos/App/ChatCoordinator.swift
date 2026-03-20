@@ -966,6 +966,11 @@ final class ChatCoordinator {
             userMsg.id = sourceUserMessage.id
             userMsg.createdAt = sourceUserMessage.createdAt
         }
+        userMsg.updatePresentationSnapshot(
+            attachments: sourceUserMessage?.attachments ?? [],
+            loadedNoteTitles: sourceUserMessage?.loadedNoteTitles,
+            contextAttachments: sourceUserMessage?.contextAttachments
+        )
         userMsg.chat = chat
         context.insert(userMsg)
 
@@ -974,6 +979,11 @@ final class ChatCoordinator {
             assistantMsg.id = assistantMessage.id
             assistantMsg.createdAt = assistantMessage.createdAt
         }
+        assistantMsg.updatePresentationSnapshot(
+            attachments: assistantMessage?.attachments ?? [],
+            loadedNoteTitles: assistantMessage?.loadedNoteTitles,
+            contextAttachments: assistantMessage?.contextAttachments
+        )
         assistantMsg.updateAnalysis(
             dualMessage: dual,
             truthAssessment: truth,

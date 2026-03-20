@@ -58,7 +58,7 @@ struct ChatInputBar: View {
                 HStack(spacing: 6) {
                     ForEach(chat.pendingContextAttachments) { attachment in
                         HStack(spacing: 4) {
-                            Image(systemName: iconForContextAttachment(attachment))
+                            Image(systemName: attachment.systemImageName)
                                 .font(.epSmall)
                             Text(attachment.title)
                                 .font(.epSmall)
@@ -147,8 +147,8 @@ struct ChatInputBar: View {
             if showMentionDropdown {
                 ComposerReferencePopover(
                     results: mentionSearchResults,
-                    idealWidth: 392,
-                    maxHeight: 340,
+                    idealWidth: 432,
+                    maxHeight: 360,
                     onSelect: attachMentionReference
                 )
             }
@@ -277,14 +277,6 @@ struct ChatInputBar: View {
         case .csv: return "tablecells"
         case .text: return "doc.text"
         case .other: return "paperclip"
-        }
-    }
-
-    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
-        switch attachment.kind {
-        case .note: "doc.text"
-        case .chat: "bubble.left.and.bubble.right"
-        case .allNotes: "books.vertical"
         }
     }
 

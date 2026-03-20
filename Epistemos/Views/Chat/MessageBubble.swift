@@ -58,6 +58,9 @@ struct MessageBubble: View {
             noteTitles: message.loadedNoteTitles ?? []
         )
     }
+    private var contextAttachments: [ContextAttachment] {
+        message.contextAttachments ?? []
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -99,6 +102,10 @@ struct MessageBubble: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
                 .background(theme.userBubbleBg, in: UserBubbleShape())
+
+            if !contextAttachments.isEmpty {
+                ContextAttachmentBadgeRow(attachments: contextAttachments, alignment: .trailing)
+            }
 
             if !message.attachments.isEmpty {
                 HStack(spacing: 6) {
@@ -167,6 +174,10 @@ struct MessageBubble: View {
                 }
 
                 TaggedMarkdownTextView(content: cleanedText, theme: theme)
+
+                if !contextAttachments.isEmpty {
+                    ContextAttachmentBadgeRow(attachments: contextAttachments)
+                }
 
                 AssistantSourcesFooter(sources: sourceReferences, theme: theme, style: .popoverPanel)
 
@@ -941,5 +952,58 @@ private struct AttachmentBadge: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(theme.card, in: Capsule())
+    }
+}
+
+private struct ContextAttachmentBadgeRow: View {
+    let attachments: [ContextAttachment]
+    var alignment: HorizontalAlignment = .leading
+
+    var body: some View {
+        VStack(alignment: alignment, spacing: 0) {
+            HStack(spacing: 6) {
+                ForEach(attachments) { attachment in
+                    ContextAttachmentBadge(attachment: attachment)
+                }
+            }
+        }
+    }
+}
+
+private struct ContextAttachmentBadge: View {
+    let attachment: ContextAttachment
+
+    @Environment(UIState.self) private var ui
+    private var theme: EpistemosTheme { ui.theme }
+
+    private var tint: Color {
+        attachment.kind == .allNotes ? theme.accent : theme.mutedForeground.opacity(0.78)
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: attachment.systemImageName)
+                .font(.epSmall)
+            Text(attachment.title)
+                .font(.epSmall)
+                .lineLimit(1)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(attachment.kind == .allNotes ? theme.accent.opacity(0.10) : theme.card)
+        )
+        .overlay {
+            Capsule()
+                .strokeBorder(
+                    attachment.kind == .allNotes
+                        ? theme.accent.opacity(0.18)
+                        : theme.border.opacity(0.55),
+                    lineWidth: 0.7
+                )
+        }
+        .help(attachment.subtitle ?? attachment.title)
     }
 }

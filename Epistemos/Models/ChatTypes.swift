@@ -7,6 +7,14 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
     case note
     case chat
     case allNotes
+
+    var systemImageName: String {
+        switch self {
+        case .note: "doc.text"
+        case .chat: "bubble.left.and.bubble.right"
+        case .allNotes: "books.vertical"
+        }
+    }
 }
 
 struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
@@ -16,6 +24,7 @@ struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
     var subtitle: String?
 
     var id: String { "\(kind.rawValue):\(targetId)" }
+    var systemImageName: String { kind.systemImageName }
 
     init(kind: ContextAttachmentKind, targetId: String, title: String, subtitle: String? = nil) {
         self.kind = kind
