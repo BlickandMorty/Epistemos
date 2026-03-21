@@ -577,7 +577,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 ?? NSFont.systemFont(ofSize: isBlock ? baseFontSize + 2 : baseFontSize).italic
             let mathColor = isDark ? accentColor.withAlphaComponent(0.85) : accentColor.withAlphaComponent(0.9)
             let mathBg = isDark ? accentColor.withAlphaComponent(0.05) : accentColor.withAlphaComponent(0.04)
-            var attrs: [NSAttributedString.Key: Any] = [
+            let attrs: [NSAttributedString.Key: Any] = [
                 .font: mathFont,
                 .foregroundColor: mathColor,
                 .backgroundColor: mathBg

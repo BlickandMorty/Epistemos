@@ -80,7 +80,6 @@
 | GraphStoreTests.swift | 4 | Graph store |
 | CollectionRegistryTests.swift | 4 | Collections |
 | StructuralGraphBuilderTests.swift | 2 | Graph structure |
-| NoteChatParserTests.swift | 0 | Placeholder |
 
 ### Generated Tests (8,208 tests)
 

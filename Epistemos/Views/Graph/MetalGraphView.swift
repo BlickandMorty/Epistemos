@@ -418,16 +418,16 @@ final class MetalGraphNSView: NSView {
 
     /// Frame coalescing: prevents queuing multiple render dispatches.
     /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
-    nonisolated(unsafe) private let framePending = Atomic<Bool>(false)
+    private let framePending = Atomic<Bool>(false)
 
     /// Atomic render-needed flag. CVDisplayLink (background thread) reads this
     /// to skip dispatches when settled. Main thread writes it on user events
     /// and after graph_engine_render() returns.
-    nonisolated(unsafe) private let renderNeeded = Atomic<Bool>(true)
+    private let renderNeeded = Atomic<Bool>(true)
 
     /// Set during deinit to prevent queued render callbacks from accessing
     /// a destroyed engine. Checked in renderFrame() before any FFI call.
-    nonisolated(unsafe) private let isInvalidated = Atomic<Bool>(false)
+    private let isInvalidated = Atomic<Bool>(false)
 
     private var isEnginePaused = false
 
@@ -761,7 +761,7 @@ final class MetalGraphNSView: NSView {
         sendNodeRemovalBatch(graphState.pendingNodeRemovals, to: engine)
 
         for (srcId, tgtId) in graphState.pendingEdgeRemovals {
-            srcId.withCString { srcPtr in
+            _ = srcId.withCString { srcPtr in
                 tgtId.withCString { tgtPtr in
                     graph_engine_remove_edge(engine, srcPtr, tgtPtr)
                 }
@@ -991,7 +991,7 @@ final class MetalGraphNSView: NSView {
         }
 
         // Sync visual theme when changed.
-        if let graphState, engine != nil, lastVisualThemeVersion != graphState.visualThemeVersion {
+        if let graphState, lastVisualThemeVersion != graphState.visualThemeVersion {
             lastVisualThemeVersion = graphState.visualThemeVersion
             graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
             applyDialogueDepthPalette()
@@ -1205,7 +1205,7 @@ final class MetalGraphNSView: NSView {
                 let targetUuid = String(cString: uuidPtr)
                 if targetUuid != sourceNodeId {
                     promptForEdgeType { [weak self] edgeType in
-                        guard let self, let edgeType,
+                        guard let edgeType,
                               let context = graphState.modelContext else {
                             self?.graphState?.cancelConnecting()
                             return

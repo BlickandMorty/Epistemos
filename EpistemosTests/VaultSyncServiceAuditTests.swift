@@ -66,10 +66,10 @@ struct VaultSyncServiceAuditTests {
     }
 
     final class ManagedBodyCountProbe: @unchecked Sendable {
-        nonisolated(unsafe) private let lock = NSLock()
+        private let lock = NSLock()
         nonisolated(unsafe) private var count = 0
         nonisolated(unsafe) private var ranOnMainThread = false
-        nonisolated(unsafe) private let result: Int
+        private let result: Int
 
         init(result: Int) {
             self.result = result

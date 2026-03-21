@@ -303,9 +303,8 @@ final class NoteInsightService {
                     score += toneSimilarity * 0.15
                 }
 
-                // Signal 4: Embedding similarity will be added when EmbeddingService
-                // exposes per-note vectors. For now, entity + topic signals carry the weight.
-                // TODO: Wire EmbeddingService.embeddings[pageId] cosine similarity (0.30 weight)
+                // Signal 4 intentionally remains absent here. Relatedness currently relies on
+                // entity and topic overlap until note-level embeddings become a real runtime path.
 
                 if score >= relatednessThreshold && !reasons.isEmpty {
                     candidates.append((id: bId, score: score, reasons: reasons))

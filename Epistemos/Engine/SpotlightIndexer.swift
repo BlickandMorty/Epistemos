@@ -15,7 +15,7 @@ import os
 @MainActor
 enum SpotlightIndexer {
 
-    nonisolated(unsafe) static let domainID = "com.epistemos.notes"
+    nonisolated static let domainID = "com.epistemos.notes"
 
     /// Build a CSSearchableItem for a single page. Centralizes attribute construction
     /// so index(), reindexAll(), and VaultIndexActor all produce identical items.

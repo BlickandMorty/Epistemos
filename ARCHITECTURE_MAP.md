@@ -138,7 +138,7 @@ Important note:
 
 ```text
 Markdown body / note text
-  -> Swift BlockParser / BlockPropertyParser / NoteChatParser
+  -> Swift BlockParser / BlockPropertyParser
   -> SwiftData blocks / properties / note views / graph builder helpers
 ```
 
@@ -146,7 +146,6 @@ Key files:
 
 - `Epistemos/Sync/BlockParser.swift`
 - `Epistemos/Sync/BlockPropertyParser.swift`
-- `Epistemos/Sync/NoteChatParser.swift`
 
 ### Staged parser flow
 

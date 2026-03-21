@@ -545,7 +545,7 @@ struct PipelineContractTests {
 }
 
 private final class ActivityProbe: @unchecked Sendable {
-    nonisolated(unsafe) private let lock = NSLock()
+    private let lock = NSLock()
     nonisolated(unsafe) private var events: [String] = []
 
     nonisolated func begin(reason: String) -> ProcessActivityToken {

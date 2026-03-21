@@ -5,10 +5,9 @@ import AppKit
 // phone numbers, and URLs in text. Returns ranges and types for styling
 // and click-to-open behavior.
 
-@MainActor
 enum DataDetectionService {
 
-    final class DetectedItem: NSObject, Sendable {
+    final class DetectedItem: Sendable {
         enum Kind: Sendable {
             case date(Date)
             case address(String)
@@ -19,7 +18,7 @@ enum DataDetectionService {
         let kind: Kind
         let text: String
 
-        init(range: NSRange, kind: Kind, text: String) {
+        nonisolated init(range: NSRange, kind: Kind, text: String) {
             self.range = range
             self.kind = kind
             self.text = text
@@ -106,7 +105,7 @@ enum DataDetectionService {
     // MARK: - Styling
 
     /// Attribute key marking a range as data-detected. Value is a DetectedItem.
-    nonisolated(unsafe) static let detectedDataKey = NSAttributedString.Key("EpistemosDetectedData")
+    nonisolated static let detectedDataKey = NSAttributedString.Key("EpistemosDetectedData")
 
     /// Applies subtle underline styling to detected data ranges in an NSTextStorage.
     /// Call this after text highlighting (e.g. after MarkdownTextStorage.processEditing).
