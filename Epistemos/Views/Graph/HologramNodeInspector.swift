@@ -587,6 +587,7 @@ struct HologramNodeInspector: View {
 
     private func nodeAge(_ date: Date) -> String {
         let interval = Date().timeIntervalSince(date)
+        guard interval.isFinite else { return "?" }
         if interval < 3600 { return "\(Int(interval / 60))m" }
         if interval < 86400 { return "\(Int(interval / 3600))h" }
         if interval < 2_592_000 { return "\(Int(interval / 86400))d" }

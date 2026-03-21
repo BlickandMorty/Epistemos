@@ -282,7 +282,8 @@ struct RuntimeValidationTests {
         #expect(graphState.contains("manifestPath.withCString"))
         #expect(graphState.contains("graph_engine_load_prepared_retrieval_index(engine, $0)"))
         #expect(graphState.contains("graph_engine_prepared_retrieval_search("))
-        #expect(controls.contains(".disabled(!available)"))
+        #expect(!controls.contains("semanticClusterToggle"))
+        #expect(!controls.contains(".disabled(!available)"))
     }
 
     @Test("fallback semantic query path requires a populated matching Rust embedding store")

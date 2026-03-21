@@ -1,6 +1,6 @@
 # Native Cleanup Scan
 
-- Generated: Sat Mar 21 16:34:31 CDT 2026
+- Generated: Sat Mar 21 17:29:47 CDT 2026
 - Root: `/Users/jojo/Epistemos`
 
 ## Tool Availability
@@ -47,32 +47,6 @@ ast-grep scan --rule '/Users/jojo/Epistemos/scripts/audit/ast-grep/legacy-runtim
 ```bash
 cd '/Users/jojo/Epistemos' && periphery scan --project Epistemos.xcodeproj --schemes Epistemos --targets Epistemos --format xcode --retain-codable-properties --retain-objc-accessible
 ```
-    error: Shell command '/bin/sh -c xcodebuild -project '/Users/jojo/Epistemos/Epistemos.xcodeproj' -scheme 'Epistemos' -parallelizeTargets -derivedDataPath '/Users/jojo/Library/Caches/com.github.peripheryapp/DerivedData-8fbd420c-5bc4a8fe-5bc4a8fe' -quiet build CODE_SIGNING_ALLOWED="NO" ENABLE_BITCODE="NO" DEBUG_INFORMATION_FORMAT="dwarf" COMPILER_INDEX_STORE_ENABLE="YES" INDEX_ENABLE_DATA_STORE="YES"' returned exit status '65':
-    --- xcodebuild: WARNING: Using the first of multiple matching destinations:
-    { platform:macOS, arch:arm64, id:00006020-000249E00CC0C01E, name:My Mac }
-    { platform:macOS, arch:x86_64, id:00006020-000249E00CC0C01E, name:My Mac }
-    { platform:macOS, name:Any Mac }
-    error: unable to attach DB: error: accessing build database "/Users/jojo/Library/Caches/com.github.peripheryapp/DerivedData-8fbd420c-5bc4a8fe-5bc4a8fe/Build/Intermediates.noindex/XCBuildData/build.db": database is locked Possibly there are two concurrent builds running in the same filesystem location.
-    ** BUILD FAILED **
-    
-    
-    * Inspecting project...
-    * Building Epistemos...
-
-### cargo-machete Dependency Scan
-```bash
-cd '/Users/jojo/Epistemos/graph-engine' && cargo machete
-```
-    Analyzing dependencies of crates in this directory...
-    cargo-machete didn't find any unused dependencies in this directory. Good job!
-    Done!
-
-### cargo-udeps Nightly Missing
-```bash
-printf 'cargo-udeps is installed but requires rustup nightly; run: rustup toolchain install nightly\n'
-```
-    cargo-udeps is installed but requires rustup nightly; run: rustup toolchain install nightly
-
     * Inspecting project...
     * Building Epistemos...
     * Indexing...
@@ -262,6 +236,7 @@ printf 'cargo-udeps is installed but requires rustup nightly; run: rustup toolch
     /Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:67:17: warning: Property 'embeddingCacheMissCount' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:217:10: warning: Function 'embedding(for:)' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:245:22: warning: Function 'computeBlockVectors(blocks:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:266:10: warning: Function 'computeFallbackSemanticClusters(store:)' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:275:10: warning: Function 'pushBlockEmbeddings(_:)' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:291:10: warning: Function 'embeddingCacheDebugSnapshot()' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:302:10: warning: Function 'setEmbeddingCacheCapacityForTesting(_:)' is unused
@@ -377,6 +352,7 @@ printf 'cargo-udeps is installed but requires rustup nightly; run: rustup toolch
     /Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:33:16: warning: Property 'interactionMotionAlphaTarget' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:35:17: warning: Function 'preset(afterElapsedSeconds:)' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:312:9: warning: Property 'preparedRetrievalRuntimeConfiguration' is unused
+    /Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:741:10: warning: Function 'computeSemanticClusters()' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:763:10: warning: Function 'beginConnecting(from:)' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:810:10: warning: Function 'loadGraph(context:)' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1012:10: warning: Function 'rustSearch(query:limit:)' is unused
@@ -404,6 +380,7 @@ printf 'cargo-udeps is installed but requires rustup nightly; run: rustup toolch
     /Users/jojo/Epistemos/Epistemos/Graph/GraphStore.swift:493:10: warning: Function 'nodes(ofTypes:)' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/GraphStore.swift:986:10: warning: Function 'searchCacheDebugSnapshot()' is unused
     /Users/jojo/Epistemos/Epistemos/Graph/GraphStore.swift:995:10: warning: Function 'setSearchCacheNowProviderForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Graph/SemanticClusterService.swift:16:6: warning: Enum 'SemanticClusterService' is unused
     /Users/jojo/Epistemos/Epistemos/Intents/Custom/AnalysisIntents.swift:8:36: warning: Property 'description' is unused
     /Users/jojo/Epistemos/Epistemos/Intents/Custom/DailyBriefingIntent.swift:9:36: warning: Property 'description' is unused
     /Users/jojo/Epistemos/Epistemos/Intents/Custom/NavigationIntents.swift:8:8: warning: Struct 'OpenPanelIntent' is unused
@@ -533,27 +510,27 @@ printf 'cargo-udeps is installed but requires rustup nightly; run: rustup toolch
     /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:20:13: warning: Property 'changedPageCount' is assigned, but never used
     /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:21:13: warning: Property 'willIndex' is assigned, but never used
     /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:405:10: warning: Function 'reindexFile(at:vaultURL:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:476:59: warning: Parameter 'vaultURL' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:514:10: warning: Function 'handleFileDeletion(at:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:891:24: warning: Property 'vaultStopWords' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:914:10: warning: Function 'buildVaultContext(for:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:1152:10: warning: Function 'spotlightReindexSnapshotForTesting()' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:478:59: warning: Parameter 'vaultURL' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:516:10: warning: Function 'handleFileDeletion(at:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:893:24: warning: Property 'vaultStopWords' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:916:10: warning: Function 'buildVaultContext(for:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultIndexActor.swift:1154:10: warning: Function 'spotlightReindexSnapshotForTesting()' is unused
     /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:19:9: warning: Property 'title' is assigned, but never used
     /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:20:9: warning: Property 'appBody' is assigned, but never used
     /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:21:9: warning: Property 'diskBody' is assigned, but never used
     /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:31:9: warning: Property 'bookmarkExists' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:181:10: warning: Function 'setVaultURLForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:185:10: warning: Function 'importVaultForTesting(from:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:192:10: warning: Function 'setExportPageOverrideForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:196:10: warning: Function 'setSearchDatabaseURLForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:200:10: warning: Function 'setAppSupportDirectoryURLForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:204:10: warning: Function 'setPreferencesFileURLForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:208:10: warning: Function 'setRecoverySnapshotRootURLForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:212:10: warning: Function 'setManagedBodyCountProviderForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:216:10: warning: Function 'setUserDefaultsForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:222:10: warning: Function 'setInitialImportCompletedForTesting(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:895:10: warning: Function 'buildVaultContext(for:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:931:10: warning: Function 'searchFull(query:limit:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:180:10: warning: Function 'setVaultURLForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:184:10: warning: Function 'importVaultForTesting(from:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:191:10: warning: Function 'setExportPageOverrideForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:195:10: warning: Function 'setSearchDatabaseURLForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:199:10: warning: Function 'setAppSupportDirectoryURLForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:203:10: warning: Function 'setPreferencesFileURLForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:207:10: warning: Function 'setRecoverySnapshotRootURLForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:211:10: warning: Function 'setManagedBodyCountProviderForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:215:10: warning: Function 'setUserDefaultsForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:221:10: warning: Function 'setInitialImportCompletedForTesting(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:894:10: warning: Function 'buildVaultContext(for:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Sync/VaultSyncService.swift:930:10: warning: Function 'searchFull(query:limit:)' is unused
     /Users/jojo/Epistemos/Epistemos/Theme/EpistemosTheme.swift:393:13: warning: Property 'icon' is assigned, but never used
     /Users/jojo/Epistemos/Epistemos/Theme/EpistemosTheme.swift:829:10: warning: Function 'resolved(isDark:)' is unused
     /Users/jojo/Epistemos/Epistemos/Theme/EpistemosTheme.swift:834:10: warning: Function 'dockIconResourceName(isDark:)' is unused

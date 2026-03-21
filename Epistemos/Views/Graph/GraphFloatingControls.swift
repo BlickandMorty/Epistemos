@@ -26,12 +26,6 @@ struct GraphFloatingControls: View {
                 .frame(height: 20)
                 .opacity(0.3)
 
-            semanticClusterToggle
-
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
-
             physicsToggle
 
             forceSettingsButton
@@ -88,34 +82,6 @@ struct GraphFloatingControls: View {
             graphState.requestFilterSync()
         }
     }
-
-    // MARK: - Semantic Clustering Toggle
-
-    private var semanticClusterToggle: some View {
-        let available = graphState.semanticClusteringAvailable
-        return ExpandingModeButton(
-            title: "Semantic",
-            systemImage: graphState.useSemanticClustering
-                ? "brain.head.profile.fill" : "brain.head.profile",
-            isActive: graphState.useSemanticClustering,
-            variant: .toolbar,
-            helpText: available
-                ? (graphState.useSemanticClustering ? "Semantic Clustering On" : "Enable Semantic Clustering")
-                : "Semantic search still works, but graph semantic clustering is temporarily unavailable on the prepared retrieval runtime",
-            stableWidth: NativeControlSystem.reservedWidth(for: "Semantic", variant: .toolbar)
-        ) {
-            guard available else { return }
-            graphState.useSemanticClustering.toggle()
-            if graphState.useSemanticClustering {
-                graphState.computeSemanticClusters()
-            } else {
-                graphState.requestFilterSync()
-            }
-        }
-        .disabled(!available)
-        .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
-    }
-
 
     // MARK: - Physics Toggle
 

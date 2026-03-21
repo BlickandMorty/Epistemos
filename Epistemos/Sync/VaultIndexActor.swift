@@ -414,7 +414,7 @@ actor VaultIndexActor {
     // MARK: - Export to Disk
 
     /// Write a page's body back to its .md file (Source of Truth write-back).
-    func exportPage(pageId: String, to vaultURL: URL) throws -> String? {
+    func exportPage(pageId: String, to vaultURL: URL) throws -> (path: String, bodyHash: String)? {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.id == pageId }
         )
@@ -456,17 +456,19 @@ actor VaultIndexActor {
 
         // Build content — markdown with front-matter for .md files, plain text for .txt
         let ext = fileURL.pathExtension.lowercased()
-        let output = (ext == "txt") ? page.loadBody() : buildMarkdown(for: page)
+        let body = page.loadBody(mapped: true)
+        let bodyHash = SDPage.bodyHash(body)
+        let output = (ext == "txt") ? body : buildMarkdown(for: page, body: body)
         try coordinatedWrite(output, to: fileURL)
 
         // Persist filePath back to the store so subsequent exports use the same path.
         // Without this save, the filePath only exists in the background actor's memory
         // and the mainContext never sees it — causing duplicate file creation.
         try modelContext.save()
-        upsertSearchIndex(page: page, body: page.loadBody(mapped: true))
+        upsertSearchIndex(page: page, body: body)
 
         log.debug("Exported: \(fileURL.lastPathComponent, privacy: .public)")
-        return fileURL.path
+        return (fileURL.path, bodyHash)
     }
 
     // MARK: - Rename Page File
@@ -756,7 +758,7 @@ actor VaultIndexActor {
     }
 
     /// Build markdown with front-matter from an SDPage.
-    private func buildMarkdown(for page: SDPage) -> String {
+    private func buildMarkdown(for page: SDPage, body: String) -> String {
         var lines: [String] = ["---"]
         lines.append("id: \(page.id)")
         lines.append("title: \(yamlEscapeTitle(page.title))")
@@ -787,7 +789,7 @@ actor VaultIndexActor {
         }
         lines.append("---")
         lines.append("")
-        lines.append(page.loadBody())
+        lines.append(body)
         return lines.joined(separator: "\n")
     }
 

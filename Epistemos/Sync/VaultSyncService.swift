@@ -88,7 +88,7 @@ private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 
 @MainActor @Observable
 final class VaultSyncService {
-    typealias ExportPageOperation = @Sendable (String, URL) async throws -> String?
+    typealias ExportPageOperation = @Sendable (String, URL) async throws -> (path: String, bodyHash: String)?
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
@@ -120,7 +120,6 @@ final class VaultSyncService {
         let context: ModelContext
         let vaultURL: URL
         let dirtyIds: [String]
-        let expectedBodyHashes: [String: String]
     }
 
     private var indexActor: VaultIndexActor?
@@ -223,7 +222,7 @@ final class VaultSyncService {
         initialImportCompleted = value
     }
 
-    private func exportPage(pageId: String, to vaultURL: URL) async throws -> String? {
+    private func exportPage(pageId: String, to vaultURL: URL) async throws -> (path: String, bodyHash: String)? {
         if let exportPageOverride {
             return try await exportPageOverride(pageId, vaultURL)
         }
@@ -1043,23 +1042,17 @@ final class VaultSyncService {
             Log.vault.error("Failed to save before page export (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
         }
 
-        let expectedBodyHash = if let page = try? context.fetch(descriptor).first {
-            SDPage.bodyHash(page.loadBody(mapped: true))
-        } else {
-            ""
-        }
-
         suppressFileWatcherForSelfOriginatedChange()
 
         let task = Task {
             do {
-                let exportedPath = try await self.exportPage(pageId: pageId, to: vaultURL)
+                let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL)
 
                 await MainActor.run {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                    if let page = try? context.fetch(desc).first {
+                    if let page = try? context.fetch(desc).first, let result = exportResult {
                         let currentHash = SDPage.bodyHash(page.loadBody(mapped: true))
-                        if currentHash == expectedBodyHash {
+                        if currentHash == result.bodyHash {
                             page.lastSyncedBodyHash = currentHash
                             page.lastSyncedAt = .now
                             page.needsVaultSync = false
@@ -1075,7 +1068,7 @@ final class VaultSyncService {
                     }
                 }
 
-                if let path = exportedPath {
+                if let path = exportResult?.path {
                     log.info("Saved page to vault: \(path, privacy: .private)")
                 }
 
@@ -1120,12 +1113,8 @@ final class VaultSyncService {
             return nil
         }
 
-        var expectedBodyHashes: [String: String] = [:]
-        expectedBodyHashes.reserveCapacity(dirtyPages.count)
-
         for page in dirtyPages {
             captureVersionIfNeeded(pageId: page.id)
-            expectedBodyHashes[page.id] = SDPage.bodyHash(page.loadBody(mapped: true))
         }
 
         do {
@@ -1137,8 +1126,7 @@ final class VaultSyncService {
         return DirtySaveBatch(
             context: context,
             vaultURL: vaultURL,
-            dirtyIds: dirtyPages.map(\.id),
-            expectedBodyHashes: expectedBodyHashes
+            dirtyIds: dirtyPages.map(\.id)
         )
     }
 
@@ -1156,25 +1144,31 @@ final class VaultSyncService {
             guard let batch = currentBatch ?? nextDirtySaveBatch() else { return }
             currentBatch = nil
 
-            var successfulIds: [String] = []
-            successfulIds.reserveCapacity(batch.dirtyIds.count)
+            struct SuccessfulExport {
+                let pageId: String
+                let bodyHash: String
+            }
+            var successfulExports: [SuccessfulExport] = []
+            successfulExports.reserveCapacity(batch.dirtyIds.count)
 
             for pageId in batch.dirtyIds {
                 do {
                     suppressFileWatcherForSelfOriginatedChange()
-                    _ = try await exportPage(pageId: pageId, to: batch.vaultURL)
-                    successfulIds.append(pageId)
+                    if let result = try await exportPage(pageId: pageId, to: batch.vaultURL) {
+                        successfulExports.append(SuccessfulExport(pageId: pageId, bodyHash: result.bodyHash))
+                    }
                 } catch {
                     log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             }
 
-            for pageId in successfulIds {
-                let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+            for export in successfulExports {
+                let pid = export.pageId
+                let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pid })
                 guard let page = try? batch.context.fetch(desc).first else { continue }
 
                 let currentHash = SDPage.bodyHash(page.loadBody(mapped: true))
-                if currentHash == batch.expectedBodyHashes[pageId] {
+                if currentHash == export.bodyHash {
                     page.lastSyncedBodyHash = currentHash
                     page.lastSyncedAt = .now
                     page.needsVaultSync = false
@@ -1190,7 +1184,7 @@ final class VaultSyncService {
                 Log.vault.error("Failed to save sync tracking after dirty pages export: \(error.localizedDescription, privacy: .public)")
             }
 
-            log.info("Saved \(successfulIds.count) of \(batch.dirtyIds.count) dirty pages to vault")
+            log.info("Saved \(successfulExports.count) of \(batch.dirtyIds.count) dirty pages to vault")
 
             guard pendingDirtySaveRequest else { return }
         }

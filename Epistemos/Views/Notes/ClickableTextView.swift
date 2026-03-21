@@ -1162,7 +1162,8 @@ enum NoteImageProcessor {
                 let displaySize = scaledSize(for: originalSize, maxWidth: maxDisplayWidth)
                 let cgImage: CGImage?
                 if originalSize.width > maxDisplayWidth {
-                    let maxPixelSize = Int(ceil(max(displaySize.width, displaySize.height)))
+                    let maxDimension = max(displaySize.width, displaySize.height)
+                    let maxPixelSize = maxDimension.isFinite ? Int(ceil(maxDimension)) : Int(maxDisplayWidth)
                     let options: [CFString: Any] = [
                         kCGImageSourceCreateThumbnailFromImageAlways: true,
                         kCGImageSourceCreateThumbnailWithTransform: true,

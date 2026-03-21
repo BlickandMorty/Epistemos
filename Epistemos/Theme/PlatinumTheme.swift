@@ -305,7 +305,7 @@ struct PlatinumStripes: View {
     var body: some View {
         Canvas { context, size in
             let stripeHeight: CGFloat = 2
-            let numStripes = Int(size.height / stripeHeight)
+            let numStripes = size.height.isFinite ? Int(size.height / stripeHeight) : 0
             let stripeColor = isDark ? Color(hex: 0x505060) : Color(hex: 0x737373)
             
             for i in 0..<numStripes {

@@ -262,7 +262,7 @@ struct VaultSyncServiceAuditTests {
             if pageId == failedPageID {
                 throw StubError.exportFailed
             }
-            return "/tmp/\(pageId).md"
+            return ("/tmp/\(pageId).md", SDPage.bodyHash("success body"))
         }
 
         let task = service.saveAllDirtyPages()
@@ -310,7 +310,7 @@ struct VaultSyncServiceAuditTests {
         service.setExportPageOverrideForTesting { pageId, _ in
             await counter.increment()
             try? await Task.sleep(for: .milliseconds(50))
-            return "/tmp/\(pageId).md"
+            return ("/tmp/\(pageId).md", SDPage.bodyHash("body"))
         }
 
         let first = service.saveAllDirtyPages()
@@ -353,8 +353,10 @@ struct VaultSyncServiceAuditTests {
             if await counter.value() == 1 {
                 await gate.markStarted()
                 try? await Task.sleep(for: .milliseconds(50))
+                return ("/tmp/\(pageID).md", SDPage.bodyHash("body before export"))
+            } else {
+                return ("/tmp/\(pageID).md", SDPage.bodyHash("body after export started"))
             }
-            return "/tmp/\(pageID).md"
         }
 
         let task = service.saveAllDirtyPages()
@@ -406,7 +408,7 @@ struct VaultSyncServiceAuditTests {
             await gate.markStarted()
             try? await Task.sleep(for: .milliseconds(50))
             await gate.markFinished()
-            return "/tmp/\(pageID).md"
+            return ("/tmp/\(pageID).md", SDPage.bodyHash("body before save"))
         }
 
         service.savePage(pageId: pageID)
@@ -477,7 +479,7 @@ struct VaultSyncServiceAuditTests {
         defer { NotificationCenter.default.removeObserver(token) }
 
         service.setExportPageOverrideForTesting { pageId, _ in
-            "/tmp/\(pageId).md"
+            return ("/tmp/\(pageId).md", SDPage.bodyHash("# Flush Me\n\nBody"))
         }
 
         let task = service.savePage(pageId: page.id)

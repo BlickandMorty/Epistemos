@@ -2727,10 +2727,12 @@ mod tests {
         let graph = make_test_graph(10, true);
         let mut sim1 = Simulation::new();
         sim1.load_from_graph(&graph);
+        sim1.params.collision_radius = 0.0;
         sim1.cluster_ids = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
         sim1.params.cluster_strength = 0.5;
         let mut sim2 = Simulation::new();
         sim2.load_from_graph(&graph);
+        sim2.params.collision_radius = 0.0;
         sim2.cluster_ids = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
         sim2.params.cluster_strength = 0.5;
         for _ in 0..50 {
