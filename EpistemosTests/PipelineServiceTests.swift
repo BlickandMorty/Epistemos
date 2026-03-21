@@ -667,7 +667,7 @@ struct ChatCoordinatorPersistenceTests {
         let llmService = LLMService(inference: inference)
         let triage = TriageService(inference: inference)
         let eventBus = EventBus()
-        let pipeline = PipelineService(
+        _ = PipelineService(
             pipelineState: pipelineState,
             llmService: llmService,
             triageService: triage,
@@ -678,7 +678,6 @@ struct ChatCoordinatorPersistenceTests {
         return ChatCoordinator(
             bootstrap: bootstrap,
             chatState: chatState,
-            pipelineService: pipeline,
             inferenceState: inference,
             vaultSync: VaultSyncService(modelContainer: container),
             modelContainer: container,
@@ -697,7 +696,7 @@ struct ChatCoordinatorPersistenceTests {
         let llmService = LLMService(inference: inference)
         let triage = TriageService(inference: inference)
         let eventBus = EventBus()
-        let pipeline = PipelineService(
+        _ = PipelineService(
             pipelineState: pipelineState,
             llmService: llmService,
             triageService: triage,
@@ -708,7 +707,6 @@ struct ChatCoordinatorPersistenceTests {
         let coordinator = ChatCoordinator(
             bootstrap: bootstrap,
             chatState: chatState,
-            pipelineService: pipeline,
             inferenceState: inference,
             vaultSync: VaultSyncService(modelContainer: container),
             modelContainer: container,
@@ -744,7 +742,6 @@ struct ChatCoordinatorPersistenceTests {
         let coordinator = ChatCoordinator(
             bootstrap: bootstrap,
             chatState: chatState,
-            pipelineService: pipeline,
             inferenceState: inference,
             vaultSync: VaultSyncService(modelContainer: container),
             modelContainer: container,
@@ -804,8 +801,6 @@ struct ChatCoordinatorPersistenceTests {
         let first = await ChatCoordinator.resolveNotesContext(
             query: "@[Alpha] compare this with today",
             manifest: manifest,
-            loadedNoteIds: [],
-            loadedNoteTitles: [],
             includeAllNotesContext: false,
             findNotesByTitle: { query in
                 query == "Alpha" ? manifestEntries : []
@@ -826,8 +821,6 @@ struct ChatCoordinatorPersistenceTests {
         let second = await ChatCoordinator.resolveNotesContext(
             query: "Use the same note again",
             manifest: manifest,
-            loadedNoteIds: first.loadedNoteIds,
-            loadedNoteTitles: first.loadedNoteTitles,
             includeAllNotesContext: false,
             findNotesByTitle: { _ in [] },
             fetchNoteBodies: { ids in
@@ -846,8 +839,6 @@ struct ChatCoordinatorPersistenceTests {
         let third = await ChatCoordinator.resolveNotesContext(
             query: "@[All Notes] compare themes across the vault",
             manifest: manifest,
-            loadedNoteIds: [],
-            loadedNoteTitles: [],
             includeAllNotesContext: false,
             findNotesByTitle: { _ in [] },
             fetchNoteBodies: { ids in
@@ -885,8 +876,6 @@ struct ChatCoordinatorPersistenceTests {
                 ContextAttachment(kind: .chat, targetId: "chat-1", title: "Older Thread", subtitle: "Main chat")
             ],
             manifest: manifest,
-            loadedNoteIds: [],
-            loadedNoteTitles: [],
             includeAllNotesContext: false,
             findNotesByTitle: { _ in [] },
             fetchNoteBodies: { _ in [] },
@@ -948,8 +937,6 @@ struct ChatCoordinatorPersistenceTests {
                 ContextAttachment(kind: .note, targetId: "beta-id", title: "Project Atlas", subtitle: "Research")
             ],
             manifest: manifest,
-            loadedNoteIds: [],
-            loadedNoteTitles: [],
             includeAllNotesContext: false,
             findNotesByTitle: { _ in
                 [
@@ -1018,8 +1005,6 @@ struct ChatCoordinatorPersistenceTests {
         let resolution = await ChatCoordinator.resolveNotesContext(
             query: "please go to my note determinism and summarize it",
             manifest: manifest,
-            loadedNoteIds: [],
-            loadedNoteTitles: [],
             includeAllNotesContext: false,
             findNotesByTitle: { query in
                 query == "determinism"
@@ -1089,8 +1074,6 @@ struct ChatCoordinatorPersistenceTests {
         let determinism = await ChatCoordinator.resolveNotesContext(
             query: "i wrote an essay on determinism a few weeks ago, summarize it",
             manifest: manifest,
-            loadedNoteIds: [],
-            loadedNoteTitles: [],
             includeAllNotesContext: false,
             findNotesByTitle: { query in
                 query.contains("determinism")
@@ -1129,8 +1112,6 @@ struct ChatCoordinatorPersistenceTests {
         let psych = await ChatCoordinator.resolveNotesContext(
             query: "find the essay where i mentioned psychoneuroimmunology a few weeks ago and summarize it",
             manifest: manifest,
-            loadedNoteIds: [],
-            loadedNoteTitles: [],
             includeAllNotesContext: false,
             findNotesByTitle: { query in
                 query.contains("psychoneuroimmunology")

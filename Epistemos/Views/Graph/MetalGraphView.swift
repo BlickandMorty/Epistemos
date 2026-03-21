@@ -348,22 +348,6 @@ func sendNodeRemovalBatch(_ nodeIds: [String], to engine: OpaquePointer) {
     }
 }
 
-func withStableCStringArray(
-    _ strings: [String],
-    body: (UnsafeMutableBufferPointer<UnsafePointer<CChar>?>) -> Void
-) {
-    let cStrings = strings.compactMap { strdup($0) }
-    guard cStrings.count == strings.count else {
-        cStrings.forEach { free($0) }
-        return
-    }
-    defer { cStrings.forEach { free($0) } }
-    var pointers: [UnsafePointer<CChar>?] = cStrings.map { UnsafePointer($0) }
-    pointers.withUnsafeMutableBufferPointer { buffer in
-        body(buffer)
-    }
-}
-
 // MARK: - MetalGraphView
 // NSViewRepresentable wrapping a CAMetalLayer for the Rust graph engine.
 // Bridges SwiftUI ↔ Metal ↔ Rust FFI. The engine owns the render loop;
@@ -493,6 +477,12 @@ final class MetalGraphNSView: NSView {
     private var isDraggingWindow = false
     private var windowDragOrigin: NSPoint?
     private var windowFrameOrigin: NSPoint?
+    private var sampledSelectedNodeId: String?
+    private var lastPublishedSelectedNodeScreenPoint: CGPoint?
+    private var pendingSelectedNodeScreenPoint: CGPoint?
+    private var selectedNodeScreenPointStableFrames = 0
+    private var selectedNodeScreenPointSampleFrame = 0
+    private let selectedNodeScreenPointSampleIntervalFrames = 3
 
     // Track whether graph data has been committed.
     private(set) var isCommitted = false
@@ -518,6 +508,15 @@ final class MetalGraphNSView: NSView {
     /// When true, the view is in the mini floating panel. Background taps are disabled
     /// and Option+drag moves the parent window (holographic drag).
     var isMiniMode = false
+
+    private func resetSelectedNodeScreenPointTracking(for graphState: GraphState?) {
+        sampledSelectedNodeId = nil
+        lastPublishedSelectedNodeScreenPoint = nil
+        pendingSelectedNodeScreenPoint = nil
+        selectedNodeScreenPointStableFrames = 0
+        selectedNodeScreenPointSampleFrame = 0
+        graphState?.selectedNodeScreenPoint = nil
+    }
 
     // MARK: - Setup
 
@@ -871,15 +870,7 @@ final class MetalGraphNSView: NSView {
         let uuids = Array(clusterMap.keys)
         let ids = uuids.map { clusterMap[$0]! }
 
-        let cPtrs: [UnsafeMutablePointer<CChar>] = uuids.compactMap { strdup($0) }
-        guard cPtrs.count == uuids.count else {
-            cPtrs.forEach { free($0) }
-            return
-        }
-        defer { cPtrs.forEach { free($0) } }
-        var optPtrs: [UnsafePointer<CChar>?] = cPtrs.map { UnsafePointer($0) }
-
-        optPtrs.withUnsafeMutableBufferPointer { uuidBuf in
+        withStableCStringArray(uuids) { uuidBuf in
             ids.withUnsafeBufferPointer { idsBuffer in
                 graph_engine_set_cluster_ids(
                     engine, uuidBuf.baseAddress, idsBuffer.baseAddress!, UInt32(uuids.count)
@@ -1105,27 +1096,58 @@ final class MetalGraphNSView: NSView {
         // Update selected node screen position for inspector tracking.
         // Only write when value actually changes to avoid triggering observation every frame.
         if let nodeId = graphState?.selectedNodeId {
-            var posBuf: [Float] = [0, 0]
-            let found = nodeId.withCString { ptr in
-                graph_engine_node_screen_pos(engine, ptr, &posBuf)
+            if sampledSelectedNodeId != nodeId {
+                sampledSelectedNodeId = nodeId
+                lastPublishedSelectedNodeScreenPoint = nil
+                pendingSelectedNodeScreenPoint = nil
+                selectedNodeScreenPointStableFrames = 0
+                selectedNodeScreenPointSampleFrame = 0
             }
-            if found != 0 {
-                let scale = metalLayer?.contentsScale ?? 2.0
-                let pt = CGPoint(
-                    x: CGFloat(posBuf[0]) / scale,
-                    y: bounds.height - CGFloat(posBuf[1]) / scale
-                )
-                if let existing = graphState?.selectedNodeScreenPoint,
-                   abs(existing.x - pt.x) < 0.5, abs(existing.y - pt.y) < 0.5 {
-                    // Skip — position hasn't moved enough to matter
-                } else {
-                    graphState?.selectedNodeScreenPoint = pt
+
+            selectedNodeScreenPointSampleFrame &+= 1
+            let shouldSampleSelectedNodeScreenPoint =
+                graphState?.selectedNodeScreenPoint == nil
+                || lastPublishedSelectedNodeScreenPoint == nil
+                || pendingSelectedNodeScreenPoint == nil
+                || selectedNodeScreenPointStableFrames < 1
+                || isDraggingNode
+                || isPanning
+                || selectedNodeScreenPointSampleFrame % selectedNodeScreenPointSampleIntervalFrames == 0
+
+            if shouldSampleSelectedNodeScreenPoint {
+                var posBuf: [Float] = [0, 0]
+                let found = nodeId.withCString { ptr in
+                    graph_engine_node_screen_pos(engine, ptr, &posBuf)
                 }
-            } else if graphState?.selectedNodeScreenPoint != nil {
-                graphState?.selectedNodeScreenPoint = nil
+                if found != 0 {
+                    let scale = metalLayer?.contentsScale ?? 2.0
+                    let pt = CGPoint(
+                        x: CGFloat(posBuf[0]) / scale,
+                        y: bounds.height - CGFloat(posBuf[1]) / scale
+                    )
+                    if let pending = pendingSelectedNodeScreenPoint,
+                       abs(pending.x - pt.x) < 2.0, abs(pending.y - pt.y) < 2.0 {
+                        selectedNodeScreenPointStableFrames += 1
+                    } else {
+                        pendingSelectedNodeScreenPoint = pt
+                        selectedNodeScreenPointStableFrames = 0
+                    }
+
+                    if selectedNodeScreenPointStableFrames >= 1 {
+                        if let existing = lastPublishedSelectedNodeScreenPoint,
+                           abs(existing.x - pt.x) < 4.0, abs(existing.y - pt.y) < 4.0 {
+                            // Skip — published anchor hasn't moved enough to matter
+                        } else {
+                            lastPublishedSelectedNodeScreenPoint = pt
+                            graphState?.selectedNodeScreenPoint = pt
+                        }
+                    }
+                } else if graphState?.selectedNodeScreenPoint != nil || sampledSelectedNodeId != nil {
+                    resetSelectedNodeScreenPointTracking(for: graphState)
+                }
             }
-        } else if graphState?.selectedNodeScreenPoint != nil {
-            graphState?.selectedNodeScreenPoint = nil
+        } else if graphState?.selectedNodeScreenPoint != nil || sampledSelectedNodeId != nil {
+            resetSelectedNodeScreenPointTracking(for: graphState)
         }
 
         needsRender = result != 0

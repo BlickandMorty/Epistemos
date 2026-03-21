@@ -147,12 +147,13 @@ impl BHNode {
             return;
         }
 
-        if let Some(existing) = self.body {
-            if existing.x == body.x && existing.y == body.y {
-                self.coincident_bodies.push(body);
-                self.accumulate(body);
-                return;
-            }
+        if let Some(existing) = self.body
+            && existing.x == body.x
+            && existing.y == body.y
+        {
+            self.coincident_bodies.push(body);
+            self.accumulate(body);
+            return;
         }
 
         // Leaf collision — subdivide, re-insert existing + new.
@@ -408,7 +409,7 @@ mod tests {
 
     #[test]
     fn repulsion_pushes_apart() {
-        let bodies = vec![
+        let bodies = [
             Body {
                 index: 0,
                 x: 0.0,
@@ -434,7 +435,7 @@ mod tests {
 
     #[test]
     fn distance_max_cutoff() {
-        let bodies = vec![
+        let bodies = [
             Body {
                 index: 0,
                 x: 0.0,
@@ -1417,7 +1418,7 @@ mod tests {
             y: 0.0,
             strength: 1.0,
         };
-        let body_clone = body.clone();
+        let body_clone = body;
         assert_eq!(body.index, body_clone.index);
         assert_eq!(body.x, body_clone.x);
     }
@@ -1480,7 +1481,7 @@ mod tests {
 
     #[test]
     fn body_in_vec() {
-        let bodies = vec![
+        let bodies = [
             Body {
                 index: 0,
                 x: 0.0,

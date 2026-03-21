@@ -1266,6 +1266,34 @@ struct TriageServiceIntegrationTests {
         #expect(await events.snapshot() == ["prepare-local"])
     }
 
+    @Test("local mlx request gate serializes overlapping turns")
+    func localMLXRequestGateSerializesOverlappingTurns() async {
+        let gate = LocalMLXRequestGate()
+        let events = LocalRuntimeEventRecorder()
+
+        async let first: Void = {
+            await gate.acquire()
+            await events.record("first-acquired")
+            try? await Task.sleep(for: .milliseconds(40))
+            await events.record("first-releasing")
+            await gate.release()
+        }()
+
+        async let second: Void = {
+            try? await Task.sleep(for: .milliseconds(5))
+            await gate.acquire()
+            await events.record("second-acquired")
+            await gate.release()
+        }()
+
+        _ = await (first, second)
+        #expect(await events.snapshot() == [
+            "first-acquired",
+            "first-releasing",
+            "second-acquired",
+        ])
+    }
+
     @Test("thinking mode does not hard-cap long-form local output to 1024 tokens")
     func thinkingModeDoesNotHardCapLongFormOutput() {
         let request = LocalMLXRequest(

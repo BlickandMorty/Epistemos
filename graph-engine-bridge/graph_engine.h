@@ -281,6 +281,16 @@ typedef struct {
     float score;
 } GraphSearchResult;
 
+typedef struct {
+    char* page_id;
+    float score;
+} GraphEnginePreparedRetrievalCandidate;
+
+typedef struct {
+    GraphEnginePreparedRetrievalCandidate* candidates;
+    uint32_t count;
+} GraphEnginePreparedRetrievalCandidateList;
+
 /// Search node labels with fuzzy matching. Returns array of results.
 /// Caller must free with graph_engine_free_search_results.
 GraphSearchResult* graph_engine_search(
@@ -409,14 +419,19 @@ GraphSearchResult* graph_engine_prepared_retrieval_search(
 );
 
 /// Score a fixed set of page IDs against the loaded prepared retrieval index.
-/// Returns page IDs in the `uuid` field of GraphSearchResult. Free with graph_engine_free_search_results.
-GraphSearchResult* graph_engine_prepared_retrieval_score_page_ids(
+/// Returns a lightweight candidate list containing only page IDs and scores.
+GraphEnginePreparedRetrievalCandidateList graph_engine_prepared_retrieval_score_page_ids(
     Engine* engine,
     const float* query_data,
     uint32_t dim,
     const char* const* page_ids,
-    uint32_t page_id_count,
-    uint32_t* out_count
+    uint32_t page_id_count
+);
+
+/// Free a prepared retrieval candidate list returned by
+/// graph_engine_prepared_retrieval_score_page_ids.
+void graph_engine_free_prepared_retrieval_candidates(
+    GraphEnginePreparedRetrievalCandidateList list
 );
 
 // ── Markdown Parser ────────────────────────────────────────────────────

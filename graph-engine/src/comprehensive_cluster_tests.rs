@@ -1,6 +1,8 @@
 //! Automatically generated comprehensive clustering tests.
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::manual_div_ceil)]
+
     use crate::cluster::detect_communities;
 
     #[test]

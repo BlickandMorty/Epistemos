@@ -79,6 +79,32 @@ nonisolated struct LocalMLXRunProfile: Sendable, Equatable {
     let cacheLimitBytes: Int
 }
 
+actor LocalMLXRequestGate {
+    private var active = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        if !active {
+            active = true
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            active = false
+            return
+        }
+
+        let next = waiters.removeFirst()
+        next.resume()
+    }
+}
+
 nonisolated enum LocalMLXRuntimeTuning {
     static func runtimePolicy(
         snapshot: LocalHardwareCapabilitySnapshot,
@@ -385,6 +411,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     private var lastRunProfile: LocalMLXRunProfile?
     private var runtimeConditions: LocalRuntimeConditions
     private var activeRequestCount = 0
+    private let requestGate = LocalMLXRequestGate()
 
     private struct GenerationExecutionSummary {
         let text: String
@@ -414,61 +441,59 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     func generate(request: LocalMLXRequest) async throws -> String {
-        cancelScheduledUnload()
-        activeRequestCount += 1
+        await beginRequest()
         let start = ContinuousClock.now
         let policy = currentRuntimePolicy()
-        let load = try await loadContainerIfNeeded(for: request, policy: policy)
-        let parameters = generationParameters(for: request)
-        let session = ChatSession(
-            load.container,
-            instructions: request.systemPrompt,
-            generateParameters: parameters,
-            additionalContext: additionalContext(for: request)
-        )
-        defer {
-            activeRequestCount = max(0, activeRequestCount - 1)
-            Memory.clearCache()
-            Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
-            scheduleIdleUnload()
+        do {
+            let load = try await loadContainerIfNeeded(for: request, policy: policy)
+            let parameters = generationParameters(for: request)
+            let session = ChatSession(
+                load.container,
+                instructions: request.systemPrompt,
+                generateParameters: parameters,
+                additionalContext: additionalContext(for: request)
+            )
+            let response = try await executeRequest(
+                request: request,
+                session: session,
+                requestStart: start,
+                emit: nil
+            )
+            let totalDurationMS = start.duration(to: ContinuousClock.now).millisecondsValue
+            lastRunProfile = LocalMLXRunProfile(
+                modelID: request.modelID,
+                coldLoad: load.coldLoad,
+                lowPowerModeEnabled: runtimeConditions.lowPowerModeEnabled,
+                appActive: runtimeConditions.appActive,
+                thermalState: runtimeConditions.thermalState,
+                loadDurationMS: load.loadDurationMS,
+                firstTokenLatencyMS: response.firstTokenLatencyMS,
+                totalDurationMS: totalDurationMS,
+                outputCharacterCount: response.outputCharacterCount,
+                chunkCount: response.chunkCount,
+                continuationCount: response.continuationCount,
+                stopReason: Self.stopReasonLabel(response.stopReason),
+                memoryLimitBytes: policy.memoryPolicy.memoryLimitBytes,
+                cacheLimitBytes: policy.memoryPolicy.cacheLimitBytes
+            )
+            log.info(
+                "Local generate model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) stop=\(Self.stopReasonLabel(response.stopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
+            )
+            await endRequest(policy: policy)
+            return response.text
+        } catch {
+            await endRequest(policy: policy)
+            throw error
         }
-        let response = try await executeRequest(
-            request: request,
-            session: session,
-            requestStart: start,
-            emit: nil
-        )
-        let totalDurationMS = start.duration(to: ContinuousClock.now).millisecondsValue
-        lastRunProfile = LocalMLXRunProfile(
-            modelID: request.modelID,
-            coldLoad: load.coldLoad,
-            lowPowerModeEnabled: runtimeConditions.lowPowerModeEnabled,
-            appActive: runtimeConditions.appActive,
-            thermalState: runtimeConditions.thermalState,
-            loadDurationMS: load.loadDurationMS,
-            firstTokenLatencyMS: response.firstTokenLatencyMS,
-            totalDurationMS: totalDurationMS,
-            outputCharacterCount: response.outputCharacterCount,
-            chunkCount: response.chunkCount,
-            continuationCount: response.continuationCount,
-            stopReason: Self.stopReasonLabel(response.stopReason),
-            memoryLimitBytes: policy.memoryPolicy.memoryLimitBytes,
-            cacheLimitBytes: policy.memoryPolicy.cacheLimitBytes
-        )
-        log.info(
-            "Local generate model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) stop=\(Self.stopReasonLabel(response.stopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
-        )
-        return response.text
     }
 
     func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error> {
         cancelScheduledUnload()
         return AsyncThrowingStream { continuation in
             let task = Task {
+                let policy = await self.beginRequestAndResolvePolicy()
                 do {
-                    await self.beginRequest()
                     let start = ContinuousClock.now
-                    let policy = self.currentRuntimePolicy()
                     let load = try await self.loadContainerIfNeeded(for: request, policy: policy)
                     let parameters = self.generationParameters(for: request)
                     let session = ChatSession(
@@ -477,9 +502,6 @@ actor MLXInferenceService: LocalMLXRuntime {
                         generateParameters: parameters,
                         additionalContext: self.additionalContext(for: request)
                     )
-                    defer {
-                        Task { await self.endRequest(policy: policy) }
-                    }
                     let response = try await self.executeRequest(
                         request: request,
                         session: session,
@@ -509,6 +531,7 @@ actor MLXInferenceService: LocalMLXRuntime {
                     self.log.info(
                         "Local stream model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) firstTokenMs=\(response.firstTokenLatencyMS ?? -1, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) chunks=\(response.chunkCount, privacy: .public) stop=\(Self.stopReasonLabel(response.stopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
                     )
+                    await self.endRequest(policy: policy)
                     if Task.isCancelled {
                         continuation.finish(throwing: CancellationError())
                         return
@@ -523,8 +546,10 @@ actor MLXInferenceService: LocalMLXRuntime {
                     }
                     continuation.finish()
                 } catch is CancellationError {
+                    await self.endRequest(policy: policy)
                     continuation.finish(throwing: CancellationError())
                 } catch {
+                    await self.endRequest(policy: policy)
                     continuation.finish(throwing: error)
                 }
             }
@@ -611,8 +636,14 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     private func beginRequest() async {
+        await requestGate.acquire()
         cancelScheduledUnload()
         activeRequestCount += 1
+    }
+
+    private func beginRequestAndResolvePolicy() async -> LocalMLXRuntimePolicy {
+        await beginRequest()
+        return currentRuntimePolicy()
     }
 
     private func endRequest(policy: LocalMLXRuntimePolicy) async {
@@ -620,6 +651,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         Memory.clearCache()
         Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
         scheduleIdleUnload()
+        await requestGate.release()
     }
 
     private func currentRuntimePolicy() -> LocalMLXRuntimePolicy {

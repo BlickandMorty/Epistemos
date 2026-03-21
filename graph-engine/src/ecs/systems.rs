@@ -54,6 +54,7 @@ pub fn sync_physics_to_transforms(world: &mut World) {
 ///
 /// Extended features (cluster, semantic, fluid, torsion, orbital, haptic)
 /// are intentionally omitted — they can be layered on later.
+#[allow(clippy::too_many_arguments)]
 pub fn tick(
     world: &mut World,
     params: &mut ForceParams,

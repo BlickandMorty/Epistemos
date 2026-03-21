@@ -3,10 +3,6 @@ import SwiftUI
 
 enum LandingToolbarGlyphs {
     static let greetingSymbol = "textformat"
-
-    static func cursorSymbol(animationEnabled: Bool) -> String {
-        animationEnabled ? "cursorarrow.motionlines" : "cursorarrow"
-    }
 }
 
 enum HomeWindowIdentity {
@@ -34,7 +30,6 @@ struct RootView: View {
 
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
-    @State private var showLandingCursorControls = false
     @State private var showGreetingControls = false
 
 
@@ -237,7 +232,6 @@ struct RootView: View {
 
             if showLandingToolbarControls {
                 landingGreetingToolbarButton
-                landingCursorToolbarButton
             }
 
             if activeHomeChat {
@@ -276,30 +270,6 @@ struct RootView: View {
         .help("Adjust greeting behavior")
         .popover(isPresented: $showGreetingControls) {
             LandingGreetingControlsView()
-                .frame(width: 320)
-                .padding(16)
-                .preferredColorScheme(ui.preferredColorScheme)
-        }
-    }
-
-    private var landingCursorToolbarButton: some View {
-        Button {
-            showLandingCursorControls.toggle()
-        } label: {
-            Label("Cursor FX", systemImage: LandingToolbarGlyphs.cursorSymbol(animationEnabled: ui.landingCursorAnimationEnabled))
-        }
-        .accessibilityLabel(
-            ui.landingCursorAnimationEnabled
-                ? "Disable landing cursor animation"
-                : "Enable landing cursor animation"
-        )
-        .help(
-            ui.landingCursorAnimationEnabled
-                ? "Adjust landing cursor animation"
-                : "Landing cursor animation is off"
-        )
-        .popover(isPresented: $showLandingCursorControls) {
-            LandingCursorControlsView()
                 .frame(width: 320)
                 .padding(16)
                 .preferredColorScheme(ui.preferredColorScheme)
@@ -567,143 +537,6 @@ private struct LandingGreetingControlsView: View {
     }
 }
 
-private struct LandingCursorControlsView: View {
-    @Environment(UIState.self) private var ui
-
-    var body: some View {
-        @Bindable var ui = ui
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Cursor Animation")
-                .font(.system(size: 14, weight: .semibold))
-
-            Picker("Visibility", selection: $ui.landingCursorVisibilityMode) {
-                ForEach(LandingCursorVisibilityMode.allCases, id: \.self) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .pickerStyle(.menu)
-
-            LandingAnimationSliderRow(
-                title: "Response",
-                value: $ui.landingCursorResponse,
-                range: 0...1,
-                labels: ("Heavy", "Snappy")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Spread",
-                value: $ui.landingCursorSpread,
-                range: 0...1,
-                labels: ("Tight", "Wide")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Trail",
-                value: $ui.landingCursorTrail,
-                range: 0...1,
-                labels: ("Short", "Long")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Opacity",
-                value: $ui.landingCursorOpacity,
-                range: 0.2...1.4,
-                labels: ("Faint", "Solid")
-            )
-            
-            LandingAnimationSliderRow(
-                title: "Viscosity",
-                value: $ui.landingCursorViscosity,
-                range: 0...1,
-                labels: ("Water", "Honey")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Blur Shell",
-                value: $ui.landingCursorBlur,
-                range: 0...1,
-                labels: ("Sharp", "Diffused")
-            )
-            
-            LandingAnimationSliderRow(
-                title: "Turbulence",
-                value: $ui.landingCursorTurbulence,
-                range: 0...1,
-                labels: ("Calm", "Chaotic")
-            )
-            
-            LandingAnimationSliderRow(
-                title: "Blast Power",
-                value: $ui.landingCursorBlastPower,
-                range: 0...100,
-                labels: ("Soft", "Explosive"),
-                valueDisplay: .number()
-            )
-
-            Button("Reset Cursor Defaults") {
-                ui.landingCursorAnimationEnabled = LandingCursorAnimationPolicy.defaultValue
-                ui.landingCursorVisibilityMode = LandingCursorVisibilityMode.defaultValue
-                ui.landingCursorResponse = LandingWakeFieldPolicy.defaultResponse
-                ui.landingCursorSpread = LandingWakeFieldPolicy.defaultSpread
-                ui.landingCursorTrail = LandingWakeFieldPolicy.defaultTrail
-                ui.landingCursorOpacity = LandingWakeFieldPolicy.defaultOpacity
-                ui.landingCursorViscosity = LandingWakeFieldPolicy.defaultViscosity
-                ui.landingCursorBlur = LandingWakeFieldPolicy.defaultBlur
-                ui.landingCursorTurbulence = LandingWakeFieldPolicy.defaultTurbulence
-                ui.landingCursorBlastPower = LandingWakeFieldPolicy.defaultBlastPower
-            }
-            .buttonStyle(.borderless)
-        }
-    }
-}
-
-private struct LandingAnimationSliderRow: View {
-    enum ValueDisplay {
-        case percent
-        case number(suffix: String? = nil)
-    }
-
-    let title: String
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-    let labels: (String, String)
-    var valueDisplay: ValueDisplay = .percent
-
-    private var valueLabel: String {
-        switch valueDisplay {
-        case .percent:
-            return "\(Int(round(value * 100)))%"
-        case .number(let suffix):
-            let number = "\(Int(round(value)))"
-            guard let suffix else { return number }
-            return number + suffix
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                Spacer()
-                Text(valueLabel)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-
-            Slider(value: $value, in: range)
-
-            HStack {
-                Text(labels.0)
-                Spacer()
-                Text(labels.1)
-            }
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.secondary)
-        }
-    }
-}
-
 // MARK: - Setup View
 // Full-screen welcome shown after a Reset Everything.
 // Minimal: logo, welcome message, "Get Started" to dismiss.
@@ -713,7 +546,6 @@ struct SetupView: View {
 
     @State private var overlayOpacity: Double = 0
     @State private var displayText = ""
-    @State private var cursorVisible = true
     @State private var typingDone = false
     @State private var buttonOpacity: Double = 0
 
@@ -736,15 +568,6 @@ struct SetupView: View {
                         .font(retroFont)
                         .foregroundStyle(theme.fontAccent)
                         .fixedSize(horizontal: true, vertical: true)
-
-                    // Block cursor
-                    Rectangle()
-                        .fill(theme.fontAccent.opacity(0.85))
-                        .frame(width: 10, height: 32)
-                        .clipShape(RoundedRectangle(cornerRadius: 2))
-                        .opacity(cursorVisible ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.3), value: cursorVisible)
-                        .padding(.leading, 2)
                 }
                 .frame(minHeight: 80)
                 .shadow(color: theme.fontAccent.opacity(0.12), radius: 8)
@@ -789,18 +612,9 @@ struct SetupView: View {
         .task {
             if ui.displayMode.reducesASCIIAnimations {
                 displayText = fullText
-                cursorVisible = false
                 typingDone = true
                 buttonOpacity = 1
                 return
-            }
-            // Start cursor blink
-            let blinkTask = Task { @MainActor in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .milliseconds(500))
-                    guard !Task.isCancelled else { return }
-                    cursorVisible.toggle()
-                }
             }
 
             // Small initial delay
@@ -832,16 +646,6 @@ struct SetupView: View {
             try? await Task.sleep(for: .milliseconds(400))
             withAnimation(.easeIn(duration: 0.8)) {
                 buttonOpacity = 1
-            }
-
-            // Keep blink alive until view disappears. withTaskCancellationHandler
-            // ensures blinkTask is cancelled even if the parent .task is cancelled.
-            await withTaskCancellationHandler {
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(60))
-                }
-            } onCancel: {
-                blinkTask.cancel()
             }
         }
     }

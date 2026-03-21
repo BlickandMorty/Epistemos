@@ -236,6 +236,7 @@ pub fn force_collide_with_scratch(
 }
 
 /// Like `force_collide_with_scratch` but also reuses the occupied-cell key buffer.
+#[allow(clippy::too_many_arguments)]
 pub fn force_collide_with_full_scratch(
     x: &mut [f32],
     y: &mut [f32],
@@ -1603,7 +1604,7 @@ mod tests {
         // After multiple iterations, should be well separated
         let dist1 = (x[1] - x[0]).abs();
         let _dist2 = (x[2] - x[1]).abs();
-        assert!(dist1 >= 51.0 || dist1 < 10.0);
+        assert!(!(10.0..51.0).contains(&dist1));
     }
 
     #[test]
@@ -2113,8 +2114,8 @@ mod tests {
 
         // Both pairs should attract (distances > half_ideal = 100)
         // Distance 0-1 = 200, 1-2 = 200, both should attract
-        assert!(vx[0] > 0.0 || vx[0] == 0.0, "node 0 pulled right or zero");
-        assert!(vx[2] < 0.0 || vx[2] == 0.0, "node 2 pulled left or zero");
+        assert!(vx[0] >= 0.0, "node 0 pulled right or zero");
+        assert!(vx[2] <= 0.0, "node 2 pulled left or zero");
     }
 
     #[test]

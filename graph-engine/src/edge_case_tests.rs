@@ -4,7 +4,7 @@
 //! rapid spawn/despawn cycles, invalid enum conversions.
 
 #[cfg(test)]
-mod edge_case_tests {
+mod tests {
     use crate::ecs::World;
     use crate::ecs::components::*;
     use crate::ecs::spatial_grid::SpatialGrid;

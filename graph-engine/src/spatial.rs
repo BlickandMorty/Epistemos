@@ -676,11 +676,11 @@ mod tests {
     fn visibility_change_requires_rebuild() {
         let mut node = make_node(1, 0.0, 0.0, 10.0);
         let mut idx = SpatialIndex::new();
-        idx.build(&vec![node.clone()]);
+        idx.build(&[node.clone()]);
         assert_eq!(idx.len(), 1);
 
         node.visible = false;
-        idx.build(&vec![node]);
+        idx.build(&[node]);
         assert!(idx.is_empty());
     }
 

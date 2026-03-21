@@ -426,16 +426,7 @@ final class GraphEngine {
 
         let uuids = Array(clusterMap.keys)
         let ids = uuids.map { clusterMap[$0]! }
-
-        let cPtrs: [UnsafeMutablePointer<CChar>] = uuids.compactMap { strdup($0) }
-        guard cPtrs.count == uuids.count else {
-            cPtrs.forEach { free($0) }
-            return
-        }
-        defer { cPtrs.forEach { free($0) } }
-
-        var optPtrs: [UnsafePointer<CChar>?] = cPtrs.map { UnsafePointer($0) }
-        optPtrs.withUnsafeMutableBufferPointer { uuidBuf in
+        withStableCStringArray(uuids) { uuidBuf in
             ids.withUnsafeBufferPointer { idsBuf in
                 graph_engine_set_cluster_ids(h, uuidBuf.baseAddress, idsBuf.baseAddress!, UInt32(uuids.count))
             }

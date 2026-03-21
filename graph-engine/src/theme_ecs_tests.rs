@@ -4,7 +4,7 @@
 //! SpatialGrid correctness, World::from_graph bridge, and node_id_to_entity lookups.
 
 #[cfg(test)]
-mod theme_ecs_tests {
+mod tests {
     use crate::ecs::World;
     use crate::ecs::components::*;
     use crate::ecs::spatial_grid::SpatialGrid;
@@ -73,17 +73,17 @@ mod theme_ecs_tests {
         assert_eq!(world.len(), 1000);
 
         // Despawn first 500
-        for i in 0..500 {
-            world.despawn(entities[i]);
+        for entity in entities.iter().take(500) {
+            world.despawn(*entity);
         }
         assert_eq!(world.len(), 500);
 
         // All remaining entities should still be findable
-        for i in 500..1000 {
+        for entity in entities.iter().take(1000).skip(500) {
             assert!(
-                world.index_of(entities[i]).is_some(),
+                world.index_of(*entity).is_some(),
                 "entity {} should still exist",
-                entities[i]
+                entity
             );
         }
     }
@@ -208,7 +208,7 @@ mod theme_ecs_tests {
         assert_eq!(world.len(), 8);
 
         for nt in 0..=7u8 {
-            let entity = world.node_id_to_entity[&(nt as u32)];
+            let entity = world.node_id_to_entity[&u32::from(nt)];
             let idx = world.index_of(entity).unwrap();
             assert_eq!(world.hierarchy[idx].node_type, nt);
         }
@@ -253,7 +253,7 @@ mod theme_ecs_tests {
         graph.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
 
         let world = World::from_graph(&graph);
-        assert!(world.node_id_to_entity.get(&999).is_none());
+        assert!(!world.node_id_to_entity.contains_key(&999));
     }
 
     // ── from_graph + Spatial Grid ────────────────────────────────────────────

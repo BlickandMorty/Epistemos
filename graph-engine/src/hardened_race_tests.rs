@@ -20,7 +20,7 @@ mod tests {
             handles.push(thread::spawn(move || {
                 for j in 0..100 {
                     let mut g = Graph::new();
-                    g.add_node(format!("n-{}-{}", i, j), 0.0, 0.0, 0, 1, format!("L"));
+                    g.add_node(format!("n-{}-{}", i, j), 0.0, 0.0, 0, 1, "L".to_string());
                     let mut lock = sim_clone.lock().unwrap();
                     lock.load_from_graph(&g);
                 }

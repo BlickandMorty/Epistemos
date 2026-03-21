@@ -13,6 +13,15 @@ private enum PaletteMode: Equatable {
     case chat
 }
 
+private struct PalettePageSearchEntry: Identifiable, Equatable {
+    let id: String
+    let normalizedTitle: String
+    let normalizedTags: [String]
+    let label: String
+    let subtitle: String?
+    let titleLength: Int
+}
+
 enum CommandPaletteLayout {
     static let compactWidth: CGFloat = 380
     static let expandedSearchWidth: CGFloat = 430
@@ -43,6 +52,12 @@ struct CommandPaletteOverlay: View {
     @State private var hasManuallyNavigated = false
 
     @State private var cachedSearchResults: [LandingCommandItem] = []
+    @State private var cachedPageSearchEntries: [PalettePageSearchEntry] = []
+    @State private var cachedPageSearchEntryByID: [String: PalettePageSearchEntry] = [:]
+    @State private var cachedPageIndex: [String: SDPage] = [:]
+    @State private var cachedTitleSearchIndex = TrigramSearchIndex<String>()
+    @State private var cachedTitleMatchIDsByQuery: [String: [String]] = [:]
+    @State private var cachedFTSResultsByQuery: [String: [LandingCommandItem]] = [:]
     @State private var ftsDebounceTask: Task<Void, Never>?
     @State private var appeared = false
     @FocusState private var isSearchFocused: Bool
@@ -145,12 +160,22 @@ struct CommandPaletteOverlay: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: preferredPaletteWidth)
         .onAppear {
             Task { @MainActor in
+                refreshPageSearchEntries()
                 appeared = true
                 syncPaletteSize()
                 isSearchFocused = true
                 try? await Task.sleep(for: .milliseconds(50))
                 if !isSearchFocused { isSearchFocused = true }
             }
+        }
+        .onChange(of: allPages.count) { _, _ in
+            refreshPageSearchEntries()
+        }
+        .onChange(of: allPages.first?.updatedAt) { _, _ in
+            refreshPageSearchEntries()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .searchIndexDidUpdate)) { _ in
+            refreshPageSearchEntries()
         }
         .onChange(of: mode) { _, _ in
             syncPaletteSize()
@@ -403,6 +428,9 @@ struct CommandPaletteOverlay: View {
         let results = filteredResults
         let grouped = Dictionary(grouping: results) { $0.category }
         let categoryOrder = orderedCategories(from: grouped)
+        let resultIndexByID = Dictionary(
+            uniqueKeysWithValues: results.enumerated().map { ($1.id, $0) }
+        )
 
         return ForEach(categoryOrder, id: \.self) { category in
             if let items = grouped[category], !items.isEmpty {
@@ -418,7 +446,7 @@ struct CommandPaletteOverlay: View {
                 .padding(.bottom, 4)
 
                 ForEach(items) { cmd in
-                    let idx = results.firstIndex(where: { $0.id == cmd.id }) ?? 0
+                    let idx = resultIndexByID[cmd.id] ?? 0
                     SpotlightRow(
                         command: cmd,
                         isSelected: idx == selectedIndex,
@@ -686,8 +714,6 @@ struct CommandPaletteOverlay: View {
                         query: trimmed,
                         attachments: attachments,
                         manifest: AppBootstrap.shared?.ambientManifest,
-                        loadedNoteIds: [],
-                        loadedNoteTitles: [],
                         includeAllNotesContext: false,
                         findNotesByTitle: { [vaultSync] title in
                             await vaultSync.findNotesByTitle(title)
@@ -913,17 +939,45 @@ struct CommandPaletteOverlay: View {
 
         // FTS body + block search (debounced 150ms).
         ftsDebounceTask?.cancel()
-        ftsDebounceTask = Task { @MainActor in
+        ftsDebounceTask = Task(priority: .userInitiated) {
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
-            let bodyHits = await vaultSync.searchFullAsync(query: newText, limit: 30)
+            let normalizedQuery = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !normalizedQuery.isEmpty else { return }
+            guard normalizedQuery.count >= 3 else { return }
+            if let cached = cachedFTSResultsByQuery[normalizedQuery] {
+                await MainActor.run {
+                    guard !Task.isCancelled else { return }
+                    guard searchText.trimmingCharacters(in: .whitespacesAndNewlines) == normalizedQuery else {
+                        return
+                    }
+                    cachedSearchResults = titleItems + cached
+                }
+                return
+            }
+            let pageIndex = cachedPageIndex
+            async let bodyHits = vaultSync.searchFullAsync(query: normalizedQuery, limit: 30)
+            async let blockHits = vaultSync.searchBlocksAsync(query: normalizedQuery, limit: 10)
+            let (resolvedBodyHits, resolvedBlockHits) = await (bodyHits, blockHits)
             guard !Task.isCancelled else { return }
-            let blockHits = await vaultSync.searchBlocksAsync(query: newText, limit: 10)
-            guard !Task.isCancelled else { return }
-            let bodyItems = computeBodyResults(from: bodyHits, excluding: titlePageIds)
-            let blockItems = computeBlockResults(from: blockHits, excluding: titlePageIds)
-            withAnimation(Motion.quick) {
-                cachedSearchResults = titleItems + bodyItems + blockItems
+            let bodyItems = computeBodyResults(
+                from: resolvedBodyHits,
+                excluding: titlePageIds,
+                pageIndex: pageIndex
+            )
+            let blockItems = computeBlockResults(
+                from: resolvedBlockHits,
+                excluding: titlePageIds,
+                pageIndex: pageIndex
+            )
+            await MainActor.run {
+                guard !Task.isCancelled else { return }
+                guard searchText.trimmingCharacters(in: .whitespacesAndNewlines) == normalizedQuery else {
+                    return
+                }
+                let results = bodyItems + blockItems
+                cachedFTSResultsByQuery[normalizedQuery] = results
+                cachedSearchResults = titleItems + results
             }
         }
 
@@ -958,46 +1012,83 @@ struct CommandPaletteOverlay: View {
 
     // MARK: - Search Engine
 
+    private func refreshPageSearchEntries() {
+        cachedPageIndex = Dictionary(allPages.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        cachedPageSearchEntries = allPages.map { page in
+            let emoji = page.emoji.isEmpty ? "" : "\(page.emoji) "
+            let label = "\(emoji)\(page.title.isEmpty ? "Untitled" : page.title)"
+            let parts = [
+                "\(page.wordCount)w",
+                page.tags.prefix(2).joined(separator: ", "),
+                relativeDate(page.updatedAt),
+            ].filter { !$0.isEmpty }
+            return PalettePageSearchEntry(
+                id: page.id,
+                normalizedTitle: page.title.lowercased(),
+                normalizedTags: page.tags.map { $0.lowercased() },
+                label: label,
+                subtitle: parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} "),
+                titleLength: page.title.count
+            )
+        }
+        cachedPageSearchEntryByID = Dictionary(
+            cachedPageSearchEntries.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        cachedTitleSearchIndex.rebuild(
+            cachedPageSearchEntries.map { entry in
+                (key: entry.id, text: ([entry.normalizedTitle] + entry.normalizedTags).joined(separator: "\n"))
+            }
+        )
+        cachedTitleMatchIDsByQuery.removeAll(keepingCapacity: true)
+        cachedFTSResultsByQuery.removeAll(keepingCapacity: true)
+    }
+
     private func computeTitleResults(for query: String) -> [LandingCommandItem] {
         guard !query.isEmpty else { return [] }
         let q = query.lowercased()
+        let matchedIDs = cachedTitleMatchIDsByQuery[q] ?? {
+            let candidateIDs = longestCachedTitleMatchIDs(for: q)
+                ?? cachedTitleSearchIndex.orderedCandidates(for: q)
+                ?? cachedPageSearchEntries.map(\.id)
+            let filtered = candidateIDs.filter { pageId in
+                guard let entry = cachedPageSearchEntryByID[pageId] else { return false }
+                return entry.normalizedTitle == q
+                    || entry.normalizedTitle.hasPrefix(q)
+                    || entry.normalizedTitle.contains(q)
+                    || entry.normalizedTags.contains(where: { $0.contains(q) })
+            }
+            cachedTitleMatchIDsByQuery[q] = filtered
+            return filtered
+        }()
 
         // Relevance scoring: exact > prefix > contains > tag match.
         // Within same tier, shorter titles rank higher (closer match).
-        let scored: [(page: SDPage, score: Int)] = allPages
-            .compactMap { page in
-                let title = page.title.lowercased()
+        let scored: [(entry: PalettePageSearchEntry, score: Int)] = matchedIDs
+            .compactMap { pageId in
+                guard let entry = cachedPageSearchEntryByID[pageId] else { return nil }
                 let score: Int
-                if title == q {
+                if entry.normalizedTitle == q {
                     score = 400
-                } else if title.hasPrefix(q) {
-                    score = 300 - min(title.count, 100)
-                } else if title.contains(q) {
-                    score = 200 - min(title.count, 100)
-                } else if page.tags.contains(where: { $0.lowercased().contains(q) }) {
+                } else if entry.normalizedTitle.hasPrefix(q) {
+                    score = 300 - min(entry.titleLength, 100)
+                } else if entry.normalizedTitle.contains(q) {
+                    score = 200 - min(entry.titleLength, 100)
+                } else if entry.normalizedTags.contains(where: { $0.contains(q) }) {
                     score = 100
                 } else {
                     return nil
                 }
-                return (page, score)
+                return (entry, score)
             }
             .sorted { $0.score > $1.score }
 
         return scored.prefix(10)
             .map { entry in
-                let page = entry.page
-                let emoji = page.emoji.isEmpty ? "" : "\(page.emoji) "
-                let label = "\(emoji)\(page.title.isEmpty ? "Untitled" : page.title)"
-                let parts = [
-                    "\(page.wordCount)w",
-                    page.tags.prefix(2).joined(separator: ", "),
-                    relativeDate(page.updatedAt),
-                ].filter { !$0.isEmpty }
-                let subtitle = parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
-                let pageId = page.id
+                let pageId = entry.entry.id
                 return LandingCommandItem(
-                    id: "title-\(pageId)", label: label, icon: "doc.text",
-                    category: "Notes", subtitle: subtitle
+                    id: "title-\(pageId)", label: entry.entry.label, icon: "doc.text",
+                    category: "Notes", subtitle: entry.entry.subtitle
                 ) { [self] in
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
@@ -1005,7 +1096,24 @@ struct CommandPaletteOverlay: View {
             }
     }
 
-    private func computeBodyResults(from hits: [SearchResult], excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
+    private func longestCachedTitleMatchIDs(for query: String) -> [String]? {
+        guard query.count > 1 else { return nil }
+
+        var prefix = query
+        while prefix.count > 1 {
+            prefix.removeLast()
+            if let cached = cachedTitleMatchIDsByQuery[prefix] {
+                return cached
+            }
+        }
+        return nil
+    }
+
+    private func computeBodyResults(
+        from hits: [SearchResult],
+        excluding seenPageIds: Set<String>,
+        pageIndex: [String: SDPage]
+    ) -> [LandingCommandItem] {
         guard !hits.isEmpty else { return [] }
         var items: [LandingCommandItem] = []
         let index = pageIndex
@@ -1042,7 +1150,11 @@ struct CommandPaletteOverlay: View {
         return items
     }
 
-    private func computeBlockResults(from hits: [BlockSearchResult], excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
+    private func computeBlockResults(
+        from hits: [BlockSearchResult],
+        excluding seenPageIds: Set<String>,
+        pageIndex: [String: SDPage]
+    ) -> [LandingCommandItem] {
         guard !hits.isEmpty else { return [] }
         let index = pageIndex
         var items: [LandingCommandItem] = []
@@ -1247,10 +1359,6 @@ struct CommandPaletteOverlay: View {
     }
 
     // MARK: - Helpers
-
-    private var pageIndex: [String: SDPage] {
-        Dictionary(allPages.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    }
 
     private func relativeDate(_ date: Date) -> String {
         let days = Calendar.current.dateComponents([.day], from: date, to: .now).day ?? 0

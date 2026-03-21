@@ -39,9 +39,14 @@ What landed:
 - built retrieval indexes now load into the Rust engine as a real runtime store
 - prepared semantic search now runs against that Rust store
 - prepared retrieval execution state now reports `preparedIndexReady`
-- prepared retrieval reranking now scores candidate page IDs inside Rust
+- prepared retrieval reranking now scores candidate page IDs inside Rust, but this is still similarity-based rescoring rather than the final cross-encoder runtime
 - prepared retrieval asset layout now exposes explicit readiness and rebuild states
 - Xcode Rust input tracking now includes `retrieval_index.rs`, so the app-linked static library rebuilds when retrieval runtime code changes
+- prepared retrieval runtime configuration now refreshes on app activation instead of requiring a relaunch to pick up newly built assets
+- prepared semantic search and similarity reranking now share a cached prepared-index load boundary instead of reloading the same manifest on every query turn
+- prepared retrieval cache invalidation now keys on manifest content, not just manifest path, so in-place rebuilds can reload the Rust store instead of staying stale
+- graph inspector summaries still try Apple Intelligence first and only fall back to local Qwen when needed
+- graph semantic clustering remains intentionally disabled on the prepared runtime until the semantic embedding space is fully unified
 
 What was validated:
 
@@ -54,14 +59,14 @@ What was validated:
 
 What is still open:
 
-- Rust-native BGE execution
+- Rust-native BGE query embedding execution (Swift still owns prepared query vectors today)
 - real cross-encoder reranker runtime
 - final retrieval lifecycle/rebuild policy
-- deeper memory/KV/runtime hardening around the remaining local Qwen lane
+- deeper memory/KV/runtime hardening around the remaining in-process Qwen lane
 
 Open risk:
 
-- retrieval still has too much scaffolding relative to the final architecture
+- retrieval still depends on Swift-owned query embeddings and similarity rescoring relative to the final architecture
 - the remaining local text path is simpler now, but it still needs more operational hardening before Phase 5
 
 Next phase allowed:

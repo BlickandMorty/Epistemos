@@ -60,25 +60,25 @@ impl SubscriptionSpec {
                 changed.relations.contains(&RelationKind::Tasks)
                     && page_id
                         .as_ref()
-                        .map_or(true, |page_id| changed.pages.contains(page_id))
+                        .is_none_or(|page_id| changed.pages.contains(page_id))
             }
             Self::Properties { page_id, key } => {
                 changed.relations.contains(&RelationKind::Properties)
                     && page_id
                         .as_ref()
-                        .map_or(true, |page_id| changed.pages.contains(page_id))
+                        .is_none_or(|page_id| changed.pages.contains(page_id))
                     && key
                         .as_ref()
-                        .map_or(true, |key| changed.property_keys.contains(key))
+                        .is_none_or(|key| changed.property_keys.contains(key))
             }
             Self::Links { page_id, block_id } => {
                 changed.relations.contains(&RelationKind::Links)
                     && page_id
                         .as_ref()
-                        .map_or(true, |page_id| changed.pages.contains(page_id))
+                        .is_none_or(|page_id| changed.pages.contains(page_id))
                     && block_id
                         .as_ref()
-                        .map_or(true, |block_id| changed.block_ids.contains(block_id))
+                        .is_none_or(|block_id| changed.block_ids.contains(block_id))
             }
         }
     }
@@ -217,6 +217,12 @@ pub struct DatalogStore {
     next_subscription_id: u64,
     subscriptions: HashMap<u64, SubscriptionState>,
     query_runs: u64,
+}
+
+impl Default for DatalogStore {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DatalogStore {

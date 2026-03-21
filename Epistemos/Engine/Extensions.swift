@@ -749,3 +749,71 @@ nonisolated final class BorrowedUTF8StringCache {
         return candidate.utf8.elementsEqual(bytes)
     }
 }
+
+@discardableResult
+nonisolated func withStableCStringArray<T>(
+    _ strings: [String],
+    _ body: (UnsafeMutableBufferPointer<UnsafePointer<CChar>?>) -> T
+) -> T? {
+    let cStrings = strings.compactMap { strdup($0) }
+    guard cStrings.count == strings.count else {
+        cStrings.forEach { free($0) }
+        return nil
+    }
+    defer { cStrings.forEach { free($0) } }
+
+    var pointers: [UnsafePointer<CChar>?] = cStrings.map { UnsafePointer($0) }
+    return pointers.withUnsafeMutableBufferPointer { buffer in
+        body(buffer)
+    }
+}
+
+nonisolated struct TrigramSearchIndex<Key: Hashable> {
+    private var postingLists: [String: [Key]] = [:]
+
+    init() {}
+
+    mutating func rebuild<S: Sequence>(_ entries: S) where S.Element == (key: Key, text: String) {
+        postingLists.removeAll(keepingCapacity: true)
+
+        for entry in entries {
+            for trigram in Self.trigrams(from: entry.text) {
+                postingLists[trigram, default: []].append(entry.key)
+            }
+        }
+    }
+
+    func orderedCandidates(for query: String) -> [Key]? {
+        let queryTrigrams = Self.trigrams(from: query)
+        guard !queryTrigrams.isEmpty else { return nil }
+
+        let postings = queryTrigrams.compactMap { postingLists[$0] }.sorted { $0.count < $1.count }
+        guard let base = postings.first else { return [] }
+        guard postings.count > 1 else { return base }
+
+        var remainderSets: [Set<Key>] = []
+        remainderSets.reserveCapacity(postings.count - 1)
+        for posting in postings.dropFirst() {
+            remainderSets.append(Set(posting))
+        }
+
+        return base.filter { key in
+            remainderSets.allSatisfy { $0.contains(key) }
+        }
+    }
+
+    private static func trigrams(from text: String) -> Set<String> {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let characters = Array(normalized)
+        guard characters.count >= 3 else { return [] }
+
+        var trigrams: Set<String> = []
+        trigrams.reserveCapacity(characters.count - 2)
+
+        for index in 0..<(characters.count - 2) {
+            trigrams.insert(String(characters[index...(index + 2)]))
+        }
+
+        return trigrams
+    }
+}

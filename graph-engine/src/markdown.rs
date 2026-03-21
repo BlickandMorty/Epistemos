@@ -647,7 +647,7 @@ fn count_blockquote_depth(trimmed: &str) -> u8 {
 /// Detect callout type from a blockquote line: `> [!type]` or `> [!type] Title`.
 /// Returns 0 for plain blockquote, 1-9 for callout types.
 fn detect_callout_type(trimmed: &str) -> u8 {
-    let inner = trimmed.trim_start_matches(|c: char| c == '>' || c == ' ');
+    let inner = trimmed.trim_start_matches(['>', ' ']);
     if !inner.starts_with("[!") {
         return 0;
     }
@@ -964,9 +964,9 @@ pub fn fold_range_for_heading(heading_line: u32, spans: &[StructureSpan]) -> Opt
     let start = heading_line + 1;
     let mut end = spans.len() as u32;
 
-    for i in (start as usize)..spans.len() {
-        if spans[i].para_type == ParaType::Heading as u8 {
-            let level = spans[i].metadata & 0xFF;
+    for (i, span) in spans.iter().enumerate().skip(start as usize) {
+        if span.para_type == ParaType::Heading as u8 {
+            let level = span.metadata & 0xFF;
             if level <= heading_level {
                 end = i as u32;
                 break;
@@ -984,16 +984,30 @@ pub fn fold_range_for_heading(heading_line: u32, spans: &[StructureSpan]) -> Opt
 // ── Fold FFI ─────────────────────────────────────────────────────────────
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// This FFI entry point is called from foreign code and assumes the shared fold
+/// registry is initialized in this process. The caller must provide a valid line
+/// index for the current markdown document state.
 pub unsafe extern "C" fn markdown_set_fold(line_index: u32, folded: bool) {
     set_fold(line_index, folded);
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// This FFI entry point is called from foreign code and assumes the shared fold
+/// registry is initialized in this process. The caller must provide a valid line
+/// index for the current markdown document state.
 pub unsafe extern "C" fn markdown_is_folded(line_index: u32) -> bool {
     is_folded(line_index)
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// This FFI entry point is called from foreign code and assumes the shared fold
+/// registry is initialized in this process.
 pub unsafe extern "C" fn markdown_clear_all_folds() {
     clear_all_folds();
 }

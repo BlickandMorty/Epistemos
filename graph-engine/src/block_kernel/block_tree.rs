@@ -60,10 +60,10 @@ fn parse_property_value(raw: &str) -> PropertyValue {
     if raw.eq_ignore_ascii_case("false") {
         return PropertyValue::Bool(false);
     }
-    if let Ok(i) = raw.parse::<i64>() {
-        if !raw.contains('.') {
-            return PropertyValue::Int(i);
-        }
+    if let Ok(i) = raw.parse::<i64>()
+        && !raw.contains('.')
+    {
+        return PropertyValue::Int(i);
     }
     if let Ok(f) = raw.parse::<f32>() {
         return PropertyValue::Float(f);
@@ -642,13 +642,7 @@ mod tests {
             key: "confidence".into(),
             value: PropertyValue::Null,
         });
-        assert!(
-            tree.get(&id)
-                .unwrap()
-                .properties
-                .get("confidence")
-                .is_none()
-        );
+        assert!(!tree.get(&id).unwrap().properties.contains_key("confidence"));
     }
 
     #[test]
@@ -743,7 +737,10 @@ mod tests {
         let props = parse_inline_properties("hello @bool=true @int=42 @float=3.14");
         assert_eq!(props.get("bool"), Some(&PropertyValue::Bool(true)));
         assert_eq!(props.get("int"), Some(&PropertyValue::Int(42)));
-        assert_eq!(props.get("float"), Some(&PropertyValue::Float(3.14)));
+        assert_eq!(
+            props.get("float"),
+            Some(&PropertyValue::Float(314.0_f32 / 100.0))
+        );
     }
 
     #[test]

@@ -218,6 +218,7 @@ final class GraphStore {
     private var searchCacheMissCount = 0
     private var searchCacheExpiredCount = 0
     private var searchCacheNowProvider: () -> Date = Date.init
+    private var neighborLabelsCache: [String: [String]] = [:]
 
     // MARK: - Computed Properties
 
@@ -240,6 +241,7 @@ final class GraphStore {
         _edgesOf.removeAll()
         _trigramIdx.removeAll()
         clearSearchCache()
+        neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
     }
 
@@ -454,6 +456,27 @@ final class GraphStore {
         }
     }
 
+    /// Neighbor labels without constructing intermediary node arrays.
+    func neighborLabels(of nodeId: String) -> [String] {
+        guard let idx = _nodeIdx[nodeId], idx < _neighbors.count else { return [] }
+        if let cached = neighborLabelsCache[nodeId] {
+            return cached
+        }
+
+        let neighborIndices = _neighbors[idx]
+        var labels: [String] = []
+        labels.reserveCapacity(neighborIndices.count)
+
+        for neighborIdx in neighborIndices where neighborIdx < _nodeIds.count {
+            let neighborId = _nodeIds[neighborIdx]
+            guard !neighborId.isEmpty, let label = nodes[neighborId]?.label else { continue }
+            labels.append(label)
+        }
+
+        neighborLabelsCache[nodeId] = labels
+        return labels
+    }
+
     /// All edges touching a given node.
     func edges(for nodeId: String) -> [GraphEdgeRecord] {
         guard let idx = _nodeIdx[nodeId], idx < _edgesOf.count else { return [] }
@@ -645,6 +668,7 @@ final class GraphStore {
         addToTrigramIndex(nodeIdx: nodeIdx, label: node.label)
         insertIntoCreatedOrderIndex(node)
         clearSearchCache()
+        neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
         notifyChange([.graphNodes])
     }
@@ -677,6 +701,7 @@ final class GraphStore {
         insertIntoCreatedOrderIndex(updated)
         if existing.label != node.label {
             clearSearchCache()
+            neighborLabelsCache.removeAll(keepingCapacity: true)
         }
         notifyChange([.graphNodes])
     }
@@ -701,6 +726,7 @@ final class GraphStore {
         // Edge reverse index: always add (multiple edges between same pair are valid)
         _edgesOf[srcIdx].append(edgeIdx)
         _edgesOf[tgtIdx].append(edgeIdx)
+        neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
         notifyChange([.graphEdges])
     }
@@ -741,6 +767,7 @@ final class GraphStore {
         _neighbors[nodeIdx] = []
         _edgesOf[nodeIdx] = []
         clearSearchCache()
+        neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
         notifyChange([.graphNodes, .graphEdges])
     }
@@ -776,6 +803,7 @@ final class GraphStore {
         edges.removeValue(forKey: edgeId)
         _edgeIdx.removeValue(forKey: edgeId)
         _edgeIds[edgeIdx] = ""  // Tombstone
+        neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
         notifyChange([.graphEdges])
     }

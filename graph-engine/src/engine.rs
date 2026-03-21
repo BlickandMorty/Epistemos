@@ -20,8 +20,8 @@ use crate::block_kernel::{BlockTree, BtkQueryKernel, OpLog};
 use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
-use crate::retrieval_index::PreparedRetrievalStore;
 use crate::renderer::{Renderer, viewport_bounds};
+use crate::retrieval_index::PreparedRetrievalStore;
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
 use crate::types::{Graph, VisualTheme};
@@ -237,11 +237,11 @@ impl Engine {
                 if let (Some(&si), Some(&ti)) = (
                     self.graph.id_to_index.get(&edge.source),
                     self.graph.id_to_index.get(&edge.target),
-                ) {
-                    if si < n && ti < n {
-                        adj[si].push(ti);
-                        adj[ti].push(si);
-                    }
+                ) && si < n
+                    && ti < n
+                {
+                    adj[si].push(ti);
+                    adj[ti].push(si);
                 }
             }
 
@@ -473,20 +473,20 @@ impl Engine {
         self.search_index.build(&self.graph.nodes);
 
         // Preserve interaction state — clear only if the target was removed.
-        if let Some(sel_id) = self.selected_id {
-            if !self.graph.id_to_index.contains_key(&sel_id) {
-                self.selected_id = None;
-            }
+        if let Some(sel_id) = self.selected_id
+            && !self.graph.id_to_index.contains_key(&sel_id)
+        {
+            self.selected_id = None;
         }
-        if let Some(hov_id) = self.hovered_id {
-            if !self.graph.id_to_index.contains_key(&hov_id) {
-                self.hovered_id = None;
-            }
+        if let Some(hov_id) = self.hovered_id
+            && !self.graph.id_to_index.contains_key(&hov_id)
+        {
+            self.hovered_id = None;
         }
-        if let Some(ref drag) = self.drag {
-            if !self.graph.id_to_index.contains_key(&drag.node_id) {
-                self.drag = None;
-            }
+        if let Some(ref drag) = self.drag
+            && !self.graph.id_to_index.contains_key(&drag.node_id)
+        {
+            self.drag = None;
         }
         self.highlight_dirty = true;
 
@@ -886,12 +886,11 @@ impl Engine {
         if self.renderer.dialogue.active {
             self.renderer.dialogue.look_target_world = [wx, wy];
         }
-        if self.drag.is_some() {
-            let drag = self.drag.as_ref().unwrap();
-            let sim_index = drag.sim_index;
-            let origin = drag.origin;
-            let prev_world = drag.last_world;
-
+        if let Some((sim_index, origin, prev_world)) = self
+            .drag
+            .as_ref()
+            .map(|drag| (drag.sim_index, drag.origin, drag.last_world))
+        {
             // Check if mouse moved far enough to count as a real drag (5px threshold).
             let dx = screen_x - origin[0];
             let dy = screen_y - origin[1];
@@ -901,11 +900,12 @@ impl Engine {
             let dvx = wx - prev_world[0];
             let dvy = wy - prev_world[1];
 
-            let drag = self.drag.as_mut().unwrap();
-            if is_real_drag {
-                drag.moved = true;
+            if let Some(drag) = self.drag.as_mut() {
+                if is_real_drag {
+                    drag.moved = true;
+                }
+                drag.last_world = [wx, wy];
             }
-            drag.last_world = [wx, wy];
 
             let mut sim = self.sim.lock();
             if sim.params.enable_fluid_dynamics {
@@ -1453,10 +1453,10 @@ impl Engine {
                 self.graph.nodes[idx].color_override = color;
             }
             // Mirror to ECS World
-            if let Some(&entity) = self.world.node_id_to_entity.get(&id) {
-                if let Some(ei) = self.world.index_of(entity) {
-                    self.world.render[ei].color_override = color;
-                }
+            if let Some(&entity) = self.world.node_id_to_entity.get(&id)
+                && let Some(ei) = self.world.index_of(entity)
+            {
+                self.world.render[ei].color_override = color;
             }
         }
     }
@@ -1557,7 +1557,6 @@ impl Engine {
     }
 
     // ── Dialogue ──────────────────────────────────────────────────────
-
 }
 
 impl Drop for Engine {

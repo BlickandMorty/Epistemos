@@ -780,12 +780,12 @@ impl Simulation {
             // them here is atomic within the mutex, preventing double-application.
             if let Some(gpu_forces) = self.gpu_nbody_forces.take() {
                 let len = gpu_forces.len().min(n);
-                for i in 0..len {
+                for (i, force) in gpu_forces.iter().enumerate().take(len) {
                     if self.fx[i].is_none() {
-                        self.vx[i] += gpu_forces[i][0];
+                        self.vx[i] += force[0];
                     }
                     if self.fy[i].is_none() {
-                        self.vy[i] += gpu_forces[i][1];
+                        self.vy[i] += force[1];
                     }
                 }
             } else {
@@ -1134,6 +1134,7 @@ impl Simulation {
 
     /// Scalar velocity integration — shared by non-aarch64 fallback and SIMD remainder.
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     fn integrate_velocities_scalar(
         x: &mut [f32],
         y: &mut [f32],
@@ -1742,7 +1743,7 @@ mod tests {
         let graph = make_test_graph(3, true);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
-        let _result = sim.tick();
+        sim.tick();
     }
 
     #[test]
@@ -1871,15 +1872,19 @@ mod tests {
 
     #[test]
     fn alpha_decay_rate_configurable() {
-        let mut p = ForceParams::default();
-        p.alpha_decay = 0.05;
+        let p = ForceParams {
+            alpha_decay: 0.05,
+            ..ForceParams::default()
+        };
         assert_eq!(p.alpha_decay, 0.05);
     }
 
     #[test]
     fn alpha_min_configurable() {
-        let mut p = ForceParams::default();
-        p.alpha_min = 0.01;
+        let p = ForceParams {
+            alpha_min: 0.01,
+            ..ForceParams::default()
+        };
         assert_eq!(p.alpha_min, 0.01);
     }
 
@@ -2111,29 +2116,37 @@ mod tests {
 
     #[test]
     fn link_distance_parameter() {
-        let mut p = ForceParams::default();
-        p.link_distance = 150.0;
+        let p = ForceParams {
+            link_distance: 150.0,
+            ..ForceParams::default()
+        };
         assert_eq!(p.link_distance, 150.0);
     }
 
     #[test]
     fn charge_strength_parameter() {
-        let mut p = ForceParams::default();
-        p.charge_strength = -800.0;
+        let p = ForceParams {
+            charge_strength: -800.0,
+            ..ForceParams::default()
+        };
         assert_eq!(p.charge_strength, -800.0);
     }
 
     #[test]
     fn cluster_strength_parameter() {
-        let mut p = ForceParams::default();
-        p.cluster_strength = 0.5;
+        let p = ForceParams {
+            cluster_strength: 0.5,
+            ..ForceParams::default()
+        };
         assert_eq!(p.cluster_strength, 0.5);
     }
 
     #[test]
     fn semantic_strength_parameter() {
-        let mut p = ForceParams::default();
-        p.semantic_strength = 1.0;
+        let p = ForceParams {
+            semantic_strength: 1.0,
+            ..ForceParams::default()
+        };
         assert_eq!(p.semantic_strength, 1.0);
     }
 
@@ -2686,8 +2699,8 @@ mod tests {
         for _ in 0..100 {
             sim.tick();
         }
-        for i in 0..sim.x.len() {
-            assert!((sim.x[i] - x_after_first[i]).abs() < 1e-5);
+        for (i, x_after) in x_after_first.iter().enumerate().take(sim.x.len()) {
+            assert!((sim.x[i] - x_after).abs() < 1e-5);
         }
     }
 

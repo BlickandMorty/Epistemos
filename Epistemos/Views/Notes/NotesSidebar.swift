@@ -14,6 +14,7 @@ import SwiftUI
 private struct SidebarPageItem: Identifiable, Equatable {
     let id: String
     let title: String
+    let normalizedTitle: String
     let emoji: String
     let isJournal: Bool
     let isFavorite: Bool
@@ -22,6 +23,7 @@ private struct SidebarPageItem: Identifiable, Equatable {
     let isTemplate: Bool
     let journalDate: String?
     let tags: [String]
+    let normalizedTags: [String]
     let folderId: String?
     /// Denormalized subfolder path from SDPage.subfolder — always a plain String,
     /// never depends on relationship faulting. Used as fallback matching.
@@ -34,6 +36,7 @@ private struct SidebarPageItem: Identifiable, Equatable {
     init(_ page: SDPage) {
         id = page.id
         title = page.title
+        normalizedTitle = page.title.lowercased()
         emoji = page.emoji
         isJournal = page.isJournal
         isFavorite = page.isFavorite
@@ -42,6 +45,7 @@ private struct SidebarPageItem: Identifiable, Equatable {
         isTemplate = page.isTemplate
         journalDate = page.journalDate
         tags = page.tags
+        normalizedTags = page.tags.map { $0.lowercased() }
         folderId = page.folder?.id
         subfolder = page.subfolder
     }
@@ -91,6 +95,11 @@ private struct SidebarIdeaItem: Identifiable, Equatable {
     let createdAt: Date
 
     var icon: String { type == .idea ? "lightbulb" : "brain" }
+}
+
+private struct SidebarPageSearchCatalogEntry: Equatable {
+    let pageId: String
+    let haystack: String
 }
 
 // MARK: - Sidebar Action Enum
@@ -398,9 +407,15 @@ struct NotesSidebar: View {
     @State private var cachedCollectionFolderItems: [SidebarFolderItem] = []
     @State private var cachedRootFolderItems: [SidebarFolderItem] = []
     @State private var cachedJournalPageItems: [SidebarPageItem] = []
+    @State private var cachedPageSearchCatalog: [SidebarPageSearchCatalogEntry] = []
+    @State private var cachedPageSearchCatalogById: [String: SidebarPageSearchCatalogEntry] = [:]
+    @State private var cachedPageSearchTrigramIndex = TrigramSearchIndex<String>()
+    @State private var cachedTitleSearchResultIDsByQuery: [String: [String]] = [:]
+    @State private var cachedBodySearchResultsByQuery: [String: [SidebarPageItem]] = [:]
     @State private var hasDailyNotesFolder = false
     @State private var rebuildTask: Task<Void, Never>?
     @State private var bodySearchTask: Task<Void, Never>?
+    @State private var titleSearchResults: [SidebarPageItem] = []
 
     private var theme: EpistemosTheme { ui.theme }
     private var sidebarBackground: Color {
@@ -428,6 +443,21 @@ struct NotesSidebar: View {
         }
         cachedPageById = Dictionary(
             cachedPageItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+        cachedPageSearchCatalog = cachedPageItems.map { item in
+            SidebarPageSearchCatalogEntry(
+                pageId: item.id,
+                haystack: ([item.normalizedTitle] + item.normalizedTags).joined(separator: "\n")
+            )
+        }
+        cachedPageSearchCatalogById = Dictionary(
+            cachedPageSearchCatalog.map { ($0.pageId, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        cachedPageSearchTrigramIndex.rebuild(
+            cachedPageSearchCatalog.map { (key: $0.pageId, text: $0.haystack) }
+        )
+        cachedTitleSearchResultIDsByQuery.removeAll(keepingCapacity: true)
+        cachedBodySearchResultsByQuery.removeAll(keepingCapacity: true)
         cachedFolderItems = allFolders.map(SidebarFolderItem.init)
 
         // Fallback: if folder.pages returned [] (SwiftData inverse not merged yet),
@@ -490,6 +520,7 @@ struct NotesSidebar: View {
         cachedLoosePageItems = cachedPageItems.filter {
             !$0.isJournal && $0.folderId == nil && !$0.isTemplate
         }
+        refreshTitleSearchResults(query: notesUI.searchQuery)
 
         // Collect ideas from all pages (JSON-decoded once per rebuild, not per render)
         var ideaItems: [SidebarIdeaItem] = []
@@ -598,6 +629,7 @@ struct NotesSidebar: View {
             performBodySearch(query: newValue)
         }
         .onChange(of: notesUI.searchQuery) { _, newValue in
+            refreshTitleSearchResults(query: newValue)
             if newValue.isEmpty { bodySearchResults = [] }
         }
         .onDisappear {
@@ -917,41 +949,76 @@ struct NotesSidebar: View {
     /// Two-tier search: title/tags from in-memory pageItems (instant),
     /// body matches via pre-built trigram index (microseconds).
     private var filteredSearchResults: [SidebarPageItem] {
-        let query = notesUI.searchQuery.lowercased()
-
-        // Tier 1: title + tags — already in memory, no disk I/O
-        let titleMatches = cachedPageItems.filter {
-            $0.title.lowercased().contains(query)
-                || $0.tags.contains(where: { $0.lowercased().contains(query) })
-        }
-
         // Tier 2: merge body matches (populated async by onChange)
-        let titleIds = Set(titleMatches.map(\.id))
+        let titleIds = Set(titleSearchResults.map(\.id))
         let uniqueBodyMatches = bodySearchResults.filter { !titleIds.contains($0.id) }
 
-        let combined = titleMatches + uniqueBodyMatches
+        let combined = titleSearchResults + uniqueBodyMatches
         return Array(combined.prefix(50))
+    }
+
+    private func refreshTitleSearchResults(query: String) {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedQuery.isEmpty else {
+            titleSearchResults = []
+            return
+        }
+
+        let matchedIDs = cachedTitleSearchResultIDsByQuery[normalizedQuery] ?? {
+            let candidateIDs = longestCachedTitleSearchPrefixIDs(for: normalizedQuery)
+                ?? cachedPageSearchTrigramIndex.orderedCandidates(for: normalizedQuery)
+                ?? cachedPageSearchCatalog.map(\.pageId)
+            let filtered = candidateIDs.filter { pageId in
+                cachedPageSearchCatalogById[pageId]?.haystack.contains(normalizedQuery) == true
+            }
+            cachedTitleSearchResultIDsByQuery[normalizedQuery] = filtered
+            return filtered
+        }()
+        cachedTitleSearchResultIDsByQuery[normalizedQuery] = matchedIDs
+        titleSearchResults = matchedIDs.compactMap { cachedPageById[$0] }
+    }
+
+    private func longestCachedTitleSearchPrefixIDs(for query: String) -> [String]? {
+        guard query.count > 1 else { return nil }
+
+        var prefix = query
+        while prefix.count > 1 {
+            prefix.removeLast()
+            if let cached = cachedTitleSearchResultIDsByQuery[prefix] {
+                return cached
+            }
+        }
+        return nil
     }
 
     /// Run body + block search via FTS5 with snippets.
     private func performBodySearch(query: String) {
         bodySearchTask?.cancel()
-        guard !query.isEmpty else {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty else {
             bodySearchResults = []
             return
         }
+        guard normalizedQuery.count >= 3 else {
+            bodySearchResults = []
+            return
+        }
+        if let cached = cachedBodySearchResultsByQuery[normalizedQuery] {
+            bodySearchResults = cached
+            return
+        }
         let pageById = cachedPageById
-        bodySearchTask = Task {
-            let bodyHits = await vaultSync.searchFullAsync(query: query, limit: 30)
-            guard !Task.isCancelled else { return }
-            let blockHits = await vaultSync.searchBlocksAsync(query: query, limit: 10)
+        bodySearchTask = Task(priority: .userInitiated) {
+            async let bodyHits = vaultSync.searchFullAsync(query: normalizedQuery, limit: 30)
+            async let blockHits = vaultSync.searchBlocksAsync(query: normalizedQuery, limit: 10)
+            let (resolvedBodyHits, resolvedBlockHits) = await (bodyHits, blockHits)
             guard !Task.isCancelled else { return }
 
             var results: [SidebarPageItem] = []
             var seenPageIds: Set<String> = []
 
             // Body matches — with snippet
-            for hit in bodyHits {
+            for hit in resolvedBodyHits {
                 let pageId = hit.pageId
                 guard !seenPageIds.contains(pageId) else { continue }
                 seenPageIds.insert(pageId)
@@ -966,7 +1033,7 @@ struct NotesSidebar: View {
             }
 
             // Block matches — with snippet, deduplicated against body results
-            for hit in blockHits {
+            for hit in resolvedBlockHits {
                 let pageId = hit.pageId
                 guard !seenPageIds.contains(pageId) else { continue }
                 seenPageIds.insert(pageId)
@@ -982,6 +1049,10 @@ struct NotesSidebar: View {
 
             await MainActor.run {
                 guard !Task.isCancelled else { return }
+                guard notesUI.debouncedSearchQuery == normalizedQuery || notesUI.searchQuery == normalizedQuery else {
+                    return
+                }
+                cachedBodySearchResultsByQuery[normalizedQuery] = results
                 bodySearchResults = results
             }
         }

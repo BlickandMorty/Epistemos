@@ -8,6 +8,16 @@ struct HologramSidebarNotesTreeSnapshot {
     let noteIdsByFolderId: [String: [String]]
     let looseNoteIds: [String]
     let noteCountByFolderId: [String: Int]
+
+    static let empty = HologramSidebarNotesTreeSnapshot(
+        folderById: [:],
+        noteById: [:],
+        rootFolderIds: [],
+        childFolderIdsById: [:],
+        noteIdsByFolderId: [:],
+        looseNoteIds: [],
+        noteCountByFolderId: [:]
+    )
 }
 
 enum HologramSidebarNotesTreeBuilder {
@@ -131,6 +141,8 @@ struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
+    @State private var cachedNotesTreeSnapshot = HologramSidebarNotesTreeSnapshot.empty
+    @State private var cachedNotesTreeTopologyVersion = -1
 
     var onSelectNode: (String) -> Void
 
@@ -150,6 +162,12 @@ struct HologramSearchSidebar: View {
         }
         .frame(width: 280)
         .frame(maxHeight: 560)
+        .onAppear {
+            refreshNotesTreeSnapshotIfNeeded()
+        }
+        .onChange(of: graphState.graphDataVersion) { _, _ in
+            refreshNotesTreeSnapshotIfNeeded()
+        }
         .onChange(of: queryEngine.currentResult?.nodes.count) { _, newCount in
             if let newCount, newCount > 0 {
                 withAnimation(.smooth(duration: 0.2)) { activeTab = .query }
@@ -194,12 +212,15 @@ struct HologramSearchSidebar: View {
 
     // MARK: - Notes Content (flat visible rows for lazy rendering)
 
-    private var notesTreeSnapshot: HologramSidebarNotesTreeSnapshot {
-        HologramSidebarNotesTreeBuilder.build(store: graphState.store)
+    private func refreshNotesTreeSnapshotIfNeeded() {
+        let topologyVersion = graphState.store.topologyVersion
+        guard cachedNotesTreeTopologyVersion != topologyVersion else { return }
+        cachedNotesTreeSnapshot = HologramSidebarNotesTreeBuilder.build(store: graphState.store)
+        cachedNotesTreeTopologyVersion = topologyVersion
     }
 
     private var notesContent: some View {
-        let snapshot = notesTreeSnapshot
+        let snapshot = cachedNotesTreeSnapshot
         let visibleRows = NotesSidebarVisibleTreeBuilder.build(
             rootFolderIds: snapshot.rootFolderIds,
             expandedFolderIds: expandedFolders,

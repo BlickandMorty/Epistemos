@@ -4,47 +4,6 @@ import Observation
 import SwiftUI
 import UserNotifications
 
-enum LandingCursorSurface: String, CaseIterable, Codable, Sendable {
-    case landing
-    case search
-}
-
-enum LandingCursorVisibilityMode: String, CaseIterable, Codable, Sendable {
-    case landingOnly
-    case searchOnly
-    case both
-    case neither
-
-    static let defaultValue: Self = .landingOnly
-
-    func shows(on surface: LandingCursorSurface) -> Bool {
-        switch (self, surface) {
-        case (.landingOnly, .landing), (.searchOnly, .search), (.both, _):
-            true
-        case (.landingOnly, .search), (.searchOnly, .landing), (.neither, _):
-            false
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .landingOnly: "Landing Only"
-        case .searchOnly: "Search Only"
-        case .both: "Both"
-        case .neither: "Neither"
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .landingOnly: "Show the wake field on the greeting screen only."
-        case .searchOnly: "Show the wake field only behind the landing search composer."
-        case .both: "Keep the wake field visible on both landing surfaces."
-        case .neither: "Disable the wake field everywhere on the landing experience."
-        }
-    }
-}
-
 enum LandingGreetingSourceMode: String, CaseIterable, Codable, Sendable {
     case defaultsOnly
     case mixed
@@ -160,36 +119,10 @@ enum ThemeMode: String, CaseIterable, Codable, Sendable {
     case custom = "custom"
 }
 
-enum LandingCursorAnimationPolicy {
-    static let defaultsKey = "epistemos.landingCursorAnimationEnabled"
-    static let defaultValue = true
-}
-
 enum LandingGreetingAnimationPolicy {
     static let enabledDefaultsKey = "epistemos.landingGreetingAnimationEnabled"
     static let typewriterEnabledDefaultsKey = "epistemos.landingGreetingTypewriterEffectEnabled"
     static let defaultTypewriterEnabled = true
-}
-
-enum LandingWakeFieldPolicy {
-    static let visibilityModeDefaultsKey = "epistemos.landingCursorVisibilityMode"
-    static let responseDefaultsKey = "epistemos.landingCursorResponse"
-    static let spreadDefaultsKey = "epistemos.landingCursorSpread"
-    static let trailDefaultsKey = "epistemos.landingCursorTrail"
-    static let viscosityDefaultsKey = "epistemos.landingCursorViscosity"
-    static let turbulenceDefaultsKey = "epistemos.landingCursorTurbulence"
-    static let blastPowerDefaultsKey = "epistemos.landingCursorBlastPower"
-    static let opacityDefaultsKey = "epistemos.landingCursorOpacity"
-    static let blurDefaultsKey = "epistemos.landingCursorBlur"
-
-    static let defaultResponse = 0.56
-    static let defaultSpread = 0.6
-    static let defaultTrail = 0.62
-    static let defaultViscosity = 0.8
-    static let defaultTurbulence = 0.5
-    static let defaultBlastPower = 50.0
-    static let defaultOpacity = 1.0
-    static let defaultBlur = 0.5
 }
 
 // MARK: - UI State
@@ -203,9 +136,7 @@ final class UIState {
     static let themePairDefaultsKey = "epistemos.theme.pair"
 
     private var isEnforcingSystemAppearance = false
-    private var isSyncingLandingCursorPreferences = false
     private var isNormalizingLandingGreetingLibrary = false
-    private var lastEnabledLandingCursorVisibilityMode = LandingCursorVisibilityMode.defaultValue
 
     var themeMode: ThemeMode = .systemDefault {
         didSet {
@@ -287,26 +218,6 @@ final class UIState {
 
     // MARK: - Landing Animation
 
-    var landingCursorAnimationEnabled = LandingCursorAnimationPolicy.defaultValue {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorAnimationEnabled,
-                forKey: LandingCursorAnimationPolicy.defaultsKey
-            )
-            syncLandingCursorVisibilityModeFromLegacyToggle()
-        }
-    }
-
-    var landingCursorVisibilityMode = LandingCursorVisibilityMode.defaultValue {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorVisibilityMode.rawValue,
-                forKey: LandingWakeFieldPolicy.visibilityModeDefaultsKey
-            )
-            syncLegacyCursorAnimationEnabledFromVisibilityMode()
-        }
-    }
-
     var landingGreetingTypewriterEnabled = LandingGreetingAnimationPolicy.defaultTypewriterEnabled {
         didSet {
             UserDefaults.standard.set(
@@ -314,78 +225,6 @@ final class UIState {
                 forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
             )
             persistLegacyLandingGreetingAnimationToggle()
-        }
-    }
-
-    var landingCursorResponse = LandingWakeFieldPolicy.defaultResponse {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorResponse,
-                forKey: LandingWakeFieldPolicy.responseDefaultsKey
-            )
-        }
-    }
-
-    var landingCursorSpread = LandingWakeFieldPolicy.defaultSpread {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorSpread,
-                forKey: LandingWakeFieldPolicy.spreadDefaultsKey
-            )
-        }
-    }
-
-    var landingCursorTrail = LandingWakeFieldPolicy.defaultTrail {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorTrail,
-                forKey: LandingWakeFieldPolicy.trailDefaultsKey
-            )
-        }
-    }
-
-    var landingCursorViscosity: Double = LandingWakeFieldPolicy.defaultViscosity {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorViscosity,
-                forKey: LandingWakeFieldPolicy.viscosityDefaultsKey
-            )
-        }
-    }
-
-    var landingCursorTurbulence: Double = LandingWakeFieldPolicy.defaultTurbulence {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorTurbulence,
-                forKey: LandingWakeFieldPolicy.turbulenceDefaultsKey
-            )
-        }
-    }
-
-    var landingCursorBlastPower: Double = LandingWakeFieldPolicy.defaultBlastPower {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorBlastPower,
-                forKey: LandingWakeFieldPolicy.blastPowerDefaultsKey
-            )
-        }
-    }
-
-    var landingCursorOpacity: Double = LandingWakeFieldPolicy.defaultOpacity {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorOpacity,
-                forKey: LandingWakeFieldPolicy.opacityDefaultsKey
-            )
-        }
-    }
-
-    var landingCursorBlur: Double = LandingWakeFieldPolicy.defaultBlur {
-        didSet {
-            UserDefaults.standard.set(
-                landingCursorBlur,
-                forKey: LandingWakeFieldPolicy.blurDefaultsKey
-            )
         }
     }
 
@@ -432,25 +271,6 @@ final class UIState {
         clearLegacyThemeDefaults()
         clearLegacyLandingGreetingDefaults()
         displayMode = AppDisplayMode.current()
-        if let storedVisibilityMode = UserDefaults.standard.string(
-            forKey: LandingWakeFieldPolicy.visibilityModeDefaultsKey
-        ),
-            let visibilityMode = LandingCursorVisibilityMode(rawValue: storedVisibilityMode) {
-            landingCursorVisibilityMode = visibilityMode
-            landingCursorAnimationEnabled = visibilityMode != .neither
-        } else if UserDefaults.standard.object(forKey: LandingCursorAnimationPolicy.defaultsKey) != nil {
-            let legacyEnabled = UserDefaults.standard.bool(
-                forKey: LandingCursorAnimationPolicy.defaultsKey
-            )
-            landingCursorAnimationEnabled = legacyEnabled
-            landingCursorVisibilityMode = legacyEnabled ? .landingOnly : .neither
-        } else {
-            landingCursorVisibilityMode = .landingOnly
-            landingCursorAnimationEnabled = true
-        }
-        lastEnabledLandingCursorVisibilityMode = landingCursorVisibilityMode == .neither
-            ? .landingOnly
-            : landingCursorVisibilityMode
         if let storedGreetingSourceMode = UserDefaults.standard.string(
             forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
         ),
@@ -483,48 +303,6 @@ final class UIState {
         } else if let legacyGreetingAnimationEnabled {
             landingGreetingTypewriterEnabled = legacyGreetingAnimationEnabled
         }
-
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.responseDefaultsKey) != nil {
-            landingCursorResponse = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.responseDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.spreadDefaultsKey) != nil {
-            landingCursorSpread = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.spreadDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.trailDefaultsKey) != nil {
-            landingCursorTrail = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.trailDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.viscosityDefaultsKey) != nil {
-            landingCursorViscosity = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.viscosityDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.turbulenceDefaultsKey) != nil {
-            landingCursorTurbulence = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.turbulenceDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.blastPowerDefaultsKey) != nil {
-            landingCursorBlastPower = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.blastPowerDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.opacityDefaultsKey) != nil {
-            landingCursorOpacity = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.opacityDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.blurDefaultsKey) != nil {
-            landingCursorBlur = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.blurDefaultsKey
-            )
-        }
-        syncLegacyCursorAnimationEnabledFromVisibilityMode()
         normalizeLandingGreetingLibrary()
     }
 
@@ -537,6 +315,16 @@ final class UIState {
 
     private func clearLegacyLandingGreetingDefaults() {
         let legacyKeys = [
+            "epistemos.landingCursorAnimationEnabled",
+            "epistemos.landingCursorVisibilityMode",
+            "epistemos.landingCursorResponse",
+            "epistemos.landingCursorSpread",
+            "epistemos.landingCursorTrail",
+            "epistemos.landingCursorViscosity",
+            "epistemos.landingCursorTurbulence",
+            "epistemos.landingCursorBlastPower",
+            "epistemos.landingCursorOpacity",
+            "epistemos.landingCursorBlur",
             "epistemos.landingGreetingASCIIEnabled",
             "epistemos.landingGreetingTypewriterEnabled",
             "epistemos.landingGreetingASCIIHoverEnabled",
@@ -686,34 +474,6 @@ final class UIState {
         toastDismissTask?.cancel()
         toastDismissTask = nil
         toastMessage = nil
-    }
-
-    private func syncLandingCursorVisibilityModeFromLegacyToggle() {
-        guard !isSyncingLandingCursorPreferences else { return }
-        isSyncingLandingCursorPreferences = true
-        defer { isSyncingLandingCursorPreferences = false }
-
-        if landingCursorAnimationEnabled {
-            if landingCursorVisibilityMode == .neither {
-                landingCursorVisibilityMode = lastEnabledLandingCursorVisibilityMode
-            }
-        } else {
-            if landingCursorVisibilityMode != .neither {
-                lastEnabledLandingCursorVisibilityMode = landingCursorVisibilityMode
-            }
-            landingCursorVisibilityMode = .neither
-        }
-    }
-
-    private func syncLegacyCursorAnimationEnabledFromVisibilityMode() {
-        guard !isSyncingLandingCursorPreferences else { return }
-        isSyncingLandingCursorPreferences = true
-        defer { isSyncingLandingCursorPreferences = false }
-
-        if landingCursorVisibilityMode != .neither {
-            lastEnabledLandingCursorVisibilityMode = landingCursorVisibilityMode
-        }
-        landingCursorAnimationEnabled = landingCursorVisibilityMode != .neither
     }
 
     private func normalizeLandingGreetingLibrary() {

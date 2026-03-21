@@ -109,18 +109,6 @@ private struct LandingDetailView: View {
         @Bindable var ui = ui
 
         Form {
-            Section("Cursor Animation") {
-                Picker("Cursor Visibility", selection: $ui.landingCursorVisibilityMode) {
-                    ForEach(LandingCursorVisibilityMode.allCases, id: \.self) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-
-                Text(ui.landingCursorVisibilityMode.detail)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-
             Section("Greeting Behavior") {
                 Toggle("Animate typewriter", isOn: $ui.landingGreetingTypewriterEnabled)
 

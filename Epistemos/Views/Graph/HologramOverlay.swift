@@ -141,6 +141,10 @@ final class HologramOverlay {
     private(set) var isMinimized = false
     private var selectionObserverTask: Task<Void, Never>?
     private var inspectorPositionTask: Task<Void, Never>?
+    private var inspectorRepositionTask: Task<Void, Never>?
+    private var lastInspectorFrame: CGRect?
+    private var lastQueuedInspectorAnchor: CGPoint?
+    private var lastQueuedInspectorMode: NodeInspectorState.InspectorMode?
     private var minimizeObserver: Any?
     private var resetObserver: Any?
     private var restoreObserver: Any?
@@ -673,6 +677,7 @@ final class HologramOverlay {
 
     private func startInspectorPositionTracking() {
         inspectorPositionTask?.cancel()
+        inspectorRepositionTask?.cancel()
         inspectorPositionTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 guard let s = self else { return }
@@ -685,8 +690,41 @@ final class HologramOverlay {
                     }
                 }
                 guard !Task.isCancelled, let s = self else { return }
-                s.repositionInspector()
+                s.scheduleInspectorReposition()
             }
+        }
+    }
+
+    private func scheduleInspectorReposition() {
+        let currentAnchor = graphState.selectedNodeScreenPoint
+        let currentMode = inspectorState.inspectorMode
+        if !shouldQueueInspectorReposition(anchor: currentAnchor, mode: currentMode) {
+            return
+        }
+
+        lastQueuedInspectorAnchor = currentAnchor
+        lastQueuedInspectorMode = currentMode
+        inspectorRepositionTask?.cancel()
+        inspectorRepositionTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(32))
+            guard !Task.isCancelled, let self else { return }
+            repositionInspector()
+        }
+    }
+
+    private func shouldQueueInspectorReposition(
+        anchor: CGPoint?,
+        mode: NodeInspectorState.InspectorMode
+    ) -> Bool {
+        guard lastQueuedInspectorMode == mode else { return true }
+
+        switch (lastQueuedInspectorAnchor, anchor) {
+        case (nil, nil):
+            return false
+        case let (lhs?, rhs?):
+            return abs(lhs.x - rhs.x) >= 8.0 || abs(lhs.y - rhs.y) >= 8.0
+        default:
+            return true
         }
     }
 
@@ -697,6 +735,7 @@ final class HologramOverlay {
         // In mini mode the companion miniInspectorPanel handles the inspector.
         if isMinimized {
             inspectorHostView.isHidden = true
+            lastInspectorFrame = nil
             resizeMiniInspectorForMode()
             return
         }
@@ -718,13 +757,34 @@ final class HologramOverlay {
             let y = max(bottomInset, min(bounds.height - inspectorHeight - topInset, pt.y - inspectorHeight * 0.4))
 
             let targetFrame = CGRect(x: x, y: y, width: inspectorWidth, height: inspectorHeight)
+            guard shouldApplyInspectorFrame(targetFrame) else {
+                inspectorHostView.isHidden = false
+                return
+            }
             inspectorHostView.frame = targetFrame
+            lastInspectorFrame = targetFrame
             inspectorHostView.isHidden = false
         } else {
             let inspectorWidth: CGFloat = isEditor ? 620 : 380
             let inspectorHeight: CGFloat = isEditor ? 600 : 500
-            inspectorHostView.frame = CGRect(x: bounds.width - inspectorWidth - 40, y: bottomInset, width: inspectorWidth, height: inspectorHeight)
+            let targetFrame = CGRect(
+                x: bounds.width - inspectorWidth - 40,
+                y: bottomInset,
+                width: inspectorWidth,
+                height: inspectorHeight
+            )
+            guard shouldApplyInspectorFrame(targetFrame) else { return }
+            inspectorHostView.frame = targetFrame
+            lastInspectorFrame = targetFrame
         }
+    }
+
+    private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool {
+        guard let existing = lastInspectorFrame else { return true }
+        return abs(existing.origin.x - targetFrame.origin.x) >= 4.0
+            || abs(existing.origin.y - targetFrame.origin.y) >= 4.0
+            || abs(existing.size.width - targetFrame.size.width) >= 0.5
+            || abs(existing.size.height - targetFrame.size.height) >= 0.5
     }
 
     // MARK: - Lazy Inspector (Node Selection)
@@ -984,6 +1044,8 @@ final class HologramOverlay {
         selectionObserverTask = nil
         inspectorPositionTask?.cancel()
         inspectorPositionTask = nil
+        inspectorRepositionTask?.cancel()
+        inspectorRepositionTask = nil
         // Invalidate appearance KVO observer.
         appearanceObserver?.invalidate()
         appearanceObserver = nil

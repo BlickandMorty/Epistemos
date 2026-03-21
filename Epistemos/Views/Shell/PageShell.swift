@@ -10,7 +10,6 @@ struct TypewriterHeading: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(UIState.self) private var ui
     @State private var displayText = ""
-    @State private var cursorVisible = false
     @State private var animationRun = 0
 
     private var taskID: String {
@@ -22,13 +21,6 @@ struct TypewriterHeading: View {
             Text(displayText)
                 .font(role.font)
                 .foregroundStyle(color)
-
-            if cursorVisible {
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(color.opacity(0.85))
-                    .frame(width: 3, height: max(12, role.fontSize * 0.82))
-                    .transition(.opacity)
-            }
         }
         .onAppear {
             animationRun += 1
@@ -47,12 +39,10 @@ struct TypewriterHeading: View {
         let shouldAnimate = animateOnAppear ?? role.animatesOnFirstAppearance
         guard shouldAnimate, !reduceMotion, !ui.displayMode.reducesASCIIAnimations else {
             displayText = text
-            cursorVisible = false
             return
         }
 
         displayText = ""
-        cursorVisible = true
         try? await Task.sleep(for: .milliseconds(50))
 
         for character in text {
@@ -63,7 +53,6 @@ struct TypewriterHeading: View {
 
         guard !Task.isCancelled else { return }
         try? await Task.sleep(for: .milliseconds(500))
-        cursorVisible = false
     }
 }
 

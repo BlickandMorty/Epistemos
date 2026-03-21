@@ -239,6 +239,45 @@ struct SearchIndexServiceIntegrationTests {
         #expect(results.contains { $0.pageId == pageId })
     }
 
+    @Test("async search cancellation leaves the index usable")
+    func asyncSearchCancellationLeavesIndexUsable() async throws {
+        let setup = try makeService()
+        let service = setup.service
+        let token = uniqueToken("cancel")
+        let ids = (0..<32).map { _ in uniqueId("cancel-page") }
+        defer { cleanup(service, ids: ids) }
+
+        for (index, id) in ids.enumerated() {
+            try withRetry {
+                try service.upsert(
+                    id: id,
+                    title: "Cancel \(token) \(index)",
+                    body: "Body \(token) \(index)",
+                    tags: "cancel",
+                    updatedAt: .now
+                )
+            }
+        }
+
+        let task = Task {
+            try await service.searchAsync(query: token, limit: 100)
+        }
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            Issue.record("Expected cancelled async search to fail")
+        } catch is CancellationError {
+            // expected
+        } catch {
+            #expect(String(describing: error).localizedCaseInsensitiveContains("interrupt"))
+        }
+
+        let freshResults = try await service.searchAsync(query: token, limit: 100)
+        #expect(!freshResults.isEmpty)
+        #expect(freshResults.allSatisfy { ids.contains($0.pageId) })
+    }
+
     @Test("diffSync updates changed pages and deletes stale entries")
     func diffSyncUpdatesAndDeletes() async throws {
         let setup = try makeService()

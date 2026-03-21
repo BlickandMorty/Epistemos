@@ -11,6 +11,12 @@ import SwiftData
 @MainActor @Observable
 final class NodeInspectorState {
 
+    private struct ProfileCacheKey: Hashable {
+        let nodeId: String
+        let nodeUpdatedAt: Date
+        let topologyVersion: Int
+    }
+
     enum InspectorMode: Hashable { case profile, editor }
 
     // MARK: - Selection
@@ -46,6 +52,7 @@ final class NodeInspectorState {
     private var chatTask: Task<Void, Never>?
     private var profileTask: Task<Void, Never>?
     private var summaryCache: [String: String] = [:]
+    private var profileCache: [ProfileCacheKey: DialogueNodeProfile] = [:]
     private var revealTask: Task<Void, Never>?
 
     // MARK: - Node Selection
@@ -58,52 +65,208 @@ final class NodeInspectorState {
 
         // Set loading state and selection IMMEDIATELY — no blocking work here.
         // This ensures the panel animates in instantly; heavy work runs in background.
-        isSummarizing = true
         chatMessages = []
         chatInput = ""
         isChatStreaming = false
         inspectorMode = .profile
+        summaryTask?.cancel()
+        summaryTask = nil
         selectedNodeId = node.id
         selectedNode = node
-        summaryText = ""
-        displayedSummary = ""
+        let cachedSummary = summaryCache[node.id]
+        summaryText = cachedSummary ?? ""
+        displayedSummary = cachedSummary ?? ""
+        isSummarizing = false
         profile = nil
         revealTask?.cancel()
         profileTask?.cancel()
+        profileTask = nil
 
-        // Derive profile asynchronously: disk read + NLP derivation are deferred
-        // so that selectNode() returns instantly and the panel animates in immediately.
-        // The profile appears a moment later when the Task completes.
-        let linkedLabels = store.neighbors(of: node.id).map(\.label)
         let nodeId = node.id
         let label = node.label
         let nodeType = node.type
         let sourceId = node.sourceId
+        let nodeUpdatedAt = node.updatedAt
+        let topologyVersion = store.topologyVersion
+        let cacheKey = ProfileCacheKey(
+            nodeId: nodeId,
+            nodeUpdatedAt: nodeUpdatedAt,
+            topologyVersion: topologyVersion
+        )
 
-        profileTask = Task {
-            guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
+        if let cachedProfile = profileCache[cacheKey] {
+            profile = cachedProfile
+        } else {
+            // Derive profile asynchronously so selectNode() returns immediately.
+            profileTask = Task {
+                guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
 
-            // File I/O off main actor (NoteFileStorage.readBody is nonisolated static).
-            let noteBody: String
-            if nodeType == .note, let sourceId {
-                noteBody = await Task.detached {
-                    NoteFileStorage.readBody(pageId: sourceId)
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
+
+                let linkedLabels = store.neighborLabels(of: nodeId)
+
+                let noteBody: String
+                if nodeType == .note, let sourceId {
+                    noteBody = await Task.detached {
+                        NoteFileStorage.readBody(pageId: sourceId)
+                    }.value
+                } else {
+                    noteBody = ""
+                }
+                guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
+
+                let derived = await Task.detached(priority: .userInitiated) {
+                    let linkedCount = linkedLabels.count
+                    let stopWords: Set<String> = [
+                        "about", "after", "again", "also", "because", "between", "could", "every", "first",
+                        "from", "have", "into", "just", "like", "more", "most", "other", "over", "some",
+                        "than", "that", "their", "them", "then", "there", "these", "they", "this", "those",
+                        "under", "using", "very", "what", "when", "where", "which", "while", "with", "would",
+                        "your", "note", "notes", "page", "pages"
+                    ]
+
+                    func normalizedTokens(in text: String) -> [String] {
+                        text
+                            .lowercased()
+                            .split { !$0.isLetter && !$0.isNumber }
+                            .map(String.init)
+                    }
+
+                    func focusKeywords(in body: String, linkedNodeLabels: [String]) -> [String] {
+                        var counts: [String: Int] = [:]
+                        for token in normalizedTokens(in: body) where token.count >= 4 && !stopWords.contains(token) {
+                            counts[token, default: 0] += 1
+                        }
+
+                        let rankedBodyWords = counts
+                            .sorted { lhs, rhs in
+                                if lhs.value == rhs.value { return lhs.key < rhs.key }
+                                return lhs.value > rhs.value
+                            }
+                            .map(\.key)
+
+                        let linkedWords = linkedNodeLabels
+                            .flatMap { normalizedTokens(in: $0) }
+                            .filter { $0.count >= 4 && !stopWords.contains($0) }
+
+                        var ordered: [String] = []
+                        for candidate in rankedBodyWords + linkedWords {
+                            if !ordered.contains(candidate) {
+                                ordered.append(candidate)
+                            }
+                            if ordered.count == 4 { break }
+                        }
+                        return ordered
+                    }
+
+                    func contentRichness(
+                        body: String,
+                        linkedNodeLabels: [String],
+                        keywords: [String]
+                    ) -> Double {
+                        let bodyScore = min(0.72, Double(body.count) / 2200.0)
+                        let linkScore = min(0.18, Double(linkedNodeLabels.count) * 0.03)
+                        let keywordScore = min(0.10, Double(keywords.count) * 0.03)
+                        return min(1.0, bodyScore + linkScore + keywordScore)
+                    }
+
+                    func depthResilience(for insight: DialogueNodeInsight) -> Double {
+                        switch insight.tier {
+                        case .root: 0.18
+                        case .branch: 0.14
+                        case .focus: 0.10
+                        case .detail: 0.07
+                        case .trace: 0.04
+                        }
+                    }
+
+                    func depthCuriosity(for insight: DialogueNodeInsight) -> Double {
+                        switch insight.tier {
+                        case .root: 0.02
+                        case .branch: 0.05
+                        case .focus: 0.08
+                        case .detail: 0.10
+                        case .trace: 0.12
+                        }
+                    }
+
+                    let normalizedBody = noteBody.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let ml = ContentPersonalitySignals.analyze(normalizedBody)
+                    let freqKeywords = focusKeywords(
+                        in: normalizedBody,
+                        linkedNodeLabels: linkedLabels
+                    )
+                    var keywords: [String] = []
+                    for kw in ml.entityKeywords + ml.dominantTopics + freqKeywords {
+                        let lower = kw.lowercased()
+                        if !keywords.contains(where: { $0.lowercased() == lower }) {
+                            keywords.append(kw)
+                        }
+                        if keywords.count >= 6 { break }
+                    }
+
+                    let contentWords = normalizedBody.split { !$0.isLetter && !$0.isNumber }.count
+                    let structureDepth: Int = switch nodeType {
+                    case .folder: 0
+                    case .note, .chat: 2
+                    case .idea, .source, .quote: 3
+                    case .tag, .block: 4
+                    }
+                    let prominence = min(1.0, Double(contentWords) / 1800.0 + Double(linkedCount) * 0.04)
+                    let tier: DialogueDepthTier = switch structureDepth {
+                    case ..<1: .root
+                    case 1: .branch
+                    case 2...3: .focus
+                    case 4...5: .detail
+                    default: .trace
+                    }
+                    let resolvedInsight = DialogueNodeInsight(
+                        structureDepth: structureDepth,
+                        contentWords: contentWords,
+                        childCount: linkedCount,
+                        tier: tier,
+                        prominence: prominence
+                    )
+                    let hierarchyLabel = "Layer \(structureDepth)"
+                    let contentLabel = contentWords > 0 ? "\(contentWords)w" : (linkedCount > 0 ? "\(linkedCount) links" : "thin")
+                    let richness = contentRichness(
+                        body: normalizedBody,
+                        linkedNodeLabels: linkedLabels,
+                        keywords: keywords
+                    )
+                    let mood = DialogueMood.steady
+                    let summary = "\(label) contains connected context for retrieval and answer synthesis. \(hierarchyLabel). \(contentLabel)."
+                    let portrait = DialoguePortraitAsset(symbol: "square.stack.3d.up.fill", crestLabel: "Node")
+                    let careHealth = min(1.0, max(0.0, 0.20 + richness * 0.34 + resolvedInsight.prominence * 0.30 + depthResilience(for: resolvedInsight) * 0.14))
+                    let careAttention = min(1.0, max(0.0, 0.34 + min(0.18, Double(linkedCount) * 0.025) + resolvedInsight.prominence * 0.18 + depthCuriosity(for: resolvedInsight)))
+                    let care = DialogueCareState(
+                        health: careHealth,
+                        attention: careAttention,
+                        mood: mood,
+                        interactionCount: 0,
+                        lastInteractionAt: nil
+                    )
+
+                    return DialogueNodeProfile(
+                        nodeId: nodeId,
+                        label: label,
+                        nodeType: nodeType,
+                        archetype: .sentinel,
+                        summary: summary,
+                        openingLine: "Ask about this node.",
+                        focusKeywords: keywords,
+                        portrait: portrait,
+                        insight: resolvedInsight,
+                        care: care
+                    )
                 }.value
-            } else {
-                noteBody = ""
+                guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
+                self.profileCache[cacheKey] = derived
+                self.profile = derived
             }
-            guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
-
-            // derive() is main-actor isolated (NLP analysis), but file I/O is already done.
-            let derived = DialogueNodeProfile.derive(
-                nodeId: nodeId, label: label, nodeType: nodeType,
-                noteBody: noteBody, linkedNodeLabels: linkedLabels
-            )
-            guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
-            self.profile = derived
         }
 
-        summarizeNode(node, store: store, modelContext: modelContext)
     }
 
     func clearSelection() {
@@ -111,6 +274,7 @@ final class NodeInspectorState {
         chatTask?.cancel()
         revealTask?.cancel()
         profileTask?.cancel()
+        profileTask = nil
         selectedNodeId = nil
         selectedNode = nil
         profile = nil
@@ -125,6 +289,19 @@ final class NodeInspectorState {
 
     func clearCache() {
         summaryCache.removeAll()
+        profileCache.removeAll()
+    }
+
+    func ensureSummary(for node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) {
+        guard selectedNodeId == node.id else { return }
+        if let cached = summaryCache[node.id] {
+            summaryText = cached
+            displayedSummary = cached
+            isSummarizing = false
+            return
+        }
+        guard !isSummarizing, summaryTask == nil else { return }
+        summarizeNode(node, store: store, modelContext: modelContext)
     }
 
     // MARK: - Summarization
@@ -144,9 +321,13 @@ final class NodeInspectorState {
         summaryText = ""
 
         summaryTask = Task {
-            defer { isSummarizing = false }
+            defer {
+                isSummarizing = false
+                summaryTask = nil
+            }
 
             let content = await fetchContent(for: node, store: store, modelContext: modelContext)
+            guard !Task.isCancelled, selectedNodeId == node.id else { return }
 
             guard !content.isEmpty else {
                 summaryText = "No content available for this node."
@@ -162,7 +343,7 @@ final class NodeInspectorState {
                     prompt: prompt,
                     systemPrompt: nil
                 )
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, selectedNodeId == node.id else { return }
 
                 if TriageService.shouldRetryWithLocalModel(result) {
                     throw AppleIntelligenceError.unavailable("Response inadequate")
@@ -171,7 +352,7 @@ final class NodeInspectorState {
                 summaryCache[node.id] = result
                 startSummaryReveal()
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, selectedNodeId == node.id else { return }
                 Log.engine.info("Apple Intelligence unavailable for summary, trying local Qwen: \(error.localizedDescription, privacy: .public)")
                 if let triage = AppBootstrap.shared?.triageService {
                     do {
@@ -182,7 +363,7 @@ final class NodeInspectorState {
                             contentLength: prompt.count,
                             localSurface: .graph
                         )
-                        guard !Task.isCancelled else { return }
+                        guard !Task.isCancelled, selectedNodeId == node.id else { return }
                         if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             summaryText = result
                             summaryCache[node.id] = result
@@ -191,16 +372,17 @@ final class NodeInspectorState {
                         }
                         startSummaryReveal()
                     } catch let error as LocalInferenceRoutingError {
-                        guard !Task.isCancelled else { return }
+                        guard !Task.isCancelled, selectedNodeId == node.id else { return }
                         summaryText = error.localizedDescription
                         startSummaryReveal()
                     } catch {
-                        guard !Task.isCancelled else { return }
+                        guard !Task.isCancelled, selectedNodeId == node.id else { return }
                         Log.engine.info("Local Qwen also unavailable for summary: \(error.localizedDescription, privacy: .public)")
                         summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                         startSummaryReveal()
                     }
                 } else {
+                    guard selectedNodeId == node.id else { return }
                     summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                     startSummaryReveal()
                 }
@@ -211,20 +393,7 @@ final class NodeInspectorState {
     private func startSummaryReveal() {
         revealTask?.cancel()
         let full = summaryText
-        guard !full.isEmpty else {
-            displayedSummary = ""
-            return
-        }
-        displayedSummary = ""
-        revealTask = Task {
-            var pos = full.startIndex
-            while pos < full.endIndex, !Task.isCancelled {
-                let next = full.index(pos, offsetBy: 2, limitedBy: full.endIndex) ?? full.endIndex
-                pos = next
-                displayedSummary = String(full[..<pos])
-                try? await Task.sleep(for: .milliseconds(16))
-            }
-        }
+        displayedSummary = full
     }
 
     private func buildSummaryPrompt(node: GraphNodeRecord, content: String) -> String {

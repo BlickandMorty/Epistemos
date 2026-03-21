@@ -168,9 +168,11 @@ final class HologramController {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            guard let self, let overlay = self.overlay, overlay.isVisible else { return }
-            // Re-show on the new active screen.
-            overlay.show()
+            MainActor.assumeIsolated {
+                guard let self, let overlay = self.overlay, overlay.isVisible else { return }
+                // Re-show on the new active screen.
+                overlay.show()
+            }
         }
     }
 

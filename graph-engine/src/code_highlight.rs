@@ -302,22 +302,21 @@ fn classify_node(node: tree_sitter::Node, code: &str) -> TokenType {
                 if parent_kind.contains("call") {
                     // In call expressions, the function identifier is typically
                     // the first child or the "function" field
-                    if let Some(func_node) = parent.child_by_field_name("function") {
-                        if func_node.id() == node.id()
-                            || func_node.start_byte() == node.start_byte()
-                        {
-                            return TokenType::Function;
-                        }
+                    if let Some(func_node) = parent.child_by_field_name("function")
+                        && (func_node.id() == node.id()
+                            || func_node.start_byte() == node.start_byte())
+                    {
+                        return TokenType::Function;
                     }
                     // Also check: first named child of call_expression
                     if parent.child(0).map(|c| c.id()) == Some(node.id()) {
                         return TokenType::Function;
                     }
                 }
-                if let Some(name_node) = parent.child_by_field_name("name") {
-                    if name_node.id() == node.id() || name_node.start_byte() == node.start_byte() {
-                        return TokenType::Function;
-                    }
+                if let Some(name_node) = parent.child_by_field_name("name")
+                    && (name_node.id() == node.id() || name_node.start_byte() == node.start_byte())
+                {
+                    return TokenType::Function;
                 }
             }
 
@@ -342,23 +341,22 @@ fn classify_node(node: tree_sitter::Node, code: &str) -> TokenType {
                 || parent_kind == "field_expression"
                 || parent_kind == "navigation_expression"
             {
-                if let Some(prop) = parent.child_by_field_name("property") {
-                    if prop.start_byte() == node.start_byte() {
-                        return TokenType::Property;
-                    }
+                if let Some(prop) = parent.child_by_field_name("property")
+                    && prop.start_byte() == node.start_byte()
+                {
+                    return TokenType::Property;
                 }
-                if let Some(field) = parent.child_by_field_name("field") {
-                    if field.start_byte() == node.start_byte() {
-                        return TokenType::Property;
-                    }
+                if let Some(field) = parent.child_by_field_name("field")
+                    && field.start_byte() == node.start_byte()
+                {
+                    return TokenType::Property;
                 }
                 // Fallback: if we are the last child of member_expression, likely property
-                if parent.child_count() > 0 {
-                    if let Some(last) = parent.child(parent.child_count() - 1) {
-                        if last.start_byte() == node.start_byte() {
-                            return TokenType::Property;
-                        }
-                    }
+                if parent.child_count() > 0
+                    && let Some(last) = parent.child(parent.child_count() - 1)
+                    && last.start_byte() == node.start_byte()
+                {
+                    return TokenType::Property;
                 }
             }
 
@@ -405,10 +403,10 @@ fn cursor_field_name_for_node(
     parent: tree_sitter::Node,
 ) -> Option<&'static str> {
     for i in 0..parent.child_count() {
-        if let Some(child) = parent.child(i) {
-            if child.id() == node.id() {
-                return parent.field_name_for_child(i as u32);
-            }
+        if let Some(child) = parent.child(i)
+            && child.id() == node.id()
+        {
+            return parent.field_name_for_child(i as u32);
         }
     }
     None
@@ -493,9 +491,7 @@ pub fn tokenize(lang: &str, code: &str) -> Vec<CodeToken> {
         }
 
         // Depth-first traversal
-        if !did_visit_children && cursor.goto_first_child() {
-            did_visit_children = false;
-        } else if cursor.goto_next_sibling() {
+        if (!did_visit_children && cursor.goto_first_child()) || cursor.goto_next_sibling() {
             did_visit_children = false;
         } else if cursor.goto_parent() {
             did_visit_children = true;

@@ -197,7 +197,7 @@ fn parse_markdown_line(line: &str) -> (u16, &str) {
         match bytes[cursor] {
             b' ' => {
                 cursor += 1;
-                if cursor % 2 == 0 {
+                if cursor.is_multiple_of(2) {
                     depth += 1;
                 }
             }
@@ -247,19 +247,20 @@ fn parse_task_state(content: &str) -> (Option<&'static str>, bool, Cow<'_, str>)
 fn parse_inline_properties(content: &str) -> Vec<(String, String)> {
     let mut properties = Vec::new();
     for token in content.split_whitespace() {
-        if let Some((key, value)) = token.split_once('=') {
-            if let Some(key) = key.strip_prefix('@') {
-                if !key.is_empty() && !value.is_empty() {
-                    properties.push((key.to_string(), value.to_string()));
-                }
-            }
+        if let Some((key, value)) = token.split_once('=')
+            && let Some(key) = key.strip_prefix('@')
+            && !key.is_empty()
+            && !value.is_empty()
+        {
+            properties.push((key.to_string(), value.to_string()));
         }
         if token.starts_with(':') && token.ends_with(':') {
             let trimmed = token.trim_matches(':');
-            if let Some((key, value)) = trimmed.split_once(':') {
-                if !key.is_empty() && !value.is_empty() {
-                    properties.push((key.to_string(), value.to_string()));
-                }
+            if let Some((key, value)) = trimmed.split_once(':')
+                && !key.is_empty()
+                && !value.is_empty()
+            {
+                properties.push((key.to_string(), value.to_string()));
             }
         }
     }
@@ -346,10 +347,12 @@ mod tests {
 
         assert_eq!(document.blocks.len(), 2);
         assert_eq!(document.properties.len(), 2);
-        assert!(document
-            .properties
-            .iter()
-            .all(|property| property.block_id == document.blocks[0].block_id));
+        assert!(
+            document
+                .properties
+                .iter()
+                .all(|property| property.block_id == document.blocks[0].block_id)
+        );
     }
 
     #[test]

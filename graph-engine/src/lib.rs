@@ -13,8 +13,8 @@ pub mod forces;
 pub mod knowledge_core;
 pub mod markdown;
 pub mod quadtree;
-pub mod retrieval_index;
 pub mod renderer;
+pub mod retrieval_index;
 pub mod search;
 pub mod simulation;
 pub mod spatial;
@@ -84,6 +84,18 @@ pub struct GraphEngineByteBuffer {
     pub len: u64,
     /// Allocation capacity for reconstructing the Rust Vec during free.
     pub capacity: u64,
+}
+
+#[repr(C)]
+pub struct GraphEnginePreparedRetrievalCandidate {
+    pub page_id: *mut c_char,
+    pub score: f32,
+}
+
+#[repr(C)]
+pub struct GraphEnginePreparedRetrievalCandidateList {
+    pub candidates: *mut GraphEnginePreparedRetrievalCandidate,
+    pub count: u32,
 }
 
 #[repr(C)]
@@ -428,7 +440,10 @@ fn fill_btk_row_from_archived(
     fill_string_slice(&mut out_row.parent_id, archived_row.parent_id.as_str());
     fill_string_slice(&mut out_row.target_id, archived_row.target_id.as_str());
     fill_string_slice(&mut out_row.content, archived_row.content.as_str());
-    fill_string_slice(&mut out_row.property_key, archived_row.property_key.as_str());
+    fill_string_slice(
+        &mut out_row.property_key,
+        archived_row.property_key.as_str(),
+    );
     fill_string_slice(
         &mut out_row.property_value,
         archived_row.property_value.as_str(),
@@ -732,14 +747,12 @@ pub extern "C" fn graph_engine_remove_nodes_batch(
     let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
     let graph = engine.graph_mut();
     let mut removed = 0u32;
-    for i in 0..count {
-        let uuid_str = if uuid_ptrs[i].is_null() {
+    for &uuid_ptr in uuid_ptrs.iter().take(count) {
+        let uuid_str = if uuid_ptr.is_null() {
             ""
         } else {
             // SAFETY: caller guarantees null-terminated UTF-8.
-            unsafe { CStr::from_ptr(uuid_ptrs[i]) }
-                .to_str()
-                .unwrap_or("")
+            unsafe { CStr::from_ptr(uuid_ptr) }.to_str().unwrap_or("")
         };
         if graph.remove_node(uuid_str) {
             removed += 1;
@@ -1525,11 +1538,16 @@ pub extern "C" fn graph_engine_load_prepared_retrieval_index(
     if manifest_path.is_empty() {
         return 0;
     }
+    let Some(manifest_signature) =
+        PreparedRetrievalStore::manifest_signature_for_path(manifest_path)
+    else {
+        return 0;
+    };
 
     if engine
         .prepared_retrieval_store
         .as_ref()
-        .is_some_and(|store| store.matches_manifest_path(manifest_path))
+        .is_some_and(|store| store.matches_manifest_cache_key(manifest_path, manifest_signature))
     {
         return 1;
     }
@@ -1611,8 +1629,7 @@ pub extern "C" fn graph_engine_prepared_retrieval_search(
 }
 
 /// Score a fixed set of page IDs against the loaded prepared retrieval index.
-/// Returns page IDs in the `uuid` field of GraphSearchResult. Free with
-/// `graph_engine_free_search_results`.
+/// Returns a lightweight page-id/score candidate list.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
     engine: *mut Engine,
@@ -1620,27 +1637,28 @@ pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
     dim: u32,
     page_ids: *const *const std::os::raw::c_char,
     page_id_count: u32,
-    out_count: *mut u32,
-) -> *mut search::SearchResult {
-    ffi_engine_or!(engine, std::ptr::null_mut());
-    if query_data.is_null() || dim == 0 || page_ids.is_null() || page_id_count == 0 {
-        unsafe {
-            if !out_count.is_null() {
-                *out_count = 0;
-            }
+) -> GraphEnginePreparedRetrievalCandidateList {
+    ffi_engine_or!(
+        engine,
+        GraphEnginePreparedRetrievalCandidateList {
+            candidates: std::ptr::null_mut(),
+            count: 0,
         }
-        return std::ptr::null_mut();
+    );
+    if query_data.is_null() || dim == 0 || page_ids.is_null() || page_id_count == 0 {
+        return GraphEnginePreparedRetrievalCandidateList {
+            candidates: std::ptr::null_mut(),
+            count: 0,
+        };
     }
 
     let store = match engine.prepared_retrieval_store.as_ref() {
         Some(store) => store,
         None => {
-            unsafe {
-                if !out_count.is_null() {
-                    *out_count = 0;
-                }
-            }
-            return std::ptr::null_mut();
+            return GraphEnginePreparedRetrievalCandidateList {
+                candidates: std::ptr::null_mut(),
+                count: 0,
+            };
         }
     };
 
@@ -1660,27 +1678,47 @@ pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
         .collect();
 
     let hits = store.score_page_ids(query_vec, &requested_page_ids);
-    unsafe {
-        if !out_count.is_null() {
-            *out_count = hits.len() as u32;
-        }
-    }
-
     if hits.is_empty() {
-        return std::ptr::null_mut();
+        return GraphEnginePreparedRetrievalCandidateList {
+            candidates: std::ptr::null_mut(),
+            count: 0,
+        };
     }
 
-    let ffi_results: Vec<search::SearchResult> = hits
+    let mut ffi_results: Vec<GraphEnginePreparedRetrievalCandidate> = hits
         .into_iter()
-        .map(|hit| search::SearchResult {
-            uuid: CString::new(hit.page_id).unwrap_or_default().into_raw(),
-            label: CString::default().into_raw(),
-            node_type: 0,
+        .map(|hit| GraphEnginePreparedRetrievalCandidate {
+            page_id: CString::new(hit.page_id).unwrap_or_default().into_raw(),
             score: hit.similarity,
         })
         .collect();
 
-    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+    let count = ffi_results.len() as u32;
+    let candidates = ffi_results.as_mut_ptr();
+    std::mem::forget(ffi_results);
+    GraphEnginePreparedRetrievalCandidateList { candidates, count }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_free_prepared_retrieval_candidates(
+    list: GraphEnginePreparedRetrievalCandidateList,
+) {
+    if list.candidates.is_null() || list.count == 0 {
+        return;
+    }
+
+    // SAFETY: `list.candidates` and `list.count` come directly from
+    // graph_engine_prepared_retrieval_score_page_ids.
+    let mut candidates =
+        unsafe { Vec::from_raw_parts(list.candidates, list.count as usize, list.count as usize) };
+
+    for candidate in &mut candidates {
+        if !candidate.page_id.is_null() {
+            // SAFETY: each page_id was allocated with CString::into_raw above.
+            let _ = unsafe { CString::from_raw(candidate.page_id) };
+            candidate.page_id = std::ptr::null_mut();
+        }
+    }
 }
 
 // ── Block Transaction Kernel (BTK) ───────────────────────────────────────────
@@ -1801,12 +1839,12 @@ pub extern "C" fn graph_engine_btk_translate_edit(
     let count = ops.len() as u32;
 
     // Apply ops to both tree and log
-    if let Some(tree) = engine.btk_trees.get_mut(page_id_str) {
-        if let Some(log) = engine.btk_logs.get_mut(page_id_str) {
-            for op in ops {
-                tree.apply(&op);
-                log.append(op);
-            }
+    if let Some(tree) = engine.btk_trees.get_mut(page_id_str)
+        && let Some(log) = engine.btk_logs.get_mut(page_id_str)
+    {
+        for op in ops {
+            tree.apply(&op);
+            log.append(op);
         }
     }
 
@@ -2753,8 +2791,8 @@ mod knowledge_core_ffi_tests {
         graph_engine_kc_payload_subscription_id, graph_engine_kc_payload_summary,
         graph_engine_kc_payload_tx_id, graph_engine_kc_ring_head, graph_engine_kc_ring_layout,
         graph_engine_kc_ring_region, graph_engine_kc_ring_set_tail, graph_engine_kc_ring_tail,
-        graph_engine_kc_subscribe_outline,
-        graph_engine_kc_subscription_kind, graph_engine_kc_transport_stats,
+        graph_engine_kc_subscribe_outline, graph_engine_kc_subscription_kind,
+        graph_engine_kc_transport_stats,
     };
 
     #[repr(C)]
@@ -2917,7 +2955,9 @@ mod knowledge_core_ffi_tests {
         let region = graph_engine_kc_ring_region(core);
         let layout = graph_engine_kc_ring_layout(core);
         assert!(!region.ptr.is_null());
-        assert!(region.len >= layout.slots_offset + layout.slot_stride * u64::from(layout.slot_count));
+        assert!(
+            region.len >= layout.slots_offset + layout.slot_stride * u64::from(layout.slot_count)
+        );
         assert_eq!(layout.head_offset, 0);
         assert_eq!(layout.tail_offset, 128);
         assert_eq!(
@@ -2982,14 +3022,7 @@ mod knowledge_core_ffi_tests {
             0
         );
         assert_eq!(
-            graph_engine_kc_payload_rows(
-                junk.as_ptr(),
-                junk.len() as u64,
-                0,
-                0,
-                &mut row,
-                1,
-            ),
+            graph_engine_kc_payload_rows(junk.as_ptr(), junk.len() as u64, 0, 0, &mut row, 1,),
             0
         );
     }
@@ -3149,7 +3182,7 @@ mod knowledge_core_ffi_tests {
         let slot_base = unsafe { region.ptr.add(slot_offset) };
         // SAFETY: Slot headers are written by Rust with `repr(C)` layout.
         let header = unsafe { &*slot_base.cast::<TestSlotHeader>() };
-        assert!(header.len as u32 <= layout.slot_payload_bytes);
+        assert!(header.len <= layout.slot_payload_bytes);
         let payload_ptr = unsafe { slot_base.add(payload_offset) };
         (payload_ptr.cast::<u8>(), u64::from(header.len))
     }
@@ -3315,22 +3348,37 @@ mod btk_ffi_tests {
         let payload = SubscriptionPayload {
             version: 7,
             kind: 0,
-            added: vec![sample_row("block-a", "Alpha"), sample_row("block-b", "Beta")],
+            added: vec![
+                sample_row("block-a", "Alpha"),
+                sample_row("block-b", "Beta"),
+            ],
             updated: Vec::new(),
             removed: Vec::new(),
         };
         let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&payload)
             .expect("subscription payload should archive");
 
-        let mut scalar_rows = [BtkSubscriptionRowFFI::default(), BtkSubscriptionRowFFI::default()];
+        let mut scalar_rows = [
+            BtkSubscriptionRowFFI::default(),
+            BtkSubscriptionRowFFI::default(),
+        ];
         for (index, row) in scalar_rows.iter_mut().enumerate() {
             assert_eq!(
-                graph_engine_btk_payload_row(bytes.as_ptr(), bytes.len() as u64, 0, index as u32, row),
+                graph_engine_btk_payload_row(
+                    bytes.as_ptr(),
+                    bytes.len() as u64,
+                    0,
+                    index as u32,
+                    row
+                ),
                 1
             );
         }
 
-        let mut batched_rows = [BtkSubscriptionRowFFI::default(), BtkSubscriptionRowFFI::default()];
+        let mut batched_rows = [
+            BtkSubscriptionRowFFI::default(),
+            BtkSubscriptionRowFFI::default(),
+        ];
         let written = graph_engine_btk_payload_rows(
             bytes.as_ptr(),
             bytes.len() as u64,
@@ -3340,8 +3388,14 @@ mod btk_ffi_tests {
             batched_rows.len() as u32,
         );
         assert_eq!(written, 2);
-        assert_eq!(decode(scalar_rows[0].content), decode(batched_rows[0].content));
-        assert_eq!(decode(scalar_rows[1].content), decode(batched_rows[1].content));
+        assert_eq!(
+            decode(scalar_rows[0].content),
+            decode(batched_rows[0].content)
+        );
+        assert_eq!(
+            decode(scalar_rows[1].content),
+            decode(batched_rows[1].content)
+        );
         assert_eq!(decode(batched_rows[0].block_id), "block-a");
         assert_eq!(decode(batched_rows[1].block_id), "block-b");
     }
@@ -3472,14 +3526,7 @@ mod btk_ffi_tests {
             0
         );
         assert_eq!(
-            graph_engine_btk_payload_rows(
-                junk.as_ptr(),
-                junk.len() as u64,
-                0,
-                0,
-                &mut row,
-                1,
-            ),
+            graph_engine_btk_payload_rows(junk.as_ptr(), junk.len() as u64, 0, 0, &mut row, 1,),
             0
         );
     }

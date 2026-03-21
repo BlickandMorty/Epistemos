@@ -1,6 +1,8 @@
 //! Automatically generated comprehensive spatial tests.
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::reversed_empty_ranges)]
+
     use crate::spatial::SpatialIndex;
     use crate::types::{Node, NodeType};
 

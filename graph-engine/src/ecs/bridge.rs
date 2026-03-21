@@ -157,7 +157,7 @@ mod tests {
     fn test_from_graph_preserves_positions() {
         let mut graph = Graph::new();
         graph.add_node("a".into(), -50.5, 123.4, 0, 1, "A".into());
-        graph.nodes[0].vx = 3.14;
+        graph.nodes[0].vx = 314.0_f32 / 100.0;
         graph.nodes[0].vy = -2.71;
 
         let world = World::from_graph(&graph);
@@ -166,7 +166,7 @@ mod tests {
 
         assert_eq!(world.transform[idx].x, -50.5);
         assert_eq!(world.transform[idx].y, 123.4);
-        assert_eq!(world.velocity[idx].vx, 3.14);
+        assert_eq!(world.velocity[idx].vx, 314.0_f32 / 100.0);
         assert_eq!(world.velocity[idx].vy, -2.71);
     }
 

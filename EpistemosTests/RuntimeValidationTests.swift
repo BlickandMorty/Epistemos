@@ -67,6 +67,36 @@ struct RuntimeValidationTests {
         #expect(AppBootstrap.shared === second)
     }
 
+    @Test("bootstrap throttles local model refreshes and the local runtime serializes request turns")
+    func bootstrapThrottlesRefreshAndRuntimeSerializesTurns() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
+
+        #expect(bootstrap.contains("private final class LocalModelRefreshThrottle"))
+        #expect(bootstrap.contains("private let localModelRefreshThrottle: LocalModelRefreshThrottle"))
+        #expect(bootstrap.contains("let localModelRefreshThrottle = LocalModelRefreshThrottle("))
+        #expect(bootstrap.contains("localModelRefreshThrottle.refreshIfNeeded()"))
+        #expect(!bootstrap.contains("prepareForRequest: {\n                localModelManager.refreshFromDisk()"))
+        #expect(!bootstrap.contains("prepareForRouting: {\n                localModelManager.refreshFromDisk()"))
+
+        #expect(runtime.contains("actor LocalMLXRequestGate"))
+        #expect(runtime.contains("private let requestGate = LocalMLXRequestGate()"))
+        #expect(runtime.contains("await requestGate.acquire()"))
+        #expect(runtime.contains("await requestGate.release()"))
+    }
+
+    @Test("bootstrap refreshes prepared retrieval runtime state on app activation")
+    func bootstrapRefreshesPreparedRetrievalRuntimeStateOnActivation() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(bootstrap.contains("private func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?)"))
+        #expect(bootstrap.contains("private func refreshPreparedRetrievalRuntimeConfigurationIfNeeded()"))
+        #expect(bootstrap.contains("preparedModelRegistry.load()"))
+        #expect(bootstrap.contains("queryEngine.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
+        #expect(bootstrap.contains("graphState.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
+        #expect(bootstrap.contains("self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()"))
+    }
+
     @MainActor
     @Test("bootstrap loads the prepared model registry")
     func bootstrapLoadsPreparedModelRegistry() async {
@@ -309,6 +339,269 @@ struct RuntimeValidationTests {
             #expect(!rustFFI.contains(symbol))
             #expect(!header.contains(symbol))
         }
+    }
+
+    @Test("live local ai surfaces stay free of sidecar and deepseek residue")
+    func liveLocalAISurfacesStayFreeOfSidecarAndDeepSeekResidue() throws {
+        let llm = try loadRepoTextFile("Epistemos/Engine/LLMService.swift")
+        let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
+        let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+
+        for banned in [
+            "LocalSidecar",
+            "SSE",
+            "mlx-openai-server",
+            "http://127.0.0.1",
+            "DeepSeek",
+            "reasoner",
+        ] {
+            #expect(!llm.contains(banned))
+            #expect(!triage.contains(banned))
+            #expect(!inference.contains(banned))
+        }
+    }
+
+    @Test("native cleanup fallback grep uses word boundaries for legacy runtime bans")
+    func nativeCleanupFallbackGrepUsesWordBoundaries() throws {
+        let scan = try loadRepoTextFile("scripts/audit/native_cleanup_scan.sh")
+
+        #expect(scan.contains(#"\\breasoner\\b"#))
+        #expect(scan.contains(#"\\bSSE\\b"#))
+        #expect(!scan.contains("|SSE'"))
+        #expect(scan.contains("ast-grep scan --rule"))
+        #expect(scan.contains("${ROOT_DIR}/Epistemos/Engine"))
+        #expect(scan.contains("${ROOT_DIR}/Epistemos/Graph"))
+        #expect(scan.contains("${ROOT_DIR}/Epistemos/Views/Graph"))
+        #expect(scan.contains("periphery scan --project Epistemos.xcodeproj --schemes Epistemos --targets Epistemos --format xcode"))
+        #expect(scan.contains("cd '${ROOT_DIR}/graph-engine' && cargo machete"))
+    }
+
+    @Test("chat coordinator caches manifest note search fields off the main actor")
+    func chatCoordinatorCachesManifestNoteSearchFieldsOffTheMainActor() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("private struct PreparedManifestSearchEntry"))
+        #expect(coordinator.contains("private nonisolated static func preparedManifestSearchEntries("))
+        #expect(coordinator.contains("private nonisolated static func autoMatchedReferencedNoteIDs("))
+        #expect(coordinator.contains("private nonisolated static func noteSearchScore("))
+        #expect(coordinator.contains("let preparedEntries = preparedManifestSearchEntries(for: manifest)"))
+        #expect(coordinator.contains("let entriesByPageID = Dictionary("))
+    }
+
+    @Test("prepared retrieval reranker uses a dedicated candidate list ffi")
+    func preparedRetrievalRerankerUsesDedicatedCandidateListFFI() throws {
+        let queryRuntime = try loadRepoTextFile("Epistemos/Engine/QueryRuntime.swift")
+        let rustFFI = try loadRepoTextFile("graph-engine/src/lib.rs")
+        let header = try loadRepoTextFile("graph-engine-bridge/graph_engine.h")
+
+        #expect(queryRuntime.contains("graph_engine_prepared_retrieval_score_page_ids("))
+        #expect(queryRuntime.contains("graph_engine_free_prepared_retrieval_candidates(list)"))
+        #expect(queryRuntime.contains("result.page_id"))
+        #expect(!queryRuntime.contains("graph_engine_free_search_results(results, count)"))
+        #expect(header.contains("GraphEnginePreparedRetrievalCandidate"))
+        #expect(header.contains("GraphEnginePreparedRetrievalCandidateList"))
+        #expect(header.contains("graph_engine_free_prepared_retrieval_candidates"))
+        #expect(rustFFI.contains("pub struct GraphEnginePreparedRetrievalCandidate"))
+        #expect(rustFFI.contains("pub struct GraphEnginePreparedRetrievalCandidateList"))
+        #expect(rustFFI.contains("pub extern \"C\" fn graph_engine_free_prepared_retrieval_candidates"))
+    }
+
+    @Test("strict verification suite keeps compiler and purge gates wired")
+    func strictVerificationSuiteKeepsCompilerAndPurgeGatesWired() throws {
+        let verify = try loadRepoTextFile("scripts/audit/verify.sh")
+        let cleanupSuite = try loadRepoTextFile("scripts/audit/cleanup_suite.sh")
+
+        #expect(verify.contains("cargo clippy --manifest-path graph-engine/Cargo.toml --all-targets --all-features -- -D warnings -D dead_code"))
+        #expect(verify.contains("cargo test --manifest-path graph-engine/Cargo.toml"))
+        #expect(verify.contains("native_cleanup_scan.sh"))
+        #expect(verify.contains("OTHER_SWIFT_FLAGS='\\$(inherited) -Xfrontend -strict-concurrency=complete'"))
+        #expect(verify.contains("MallocStackLogging=1"))
+        #expect(verify.contains("leaks Epistemos"))
+        #expect(verify.contains("powermetrics --samplers gpu_power"))
+        #expect(cleanupSuite.contains("./scripts/audit/verify.sh"))
+    }
+
+    @Test("landing surface no longer mounts live cursor fx overlays or controls")
+    func landingSurfaceNoLongerMountsLiveCursorFXOverlaysOrControls() throws {
+        let landingView = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let pageShell = try loadRepoTextFile("Epistemos/Views/Shell/PageShell.swift")
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let uiState = try loadRepoTextFile("Epistemos/State/UIState.swift")
+        let liquidGreeting = try loadRepoTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+
+        #expect(!landingView.contains("currentCursorSurface"))
+        #expect(!landingView.contains("landingWakeVocabulary"))
+        #expect(!landingView.contains("ui.landingCursorVisibilityMode.shows(on: surface)"))
+        #expect(!landingView.contains("pointerState.registerTap(at: value.location)"))
+        #expect(!landingView.contains("LandingASCIIWakeField"))
+        #expect(!landingView.contains("LandingPointerState"))
+        #expect(!rootView.contains("Cursor FX"))
+        #expect(!rootView.contains("LandingCursorControlsView"))
+        #expect(!rootView.contains("cursorVisible"))
+        #expect(!settings.contains("Cursor Visibility"))
+        #expect(!settings.contains("Cursor Animation"))
+        #expect(!liquidGreeting.contains("cursorBlinkLoop"))
+        #expect(!liquidGreeting.contains("cursorVisible"))
+        #expect(!pageShell.contains("cursorVisible"))
+        #expect(!uiState.contains("var landingCursorAnimationEnabled"))
+        #expect(!uiState.contains("var landingCursorVisibilityMode"))
+        #expect(uiState.contains("\"epistemos.landingCursorAnimationEnabled\""))
+    }
+
+    @Test("command palette full text search runs body and block scans concurrently")
+    func commandPaletteFullTextSearchRunsBodyAndBlockScansConcurrently() throws {
+        let palette = try loadRepoTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+
+        #expect(palette.contains("@State private var cachedPageSearchEntries: [PalettePageSearchEntry] = []"))
+        #expect(palette.contains("@State private var cachedPageSearchEntryByID: [String: PalettePageSearchEntry] = [:]"))
+        #expect(palette.contains("@State private var cachedTitleSearchIndex = TrigramSearchIndex<String>()"))
+        #expect(palette.contains("@State private var cachedTitleMatchIDsByQuery: [String: [String]] = [:]"))
+        #expect(palette.contains("@State private var cachedFTSResultsByQuery: [String: [LandingCommandItem]] = [:]"))
+        #expect(palette.contains("refreshPageSearchEntries()"))
+        #expect(palette.contains(".onChange(of: allPages.count) { _, _ in"))
+        #expect(palette.contains(".onChange(of: allPages.first?.updatedAt) { _, _ in"))
+        #expect(palette.contains(".onReceive(NotificationCenter.default.publisher(for: .searchIndexDidUpdate)) { _ in"))
+        #expect(palette.contains("cachedTitleSearchIndex.rebuild("))
+        #expect(palette.contains("private func longestCachedTitleMatchIDs(for query: String) -> [String]?"))
+        #expect(palette.contains("let matchedIDs = cachedTitleMatchIDsByQuery[q]"))
+        #expect(palette.contains("cachedTitleSearchIndex.orderedCandidates(for: q)"))
+        #expect(palette.contains("let scored: [(entry: PalettePageSearchEntry, score: Int)] = matchedIDs"))
+        #expect(palette.contains("let resultIndexByID = Dictionary("))
+        #expect(palette.contains("async let bodyHits = vaultSync.searchFullAsync"))
+        #expect(palette.contains("async let blockHits = vaultSync.searchBlocksAsync"))
+        #expect(palette.contains("let (resolvedBodyHits, resolvedBlockHits) = await (bodyHits, blockHits)"))
+        #expect(palette.contains("guard normalizedQuery.count >= 3 else { return }"))
+        #expect(palette.contains("if let cached = cachedFTSResultsByQuery[normalizedQuery]"))
+        #expect(palette.contains("cachedFTSResultsByQuery[normalizedQuery] = results"))
+        #expect(!palette.contains("private var pageSearchSnapshot"))
+        #expect(!palette.contains("withAnimation(Motion.quick) {\n                cachedSearchResults = titleItems + bodyItems + blockItems"))
+    }
+
+    @Test("search index uses a user-initiated query queue for interactive full text search")
+    func searchIndexUsesUserInitiatedQueryQueueForInteractiveSearch() throws {
+        let searchIndex = try loadRepoTextFile("Epistemos/Sync/SearchIndexService.swift")
+
+        #expect(searchIndex.contains("DatabasePool"))
+        #expect(searchIndex.contains("label: \"com.epistemos.search-index.query\""))
+        #expect(searchIndex.contains("attributes: .concurrent"))
+        #expect(searchIndex.contains("try await offloadSearch { [self] cancellation in"))
+        #expect(searchIndex.contains("private final class OffloadedSearchStateBox"))
+        #expect(searchIndex.contains("private struct OffloadedSearchCancellationProbe"))
+        #expect(searchIndex.contains("private final class SQLiteCancellationContext"))
+        #expect(searchIndex.contains("func check() throws"))
+        #expect(searchIndex.contains("try cancellation.check()"))
+        #expect(searchIndex.contains("let cancellation = OffloadedSearchCancellationProbe {"))
+        #expect(searchIndex.contains("currentState.isCancelled()"))
+        #expect(searchIndex.contains("return try await withTaskCancellationHandler"))
+        #expect(searchIndex.contains("stateBox.cancel()"))
+        #expect(searchIndex.contains("private nonisolated static func withSQLiteCancellation"))
+        #expect(searchIndex.contains("sqlite3_progress_handler("))
+    }
+
+    @Test("notes sidebar caches title matches outside the render path")
+    func notesSidebarCachesTitleMatchesOutsideRenderPath() throws {
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+
+        #expect(sidebar.contains("@State private var titleSearchResults: [SidebarPageItem] = []"))
+        #expect(sidebar.contains("@State private var cachedPageSearchCatalog: [SidebarPageSearchCatalogEntry] = []"))
+        #expect(sidebar.contains("@State private var cachedPageSearchCatalogById: [String: SidebarPageSearchCatalogEntry] = [:]"))
+        #expect(sidebar.contains("@State private var cachedPageSearchTrigramIndex = TrigramSearchIndex<String>()"))
+        #expect(sidebar.contains("@State private var cachedTitleSearchResultIDsByQuery: [String: [String]] = [:]"))
+        #expect(sidebar.contains("@State private var cachedBodySearchResultsByQuery: [String: [SidebarPageItem]] = [:]"))
+        #expect(sidebar.contains("refreshTitleSearchResults(query: notesUI.searchQuery)"))
+        #expect(sidebar.contains("titleSearchResults + uniqueBodyMatches"))
+        #expect(sidebar.contains("cachedPageSearchTrigramIndex.rebuild("))
+        #expect(sidebar.contains("private func longestCachedTitleSearchPrefixIDs(for query: String) -> [String]?"))
+        #expect(sidebar.contains("let matchedIDs = cachedTitleSearchResultIDsByQuery[normalizedQuery] ?? {"))
+        #expect(sidebar.contains("let candidateIDs = longestCachedTitleSearchPrefixIDs(for: normalizedQuery)"))
+        #expect(sidebar.contains("cachedPageSearchTrigramIndex.orderedCandidates(for: normalizedQuery)"))
+        #expect(sidebar.contains("guard normalizedQuery.count >= 3 else"))
+        #expect(sidebar.contains("if let cached = cachedBodySearchResultsByQuery[normalizedQuery]"))
+        #expect(sidebar.contains("cachedBodySearchResultsByQuery[normalizedQuery] = results"))
+        #expect(sidebar.contains("private func refreshTitleSearchResults(query: String)"))
+    }
+
+    @Test("graph selection ignores redundant same-node picks")
+    func graphSelectionIgnoresRedundantSameNodePicks() throws {
+        let graphState = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
+        let graphStore = try loadRepoTextFile("Epistemos/Graph/GraphStore.swift")
+        let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+
+        #expect(graphState.contains("guard selectedNodeId != id else { return }"))
+        #expect(graphStore.contains("func neighborLabels(of nodeId: String) -> [String]"))
+        #expect(graphStore.contains("private var neighborLabelsCache: [String: [String]] = [:]"))
+        #expect(graphStore.contains("if let cached = neighborLabelsCache[nodeId]"))
+        #expect(inspectorState.contains("let linkedLabels = store.neighborLabels(of: nodeId)"))
+        #expect(!inspectorState.contains("store.neighbors(of: node.id).map(\\.label)"))
+    }
+
+    @Test("graph selection tracking throttles inspector position churn")
+    func graphSelectionTrackingThrottlesInspectorPositionChurn() throws {
+        let metalView = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+
+        #expect(metalView.contains("private var sampledSelectedNodeId: String?"))
+        #expect(metalView.contains("private var lastPublishedSelectedNodeScreenPoint: CGPoint?"))
+        #expect(metalView.contains("private var pendingSelectedNodeScreenPoint: CGPoint?"))
+        #expect(metalView.contains("private var selectedNodeScreenPointStableFrames = 0"))
+        #expect(metalView.contains("private var selectedNodeScreenPointSampleFrame = 0"))
+        #expect(metalView.contains("private let selectedNodeScreenPointSampleIntervalFrames = 3"))
+        #expect(metalView.contains("selectedNodeScreenPointSampleFrame % selectedNodeScreenPointSampleIntervalFrames == 0"))
+        #expect(metalView.contains("if selectedNodeScreenPointStableFrames >= 1"))
+        #expect(overlay.contains("private var inspectorRepositionTask: Task<Void, Never>?"))
+        #expect(overlay.contains("private var lastQueuedInspectorAnchor: CGPoint?"))
+        #expect(overlay.contains("private var lastQueuedInspectorMode: NodeInspectorState.InspectorMode?"))
+        #expect(overlay.contains("try? await Task.sleep(for: .milliseconds(32))"))
+        #expect(overlay.contains("private func shouldQueueInspectorReposition("))
+        #expect(overlay.contains("private var lastInspectorFrame: CGRect?"))
+        #expect(overlay.contains("private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool"))
+    }
+
+    @Test("graph sidebar caches notes tree snapshots across selection churn")
+    func graphSidebarCachesNotesTreeSnapshotsAcrossSelectionChurn() throws {
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+
+        #expect(sidebar.contains("@State private var cachedNotesTreeSnapshot"))
+        #expect(sidebar.contains("@State private var cachedNotesTreeTopologyVersion = -1"))
+        #expect(sidebar.contains("refreshNotesTreeSnapshotIfNeeded()"))
+        #expect(sidebar.contains("cachedNotesTreeTopologyVersion != topologyVersion"))
+        #expect(sidebar.contains("let snapshot = cachedNotesTreeSnapshot"))
+    }
+
+    @Test("graph node inspector keeps summary generation off the immediate selection turn")
+    func graphNodeInspectorKeepsSummaryGenerationOffImmediateSelectionTurn() throws {
+        let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+        let inspectorView = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+
+        #expect(!inspectorState.contains("summaryKickoffTask"))
+        #expect(inspectorState.contains("func ensureSummary(for node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext)"))
+        #expect(inspectorState.contains("summaryTask?.cancel()"))
+        #expect(inspectorState.contains("guard !Task.isCancelled, selectedNodeId == node.id else { return }"))
+        #expect(inspectorView.contains("guard newSection == .summary else { return }"))
+        #expect(inspectorView.contains("inspectorState.ensureSummary(for: node, store: graphState.store, modelContext: modelContext)"))
+    }
+
+    @Test("graph summaries still prefer Apple Intelligence before local Qwen fallback")
+    func graphSummariesStayAppleFirst() throws {
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+
+        #expect(inspector.contains("Try Apple Intelligence first for a fast on-device summary, then local Qwen."))
+        #expect(inspector.contains("AppleIntelligenceService.shared.generate("))
+    }
+
+    @Test("node inspector derives profiles off the main actor and caches them by node version")
+    func nodeInspectorDerivesProfilesOffTheMainActorAndCachesThemByNodeVersion() throws {
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+
+        #expect(inspector.contains("private var profileCache: [ProfileCacheKey: DialogueNodeProfile] = [:]"))
+        #expect(inspector.contains("let derived = await Task.detached(priority: .userInitiated)"))
+        #expect(inspector.contains("let normalizedBody = noteBody.trimmingCharacters(in: .whitespacesAndNewlines)"))
+        #expect(inspector.contains("let freqKeywords = focusKeywords("))
+        #expect(inspector.contains("self.profileCache[cacheKey] = derived"))
+        #expect(inspector.contains("if let cachedProfile = profileCache[cacheKey]"))
+        #expect(inspector.contains("displayedSummary = full"))
+        #expect(!inspector.contains("Task.sleep(for: .milliseconds(16))"))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

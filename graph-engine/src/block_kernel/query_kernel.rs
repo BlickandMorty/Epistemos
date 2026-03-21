@@ -237,10 +237,10 @@ struct QueryDependencies {
 
 impl QueryDependencies {
     fn matches(&self, page_id: &str, changed: &ChangedFacts) -> bool {
-        if let Some(filter) = &self.page_filter {
-            if filter != page_id {
-                return false;
-            }
+        if let Some(filter) = &self.page_filter
+            && filter != page_id
+        {
+            return false;
         }
         (self.structure && changed.structure)
             || (self.content && changed.content)
@@ -1082,7 +1082,7 @@ fn serialize_payload(payload: &SubscriptionPayload) -> Option<Vec<u8>> {
 fn parse_task_state(content: &str) -> (String, bool) {
     let trimmed = content.trim_start();
     if let Some(rest) = trimmed.strip_prefix("TODO ") {
-        return ("TODO".to_string(), rest.is_empty() && false);
+        return ("TODO".to_string(), !rest.is_empty());
     }
     if trimmed.starts_with("DONE ") {
         return ("DONE".to_string(), true);

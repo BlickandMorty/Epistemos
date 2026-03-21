@@ -9,11 +9,31 @@ import SwiftData
 // All behavioral orchestration is delegated to AppCoordinator and ChatCoordinator.
 
 @MainActor
+private final class LocalModelRefreshThrottle {
+    private let manager: LocalModelManager
+    private let interval: TimeInterval
+    private var lastRefreshAt: Date = .distantPast
+
+    init(manager: LocalModelManager, interval: TimeInterval) {
+        self.manager = manager
+        self.interval = interval
+    }
+
+    func refreshIfNeeded(force: Bool = false) {
+        let now = Date()
+        guard force || now.timeIntervalSince(lastRefreshAt) >= interval else {
+            return
+        }
+        manager.refreshFromDisk()
+        lastRefreshAt = now
+    }
+}
+
+@MainActor
 final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-    private nonisolated static let knowledgeCoreShadowDefaultsKey = "epistemos.knowledgeCore.shadow"
 
     // MARK: - Model Container
     let modelContainer: ModelContainer
@@ -33,7 +53,6 @@ final class AppBootstrap {
     let threadState = ThreadState()
     let graphState = GraphState()
     let queryEngine = QueryEngine()
-    let knowledgeCoreShadow: KnowledgeCoreShadowRuntime?
     let physicsCoordinator = PhysicsCoordinator()
     let dialogueChatState = DialogueChatState()
 
@@ -46,6 +65,7 @@ final class AppBootstrap {
     var queryTask: Task<Void, Never>?
     private var healthyVaultBodyCleanupTask: Task<Void, Never>?
     private var localRuntimeObserverTokens: [NSObjectProtocol] = []
+    private let localModelRefreshThrottle: LocalModelRefreshThrottle
 
     // MARK: - Services
     let llmService: LLMService
@@ -57,7 +77,6 @@ final class AppBootstrap {
     let triageService: TriageService
     let vaultSync: VaultSyncService
     let noteInsightService: NoteInsightService
-    let pipelineService: PipelineService
 
     // MARK: - Coordinators
     private(set) var coordinator: AppCoordinator!
@@ -101,6 +120,11 @@ final class AppBootstrap {
             installer: ModelDownloadManager()
         )
         self.localModelManager = localModelManager
+        let localModelRefreshThrottle = LocalModelRefreshThrottle(
+            manager: localModelManager,
+            interval: 2
+        )
+        self.localModelRefreshThrottle = localModelRefreshThrottle
 
         let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)
         self.localInferenceService = localInferenceService
@@ -124,7 +148,7 @@ final class AppBootstrap {
             inference: inference,
             paths: localModelManager.paths,
             prepareForRequest: {
-                localModelManager.refreshFromDisk()
+                localModelRefreshThrottle.refreshIfNeeded()
             }
         )
         self.localMLXClient = localMLXClient
@@ -142,7 +166,7 @@ final class AppBootstrap {
             inference: inference,
             localLLMService: localLLMClient,
             prepareForRouting: {
-                localModelManager.refreshFromDisk()
+                localModelRefreshThrottle.refreshIfNeeded()
             }
         )
         self.triageService = triage
@@ -161,14 +185,6 @@ final class AppBootstrap {
             inference: inference,
             eventBus: eventBus
         )
-        self.pipelineService = pipeline
-
-        let defaults = UserDefaults.standard
-        if defaults.bool(forKey: Self.knowledgeCoreShadowDefaultsKey) {
-            knowledgeCoreShadow = KnowledgeCoreShadowRuntime()
-        } else {
-            knowledgeCoreShadow = nil
-        }
 
         // Wire event bus to chat state
         chatState.eventBus = eventBus
@@ -177,7 +193,6 @@ final class AppBootstrap {
         let chatCoordinator = ChatCoordinator(
             bootstrap: self,
             chatState: chatState,
-            pipelineService: pipeline,
             inferenceState: inference,
             vaultSync: vaultSync,
             modelContainer: container,
@@ -254,22 +269,32 @@ final class AppBootstrap {
 
     // MARK: - Forwarding (for external callers that reference AppBootstrap directly)
 
-    func cancelActiveQuery() { coordinator.cancelActiveQuery() }
     func refreshAmbientManifest() { coordinator.refreshAmbientManifest() }
     func loadChat(chatId: String) { coordinator.loadChat(chatId: chatId) }
     func requestVaultBriefing(chatState: ChatState) { coordinator.requestVaultBriefing(chatState: chatState) }
     static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade { ChatCoordinator.gradeFromConfidence(confidence) }
 
-    func refreshPreparedModelRegistry() {
+    private func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
+        graphState.applyPreparedRetrievalRuntimeConfiguration(configuration)
+        queryEngine.applyPreparedRetrievalRuntimeConfiguration(configuration)
+    }
+
+    private func refreshPreparedRetrievalRuntimeConfigurationIfNeeded() {
         do {
             let snapshot = try preparedModelRegistry.load()
+            guard snapshot.manifestURL != preparedModelRegistryState.manifestURL
+                || snapshot.entriesByKey != preparedModelRegistryState.entriesByKey else {
+                return
+            }
             preparedModelRegistryState.apply(snapshot)
-            graphState.applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
-            queryEngine.applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
+            applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
         } catch {
+            guard preparedModelRegistryState.lastErrorMessage != error.localizedDescription
+                || !preparedModelRegistryState.entriesByKey.isEmpty else {
+                return
+            }
             preparedModelRegistryState.apply(error: error)
-            graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
-            queryEngine.applyPreparedRetrievalRuntimeConfiguration(nil)
+            applyPreparedRetrievalRuntimeConfiguration(nil)
         }
     }
 
@@ -434,6 +459,7 @@ final class AppBootstrap {
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor in
+                    self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
                     self?.syncLocalRuntimeConditions(appActive: true)
                 }
             },

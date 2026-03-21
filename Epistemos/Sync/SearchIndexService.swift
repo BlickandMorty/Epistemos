@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import os
+import SQLite3
 
 // MARK: - SearchIndexService
 // FTS5 full-text search engine backed by GRDB.
@@ -9,12 +10,12 @@ import os
 // that supports BM25 ranking, snippet() highlights, and unicode61 tokenization.
 //
 // Architecture:
-// - GRDB DatabaseQueue is thread-safe (Sendable) and accessed via nonisolated methods
+// - GRDB DatabasePool is thread-safe (Sendable) and accessed via nonisolated methods
 // - FTS5 content-sync triggers keep the virtual table in sync with indexed_pages
 // - Startup diff-sync compares updatedAt between SwiftData and GRDB
 // - Incremental: upsert/delete called from VaultIndexActor on each file change
 //
-// Swift 6 note: DatabaseQueue is Sendable. All GRDB operations are in nonisolated
+// Swift 6 note: DatabasePool is Sendable. All GRDB operations are in nonisolated
 // methods to avoid actor-hop overhead. The actor serializes only the async diff sync.
 
 enum SearchIndexError: Error {
@@ -22,9 +23,104 @@ enum SearchIndexError: Error {
 }
 
 actor SearchIndexService {
+    private final class OffloadedSearchState<T: Sendable>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<T, Error>?
+        private var workItem: DispatchWorkItem?
+        private var completed = false
+        private var cancelled = false
+
+        init(continuation: CheckedContinuation<T, Error>) {
+            self.continuation = continuation
+        }
+
+        func bind(workItem: DispatchWorkItem) {
+            lock.lock()
+            self.workItem = workItem
+            let shouldCancel = cancelled || completed
+            lock.unlock()
+            if shouldCancel {
+                workItem.cancel()
+            }
+        }
+
+        func finish(with result: Result<T, Error>) {
+            lock.lock()
+            guard !completed else {
+                lock.unlock()
+                return
+            }
+            completed = true
+            let continuation = self.continuation
+            self.continuation = nil
+            lock.unlock()
+            continuation?.resume(with: result)
+        }
+
+        func isCancelled() -> Bool {
+            lock.lock()
+            let cancelled = self.cancelled
+            lock.unlock()
+            return cancelled
+        }
+
+        func cancel() {
+            lock.lock()
+            guard !completed else {
+                lock.unlock()
+                return
+            }
+            completed = true
+            cancelled = true
+            let continuation = self.continuation
+            self.continuation = nil
+            let workItem = self.workItem
+            lock.unlock()
+            workItem?.cancel()
+            continuation?.resume(throwing: CancellationError())
+        }
+    }
+
+    private final class OffloadedSearchStateBox<T: Sendable>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var state: OffloadedSearchState<T>?
+
+        func set(_ state: OffloadedSearchState<T>) {
+            lock.lock()
+            self.state = state
+            lock.unlock()
+        }
+
+        func cancel() {
+            lock.lock()
+            let state = self.state
+            lock.unlock()
+            state?.cancel()
+        }
+    }
+
+    private struct OffloadedSearchCancellationProbe: Sendable {
+        let isCancelled: @Sendable () -> Bool
+
+        func check() throws {
+            if isCancelled() {
+                throw CancellationError()
+            }
+        }
+    }
+
+    private final class SQLiteCancellationContext: @unchecked Sendable {
+        let isCancelled: @Sendable () -> Bool
+
+        init(isCancelled: @escaping @Sendable () -> Bool) {
+            self.isCancelled = isCancelled
+        }
+    }
+
     private let log = Logger(subsystem: "com.epistemos", category: "SearchIndex")
-    nonisolated private let dbQueue: DatabaseQueue
+    nonisolated private let dbPool: DatabasePool
     nonisolated private let workQueue: DispatchQueue
+    nonisolated private let queryQueue: DispatchQueue
     nonisolated private let supportsPageFTS5: Bool
     nonisolated private let supportsBlockFTS5: Bool
 
@@ -45,13 +141,19 @@ actor SearchIndexService {
             dbPath = appSupport.appendingPathComponent("search.sqlite").path
         }
 
-        let dbQueue = try DatabaseQueue(path: dbPath)
+        let dbPool = try DatabasePool(path: dbPath)
         let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .utility)
-        try Self.setupSchema(dbQueue)
-        let features = try Self.detectFeatures(dbQueue)
+        let queryQueue = DispatchQueue(
+            label: "com.epistemos.search-index.query",
+            qos: .userInitiated,
+            attributes: .concurrent
+        )
+        try Self.setupSchema(dbPool)
+        let features = try Self.detectFeatures(dbPool)
 
-        self.dbQueue = dbQueue
+        self.dbPool = dbPool
         self.workQueue = workQueue
+        self.queryQueue = queryQueue
         supportsPageFTS5 = features.pageFTS5
         supportsBlockFTS5 = features.blockFTS5
 
@@ -67,7 +169,7 @@ actor SearchIndexService {
         let blockFTS5: Bool
     }
 
-    private nonisolated static func setupSchema(_ db: DatabaseQueue) throws {
+    private nonisolated static func setupSchema(_ db: DatabasePool) throws {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
             try db.execute(sql: """
@@ -174,7 +276,7 @@ actor SearchIndexService {
         """)
     }
 
-    private nonisolated static func detectFeatures(_ db: DatabaseQueue) throws -> SearchIndexFeatures {
+    private nonisolated static func detectFeatures(_ db: DatabasePool) throws -> SearchIndexFeatures {
         try db.write { db in
             let fts5Available = try isFTS5Available(db)
             if !fts5Available {
@@ -223,45 +325,21 @@ actor SearchIndexService {
     }
 
     // MARK: - Search
-    // nonisolated: DatabaseQueue is Sendable and let-bound, safe to access without actor hop.
+    // nonisolated: DatabasePool is Sendable and let-bound, safe to access without actor hop.
 
     nonisolated func search(query: String, limit: Int = 50) throws -> [SearchResult] {
         let terms = Self.normalizedSearchTerms(query)
         guard !terms.isEmpty else { return [] }
 
-        return try dbQueue.read { db in
-            if supportsPageFTS5 {
-                let sanitized = Self.sanitizeFTS5Query(terms)
-                let rows = try Row.fetchAll(db, sql: """
-                    SELECT
-                        ip.id,
-                        ip.title,
-                        snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet,
-                        bm25(page_search, 5.0, 1.0, 2.0) AS rank
-                    FROM page_search ps
-                    JOIN indexed_pages ip ON ip.rowid = ps.rowid
-                    WHERE page_search MATCH ?
-                    ORDER BY rank
-                    LIMIT ?
-                """, arguments: [sanitized, limit])
-
-                return rows.map { row in
-                    SearchResult(
-                        pageId: row["id"],
-                        title: row["title"],
-                        snippet: row["snippet"] ?? "",
-                        rank: row["rank"] ?? 0.0
-                    )
-                }
-            }
-
-            return try Self.searchPagesFallback(db, terms: terms, limit: limit)
-        }
+        return try searchPages(terms: terms, limit: limit)
     }
 
     func searchAsync(query: String, limit: Int = 50) async throws -> [SearchResult] {
-        try await offload { [self] in
-            try search(query: query, limit: limit)
+        try await offloadSearch { [self] cancellation in
+            let terms = Self.normalizedSearchTerms(query)
+            guard !terms.isEmpty else { return [] }
+            try cancellation.check()
+            return try searchPages(terms: terms, limit: limit, cancellation: cancellation)
         }
     }
 
@@ -271,46 +349,22 @@ actor SearchIndexService {
         let terms = Self.normalizedSearchTerms(query)
         guard !terms.isEmpty else { return [] }
 
-        return try dbQueue.read { db in
-            if supportsBlockFTS5 {
-                let sanitized = Self.sanitizeFTS5Query(terms)
-                let rows = try Row.fetchAll(db, sql: """
-                    SELECT
-                        ib.block_id,
-                        ib.page_id,
-                        snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet,
-                        bm25(block_search) AS rank
-                    FROM block_search bs
-                    JOIN indexed_blocks ib ON ib.rowid = bs.rowid
-                    WHERE block_search MATCH ?
-                    ORDER BY rank
-                    LIMIT ?
-                """, arguments: [sanitized, limit])
-
-                return rows.map { row in
-                    BlockSearchResult(
-                        blockId: row["block_id"],
-                        pageId: row["page_id"],
-                        snippet: row["snippet"] ?? "",
-                        rank: row["rank"] ?? 0.0
-                    )
-                }
-            }
-
-            return try Self.searchBlocksFallback(db, terms: terms, limit: limit)
-        }
+        return try searchBlocks(terms: terms, limit: limit)
     }
 
     func searchBlocksAsync(query: String, limit: Int = 50) async throws -> [BlockSearchResult] {
-        try await offload { [self] in
-            try searchBlocks(query: query, limit: limit)
+        try await offloadSearch { [self] cancellation in
+            let terms = Self.normalizedSearchTerms(query)
+            guard !terms.isEmpty else { return [] }
+            try cancellation.check()
+            return try searchBlocks(terms: terms, limit: limit, cancellation: cancellation)
         }
     }
 
     // MARK: - Block Upsert / Delete
 
     nonisolated func upsertBlock(blockId: String, pageId: String, content: String) throws {
-        try dbQueue.write { db in
+        try dbPool.write { db in
             try db.execute(
                 sql: """
                     INSERT INTO indexed_blocks (block_id, page_id, content)
@@ -326,7 +380,7 @@ actor SearchIndexService {
     }
 
     nonisolated func deleteBlock(blockId: String) throws {
-        try dbQueue.write { db in
+        try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
         }
         Self.notifyIndexChanged([.searchBlocks])
@@ -335,7 +389,7 @@ actor SearchIndexService {
     // MARK: - Upsert / Delete
 
     nonisolated func upsert(id: String, title: String, body: String, tags: String, updatedAt: Date) throws {
-        try dbQueue.write { db in
+        try dbPool.write { db in
             try db.execute(
                 sql: """
                     INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
@@ -357,7 +411,7 @@ actor SearchIndexService {
     ) throws {
         guard !pages.isEmpty else { return }
 
-        try dbQueue.write { db in
+        try dbPool.write { db in
             for page in pages {
                 try db.execute(
                     sql: """
@@ -383,7 +437,7 @@ actor SearchIndexService {
     }
 
     nonisolated func delete(pageId: String) throws {
-        try dbQueue.write { db in
+        try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [pageId])
         }
         Self.notifyIndexChanged([.searchPages])
@@ -408,7 +462,7 @@ actor SearchIndexService {
     nonisolated func rebuildFromSwiftData(
         _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
     ) throws {
-        try dbQueue.write { db in
+        try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_pages")
             if supportsPageFTS5 {
                 try db.execute(sql: "INSERT INTO page_search(page_search) VALUES('rebuild')")
@@ -494,7 +548,7 @@ actor SearchIndexService {
 
     /// Fetch all (id, updatedAt) from GRDB for diff comparison.
     private nonisolated func fetchAllTimestamps() throws -> [String: Double] {
-        try dbQueue.read { db in
+        try dbPool.read { db in
             let rows = try Row.fetchAll(db, sql: "SELECT id, updatedAt FROM indexed_pages")
             var dict: [String: Double] = [:]
             for row in rows {
@@ -508,7 +562,7 @@ actor SearchIndexService {
 
     /// Delete a set of page IDs from the GRDB index.
     private nonisolated func deletePages(ids: Set<String>) throws {
-        try dbQueue.write { db in
+        try dbPool.write { db in
             for id in ids {
                 try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [id])
             }
@@ -527,6 +581,180 @@ actor SearchIndexService {
                 }
             }
         }
+    }
+
+    private func offloadSearch<T: Sendable>(
+        _ operation: @Sendable @escaping (OffloadedSearchCancellationProbe) throws -> T
+    ) async throws -> T {
+        let stateBox = OffloadedSearchStateBox<T>()
+
+        return try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                let currentState = OffloadedSearchState(continuation: continuation)
+                stateBox.set(currentState)
+
+                var workItem: DispatchWorkItem?
+                workItem = DispatchWorkItem { [currentState] in
+                    guard let workItem else { return }
+                    guard !workItem.isCancelled else {
+                        currentState.finish(with: .failure(CancellationError()))
+                        return
+                    }
+                    do {
+                        let cancellation = OffloadedSearchCancellationProbe {
+                            currentState.isCancelled()
+                        }
+                        currentState.finish(with: .success(try operation(cancellation)))
+                    } catch {
+                        currentState.finish(with: .failure(error))
+                    }
+                }
+
+                if let workItem {
+                    currentState.bind(workItem: workItem)
+                    queryQueue.async(execute: workItem)
+                }
+            }
+        } onCancel: {
+            stateBox.cancel()
+        }
+    }
+
+    private nonisolated func searchPages(
+        terms: [String],
+        limit: Int,
+        cancellation: OffloadedSearchCancellationProbe? = nil
+    ) throws -> [SearchResult] {
+        if let cancellation {
+            try cancellation.check()
+        }
+
+        return try dbPool.read { db in
+            if let cancellation {
+                try cancellation.check()
+            }
+
+            return try Self.withSQLiteCancellation(db: db, cancellation: cancellation) {
+                if supportsPageFTS5 {
+                    let sanitized = Self.sanitizeFTS5Query(terms)
+                    let rows = try Row.fetchAll(db, sql: """
+                        SELECT
+                            ip.id,
+                            ip.title,
+                            snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet,
+                            bm25(page_search, 5.0, 1.0, 2.0) AS rank
+                        FROM page_search ps
+                        JOIN indexed_pages ip ON ip.rowid = ps.rowid
+                        WHERE page_search MATCH ?
+                        ORDER BY rank
+                        LIMIT ?
+                    """, arguments: [sanitized, limit])
+
+                    if let cancellation {
+                        try cancellation.check()
+                    }
+
+                    return rows.map { row in
+                        SearchResult(
+                            pageId: row["id"],
+                            title: row["title"],
+                            snippet: row["snippet"] ?? "",
+                            rank: row["rank"] ?? 0.0
+                        )
+                    }
+                }
+
+                if let cancellation {
+                    try cancellation.check()
+                }
+                return try Self.searchPagesFallback(db, terms: terms, limit: limit)
+            }
+        }
+    }
+
+    private nonisolated func searchBlocks(
+        terms: [String],
+        limit: Int,
+        cancellation: OffloadedSearchCancellationProbe? = nil
+    ) throws -> [BlockSearchResult] {
+        if let cancellation {
+            try cancellation.check()
+        }
+
+        return try dbPool.read { db in
+            if let cancellation {
+                try cancellation.check()
+            }
+
+            return try Self.withSQLiteCancellation(db: db, cancellation: cancellation) {
+                if supportsBlockFTS5 {
+                    let sanitized = Self.sanitizeFTS5Query(terms)
+                    let rows = try Row.fetchAll(db, sql: """
+                        SELECT
+                            ib.block_id,
+                            ib.page_id,
+                            snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet,
+                            bm25(block_search) AS rank
+                        FROM block_search bs
+                        JOIN indexed_blocks ib ON ib.rowid = bs.rowid
+                        WHERE block_search MATCH ?
+                        ORDER BY rank
+                        LIMIT ?
+                    """, arguments: [sanitized, limit])
+
+                    if let cancellation {
+                        try cancellation.check()
+                    }
+
+                    return rows.map { row in
+                        BlockSearchResult(
+                            blockId: row["block_id"],
+                            pageId: row["page_id"],
+                            snippet: row["snippet"] ?? "",
+                            rank: row["rank"] ?? 0.0
+                        )
+                    }
+                }
+
+                if let cancellation {
+                    try cancellation.check()
+                }
+                return try Self.searchBlocksFallback(db, terms: terms, limit: limit)
+            }
+        }
+    }
+
+    private nonisolated static func withSQLiteCancellation<T>(
+        db: Database,
+        cancellation: OffloadedSearchCancellationProbe?,
+        _ operation: () throws -> T
+    ) throws -> T {
+        guard let cancellation, let sqliteConnection = db.sqliteConnection else {
+            return try operation()
+        }
+
+        let context = Unmanaged.passRetained(
+            SQLiteCancellationContext(isCancelled: cancellation.isCancelled)
+        )
+        sqlite3_progress_handler(
+            sqliteConnection,
+            1_000,
+            { rawContext in
+                guard let rawContext else { return 0 }
+                let context = Unmanaged<SQLiteCancellationContext>
+                    .fromOpaque(rawContext)
+                    .takeUnretainedValue()
+                return context.isCancelled() ? 1 : 0
+            },
+            context.toOpaque()
+        )
+        defer {
+            sqlite3_progress_handler(sqliteConnection, 0, nil, nil)
+            context.release()
+        }
+
+        return try operation()
     }
 
     private nonisolated static func searchPagesFallback(

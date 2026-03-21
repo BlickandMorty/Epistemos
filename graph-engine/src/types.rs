@@ -916,7 +916,7 @@ mod tests {
         for i in 0..=1000 {
             let r = radius_for_link_count(i);
             assert!(
-                r >= MIN_RADIUS && r <= MAX_RADIUS,
+                (MIN_RADIUS..=MAX_RADIUS).contains(&r),
                 "Radius {} for link count {} out of range [{}, {}]",
                 r,
                 i,
@@ -964,9 +964,9 @@ mod tests {
     fn edge_type_colors_rgba_in_range() {
         for t in 0..=11u8 {
             let c = edge_type_color(t);
-            for i in 0..4 {
+            for component in c {
                 assert!(
-                    c[i] >= 0.0 && c[i] <= 1.0,
+                    (0.0..=1.0).contains(&component),
                     "Color component out of [0,1] range"
                 );
             }
@@ -1082,7 +1082,7 @@ mod tests {
         g.add_node("c".into(), 2.0, 0.0, 0, 0, "C".into());
         assert!(g.remove_node("b"));
         assert_eq!(g.nodes.len(), 2);
-        assert!(g.uuid_to_id.get("b").is_none());
+        assert!(!g.uuid_to_id.contains_key("b"));
         // a and c should still be reachable
         assert!(g.uuid_to_id.contains_key("a"));
         assert!(g.uuid_to_id.contains_key("c"));

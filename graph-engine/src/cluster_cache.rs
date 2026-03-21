@@ -30,6 +30,12 @@ pub struct ClusterCache {
     topo_fingerprint: u64,
 }
 
+impl Default for ClusterCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ClusterCache {
     pub fn new() -> Self {
         Self {

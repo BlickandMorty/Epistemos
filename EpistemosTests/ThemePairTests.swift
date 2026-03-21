@@ -267,22 +267,22 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState keeps the live landing greeting and cursor controls")
+    @Test("UIState keeps the live landing greeting controls and clears removed cursor wake defaults")
     func uiStateLandingAnimationDefaults() {
         let defaults = UserDefaults.standard
         let keys = [
-            LandingCursorAnimationPolicy.defaultsKey,
             LandingGreetingAnimationPolicy.enabledDefaultsKey,
             LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey,
-            LandingWakeFieldPolicy.visibilityModeDefaultsKey,
-            LandingWakeFieldPolicy.responseDefaultsKey,
-            LandingWakeFieldPolicy.spreadDefaultsKey,
-            LandingWakeFieldPolicy.trailDefaultsKey,
-            LandingWakeFieldPolicy.viscosityDefaultsKey,
-            LandingWakeFieldPolicy.turbulenceDefaultsKey,
-            LandingWakeFieldPolicy.blastPowerDefaultsKey,
-            LandingWakeFieldPolicy.opacityDefaultsKey,
-            LandingWakeFieldPolicy.blurDefaultsKey,
+            "epistemos.landingCursorAnimationEnabled",
+            "epistemos.landingCursorVisibilityMode",
+            "epistemos.landingCursorResponse",
+            "epistemos.landingCursorSpread",
+            "epistemos.landingCursorTrail",
+            "epistemos.landingCursorViscosity",
+            "epistemos.landingCursorTurbulence",
+            "epistemos.landingCursorBlastPower",
+            "epistemos.landingCursorOpacity",
+            "epistemos.landingCursorBlur",
         ]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
@@ -300,16 +300,10 @@ struct ThemePairTests {
 
         let uiState = UIState()
 
-        #expect(uiState.landingCursorAnimationEnabled == LandingCursorAnimationPolicy.defaultValue)
         #expect(uiState.landingGreetingTypewriterEnabled == LandingGreetingAnimationPolicy.defaultTypewriterEnabled)
-        #expect(uiState.landingCursorResponse == LandingWakeFieldPolicy.defaultResponse)
-        #expect(uiState.landingCursorSpread == LandingWakeFieldPolicy.defaultSpread)
-        #expect(uiState.landingCursorTrail == LandingWakeFieldPolicy.defaultTrail)
-        #expect(uiState.landingCursorViscosity == LandingWakeFieldPolicy.defaultViscosity)
-        #expect(uiState.landingCursorTurbulence == LandingWakeFieldPolicy.defaultTurbulence)
-        #expect(uiState.landingCursorBlastPower == LandingWakeFieldPolicy.defaultBlastPower)
-        #expect(uiState.landingCursorOpacity == LandingWakeFieldPolicy.defaultOpacity)
-        #expect(uiState.landingCursorBlur == LandingWakeFieldPolicy.defaultBlur)
+        for key in keys where key.hasPrefix("epistemos.landingCursor") {
+            #expect(defaults.object(forKey: key) == nil)
+        }
     }
 
     @MainActor
@@ -663,11 +657,9 @@ struct ThemePairTests {
         #expect(CommandPaletteLayout.compactPanelSize.height < CommandPaletteLayout.chatPanelSize.height)
     }
 
-    @Test("Landing greeting toolbar glyph stays stable when animation is disabled")
+    @Test("Landing greeting toolbar glyph stays stable after cursor fx removal")
     func landingGreetingToolbarGlyphStaysStable() {
         #expect(LandingToolbarGlyphs.greetingSymbol == "textformat")
-        #expect(LandingToolbarGlyphs.cursorSymbol(animationEnabled: true) == "cursorarrow.motionlines")
-        #expect(LandingToolbarGlyphs.cursorSymbol(animationEnabled: false) == "cursorarrow")
     }
 
     @Test("Markdown preview block chrome uses a rounded native reading surface")
@@ -1058,12 +1050,12 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState enables landing cursor animation by default")
-    func uiStateEnablesLandingCursorAnimationByDefault() {
+    @Test("UIState no longer restores removed landing cursor defaults")
+    func uiStateNoLongerRestoresLandingCursorDefaults() {
         let defaults = UserDefaults.standard
         let keys = [
-            LandingCursorAnimationPolicy.defaultsKey,
-            LandingWakeFieldPolicy.visibilityModeDefaultsKey,
+            "epistemos.landingCursorAnimationEnabled",
+            "epistemos.landingCursorVisibilityMode",
         ]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
@@ -1077,12 +1069,14 @@ struct ThemePairTests {
         }
 
         for key in keys {
-            defaults.removeObject(forKey: key)
+            defaults.set(true, forKey: key)
         }
 
         let uiState = UIState()
-        #expect(uiState.landingCursorAnimationEnabled == LandingCursorAnimationPolicy.defaultValue)
-        #expect(uiState.landingCursorAnimationEnabled)
+        #expect(uiState.landingGreetingTypewriterEnabled == LandingGreetingAnimationPolicy.defaultTypewriterEnabled)
+        for key in keys {
+            #expect(defaults.object(forKey: key) == nil)
+        }
     }
 
     @Test("Icon composer package uses the layered export 11 icon bundle")
@@ -1192,30 +1186,15 @@ struct ThemePairTests {
         #expect(!settingsView.contains("Enable liquid distortion"))
     }
 
-    @Test("landing view routes cursor wake by surface visibility instead of a top overlay")
-    func landingViewRoutesCursorWakeBySurfaceVisibility() throws {
+    @Test("landing view drops the live cursor wake overlay")
+    func landingViewDropsTheLiveCursorWakeOverlay() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landingView.contains("ui.landingCursorVisibilityMode.shows(on: surface)"))
-        #expect(!landingView.contains(".zIndex(10)"))
-    }
-
-    @Test("landing view keeps wake hover in a dedicated pointer state instead of parent state churn")
-    func landingViewUsesDedicatedPointerStateForWakeHover() throws {
-        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
-
-        #expect(landingView.contains("@State private var pointerState = LandingPointerState()"))
-        #expect(!landingView.contains("@State private var globalHoverLocation"))
-        #expect(landingView.contains("pointerState.location = location"))
-    }
-
-    @Test("landing view routes tap blasts through pointer state instead of wake hit testing")
-    func landingViewRoutesTapBlastsThroughPointerState() throws {
-        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
-
-        #expect(landingView.contains("SpatialTapGesture()"))
-        #expect(landingView.contains("pointerState.registerTap(at: value.location)"))
-        #expect(landingView.contains(".allowsHitTesting(false)"))
+        #expect(!landingView.contains("currentCursorSurface"))
+        #expect(!landingView.contains("ui.landingCursorVisibilityMode.shows(on: surface)"))
+        #expect(!landingView.contains("landingWakeVocabulary"))
+        #expect(!landingView.contains("LandingASCIIWakeFieldConfiguration"))
+        #expect(!landingView.contains("LandingPointerState"))
     }
 
     @Test("landing greeting drops the liquid canvas timeline entirely")
@@ -1226,37 +1205,42 @@ struct ThemePairTests {
         #expect(!liquidGreeting.contains("Canvas("))
         #expect(!liquidGreeting.contains("liquidReleaseDate"))
         #expect(!liquidGreeting.contains("hoverLocation"))
+        #expect(!liquidGreeting.contains("cursorBlinkLoop"))
+        #expect(!liquidGreeting.contains("cursorVisible"))
     }
 
     @Test("landing greeting drops liquid deformation controls from the toolbar")
     func liquidGreetingDropsDeformationControls() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
+        let pageShell = try loadTextFile("Epistemos/Views/Shell/PageShell.swift")
 
         #expect(!liquidGreeting.contains("landingGreetingPull"))
         #expect(!liquidGreeting.contains("landingGreetingBlur"))
         #expect(!rootView.contains("Enable liquid distortion"))
         #expect(!rootView.contains("Reset Greeting Physics"))
+        #expect(!rootView.contains("cursorVisible"))
+        #expect(!pageShell.contains("cursorVisible"))
     }
 
-    @Test("cursor fx exposes wake opacity and blur sliders")
-    func cursorFxExposesWakeOpacityAndBlurSliders() throws {
+    @Test("root toolbar drops cursor fx controls")
+    func rootToolbarDropsCursorFXControls() throws {
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
 
-        #expect(rootView.contains("title: \"Opacity\""))
-        #expect(rootView.contains("value: $ui.landingCursorOpacity"))
-        #expect(rootView.contains("title: \"Blur Shell\""))
-        #expect(rootView.contains("value: $ui.landingCursorBlur"))
+        #expect(!rootView.contains("Cursor FX"))
+        #expect(!rootView.contains("LandingCursorControlsView"))
+        #expect(!rootView.contains("landingCursorToolbarButton"))
     }
 
-    @Test("settings adds a dedicated landing section for greetings and cursor visibility")
-    func settingsAddsDedicatedLandingSection() throws {
+    @Test("settings keeps landing greetings but drops cursor animation controls")
+    func settingsKeepsLandingGreetingsButDropsCursorAnimationControls() throws {
         let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
         #expect(settingsView.contains("case landing = \"Landing\""))
         #expect(settingsView.contains("LandingDetailView()"))
-        #expect(settingsView.contains("Cursor Visibility"))
         #expect(settingsView.contains("Greeting Library"))
+        #expect(!settingsView.contains("Cursor Visibility"))
+        #expect(!settingsView.contains("Cursor Animation"))
     }
 
     @Test("settings view exposes a native sidebar toggle in the toolbar")
@@ -1351,8 +1335,13 @@ struct ThemePairTests {
     func uiStateKeepsSplitGreetingTogglesAndDropsObsoleteFlags() throws {
         let uiState = try loadTextFile("Epistemos/State/UIState.swift")
 
+        #expect(!uiState.contains("var landingCursorAnimationEnabled"))
+        #expect(!uiState.contains("var landingCursorVisibilityMode"))
+        #expect(!uiState.contains("LandingWakeFieldPolicy"))
         #expect(!uiState.contains("var landingGreetingASCIIEnabled"))
         #expect(uiState.contains("var landingGreetingTypewriterEnabled"))
+        #expect(uiState.contains("\"epistemos.landingCursorAnimationEnabled\""))
+        #expect(uiState.contains("\"epistemos.landingCursorVisibilityMode\""))
         #expect(!uiState.contains("var landingGreetingLiquidEnabled"))
         #expect(!uiState.contains("var landingGreetingASCIIHoverEnabled"))
         #expect(!uiState.contains("var landingGreetingTypewriterVersion"))

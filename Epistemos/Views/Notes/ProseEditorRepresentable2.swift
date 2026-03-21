@@ -99,10 +99,11 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             queue: .main
         ) { [weak tv, weak coord] notification in
             guard let offset = notification.userInfo?["charOffset"] as? Int,
-                  let pid = notification.userInfo?["pageId"] as? String,
-                  pid == coord?.currentPageId,
-                  let tv else { return }
+                  let pid = notification.userInfo?["pageId"] as? String else { return }
             MainActor.assumeIsolated {
+                guard let coord,
+                      let tv,
+                      pid == coord.currentPageId else { return }
                 let safeOffset = min(offset, (tv.string as NSString).length)
                 tv.scrollToCharacterOffset(safeOffset)
                 let range = NSRange(location: safeOffset, length: 0)
@@ -115,10 +116,11 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             object: nil,
             queue: .main
         ) { [weak tv, weak coord] note in
-            guard let tv,
-                  let pid = note.userInfo?["pageId"] as? String,
-                  pid == coord?.currentPageId else { return }
+            guard let pid = note.userInfo?["pageId"] as? String else { return }
             MainActor.assumeIsolated {
+                guard let tv,
+                      let coord,
+                      pid == coord.currentPageId else { return }
                 WritingToolsBridge.present(in: tv)
             }
         }
@@ -330,7 +332,7 @@ extension ProseEditorRepresentable2 {
             }
 
             // Wire note chat if reference changed
-            if let noteChat = parent.noteChatState {
+            if parent.noteChatState != nil {
                 wireNoteChatCallbacks()
             }
 
@@ -1002,9 +1004,9 @@ extension ProseEditorRepresentable2 {
                 return
             }
             tableAlignTask?.cancel()
-            tableAlignTask = Task { @MainActor [weak self] in
+            tableAlignTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(500))
-                guard let self, !Task.isCancelled else { return }
+                guard !Task.isCancelled else { return }
                 _ = MarkdownEditorCommands.realignTable(in: tv)
             }
         }

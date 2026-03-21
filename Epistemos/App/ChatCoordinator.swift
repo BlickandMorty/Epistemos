@@ -33,6 +33,14 @@ final class ChatCoordinator {
         let loadedNoteTitles: [String]
     }
 
+    private struct PreparedManifestSearchEntry: Sendable {
+        let entry: VaultManifest.ManifestEntry
+        let normalizedTitle: String
+        let normalizedFolder: String
+        let normalizedSnippet: String
+        let normalizedTags: [String]
+    }
+
     struct AttachedContextResolution: Sendable {
         let context: String?
         let cleanedQuery: String
@@ -40,11 +48,10 @@ final class ChatCoordinator {
         let loadedNoteTitles: [String]
     }
 
-    static let allNotesMentionToken = "All Notes"
+    nonisolated static let allNotesMentionToken = "All Notes"
 
     private unowned let bootstrap: AppBootstrap
     private let chatState: ChatState
-    private let pipelineService: PipelineService
     private let inferenceState: InferenceState
     private let vaultSync: VaultSyncService
     private let modelContainer: ModelContainer
@@ -55,7 +62,6 @@ final class ChatCoordinator {
     init(
         bootstrap: AppBootstrap,
         chatState: ChatState,
-        pipelineService: PipelineService,
         inferenceState: InferenceState,
         vaultSync: VaultSyncService,
         modelContainer: ModelContainer,
@@ -65,7 +71,6 @@ final class ChatCoordinator {
     ) {
         self.bootstrap = bootstrap
         self.chatState = chatState
-        self.pipelineService = pipelineService
         self.inferenceState = inferenceState
         self.vaultSync = vaultSync
         self.modelContainer = modelContainer
@@ -247,8 +252,6 @@ final class ChatCoordinator {
     static func resolveNotesContext(
         query: String,
         manifest: VaultManifest?,
-        loadedNoteIds: Set<String>,
-        loadedNoteTitles: [String] = [],
         includeAllNotesContext: Bool = false,
         findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
         fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody],
@@ -405,18 +408,20 @@ final class ChatCoordinator {
             }
 
             let terms = searchTerms(from: normalizedFilter)
+            let preparedEntries = preparedManifestSearchEntries(for: manifest)
+            let referenceDate = Date()
             let indexedBoosts = indexedNoteBoosts(
                 pageIDs: uniqueIndexedNoteIDs,
                 limit: limitPerSection * 2
             )
-            let matched = manifest.entries
+            let matched = preparedEntries
                 .compactMap { entry -> (entry: VaultManifest.ManifestEntry, score: Int)? in
                     let score = noteSearchScore(
                         for: entry,
-                        normalizedFilter: normalizedFilter,
-                        terms: terms
-                    ) + (indexedBoosts[entry.pageId] ?? 0)
-                    return score > 0 ? (entry, score) : nil
+                        terms: terms,
+                        referenceDate: referenceDate
+                    ) + (indexedBoosts[entry.entry.pageId] ?? 0)
+                    return score > 0 ? (entry.entry, score) : nil
                 }
                 .sorted {
                     if $0.score != $1.score { return $0.score > $1.score }
@@ -479,7 +484,7 @@ final class ChatCoordinator {
         )
     }
 
-    private static func shouldOfferAllNotesChoice(for normalizedFilter: String) -> Bool {
+    private nonisolated static func shouldOfferAllNotesChoice(for normalizedFilter: String) -> Bool {
         normalizedFilter.isEmpty
             || "all notes".contains(normalizedFilter)
             || "all".contains(normalizedFilter)
@@ -487,14 +492,14 @@ final class ChatCoordinator {
             || "everything".contains(normalizedFilter)
     }
 
-    private static func searchTerms(from normalizedFilter: String) -> [String] {
+    private nonisolated static func searchTerms(from normalizedFilter: String) -> [String] {
         normalizedFilter
             .split(whereSeparator: \.isWhitespace)
             .map(String.init)
             .filter { !$0.isEmpty }
     }
 
-    private static func indexedNoteBoosts(pageIDs: [String], limit: Int) -> [String: Int] {
+    private nonisolated static func indexedNoteBoosts(pageIDs: [String], limit: Int) -> [String: Int] {
         var boosts: [String: Int] = [:]
         for (offset, pageID) in uniquePreservingOrder(pageIDs).prefix(limit).enumerated() {
             boosts[pageID] = max(18, 74 - (offset * 8))
@@ -502,43 +507,72 @@ final class ChatCoordinator {
         return boosts
     }
 
-    private static func noteSearchScore(
-        for entry: VaultManifest.ManifestEntry,
-        normalizedFilter: String,
-        terms: [String]
-    ) -> Int {
-        let normalizedTitle = normalizedSearchField(entry.title)
-        let normalizedFolder = entry.folderName.map { normalizedSearchField($0) } ?? ""
-        let normalizedSnippet = normalizedSearchField(entry.snippet)
-        let normalizedTags = entry.tags.map(normalizedSearchField)
+    nonisolated(unsafe) private static let _searchCacheLock = NSLock()
+    nonisolated(unsafe) private static var _cachedSearchManifestSignature: String?
+    nonisolated(unsafe) private static var _cachedSearchPreparedEntries: [PreparedManifestSearchEntry]?
 
+    private nonisolated static func preparedManifestSearchEntries(
+        for manifest: VaultManifest
+    ) -> [PreparedManifestSearchEntry] {
+        _searchCacheLock.lock()
+        defer { _searchCacheLock.unlock() }
+
+        let entries = manifest.entries
+        // Simple heuristic signature: count + first item timestamp. 
+        // This avoids equating 10,000 items on every keystroke.
+        let signature = "\(entries.count)-\(entries.first?.updatedAt.timeIntervalSince1970 ?? 0)"
+
+        if let cached = _cachedSearchPreparedEntries, _cachedSearchManifestSignature == signature {
+            return cached
+        }
+
+        let prepared = entries.map { entry in
+            PreparedManifestSearchEntry(
+                entry: entry,
+                normalizedTitle: normalizedSearchField(entry.title),
+                normalizedFolder: entry.folderName.map(normalizedSearchField) ?? "",
+                normalizedSnippet: normalizedSearchField(entry.snippet),
+                normalizedTags: entry.tags.map(normalizedSearchField)
+            )
+        }
+
+        _cachedSearchManifestSignature = signature
+        _cachedSearchPreparedEntries = prepared
+        return prepared
+    }
+
+    private nonisolated static func noteSearchScore(
+        for entry: PreparedManifestSearchEntry,
+        terms: [String],
+        referenceDate: Date
+    ) -> Int {
         guard !terms.isEmpty else { return 0 }
 
         var score = 0
         for term in terms {
             var matchedCurrentTerm = false
 
-            if normalizedTitle == term {
+            if entry.normalizedTitle == term {
                 score += 160
                 matchedCurrentTerm = true
-            } else if normalizedTitle.hasPrefix(term) {
+            } else if entry.normalizedTitle.hasPrefix(term) {
                 score += 120
                 matchedCurrentTerm = true
-            } else if normalizedTitle.contains(term) {
+            } else if entry.normalizedTitle.contains(term) {
                 score += 80
                 matchedCurrentTerm = true
             }
 
-            if normalizedFolder.hasPrefix(term) {
+            if entry.normalizedFolder.hasPrefix(term) {
                 score += 32
                 matchedCurrentTerm = true
-            } else if normalizedFolder.contains(term) {
+            } else if entry.normalizedFolder.contains(term) {
                 score += 24
                 matchedCurrentTerm = true
             }
 
             var matchedTag = false
-            for tag in normalizedTags {
+            for tag in entry.normalizedTags {
                 if tag == term {
                     score += 48
                     matchedCurrentTerm = true
@@ -560,10 +594,10 @@ final class ChatCoordinator {
             }
 
             if !matchedTag {
-                if normalizedSnippet.hasPrefix(term) {
+                if entry.normalizedSnippet.hasPrefix(term) {
                     score += 22
                     matchedCurrentTerm = true
-                } else if normalizedSnippet.contains(term) {
+                } else if entry.normalizedSnippet.contains(term) {
                     score += 16
                     matchedCurrentTerm = true
                 }
@@ -574,37 +608,15 @@ final class ChatCoordinator {
             }
         }
 
-        let ageInDays = max(0, Date().timeIntervalSince(entry.updatedAt) / 86_400)
+        let ageInDays = max(0, referenceDate.timeIntervalSince(entry.entry.updatedAt) / 86_400)
         score += max(0, 14 - Int(min(ageInDays, 14)))
         return score
     }
 
-    private static func normalizedSearchField(_ value: String) -> String {
+    private nonisolated static func normalizedSearchField(_ value: String) -> String {
         value
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
             .lowercased()
-    }
-
-    func buildNotesContext(query: String, chatState: ChatState) async -> (String?, String) {
-        let resolution = await Self.resolveNotesContext(
-            query: query,
-            manifest: bootstrap.ambientManifest,
-            loadedNoteIds: chatState.loadedNoteIds,
-            loadedNoteTitles: chatState.loadedNoteTitles,
-            includeAllNotesContext: false,
-            findNotesByTitle: { [vaultSync] title in
-                await vaultSync.findNotesByTitle(title)
-            },
-            fetchNoteBodies: { [vaultSync] ids in
-                await vaultSync.fetchNoteBodies(ids: ids)
-            },
-            searchNoteIDs: { [vaultSync] query in
-                await vaultSync.searchIndex(query: query)
-            }
-        )
-        chatState.loadedNoteIds = resolution.loadedNoteIds
-        chatState.loadedNoteTitles = resolution.loadedNoteTitles
-        return (resolution.context, resolution.cleanedQuery)
     }
 
     func buildContextAttachments(
@@ -616,8 +628,6 @@ final class ChatCoordinator {
             query: query,
             attachments: attachments,
             manifest: bootstrap.ambientManifest,
-            loadedNoteIds: chatState.loadedNoteIds,
-            loadedNoteTitles: chatState.loadedNoteTitles,
             includeAllNotesContext: false,
             findNotesByTitle: { [vaultSync] title in
                 await vaultSync.findNotesByTitle(title)
@@ -655,8 +665,6 @@ final class ChatCoordinator {
         query: String,
         attachments: [ContextAttachment],
         manifest: VaultManifest?,
-        loadedNoteIds: Set<String>,
-        loadedNoteTitles: [String],
         includeAllNotesContext: Bool = false,
         findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
         fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody],
@@ -666,8 +674,6 @@ final class ChatCoordinator {
         let noteResolution = await resolveNotesContext(
             query: query,
             manifest: manifest,
-            loadedNoteIds: loadedNoteIds,
-            loadedNoteTitles: loadedNoteTitles,
             includeAllNotesContext: includeAllNotesContext
                 || attachments.contains(where: { $0.kind == .allNotes }),
             findNotesByTitle: findNotesByTitle,
@@ -708,7 +714,7 @@ final class ChatCoordinator {
         )
     }
 
-    private static func uniquePreservingOrder(_ ids: [String]) -> [String] {
+    private nonisolated static func uniquePreservingOrder(_ ids: [String]) -> [String] {
         var seen = Set<String>()
         var results: [String] = []
         results.reserveCapacity(ids.count)
@@ -718,7 +724,7 @@ final class ChatCoordinator {
         return results
     }
 
-    private static func explicitNoteReferenceTitle(in query: String) -> String? {
+    private nonisolated static func explicitNoteReferenceTitle(in query: String) -> String? {
         let patterns = [
             #/(?i)\b(?:go\s+to|open|find|use|read|show|look\s+for|check)\s+(?:my\s+)?note\s+(.+?)(?=\s+(?:and|then|please|summarize|rewrite|analyze|compare|review|explain|tell|show|use)\b|[?.!,]|$)/#,
             #/(?i)\b(?:my\s+)?note\s+(.+?)(?=\s+(?:and|then|please|summarize|rewrite|analyze|compare|review|explain|tell|show|use)\b|[?.!,]|$)/#,
@@ -738,7 +744,7 @@ final class ChatCoordinator {
         return nil
     }
 
-    private static func queryLikelyTargetsExistingNote(_ query: String) -> Bool {
+    private nonisolated static func queryLikelyTargetsExistingNote(_ query: String) -> Bool {
         let normalized = normalizedSearchField(query)
         guard !normalized.isEmpty else { return false }
         let cues = [
@@ -749,7 +755,7 @@ final class ChatCoordinator {
         return cues.contains { normalized.contains($0) }
     }
 
-    private static func noteLookupSearchPhrases(from query: String) -> [String] {
+    private nonisolated static func noteLookupSearchPhrases(from query: String) -> [String] {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return [] }
 
@@ -778,7 +784,7 @@ final class ChatCoordinator {
         return uniquePreservingOrder(phrases)
     }
 
-    private static func autoMatchedReferencedNoteIDs(
+    private nonisolated static func autoMatchedReferencedNoteIDs(
         for query: String,
         manifest: VaultManifest,
         findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
@@ -789,6 +795,11 @@ final class ChatCoordinator {
 
         var scoresByPageID: [String: Int] = [:]
         let normalizedQuery = normalizedSearchField(query)
+        let referenceDate = Date()
+        let preparedEntries = preparedManifestSearchEntries(for: manifest)
+        let entriesByPageID = Dictionary(
+            uniqueKeysWithValues: preparedEntries.map { ($0.entry.pageId, $0.entry) }
+        )
 
         for (phraseIndex, phrase) in phrases.enumerated() {
             let normalizedPhrase = normalizedSearchField(phrase)
@@ -803,24 +814,28 @@ final class ChatCoordinator {
 
             let indexedIDs = uniquePreservingOrder(await searchNoteIDs(phrase))
             let indexedBoosts = indexedNoteBoosts(pageIDs: indexedIDs, limit: 12)
-            for entry in manifest.entries {
+            for entry in preparedEntries {
                 let score = noteSearchScore(
                     for: entry,
-                    normalizedFilter: normalizedPhrase,
-                    terms: terms
-                ) + (indexedBoosts[entry.pageId] ?? 0) + temporalHintBoost(
-                    for: entry,
-                    normalizedQuery: normalizedQuery
+                    terms: terms,
+                    referenceDate: referenceDate
+                ) + (indexedBoosts[entry.entry.pageId] ?? 0) + temporalHintBoost(
+                    updatedAt: entry.entry.updatedAt,
+                    normalizedQuery: normalizedQuery,
+                    referenceDate: referenceDate
                 )
                 guard score > 0 else { continue }
-                scoresByPageID[entry.pageId] = max(scoresByPageID[entry.pageId] ?? 0, score)
+                scoresByPageID[entry.entry.pageId] = max(
+                    scoresByPageID[entry.entry.pageId] ?? 0,
+                    score
+                )
             }
         }
 
         let ranked = scoresByPageID.sorted { lhsPair, rhsPair in
             if lhsPair.value != rhsPair.value { return lhsPair.value > rhsPair.value }
-            let lhsEntry = manifest.entries.first { $0.pageId == lhsPair.key }
-            let rhsEntry = manifest.entries.first { $0.pageId == rhsPair.key }
+            let lhsEntry = entriesByPageID[lhsPair.key]
+            let rhsEntry = entriesByPageID[rhsPair.key]
             return (lhsEntry?.updatedAt ?? .distantPast) > (rhsEntry?.updatedAt ?? .distantPast)
         }
         guard let top = ranked.first, top.value >= 90 else { return [] }
@@ -830,30 +845,31 @@ final class ChatCoordinator {
         return [top.key]
     }
 
-    private static func temporalHintBoost(
-        for entry: VaultManifest.ManifestEntry,
-        normalizedQuery: String
+    private nonisolated static func temporalHintBoost(
+        updatedAt: Date,
+        normalizedQuery: String,
+        referenceDate: Date
     ) -> Int {
         if normalizedQuery.contains("few weeks ago") || normalizedQuery.contains("a few weeks ago") {
-            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            let ageInDays = Int(referenceDate.timeIntervalSince(updatedAt) / 86_400)
             return (10...45).contains(ageInDays) ? 18 : 0
         }
         if normalizedQuery.contains("last week") {
-            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            let ageInDays = Int(referenceDate.timeIntervalSince(updatedAt) / 86_400)
             return (5...14).contains(ageInDays) ? 16 : 0
         }
         if normalizedQuery.contains("yesterday") {
-            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            let ageInDays = Int(referenceDate.timeIntervalSince(updatedAt) / 86_400)
             return ageInDays == 1 ? 16 : 0
         }
         if normalizedQuery.contains("today") {
-            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            let ageInDays = Int(referenceDate.timeIntervalSince(updatedAt) / 86_400)
             return ageInDays == 0 ? 16 : 0
         }
         return 0
     }
 
-    private static func appendLoadedNotes(
+    private nonisolated static func appendLoadedNotes(
         _ bodies: [VaultManifest.NoteBody],
         to destination: inout [VaultManifest.NoteBody],
         loadedIDs: inout Set<String>,
@@ -868,7 +884,7 @@ final class ChatCoordinator {
         }
     }
 
-    private static func matchedVaultNoteIDs(
+    private nonisolated static func matchedVaultNoteIDs(
         for query: String,
         manifest: VaultManifest,
         searchNoteIDs: @escaping @Sendable (String) async -> [String],

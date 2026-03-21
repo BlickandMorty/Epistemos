@@ -4,18 +4,6 @@ import Testing
 
 @Suite("Landing Experience Settings")
 struct LandingExperienceSettingsTests {
-    @Test("cursor visibility mode routes landing and search surfaces correctly")
-    func cursorVisibilityModeRoutesSurfaces() {
-        #expect(LandingCursorVisibilityMode.landingOnly.shows(on: .landing))
-        #expect(!LandingCursorVisibilityMode.landingOnly.shows(on: .search))
-        #expect(!LandingCursorVisibilityMode.searchOnly.shows(on: .landing))
-        #expect(LandingCursorVisibilityMode.searchOnly.shows(on: .search))
-        #expect(LandingCursorVisibilityMode.both.shows(on: .landing))
-        #expect(LandingCursorVisibilityMode.both.shows(on: .search))
-        #expect(!LandingCursorVisibilityMode.neither.shows(on: .landing))
-        #expect(!LandingCursorVisibilityMode.neither.shows(on: .search))
-    }
-
     @Test("greeting resolver falls back to defaults when custom greetings are unavailable")
     func greetingResolverFallsBackToDefaults() {
         let defaultsOnly = LandingGreetingResolver.resolve(
@@ -75,12 +63,20 @@ struct LandingExperienceSettingsTests {
     }
 
     @MainActor
-    @Test("UIState migrates cursor visibility mode from the legacy enabled toggle")
-    func uiStateMigratesCursorVisibilityModeFromLegacyToggle() {
+    @Test("UIState removes legacy landing cursor defaults on init")
+    func uiStateRemovesLegacyLandingCursorDefaultsOnInit() {
         let defaults = UserDefaults.standard
         let keys = [
-            LandingCursorAnimationPolicy.defaultsKey,
-            LandingWakeFieldPolicy.visibilityModeDefaultsKey,
+            "epistemos.landingCursorAnimationEnabled",
+            "epistemos.landingCursorVisibilityMode",
+            "epistemos.landingCursorResponse",
+            "epistemos.landingCursorSpread",
+            "epistemos.landingCursorTrail",
+            "epistemos.landingCursorViscosity",
+            "epistemos.landingCursorTurbulence",
+            "epistemos.landingCursorBlastPower",
+            "epistemos.landingCursorOpacity",
+            "epistemos.landingCursorBlur",
         ]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
@@ -93,15 +89,15 @@ struct LandingExperienceSettingsTests {
             }
         }
 
-        defaults.set(false, forKey: LandingCursorAnimationPolicy.defaultsKey)
-        defaults.removeObject(forKey: LandingWakeFieldPolicy.visibilityModeDefaultsKey)
-        let disabledState = UIState()
-        #expect(disabledState.landingCursorVisibilityMode == .neither)
+        for key in keys {
+            defaults.set("legacy", forKey: key)
+        }
 
-        defaults.set(true, forKey: LandingCursorAnimationPolicy.defaultsKey)
-        defaults.removeObject(forKey: LandingWakeFieldPolicy.visibilityModeDefaultsKey)
-        let enabledState = UIState()
-        #expect(enabledState.landingCursorVisibilityMode == .landingOnly)
+        _ = UIState()
+
+        for key in keys {
+            #expect(defaults.object(forKey: key) == nil)
+        }
     }
 
     @MainActor

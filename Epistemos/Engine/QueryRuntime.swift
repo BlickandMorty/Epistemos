@@ -140,15 +140,11 @@ final class PreparedIndexSimilarityReranker: RetrievalReranking {
     func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
         guard candidates.count > 1,
               embeddingService.preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
-              let engine = graphState?.engineHandle,
-              let manifestPath = embeddingService.preparedRetrievalIndexManifestPath else {
+              let graphState,
+              graphState.ensurePreparedRetrievalIndexLoaded(),
+              let engine = graphState.engineHandle else {
             return candidates
         }
-
-        let loaded = manifestPath.withCString {
-            graph_engine_load_prepared_retrieval_index(engine, $0) != 0
-        }
-        guard loaded else { return candidates }
 
         let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))
         guard dimension > 0,
@@ -161,41 +157,27 @@ final class PreparedIndexSimilarityReranker: RetrievalReranking {
 
         let scores = queryVector.withUnsafeBufferPointer { queryBuffer -> [String: Float] in
             guard let queryBaseAddress = queryBuffer.baseAddress else { return [:] }
-            let cStrings: [UnsafeMutablePointer<CChar>?] = candidatePageIDs.map { pageID in
-                pageID.withCString { strdup($0) }
-            }
-            defer {
-                for pointer in cStrings {
-                    free(pointer)
-                }
-            }
-            let pageIDPointers = cStrings.map { pointer in
-                pointer.map { UnsafePointer($0) }
-            }
-
-            return pageIDPointers.withUnsafeBufferPointer { pointerBuffer in
-                var count: UInt32 = 0
-                let results = graph_engine_prepared_retrieval_score_page_ids(
+            return withStableCStringArray(candidatePageIDs) { pointerBuffer in
+                let list = graph_engine_prepared_retrieval_score_page_ids(
                     engine,
                     queryBaseAddress,
                     UInt32(dimension),
                     pointerBuffer.baseAddress,
-                    UInt32(candidatePageIDs.count),
-                    &count
+                    UInt32(candidatePageIDs.count)
                 )
-                defer { graph_engine_free_search_results(results, count) }
-                guard let results, count > 0 else { return [:] }
+                defer { graph_engine_free_prepared_retrieval_candidates(list) }
+                guard let candidates = list.candidates, list.count > 0 else { return [:] }
 
                 var scoreMap: [String: Float] = [:]
-                scoreMap.reserveCapacity(Int(count))
-                for index in 0..<Int(count) {
-                    let result = results[index]
-                    let pageID = result.uuid.map { String(cString: $0) } ?? ""
+                scoreMap.reserveCapacity(Int(list.count))
+                for index in 0..<Int(list.count) {
+                    let result = candidates[index]
+                    let pageID = result.page_id.map { String(cString: $0) } ?? ""
                     guard !pageID.isEmpty else { continue }
                     scoreMap[pageID] = result.score
                 }
                 return scoreMap
-            }
+            } ?? [:]
         }
 
         guard !scores.isEmpty else { return candidates }

@@ -5,8 +5,8 @@
 Ship a smaller and more honest local stack before Phase 5:
 
 - Apple Intelligence for the lightest native tasks
-- one Qwen local text lane
-- Rust-native BGE retrieval and reranking
+- one in-process Qwen local text lane
+- Rust-native BGE retrieval and reranking target-state
 - experimental MoE isolated and manual-only
 
 ## Mandatory Rule
@@ -18,12 +18,12 @@ Phase 5 stays blocked until Phase 4.5 is fully closed and audited.
 | Phase | Status | Audit Status | Notes |
 |------|--------|--------------|-------|
 | 0 — Decision Reset | complete | audited | DeepSeek lane removed from the live target architecture |
-| 1 — Artifact Inventory | partial | audited | router and retrieval assets remain relevant; reasoner artifacts are no longer part of the plan |
+| 1 — Artifact Inventory | complete | audited | local Qwen and retrieval assets remain relevant; reasoner artifacts are no longer part of the plan |
 | 2 — Local Runtime Boundary | complete | audited | the live app now routes local generation through one in-process Qwen lane |
 | 3 — Retrieval Upgrade | partial | audited | retrieval seams and index prep exist, but Rust-native BGE execution is still missing |
-| 4 — Swift Orchestration Refactor | partial | audited | routing is much cleaner, but strict JSON router contract is not started |
-| 4.5 — Pre-Phase-5 Stabilization | partial | audited | hot-path cleanup, UI streaming improvements, residency guard, DeepSeek removal, and Rust prepared-index search plus similarity reranking are in; native BGE/cross-encoder closure is still open |
-| 5 — Router Contract | not started | not audited | blocked on 4.5 completion |
+| 4 — Swift Orchestration Refactor | partial | audited | note, graph, and local-model orchestration are much cleaner, but retrieval handoff and latency hardening are still open |
+| 4.5 — Pre-Phase-5 Stabilization | partial | audited | hot-path cleanup, UI streaming improvements, residency guard, and Rust prepared-index search plus similarity reranking are in; native BGE/cross-encoder closure is still open |
+| 5 — Structured Local Contract | not started | not audited | blocked on 4.5 completion; no sidecar or separate reasoner lane is part of this phase |
 
 ## What 4.5 Already Closed
 
@@ -35,7 +35,8 @@ Phase 5 stays blocked until Phase 4.5 is fully closed and audited.
 - plain chat can now auto-resolve clearly referenced note requests without `@` syntax when title/search confidence is high
 - DeepSeek/reasoner runtime routing has been removed
 - optional sidecar/worker routing has been removed from the live app
-- Qwen now boots in-process by default
+- Qwen is the only live local text path and boots in-process by default
+- graph inspector summaries still prefer Apple Intelligence before local Qwen fallback
 
 ## What 4.5 Still Must Close
 
@@ -51,19 +52,23 @@ Primary files:
 
 Required outcomes:
 
-1. BGE runtime execution moves into Rust
-2. reranking becomes a real runtime path, not a seam only
+1. BGE query runtime execution moves into Rust
+2. reranking becomes a real cross-encoder runtime path, not a seam only
 3. Swift Apple embeddings remain fallback-only and never masquerade as prepared retrieval
-4. retrieval asset readiness and rebuild policy are explicit
+4. retrieval asset readiness and rebuild policy are explicit end to end
 
 Already landed in this slice:
 
 1. built retrieval indexes now load into the Rust engine as a real runtime store
 2. prepared semantic search now executes against that Rust store instead of stopping at a pending-runtime placeholder
 3. prepared retrieval state now reports `preparedIndexReady` instead of pretending the runtime is still missing
-4. prepared retrieval reranking now scores candidate page IDs inside Rust instead of staying passthrough-only
+4. prepared retrieval reranking now scores candidate page IDs inside Rust instead of staying passthrough-only, but this is still similarity-based rescoring rather than the final cross-encoder runtime
 5. Xcode now tracks `retrieval_index.rs` as a real Rust build input so the live app no longer silently links stale retrieval code
 6. retrieval asset readiness now exposes explicit failure states (`missing`, `invalid`, `stale`, `ready`) instead of a single opaque built/not-built seam
+7. graph semantic clustering stays disabled on the prepared runtime until the vector space is unified behind the real Rust-native embedding path
+8. prepared retrieval runtime configuration now refreshes on app activation, so newly built retrieval assets can come online without a relaunch
+9. prepared semantic search and similarity reranking now reuse a cached prepared-index load boundary instead of reloading the same manifest on every query turn
+10. prepared retrieval cache invalidation now keys on manifest content, not just manifest path, so in-place rebuilds can reload the Rust store instead of staying stale
 
 ### 4.5F — Runtime Hardening
 

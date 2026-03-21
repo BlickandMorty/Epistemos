@@ -1,6 +1,7 @@
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 #[derive(Deserialize)]
@@ -22,6 +23,7 @@ struct DocumentRecord {
 
 pub struct PreparedRetrievalStore {
     manifest_path: String,
+    manifest_signature: u64,
     dimension: usize,
     embeddings: Vec<f32>,
     page_ids: Vec<String>,
@@ -37,6 +39,7 @@ impl PreparedRetrievalStore {
     pub fn load(manifest_path: &str) -> Option<Self> {
         let manifest_path = PathBuf::from(manifest_path);
         let manifest_data = fs::read(&manifest_path).ok()?;
+        let manifest_signature = manifest_signature(&manifest_data);
         let manifest: IndexManifest = serde_json::from_slice(&manifest_data).ok()?;
         if manifest.embedding_dimension == 0 || manifest.document_count == 0 {
             return None;
@@ -59,14 +62,20 @@ impl PreparedRetrievalStore {
 
         Some(Self {
             manifest_path: manifest_path.to_string_lossy().into_owned(),
+            manifest_signature,
             dimension: manifest.embedding_dimension,
             embeddings,
             page_ids,
         })
     }
 
-    pub fn matches_manifest_path(&self, manifest_path: &str) -> bool {
-        self.manifest_path == manifest_path
+    pub fn manifest_signature_for_path(manifest_path: &str) -> Option<u64> {
+        let manifest_data = fs::read(manifest_path).ok()?;
+        Some(manifest_signature(&manifest_data))
+    }
+
+    pub fn matches_manifest_cache_key(&self, manifest_path: &str, manifest_signature: u64) -> bool {
+        self.manifest_path == manifest_path && self.manifest_signature == manifest_signature
     }
 
     pub fn dimension(&self) -> usize {
@@ -179,8 +188,7 @@ impl PreparedRetrievalStore {
 
 fn load_page_ids(documents_path: &Path) -> Option<Vec<String>> {
     let contents = fs::read_to_string(documents_path).ok()?;
-    let mut page_ids = Vec::new();
-    page_ids.reserve(contents.lines().count());
+    let mut page_ids = Vec::with_capacity(contents.lines().count());
 
     for line in contents.lines() {
         if line.is_empty() {
@@ -209,6 +217,12 @@ fn load_embeddings(path: &Path, dimension: usize, document_count: usize) -> Opti
     Some(embeddings)
 }
 
+fn manifest_signature(data: &[u8]) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    data.hash(&mut hasher);
+    hasher.finish()
+}
+
 fn l2_norm(values: &[f32]) -> f32 {
     dot_product(values, values).sqrt()
 }
@@ -227,12 +241,9 @@ mod tests {
     fn prepared_retrieval_store_deduplicates_page_hits() {
         let store = PreparedRetrievalStore {
             manifest_path: "/tmp/index/manifest.json".to_string(),
+            manifest_signature: 0,
             dimension: 2,
-            embeddings: vec![
-                1.0, 0.0,
-                0.8, 0.2,
-                0.0, 1.0,
-            ],
+            embeddings: vec![1.0, 0.0, 0.8, 0.2, 0.0, 1.0],
             page_ids: vec![
                 "page-a".to_string(),
                 "page-a".to_string(),
@@ -252,12 +263,9 @@ mod tests {
     fn prepared_retrieval_store_scores_requested_page_ids() {
         let store = PreparedRetrievalStore {
             manifest_path: "/tmp/index/manifest.json".to_string(),
+            manifest_signature: 0,
             dimension: 2,
-            embeddings: vec![
-                1.0, 0.0,
-                0.2, 0.8,
-                0.0, 1.0,
-            ],
+            embeddings: vec![1.0, 0.0, 0.2, 0.8, 0.0, 1.0],
             page_ids: vec![
                 "page-a".to_string(),
                 "page-b".to_string(),
@@ -265,10 +273,7 @@ mod tests {
             ],
         };
 
-        let hits = store.score_page_ids(
-            &[1.0, 0.0],
-            &["page-c".to_string(), "page-a".to_string()],
-        );
+        let hits = store.score_page_ids(&[1.0, 0.0], &["page-c".to_string(), "page-a".to_string()]);
 
         assert_eq!(hits.len(), 2);
         assert_eq!(hits[0].page_id, "page-a");
@@ -317,5 +322,65 @@ mod tests {
         let hits = store.search(&[1.0, 0.0], 2, 0.0);
         assert_eq!(hits[0].page_id, "page-a");
         assert_eq!(hits[1].page_id, "page-b");
+    }
+
+    #[test]
+    fn prepared_retrieval_store_cache_key_changes_when_manifest_changes() {
+        let root = std::env::temp_dir().join(format!(
+            "prepared-retrieval-cache-key-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&root).unwrap();
+
+        let manifest_path = root.join("manifest.json");
+        let initial_manifest = r#"{
+  "embeddingDimension": 2,
+  "documentCount": 2,
+  "embeddingsFile": "block-embeddings.f32",
+  "documentsFile": "documents.jsonl"
+}"#;
+        fs::write(&manifest_path, initial_manifest).unwrap();
+
+        let mut embeddings_bytes = Vec::new();
+        for value in [0.0f32, 1.0, 1.0, 0.0] {
+            embeddings_bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        fs::write(root.join("block-embeddings.f32"), embeddings_bytes).unwrap();
+        fs::write(
+            root.join("documents.jsonl"),
+            "{\"page_id\":\"page-b\"}\n{\"page_id\":\"page-a\"}\n",
+        )
+        .unwrap();
+
+        let store = PreparedRetrievalStore::load(manifest_path.to_str().unwrap())
+            .expect("expected prepared retrieval store to load");
+        let initial_signature =
+            PreparedRetrievalStore::manifest_signature_for_path(manifest_path.to_str().unwrap())
+                .expect("expected manifest signature");
+        assert!(
+            store.matches_manifest_cache_key(manifest_path.to_str().unwrap(), initial_signature)
+        );
+
+        let updated_manifest = r#"{
+  "embeddingDimension": 2,
+  "documentCount": 2,
+  "embeddingsFile": "block-embeddings.f32",
+  "documentsFile": "documents.jsonl",
+  "rebuiltAt": 42
+}"#;
+        fs::write(&manifest_path, updated_manifest).unwrap();
+
+        let updated_signature =
+            PreparedRetrievalStore::manifest_signature_for_path(manifest_path.to_str().unwrap())
+                .expect("expected updated manifest signature");
+        let _ = fs::remove_dir_all(&root);
+
+        assert_ne!(initial_signature, updated_signature);
+        assert!(
+            !store.matches_manifest_cache_key(manifest_path.to_str().unwrap(), updated_signature)
+        );
     }
 }

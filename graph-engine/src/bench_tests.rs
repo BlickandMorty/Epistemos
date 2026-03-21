@@ -5,7 +5,7 @@
 //! No assertions on timing — just measure and print.
 
 #[cfg(test)]
-mod bench_tests {
+mod tests {
     use crate::cluster::detect_communities;
     use crate::cluster_cache::ClusterCache;
     use crate::ecs::World;
@@ -219,7 +219,7 @@ mod bench_tests {
                 vy: angle.cos() * 0.5,
             };
             world.hierarchy[idx] = HierarchyComponent {
-                depth: (i % 5) as u32,
+                depth: i % 5,
                 parent: u32::MAX,
                 node_type: (i % 8) as u8,
                 _pad: [0; 3],
@@ -250,7 +250,7 @@ mod bench_tests {
         // Spatial grid query (100 queries at different positions)
         let t2 = Instant::now();
         for i in 0..100u32 {
-            let x = (i as f32) * 3.14;
+            let x = (i as f32) * (314.0_f32 / 100.0);
             let y = (i as f32) * 2.71;
             let _ = world.spatial_grid.query_candidates(x, y, 100.0);
         }

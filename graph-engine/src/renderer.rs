@@ -1654,7 +1654,7 @@ impl Renderer {
             return Some(Vec::new());
         }
 
-        let pos_bytes = n * std::mem::size_of::<[f32; 2]>();
+        let pos_bytes = std::mem::size_of_val(positions);
 
         // Grow position buffer if needed.
         if n > self.compute_position_capacity || self.compute_position_buf.is_none() {
@@ -1726,7 +1726,7 @@ impl Renderer {
         );
 
         let threads_per_group = 256;
-        let thread_groups = (n + threads_per_group - 1) / threads_per_group;
+        let thread_groups = n.div_ceil(threads_per_group);
         encoder.dispatch_thread_groups(
             MTLSize::new(thread_groups as u64, 1, 1),
             MTLSize::new(threads_per_group as u64, 1, 1),
@@ -2223,112 +2223,90 @@ impl Renderer {
         }
 
         // Face geometry for the active dialogue node.
-        if self.visual_theme == VisualTheme::Dialogue && self.dialogue.active {
-            if let Some(node_idx) = self.dialogue.node_index {
-                if node_idx < world.transform.len() {
-                    let nx = world.transform[node_idx].x;
-                    let ny = world.transform[node_idx].y;
-                    let r = self.classic_node_radius(world, node_idx);
-                    let time = self.start_time.elapsed().as_secs_f32();
-                    let node_seed = world.graph_node[node_idx].node_id as f32 * 0.173;
-                    let bob_y = (time
-                        * (if self.dialogue.is_streaming {
-                            2.8
-                        } else {
-                            1.45
-                        })
-                        + node_seed)
-                        .sin()
-                        * r
-                        * 0.018;
-                    let eye_white_r = r * 0.15;
-                    let eye_lid_r = eye_white_r * 0.34;
-                    let pupil_r = eye_white_r * 0.30;
-                    let eye_spacing = r * 0.28;
-                    let eye_y = ny - r * 0.10 + bob_y;
-                    let brow_y = eye_y - r * 0.12;
-                    let mouth_y = ny + r * 0.24 + bob_y * 0.32;
-                    let blink_open =
-                        face_blink_openness(time, node_seed, self.dialogue.is_streaming);
-                    let pupil_offset = face_pupil_offset(
-                        [nx, ny],
-                        self.dialogue.look_target_world,
-                        eye_white_r * 0.22,
-                    );
+        if self.visual_theme == VisualTheme::Dialogue
+            && self.dialogue.active
+            && let Some(node_idx) = self.dialogue.node_index
+            && node_idx < world.transform.len()
+        {
+            let nx = world.transform[node_idx].x;
+            let ny = world.transform[node_idx].y;
+            let r = self.classic_node_radius(world, node_idx);
+            let time = self.start_time.elapsed().as_secs_f32();
+            let node_seed = world.graph_node[node_idx].node_id as f32 * 0.173;
+            let bob_y = (time
+                * (if self.dialogue.is_streaming {
+                    2.8
+                } else {
+                    1.45
+                })
+                + node_seed)
+                .sin()
+                * r
+                * 0.018;
+            let eye_white_r = r * 0.15;
+            let eye_lid_r = eye_white_r * 0.34;
+            let pupil_r = eye_white_r * 0.30;
+            let eye_spacing = r * 0.28;
+            let eye_y = ny - r * 0.10 + bob_y;
+            let brow_y = eye_y - r * 0.12;
+            let mouth_y = ny + r * 0.24 + bob_y * 0.32;
+            let blink_open = face_blink_openness(time, node_seed, self.dialogue.is_streaming);
+            let pupil_offset = face_pupil_offset(
+                [nx, ny],
+                self.dialogue.look_target_world,
+                eye_white_r * 0.22,
+            );
 
-                    self.push_face_node(
-                        [nx - eye_spacing, brow_y],
-                        eye_white_r * 0.34,
-                        [0.14, 0.18, 0.26, 0.82],
-                    );
-                    self.push_face_node(
-                        [nx + eye_spacing, brow_y],
-                        eye_white_r * 0.34,
-                        [0.14, 0.18, 0.26, 0.82],
-                    );
+            self.push_face_node(
+                [nx - eye_spacing, brow_y],
+                eye_white_r * 0.34,
+                [0.14, 0.18, 0.26, 0.82],
+            );
+            self.push_face_node(
+                [nx + eye_spacing, brow_y],
+                eye_white_r * 0.34,
+                [0.14, 0.18, 0.26, 0.82],
+            );
 
-                    if blink_open > 0.4 {
-                        let eye_color = [0.96, 0.97, 0.98, 0.98];
-                        let pupil_color = [0.10, 0.12, 0.18, 0.98];
-                        let left_eye = [nx - eye_spacing, eye_y];
-                        let right_eye = [nx + eye_spacing, eye_y];
-                        let left_pupil =
-                            [left_eye[0] + pupil_offset[0], left_eye[1] + pupil_offset[1]];
-                        let right_pupil = [
-                            right_eye[0] + pupil_offset[0],
-                            right_eye[1] + pupil_offset[1],
-                        ];
+            if blink_open > 0.4 {
+                let eye_color = [0.96, 0.97, 0.98, 0.98];
+                let pupil_color = [0.10, 0.12, 0.18, 0.98];
+                let left_eye = [nx - eye_spacing, eye_y];
+                let right_eye = [nx + eye_spacing, eye_y];
+                let left_pupil = [left_eye[0] + pupil_offset[0], left_eye[1] + pupil_offset[1]];
+                let right_pupil = [
+                    right_eye[0] + pupil_offset[0],
+                    right_eye[1] + pupil_offset[1],
+                ];
 
-                        self.push_face_node(left_eye, eye_white_r * blink_open, eye_color);
-                        self.push_face_node(right_eye, eye_white_r * blink_open, eye_color);
-                        self.push_face_node(left_pupil, pupil_r * blink_open, pupil_color);
-                        self.push_face_node(right_pupil, pupil_r * blink_open, pupil_color);
-                    } else {
-                        let lid_color = [0.12, 0.15, 0.22, 0.88];
-                        self.push_face_node([nx - eye_spacing, eye_y], eye_lid_r, lid_color);
-                        self.push_face_node([nx + eye_spacing, eye_y], eye_lid_r, lid_color);
-                    }
+                self.push_face_node(left_eye, eye_white_r * blink_open, eye_color);
+                self.push_face_node(right_eye, eye_white_r * blink_open, eye_color);
+                self.push_face_node(left_pupil, pupil_r * blink_open, pupil_color);
+                self.push_face_node(right_pupil, pupil_r * blink_open, pupil_color);
+            } else {
+                let lid_color = [0.12, 0.15, 0.22, 0.88];
+                self.push_face_node([nx - eye_spacing, eye_y], eye_lid_r, lid_color);
+                self.push_face_node([nx + eye_spacing, eye_y], eye_lid_r, lid_color);
+            }
 
-                    if self.dialogue.is_streaming {
-                        let chatter = 0.04 + 0.12 * (time * 10.0 + node_seed).sin().abs();
-                        let mouth_w = eye_white_r * 0.64;
-                        let mouth_h = eye_white_r * (0.24 + chatter);
-                        self.push_face_node(
-                            [nx - mouth_w, mouth_y],
-                            mouth_h,
-                            [0.15, 0.18, 0.25, 0.92],
-                        );
-                        self.push_face_node(
-                            [nx, mouth_y],
-                            mouth_h * 1.18,
-                            [0.15, 0.18, 0.25, 0.96],
-                        );
-                        self.push_face_node(
-                            [nx + mouth_w, mouth_y],
-                            mouth_h,
-                            [0.15, 0.18, 0.25, 0.92],
-                        );
-                        self.push_face_node(
-                            [nx, mouth_y + mouth_h * 0.18],
-                            mouth_h * 0.42,
-                            [0.90, 0.56, 0.58, 0.28],
-                        );
-                    } else {
-                        let smile_color = [0.15, 0.18, 0.25, 0.90];
-                        let smile_r = eye_white_r * 0.18;
-                        self.push_face_node(
-                            [nx - eye_spacing * 0.34, mouth_y],
-                            smile_r,
-                            smile_color,
-                        );
-                        self.push_face_node([nx, mouth_y + smile_r * 0.22], smile_r, smile_color);
-                        self.push_face_node(
-                            [nx + eye_spacing * 0.34, mouth_y],
-                            smile_r,
-                            smile_color,
-                        );
-                    }
-                }
+            if self.dialogue.is_streaming {
+                let chatter = 0.04 + 0.12 * (time * 10.0 + node_seed).sin().abs();
+                let mouth_w = eye_white_r * 0.64;
+                let mouth_h = eye_white_r * (0.24 + chatter);
+                self.push_face_node([nx - mouth_w, mouth_y], mouth_h, [0.15, 0.18, 0.25, 0.92]);
+                self.push_face_node([nx, mouth_y], mouth_h * 1.18, [0.15, 0.18, 0.25, 0.96]);
+                self.push_face_node([nx + mouth_w, mouth_y], mouth_h, [0.15, 0.18, 0.25, 0.92]);
+                self.push_face_node(
+                    [nx, mouth_y + mouth_h * 0.18],
+                    mouth_h * 0.42,
+                    [0.90, 0.56, 0.58, 0.28],
+                );
+            } else {
+                let smile_color = [0.15, 0.18, 0.25, 0.90];
+                let smile_r = eye_white_r * 0.18;
+                self.push_face_node([nx - eye_spacing * 0.34, mouth_y], smile_r, smile_color);
+                self.push_face_node([nx, mouth_y + smile_r * 0.22], smile_r, smile_color);
+                self.push_face_node([nx + eye_spacing * 0.34, mouth_y], smile_r, smile_color);
             }
         }
 
@@ -3133,7 +3111,7 @@ impl Renderer {
             layout0.set_step_function(MTLVertexStepFunction::PerVertex);
             layout0.set_step_rate(1);
         }
-        desc.set_vertex_descriptor(Some(&vd));
+        desc.set_vertex_descriptor(Some(vd));
 
         // Alpha blending (same as classic pipelines).
         if let Some(color_attach) = desc.color_attachments().object_at(0) {
@@ -3149,9 +3127,7 @@ impl Renderer {
     }
 
     fn dialogue_box_geometry(&self, world: &World) -> Option<DialogueBoxGeometry> {
-        let Some(node_index) = self.dialogue.node_index else {
-            return None;
-        };
+        let node_index = self.dialogue.node_index?;
         if node_index >= world.len()
             || self.last_viewport_width <= 0.0
             || self.last_viewport_height <= 0.0
@@ -3805,6 +3781,7 @@ mod tests {
         assert!(relaxed_sag > taut_sag);
     }
 
+    #[allow(clippy::assertions_on_constants)]
     #[test]
     fn glow_instance_cutoff_stays_between_nodes_and_glows() {
         // Glow alphas (0.03–0.11) must be below this cutoff,

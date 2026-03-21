@@ -744,8 +744,6 @@ private struct MiniChatInputBar: View {
                         query: trimmed,
                         attachments: attachments,
                         manifest: AppBootstrap.shared?.ambientManifest,
-                        loadedNoteIds: Set(currentThread?.loadedNoteIds ?? []),
-                        loadedNoteTitles: currentThread?.loadedNoteTitles ?? [],
                         includeAllNotesContext: false,
                         findNotesByTitle: { title in
                             await vaultSync.findNotesByTitle(title)

@@ -292,6 +292,8 @@ final class GraphState {
     /// Marked nonisolated(unsafe) so MetalGraphNSView.deinit can nil it synchronously
     /// before calling graph_engine_destroy, preventing use-after-free races.
     nonisolated(unsafe) var engineHandle: OpaquePointer?
+    private var loadedPreparedRetrievalIndexEngine: OpaquePointer?
+    private var loadedPreparedRetrievalIndexManifestPath: String?
 
     /// True when physics is completely disabled (graph > threshold visible nodes).
     /// Updated after each commit/refresh cycle. UI uses this to grey out physics controls.
@@ -328,6 +330,8 @@ final class GraphState {
 
     func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
         embeddingService.applyPreparedRetrievalRuntimeConfiguration(configuration)
+        loadedPreparedRetrievalIndexEngine = nil
+        loadedPreparedRetrievalIndexManifestPath = nil
         guard !semanticClusteringAvailable else { return }
         if useSemanticClustering {
             useSemanticClustering = false
@@ -1085,13 +1089,10 @@ final class GraphState {
 
     private func preparedSemanticSearch(query: String, limit: Int) -> [GraphStore.SearchHit]? {
         guard preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
-              let engine = engineHandle,
-              let manifestPath = embeddingService.preparedRetrievalIndexManifestPath else {
+              ensurePreparedRetrievalIndexLoaded(),
+              let engine = engineHandle else {
             return nil
         }
-
-        let loaded = manifestPath.withCString { graph_engine_load_prepared_retrieval_index(engine, $0) != 0 }
-        guard loaded else { return [] }
 
         let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))
         guard dimension > 0,
@@ -1143,6 +1144,30 @@ final class GraphState {
         return hits
     }
 
+    func ensurePreparedRetrievalIndexLoaded() -> Bool {
+        guard preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
+              let engine = engineHandle,
+              let manifestPath = embeddingService.preparedRetrievalIndexManifestPath else {
+            return false
+        }
+
+        if loadedPreparedRetrievalIndexEngine == engine,
+           loadedPreparedRetrievalIndexManifestPath == manifestPath {
+            return true
+        }
+
+        let loaded = manifestPath.withCString { graph_engine_load_prepared_retrieval_index(engine, $0) != 0 }
+        if loaded {
+            loadedPreparedRetrievalIndexEngine = engine
+            loadedPreparedRetrievalIndexManifestPath = manifestPath
+            return true
+        }
+
+        loadedPreparedRetrievalIndexEngine = nil
+        loadedPreparedRetrievalIndexManifestPath = nil
+        return false
+    }
+
     func hybridSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
         guard !query.isEmpty else { return [] }
 
@@ -1186,7 +1211,10 @@ final class GraphState {
 
     // MARK: - Selection
 
-    func selectNode(_ id: String?) { selectedNodeId = id }
+    func selectNode(_ id: String?) {
+        guard selectedNodeId != id else { return }
+        selectedNodeId = id
+    }
 
     var selectedNode: GraphNodeRecord? {
         guard let id = selectedNodeId else { return nil }

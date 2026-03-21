@@ -36,7 +36,7 @@ User
 Retrieval
   -> QueryRuntime / SearchIndexService / GraphState
   -> GRDB FTS + Rust graph search + prepared retrieval seams
-  -> future Rust-native BGE runtime
+  -> future Rust-native BGE query embeddings + cross-encoder reranker
 ```
 
 ## Decisions Locked Before Phase 5
@@ -63,6 +63,11 @@ The remaining work before Phase 5 is:
 2. keep the single local Qwen path honest and stable
 3. keep streaming/UI smooth under heavy local generation
 4. harden memory residency and readiness behavior around the single local text lane
+
+Current behavior that stays locked while 4.5 continues:
+
+- graph summaries try Apple Intelligence first, then fall back to local Qwen
+- graph semantic clustering stays off on the prepared runtime until the semantic vector space is fully unified
 
 ## Rejected Alternatives
 

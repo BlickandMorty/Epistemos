@@ -9,8 +9,6 @@ struct LiquidGreeting: View {
     var onRetractComplete: (() -> Void)? = nil
 
     @State private var displayText = Self.restingGreeting
-    @State private var cursorVisible = true
-
     private var theme: EpistemosTheme { ui.theme }
     private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
     private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
@@ -27,10 +25,7 @@ struct LiquidGreeting: View {
     }
 
     var body: some View {
-        plainGreeting(
-            text: shouldAnimate ? displayText : Self.restingGreeting,
-            showsCursor: shouldAnimate && cursorVisible
-        )
+        plainGreeting(text: shouldAnimate ? displayText : Self.restingGreeting)
         .frame(height: compact ? 40 : 180)
         .padding(.horizontal, compact ? 20 : 100)
         .task(id: taskKey) {
@@ -41,52 +36,27 @@ struct LiquidGreeting: View {
 
             guard shouldAnimate else {
                 displayText = Self.restingGreeting
-                cursorVisible = false
                 return
             }
 
             displayText = ""
-            cursorVisible = true
             try? await Task.sleep(for: .milliseconds(50))
             guard !Task.isCancelled else { return }
-
-            let blinkTask = Task { @MainActor in
-                await cursorBlinkLoop()
-            }
             await typewriterLoop()
-            blinkTask.cancel()
         }
     }
 
-    private func plainGreeting(text: String, showsCursor: Bool) -> some View {
+    private func plainGreeting(text: String) -> some View {
         HStack(alignment: .center, spacing: 2) {
             Text(text)
                 .font(greetingFont)
                 .foregroundStyle(greetingColor)
-
-            if showsCursor {
-                Rectangle()
-                    .fill(greetingColor)
-                    .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
-                    .clipShape(RoundedRectangle(cornerRadius: 2))
-                    .opacity(cursorVisible ? 1 : 0)
-                    .animation(.easeInOut(duration: 0.3), value: cursorVisible)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .shadow(
             color: compact ? .clear : (theme.isDark ? theme.fontAccent.opacity(0.12) : .clear),
             radius: compact ? 0 : 8
         )
-    }
-
-    @MainActor
-    private func cursorBlinkLoop() async {
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled else { return }
-            cursorVisible.toggle()
-        }
     }
 
     @MainActor

@@ -28,10 +28,10 @@ impl FractionalIndex {
         peer_id: u32,
         discriminator: u32,
     ) -> Self {
-        if let (Some(left), Some(right)) = (left, right) {
-            if left >= right {
-                return Self::after(left, peer_id, discriminator);
-            }
+        if let (Some(left), Some(right)) = (left, right)
+            && left >= right
+        {
+            return Self::after(left, peer_id, discriminator);
         }
 
         let left_digits = left.map_or(&[][..], |index| index.digits.as_slice());

@@ -44,12 +44,14 @@ struct HologramNodeInspector: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .animation(.smooth(duration: 0.3), value: inspectorState.selectedNode != nil)
         .onChange(of: currentId) { _, newId in
             if let newId, let node = graphState.store.nodes[newId] {
+                let previousSelection = inspectorState.selectedNodeId
                 inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
-                expandedSection = .profile
-                isEditorExpanded = false
+                if previousSelection != newId {
+                    expandedSection = .profile
+                    isEditorExpanded = false
+                }
                 if graphState.requestEditorMode {
                     graphState.requestEditorMode = false
                     inspectorState.inspectorMode = .editor
@@ -86,6 +88,10 @@ struct HologramNodeInspector: View {
         .frame(width: inspectorWidth)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: inspectorWidth)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .onChange(of: expandedSection) { _, newSection in
+            guard newSection == .summary else { return }
+            inspectorState.ensureSummary(for: node, store: graphState.store, modelContext: modelContext)
+        }
     }
 
     private var modePicker: some View {
