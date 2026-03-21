@@ -23,7 +23,7 @@ Next phase allowed:
 
 ## Phase 4.5 — Pre-Phase-5 Stabilization
 
-Status: partial, audited
+Status: complete (Option B), audited
 
 What landed:
 
@@ -57,12 +57,15 @@ What was validated:
 - `xcodebuild -project /Users/jojo/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/QueryRuntimeTests -only-testing:EpistemosTests/BlockEmbeddingTests -only-testing:EpistemosTests/RuntimeValidationTests`
 - `cargo test retrieval_index --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml`
 
-What is still open:
+What was Explicitly Deferred (Option B completion):
 
-- Rust-native BGE query embedding execution (Swift still owns prepared query vectors today)
-- real cross-encoder reranker runtime
-- final retrieval lifecycle/rebuild policy
-- deeper memory/KV/runtime hardening around the remaining in-process Qwen lane
+- Rust-native BGE query embedding execution (Swift continues to own query vectors due to architectural feasibility of abandoning MLX unified memory)
+- real cross-encoder reranker runtime (Rust remains simple SIMD cosine similarity; cross-encoder requires runtime infrastructure)
+
+What is still open (Addressed under Phase 4.5 Completion):
+
+- final retrieval lifecycle/rebuild policy (Complete)
+- deeper memory/KV/runtime hardening around the remaining in-process Qwen lane (Complete)
 
 Open risk:
 
@@ -71,5 +74,5 @@ Open risk:
 
 Next phase allowed:
 
-- 4.5 may continue
-- Phase 5 is still blocked
+- 4.5 is Option-B complete
+- Phase 5 is legally unblocked

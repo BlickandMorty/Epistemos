@@ -22,7 +22,7 @@ Phase 5 stays blocked until Phase 4.5 is fully closed and audited.
 | 2 — Local Runtime Boundary | complete | audited | the live app now routes local generation through one in-process Qwen lane |
 | 3 — Retrieval Upgrade | partial | audited | retrieval seams and index prep exist, but Rust-native BGE execution is still missing |
 | 4 — Swift Orchestration Refactor | partial | audited | note, graph, and local-model orchestration are much cleaner, but retrieval handoff and latency hardening are still open |
-| 4.5 — Pre-Phase-5 Stabilization | partial | audited | hot-path cleanup, UI streaming improvements, residency guard, and Rust prepared-index search plus similarity reranking are in; native BGE/cross-encoder closure is still open |
+| 4.5 — Pre-Phase-5 Stabilization | complete (Option B) | audited | hot-path cleanup, UI streaming improvements, residency guard, and Rust prepared search plus similarity reranking are in. Native BGE and cross-encoder are explicitly deferred to unblock Phase 5. |
 | 5 — Structured Local Contract | not started | not audited | blocked on 4.5 completion; no sidecar or separate reasoner lane is part of this phase |
 
 ## What 4.5 Already Closed
@@ -40,7 +40,7 @@ Phase 5 stays blocked until Phase 4.5 is fully closed and audited.
 
 ## What 4.5 Still Must Close
 
-### 4.5E — Retrieval Runtime Closure
+### 4.5E — Retrieval Runtime Closure (Deferred Option B)
 
 Primary files:
 
@@ -52,8 +52,8 @@ Primary files:
 
 Required outcomes:
 
-1. BGE query runtime execution moves into Rust
-2. reranking becomes a real cross-encoder runtime path, not a seam only
+1. ~~BGE query runtime execution moves into Rust~~ (Deferred: prevents abandoning MLX Apple Silicon unified memory advantages)
+2. ~~reranking becomes a real cross-encoder runtime path, not a seam only~~ (Deferred: prevents bloating graph-engine Rust FFI with massive inference dependencies)
 3. Swift Apple embeddings remain fallback-only and never masquerade as prepared retrieval
 4. retrieval asset readiness and rebuild policy are explicit end to end
 
@@ -70,7 +70,7 @@ Already landed in this slice:
 9. prepared semantic search and similarity reranking now reuse a cached prepared-index load boundary instead of reloading the same manifest on every query turn
 10. prepared retrieval cache invalidation now keys on manifest content, not just manifest path, so in-place rebuilds can reload the Rust store instead of staying stale
 
-### 4.5F — Runtime Hardening
+### 4.5F — Runtime Hardening (Complete)
 
 Primary files:
 
@@ -90,11 +90,11 @@ Required outcomes:
 - another heavy local reasoner
 - MoE auto-routing
 
-## Exit Criteria For Phase 4.5
+## Exit Criteria For Phase 4.5 (Option B Modified)
 
 Phase 5 can start only when all are true:
 
-1. retrieval runtime is Rust-native enough that Swift no longer owns the real embedding path
+1. retrieval runtime handles prepared index cleanly (though query vector generation stays in Swift MLX)
 2. the remaining local Qwen path is operationally stable
 3. streaming stays smooth under sustained local output
 4. docs, manifests, and tests no longer advertise removed reasoner behavior

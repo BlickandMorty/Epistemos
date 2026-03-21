@@ -456,14 +456,9 @@ struct NotesSidebar: View {
         cachedTitleSearchResultIDsByQuery.removeAll(keepingCapacity: true)
         cachedBodySearchResultsByQuery.removeAll(keepingCapacity: true)
 
-        let indexData = cachedPageSearchCatalog.map { (key: $0.pageId, text: $0.haystack) }
-        Task.detached(priority: .userInitiated) {
-            var newIndex = TrigramSearchIndex<String>()
-            newIndex.rebuild(indexData)
-            await MainActor.run {
-                cachedPageSearchTrigramIndex = newIndex
-            }
-        }
+        cachedPageSearchTrigramIndex.rebuild(
+            cachedPageSearchCatalog.map { (key: $0.pageId, text: $0.haystack) }
+        )
         cachedFolderItems = allFolders.map(SidebarFolderItem.init)
 
         // Fallback: if folder.pages returned [] (SwiftData inverse not merged yet),
