@@ -74,7 +74,7 @@ final class QueryEngine {
             graphStore: graphStore,
             graphState: graphState,
             searchIndex: searchIndex,
-            reranker: preparedRetrievalRuntimeResolver.resolveReranker(
+            scorer: preparedRetrievalRuntimeResolver.resolveScorer(
                 configuration: preparedRetrievalRuntimeConfiguration,
                 executionMode: preparedRetrievalExecutionMode,
                 graphState: graphState

@@ -1,6 +1,6 @@
 # Native Cleanup Scan
 
-- Generated: Sat Mar 21 15:37:42 CDT 2026
+- Generated: Sat Mar 21 16:34:31 CDT 2026
 - Root: `/Users/jojo/Epistemos`
 
 ## Tool Availability
@@ -47,6 +47,32 @@ ast-grep scan --rule '/Users/jojo/Epistemos/scripts/audit/ast-grep/legacy-runtim
 ```bash
 cd '/Users/jojo/Epistemos' && periphery scan --project Epistemos.xcodeproj --schemes Epistemos --targets Epistemos --format xcode --retain-codable-properties --retain-objc-accessible
 ```
+    error: Shell command '/bin/sh -c xcodebuild -project '/Users/jojo/Epistemos/Epistemos.xcodeproj' -scheme 'Epistemos' -parallelizeTargets -derivedDataPath '/Users/jojo/Library/Caches/com.github.peripheryapp/DerivedData-8fbd420c-5bc4a8fe-5bc4a8fe' -quiet build CODE_SIGNING_ALLOWED="NO" ENABLE_BITCODE="NO" DEBUG_INFORMATION_FORMAT="dwarf" COMPILER_INDEX_STORE_ENABLE="YES" INDEX_ENABLE_DATA_STORE="YES"' returned exit status '65':
+    --- xcodebuild: WARNING: Using the first of multiple matching destinations:
+    { platform:macOS, arch:arm64, id:00006020-000249E00CC0C01E, name:My Mac }
+    { platform:macOS, arch:x86_64, id:00006020-000249E00CC0C01E, name:My Mac }
+    { platform:macOS, name:Any Mac }
+    error: unable to attach DB: error: accessing build database "/Users/jojo/Library/Caches/com.github.peripheryapp/DerivedData-8fbd420c-5bc4a8fe-5bc4a8fe/Build/Intermediates.noindex/XCBuildData/build.db": database is locked Possibly there are two concurrent builds running in the same filesystem location.
+    ** BUILD FAILED **
+    
+    
+    * Inspecting project...
+    * Building Epistemos...
+
+### cargo-machete Dependency Scan
+```bash
+cd '/Users/jojo/Epistemos/graph-engine' && cargo machete
+```
+    Analyzing dependencies of crates in this directory...
+    cargo-machete didn't find any unused dependencies in this directory. Good job!
+    Done!
+
+### cargo-udeps Nightly Missing
+```bash
+printf 'cargo-udeps is installed but requires rustup nightly; run: rustup toolchain install nightly\n'
+```
+    cargo-udeps is installed but requires rustup nightly; run: rustup toolchain install nightly
+
     * Inspecting project...
     * Building Epistemos...
     * Indexing...
@@ -133,29 +159,25 @@ cd '/Users/jojo/Epistemos' && periphery scan --project Epistemos.xcodeproj --sch
     /Users/jojo/Epistemos/Epistemos/Engine/LLMService.swift:270:18: warning: Enum 'ProcessActivity' is unused
     /Users/jojo/Epistemos/Epistemos/Engine/LLMService.swift:315:18: warning: Enum 'LLMError' is unused
     /Users/jojo/Epistemos/Epistemos/Engine/LLMService.swift:343:20: warning: Struct 'ConnectionTestResult' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:298:9: warning: Property 'key' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:299:9: warning: Property 'role' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:300:9: warning: Property 'displayName' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:301:9: warning: Property 'artifactID' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:302:9: warning: Property 'modelID' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:305:9: warning: Property 'expectedAdapterBaseModelID' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:306:9: warning: Property 'baseModelID' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:307:9: warning: Property 'baseSnapshotPath' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:308:9: warning: Property 'mergeOutputPath' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:311:9: warning: Property 'status' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:312:9: warning: Property 'trustRemoteCode' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:314:9: warning: Property 'resolvedAdapterPath' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:322:9: warning: Property 'resolvedMLXOutputPath' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:326:10: warning: Function 'matchesSidecarModelID(_:)' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:351:9: warning: Property 'primaryRouter' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:363:9: warning: Property 'experimentalMoE' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:428:9: warning: Property 'hasPreparedAssetsConfigured' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:432:9: warning: Property 'requiresPreparedIndexBuild' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:493:9: warning: Property 'retrieverSourceRoot' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:494:9: warning: Property 'rerankerSourceRoot' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:495:9: warning: Property 'indexRoot' is assigned, but never used
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:646:9: warning: Property 'requiresRebuild' is unused
-    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:686:9: warning: Property 'primaryRouter' is unused
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:295:9: warning: Property 'key' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:296:9: warning: Property 'role' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:297:9: warning: Property 'displayName' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:298:9: warning: Property 'artifactID' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:299:9: warning: Property 'modelID' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:302:9: warning: Property 'expectedAdapterBaseModelID' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:303:9: warning: Property 'baseModelID' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:304:9: warning: Property 'baseSnapshotPath' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:305:9: warning: Property 'mergeOutputPath' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:308:9: warning: Property 'status' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:309:9: warning: Property 'trustRemoteCode' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:311:9: warning: Property 'resolvedAdapterPath' is unused
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:319:9: warning: Property 'resolvedMLXOutputPath' is unused
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:323:10: warning: Function 'matchesSidecarModelID(_:)' is unused
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:405:9: warning: Property 'hasPreparedAssetsConfigured' is unused
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:409:9: warning: Property 'requiresPreparedIndexBuild' is unused
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:466:9: warning: Property 'retrieverSourceRoot' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:467:9: warning: Property 'indexRoot' is assigned, but never used
+    /Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift:612:9: warning: Property 'requiresRebuild' is unused
     /Users/jojo/Epistemos/Epistemos/Engine/Log.swift:41:16: warning: Property 'learning' is unused
     /Users/jojo/Epistemos/Epistemos/Engine/Log.swift:44:16: warning: Property 'research' is unused
     /Users/jojo/Epistemos/Epistemos/Engine/Log.swift:47:16: warning: Property 'security' is unused

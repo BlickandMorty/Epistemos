@@ -6,62 +6,12 @@
     "target_hardware": "18GB-class Apple Silicon"
   },
   "models": {
-    "router_primary": {
-      "role": "router",
-      "display_name": "Qwen 3 4B Router",
-      "artifact_id": "qwen-router-4b-sft",
-      "served_model_id": "qwen-router-4b-sft",
-      "adapter_path": "~/Downloads/Qwen/qwen-router-4b-sft/final_adapter",
-      "expected_adapter_base_model_id": "Qwen/Qwen3-4B",
-      "base_model_id": "Qwen/Qwen3-4B",
-      "base_snapshot_path": "~/Library/Application Support/Epistemos/PreparedModels/downloads/qwen3-4b",
-      "merge_output_path": "~/Library/Application Support/Epistemos/PreparedModels/router/qwen-router-4b/hf-merged",
-      "mlx_output_path": "~/Library/Application Support/Epistemos/PreparedModels/router/qwen-router-4b/mlx-4bit",
-      "trust_remote_code": true,
-      "quantization": {
-        "bits": 4,
-        "group_size": 64
-      }
-    },
-    "router_fallback": {
-      "role": "router",
-      "display_name": "Qwen 3 0.6B Router",
-      "artifact_id": "qwen-router-sft",
-      "served_model_id": "qwen-router-sft",
-      "adapter_path": "~/Downloads/Qwen/qwen-router-sft/final_adapter",
-      "expected_adapter_base_model_id": "Qwen/Qwen3-0.6B",
-      "base_model_id": "Qwen/Qwen3-0.6B",
-      "base_snapshot_path": "~/Library/Application Support/Epistemos/PreparedModels/downloads/qwen3-0_6b",
-      "merge_output_path": "~/Library/Application Support/Epistemos/PreparedModels/router/qwen-router-0_6b/hf-merged",
-      "mlx_output_path": "~/Library/Application Support/Epistemos/PreparedModels/router/qwen-router-0_6b/mlx-4bit",
-      "trust_remote_code": true,
-      "quantization": {
-        "bits": 4,
-        "group_size": 64
-      }
-    },
     "retriever_primary": {
       "role": "retriever",
       "display_name": "BAAI BGE-M3",
       "model_id": "BAAI/bge-m3",
       "served_model_id": "BAAI/bge-m3",
       "download_path": "~/Library/Application Support/Epistemos/PreparedModels/retrieval/bge-m3/source",
-      "status": "missing"
-    },
-    "reranker_primary": {
-      "role": "reranker",
-      "display_name": "BAAI BGE Reranker v2 M3",
-      "model_id": "BAAI/bge-reranker-v2-m3",
-      "served_model_id": "BAAI/bge-reranker-v2-m3",
-      "download_path": "~/Library/Application Support/Epistemos/PreparedModels/retrieval/bge-reranker-v2-m3/source",
-      "status": "missing"
-    },
-    "experimental_moe": {
-      "role": "experimental_moe",
-      "display_name": "Qwen3-30B-A3B 4-bit",
-      "model_id": "mlx-community/Qwen3-30B-A3B-4bit",
-      "served_model_id": "mlx-community/Qwen3-30B-A3B-4bit",
-      "download_path": "~/Library/Application Support/Epistemos/PreparedModels/experimental/qwen3-30b-a3b-4bit",
       "status": "missing"
     }
   }

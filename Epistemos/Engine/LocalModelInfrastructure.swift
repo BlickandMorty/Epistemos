@@ -288,10 +288,7 @@ nonisolated enum LocalModelPresentationState: Equatable, Sendable {
 }
 
 nonisolated enum PreparedModelRole: String, Codable, Sendable, CaseIterable {
-    case router
     case retriever
-    case reranker
-    case experimental_moe
 }
 
 nonisolated struct PreparedModelDescriptor: Hashable, Sendable {
@@ -348,27 +345,14 @@ nonisolated struct PreparedModelRegistrySnapshot: Sendable, Equatable {
         entriesByKey[key]
     }
 
-    var primaryRouter: PreparedModelDescriptor? {
-        entry(named: "router_primary")
-    }
-
     var primaryRetriever: PreparedModelDescriptor? {
         entry(named: "retriever_primary")
-    }
-
-    var primaryReranker: PreparedModelDescriptor? {
-        entry(named: "reranker_primary")
-    }
-
-    var experimentalMoE: PreparedModelDescriptor? {
-        entry(named: "experimental_moe")
     }
 
     var retrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
         guard let primaryRetriever else { return nil }
         return PreparedRetrievalRuntimeConfiguration(
-            retriever: primaryRetriever,
-            reranker: primaryReranker
+            retriever: primaryRetriever
         )
     }
 
@@ -376,16 +360,12 @@ nonisolated struct PreparedModelRegistrySnapshot: Sendable, Equatable {
 
 nonisolated struct PreparedRetrievalRuntimeConfiguration: Sendable, Equatable {
     let retriever: PreparedModelDescriptor
-    let reranker: PreparedModelDescriptor?
 
     var assetLayout: PreparedRetrievalAssetLayout? {
         guard let retrieverSourceRoot = retriever.resolvedDownloadPath else { return nil }
-        let rerankerModelID = Self.assetExists(at: reranker?.resolvedDownloadPath) ? reranker?.servedModelID : nil
         return PreparedRetrievalAssetLayout(
             retrieverModelID: retriever.servedModelID,
-            rerankerModelID: rerankerModelID,
-            retrieverSourceRoot: retrieverSourceRoot,
-            rerankerSourceRoot: rerankerModelID == nil ? nil : reranker?.resolvedDownloadPath
+            retrieverSourceRoot: retrieverSourceRoot
         )
     }
 
@@ -394,16 +374,13 @@ nonisolated struct PreparedRetrievalRuntimeConfiguration: Sendable, Equatable {
             return .appleEmbeddingFallback
         }
 
-        let rerankerModelID = Self.assetExists(at: reranker?.resolvedDownloadPath) ? reranker?.servedModelID : nil
         guard assetLayout?.isBuilt == true else {
             return .preparedAssetsPendingIndex(
-                retrieverModelID: retriever.servedModelID,
-                rerankerModelID: rerankerModelID
+                retrieverModelID: retriever.servedModelID
             )
         }
         return .preparedIndexReady(
-            retrieverModelID: retriever.servedModelID,
-            rerankerModelID: rerankerModelID
+            retrieverModelID: retriever.servedModelID
         )
     }
 
@@ -415,8 +392,8 @@ nonisolated struct PreparedRetrievalRuntimeConfiguration: Sendable, Equatable {
 
 nonisolated enum PreparedRetrievalExecutionMode: Equatable, Sendable {
     case appleEmbeddingFallback
-    case preparedAssetsPendingIndex(retrieverModelID: String, rerankerModelID: String?)
-    case preparedIndexReady(retrieverModelID: String, rerankerModelID: String?)
+    case preparedAssetsPendingIndex(retrieverModelID: String)
+    case preparedIndexReady(retrieverModelID: String)
 
     var usesSwiftEmbeddingFallback: Bool {
         if case .appleEmbeddingFallback = self {
@@ -447,7 +424,6 @@ nonisolated enum PreparedRetrievalExecutionMode: Equatable, Sendable {
 nonisolated struct PreparedRetrievalIndexManifest: Codable, Equatable, Sendable {
     let version: Int
     let retrieverModelID: String
-    let rerankerModelID: String?
     let embeddingFormat: String
     let embeddingDimension: Int
     let documentCount: Int
@@ -461,7 +437,6 @@ nonisolated struct PreparedRetrievalIndexManifest: Codable, Equatable, Sendable 
     init(
         version: Int = 1,
         retrieverModelID: String,
-        rerankerModelID: String?,
         embeddingFormat: String,
         embeddingDimension: Int,
         documentCount: Int,
@@ -474,7 +449,6 @@ nonisolated struct PreparedRetrievalIndexManifest: Codable, Equatable, Sendable 
     ) {
         self.version = version
         self.retrieverModelID = retrieverModelID
-        self.rerankerModelID = rerankerModelID
         self.embeddingFormat = embeddingFormat
         self.embeddingDimension = embeddingDimension
         self.documentCount = documentCount
@@ -489,9 +463,7 @@ nonisolated struct PreparedRetrievalIndexManifest: Codable, Equatable, Sendable 
 
 nonisolated struct PreparedRetrievalAssetLayout: Equatable, Sendable {
     let retrieverModelID: String
-    let rerankerModelID: String?
     let retrieverSourceRoot: String
-    let rerankerSourceRoot: String?
     let indexRoot: String
     let indexManifestPath: String
     let embeddingsPath: String
@@ -499,14 +471,10 @@ nonisolated struct PreparedRetrievalAssetLayout: Equatable, Sendable {
 
     init(
         retrieverModelID: String,
-        rerankerModelID: String?,
-        retrieverSourceRoot: String,
-        rerankerSourceRoot: String?
+        retrieverSourceRoot: String
     ) {
         self.retrieverModelID = retrieverModelID
-        self.rerankerModelID = rerankerModelID
         self.retrieverSourceRoot = retrieverSourceRoot
-        self.rerankerSourceRoot = rerankerSourceRoot
 
         let sourceURL = URL(fileURLWithPath: retrieverSourceRoot, isDirectory: true)
         let indexRootURL = sourceURL.deletingLastPathComponent().appendingPathComponent("index", isDirectory: true)
@@ -541,7 +509,6 @@ nonisolated struct PreparedRetrievalAssetLayout: Equatable, Sendable {
     var expectedIndexManifest: PreparedRetrievalIndexManifest {
         PreparedRetrievalIndexManifest(
             retrieverModelID: retrieverModelID,
-            rerankerModelID: rerankerModelID,
             embeddingFormat: "row-major-f32-v1",
             embeddingDimension: 0,
             documentCount: 0,
@@ -556,7 +523,6 @@ nonisolated struct PreparedRetrievalAssetLayout: Equatable, Sendable {
 
     private func manifestMatchesExpectedLayout(_ manifest: PreparedRetrievalIndexManifest) -> Bool {
         manifest.retrieverModelID == expectedIndexManifest.retrieverModelID
-            && manifest.rerankerModelID == expectedIndexManifest.rerankerModelID
             && manifest.embeddingFormat == expectedIndexManifest.embeddingFormat
             && manifest.embeddingsFile == expectedIndexManifest.embeddingsFile
             && manifest.documentsFile == expectedIndexManifest.documentsFile
@@ -683,23 +649,14 @@ final class PreparedModelRegistryState {
         entriesByKey[key]
     }
 
-    var primaryRouter: PreparedModelDescriptor? {
-        entry(named: "router_primary")
-    }
-
     var primaryRetriever: PreparedModelDescriptor? {
         entry(named: "retriever_primary")
-    }
-
-    var primaryReranker: PreparedModelDescriptor? {
-        entry(named: "reranker_primary")
     }
 
     var retrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
         guard let primaryRetriever else { return nil }
         return PreparedRetrievalRuntimeConfiguration(
-            retriever: primaryRetriever,
-            reranker: primaryReranker
+            retriever: primaryRetriever
         )
     }
 

@@ -202,14 +202,13 @@ struct GraphPhysicsSettingsAuditTests {
                     downloadPath: retrieverPath.path,
                     status: "downloaded",
                     trustRemoteCode: false
-                ),
-                reranker: nil
+                )
             )
         )
 
         state.computeSemanticClusters()
 
-        #expect(state.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+        #expect(state.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3"))
         #expect(!state.semanticClusteringAvailable)
         #expect(!state.useSemanticClustering)
         #expect(state.semanticClusterIds.isEmpty)

@@ -12,7 +12,6 @@ database_path="$(expand_path "${database_path}")"
 require_file "${database_path}"
 
 retriever_model_id="$(model_get "retriever_primary" served_model_id)"
-reranker_model_id="$(model_get "reranker_primary" served_model_id)"
 retriever_source_root="$(expand_path "$(model_get "retriever_primary" download_path)")"
 index_root="$(dirname "${retriever_source_root}")/index"
 batch_size="${EPISTEMOS_RETRIEVAL_BATCH_SIZE:-16}"
@@ -26,7 +25,6 @@ python_cmd "${SCRIPT_DIR}/build_retrieval_index.py" \
   --retriever "${retriever_source_root}" \
   --output-dir "${index_root}" \
   --retriever-model-id "${retriever_model_id}" \
-  --reranker-model-id "${reranker_model_id}" \
   --batch-size "${batch_size}" \
   --max-length "${max_length}" \
   --max-docs "${max_docs}"

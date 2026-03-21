@@ -17,12 +17,12 @@ private struct StubTextEmbeddingLookup: TextEmbeddingLookup {
 private struct StubPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
     let lookup: any TextEmbeddingLookup
 
-    func resolveReranker(
+    func resolveScorer(
         configuration: PreparedRetrievalRuntimeConfiguration?,
         executionMode: PreparedRetrievalExecutionMode,
         graphState: GraphState
-    ) -> any RetrievalReranking {
-        PassthroughRetrievalReranker()
+    ) -> any RetrievalScoring {
+        PassthroughRetrievalScorer()
     }
 
     func resolveEmbeddingLookup(
@@ -201,14 +201,13 @@ struct BlockEmbeddingTests {
                     downloadPath: retrieverPath.path,
                     status: "downloaded",
                     trustRemoteCode: false
-                ),
-                reranker: nil
+                )
             )
         )
 
         let result = service.queryEmbedding(for: "alpha beta")
 
-        #expect(service.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+        #expect(service.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3"))
         #expect(!service.preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback)
         #expect(result == nil)
     }
@@ -238,8 +237,7 @@ struct BlockEmbeddingTests {
                 downloadPath: retrieverPath.path,
                 status: "downloaded",
                 trustRemoteCode: false
-            ),
-            reranker: nil
+            )
         )
 
         let layout = try #require(configuration.assetLayout)
@@ -253,7 +251,6 @@ struct BlockEmbeddingTests {
 
         let manifest = PreparedRetrievalIndexManifest(
             retrieverModelID: "BAAI/bge-m3",
-            rerankerModelID: nil,
             embeddingFormat: "row-major-f32-v1",
             embeddingDimension: 2,
             documentCount: 1,
@@ -289,7 +286,7 @@ struct BlockEmbeddingTests {
 
         let result = service.queryEmbedding(for: "alpha beta", expectedDimension: 2)
 
-        #expect(service.preparedRetrievalExecutionMode == .preparedIndexReady(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+        #expect(service.preparedRetrievalExecutionMode == .preparedIndexReady(retrieverModelID: "BAAI/bge-m3"))
         #expect(!service.preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback)
         #expect(result == [1, 1])
     }
@@ -330,8 +327,7 @@ struct BlockEmbeddingTests {
                     downloadPath: retrieverPath.path,
                     status: "downloaded",
                     trustRemoteCode: false
-                ),
-                reranker: nil
+                )
             )
         )
 
@@ -383,8 +379,7 @@ struct BlockEmbeddingTests {
                     downloadPath: retrieverPath.path,
                     status: "downloaded",
                     trustRemoteCode: false
-                ),
-                reranker: nil
+                )
             )
         )
 
@@ -392,7 +387,7 @@ struct BlockEmbeddingTests {
 
         #expect(snapshot.entryCount == 0)
         #expect(await service.dimension == 0)
-        #expect(service.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+        #expect(service.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3"))
     }
 
     @Test("computeBlockVectors uses the configured embedding backend")
@@ -619,8 +614,7 @@ struct BlockEmbeddingTests {
                     downloadPath: retrieverPath.path,
                     status: "downloaded",
                     trustRemoteCode: false
-                ),
-                reranker: nil
+                )
             )
         )
 

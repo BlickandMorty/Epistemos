@@ -246,9 +246,7 @@ struct LocalModelInfrastructureTests {
         defer { try? FileManager.default.removeItem(at: tempRoot) }
 
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
-        let rerankerPath = tempRoot.appendingPathComponent("reranker", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: rerankerPath, withIntermediateDirectories: true)
 
         let configuration = PreparedRetrievalRuntimeConfiguration(
             retriever: PreparedModelDescriptor(
@@ -267,31 +265,13 @@ struct LocalModelInfrastructureTests {
                 downloadPath: retrieverPath.path,
                 status: "downloaded",
                 trustRemoteCode: false
-            ),
-            reranker: PreparedModelDescriptor(
-                key: "reranker_primary",
-                role: .reranker,
-                displayName: "BGE Reranker",
-                artifactID: nil,
-                modelID: "BAAI/bge-reranker-v2-m3",
-                servedModelID: "BAAI/bge-reranker-v2-m3",
-                adapterPath: nil,
-                expectedAdapterBaseModelID: nil,
-                baseModelID: nil,
-                baseSnapshotPath: nil,
-                mergeOutputPath: nil,
-                mlxOutputPath: nil,
-                downloadPath: rerankerPath.path,
-                status: "downloaded",
-                trustRemoteCode: false
             )
         )
 
         #expect(
             configuration.preparedRetrievalExecutionMode
-                == .preparedAssetsPendingIndex(
-                    retrieverModelID: "BAAI/bge-m3",
-                    rerankerModelID: "BAAI/bge-reranker-v2-m3"
+                == PreparedRetrievalExecutionMode.preparedAssetsPendingIndex(
+                    retrieverModelID: "BAAI/bge-m3"
                 )
         )
     }
@@ -304,8 +284,7 @@ struct LocalModelInfrastructureTests {
         #expect(!PreparedRetrievalExecutionMode.appleEmbeddingFallback.hasPreparedIndexRuntime)
 
         let pendingIndex = PreparedRetrievalExecutionMode.preparedAssetsPendingIndex(
-            retrieverModelID: "BAAI/bge-m3",
-            rerankerModelID: nil
+            retrieverModelID: "BAAI/bge-m3"
         )
         #expect(!pendingIndex.usesSwiftEmbeddingFallback)
         #expect(pendingIndex.hasPreparedAssetsConfigured)
@@ -313,8 +292,7 @@ struct LocalModelInfrastructureTests {
         #expect(!pendingIndex.hasPreparedIndexRuntime)
 
         let ready = PreparedRetrievalExecutionMode.preparedIndexReady(
-            retrieverModelID: "BAAI/bge-m3",
-            rerankerModelID: "BAAI/bge-reranker-v2-m3"
+            retrieverModelID: "BAAI/bge-m3"
         )
         #expect(!ready.usesSwiftEmbeddingFallback)
         #expect(ready.hasPreparedAssetsConfigured)
@@ -328,9 +306,7 @@ struct LocalModelInfrastructureTests {
         defer { try? FileManager.default.removeItem(at: tempRoot) }
 
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
-        let rerankerPath = tempRoot.appendingPathComponent("reranker", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: rerankerPath, withIntermediateDirectories: true)
 
         let configuration = PreparedRetrievalRuntimeConfiguration(
             retriever: PreparedModelDescriptor(
@@ -349,23 +325,6 @@ struct LocalModelInfrastructureTests {
                 downloadPath: retrieverPath.path,
                 status: "downloaded",
                 trustRemoteCode: false
-            ),
-            reranker: PreparedModelDescriptor(
-                key: "reranker_primary",
-                role: .reranker,
-                displayName: "BGE Reranker",
-                artifactID: nil,
-                modelID: "BAAI/bge-reranker-v2-m3",
-                servedModelID: "BAAI/bge-reranker-v2-m3",
-                adapterPath: nil,
-                expectedAdapterBaseModelID: nil,
-                baseModelID: nil,
-                baseSnapshotPath: nil,
-                mergeOutputPath: nil,
-                mlxOutputPath: nil,
-                downloadPath: rerankerPath.path,
-                status: "downloaded",
-                trustRemoteCode: false
             )
         )
 
@@ -377,7 +336,6 @@ struct LocalModelInfrastructureTests {
         )
         let manifest = PreparedRetrievalIndexManifest(
             retrieverModelID: "BAAI/bge-m3",
-            rerankerModelID: "BAAI/bge-reranker-v2-m3",
             embeddingFormat: "row-major-f32-v1",
             embeddingDimension: 2,
             documentCount: 1,
@@ -393,12 +351,11 @@ struct LocalModelInfrastructureTests {
         try Data("{\"block_id\":\"block-1\",\"page_id\":\"page-1\",\"content\":\"hello\"}\n".utf8)
             .write(to: URL(fileURLWithPath: layout.documentsPath), options: .atomic)
 
-        #expect(layout.readinessState == .ready)
+        #expect(layout.readinessState == PreparedRetrievalReadinessState.ready)
         #expect(
             configuration.preparedRetrievalExecutionMode
-                == .preparedIndexReady(
-                    retrieverModelID: "BAAI/bge-m3",
-                    rerankerModelID: "BAAI/bge-reranker-v2-m3"
+                == PreparedRetrievalExecutionMode.preparedIndexReady(
+                    retrieverModelID: "BAAI/bge-m3"
                 )
         )
     }
@@ -409,9 +366,7 @@ struct LocalModelInfrastructureTests {
         defer { try? FileManager.default.removeItem(at: tempRoot) }
 
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
-        let rerankerPath = tempRoot.appendingPathComponent("reranker", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: rerankerPath, withIntermediateDirectories: true)
 
         let configuration = PreparedRetrievalRuntimeConfiguration(
             retriever: PreparedModelDescriptor(
@@ -430,23 +385,6 @@ struct LocalModelInfrastructureTests {
                 downloadPath: retrieverPath.path,
                 status: "downloaded",
                 trustRemoteCode: false
-            ),
-            reranker: PreparedModelDescriptor(
-                key: "reranker_primary",
-                role: .reranker,
-                displayName: "BGE Reranker",
-                artifactID: nil,
-                modelID: "BAAI/bge-reranker-v2-m3",
-                servedModelID: "BAAI/bge-reranker-v2-m3",
-                adapterPath: nil,
-                expectedAdapterBaseModelID: nil,
-                baseModelID: nil,
-                baseSnapshotPath: nil,
-                mergeOutputPath: nil,
-                mlxOutputPath: nil,
-                downloadPath: rerankerPath.path,
-                status: "downloaded",
-                trustRemoteCode: false
             )
         )
 
@@ -454,7 +392,6 @@ struct LocalModelInfrastructureTests {
         try FileManager.default.createDirectory(atPath: layout.indexRoot, withIntermediateDirectories: true)
         let manifest = PreparedRetrievalIndexManifest(
             retrieverModelID: "BAAI/not-bge-m3",
-            rerankerModelID: "BAAI/bge-reranker-v2-m3",
             embeddingFormat: "row-major-f32-v1",
             embeddingDimension: 2,
             documentCount: 1,
@@ -466,12 +403,11 @@ struct LocalModelInfrastructureTests {
         try Data("{\"block_id\":\"block-1\",\"page_id\":\"page-1\",\"content\":\"hello\"}\n".utf8)
             .write(to: URL(fileURLWithPath: layout.documentsPath), options: .atomic)
 
-        #expect(layout.readinessState == .invalidManifest)
+        #expect(layout.readinessState == PreparedRetrievalReadinessState.invalidManifest)
         #expect(
             configuration.preparedRetrievalExecutionMode
-                == .preparedAssetsPendingIndex(
-                    retrieverModelID: "BAAI/bge-m3",
-                    rerankerModelID: "BAAI/bge-reranker-v2-m3"
+                == PreparedRetrievalExecutionMode.preparedAssetsPendingIndex(
+                    retrieverModelID: "BAAI/bge-m3"
                 )
         )
     }
@@ -482,9 +418,7 @@ struct LocalModelInfrastructureTests {
         defer { try? FileManager.default.removeItem(at: tempRoot) }
 
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
-        let rerankerPath = tempRoot.appendingPathComponent("reranker", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: rerankerPath, withIntermediateDirectories: true)
 
         let configuration = PreparedRetrievalRuntimeConfiguration(
             retriever: PreparedModelDescriptor(
@@ -503,23 +437,6 @@ struct LocalModelInfrastructureTests {
                 downloadPath: retrieverPath.path,
                 status: "downloaded",
                 trustRemoteCode: false
-            ),
-            reranker: PreparedModelDescriptor(
-                key: "reranker_primary",
-                role: .reranker,
-                displayName: "BGE Reranker",
-                artifactID: nil,
-                modelID: "BAAI/bge-reranker-v2-m3",
-                servedModelID: "BAAI/bge-reranker-v2-m3",
-                adapterPath: nil,
-                expectedAdapterBaseModelID: nil,
-                baseModelID: nil,
-                baseSnapshotPath: nil,
-                mergeOutputPath: nil,
-                mlxOutputPath: nil,
-                downloadPath: rerankerPath.path,
-                status: "downloaded",
-                trustRemoteCode: false
             )
         )
 
@@ -527,7 +444,6 @@ struct LocalModelInfrastructureTests {
         try FileManager.default.createDirectory(atPath: layout.indexRoot, withIntermediateDirectories: true)
         let manifest = PreparedRetrievalIndexManifest(
             retrieverModelID: "BAAI/bge-m3",
-            rerankerModelID: "BAAI/bge-reranker-v2-m3",
             embeddingFormat: "row-major-f32-v1",
             embeddingDimension: 2,
             documentCount: 2,
@@ -541,12 +457,11 @@ struct LocalModelInfrastructureTests {
         {"block_id":"block-2","page_id":"page-2","content":"world"}
         """.utf8).write(to: URL(fileURLWithPath: layout.documentsPath), options: .atomic)
 
-        #expect(layout.readinessState == .invalidEmbeddings)
+        #expect(layout.readinessState == PreparedRetrievalReadinessState.invalidEmbeddings)
         #expect(
             configuration.preparedRetrievalExecutionMode
-                == .preparedAssetsPendingIndex(
-                    retrieverModelID: "BAAI/bge-m3",
-                    rerankerModelID: "BAAI/bge-reranker-v2-m3"
+                == PreparedRetrievalExecutionMode.preparedAssetsPendingIndex(
+                    retrieverModelID: "BAAI/bge-m3"
                 )
         )
     }
@@ -557,9 +472,7 @@ struct LocalModelInfrastructureTests {
         defer { try? FileManager.default.removeItem(at: tempRoot) }
 
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
-        let rerankerPath = tempRoot.appendingPathComponent("reranker", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: rerankerPath, withIntermediateDirectories: true)
 
         let configuration = PreparedRetrievalRuntimeConfiguration(
             retriever: PreparedModelDescriptor(
@@ -578,23 +491,6 @@ struct LocalModelInfrastructureTests {
                 downloadPath: retrieverPath.path,
                 status: "downloaded",
                 trustRemoteCode: false
-            ),
-            reranker: PreparedModelDescriptor(
-                key: "reranker_primary",
-                role: .reranker,
-                displayName: "BGE Reranker",
-                artifactID: nil,
-                modelID: "BAAI/bge-reranker-v2-m3",
-                servedModelID: "BAAI/bge-reranker-v2-m3",
-                adapterPath: nil,
-                expectedAdapterBaseModelID: nil,
-                baseModelID: nil,
-                baseSnapshotPath: nil,
-                mergeOutputPath: nil,
-                mlxOutputPath: nil,
-                downloadPath: rerankerPath.path,
-                status: "downloaded",
-                trustRemoteCode: false
             )
         )
 
@@ -606,7 +502,6 @@ struct LocalModelInfrastructureTests {
         )
         let manifest = PreparedRetrievalIndexManifest(
             retrieverModelID: "BAAI/bge-m3",
-            rerankerModelID: "BAAI/bge-reranker-v2-m3",
             embeddingFormat: "row-major-f32-v1",
             embeddingDimension: 2,
             documentCount: 1,
@@ -626,12 +521,11 @@ struct LocalModelInfrastructureTests {
             ofItemAtPath: sourceDatabaseURL.path
         )
 
-        #expect(layout.readinessState == .staleSourceSnapshot)
+        #expect(layout.readinessState == PreparedRetrievalReadinessState.staleSourceSnapshot)
         #expect(
             configuration.preparedRetrievalExecutionMode
-                == .preparedAssetsPendingIndex(
-                    retrieverModelID: "BAAI/bge-m3",
-                    rerankerModelID: "BAAI/bge-reranker-v2-m3"
+                == PreparedRetrievalExecutionMode.preparedAssetsPendingIndex(
+                    retrieverModelID: "BAAI/bge-m3"
                 )
         )
     }

@@ -20,12 +20,12 @@ struct QueryRuntimeTests {
     private struct StubPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
         let lookup: any TextEmbeddingLookup
 
-        func resolveReranker(
+        func resolveScorer(
             configuration: PreparedRetrievalRuntimeConfiguration?,
             executionMode: PreparedRetrievalExecutionMode,
             graphState: GraphState
-        ) -> any RetrievalReranking {
-            PassthroughRetrievalReranker()
+        ) -> any RetrievalScoring {
+            PassthroughRetrievalScorer()
         }
 
         func resolveEmbeddingLookup(
@@ -38,10 +38,10 @@ struct QueryRuntimeTests {
     }
 
     @MainActor
-    private final class ReversingReranker: RetrievalReranking {
+    private final class ReversingScorer: RetrievalScoring {
         private(set) var receivedCandidateIDs: [String] = []
 
-        func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
+        func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
             receivedCandidateIDs = candidates.map(\.node.id)
             return candidates.reversed()
         }
@@ -643,8 +643,8 @@ struct QueryRuntimeTests {
         #expect(ids == ["note-1", "note-2"])
     }
 
-    @Test("retrieval runtime reranks only the configured top-k candidates")
-    func retrievalRuntimeReranksOnlyConfiguredTopKCandidates() throws {
+    @Test("retrieval runtime scores only the configured top-k candidates")
+    func retrievalRuntimeScoresOnlyConfiguredTopKCandidates() throws {
         let store = GraphStore()
         let graphState = GraphState()
         let searchIndex = try makeSearchIndex()
@@ -678,27 +678,27 @@ struct QueryRuntimeTests {
             graphStore: store,
             graphState: graphState,
             searchIndex: searchIndex,
-            rerankLimit: 2
+            scoreLimit: 2
         )
-        let reranker = ReversingReranker()
-        let rerankedRuntime = RetrievalRuntime(
+        let scorer = ReversingScorer()
+        let scoredRuntime = RetrievalRuntime(
             graphStore: store,
             graphState: graphState,
             searchIndex: searchIndex,
-            reranker: reranker,
-            rerankLimit: 2
+            scorer: scorer,
+            scoreLimit: 2
         )
 
         let baselineIDs = baseline.fullText(query: "physics", scope: .pages).map(\.id)
-        let rerankedIDs = rerankedRuntime.fullText(query: "physics", scope: .pages).map(\.id)
+        let scoredIDs = scoredRuntime.fullText(query: "physics", scope: .pages).map(\.id)
 
-        #expect(reranker.receivedCandidateIDs.count == 2)
-        #expect(Array(rerankedIDs.prefix(2)) == Array(baselineIDs.prefix(2).reversed()))
-        #expect(Array(rerankedIDs.dropFirst(2)) == Array(baselineIDs.dropFirst(2)))
+        #expect(scorer.receivedCandidateIDs.count == 2)
+        #expect(Array(scoredIDs.prefix(2)) == Array(baselineIDs.prefix(2).reversed()))
+        #expect(Array(scoredIDs.dropFirst(2)) == Array(baselineIDs.dropFirst(2)))
     }
 
-    @Test("query runtime forwards configured reranker into retrieval execution")
-    func queryRuntimeForwardsConfiguredRerankerIntoRetrievalExecution() throws {
+    @Test("query runtime forwards configured scorer into retrieval execution")
+    func queryRuntimeForwardsConfiguredScorerIntoRetrievalExecution() throws {
         let store = GraphStore()
         let graphState = GraphState()
         let searchIndex = try makeSearchIndex()
@@ -725,12 +725,12 @@ struct QueryRuntimeTests {
             graphState: graphState,
             searchIndex: searchIndex
         )
-        let reranker = ReversingReranker()
-        let rerankedRuntime = try QueryRuntime(
+        let scorer = ReversingScorer()
+        let scoredRuntime = try QueryRuntime(
             graphStore: store,
             graphState: graphState,
             searchIndex: searchIndex,
-            reranker: reranker
+            scorer: scorer
         )
 
         let baseline = baselineRuntime.execute(
@@ -739,7 +739,7 @@ struct QueryRuntimeTests {
                 combiner: .single
             )
         )
-        let result = rerankedRuntime.execute(
+        let result = scoredRuntime.execute(
             QueryPlan(
                 steps: [.fts5Search(query: "physics", scope: .pages)],
                 combiner: .single
@@ -747,12 +747,12 @@ struct QueryRuntimeTests {
         )
 
         let baselineIDs = baseline.nodes.map(\.id)
-        #expect(reranker.receivedCandidateIDs == baselineIDs)
+        #expect(scorer.receivedCandidateIDs == baselineIDs)
         #expect(result.nodes.map(\.id) == baselineIDs.reversed())
     }
 
-    @Test("prepared index reranker reorders candidates using Rust retrieval scores")
-    func preparedIndexRerankerUsesRustRetrievalScores() throws {
+    @Test("prepared index scorer reorders candidates using Rust retrieval scores")
+    func preparedIndexScorerUsesRustRetrievalScores() throws {
         let device = try #require(MTLCreateSystemDefaultDevice())
         let layer = CAMetalLayer()
         layer.device = device
@@ -786,8 +786,7 @@ struct QueryRuntimeTests {
                 downloadPath: retrieverPath.path,
                 status: "downloaded",
                 trustRemoteCode: false
-            ),
-            reranker: nil
+            )
         )
 
         let layout = try #require(configuration.assetLayout)
@@ -795,13 +794,13 @@ struct QueryRuntimeTests {
 
         let sourceDatabaseURL = tempRoot.appendingPathComponent("search.sqlite")
         try Data().write(to: sourceDatabaseURL, options: .atomic)
-        let sourceDatabaseModifiedAt = try #require(
-            sourceDatabaseURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
-        ).timeIntervalSince1970
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 10)],
+            ofItemAtPath: sourceDatabaseURL.path
+        )
 
         let manifest = PreparedRetrievalIndexManifest(
             retrieverModelID: "BAAI/bge-m3",
-            rerankerModelID: nil,
             embeddingFormat: "row-major-f32-v1",
             embeddingDimension: 2,
             documentCount: 2,
@@ -809,7 +808,7 @@ struct QueryRuntimeTests {
             documentsFile: "documents.jsonl",
             builtAt: 10,
             sourceDatabasePath: sourceDatabaseURL.path,
-            sourceDatabaseModifiedAt: sourceDatabaseModifiedAt,
+            sourceDatabaseModifiedAt: 10,
             sourceDatabaseWALModifiedAt: nil
         )
         try JSONEncoder().encode(manifest).write(to: URL(fileURLWithPath: layout.indexManifestPath), options: .atomic)
@@ -838,8 +837,9 @@ struct QueryRuntimeTests {
         )
         embeddingService.graphState = graphState
         embeddingService.applyPreparedRetrievalRuntimeConfiguration(configuration)
+        graphState.applyPreparedRetrievalRuntimeConfiguration(configuration)
 
-        let reranker = PreparedIndexSimilarityReranker(
+        let scorer = PreparedIndexSimilarityScorer(
             graphState: graphState,
             embeddingService: embeddingService
         )
@@ -855,7 +855,7 @@ struct QueryRuntimeTests {
             ),
         ]
 
-        let reranked = reranker.rerank(query: "alpha", candidates: candidates)
+        let reranked = scorer.score(query: "alpha", candidates: candidates)
 
         #expect(reranked.map { $0.node.id } == ["node-a", "node-b"])
     }

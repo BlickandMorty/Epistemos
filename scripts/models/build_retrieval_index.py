@@ -16,7 +16,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--retriever", required=True, help="Path to the downloaded BGE retriever")
     parser.add_argument("--output-dir", required=True, help="Directory for documents.jsonl and block-embeddings.f32")
     parser.add_argument("--retriever-model-id", required=True)
-    parser.add_argument("--reranker-model-id", default="")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--max-length", type=int, default=1024)
     parser.add_argument("--max-docs", type=int, default=0)
@@ -235,7 +234,6 @@ def main() -> None:
     manifest = {
         "version": 1,
         "retrieverModelID": args.retriever_model_id,
-        "rerankerModelID": args.reranker_model_id or None,
         "embeddingFormat": "row-major-f32-v1",
         "embeddingDimension": embedding_dimension,
         "documentCount": document_count,

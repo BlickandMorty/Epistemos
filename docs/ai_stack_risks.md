@@ -1,21 +1,21 @@
 # AI Stack Risks
 
-## 1. Retrieval runtime still incomplete
+## 1. Future retrieval overreach
 
 Severity: critical
 
 Why it matters:
 
-- Phase 5 cannot land on top of a fake retrieval runtime
-- Swift fallback embeddings are not the target architecture
+- later phases could overclaim native Rust ML support before the dependency/runtime story is justified
+- Swift-owned query embeddings are an intentional boundary, not a bug to paper over
 
-## 2. Local runtime hardening still partial
+## 2. Single-lane local runtime pressure
 
 Severity: high
 
 Why it matters:
 
-- the remaining local Qwen lane still needs stronger readiness and residency behavior
+- the remaining local Qwen lane still needs continued readiness and residency discipline
 - an 18 GB target has little room for sloppy load/unload policy
 
 ## 3. Streaming smoothness can still regress
@@ -47,9 +47,13 @@ Why it matters:
 
 ## Rollout Gate
 
-Do not start Phase 5 until:
+Phase 4.5 satisfied this gate before Phase 5 started:
 
 1. retrieval runtime closure is real
 2. runtime/model selection is honest
 3. the remaining local text lane is operationally stable
 4. docs, manifests, and tests all match the live architecture
+
+Current rule:
+
+- do not reintroduce removed prepared roles or hidden extra local lanes without a new explicit phase and audit

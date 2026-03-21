@@ -27,10 +27,8 @@ download_model_asset() {
 }
 
 download_model_asset "retriever_primary"
-download_model_asset "reranker_primary"
 
 retriever_model_id="$(model_get "retriever_primary" served_model_id)"
-reranker_model_id="$(model_get "reranker_primary" served_model_id)"
 retriever_source_root="$(expand_path "$(model_get "retriever_primary" download_path)")"
 index_root="$(dirname "${retriever_source_root}")/index"
 index_manifest_path="${index_root}/manifest.json"

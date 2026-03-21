@@ -76,3 +76,36 @@ Next phase allowed:
 
 - 4.5 is Option-B complete
 - Phase 5 is legally unblocked
+
+## Phase 5 — Structured Local Contract
+
+Status: complete, audited
+
+What landed:
+
+- prepared retrieval now exposes only a retriever-backed runtime contract in Swift
+- prepared model roles no longer imply router, reranker, or experimental MoE lanes
+- query runtime now uses `RetrievalScoring` naming so similarity scoring is described honestly
+- the live prepared model manifest now carries only `retriever_primary`
+- retrieval build scripts now describe only the retriever-backed index build path
+- stale router-prep script residue was removed so helper tooling no longer advertises deleted model roles
+- focused tests were updated to assert the real contract instead of future-ready seams
+
+What was validated:
+
+- `./scripts/audit/native_cleanup_scan.sh`
+- `./scripts/audit/verify.sh --fix-format`
+- `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml`
+- `cargo test retrieval_index --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml`
+- `xcodebuild -project /Users/jojo/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/LocalModelInfrastructureTests -only-testing:EpistemosTests/QueryRuntimeTests`
+- `xcodebuild -project /Users/jojo/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/SearchIndexServiceIntegrationTests -only-testing:EpistemosTests/PipelineServiceTests`
+
+Open risk:
+
+- Swift still owns query embedding generation until a later phase justifies a native Rust embedding runtime without abandoning MLX unified-memory advantages
+- similarity scoring remains intentionally simpler than a real cross-encoder runtime
+
+Next phase allowed:
+
+- the current AI-stack plan is closed under Option B constraints
+- any later work must be a new phase, not a hidden extension of removed architecture

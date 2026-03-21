@@ -102,7 +102,7 @@ struct RuntimeValidationTests {
     func bootstrapLoadsPreparedModelRegistry() async {
         let bootstrap = AppBootstrap()
 
-        #expect(bootstrap.preparedModelRegistryState.primaryRouter?.servedModelID == "qwen-router-4b-sft")
+        #expect(bootstrap.preparedModelRegistryState.primaryRetriever?.servedModelID == "BAAI/bge-m3")
         #expect(bootstrap.preparedModelRegistryState.lastErrorMessage == nil)
     }
 
@@ -112,16 +112,13 @@ struct RuntimeValidationTests {
         let bootstrap = AppBootstrap()
 
         #expect(bootstrap.preparedModelRegistryState.primaryRetriever?.servedModelID == "BAAI/bge-m3")
-        #expect(bootstrap.preparedModelRegistryState.primaryReranker?.servedModelID == "BAAI/bge-reranker-v2-m3")
 
         let graphAssets = try #require(bootstrap.graphState.preparedRetrievalRuntimeConfiguration)
         let queryAssets = try #require(bootstrap.queryEngine.preparedRetrievalRuntimeConfiguration)
         let embeddingAssets = try #require(bootstrap.graphState.embeddingService.preparedRetrievalRuntimeConfiguration)
 
         #expect(graphAssets.retriever.servedModelID == "BAAI/bge-m3")
-        #expect(graphAssets.reranker?.servedModelID == "BAAI/bge-reranker-v2-m3")
         #expect(graphAssets.retriever.resolvedDownloadPath?.hasSuffix("/PreparedModels/retrieval/bge-m3/source") == true)
-        #expect(graphAssets.reranker?.resolvedDownloadPath?.hasSuffix("/PreparedModels/retrieval/bge-reranker-v2-m3/source") == true)
         #expect(queryAssets == graphAssets)
         #expect(embeddingAssets == graphAssets)
     }
@@ -135,7 +132,6 @@ struct RuntimeValidationTests {
         let manifest = try #require(layout.indexManifest)
 
         #expect(FileManager.default.fileExists(atPath: layout.retrieverSourceRoot))
-        #expect(FileManager.default.fileExists(atPath: layout.rerankerSourceRoot ?? ""))
         #expect(FileManager.default.fileExists(atPath: layout.embeddingsPath))
         #expect(FileManager.default.fileExists(atPath: layout.documentsPath))
         #expect(manifest.documentCount > 8)
@@ -145,13 +141,11 @@ struct RuntimeValidationTests {
         let expectedMode: PreparedRetrievalExecutionMode
         if layout.isBuilt {
             expectedMode = .preparedIndexReady(
-                retrieverModelID: "BAAI/bge-m3",
-                rerankerModelID: "BAAI/bge-reranker-v2-m3"
+                retrieverModelID: "BAAI/bge-m3"
             )
         } else {
             expectedMode = .preparedAssetsPendingIndex(
-                retrieverModelID: "BAAI/bge-m3",
-                rerankerModelID: "BAAI/bge-reranker-v2-m3"
+                retrieverModelID: "BAAI/bge-m3"
             )
         }
         #expect(bootstrap.graphState.preparedRetrievalExecutionMode == expectedMode)
@@ -388,8 +382,8 @@ struct RuntimeValidationTests {
         #expect(coordinator.contains("let entriesByPageID = Dictionary("))
     }
 
-    @Test("prepared retrieval reranker uses a dedicated candidate list ffi")
-    func preparedRetrievalRerankerUsesDedicatedCandidateListFFI() throws {
+    @Test("prepared retrieval scorer uses a dedicated candidate list ffi")
+    func preparedRetrievalScorerUsesDedicatedCandidateListFFI() throws {
         let queryRuntime = try loadRepoTextFile("Epistemos/Engine/QueryRuntime.swift")
         let rustFFI = try loadRepoTextFile("graph-engine/src/lib.rs")
         let header = try loadRepoTextFile("graph-engine-bridge/graph_engine.h")

@@ -407,14 +407,13 @@ prepare_peft_causal_lm_artifact() {
 write_retrieval_index_manifest() {
   local output_path="$1"
   local retriever_model_id="$2"
-  local reranker_model_id="${3:-}"
-  local embedding_format="$4"
-  local embedding_dimension="$5"
-  local document_count="$6"
-  local embeddings_file="$7"
-  local documents_file="$8"
+  local embedding_format="$3"
+  local embedding_dimension="$4"
+  local document_count="$5"
+  local embeddings_file="$6"
+  local documents_file="$7"
 
-  python_cmd - "$output_path" "$retriever_model_id" "$reranker_model_id" "$embedding_format" "$embedding_dimension" "$document_count" "$embeddings_file" "$documents_file" <<'PY'
+  python_cmd - "$output_path" "$retriever_model_id" "$embedding_format" "$embedding_dimension" "$document_count" "$embeddings_file" "$documents_file" <<'PY'
 import json
 import os
 import sys
@@ -422,7 +421,6 @@ import sys
 (
     output_path,
     retriever_model_id,
-    reranker_model_id,
     embedding_format,
     embedding_dimension,
     document_count,
@@ -432,7 +430,6 @@ import sys
 payload = {
     "version": 1,
     "retrieverModelID": retriever_model_id,
-    "rerankerModelID": reranker_model_id or None,
     "embeddingFormat": embedding_format,
     "embeddingDimension": int(embedding_dimension),
     "documentCount": int(document_count),

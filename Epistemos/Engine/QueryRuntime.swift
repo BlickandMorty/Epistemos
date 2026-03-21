@@ -78,23 +78,23 @@ nonisolated struct RetrievalCandidate: Sendable {
 }
 
 @MainActor
-protocol RetrievalReranking {
-    func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate]
+protocol RetrievalScoring {
+    func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate]
 }
 
-struct PassthroughRetrievalReranker: RetrievalReranking {
-    func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
+struct PassthroughRetrievalScorer: RetrievalScoring {
+    func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
         candidates
     }
 }
 
 @MainActor
 protocol PreparedRetrievalRuntimeResolving {
-    func resolveReranker(
+    func resolveScorer(
         configuration: PreparedRetrievalRuntimeConfiguration?,
         executionMode: PreparedRetrievalExecutionMode,
         graphState: GraphState
-    ) -> any RetrievalReranking
+    ) -> any RetrievalScoring
 
     func resolveEmbeddingLookup(
         configuration: PreparedRetrievalRuntimeConfiguration?,
@@ -104,15 +104,15 @@ protocol PreparedRetrievalRuntimeResolving {
 }
 
 struct DefaultPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
-    func resolveReranker(
+    func resolveScorer(
         configuration: PreparedRetrievalRuntimeConfiguration?,
         executionMode: PreparedRetrievalExecutionMode,
         graphState: GraphState
-    ) -> any RetrievalReranking {
+    ) -> any RetrievalScoring {
         guard executionMode.hasPreparedIndexRuntime else {
-            return PassthroughRetrievalReranker()
+            return PassthroughRetrievalScorer()
         }
-        return PreparedIndexSimilarityReranker(
+        return PreparedIndexSimilarityScorer(
             graphState: graphState,
             embeddingService: graphState.embeddingService
         )
@@ -128,7 +128,7 @@ struct DefaultPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolvin
 }
 
 @MainActor
-final class PreparedIndexSimilarityReranker: RetrievalReranking {
+final class PreparedIndexSimilarityScorer: RetrievalScoring {
     private weak var graphState: GraphState?
     private let embeddingService: EmbeddingService
 
@@ -137,7 +137,7 @@ final class PreparedIndexSimilarityReranker: RetrievalReranking {
         self.embeddingService = embeddingService
     }
 
-    func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
+    func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
         guard candidates.count > 1,
               embeddingService.preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
               let graphState,
@@ -199,27 +199,27 @@ final class PreparedIndexSimilarityReranker: RetrievalReranking {
 @MainActor
 final class RetrievalRuntime {
     private enum RetrievalPolicy {
-        static let rerankLimit = 12
+        static let scoreLimit = 12
     }
 
     private let graphStore: GraphStore
     private let graphState: GraphState
     private let searchIndex: SearchIndexService
-    private let reranker: any RetrievalReranking
-    private let rerankLimit: Int
+    private let scorer: any RetrievalScoring
+    private let scoreLimit: Int
 
     init(
         graphStore: GraphStore,
         graphState: GraphState,
         searchIndex: SearchIndexService,
-        reranker: any RetrievalReranking = PassthroughRetrievalReranker(),
-        rerankLimit: Int = RetrievalPolicy.rerankLimit
+        scorer: any RetrievalScoring = PassthroughRetrievalScorer(),
+        scoreLimit: Int = RetrievalPolicy.scoreLimit
     ) {
         self.graphStore = graphStore
         self.graphState = graphState
         self.searchIndex = searchIndex
-        self.reranker = reranker
-        self.rerankLimit = max(0, rerankLimit)
+        self.scorer = scorer
+        self.scoreLimit = max(0, scoreLimit)
     }
 
     func fullText(query: String, scope: SearchScope, limit: Int = 50) -> [QueryResultNode] {
@@ -254,7 +254,7 @@ final class RetrievalRuntime {
             }
         }
 
-        return rerankedCandidates(query: query, candidates: candidates).map(\.node)
+        return scoredCandidates(query: query, candidates: candidates).map(\.node)
     }
 
     func semantic(query: String, limit: Int) -> [QueryResultNode] {
@@ -264,7 +264,7 @@ final class RetrievalRuntime {
                 source: .semanticGraph
             )
         }
-        return rerankedCandidates(query: query, candidates: candidates).map(\.node)
+        return scoredCandidates(query: query, candidates: candidates).map(\.node)
     }
 
     private func appendNoteResult(
@@ -290,19 +290,19 @@ final class RetrievalRuntime {
         )
     }
 
-    private func rerankedCandidates(
+    private func scoredCandidates(
         query: String,
         candidates: [RetrievalCandidate]
     ) -> [RetrievalCandidate] {
-        guard candidates.count > 1, rerankLimit > 0 else { return candidates }
-        let prefixCount = min(rerankLimit, candidates.count)
+        guard candidates.count > 1, scoreLimit > 0 else { return candidates }
+        let prefixCount = min(scoreLimit, candidates.count)
         let prefix = Array(candidates.prefix(prefixCount))
-        let rerankedPrefix = reranker.rerank(query: query, candidates: prefix)
-        guard rerankedPrefix.count == prefix.count,
-              Set(rerankedPrefix.map(\.node.id)) == Set(prefix.map(\.node.id)) else {
+        let scoredPrefix = scorer.score(query: query, candidates: prefix)
+        guard scoredPrefix.count == prefix.count,
+              Set(scoredPrefix.map(\.node.id)) == Set(prefix.map(\.node.id)) else {
             return candidates
         }
-        return rerankedPrefix + candidates.dropFirst(prefixCount)
+        return scoredPrefix + candidates.dropFirst(prefixCount)
     }
 }
 
@@ -320,7 +320,7 @@ final class QueryRuntime {
         graphStore: GraphStore,
         graphState: GraphState,
         searchIndex: SearchIndexService,
-        reranker: any RetrievalReranking = PassthroughRetrievalReranker()
+        scorer: any RetrievalScoring = PassthroughRetrievalScorer()
     ) {
         self.graphStore = graphStore
         self.graphState = graphState
@@ -328,7 +328,7 @@ final class QueryRuntime {
             graphStore: graphStore,
             graphState: graphState,
             searchIndex: searchIndex,
-            reranker: reranker
+            scorer: scorer
         )
     }
 

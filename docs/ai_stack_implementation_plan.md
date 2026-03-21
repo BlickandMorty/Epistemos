@@ -2,12 +2,12 @@
 
 ## Goal
 
-Ship a smaller and more honest local stack before Phase 5:
+Ship a smaller and more honest local stack:
 
 - Apple Intelligence for the lightest native tasks
 - one in-process Qwen local text lane
-- Rust-native BGE retrieval and reranking target-state
-- experimental MoE isolated and manual-only
+- Rust prepared retrieval store/search plus similarity scoring in `graph-engine`
+- no fake live router, reranker, or experimental MoE roles
 
 ## Mandatory Rule
 
@@ -23,7 +23,7 @@ Phase 5 stays blocked until Phase 4.5 is fully closed and audited.
 | 3 — Retrieval Upgrade | partial | audited | retrieval seams and index prep exist, but Rust-native BGE execution is still missing |
 | 4 — Swift Orchestration Refactor | partial | audited | note, graph, and local-model orchestration are much cleaner, but retrieval handoff and latency hardening are still open |
 | 4.5 — Pre-Phase-5 Stabilization | complete (Option B) | audited | hot-path cleanup, UI streaming improvements, residency guard, and Rust prepared search plus similarity reranking are in. Native BGE and cross-encoder are explicitly deferred to unblock Phase 5. |
-| 5 — Structured Local Contract | not started | not audited | blocked on 4.5 completion; no sidecar or separate reasoner lane is part of this phase |
+| 5 — Structured Local Contract | complete | audited | prepared retrieval is now truthfully retriever-only, similarity scoring is named honestly, and docs/manifests/tests no longer advertise removed live roles |
 
 ## What 4.5 Already Closed
 
@@ -89,6 +89,41 @@ Required outcomes:
 - OpenClaw-style orchestration loops
 - another heavy local reasoner
 - MoE auto-routing
+
+## What Phase 5 Closed
+
+### 5A — Structured Local Contract (Complete)
+
+Primary files:
+
+- [`LocalModelInfrastructure.swift`](/Users/jojo/Epistemos/Epistemos/Engine/LocalModelInfrastructure.swift)
+- [`QueryRuntime.swift`](/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift)
+- [`QueryEngine.swift`](/Users/jojo/Epistemos/Epistemos/Engine/QueryEngine.swift)
+- [`model_manifest.json`](/Users/jojo/Epistemos/config/model_manifest.json)
+- [`build_retrieval_index.py`](/Users/jojo/Epistemos/scripts/models/build_retrieval_index.py)
+
+Required outcomes:
+
+1. prepared retrieval contracts reflect the real live runtime instead of future target-state seams
+2. prepared model registry only carries roles that still exist in the live app
+3. similarity-based rescoring is named honestly and never masquerades as a cross-encoder runtime
+4. retrieval build scripts describe a retriever-only index pipeline
+5. tests, docs, and manifests match the Option B architecture
+
+What landed:
+
+1. `PreparedModelRole` now exposes only the live `retriever` role
+2. prepared retrieval configuration and execution mode are retriever-only
+3. query runtime now talks about scoring instead of pretending a reranker exists
+4. the prepared model manifest no longer carries router, reranker, or experimental MoE entries
+5. retrieval build scripts no longer advertise a removed reranker model ID or router prep flow
+6. focused runtime, pipeline, and infrastructure tests now compile and pass against the stricter contract
+
+Exit criteria:
+
+1. no live boot or query path references removed prepared roles
+2. no docs, manifests, or helper scripts advertise removed live roles
+3. tests pass without weakening assertions to hide the simpler contract
 
 ## Exit Criteria For Phase 4.5 (Option B Modified)
 

@@ -8,8 +8,8 @@ The live target architecture is now:
 
 - Apple Intelligence for the lightest native tasks
 - one Qwen local text lane for local chat, synthesis, and routing-adjacent work
-- Rust-native retrieval and reranking as the long-term search path
-- optional experimental MoE kept isolated and manual-only
+- Swift-owned query embeddings feeding a Rust prepared retrieval store/search path
+- Rust similarity scoring for prepared retrieval candidate rescoring
 - in-process local serving as the default boot path for Qwen
 
 ## Why DeepSeek Was Removed
@@ -35,34 +35,33 @@ User
 
 Retrieval
   -> QueryRuntime / SearchIndexService / GraphState
-  -> GRDB FTS + Rust graph search + prepared retrieval seams
-  -> future Rust-native BGE query embeddings + cross-encoder reranker
+  -> GRDB FTS + Rust graph search + prepared retrieval runtime
+  -> Swift query embeddings + Rust cosine-similarity scoring
 ```
 
-## Decisions Locked Before Phase 5
+## Decisions Locked
 
 1. No DeepSeek runtime path.
 2. No prepared reasoner role in the live manifest.
 3. No UI that implies a separate heavy reasoner exists.
-4. No tool-calling contract until retrieval and runtime stabilization are actually closed.
-5. Retrieval remains the main unfinished architecture item in Phase 4.5.
+4. No fake router, reranker, or experimental MoE role in the live prepared-model contract.
+5. No tool-calling contract until a later phase explicitly introduces it.
 
 ## Current Model Roles
 
-- `router_primary`: prepared Qwen router
-- `router_fallback`: smaller prepared Qwen router
 - `retriever_primary`: BGE-M3 asset slot
-- `reranker_primary`: BGE reranker slot
-- `experimental_moe`: manual-only experimental lane
 
-## Phase 4.5 Focus
+No other prepared live roles remain in the manifest.
 
-The remaining work before Phase 5 is:
+## Current Boundaries
 
-1. finish the Rust-native BGE retrieval/runtime path
-2. keep the single local Qwen path honest and stable
-3. keep streaming/UI smooth under heavy local generation
-4. harden memory residency and readiness behavior around the single local text lane
+The contract now stays locked to:
+
+1. Apple Intelligence first for the lightest native tasks
+2. one in-process Qwen lane for local text generation
+3. Swift-owned query embeddings
+4. Rust prepared retrieval storage/search plus similarity scoring
+5. no semantic clustering on the prepared runtime until the vector space is unified
 
 Current behavior that stays locked while 4.5 continues:
 
@@ -74,6 +73,7 @@ Current behavior that stays locked while 4.5 continues:
 - bringing back a dedicated heavy reasoner before Phase 5
 - replacing DeepSeek with another large local model immediately
 - treating old worker instability as a reason to move every future model into the UI process
+- pretending similarity rescoring is already a real cross-encoder runtime
 
 ## Shipping Bias
 
