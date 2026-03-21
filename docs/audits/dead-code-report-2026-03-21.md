@@ -1,11 +1,12 @@
 # Dead Code Report
 
-- Generated: Sat Mar 21 09:25:18 CDT 2026
+- Generated: Sat Mar 21 09:44:06 CDT 2026
 - Root: `/Users/jojo/Epistemos`
 
 ## Non-Direct SwiftPM Pins
 - These are pins in `Package.resolved` that are not direct Xcode package references.
 - They may be legitimate transitive dependencies; review before deleting.
+- `eventsource`
 - `swift-asn1`
 - `swift-atomics`
 - `swift-collections`
@@ -18,51 +19,37 @@
 - `yyjson`
 
 ## Potentially Orphaned Model Scripts
-- none
+- `/Users/jojo/Epistemos/scripts/models/build_retrieval_index.py`
+- `/Users/jojo/Epistemos/scripts/models/build_retrieval_index.sh`
+- `/Users/jojo/Epistemos/scripts/models/build_retrieval_index_test.py`
+- `/Users/jojo/Epistemos/scripts/models/common.sh`
+- `/Users/jojo/Epistemos/scripts/models/common_test.sh`
+- `/Users/jojo/Epistemos/scripts/models/prepare_retrieval_assets.sh`
+- `/Users/jojo/Epistemos/scripts/models/prepare_router.sh`
 
 ## TODO / FIXME / HACK / XXX Hits
+- /Users/jojo/Epistemos/docs/codex-v2-release-audit.md:302:- TODOs that represent real work vs aspirational notes
+- /Users/jojo/Epistemos/docs/codex-v2-release-audit.md:306:- All `// TODO:` comments across the codebase
+- /Users/jojo/Epistemos/graph-engine/src/lib.rs:135:    /// Task marker such as TODO or DONE.
 - /Users/jojo/Epistemos/docs/future-work-audit.md:13:- In-code TODOs
 - /Users/jojo/Epistemos/docs/future-work-audit.md:258:- **Fix:** Fulfill the existing TODO in `ResearchState.swift` to migrate `savedPapers` to a proper `SDSavedPaper` @Model inside SwiftData.
 - /Users/jojo/Epistemos/docs/future-work-audit.md:1510:## IN-CODE TODOs
 - /Users/jojo/Epistemos/docs/future-work-audit.md:1514:| `Epistemos/State/ResearchState.swift` | 35 | `// TODO: Migrate to SDSavedPaper @Model when library view is built.` |
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:28:## TODO / FIXME / HACK / XXX Hits
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:29:- /Users/jojo/Epistemos/scripts/audit/dead_code_report.sh:42:rg -n "TODO|FIXME|HACK|XXX" \
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:30:- /Users/jojo/Epistemos/scripts/audit/dead_code_report.sh:74:  echo "## TODO / FIXME / HACK / XXX Hits"
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:31:- /Users/jojo/Epistemos/docs/codex-v2-release-audit.md:302:- TODOs that represent real work vs aspirational notes
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:32:- /Users/jojo/Epistemos/docs/codex-v2-release-audit.md:306:- All `// TODO:` comments across the codebase
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:33:- /Users/jojo/Epistemos/Epistemos/Engine/NoteInsightService.swift:308:                // TODO: Wire EmbeddingService.embeddings[pageId] cosine similarity (0.30 weight)
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:34:- /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:233:        return (Some("TODO"), false, Cow::Borrowed(rest));
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:35:- /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:238:    if let Some(rest) = trimmed.strip_prefix("TODO ") {
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:36:- /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:239:        return (Some("TODO"), false, Cow::Borrowed(rest));
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:37:- /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:330:            "* TODO Root :owner:jojo:\n** Child [[note]]",
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:38:- /Users/jojo/Epistemos/docs/future-work-audit.md:13:- In-code TODOs
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:39:- /Users/jojo/Epistemos/docs/future-work-audit.md:258:- **Fix:** Fulfill the existing TODO in `ResearchState.swift` to migrate `savedPapers` to a proper `SDSavedPaper` @Model inside SwiftData.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:40:- /Users/jojo/Epistemos/docs/future-work-audit.md:1510:## IN-CODE TODOs
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:41:- /Users/jojo/Epistemos/docs/future-work-audit.md:1514:| `Epistemos/State/ResearchState.swift` | 35 | `// TODO: Migrate to SDSavedPaper @Model when library view is built.` |
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:42:- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:568:        case (.updated, .gte): filter.createdAfter = value // TODO: add updatedAfter to NodeFilter
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:43:- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:808:        // TODO: Requires BTK integration. Query block properties via FFI.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:44:- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:814:        // TODO: Requires BTK integration. Query block depth via FFI.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:45:- /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1084:    if let Some(rest) = trimmed.strip_prefix("TODO ") {
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:46:- /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1085:        return ("TODO".to_string(), rest.is_empty() && false);
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:47:- /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1091:        return ("TODO".to_string(), false);
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:48:- /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1147:                content: "TODO Root [[child-ref]]".into(),
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:49:- /Users/jojo/Epistemos/graph-engine/src/lib.rs:135:    /// Task marker such as TODO or DONE.
 - /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:233:        return (Some("TODO"), false, Cow::Borrowed(rest));
 - /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:238:    if let Some(rest) = trimmed.strip_prefix("TODO ") {
 - /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:239:        return (Some("TODO"), false, Cow::Borrowed(rest));
 - /Users/jojo/Epistemos/graph-engine/src/knowledge_core/parser.rs:330:            "* TODO Root :owner:jojo:\n** Child [[note]]",
-- /Users/jojo/Epistemos/graph-engine/src/lib.rs:135:    /// Task marker such as TODO or DONE.
-- /Users/jojo/Epistemos/docs/codex-v2-release-audit.md:302:- TODOs that represent real work vs aspirational notes
-- /Users/jojo/Epistemos/docs/codex-v2-release-audit.md:306:- All `// TODO:` comments across the codebase
-- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:568:        case (.updated, .gte): filter.createdAfter = value // TODO: add updatedAfter to NodeFilter
-- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:808:        // TODO: Requires BTK integration. Query block properties via FFI.
-- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:814:        // TODO: Requires BTK integration. Query block depth via FFI.
 - /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1084:    if let Some(rest) = trimmed.strip_prefix("TODO ") {
 - /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1085:        return ("TODO".to_string(), rest.is_empty() && false);
 - /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1091:        return ("TODO".to_string(), false);
 - /Users/jojo/Epistemos/graph-engine/src/block_kernel/query_kernel.rs:1147:                content: "TODO Root [[child-ref]]".into(),
+- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:568:        case (.updated, .gte): filter.createdAfter = value // TODO: add updatedAfter to NodeFilter
+- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:808:        // TODO: Requires BTK integration. Query block properties via FFI.
+- /Users/jojo/Epistemos/docs/plans/2026-03-03-query-compiler.md:814:        // TODO: Requires BTK integration. Query block depth via FFI.
 
 ## Legacy AI Stack References
+- /Users/jojo/Epistemos/docs/superpowers/specs/2026-03-10-craft-inspired-vision-design.md:393:| **DeepSeek** (new) | deepseek-r1 | Strong reasoning, very cheap |
+- /Users/jojo/Epistemos/docs/superpowers/specs/2026-03-10-craft-inspired-vision-design.md:1447:| `LLMService` | New `MLXClient` + request builders for DeepSeek (OpenAI-compatible API) and Grok |
 - /Users/jojo/Epistemos/docs/ai_stack_phase_audit_log.md:12:- DeepSeek/reasoner runtime routing was removed from live code
 - /Users/jojo/Epistemos/docs/ai_stack_phase_audit_log.md:13:- the prepared model manifest no longer carries reasoner entries
 - /Users/jojo/Epistemos/docs/ai_stack_phase_audit_log.md:36:- DeepSeek/reasoner removal from live runtime state, tests, scripts, and manifest
@@ -78,8 +65,6 @@
 - /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:70:- replacing DeepSeek with another large local model immediately
 - /Users/jojo/Epistemos/docs/future-work-audit.md:881:  - **Primary local server:** Microsoft Foundry Local — OpenAI-compatible REST API, auto-routes to Intel NPU/CUDA GPU/CPU. Models: Phi-3.5-mini (NPU), DeepSeek-R1.
 - /Users/jojo/Epistemos/docs/future-work-audit.md:1340:  - **Layer 1: Microsoft Foundry Local** — Primary on-device model server. OpenAI-compatible REST API (`localhost:{PORT}/v1`). Auto-detects and routes to best hardware (NPU/CUDA GPU/CPU). Uses `foundry-local` Rust crate for model management + `reqwest` for inference. Models: Phi-3.5-mini (NPU-optimized), DeepSeek-R1 distilled. Equivalent to Apple Intelligence Foundation Models framework.
-- /Users/jojo/Epistemos/docs/superpowers/specs/2026-03-10-craft-inspired-vision-design.md:393:| **DeepSeek** (new) | deepseek-r1 | Strong reasoning, very cheap |
-- /Users/jojo/Epistemos/docs/superpowers/specs/2026-03-10-craft-inspired-vision-design.md:1447:| `LLMService` | New `MLXClient` + request builders for DeepSeek (OpenAI-compatible API) and Grok |
 - /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:20:| 0 — Decision Reset | complete | audited | DeepSeek lane removed from the live target architecture |
 - /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:21:| 1 — Artifact Inventory | partial | audited | router and retrieval assets remain relevant; reasoner artifacts are no longer part of the plan |
 - /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:25:| 4.5 — Pre-Phase-5 Stabilization | partial | audited | hot-path cleanup, UI streaming improvements, residency guard, DeepSeek removal, and Rust prepared-index search plus similarity reranking are in; native BGE/cross-encoder closure is still open |
@@ -87,28 +72,3 @@
 - /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:37:- optional sidecar/worker routing has been removed from the live app
 - /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:85:- another heavy local reasoner
 - /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:95:4. docs, manifests, and tests no longer advertise removed reasoner behavior
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:52:- /Users/jojo/Epistemos/docs/superpowers/specs/2026-03-10-craft-inspired-vision-design.md:393:| **DeepSeek** (new) | deepseek-r1 | Strong reasoning, very cheap |
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:53:- /Users/jojo/Epistemos/docs/superpowers/specs/2026-03-10-craft-inspired-vision-design.md:1447:| `LLMService` | New `MLXClient` + request builders for DeepSeek (OpenAI-compatible API) and Grok |
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:54:- /Users/jojo/Epistemos/scripts/audit/dead_code_report.sh:48:rg -n "DeepSeek|reasoner|sidecar" \
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:55:- /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:20:| 0 — Decision Reset | complete | audited | DeepSeek lane removed from the live target architecture |
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:56:- /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:21:| 1 — Artifact Inventory | partial | audited | router and retrieval assets remain relevant; reasoner artifacts are no longer part of the plan |
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:57:- /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:25:| 4.5 — Pre-Phase-5 Stabilization | partial | audited | hot-path cleanup, UI streaming improvements, residency guard, DeepSeek removal, and Rust prepared-index search plus similarity reranking are in; native BGE/cross-encoder closure is still open |
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:58:- /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:36:- DeepSeek/reasoner runtime routing has been removed
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:59:- /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:37:- optional sidecar/worker routing has been removed from the live app
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:60:- /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:85:- another heavy local reasoner
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:61:- /Users/jojo/Epistemos/docs/ai_stack_implementation_plan.md:95:4. docs, manifests, and tests no longer advertise removed reasoner behavior
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:62:- /Users/jojo/Epistemos/docs/future-work-audit.md:881:  - **Primary local server:** Microsoft Foundry Local — OpenAI-compatible REST API, auto-routes to Intel NPU/CUDA GPU/CPU. Models: Phi-3.5-mini (NPU), DeepSeek-R1.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:63:- /Users/jojo/Epistemos/docs/future-work-audit.md:1340:  - **Layer 1: Microsoft Foundry Local** — Primary on-device model server. OpenAI-compatible REST API (`localhost:{PORT}/v1`). Auto-detects and routes to best hardware (NPU/CUDA GPU/CPU). Uses `foundry-local` Rust crate for model management + `reqwest` for inference. Models: Phi-3.5-mini (NPU-optimized), DeepSeek-R1 distilled. Equivalent to Apple Intelligence Foundation Models framework.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:64:- /Users/jojo/Epistemos/docs/ai_stack_phase_audit_log.md:12:- DeepSeek/reasoner runtime routing was removed from live code
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:65:- /Users/jojo/Epistemos/docs/ai_stack_phase_audit_log.md:13:- the prepared model manifest no longer carries reasoner entries
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:66:- /Users/jojo/Epistemos/docs/ai_stack_phase_audit_log.md:36:- DeepSeek/reasoner removal from live runtime state, tests, scripts, and manifest
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:67:- /Users/jojo/Epistemos/docs/ai_stack_phase_audit_log.md:37:- optional sidecar/worker routing has been removed from the live app
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:68:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:5:Epistemos no longer carries a separate DeepSeek reasoner lane.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:69:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:15:## Why DeepSeek Was Removed
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:70:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:17:The previous heavy-reasoner split created the wrong tradeoff for the 18 GB target:
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:71:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:24:The app is easier to stabilize with one real local text model than with a router-plus-reasoner split that was not operationally solid.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:72:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:44:1. No DeepSeek runtime path.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:73:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:45:2. No prepared reasoner role in the live manifest.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:74:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:46:3. No UI that implies a separate heavy reasoner exists.
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:75:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:69:- bringing back a dedicated heavy reasoner before Phase 5
-- /Users/jojo/Epistemos/docs/audits/dead-code-report-2026-03-21.md:76:- /Users/jojo/Epistemos/docs/ai_stack_decision_report.md:70:- replacing DeepSeek with another large local model immediately
