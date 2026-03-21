@@ -78,6 +78,11 @@ nonisolated struct GraphEdgeRecord: Identifiable, Sendable {
 final class GraphStore {
     nonisolated static let hiddenNodeTypes: Set<GraphNodeType> = [.tag, .source, .quote]
 
+    private struct SourceLookupKey: Hashable {
+        let sourceId: String
+        let type: GraphNodeType
+    }
+
     private struct SearchCacheKey: Hashable {
         let query: String
         let limit: Int
@@ -104,6 +109,15 @@ final class GraphStore {
 
     /// All nodes keyed by ID. Unchanged public API — 20+ consumer sites use store.nodes[id].
     private(set) var nodes: [String: GraphNodeRecord] = [:]
+
+    /// (sourceId, type) → node ID for direct note/source lookup without a full-node scan.
+    private var _sourceLookup: [SourceLookupKey: String] = [:]
+
+    /// type → node IDs for direct type lookups without a full-node scan.
+    private var _typeLookup: [GraphNodeType: Set<String>] = [:]
+
+    /// Node IDs ordered by createdAt descending for newest-first query scans.
+    private var _nodeIdsByCreatedAtDesc: [String] = []
 
     /// All edges keyed by ID. Unchanged public API.
     private(set) var edges: [String: GraphEdgeRecord] = [:]
@@ -213,6 +227,9 @@ final class GraphStore {
     /// Remove all nodes, edges, adjacency, and index data.
     func clear() {
         nodes.removeAll()
+        _sourceLookup.removeAll()
+        _typeLookup.removeAll()
+        _nodeIdsByCreatedAtDesc.removeAll()
         edges.removeAll()
         positionHints.removeAll()
         _nodeIdx.removeAll()
@@ -319,9 +336,12 @@ final class GraphStore {
                 velocity: .zero
             )
             nodes[record.id] = record
+            registerSourceLookup(for: record)
+            registerTypeLookup(for: record)
             let nodeIdx = assignNodeIndex(record.id)
             addToTrigramIndex(nodeIdx: nodeIdx, label: record.label)
         }
+        rebuildCreatedOrderIndex()
 
         let edgeDescriptor = FetchDescriptor<SDGraphEdge>()
         let sdEdges = try context.fetch(edgeDescriptor)
@@ -356,9 +376,12 @@ final class GraphStore {
                 velocity: .zero
             )
             nodes[record.id] = record
+            registerSourceLookup(for: record)
+            registerTypeLookup(for: record)
             let nodeIdx = assignNodeIndex(record.id)
             addToTrigramIndex(nodeIdx: nodeIdx, label: record.label)
         }
+        rebuildCreatedOrderIndex()
 
         ingestEdges(sdEdges)
     }
@@ -370,9 +393,12 @@ final class GraphStore {
 
         for record in nodeRecords where !Self.hiddenNodeTypes.contains(record.type) {
             nodes[record.id] = record
+            registerSourceLookup(for: record)
+            registerTypeLookup(for: record)
             let nodeIdx = assignNodeIndex(record.id)
             addToTrigramIndex(nodeIdx: nodeIdx, label: record.label)
         }
+        rebuildCreatedOrderIndex()
 
         ingestEdgeRecords(edgeRecords)
     }
@@ -438,12 +464,64 @@ final class GraphStore {
 
     /// All nodes of a specific type.
     func nodes(ofType type: GraphNodeType) -> [GraphNodeRecord] {
-        nodes.values.filter { $0.type == type }
+        (_typeLookup[type] ?? []).compactMap { nodes[$0] }
+    }
+
+    func nodes(ofTypes types: [GraphNodeType]) -> [GraphNodeRecord] {
+        guard !types.isEmpty else { return [] }
+        if types.count == 1, let type = types.first {
+            return nodes(ofType: type)
+        }
+
+        return types.flatMap { type in
+            (_typeLookup[type] ?? []).compactMap { nodes[$0] }
+        }
+    }
+
+    func firstNode(ofType type: GraphNodeType) -> GraphNodeRecord? {
+        guard let nodeID = _typeLookup[type]?.first else { return nil }
+        return nodes[nodeID]
+    }
+
+    func forEachNodeNewestFirst(
+        ofTypes types: [GraphNodeType]? = nil,
+        _ body: (GraphNodeRecord) -> Bool
+    ) {
+        for nodeID in _nodeIdsByCreatedAtDesc {
+            guard let node = nodes[nodeID] else { continue }
+            if let types, !types.contains(node.type) {
+                continue
+            }
+            guard body(node) else { break }
+        }
+    }
+
+    /// Exact case-insensitive substring matches backed by the trigram candidate index.
+    func nodes(
+        matchingLabelContains query: String,
+        types: [GraphNodeType]? = nil
+    ) -> [GraphNodeRecord] {
+        guard !query.isEmpty else {
+            guard let types else { return Array(nodes.values) }
+            if types.count == 1, let type = types.first {
+                return nodes(ofType: type)
+            }
+            return nodes.values.filter { types.contains($0.type) }
+        }
+
+        return candidateNodes(forLowercasedQuery: query.lowercased()).filter { node in
+            if let types, !types.contains(node.type) {
+                return false
+            }
+            return node.label.range(of: query, options: .caseInsensitive) != nil
+        }
     }
 
     /// Find a node by its sourceId and type (e.g., the graph node for a specific SDPage).
     func node(bySourceId sourceId: String, type: GraphNodeType) -> GraphNodeRecord? {
-        nodes.values.first { $0.sourceId == sourceId && $0.type == type }
+        let key = SourceLookupKey(sourceId: sourceId, type: type)
+        guard let nodeID = _sourceLookup[key] else { return nil }
+        return nodes[nodeID]
     }
 
     /// BFS from a starting node, returning all reachable node IDs within maxDepth.
@@ -556,9 +634,16 @@ final class GraphStore {
 
     /// Add a node to the store, initializing its compact adjacency entries.
     func addNode(_ node: GraphNodeRecord) {
+        if let existing = nodes[node.id] {
+            unregisterSourceLookup(for: existing)
+            unregisterTypeLookup(for: existing)
+        }
         nodes[node.id] = node
+        registerSourceLookup(for: node)
+        registerTypeLookup(for: node)
         let nodeIdx = assignNodeIndex(node.id)
         addToTrigramIndex(nodeIdx: nodeIdx, label: node.label)
+        insertIntoCreatedOrderIndex(node)
         clearSearchCache()
         topologyVersion += 1
         notifyChange([.graphNodes])
@@ -583,7 +668,13 @@ final class GraphStore {
         updated.velocity = existing.velocity
         updated.isVisible = existing.isVisible
         updated.isPinned = existing.isPinned
+        unregisterSourceLookup(for: existing)
+        unregisterTypeLookup(for: existing)
+        removeFromCreatedOrderIndex(nodeID: existing.id)
         nodes[node.id] = updated
+        registerSourceLookup(for: updated)
+        registerTypeLookup(for: updated)
+        insertIntoCreatedOrderIndex(updated)
         if existing.label != node.label {
             clearSearchCache()
         }
@@ -617,6 +708,7 @@ final class GraphStore {
     /// Remove a node and all its edges, cleaning up compact adjacency.
     func removeNode(_ nodeId: String) {
         guard let nodeIdx = _nodeIdx[nodeId] else { return }
+        guard let existing = nodes[nodeId] else { return }
 
         // Remove all edges touching this node
         let touchingEdgeIndices = _edgesOf[nodeIdx]
@@ -637,9 +729,10 @@ final class GraphStore {
         }
 
         // Remove from trigram index
-        if let label = nodes[nodeId]?.label {
-            removeFromTrigramIndex(nodeIdx: nodeIdx, label: label)
-        }
+        removeFromTrigramIndex(nodeIdx: nodeIdx, label: existing.label)
+        unregisterSourceLookup(for: existing)
+        unregisterTypeLookup(for: existing)
+        removeFromCreatedOrderIndex(nodeID: existing.id)
 
         // Tombstone the node's compact slot
         nodes.removeValue(forKey: nodeId)
@@ -729,15 +822,8 @@ final class GraphStore {
 
         searchCacheMissCount += 1
 
-        // Get candidate node indices from trigram index
-        let candidates = trigramCandidates(for: q)
-
         var hits: [SearchHit] = []
-        for nodeIdx in candidates {
-            guard nodeIdx < _nodeIds.count else { continue }
-            let nodeId = _nodeIds[nodeIdx]
-            guard !nodeId.isEmpty, let node = nodes[nodeId] else { continue }
-
+        for node in candidateNodes(forLowercasedQuery: q) {
             let label = node.label.lowercased()
             let score: Float
 
@@ -766,6 +852,21 @@ final class GraphStore {
         let result = Array(hits.prefix(limit))
         storeCachedSearch(result, for: key, now: now)
         return result
+    }
+
+    private func candidateNodes(forLowercasedQuery query: String) -> [GraphNodeRecord] {
+        let candidateIndices = trigramCandidates(for: query)
+        var candidates: [GraphNodeRecord] = []
+        candidates.reserveCapacity(candidateIndices.count)
+
+        for nodeIdx in candidateIndices {
+            guard nodeIdx < _nodeIds.count else { continue }
+            let nodeId = _nodeIds[nodeIdx]
+            guard !nodeId.isEmpty, let node = nodes[nodeId] else { continue }
+            candidates.append(node)
+        }
+
+        return candidates
     }
 
     /// Get candidate node indices from the trigram index.
@@ -865,6 +966,61 @@ final class GraphStore {
 
     func setSearchCacheNowProviderForTesting(_ provider: @escaping () -> Date) {
         searchCacheNowProvider = provider
+    }
+
+    private func registerSourceLookup(for node: GraphNodeRecord) {
+        guard let sourceId = node.sourceId else { return }
+        _sourceLookup[SourceLookupKey(sourceId: sourceId, type: node.type)] = node.id
+    }
+
+    private func unregisterSourceLookup(for node: GraphNodeRecord) {
+        guard let sourceId = node.sourceId else { return }
+        _sourceLookup.removeValue(forKey: SourceLookupKey(sourceId: sourceId, type: node.type))
+    }
+
+    private func registerTypeLookup(for node: GraphNodeRecord) {
+        _typeLookup[node.type, default: []].insert(node.id)
+    }
+
+    private func unregisterTypeLookup(for node: GraphNodeRecord) {
+        _typeLookup[node.type]?.remove(node.id)
+        if _typeLookup[node.type]?.isEmpty == true {
+            _typeLookup.removeValue(forKey: node.type)
+        }
+    }
+
+    private func rebuildCreatedOrderIndex() {
+        _nodeIdsByCreatedAtDesc = nodes.values
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id < rhs.id
+            }
+            .map(\.id)
+    }
+
+    private func insertIntoCreatedOrderIndex(_ node: GraphNodeRecord) {
+        var insertionIndex = 0
+        while insertionIndex < _nodeIdsByCreatedAtDesc.count {
+            let existingNodeID = _nodeIdsByCreatedAtDesc[insertionIndex]
+            guard let existing = nodes[existingNodeID] else {
+                insertionIndex += 1
+                continue
+            }
+            if existing.createdAt < node.createdAt {
+                break
+            }
+            if existing.createdAt == node.createdAt, existing.id >= node.id {
+                break
+            }
+            insertionIndex += 1
+        }
+        _nodeIdsByCreatedAtDesc.insert(node.id, at: insertionIndex)
+    }
+
+    private func removeFromCreatedOrderIndex(nodeID: String) {
+        _nodeIdsByCreatedAtDesc.removeAll { $0 == nodeID }
     }
 
     // MARK: - Link Count (for Rust FFI)

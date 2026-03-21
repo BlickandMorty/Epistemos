@@ -509,10 +509,123 @@ struct GraphStoreQueryTests {
         store.addNode(makeNode(id: "n1", type: .note))
         
         let folders = store.nodes(ofType: .folder)
-        
+
         #expect(folders.isEmpty)
     }
-    
+
+    @Test("nodes ofTypes returns only the requested types")
+    func nodesOfTypesReturnsOnlyRequestedTypes() {
+        let store = GraphStore()
+
+        store.addNode(makeNode(id: "n1", type: .note))
+        store.addNode(makeNode(id: "n2", type: .tag))
+        store.addNode(makeNode(id: "n3", type: .folder))
+        store.addNode(makeNode(id: "n4", type: .source))
+
+        let matches = store.nodes(ofTypes: [.note, .folder])
+
+        #expect(Set(matches.map(\.id)) == ["n1", "n3"])
+    }
+
+    @Test("nodes ofType tracks updated node type metadata")
+    func nodesOfTypeTracksUpdatedNodeTypeMetadata() {
+        let store = GraphStore()
+
+        let original = GraphNodeRecord(
+            id: "graph-id", type: .note, label: "Test",
+            sourceId: nil, metadata: GraphNodeMetadata(),
+            weight: 1.0, createdAt: .now, position: .zero, velocity: .zero
+        )
+        store.addNode(original)
+
+        let updated = GraphNodeRecord(
+            id: "graph-id", type: .tag, label: "Test",
+            sourceId: nil, metadata: GraphNodeMetadata(),
+            weight: 1.0, createdAt: original.createdAt, position: .zero, velocity: .zero
+        )
+        store.updateNode(updated)
+
+        #expect(store.nodes(ofType: .note).isEmpty)
+        #expect(store.nodes(ofType: .tag).map(\.id) == ["graph-id"])
+    }
+
+    @Test("nodes ofType clears removed nodes from the type lookup index")
+    func nodesOfTypeClearsRemovedNodesFromTypeLookupIndex() {
+        let store = GraphStore()
+
+        let node = GraphNodeRecord(
+            id: "graph-id", type: .note, label: "Test",
+            sourceId: nil, metadata: GraphNodeMetadata(),
+            weight: 1.0, createdAt: .now, position: .zero, velocity: .zero
+        )
+        store.addNode(node)
+        store.removeNode("graph-id")
+
+        #expect(store.nodes(ofType: .note).isEmpty)
+    }
+
+    @Test("newest-first node iteration tracks add update and removal order")
+    func newestFirstNodeIterationTracksAddUpdateAndRemovalOrder() {
+        let store = GraphStore()
+
+        store.addNode(
+            GraphNodeRecord(
+                id: "oldest", type: .note, label: "Oldest",
+                sourceId: nil, metadata: GraphNodeMetadata(),
+                weight: 1.0, createdAt: Date(timeIntervalSince1970: 100),
+                position: .zero, velocity: .zero
+            )
+        )
+        store.addNode(
+            GraphNodeRecord(
+                id: "middle", type: .note, label: "Middle",
+                sourceId: nil, metadata: GraphNodeMetadata(),
+                weight: 1.0, createdAt: Date(timeIntervalSince1970: 200),
+                position: .zero, velocity: .zero
+            )
+        )
+        store.addNode(
+            GraphNodeRecord(
+                id: "newest", type: .note, label: "Newest",
+                sourceId: nil, metadata: GraphNodeMetadata(),
+                weight: 1.0, createdAt: Date(timeIntervalSince1970: 300),
+                position: .zero, velocity: .zero
+            )
+        )
+
+        var orderedIDs: [String] = []
+        store.forEachNodeNewestFirst { node in
+            orderedIDs.append(node.id)
+            return true
+        }
+        #expect(orderedIDs == ["newest", "middle", "oldest"])
+
+        store.updateNode(
+            GraphNodeRecord(
+                id: "middle", type: .note, label: "Middle",
+                sourceId: nil, metadata: GraphNodeMetadata(),
+                weight: 1.0, createdAt: Date(timeIntervalSince1970: 400),
+                position: .zero, velocity: .zero
+            )
+        )
+
+        orderedIDs.removeAll(keepingCapacity: true)
+        store.forEachNodeNewestFirst { node in
+            orderedIDs.append(node.id)
+            return true
+        }
+        #expect(orderedIDs == ["middle", "newest", "oldest"])
+
+        store.removeNode("newest")
+
+        orderedIDs.removeAll(keepingCapacity: true)
+        store.forEachNodeNewestFirst { node in
+            orderedIDs.append(node.id)
+            return true
+        }
+        #expect(orderedIDs == ["middle", "oldest"])
+    }
+
     @Test("node bySourceId returns correct node")
     func nodeBySourceIdReturnsCorrect() {
         let store = GraphStore()
@@ -552,6 +665,43 @@ struct GraphStoreQueryTests {
         let found = store.node(bySourceId: "nonexistent", type: .note)
         
         #expect(found == nil)
+    }
+
+    @Test("node bySourceId stays correct after node source metadata changes")
+    func nodeBySourceIdTracksUpdatedSourceMetadata() {
+        let store = GraphStore()
+
+        let original = GraphNodeRecord(
+            id: "graph-id", type: .note, label: "Test",
+            sourceId: "page-id", metadata: GraphNodeMetadata(),
+            weight: 1.0, createdAt: .now, position: .zero, velocity: .zero
+        )
+        store.addNode(original)
+
+        let updated = GraphNodeRecord(
+            id: "graph-id", type: .note, label: "Test",
+            sourceId: "page-id-2", metadata: GraphNodeMetadata(),
+            weight: 1.0, createdAt: original.createdAt, position: .zero, velocity: .zero
+        )
+        store.updateNode(updated)
+
+        #expect(store.node(bySourceId: "page-id", type: .note) == nil)
+        #expect(store.node(bySourceId: "page-id-2", type: .note)?.id == "graph-id")
+    }
+
+    @Test("node bySourceId clears removed nodes from the source lookup index")
+    func nodeBySourceIdClearsRemovedNodeFromSourceLookupIndex() {
+        let store = GraphStore()
+
+        let node = GraphNodeRecord(
+            id: "graph-id", type: .note, label: "Test",
+            sourceId: "page-id", metadata: GraphNodeMetadata(),
+            weight: 1.0, createdAt: .now, position: .zero, velocity: .zero
+        )
+        store.addNode(node)
+        store.removeNode("graph-id")
+
+        #expect(store.node(bySourceId: "page-id", type: .note) == nil)
     }
 }
 

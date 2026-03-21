@@ -85,7 +85,7 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
         case .noActiveNote:
             "No note is open. Open a note first, then try again."
         case .noLocalModel:
-            "No local Qwen model is installed. Open Settings to install one."
+            "No usable local Qwen model is available. Open Settings to install or select one."
         case .noVault:
             "No vault is active. Open a vault folder first."
         case .noteNotFound:

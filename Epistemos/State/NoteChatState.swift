@@ -5,7 +5,7 @@ import os
 
 // MARK: - Note Chat State (v2 — Simplified)
 // Per-note AI chat state. One instance per open note tab.
-// Manages a single query → response cycle with 60ms token buffering.
+// Manages a single query → response cycle with display-paced token buffering.
 //
 // Architecture:
 // - AI text is appended directly to NSTextStorage below a --- divider.
@@ -48,38 +48,42 @@ final class NoteChatState {
     /// Insert text at the current cursor position (panel mode accept).
     var onInsertAtCursor: ((_ text: String) -> Void)?
 
-    // MARK: - Token Buffering (60ms)
+    // MARK: - Token Buffering
 
-    private var pendingTokens = ""
-    private var flushTask: Task<Void, Never>?
-    private var streamingTask: Task<Void, Never>?
+    @ObservationIgnored
+    private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
+        guard let self else { return }
+        self.responseText += delta
+        if !self.useResponsePanel {
+            self.onTokenFlush?(delta)
+        }
+        self.emitStreamingHapticIfNeeded()
+    }
+    @ObservationIgnored private var lastStreamingHapticAt: Date?
+    @ObservationIgnored private var streamingTask: Task<Void, Never>?
 
     init(pageId: String) {
         self.pageId = pageId
     }
 
     func appendStreamingText(_ text: String) {
-        pendingTokens += text
-        if pendingTokens.utf8.count > 65_536 {
-            flushTokens()
-            return
-        }
-        guard flushTask == nil else { return }
-        flushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(60))
-            guard let self, !Task.isCancelled else { return }
-            self.flushTokens()
-        }
+        streamBuffer.append(text)
     }
 
     private func flushTokens() {
-        flushTask?.cancel()
-        flushTask = nil
-        guard !pendingTokens.isEmpty else { return }
-        let delta = pendingTokens
-        pendingTokens = ""
-        responseText += delta
-        if !useResponsePanel { onTokenFlush?(delta) }
+        streamBuffer.flushNow()
+    }
+
+    private func resetStreamBuffer() {
+        streamBuffer.reset()
+        lastStreamingHapticAt = nil
+    }
+
+    private func emitStreamingHapticIfNeeded(now: Date = .now) {
+        if let lastStreamingHapticAt, now.timeIntervalSince(lastStreamingHapticAt) < 0.12 {
+            return
+        }
+        lastStreamingHapticAt = now
         HapticHelper.streamingTick()
     }
 
@@ -91,6 +95,7 @@ final class NoteChatState {
 
         messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
+        resetStreamBuffer()
         responseText = ""
         error = nil
         isStreaming = true
@@ -164,6 +169,7 @@ final class NoteChatState {
 
         messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
+        resetStreamBuffer()
         responseText = ""
         error = nil
         isStreaming = true
@@ -249,6 +255,7 @@ final class NoteChatState {
         } else {
             onAccept?()
         }
+        resetStreamBuffer()
         hasResponse = false
         useResponsePanel = false
         responseText = ""
@@ -258,6 +265,7 @@ final class NoteChatState {
         if !useResponsePanel {
             onDiscard?()
         }
+        resetStreamBuffer()
         hasResponse = false
         useResponsePanel = false
         responseText = ""

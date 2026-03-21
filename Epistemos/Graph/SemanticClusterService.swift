@@ -1,9 +1,8 @@
 import Accelerate
 import Foundation
-import NaturalLanguage
 
 // MARK: - SemanticClusterService
-// Computes on-device embeddings for graph nodes using Apple NLEmbedding,
+// Computes legacy fallback semantic clusters using the shared embedding lookup boundary,
 // then runs k-means clustering to assign semantic cluster IDs.
 // Disconnected notes about the same topic will cluster together,
 // complementing the Louvain topology-based clustering in Rust.
@@ -21,14 +20,17 @@ enum SemanticClusterService {
     /// Compute semantic cluster IDs for all graph nodes.
     /// Returns a dictionary mapping node UUID → cluster ID.
     /// Nodes without embeddings are assigned cluster 0.
-    static func computeClusters(store: GraphStore) -> [String: UInt32] {
+    static func computeClusters(
+        store: GraphStore,
+        embeddingLookup: any TextEmbeddingLookup
+    ) -> [String: UInt32] {
         let nodes = Array(store.nodes.values)
         guard nodes.count >= 4 else {
             return Dictionary(nodes.map { ($0.id, UInt32(0)) }, uniquingKeysWith: { first, _ in first })
         }
 
         // 1. Compute embeddings for each node
-        let embeddings = computeEmbeddings(for: nodes)
+        let embeddings = computeEmbeddings(for: nodes, embeddingLookup: embeddingLookup)
 
         // Filter to nodes that got valid embeddings
         let validPairs: [(String, [Float])] = nodes.compactMap { node in
@@ -62,18 +64,19 @@ enum SemanticClusterService {
 
     // MARK: - Embedding Computation (AMX-accelerated)
 
-    /// Compute averaged word embeddings for each node using Apple NLEmbedding.
+    /// Compute averaged word embeddings for each node using the shared fallback lookup.
     /// Vector accumulation uses vDSP (routes through NEON SIMD on Apple Silicon).
-    private static func computeEmbeddings(for nodes: [GraphNodeRecord]) -> [String: [Float]] {
-        guard let embedding = NLEmbedding.wordEmbedding(for: .english) else {
-            Log.app.error("SemanticClusterService: NLEmbedding unavailable for English")
+    private static func computeEmbeddings(
+        for nodes: [GraphNodeRecord],
+        embeddingLookup: any TextEmbeddingLookup
+    ) -> [String: [Float]] {
+        let dimension = embeddingLookup.dimension
+        guard dimension > 0 else {
+            Log.app.error("SemanticClusterService: fallback embedding lookup unavailable")
             return [:]
         }
 
-        let dimension = embedding.dimension
-
         var result: [String: [Float]] = [:]
-        var floatBuffer = [Float](repeating: 0, count: dimension)
 
         for node in nodes {
             var text = node.label
@@ -92,11 +95,9 @@ enum SemanticClusterService {
             var count = 0
 
             for word in words {
-                if let vec = embedding.vector(for: word) {
-                    // Convert Double → Float into reusable buffer
-                    vDSP.convertElements(of: vec, to: &floatBuffer)
-                    // AMX/NEON vectorized: sumVector += floatBuffer
-                    vDSP.add(sumVector, floatBuffer, result: &sumVector)
+                if let vec = embeddingLookup.vector(for: word), vec.count == dimension {
+                    // AMX/NEON vectorized: sumVector += vec
+                    vDSP.add(sumVector, vec, result: &sumVector)
                     count += 1
                 }
             }

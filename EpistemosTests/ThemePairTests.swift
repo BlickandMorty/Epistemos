@@ -804,6 +804,7 @@ struct ThemePairTests {
         #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
         #expect(rootView.contains("ASCIIRippleText("))
         #expect(rootView.contains(".menuStyle(.borderlessButton)"))
+        #expect(rootView.contains("inference.setPreferredLocalTextModelID(model.id)"))
         #expect(!commandPalette.contains("chatTabBar"))
         #expect(!commandPalette.contains("paletteModeMenu"))
         #expect(!commandPalette.contains("activeTabId"))
@@ -1297,6 +1298,7 @@ struct ThemePairTests {
         let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
 
         #expect(bootstrap.contains("let localInferenceService: MLXInferenceService"))
+        #expect(bootstrap.contains("let localMLXClient: LocalMLXClient"))
         #expect(bootstrap.contains("let localLLMClient: LocalMLXClient"))
         #expect(bootstrap.contains("let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)"))
         #expect(bootstrap.contains("localLLMService: localLLMClient"))
@@ -1327,6 +1329,7 @@ struct ThemePairTests {
     func inferenceSettingsRefocusOnQwenRouting() throws {
         let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let inferenceState = try loadTextFile("Epistemos/State/InferenceState.swift")
+        let environment = try loadTextFile("Epistemos/App/AppEnvironment.swift")
 
         #expect(settings.contains("Routing Mode"))
         #expect(settings.contains("Active Local Model"))
@@ -1335,6 +1338,7 @@ struct ThemePairTests {
         #expect(!settings.contains("Local Response Mode"))
         #expect(inferenceState.contains("Qwen 3.5"))
         #expect(inferenceState.contains("Local Only"))
+        #expect(!environment.contains("localSidecarState"))
         #expect(!inferenceState.contains("Cloud Only"))
         #expect(!settings.contains("Preferred Local Voice"))
         #expect(!settings.contains("Voice Playback"))

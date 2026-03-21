@@ -160,7 +160,7 @@ final class LLMService: LLMClientProtocol {
 
         return ConnectionTestResult(
             success: false,
-            message: availability.reason ?? "No local Qwen model is installed and Apple Intelligence is unavailable."
+            message: availability.reason ?? "No local model is available and Apple Intelligence is unavailable."
         )
     }
 
@@ -169,12 +169,15 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func resolvedSnapshot() -> LLMSnapshot {
+        if let localLLMClient {
+            let localSnapshot = localLLMClient.configSnapshot()
+            if localSnapshot.provider != .appleIntelligence || inference.hasUsableLocalTextModel {
+                return localSnapshot
+            }
+        }
+
         if let modelID = inference.activeLocalTextModelID {
-            return LLMSnapshot(
-                provider: .localMLX,
-                model: modelID,
-                reasoningMode: .fast
-            )
+            return LLMSnapshot(provider: .localMLX, model: modelID, reasoningMode: .fast)
         }
 
         return LLMSnapshot(

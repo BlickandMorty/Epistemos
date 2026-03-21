@@ -6,7 +6,7 @@ import os
 
 /// Classifies each notes AI operation with a base complexity score.
 /// Simple transforms (grammar, summarize) route to Apple Intelligence;
-/// deeper reasoning routes to local Qwen.
+/// deeper work routes to the local Qwen path.
 nonisolated enum NotesOperation: Sendable {
     case grammarFix        // 0.15 — simple transform, ideal for on-device
     case summarize         // 0.20 — focused extraction
@@ -172,7 +172,10 @@ nonisolated struct InferencePolicyEngine {
         if context.routingMode == .localOnly {
             reasonCodes.insert(.localModeForced)
             return InferenceRouteDecision(
-                selectedRoute: .localQwen,
+                selectedRoute: localRouteKind(
+                    for: localSelection.selection,
+                    context: context
+                ),
                 selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
                     for: profile,
                     complexityTier: complexityTier,
@@ -205,7 +208,10 @@ nonisolated struct InferencePolicyEngine {
         }
 
         return InferenceRouteDecision(
-            selectedRoute: .localQwen,
+            selectedRoute: localRouteKind(
+                for: localSelection.selection,
+                context: context
+            ),
             selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
                 for: profile,
                 complexityTier: complexityTier,
@@ -267,7 +273,8 @@ nonisolated struct InferencePolicyEngine {
             reasonCodes.insert(.appleUnavailable)
             return false
         }
-        guard profile.contentLength <= maxAppleIntelligenceContentLength else {
+        guard contextTier != .oversized,
+              profile.contentLength <= (maxAppleIntelligenceContentLength * 2) else {
             reasonCodes.insert(.appleBypassedForComplexity)
             return false
         }
@@ -285,7 +292,13 @@ nonisolated struct InferencePolicyEngine {
         }
 
         switch (complexityTier, contextTier) {
-        case (.trivial, _), (.light, .tiny), (.light, .small):
+        case (.trivial, _),
+             (.light, .tiny),
+             (.light, .small),
+             (.light, .medium),
+             (.light, .large),
+             (.moderate, .tiny),
+             (.moderate, .small):
             reasonCodes.insert(.simpleTaskAppleEligible)
             return true
         default:
@@ -301,14 +314,9 @@ nonisolated struct InferencePolicyEngine {
         contextTier: InferenceContextTier,
         reasonCodes: inout Set<InferenceDecisionReasonCode>
     ) -> (selection: LocalModelSelection?, reuseWarmModel: Bool) {
-        let selectedReasoningMode = reasoningMode(
-            for: profile,
-            complexityTier: complexityTier,
-            contextTier: contextTier
-        )
         let preferred = resolvedPreferredLocalSelection(
             in: context,
-            reasoningMode: selectedReasoningMode
+            reasoningMode: .fast
         )
         if preferred != nil {
             reasonCodes.insert(.preferredLocalModelUsed)
@@ -325,10 +333,29 @@ nonisolated struct InferencePolicyEngine {
         complexityTier: InferenceComplexityTier,
         contextTier: InferenceContextTier
     ) -> LocalReasoningMode {
-        _ = complexityTier
-        _ = contextTier
-        _ = profile
-        return .fast
+        if profile.explicitFastRequested {
+            return .fast
+        }
+        guard profile.requestedReasoningMode == .thinking,
+              profile.explicitThinkingRequested,
+              contextTier != .tiny else {
+            return .fast
+        }
+        switch complexityTier {
+        case .heavy, .extreme:
+            return .thinking
+        case .trivial, .light, .moderate:
+            return .fast
+        }
+    }
+
+    private func localRouteKind(
+        for selection: LocalModelSelection?,
+        context: InferencePolicyContext
+    ) -> InferenceRouteKind {
+        _ = selection
+        _ = context
+        return .localQwen
     }
 
     private func supportedInstalledModels(in context: InferencePolicyContext) -> [LocalTextModelID] {
@@ -442,7 +469,7 @@ nonisolated enum TriageDecision: Sendable, Equatable {
     var label: String {
         switch self {
         case .appleIntelligence: "On-device"
-        case .localMLX:          "Local MLX"
+        case .localMLX:          "Local Model"
         }
     }
 
@@ -461,22 +488,31 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .modelRequired:
-            "Local Only requires an installed Qwen 3.5 model. Open Settings and install one or switch routing modes."
+            "No usable local Qwen model is available. Open Settings and install or select a supported Qwen model."
         case .runtimeUnavailable:
-            "The local Qwen runtime is not available yet. Install or re-enable the local model runtime in Settings."
+            "The local Qwen runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
         }
     }
 }
 
 // MARK: - Triage Service
 
-/// Routes AI operations between Apple Intelligence (on-device) and the user's
-/// local Qwen runtime based on automatic complexity scoring.
+/// Routes AI operations between Apple Intelligence and the local model runtime
+/// based on automatic complexity scoring and prepared role availability.
 @MainActor @Observable
 final class TriageService {
+    private static let localQwenBaselineSystemPrompt = """
+    You are Epistemos' local Qwen assistant.
+    Answer directly and concisely.
+    Do not claim to have browsing, external tool use, research mode, or hidden capabilities you do not actually have.
+    Do not claim to be a different model.
+    If asked about your identity, say you are the local Epistemos assistant powered by Qwen.
+    If the answer is uncertain, say so plainly instead of fabricating confidence.
+    """
 
     private let inference: InferenceState
     private let localLLMService: (any LLMClientProtocol)?
+    private let prepareForRouting: @MainActor @Sendable () -> Void
 
     var lastDecision: TriageDecision?
 
@@ -573,26 +609,29 @@ final class TriageService {
 
     init(
         inference: InferenceState,
-        localLLMService: (any LLMClientProtocol)? = nil
+        localLLMService: (any LLMClientProtocol)? = nil,
+        prepareForRouting: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.inference = inference
         self.localLLMService = localLLMService
+        self.prepareForRouting = prepareForRouting
     }
 
     // MARK: - Triage Logic
 
-    /// Routes a notes operation to Apple Intelligence or local Qwen.
+    /// Routes a notes operation to Apple Intelligence or the local model path.
     func triage(
         operation: NotesOperation,
         contentLength: Int,
         query: String? = nil,
         localReasoningMode: LocalReasoningMode? = nil
     ) -> TriageDecision {
+        prepareForRouting()
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: .fast
+            localReasoningMode: localReasoningMode
         )
         return triageDecision(for: decision.selectedRoute)
     }
@@ -607,11 +646,12 @@ final class TriageService {
         query: String? = nil,
         localReasoningMode: LocalReasoningMode? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        prepareForRouting()
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: .fast
+            localReasoningMode: localReasoningMode
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
@@ -647,11 +687,12 @@ final class TriageService {
         query: String? = nil,
         localReasoningMode: LocalReasoningMode? = nil
     ) async throws -> String {
+        prepareForRouting()
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: .fast
+            localReasoningMode: localReasoningMode
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
@@ -663,7 +704,7 @@ final class TriageService {
             do {
                 let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
                 if Self.shouldRetryWithLocalModel(result) {
-                    Log.engine.info("Apple Intelligence response inadequate, falling back to local Qwen")
+                    Log.engine.info("Apple Intelligence response inadequate, falling back to the local model path")
                     lastDecision = .localMLX
                     return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                         prompt: prompt,
@@ -673,7 +714,7 @@ final class TriageService {
                 }
                 return UserFacingModelOutput.finalVisibleText(from: result)
             } catch {
-                Log.engine.warning("Apple Intelligence failed, falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
+                Log.engine.warning("Apple Intelligence failed, falling back to the local model path: \(error.localizedDescription, privacy: .public)")
                 lastDecision = .localMLX
                 return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                     prompt: prompt,
@@ -692,17 +733,18 @@ final class TriageService {
 
     // MARK: - General Triage Logic
 
-    /// Routes a general operation to Apple Intelligence or local Qwen.
+    /// Routes a general operation to Apple Intelligence or the local model path.
     func triageGeneral(
         operation: GeneralOperation,
         contentLength: Int,
         localReasoningMode: LocalReasoningMode? = nil,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) -> TriageDecision {
+        prepareForRouting()
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: .fast,
+            localReasoningMode: localReasoningMode,
             localSurface: localSurface
         )
         return triageDecision(for: decision.selectedRoute)
@@ -716,10 +758,11 @@ final class TriageService {
         localReasoningMode: LocalReasoningMode? = nil,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) -> AsyncThrowingStream<String, Error> {
+        prepareForRouting()
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: .fast,
+            localReasoningMode: localReasoningMode,
             localSurface: localSurface
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
@@ -754,10 +797,11 @@ final class TriageService {
         localReasoningMode: LocalReasoningMode? = nil,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) async throws -> String {
+        prepareForRouting()
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: .fast,
+            localReasoningMode: localReasoningMode,
             localSurface: localSurface
         )
         let triageDecision = triageDecision(for: decision.selectedRoute)
@@ -770,7 +814,7 @@ final class TriageService {
             do {
                 let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
                 if Self.shouldRetryWithLocalModel(result) {
-                    Log.engine.info("Apple Intelligence response inadequate (general), falling back to local Qwen")
+                    Log.engine.info("Apple Intelligence response inadequate (general), falling back to the local model path")
                     lastDecision = .localMLX
                     return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                         prompt: prompt,
@@ -780,7 +824,7 @@ final class TriageService {
                 }
                 return UserFacingModelOutput.finalVisibleText(from: result)
             } catch {
-                Log.engine.warning("Apple Intelligence failed (general), falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
+                Log.engine.warning("Apple Intelligence failed (general), falling back to the local model path: \(error.localizedDescription, privacy: .public)")
                 lastDecision = .localMLX
                 return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                     prompt: prompt,
@@ -799,7 +843,7 @@ final class TriageService {
 
     // MARK: - Apple Intelligence Stream with Fallback
 
-    /// Streams from Apple Intelligence, falling back to local Qwen seamlessly if:
+    /// Streams from Apple Intelligence, falling back to the local model path seamlessly if:
     /// - Apple Intelligence throws an error (timeout, unavailable)
     /// - The response is a polite refusal ("I can't help with that")
     /// - The response appears truncated (stops mid-sentence)
@@ -821,7 +865,7 @@ final class TriageService {
 
                     // Check for refusal, truncation, or suspiciously short response
                     if Self.shouldRetryWithLocalModel(result) {
-                        Log.engine.info("Apple Intelligence response inadequate (stream), falling back to local Qwen")
+                        Log.engine.info("Apple Intelligence response inadequate (stream), falling back to the local model path")
                         await MainActor.run { self?.lastDecision = .localMLX }
                         do {
                             guard let self else {
@@ -838,7 +882,7 @@ final class TriageService {
                             }
                             continuation.finish()
                         } catch {
-                            Log.engine.info("Local Qwen fallback also failed — using Apple Intelligence response")
+                            Log.engine.info("Local model fallback also failed — using Apple Intelligence response")
                             if !Self.isRefusalResponse(result) {
                                 continuation.yield(result)
                                 continuation.finish()
@@ -852,7 +896,7 @@ final class TriageService {
                     continuation.yield(result)
                     continuation.finish()
                 } catch {
-                    Log.engine.warning("Apple Intelligence failed (stream), falling back to local Qwen: \(error.localizedDescription, privacy: .public)")
+                    Log.engine.warning("Apple Intelligence failed (stream), falling back to the local model path: \(error.localizedDescription, privacy: .public)")
                     await MainActor.run { self?.lastDecision = .localMLX }
                     do {
                         guard let self else {
@@ -883,7 +927,7 @@ final class TriageService {
         operation: NotesOperation,
         contentLength: Int,
         query: String?,
-        localReasoningMode: LocalReasoningMode
+        localReasoningMode: LocalReasoningMode?
     ) -> InferenceRouteDecision {
         inference.routeDecision(
             for: requestProfileForNotes(
@@ -898,7 +942,7 @@ final class TriageService {
     private func routeDecisionForGeneral(
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode,
+        localReasoningMode: LocalReasoningMode?,
         localSurface: LocalModelSelectionSurface
     ) -> InferenceRouteDecision {
         inference.routeDecision(
@@ -915,7 +959,7 @@ final class TriageService {
         operation: NotesOperation,
         contentLength: Int,
         query: String?,
-        localReasoningMode: LocalReasoningMode
+        localReasoningMode: LocalReasoningMode?
     ) -> InferenceRequestProfile {
         let queryText: String
         if case .ask(let prompt) = operation, !prompt.isEmpty {
@@ -925,8 +969,6 @@ final class TriageService {
         }
         let analysis = queryText.isEmpty ? nil : QueryAnalyzer.analyze(query: queryText)
         let promptLength = max(contentLength, queryText.count)
-        _ = localReasoningMode
-
         return InferenceRequestProfile(
             surface: .noteChat,
             intent: taskIntent(for: operation, queryText: queryText),
@@ -943,9 +985,9 @@ final class TriageService {
             ),
             baseComplexity: operation.baseComplexity,
             queryComplexity: analysis?.complexity ?? 0,
-            requestedReasoningMode: .fast,
-            explicitThinkingRequested: false,
-            explicitFastRequested: false,
+            requestedReasoningMode: localReasoningMode ?? .fast,
+            explicitThinkingRequested: localReasoningMode == .thinking,
+            explicitFastRequested: localReasoningMode == .fast,
             visibleThinkingRequested: false
         )
     }
@@ -953,7 +995,7 @@ final class TriageService {
     private func requestProfileForGeneral(
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode,
+        localReasoningMode: LocalReasoningMode?,
         localSurface: LocalModelSelectionSurface
     ) -> InferenceRequestProfile {
         let queryText: String
@@ -964,8 +1006,6 @@ final class TriageService {
         }
         let analysis = queryText.isEmpty ? nil : QueryAnalyzer.analyze(query: queryText)
         let promptLength = max(contentLength, queryText.count)
-        _ = localReasoningMode
-
         return InferenceRequestProfile(
             surface: localSurface,
             intent: taskIntent(for: operation, queryText: queryText, surface: localSurface),
@@ -982,9 +1022,9 @@ final class TriageService {
             ),
             baseComplexity: operation.baseComplexity,
             queryComplexity: analysis?.complexity ?? 0,
-            requestedReasoningMode: .fast,
-            explicitThinkingRequested: false,
-            explicitFastRequested: false,
+            requestedReasoningMode: localReasoningMode ?? .fast,
+            explicitThinkingRequested: localReasoningMode == .thinking,
+            explicitFastRequested: localReasoningMode == .fast,
             visibleThinkingRequested: false
         )
     }
@@ -1040,7 +1080,7 @@ final class TriageService {
         case .summarize:
             return .summarize
         case .continueWriting:
-            return .brainstorm
+            return .synthesis
         case .ask:
             return inferredTaskIntent(from: queryText, surface: .noteChat)
         case .outline, .expand:
@@ -1124,17 +1164,19 @@ final class TriageService {
             throw LocalInferenceRoutingError.runtimeUnavailable
         }
 
+        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
+
         do {
             if let configurable = localLLMService as? any LocalConfigurableLLMClient {
                 return try await configurable.generate(
                     prompt: prompt,
-                    systemPrompt: systemPrompt,
+                    systemPrompt: effectiveSystemPrompt,
                     maxTokens: 0,
                     reasoningMode: selection.reasoningMode,
                     modelID: selection.modelID
                 )
             }
-            return try await localLLMService.generate(prompt: prompt, systemPrompt: systemPrompt)
+            return try await localLLMService.generate(prompt: prompt, systemPrompt: effectiveSystemPrompt)
         } catch {
             throw error
         }
@@ -1155,6 +1197,7 @@ final class TriageService {
                 continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
             }
         }
+        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -1162,13 +1205,13 @@ final class TriageService {
                     if let configurable = localLLMService as? any LocalConfigurableLLMClient {
                         stream = configurable.stream(
                             prompt: prompt,
-                            systemPrompt: systemPrompt,
+                            systemPrompt: effectiveSystemPrompt,
                             maxTokens: 0,
                             reasoningMode: selection.reasoningMode,
                             modelID: selection.modelID
                         )
                     } else {
-                        stream = localLLMService.stream(prompt: prompt, systemPrompt: systemPrompt)
+                        stream = localLLMService.stream(prompt: prompt, systemPrompt: effectiveSystemPrompt)
                     }
                     for try await chunk in stream {
                         continuation.yield(chunk)
@@ -1180,6 +1223,14 @@ final class TriageService {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    private static func effectiveLocalSystemPrompt(_ systemPrompt: String?) -> String {
+        guard let systemPrompt,
+              !systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return localQwenBaselineSystemPrompt
+        }
+        return "\(localQwenBaselineSystemPrompt)\n\n\(systemPrompt)"
     }
 
     private func userFacingStream(

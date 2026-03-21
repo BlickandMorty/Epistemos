@@ -39,6 +39,7 @@ $(SRCROOT)/graph-engine/src/markdown.rs
 $(SRCROOT)/graph-engine/src/physics_audit_test.rs
 $(SRCROOT)/graph-engine/src/quadtree.rs
 $(SRCROOT)/graph-engine/src/renderer.rs
+$(SRCROOT)/graph-engine/src/retrieval_index.rs
 $(SRCROOT)/graph-engine/src/search.rs
 $(SRCROOT)/graph-engine/src/simulation.rs
 $(SRCROOT)/graph-engine/src/spatial.rs

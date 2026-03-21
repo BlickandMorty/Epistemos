@@ -441,6 +441,42 @@ final class GraphEngine {
             }
         }
     }
+
+    func setNodeEmbedding(uuid: String, vector: [Float]) {
+        guard let h = handle, !vector.isEmpty else { return }
+        uuid.withCString { uuidPtr in
+            vector.withUnsafeBufferPointer { buffer in
+                guard let baseAddress = buffer.baseAddress else { return }
+                graph_engine_set_node_embedding(h, uuidPtr, baseAddress, UInt32(buffer.count))
+            }
+        }
+    }
+
+    func clearSemanticEmbeddings() {
+        guard let h = handle else { return }
+        graph_engine_clear_embeddings(h)
+    }
+
+    func semanticEmbeddingCount() -> Int {
+        guard let h = handle else { return 0 }
+        return Int(graph_engine_embedding_count(h))
+    }
+
+    func semanticEmbeddingDimension() -> Int {
+        guard let h = handle else { return 0 }
+        return Int(graph_engine_embedding_dimension(h))
+    }
+
+    @discardableResult
+    func resetSemanticEmbeddingDimension(to dimension: Int) -> Bool {
+        guard let h = handle, dimension > 0 else { return false }
+        return graph_engine_reset_embedding_dimension(h, UInt32(dimension)) != 0
+    }
+
+    func recomputeSemanticNeighbors(k: UInt32 = 8, threshold: Float = 0.3) {
+        guard let h = handle else { return }
+        graph_engine_recompute_semantic_neighbors(h, k, threshold)
+    }
 }
 
 extension GraphEngine {

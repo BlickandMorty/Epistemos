@@ -13,6 +13,7 @@ pub mod forces;
 pub mod knowledge_core;
 pub mod markdown;
 pub mod quadtree;
+pub mod retrieval_index;
 pub mod renderer;
 pub mod search;
 pub mod simulation;
@@ -74,6 +75,7 @@ use crate::knowledge_core::{
     DocumentFormat, KnowledgeCore, KnowledgeCoreBackpressurePolicy, KnowledgeCoreError,
     KnowledgeCoreErrorCode,
 };
+use crate::retrieval_index::PreparedRetrievalStore;
 
 #[repr(C)]
 pub struct GraphEngineByteBuffer {
@@ -253,6 +255,22 @@ fn byte_buffer_from_vec(mut bytes: Vec<u8>) -> GraphEngineByteBuffer {
     };
     std::mem::forget(bytes);
     buffer
+}
+
+fn byte_buffer_from_length_prefixed_strings(values: &[String]) -> GraphEngineByteBuffer {
+    if values.is_empty() {
+        return empty_byte_buffer();
+    }
+
+    let capacity = 4 + values.iter().map(|value| 4 + value.len()).sum::<usize>();
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.extend_from_slice(&(values.len() as u32).to_le_bytes());
+    for value in values {
+        let value_bytes = value.as_bytes();
+        bytes.extend_from_slice(&(value_bytes.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(value_bytes);
+    }
+    byte_buffer_from_vec(bytes)
 }
 
 fn sync_btk_query_kernel(engine: &mut Engine, page_id: &str) {
@@ -1312,6 +1330,45 @@ pub extern "C" fn graph_engine_set_node_embedding(
     }
 }
 
+/// Clear all stored semantic embeddings and neighbor pairs.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_clear_embeddings(engine: *mut Engine) {
+    ffi_engine!(engine);
+    engine.embedding_store.clear();
+    engine.semantic_neighbors.clear();
+    engine.reheat();
+}
+
+/// Return the number of stored semantic embeddings.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_embedding_count(engine: *mut Engine) -> u32 {
+    ffi_engine_or!(engine, 0);
+    engine.embedding_store.len() as u32
+}
+
+/// Return the active semantic embedding dimension.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_embedding_dimension(engine: *mut Engine) -> u32 {
+    ffi_engine_or!(engine, 0);
+    engine.embedding_store.dimension() as u32
+}
+
+/// Reset the semantic embedding dimension and clear stored vectors/neighbors.
+/// Returns 1 when the dimension changed, 0 when the request was invalid or unchanged.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_reset_embedding_dimension(engine: *mut Engine, dim: u32) -> u8 {
+    ffi_engine_or!(engine, 0);
+    if dim == 0 {
+        return 0;
+    }
+    if !engine.embedding_store.reset_dimension(dim as usize) {
+        return 0;
+    }
+    engine.semantic_neighbors.clear();
+    engine.reheat();
+    1
+}
+
 /// Recompute the semantic neighbor pairs (KNN) from current embeddings.
 /// Call this after batch-setting embeddings. The pairs are used by the
 /// semantic attraction force each physics tick.
@@ -1469,6 +1526,174 @@ pub extern "C" fn graph_engine_semantic_search(
                 node_type: node.node_type as u8,
                 score: hit.similarity,
             })
+        })
+        .collect();
+
+    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_load_prepared_retrieval_index(
+    engine: *mut Engine,
+    manifest_path: *const c_char,
+) -> u8 {
+    ffi_engine_or!(engine, 0);
+    let manifest_path = ffi_cstr!(manifest_path);
+    if manifest_path.is_empty() {
+        return 0;
+    }
+
+    if engine
+        .prepared_retrieval_store
+        .as_ref()
+        .is_some_and(|store| store.matches_manifest_path(manifest_path))
+    {
+        return 1;
+    }
+
+    let Some(store) = PreparedRetrievalStore::load(manifest_path) else {
+        return 0;
+    };
+    engine.prepared_retrieval_store = Some(store);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_clear_prepared_retrieval_index(engine: *mut Engine) {
+    ffi_engine!(engine);
+    engine.prepared_retrieval_store = None;
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_prepared_retrieval_dimension(engine: *mut Engine) -> u32 {
+    ffi_engine_or!(engine, 0);
+    engine
+        .prepared_retrieval_store
+        .as_ref()
+        .map(|store| store.dimension() as u32)
+        .unwrap_or(0)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_prepared_retrieval_search(
+    engine: *mut Engine,
+    query_data: *const f32,
+    dim: u32,
+    limit: u32,
+    out_count: *mut u32,
+) -> *mut search::SearchResult {
+    ffi_engine_or!(engine, std::ptr::null_mut());
+    if query_data.is_null() || dim == 0 {
+        unsafe {
+            if !out_count.is_null() {
+                *out_count = 0;
+            }
+        }
+        return std::ptr::null_mut();
+    }
+
+    let Some(store) = engine.prepared_retrieval_store.as_ref() else {
+        unsafe {
+            if !out_count.is_null() {
+                *out_count = 0;
+            }
+        }
+        return std::ptr::null_mut();
+    };
+
+    let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
+    let hits = store.search(query_vec, limit as usize, 0.0);
+
+    unsafe {
+        if !out_count.is_null() {
+            *out_count = hits.len() as u32;
+        }
+    }
+
+    if hits.is_empty() {
+        return std::ptr::null_mut();
+    }
+
+    let ffi_results: Vec<search::SearchResult> = hits
+        .into_iter()
+        .map(|hit| search::SearchResult {
+            uuid: CString::new(hit.page_id).unwrap_or_default().into_raw(),
+            label: CString::default().into_raw(),
+            node_type: 0,
+            score: hit.similarity,
+        })
+        .collect();
+
+    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+}
+
+/// Score a fixed set of page IDs against the loaded prepared retrieval index.
+/// Returns page IDs in the `uuid` field of GraphSearchResult. Free with
+/// `graph_engine_free_search_results`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
+    engine: *mut Engine,
+    query_data: *const f32,
+    dim: u32,
+    page_ids: *const *const std::os::raw::c_char,
+    page_id_count: u32,
+    out_count: *mut u32,
+) -> *mut search::SearchResult {
+    ffi_engine_or!(engine, std::ptr::null_mut());
+    if query_data.is_null() || dim == 0 || page_ids.is_null() || page_id_count == 0 {
+        unsafe {
+            if !out_count.is_null() {
+                *out_count = 0;
+            }
+        }
+        return std::ptr::null_mut();
+    }
+
+    let store = match engine.prepared_retrieval_store.as_ref() {
+        Some(store) => store,
+        None => {
+            unsafe {
+                if !out_count.is_null() {
+                    *out_count = 0;
+                }
+            }
+            return std::ptr::null_mut();
+        }
+    };
+
+    let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
+    let page_id_ptrs = unsafe { std::slice::from_raw_parts(page_ids, page_id_count as usize) };
+    let requested_page_ids: Vec<String> = page_id_ptrs
+        .iter()
+        .filter_map(|page_id_ptr| {
+            if page_id_ptr.is_null() {
+                return None;
+            }
+            unsafe { CStr::from_ptr(*page_id_ptr) }
+                .to_str()
+                .ok()
+                .map(ToOwned::to_owned)
+        })
+        .collect();
+
+    let hits = store.score_page_ids(query_vec, &requested_page_ids);
+    unsafe {
+        if !out_count.is_null() {
+            *out_count = hits.len() as u32;
+        }
+    }
+
+    if hits.is_empty() {
+        return std::ptr::null_mut();
+    }
+
+    let ffi_results: Vec<search::SearchResult> = hits
+        .into_iter()
+        .map(|hit| search::SearchResult {
+            uuid: CString::new(hit.page_id).unwrap_or_default().into_raw(),
+            label: CString::default().into_raw(),
+            node_type: 0,
+            score: hit.similarity,
         })
         .collect();
 
@@ -1719,8 +1944,8 @@ pub extern "C" fn graph_engine_btk_update_block(
 // ── BTK Queries ─────────────────────────────────────────────────────────────
 
 /// Query all BTK trees for blocks matching a property filter.
-/// Returns newline-separated page_ids that contain at least one matching block.
-/// Result must be freed with graph_engine_free_string.
+/// Returns a length-prefixed byte buffer of page_ids that contain at least one
+/// matching block. Result must be freed with graph_engine_free_bytes.
 /// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte, 6=contains
 /// val_type: 0=string, 1=float, 2=int, 3=bool
 #[unsafe(no_mangle)]
@@ -1730,8 +1955,8 @@ pub extern "C" fn graph_engine_btk_query_property(
     op: u8,
     val_type: u8,
     val_str: *const c_char,
-) -> *const c_char {
-    ffi_engine_or!(engine, std::ptr::null());
+) -> GraphEngineByteBuffer {
+    ffi_engine_or!(engine, empty_byte_buffer());
     let key_str = ffi_cstr!(key);
     let val_raw = ffi_cstr!(val_str);
 
@@ -1739,14 +1964,14 @@ pub extern "C" fn graph_engine_btk_query_property(
         0 => block_kernel::op::PropertyValue::String(val_raw.to_string()),
         1 => match val_raw.parse::<f32>() {
             Ok(f) => block_kernel::op::PropertyValue::Float(f),
-            Err(_) => return std::ptr::null(),
+            Err(_) => return empty_byte_buffer(),
         },
         2 => match val_raw.parse::<i64>() {
             Ok(i) => block_kernel::op::PropertyValue::Int(i),
-            Err(_) => return std::ptr::null(),
+            Err(_) => return empty_byte_buffer(),
         },
         3 => block_kernel::op::PropertyValue::Bool(val_raw == "true"),
-        _ => return std::ptr::null(),
+        _ => return empty_byte_buffer(),
     };
 
     let mut matching_pages = Vec::new();
@@ -1757,27 +1982,23 @@ pub extern "C" fn graph_engine_btk_query_property(
     }
 
     if matching_pages.is_empty() {
-        return std::ptr::null();
+        return empty_byte_buffer();
     }
 
-    let result = matching_pages.join("\n");
-    match CString::new(result) {
-        Ok(cs) => cs.into_raw(),
-        Err(_) => std::ptr::null(),
-    }
+    byte_buffer_from_length_prefixed_strings(&matching_pages)
 }
 
 /// Query all BTK trees for blocks matching a depth filter.
-/// Returns newline-separated page_ids that contain at least one matching block.
-/// Result must be freed with graph_engine_free_string.
+/// Returns a length-prefixed byte buffer of page_ids that contain at least one
+/// matching block. Result must be freed with graph_engine_free_bytes.
 /// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_query_depth(
     engine: *mut Engine,
     op: u8,
     depth: u32,
-) -> *const c_char {
-    ffi_engine_or!(engine, std::ptr::null());
+) -> GraphEngineByteBuffer {
+    ffi_engine_or!(engine, empty_byte_buffer());
 
     let depth16 = depth.min(u16::MAX as u32) as u16;
     let mut matching_pages = Vec::new();
@@ -1788,14 +2009,10 @@ pub extern "C" fn graph_engine_btk_query_depth(
     }
 
     if matching_pages.is_empty() {
-        return std::ptr::null();
+        return empty_byte_buffer();
     }
 
-    let result = matching_pages.join("\n");
-    match CString::new(result) {
-        Ok(cs) => cs.into_raw(),
-        Err(_) => std::ptr::null(),
-    }
+    byte_buffer_from_length_prefixed_strings(&matching_pages)
 }
 
 /// Free a byte buffer returned by graph_engine_btk_take_subscription_update or snapshot APIs.
@@ -3110,9 +3327,10 @@ mod btk_ffi_tests {
     use std::time::Instant;
 
     use super::{
-        BtkSubscriptionPayloadSummaryFFI, BtkSubscriptionRowFFI, graph_engine_btk_payload_row,
+        BtkSubscriptionPayloadSummaryFFI, BtkSubscriptionRowFFI, GraphEngineByteBuffer,
+        byte_buffer_from_length_prefixed_strings, graph_engine_btk_payload_row,
         graph_engine_btk_payload_row_count, graph_engine_btk_payload_rows,
-        graph_engine_btk_payload_summary,
+        graph_engine_btk_payload_summary, graph_engine_free_bytes,
     };
     use crate::block_kernel::query_kernel::{QueryResultRow, SubscriptionPayload};
 
@@ -3149,6 +3367,67 @@ mod btk_ffi_tests {
             .to_string()
     }
 
+    fn decode_length_prefixed_strings(buffer: GraphEngineByteBuffer) -> Vec<String> {
+        if buffer.ptr.is_null() || buffer.len == 0 {
+            if buffer.capacity > 0 {
+                graph_engine_free_bytes(buffer);
+            }
+            return Vec::new();
+        }
+
+        let bytes = unsafe { std::slice::from_raw_parts(buffer.ptr, buffer.len as usize) };
+        let mut offset = 0usize;
+        let read_u32 = |offset: &mut usize| -> Option<u32> {
+            let end = offset.checked_add(4)?;
+            let slice = bytes.get(*offset..end)?;
+            let value = u32::from_le_bytes(slice.try_into().ok()?);
+            *offset = end;
+            Some(value)
+        };
+
+        let count = match read_u32(&mut offset) {
+            Some(value) => value as usize,
+            None => {
+                graph_engine_free_bytes(buffer);
+                return Vec::new();
+            }
+        };
+
+        let mut values = Vec::with_capacity(count);
+        for _ in 0..count {
+            let length = match read_u32(&mut offset) {
+                Some(value) => value as usize,
+                None => {
+                    graph_engine_free_bytes(buffer);
+                    return Vec::new();
+                }
+            };
+            let end = match offset.checked_add(length) {
+                Some(value) => value,
+                None => {
+                    graph_engine_free_bytes(buffer);
+                    return Vec::new();
+                }
+            };
+            let slice = match bytes.get(offset..end) {
+                Some(value) => value,
+                None => {
+                    graph_engine_free_bytes(buffer);
+                    return Vec::new();
+                }
+            };
+            values.push(
+                std::str::from_utf8(slice)
+                    .expect("length-prefixed BTK query payload should be valid utf-8")
+                    .to_string(),
+            );
+            offset = end;
+        }
+
+        graph_engine_free_bytes(buffer);
+        values
+    }
+
     #[test]
     fn btk_payload_rows_batch_matches_scalar_rows() {
         let payload = SubscriptionPayload {
@@ -3183,6 +3462,20 @@ mod btk_ffi_tests {
         assert_eq!(decode(scalar_rows[1].content), decode(batched_rows[1].content));
         assert_eq!(decode(batched_rows[0].block_id), "block-a");
         assert_eq!(decode(batched_rows[1].block_id), "block-b");
+    }
+
+    #[test]
+    fn btk_query_result_buffer_roundtrips_length_prefixed_page_ids() {
+        let values = vec![
+            "page-1".to_string(),
+            "page-2".to_string(),
+            "vault/page-3".to_string(),
+        ];
+
+        let buffer = byte_buffer_from_length_prefixed_strings(&values);
+        let decoded = decode_length_prefixed_strings(buffer);
+
+        assert_eq!(decoded, values);
     }
 
     #[test]

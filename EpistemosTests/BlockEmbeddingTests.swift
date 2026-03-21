@@ -1,6 +1,38 @@
 import Foundation
+import Metal
+import QuartzCore
 import Testing
 @testable import Epistemos
+
+private struct StubTextEmbeddingLookup: TextEmbeddingLookup {
+    let vectors: [String: [Float]]
+    let dimension: Int
+
+    func vector(for token: String) -> [Float]? {
+        vectors[token]
+    }
+}
+
+@MainActor
+private struct StubPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
+    let lookup: any TextEmbeddingLookup
+
+    func resolveReranker(
+        configuration: PreparedRetrievalRuntimeConfiguration?,
+        executionMode: PreparedRetrievalExecutionMode,
+        graphState: GraphState
+    ) -> any RetrievalReranking {
+        PassthroughRetrievalReranker()
+    }
+
+    func resolveEmbeddingLookup(
+        configuration: PreparedRetrievalRuntimeConfiguration?,
+        executionMode: PreparedRetrievalExecutionMode,
+        fallback: any TextEmbeddingLookup
+    ) -> any TextEmbeddingLookup {
+        lookup
+    }
+}
 
 @MainActor
 @Suite("BlockEmbeddings")
@@ -80,6 +112,341 @@ struct BlockEmbeddingTests {
         } else {
             Issue.record("Expected embedding for 'test' block — NLEmbedding may be unavailable")
         }
+    }
+
+    @Test("queryEmbedding uses the configured embedding backend")
+    func queryEmbeddingUsesConfiguredBackend() async {
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: [
+                    "alpha": [2, 0],
+                    "beta": [0, 2],
+                ],
+                dimension: 2
+            )
+        )
+
+        let result = service.queryEmbedding(for: "alpha beta", expectedDimension: 2)
+
+        #expect(result == [1, 1])
+    }
+
+    @Test("queryEmbedding refuses dimension mismatch")
+    func queryEmbeddingRejectsDimensionMismatch() async {
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: ["alpha": [1, 1]],
+                dimension: 2
+            )
+        )
+
+        let result = service.queryEmbedding(for: "alpha", expectedDimension: 3)
+
+        #expect(result == nil)
+    }
+
+    @Test("embedding service defaults to apple fallback until prepared retrieval assets exist")
+    func embeddingServiceDefaultsToAppleFallback() async {
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: ["alpha": [1, 1]],
+                dimension: 2
+            )
+        )
+
+        #expect(service.preparedRetrievalRuntimeConfiguration == nil)
+        #expect(service.preparedRetrievalExecutionMode == .appleEmbeddingFallback)
+        #expect(service.preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback)
+    }
+
+    @Test("embedding service disables Swift semantic query embedding once prepared retrieval leaves apple fallback")
+    func embeddingServiceDisablesSwiftSemanticQueryEmbeddingOutsideFallback() async throws {
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
+        try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
+
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: [:],
+                dimension: 0
+            ),
+            preparedRetrievalRuntimeResolver: StubPreparedRetrievalRuntimeResolver(
+                lookup: StubTextEmbeddingLookup(
+                    vectors: [
+                        "alpha": [2, 0],
+                        "beta": [0, 2],
+                    ],
+                    dimension: 2
+                )
+            )
+        )
+
+        await service.applyPreparedRetrievalRuntimeConfiguration(
+            PreparedRetrievalRuntimeConfiguration(
+                retriever: PreparedModelDescriptor(
+                    key: "retriever_primary",
+                    role: .retriever,
+                    displayName: "BGE-M3",
+                    artifactID: nil,
+                    modelID: "BAAI/bge-m3",
+                    servedModelID: "BAAI/bge-m3",
+                    adapterPath: nil,
+                    expectedAdapterBaseModelID: nil,
+                    baseModelID: nil,
+                    baseSnapshotPath: nil,
+                    mergeOutputPath: nil,
+                    mlxOutputPath: nil,
+                    downloadPath: retrieverPath.path,
+                    status: "downloaded",
+                    trustRemoteCode: false
+                ),
+                reranker: nil
+            )
+        )
+
+        let result = service.queryEmbedding(for: "alpha beta")
+
+        #expect(service.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+        #expect(!service.preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback)
+        #expect(result == nil)
+    }
+
+    @Test("embedding service enables prepared query embeddings once a built index is ready")
+    func embeddingServiceEnablesPreparedQueryEmbeddingsOnceIndexIsReady() async throws {
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
+        try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
+
+        let configuration = PreparedRetrievalRuntimeConfiguration(
+            retriever: PreparedModelDescriptor(
+                key: "retriever_primary",
+                role: .retriever,
+                displayName: "BGE-M3",
+                artifactID: nil,
+                modelID: "BAAI/bge-m3",
+                servedModelID: "BAAI/bge-m3",
+                adapterPath: nil,
+                expectedAdapterBaseModelID: nil,
+                baseModelID: nil,
+                baseSnapshotPath: nil,
+                mergeOutputPath: nil,
+                mlxOutputPath: nil,
+                downloadPath: retrieverPath.path,
+                status: "downloaded",
+                trustRemoteCode: false
+            ),
+            reranker: nil
+        )
+
+        let layout = try #require(configuration.assetLayout)
+        try FileManager.default.createDirectory(atPath: layout.indexRoot, withIntermediateDirectories: true)
+
+        let sourceDatabaseURL = tempRoot.appendingPathComponent("search.sqlite")
+        try Data().write(to: sourceDatabaseURL, options: .atomic)
+        let sourceDatabaseModifiedAt = try #require(
+            sourceDatabaseURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        ).timeIntervalSince1970
+
+        let manifest = PreparedRetrievalIndexManifest(
+            retrieverModelID: "BAAI/bge-m3",
+            rerankerModelID: nil,
+            embeddingFormat: "row-major-f32-v1",
+            embeddingDimension: 2,
+            documentCount: 1,
+            embeddingsFile: "block-embeddings.f32",
+            documentsFile: "documents.jsonl",
+            builtAt: 10,
+            sourceDatabasePath: sourceDatabaseURL.path,
+            sourceDatabaseModifiedAt: sourceDatabaseModifiedAt,
+            sourceDatabaseWALModifiedAt: nil
+        )
+        try JSONEncoder().encode(manifest).write(to: URL(fileURLWithPath: layout.indexManifestPath), options: .atomic)
+
+        var values: [Float] = [1, 0]
+        let embeddingsData = values.withUnsafeBufferPointer { Data(buffer: $0) }
+        try embeddingsData.write(to: URL(fileURLWithPath: layout.embeddingsPath), options: .atomic)
+        try Data("{\"document_id\":\"doc-1\",\"block_id\":null,\"page_id\":\"page-1\",\"content\":\"alpha beta\",\"source_type\":\"page\"}\n".utf8)
+            .write(to: URL(fileURLWithPath: layout.documentsPath), options: .atomic)
+
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(vectors: [:], dimension: 0),
+            preparedRetrievalRuntimeResolver: StubPreparedRetrievalRuntimeResolver(
+                lookup: StubTextEmbeddingLookup(
+                    vectors: [
+                        "alpha": [2, 0],
+                        "beta": [0, 2],
+                    ],
+                    dimension: 2
+                )
+            )
+        )
+
+        await service.applyPreparedRetrievalRuntimeConfiguration(configuration)
+
+        let result = service.queryEmbedding(for: "alpha beta", expectedDimension: 2)
+
+        #expect(service.preparedRetrievalExecutionMode == .preparedIndexReady(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+        #expect(!service.preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback)
+        #expect(result == [1, 1])
+    }
+
+    @Test("computeBlockVectors stays empty once prepared retrieval leaves apple fallback")
+    func computeBlockVectorsStayEmptyOutsideFallback() async throws {
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
+        try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
+
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: [
+                    "alpha": [2, 0],
+                    "beta": [0, 2],
+                ],
+                dimension: 2
+            )
+        )
+
+        await service.applyPreparedRetrievalRuntimeConfiguration(
+            PreparedRetrievalRuntimeConfiguration(
+                retriever: PreparedModelDescriptor(
+                    key: "retriever_primary",
+                    role: .retriever,
+                    displayName: "BGE-M3",
+                    artifactID: nil,
+                    modelID: "BAAI/bge-m3",
+                    servedModelID: "BAAI/bge-m3",
+                    adapterPath: nil,
+                    expectedAdapterBaseModelID: nil,
+                    baseModelID: nil,
+                    baseSnapshotPath: nil,
+                    mergeOutputPath: nil,
+                    mlxOutputPath: nil,
+                    downloadPath: retrieverPath.path,
+                    status: "downloaded",
+                    trustRemoteCode: false
+                ),
+                reranker: nil
+            )
+        )
+
+        let result = service.computeBlockVectors(
+            blocks: [(id: "mixed", content: "alpha beta")]
+        )
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("changing prepared retrieval runtime clears stale semantic state")
+    func runtimeChangeClearsStaleSemanticState() async throws {
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
+        try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
+
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: ["alpha": [1, 1]],
+                dimension: 2
+            ),
+            preparedRetrievalRuntimeResolver: StubPreparedRetrievalRuntimeResolver(
+                lookup: StubTextEmbeddingLookup(
+                    vectors: ["beta": [2, 0]],
+                    dimension: 2
+                )
+            )
+        )
+        await service.replaceEmbeddingCacheForTesting(["node-1": [1, 1]])
+        await service.setDimensionForTesting(2)
+
+        await service.applyPreparedRetrievalRuntimeConfiguration(
+            PreparedRetrievalRuntimeConfiguration(
+                retriever: PreparedModelDescriptor(
+                    key: "retriever_primary",
+                    role: .retriever,
+                    displayName: "BGE-M3",
+                    artifactID: nil,
+                    modelID: "BAAI/bge-m3",
+                    servedModelID: "BAAI/bge-m3",
+                    adapterPath: nil,
+                    expectedAdapterBaseModelID: nil,
+                    baseModelID: nil,
+                    baseSnapshotPath: nil,
+                    mergeOutputPath: nil,
+                    mlxOutputPath: nil,
+                    downloadPath: retrieverPath.path,
+                    status: "downloaded",
+                    trustRemoteCode: false
+                ),
+                reranker: nil
+            )
+        )
+
+        let snapshot = await service.embeddingCacheDebugSnapshot()
+
+        #expect(snapshot.entryCount == 0)
+        #expect(await service.dimension == 0)
+        #expect(service.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+    }
+
+    @Test("computeBlockVectors uses the configured embedding backend")
+    func computeBlockVectorsUsesConfiguredBackend() async {
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: [
+                    "alpha": [2, 0],
+                    "beta": [0, 2],
+                    "gamma": [1, 1],
+                ],
+                dimension: 2
+            )
+        )
+
+        let result = service.computeBlockVectors(
+            blocks: [
+                (id: "mixed", content: "alpha beta"),
+                (id: "single", content: "gamma"),
+                (id: "unknown", content: "zzz")
+            ]
+        )
+
+        #expect(result["mixed"] == [1, 1])
+        #expect(result["single"] == [1, 1])
+        #expect(result["unknown"] == nil)
+    }
+
+    @Test("fallback semantic clustering uses the configured fallback embedding backend")
+    func fallbackSemanticClusteringUsesConfiguredBackend() async {
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: [
+                    "alpha": [1, 0],
+                    "beta": [0, 1],
+                    "gamma": [1, 1],
+                    "delta": [0.5, 0.5],
+                ],
+                dimension: 2
+            )
+        )
+        let store = GraphStore()
+        store.addNode(makeNode(id: "n1", label: "alpha"))
+        store.addNode(makeNode(id: "n2", label: "beta"))
+        store.addNode(makeNode(id: "n3", label: "gamma"))
+        store.addNode(makeNode(id: "n4", label: "delta"))
+
+        let clusters = await service.computeFallbackSemanticClusters(store: store)
+
+        #expect(clusters.count == 4)
+        #expect(clusters["n1"] != nil)
+        #expect(clusters["n2"] != nil)
+        #expect(clusters["n3"] != nil)
+        #expect(clusters["n4"] != nil)
     }
 
     @Test("embedding cache enforces a hard cap")
@@ -163,5 +530,100 @@ struct BlockEmbeddingTests {
         #expect(snapshot.entryCount == 0)
         #expect(snapshot.currentSize == 0)
         #expect(await service.embedding(for: "stale-a") == nil)
+    }
+
+    @Test("computeAndPush resets the Rust semantic store to the active fallback dimension before pushing")
+    func computeAndPushResetsRustStoreDimensionBeforePushing() async throws {
+        let device = try #require(MTLCreateSystemDefaultDevice())
+        let layer = CAMetalLayer()
+        layer.device = device
+        layer.pixelFormat = .bgra8Unorm
+        layer.frame = CGRect(x: 0, y: 0, width: 64, height: 64)
+
+        let engine = try #require(GraphEngine(device: device, layer: layer))
+        engine.addNode(uuid: "alpha-node", x: 0, y: 0, nodeType: .note, linkCount: 1, label: "Alpha")
+        engine.addNode(uuid: "beta-node", x: 10, y: 10, nodeType: .note, linkCount: 1, label: "Beta")
+        engine.commit(entrance: false)
+
+        let graphState = GraphState()
+        graphState.engineHandle = engine.rawHandle
+
+        let service = await EmbeddingService(
+            embeddingLookup: StubTextEmbeddingLookup(
+                vectors: [
+                    "alpha": [1, 0],
+                    "beta": [0, 1],
+                ],
+                dimension: 2
+            )
+        )
+        service.graphState = graphState
+
+        let store = GraphStore()
+        store.addNode(makeNode(id: "alpha-node", label: "alpha"))
+        store.addNode(makeNode(id: "beta-node", label: "beta"))
+
+        #expect(engine.semanticEmbeddingDimension() == 512)
+
+        await service.computeAndPush(store: store)
+        await service.waitForPendingComputationForTesting()
+
+        #expect(engine.semanticEmbeddingDimension() == 2)
+        #expect(engine.semanticEmbeddingCount() == 2)
+    }
+
+    @Test("fallback semantic search requires a populated Rust store with a matching dimension")
+    func fallbackSemanticSearchRequiresPopulatedMatchingRustStore() async throws {
+        let device = try #require(MTLCreateSystemDefaultDevice())
+        let layer = CAMetalLayer()
+        layer.device = device
+        layer.pixelFormat = .bgra8Unorm
+        layer.frame = CGRect(x: 0, y: 0, width: 64, height: 64)
+
+        let engine = try #require(GraphEngine(device: device, layer: layer))
+        engine.addNode(uuid: "alpha-node", x: 0, y: 0, nodeType: .note, linkCount: 1, label: "Alpha")
+        engine.commit(entrance: false)
+
+        let graphState = GraphState()
+        graphState.engineHandle = engine.rawHandle
+        await graphState.embeddingService.setDimensionForTesting(2)
+
+        #expect(graphState.canRunFallbackSemanticSearch() == false)
+
+        #expect(engine.resetSemanticEmbeddingDimension(to: 2))
+        #expect(graphState.canRunFallbackSemanticSearch() == false)
+
+        engine.setNodeEmbedding(uuid: "alpha-node", vector: [1, 0])
+        #expect(graphState.canRunFallbackSemanticSearch())
+
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
+        try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
+
+        graphState.applyPreparedRetrievalRuntimeConfiguration(
+            PreparedRetrievalRuntimeConfiguration(
+                retriever: PreparedModelDescriptor(
+                    key: "retriever_primary",
+                    role: .retriever,
+                    displayName: "BGE-M3",
+                    artifactID: nil,
+                    modelID: "BAAI/bge-m3",
+                    servedModelID: "BAAI/bge-m3",
+                    adapterPath: nil,
+                    expectedAdapterBaseModelID: nil,
+                    baseModelID: nil,
+                    baseSnapshotPath: nil,
+                    mergeOutputPath: nil,
+                    mlxOutputPath: nil,
+                    downloadPath: retrieverPath.path,
+                    status: "downloaded",
+                    trustRemoteCode: false
+                ),
+                reranker: nil
+            )
+        )
+
+        #expect(graphState.canRunFallbackSemanticSearch() == false)
     }
 }

@@ -307,6 +307,15 @@ final class GraphState {
 
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
     let embeddingService: EmbeddingService
+    var preparedRetrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
+        embeddingService.preparedRetrievalRuntimeConfiguration
+    }
+    var preparedRetrievalExecutionMode: PreparedRetrievalExecutionMode {
+        embeddingService.preparedRetrievalExecutionMode
+    }
+    var semanticClusteringAvailable: Bool {
+        preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback
+    }
     private var isRestoringPhysicsSettings = false
     private var overlayPhysicsTask: Task<Void, Never>?
 
@@ -315,6 +324,18 @@ final class GraphState {
         self.embeddingService = svc
         svc.graphState = self
         restorePhysicsSettings()
+    }
+
+    func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
+        embeddingService.applyPreparedRetrievalRuntimeConfiguration(configuration)
+        guard !semanticClusteringAvailable else { return }
+        if useSemanticClustering {
+            useSemanticClustering = false
+        }
+        if !semanticClusterIds.isEmpty {
+            semanticClusterIds.removeAll(keepingCapacity: true)
+            semanticClusterVersion += 1
+        }
     }
 
     var isLoaded = false
@@ -711,8 +732,15 @@ final class GraphState {
     var semanticClusterVersion: Int = 0
 
     /// Compute semantic clusters from the current graph store and cache the result.
+    /// This remains a legacy Apple-fallback path only and is disabled once the
+    /// prepared retrieval runtime leaves fallback mode.
     func computeSemanticClusters() {
-        semanticClusterIds = SemanticClusterService.computeClusters(store: store)
+        guard semanticClusteringAvailable else {
+            semanticClusterIds.removeAll(keepingCapacity: true)
+            semanticClusterVersion += 1
+            return
+        }
+        semanticClusterIds = embeddingService.computeFallbackSemanticClusters(store: store)
         semanticClusterVersion += 1
     }
 
@@ -1011,6 +1039,110 @@ final class GraphState {
 
     /// Hybrid search: combines text (Rust FST) + semantic (embedding cosine) results.
     /// Semantic-only matches get 0.7× score weight (text match is stronger signal).
+    func canRunFallbackSemanticSearch() -> Bool {
+        guard semanticClusteringAvailable,
+              let engine = engineHandle,
+              embeddingService.dimension > 0,
+              graph_engine_embedding_count(engine) > 0,
+              Int(graph_engine_embedding_dimension(engine)) == embeddingService.dimension else {
+            return false
+        }
+
+        return true
+    }
+
+    func semanticSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
+        guard !query.isEmpty else { return [] }
+        if let preparedHits = preparedSemanticSearch(query: query, limit: limit) {
+            return preparedHits
+        }
+        guard canRunFallbackSemanticSearch(),
+              let engine = engineHandle,
+              embeddingService.dimension > 0,
+              let queryVec = embeddingService.queryEmbedding(
+                for: query,
+                expectedDimension: embeddingService.dimension
+              ) else {
+            return []
+        }
+
+        return queryVec.withUnsafeBufferPointer { buf in
+            var count: UInt32 = 0
+            let results = graph_engine_semantic_search(
+                engine,
+                buf.baseAddress!,
+                UInt32(embeddingService.dimension),
+                UInt32(limit),
+                &count
+            )
+            return collectSemanticHits(
+                results: results,
+                count: &count,
+                resolveNode: { [store] nodeID in store.nodes[nodeID] }
+            )
+        }
+    }
+
+    private func preparedSemanticSearch(query: String, limit: Int) -> [GraphStore.SearchHit]? {
+        guard preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
+              let engine = engineHandle,
+              let manifestPath = embeddingService.preparedRetrievalIndexManifestPath else {
+            return nil
+        }
+
+        let loaded = manifestPath.withCString { graph_engine_load_prepared_retrieval_index(engine, $0) != 0 }
+        guard loaded else { return [] }
+
+        let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))
+        guard dimension > 0,
+              let queryVec = embeddingService.queryEmbedding(for: query, expectedDimension: dimension) else {
+            return []
+        }
+
+        return queryVec.withUnsafeBufferPointer { buf in
+            var count: UInt32 = 0
+            let results = graph_engine_prepared_retrieval_search(
+                engine,
+                buf.baseAddress!,
+                UInt32(dimension),
+                UInt32(limit),
+                &count
+            )
+            return collectSemanticHits(
+                results: results,
+                count: &count,
+                resolveNode: { [store] pageID in store.node(bySourceId: pageID, type: .note) }
+            )
+        }
+    }
+
+    private func collectSemanticHits(
+        results: UnsafeMutablePointer<GraphSearchResult>?,
+        count: inout UInt32,
+        resolveNode: (String) -> GraphNodeRecord?
+    ) -> [GraphStore.SearchHit] {
+        defer { graph_engine_free_search_results(results, count) }
+        guard let results, count > 0 else { return [] }
+
+        var hits: [GraphStore.SearchHit] = []
+        hits.reserveCapacity(Int(count))
+
+        for i in 0..<Int(count) {
+            let result = results[i]
+            let identifier = result.uuid.map { String(cString: $0) } ?? ""
+            guard let node = resolveNode(identifier) else { continue }
+            hits.append(
+                GraphStore.SearchHit(
+                    id: node.id,
+                    node: node,
+                    score: result.score
+                )
+            )
+        }
+
+        return hits
+    }
+
     func hybridSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
         guard !query.isEmpty else { return [] }
 
@@ -1021,51 +1153,13 @@ final class GraphState {
             hitMap[hit.id] = hit
         }
 
-        // Semantic search: embed the query text, then ask Rust for similar nodes
-        if let engine = engineHandle, embeddingService.dimension > 0,
-           let nlEmbedding = NLEmbedding.wordEmbedding(for: .english)
-        {
-            let words = query.lowercased()
-                .components(separatedBy: .alphanumerics.inverted)
-                .filter { $0.count > 1 }
-
-            var queryVec = [Float](repeating: 0, count: embeddingService.dimension)
-            var wordCount = 0
-            for word in words {
-                if let vec = nlEmbedding.vector(for: word) {
-                    for (i, v) in vec.enumerated() {
-                        queryVec[i] += Float(v)
-                    }
-                    wordCount += 1
-                }
-            }
-
-            if wordCount > 0 {
-                let scale = 1.0 / Float(wordCount)
-                queryVec = queryVec.map { $0 * scale }
-
-                var count: UInt32 = 0
-                let results = queryVec.withUnsafeBufferPointer { buf in
-                    graph_engine_semantic_search(
-                        engine, buf.baseAddress!, UInt32(embeddingService.dimension),
-                        UInt32(limit), &count
-                    )
-                }
-                defer { graph_engine_free_search_results(results, count) }
-
-                if let results, count > 0 {
-                    for i in 0..<Int(count) {
-                        let r = results[i]
-                        let uuid = r.uuid.map { String(cString: $0) } ?? ""
-                        if hitMap[uuid] == nil, let node = store.nodes[uuid] {
-                            // Semantic-only match: 0.7× weight
-                            hitMap[uuid] = GraphStore.SearchHit(
-                                id: node.id, node: node, score: r.score * 0.7
-                            )
-                        }
-                    }
-                }
-            }
+        for hit in semanticSearch(query: query, limit: limit) {
+            guard hitMap[hit.id] == nil else { continue }
+            hitMap[hit.id] = GraphStore.SearchHit(
+                id: hit.id,
+                node: hit.node,
+                score: hit.score * 0.7
+            )
         }
 
         // Sort by score descending, limit

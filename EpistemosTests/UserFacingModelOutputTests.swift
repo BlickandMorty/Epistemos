@@ -12,12 +12,12 @@ struct UserFacingModelOutputTests {
         <think>I should inspect this first.</think>
 
         Final Answer:
-        Use the DPO adapter as the default reasoner.
+        Use the prepared router as the default local model.
         """
 
         #expect(
             UserFacingModelOutput.streamingVisibleText(from: completed)
-                == "Use the DPO adapter as the default reasoner."
+                == "Use the prepared router as the default local model."
         )
     }
 

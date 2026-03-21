@@ -212,6 +212,55 @@ struct NoteChatStateTests {
     }
 }
 
+@Suite("DisplayPacedTextBuffer")
+struct DisplayPacedTextBufferTests {
+
+    @Test("scheduled flush coalesces appended text")
+    @MainActor func scheduledFlushCoalescesAppendedText() async throws {
+        var flushed: [String] = []
+        let buffer = DisplayPacedTextBuffer(flushInterval: .milliseconds(5)) { delta in
+            flushed.append(delta)
+        }
+
+        buffer.append("Hello")
+        buffer.append(" ")
+        buffer.append("World")
+
+        for _ in 0..<20 where flushed.isEmpty {
+            await Task.yield()
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(flushed == ["Hello World"])
+    }
+
+    @Test("reset cancels a pending scheduled flush")
+    @MainActor func resetCancelsPendingScheduledFlush() async throws {
+        var flushed: [String] = []
+        let buffer = DisplayPacedTextBuffer(flushInterval: .milliseconds(20)) { delta in
+            flushed.append(delta)
+        }
+
+        buffer.append("partial")
+        buffer.reset()
+        try await Task.sleep(for: .milliseconds(40))
+
+        #expect(flushed.isEmpty)
+    }
+
+    @Test("threshold flushes immediately")
+    @MainActor func thresholdFlushesImmediately() {
+        var flushed: [String] = []
+        let buffer = DisplayPacedTextBuffer(flushThresholdBytes: 4) { delta in
+            flushed.append(delta)
+        }
+
+        buffer.append("hello")
+
+        #expect(flushed == ["hello"])
+    }
+}
+
 @MainActor
 private final class SlowStreamingLLMClient: LLMClientProtocol {
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {

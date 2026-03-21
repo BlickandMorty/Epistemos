@@ -57,9 +57,9 @@ nonisolated enum LocalRoutingMode: String, Codable, Sendable, CaseIterable {
     var summary: String {
         switch self {
         case .auto:
-            "Apple Intelligence handles the lightest local work. Qwen 3.5 handles deeper local tasks."
+            "Apple Intelligence handles the lightest local work. Installed local Qwen models handle deeper tasks."
         case .localOnly:
-            "Always use local Qwen 3.5. Apple Intelligence is bypassed."
+            "Always use a local model. Apple Intelligence is bypassed."
         }
     }
 }
@@ -267,7 +267,7 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
 
 // MARK: - Inference State
 // Manages the local-only AI stack: Apple Intelligence availability,
-// Qwen 3.5 model policy, and runtime conditions.
+// prepared local roles, stock local model policy, and runtime conditions.
 
 @MainActor @Observable
 final class InferenceState {
@@ -368,11 +368,13 @@ final class InferenceState {
     }
 
     var activeLocalTextModelDisplayName: String {
-        guard let modelID = activeLocalTextModelID,
-              let model = LocalTextModelID(rawValue: modelID) else {
+        guard let modelID = activeLocalTextModelID else {
             return "Qwen 3.5"
         }
-        return model.displayName
+        if let model = LocalTextModelID(rawValue: modelID) {
+            return model.displayName
+        }
+        return modelID
     }
 
     func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {

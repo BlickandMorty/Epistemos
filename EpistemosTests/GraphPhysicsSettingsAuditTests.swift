@@ -167,6 +167,55 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!UserDefaults.standard.bool(forKey: "epistemos.physics.useSemanticClustering"))
     }
 
+    @MainActor
+    @Test("Semantic clustering is disabled when prepared retrieval leaves apple fallback")
+    func semanticClusteringDisablesOutsideAppleFallback() async throws {
+        clearPhysicsDefaults()
+
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
+        try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
+
+        let state = GraphState()
+        state.store.addNode(GraphNodeRecord(id: "n1", type: .note, label: "alpha", sourceId: nil, metadata: GraphNodeMetadata(), weight: 1, createdAt: .now))
+        state.store.addNode(GraphNodeRecord(id: "n2", type: .note, label: "beta", sourceId: nil, metadata: GraphNodeMetadata(), weight: 1, createdAt: .now))
+        state.store.addNode(GraphNodeRecord(id: "n3", type: .note, label: "gamma", sourceId: nil, metadata: GraphNodeMetadata(), weight: 1, createdAt: .now))
+        state.store.addNode(GraphNodeRecord(id: "n4", type: .note, label: "delta", sourceId: nil, metadata: GraphNodeMetadata(), weight: 1, createdAt: .now))
+        state.useSemanticClustering = true
+        state.applyPreparedRetrievalRuntimeConfiguration(
+            PreparedRetrievalRuntimeConfiguration(
+                retriever: PreparedModelDescriptor(
+                    key: "retriever_primary",
+                    role: .retriever,
+                    displayName: "BGE-M3",
+                    artifactID: nil,
+                    modelID: "BAAI/bge-m3",
+                    servedModelID: "BAAI/bge-m3",
+                    adapterPath: nil,
+                    expectedAdapterBaseModelID: nil,
+                    baseModelID: nil,
+                    baseSnapshotPath: nil,
+                    mergeOutputPath: nil,
+                    mlxOutputPath: nil,
+                    downloadPath: retrieverPath.path,
+                    status: "downloaded",
+                    trustRemoteCode: false
+                ),
+                reranker: nil
+            )
+        )
+
+        state.computeSemanticClusters()
+
+        #expect(state.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3", rerankerModelID: nil))
+        #expect(!state.semanticClusteringAvailable)
+        #expect(!state.useSemanticClustering)
+        #expect(state.semanticClusterIds.isEmpty)
+        #expect(state.semanticClusterVersion == 1)
+    }
+
     @Test("Performance mode defaults to off")
     func performanceModeDefaultsOff() {
         clearPhysicsDefaults()

@@ -37,6 +37,19 @@ impl EmbeddingStore {
         }
     }
 
+    pub fn dimension(&self) -> usize {
+        self.dim
+    }
+
+    pub fn reset_dimension(&mut self, dim: usize) -> bool {
+        if dim == 0 || dim == self.dim {
+            return false;
+        }
+        self.dim = dim;
+        self.embeddings.clear();
+        true
+    }
+
     /// Set embedding for a node. Vector must have exactly `self.dim` elements.
     pub fn set(&mut self, node_index: u32, vector: &[f32]) {
         if vector.len() != self.dim {
@@ -327,6 +340,38 @@ mod tests {
         let mut store = EmbeddingStore::new(3);
         store.set(0, &[1.0, 2.0]); // Wrong dim
         assert!(store.is_empty());
+    }
+
+    #[test]
+    fn clear_removes_all_embeddings() {
+        let mut store = EmbeddingStore::new(3);
+        store.set(0, &[1.0, 0.0, 0.0]);
+        store.set(1, &[0.0, 1.0, 0.0]);
+        assert_eq!(store.len(), 2);
+
+        store.clear();
+
+        assert!(store.is_empty());
+        assert!(store.search(&[1.0, 0.0, 0.0], 4, 0.0).is_empty());
+    }
+
+    #[test]
+    fn reset_dimension_clears_embeddings_and_updates_store_shape() {
+        let mut store = EmbeddingStore::new(3);
+        store.set(0, &[1.0, 0.0, 0.0]);
+        assert_eq!(store.len(), 1);
+        assert_eq!(store.dimension(), 3);
+
+        store.reset_dimension(5);
+
+        assert_eq!(store.dimension(), 5);
+        assert!(store.is_empty());
+
+        store.set(1, &[1.0, 0.0, 0.0]);
+        assert!(store.is_empty());
+
+        store.set(1, &[1.0, 0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(store.len(), 1);
     }
 
     #[test]

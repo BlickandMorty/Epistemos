@@ -324,6 +324,17 @@ struct RootView: View {
 }
 
 struct LocalModelToolbarMenu: View {
+    private enum MenuSelection: Identifiable, Equatable {
+        case inProcess(LocalModelDescriptor)
+
+        var id: String {
+            switch self {
+            case .inProcess(let descriptor):
+                "mlx:\(descriptor.id)"
+            }
+        }
+    }
+
     var variant: NativeControlVariant = .toolbar
 
     @Environment(UIState.self) private var ui
@@ -352,8 +363,20 @@ struct LocalModelToolbarMenu: View {
         return installedSelectableModels.first
     }
 
+    private var selectedMenuItem: MenuSelection? {
+        if let descriptor = selectedDescriptor {
+            return .inProcess(descriptor)
+        }
+        return nil
+    }
+
     private var labelText: String {
-        selectedDescriptor?.displayName ?? "Install Local Model"
+        switch selectedMenuItem {
+        case .inProcess(let descriptor):
+            descriptor.displayName
+        case nil:
+            "Install Local Model"
+        }
     }
 
     private var labelFont: Font {
@@ -381,7 +404,7 @@ struct LocalModelToolbarMenu: View {
                     } label: {
                         HStack {
                             Text(model.displayName)
-                            if model.id == selectedDescriptor?.id {
+                            if selectedMenuItem == .inProcess(model) {
                                 Image(systemName: "checkmark")
                             }
                         }

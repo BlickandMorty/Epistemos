@@ -3,46 +3,14 @@
   "defaults": {
     "prepared_root": "~/Library/Application Support/Epistemos/PreparedModels",
     "download_root": "~/Library/Application Support/Epistemos/PreparedModels/downloads",
-    "target_hardware": "18GB-class Apple Silicon",
-    "sidecar_candidate": "mlx-openai-server"
+    "target_hardware": "18GB-class Apple Silicon"
   },
   "models": {
-    "reasoner_primary": {
-      "role": "reasoner",
-      "display_name": "DeepSeek R1 Distill Llama 8B DPO",
-      "artifact_id": "deepseek-r1-persona-math-dpo",
-      "adapter_path": "~/Downloads/deepseek/deepseek-r1-persona-math-dpo/final_adapter",
-      "expected_adapter_base_model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-      "base_model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-      "base_snapshot_path": "~/Library/Application Support/Epistemos/PreparedModels/downloads/deepseek-r1-distill-llama-8b",
-      "merge_output_path": "~/Library/Application Support/Epistemos/PreparedModels/reasoner/deepseek-r1-persona-math-dpo/hf-merged",
-      "mlx_output_path": "~/Library/Application Support/Epistemos/PreparedModels/reasoner/deepseek-r1-persona-math-dpo/mlx-4bit",
-      "trust_remote_code": true,
-      "quantization": {
-        "bits": 4,
-        "group_size": 64
-      }
-    },
-    "reasoner_fallback": {
-      "role": "reasoner",
-      "display_name": "DeepSeek R1 Distill Llama 8B SFT",
-      "artifact_id": "deepseek-r1-persona-math-sft",
-      "adapter_path": "~/Downloads/deepseek/deepseek-r1-persona-math-sft/final_adapter",
-      "expected_adapter_base_model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-      "base_model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-      "base_snapshot_path": "~/Library/Application Support/Epistemos/PreparedModels/downloads/deepseek-r1-distill-llama-8b",
-      "merge_output_path": "~/Library/Application Support/Epistemos/PreparedModels/reasoner/deepseek-r1-persona-math-sft/hf-merged",
-      "mlx_output_path": "~/Library/Application Support/Epistemos/PreparedModels/reasoner/deepseek-r1-persona-math-sft/mlx-4bit",
-      "trust_remote_code": true,
-      "quantization": {
-        "bits": 4,
-        "group_size": 64
-      }
-    },
     "router_primary": {
       "role": "router",
       "display_name": "Qwen 3 4B Router",
       "artifact_id": "qwen-router-4b-sft",
+      "served_model_id": "qwen-router-4b-sft",
       "adapter_path": "~/Downloads/Qwen/qwen-router-4b-sft/final_adapter",
       "expected_adapter_base_model_id": "Qwen/Qwen3-4B",
       "base_model_id": "Qwen/Qwen3-4B",
@@ -59,6 +27,7 @@
       "role": "router",
       "display_name": "Qwen 3 0.6B Router",
       "artifact_id": "qwen-router-sft",
+      "served_model_id": "qwen-router-sft",
       "adapter_path": "~/Downloads/Qwen/qwen-router-sft/final_adapter",
       "expected_adapter_base_model_id": "Qwen/Qwen3-0.6B",
       "base_model_id": "Qwen/Qwen3-0.6B",
@@ -75,6 +44,7 @@
       "role": "retriever",
       "display_name": "BAAI BGE-M3",
       "model_id": "BAAI/bge-m3",
+      "served_model_id": "BAAI/bge-m3",
       "download_path": "~/Library/Application Support/Epistemos/PreparedModels/retrieval/bge-m3/source",
       "status": "missing"
     },
@@ -82,6 +52,7 @@
       "role": "reranker",
       "display_name": "BAAI BGE Reranker v2 M3",
       "model_id": "BAAI/bge-reranker-v2-m3",
+      "served_model_id": "BAAI/bge-reranker-v2-m3",
       "download_path": "~/Library/Application Support/Epistemos/PreparedModels/retrieval/bge-reranker-v2-m3/source",
       "status": "missing"
     },
@@ -89,14 +60,8 @@
       "role": "experimental_moe",
       "display_name": "Qwen3-30B-A3B 4-bit",
       "model_id": "mlx-community/Qwen3-30B-A3B-4bit",
+      "served_model_id": "mlx-community/Qwen3-30B-A3B-4bit",
       "download_path": "~/Library/Application Support/Epistemos/PreparedModels/experimental/qwen3-30b-a3b-4bit",
-      "status": "missing"
-    },
-    "optional_reasoner_secondary": {
-      "role": "reasoner",
-      "display_name": "DeepSeek R1 Distill Qwen 14B",
-      "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-      "download_path": "~/Library/Application Support/Epistemos/PreparedModels/optional/deepseek-r1-distill-qwen-14b",
       "status": "missing"
     }
   }

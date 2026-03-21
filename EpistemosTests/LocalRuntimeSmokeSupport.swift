@@ -1,4 +1,5 @@
 import Darwin.Mach
+import Foundation
 import Testing
 @testable import Epistemos
 

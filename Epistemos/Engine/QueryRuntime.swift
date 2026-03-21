@@ -1,6 +1,329 @@
 import Foundation
 import QuartzCore
 
+@MainActor
+private func makeQueryResultNode(
+    from record: GraphNodeRecord,
+    in graphStore: GraphStore,
+    score: Float? = nil,
+    snippet: String? = nil
+) -> QueryResultNode {
+    QueryResultNode(
+        from: record,
+        score: score,
+        snippet: snippet,
+        connectionCount: graphStore.linkCount(for: record.id)
+    )
+}
+
+nonisolated enum BTKQueryPageIDBufferDecoder {
+    static func decode(_ buffer: GraphEngineByteBuffer) -> [String] {
+        guard let ptr = buffer.ptr, buffer.len > 0 else {
+            if buffer.capacity > 0 {
+                graph_engine_free_bytes(buffer)
+            }
+            return []
+        }
+
+        defer { graph_engine_free_bytes(buffer) }
+        let bytes = UnsafeRawBufferPointer(start: ptr, count: Int(buffer.len))
+        return decode(bytes)
+    }
+
+    static func decode(_ bytes: UnsafeRawBufferPointer) -> [String] {
+        guard let count = readUInt32(bytes, offset: 0) else { return [] }
+
+        var offset = 4
+        var pageIDs: [String] = []
+        pageIDs.reserveCapacity(Int(count))
+
+        for _ in 0..<count {
+            guard let length = readUInt32(bytes, offset: offset) else { return [] }
+            offset += 4
+            let byteCount = Int(length)
+            guard byteCount >= 0, offset + byteCount <= bytes.count else { return [] }
+            let slice = bytes[offset..<(offset + byteCount)]
+            pageIDs.append(String(decoding: slice, as: UTF8.self))
+            offset += byteCount
+        }
+
+        return offset == bytes.count ? pageIDs : []
+    }
+
+    private static func readUInt32(
+        _ bytes: UnsafeRawBufferPointer,
+        offset: Int
+    ) -> UInt32? {
+        guard offset >= 0, offset + 4 <= bytes.count else { return nil }
+        let start = bytes[offset]
+        let byte1 = bytes[offset + 1]
+        let byte2 = bytes[offset + 2]
+        let byte3 = bytes[offset + 3]
+        return UInt32(start)
+            | (UInt32(byte1) << 8)
+            | (UInt32(byte2) << 16)
+            | (UInt32(byte3) << 24)
+    }
+}
+
+nonisolated enum RetrievalCandidateSource: Sendable {
+    case pageSearch
+    case blockSearch
+    case semanticGraph
+}
+
+nonisolated struct RetrievalCandidate: Sendable {
+    let node: QueryResultNode
+    let source: RetrievalCandidateSource
+}
+
+@MainActor
+protocol RetrievalReranking {
+    func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate]
+}
+
+struct PassthroughRetrievalReranker: RetrievalReranking {
+    func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
+        candidates
+    }
+}
+
+@MainActor
+protocol PreparedRetrievalRuntimeResolving {
+    func resolveReranker(
+        configuration: PreparedRetrievalRuntimeConfiguration?,
+        executionMode: PreparedRetrievalExecutionMode,
+        graphState: GraphState
+    ) -> any RetrievalReranking
+
+    func resolveEmbeddingLookup(
+        configuration: PreparedRetrievalRuntimeConfiguration?,
+        executionMode: PreparedRetrievalExecutionMode,
+        fallback: any TextEmbeddingLookup
+    ) -> any TextEmbeddingLookup
+}
+
+struct DefaultPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
+    func resolveReranker(
+        configuration: PreparedRetrievalRuntimeConfiguration?,
+        executionMode: PreparedRetrievalExecutionMode,
+        graphState: GraphState
+    ) -> any RetrievalReranking {
+        guard executionMode.hasPreparedIndexRuntime else {
+            return PassthroughRetrievalReranker()
+        }
+        return PreparedIndexSimilarityReranker(
+            graphState: graphState,
+            embeddingService: graphState.embeddingService
+        )
+    }
+
+    func resolveEmbeddingLookup(
+        configuration: PreparedRetrievalRuntimeConfiguration?,
+        executionMode: PreparedRetrievalExecutionMode,
+        fallback: any TextEmbeddingLookup
+    ) -> any TextEmbeddingLookup {
+        fallback
+    }
+}
+
+@MainActor
+final class PreparedIndexSimilarityReranker: RetrievalReranking {
+    private weak var graphState: GraphState?
+    private let embeddingService: EmbeddingService
+
+    init(graphState: GraphState, embeddingService: EmbeddingService) {
+        self.graphState = graphState
+        self.embeddingService = embeddingService
+    }
+
+    func rerank(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
+        guard candidates.count > 1,
+              embeddingService.preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
+              let engine = graphState?.engineHandle,
+              let manifestPath = embeddingService.preparedRetrievalIndexManifestPath else {
+            return candidates
+        }
+
+        let loaded = manifestPath.withCString {
+            graph_engine_load_prepared_retrieval_index(engine, $0) != 0
+        }
+        guard loaded else { return candidates }
+
+        let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))
+        guard dimension > 0,
+              let queryVector = embeddingService.queryEmbedding(for: query, expectedDimension: dimension) else {
+            return candidates
+        }
+
+        let candidatePageIDs = candidates.compactMap(\.node.sourceId)
+        guard candidatePageIDs.count > 1 else { return candidates }
+
+        let scores = queryVector.withUnsafeBufferPointer { queryBuffer -> [String: Float] in
+            guard let queryBaseAddress = queryBuffer.baseAddress else { return [:] }
+            let cStrings: [UnsafeMutablePointer<CChar>?] = candidatePageIDs.map { pageID in
+                pageID.withCString { strdup($0) }
+            }
+            defer {
+                for pointer in cStrings {
+                    free(pointer)
+                }
+            }
+            let pageIDPointers = cStrings.map { pointer in
+                pointer.map { UnsafePointer($0) }
+            }
+
+            return pageIDPointers.withUnsafeBufferPointer { pointerBuffer in
+                var count: UInt32 = 0
+                let results = graph_engine_prepared_retrieval_score_page_ids(
+                    engine,
+                    queryBaseAddress,
+                    UInt32(dimension),
+                    pointerBuffer.baseAddress,
+                    UInt32(candidatePageIDs.count),
+                    &count
+                )
+                defer { graph_engine_free_search_results(results, count) }
+                guard let results, count > 0 else { return [:] }
+
+                var scoreMap: [String: Float] = [:]
+                scoreMap.reserveCapacity(Int(count))
+                for index in 0..<Int(count) {
+                    let result = results[index]
+                    let pageID = result.uuid.map { String(cString: $0) } ?? ""
+                    guard !pageID.isEmpty else { continue }
+                    scoreMap[pageID] = result.score
+                }
+                return scoreMap
+            }
+        }
+
+        guard !scores.isEmpty else { return candidates }
+
+        let indexedCandidates = Array(candidates.enumerated())
+        return indexedCandidates
+            .sorted { lhs, rhs in
+                let lhsScore = lhs.element.node.sourceId.flatMap { scores[$0] } ?? -.greatestFiniteMagnitude
+                let rhsScore = rhs.element.node.sourceId.flatMap { scores[$0] } ?? -.greatestFiniteMagnitude
+                if lhsScore == rhsScore {
+                    return lhs.offset < rhs.offset
+                }
+                return lhsScore > rhsScore
+            }
+            .map(\.element)
+    }
+}
+
+@MainActor
+final class RetrievalRuntime {
+    private enum RetrievalPolicy {
+        static let rerankLimit = 12
+    }
+
+    private let graphStore: GraphStore
+    private let graphState: GraphState
+    private let searchIndex: SearchIndexService
+    private let reranker: any RetrievalReranking
+    private let rerankLimit: Int
+
+    init(
+        graphStore: GraphStore,
+        graphState: GraphState,
+        searchIndex: SearchIndexService,
+        reranker: any RetrievalReranking = PassthroughRetrievalReranker(),
+        rerankLimit: Int = RetrievalPolicy.rerankLimit
+    ) {
+        self.graphStore = graphStore
+        self.graphState = graphState
+        self.searchIndex = searchIndex
+        self.reranker = reranker
+        self.rerankLimit = max(0, rerankLimit)
+    }
+
+    func fullText(query: String, scope: SearchScope, limit: Int = 50) -> [QueryResultNode] {
+        var seen = Set<String>()
+        var candidates: [RetrievalCandidate] = []
+
+        if scope != .blocks {
+            let results = (try? searchIndex.search(query: query, limit: limit)) ?? []
+            for result in results {
+                appendNoteResult(
+                    pageId: result.pageId,
+                    score: Float(result.rank),
+                    snippet: result.snippet,
+                    source: .pageSearch,
+                    seen: &seen,
+                    candidates: &candidates
+                )
+            }
+        }
+
+        if scope == .blocks || scope == .all {
+            let blockResults = (try? searchIndex.searchBlocks(query: query, limit: limit)) ?? []
+            for result in blockResults {
+                appendNoteResult(
+                    pageId: result.pageId,
+                    score: Float(result.rank),
+                    snippet: result.snippet,
+                    source: .blockSearch,
+                    seen: &seen,
+                    candidates: &candidates
+                )
+            }
+        }
+
+        return rerankedCandidates(query: query, candidates: candidates).map(\.node)
+    }
+
+    func semantic(query: String, limit: Int) -> [QueryResultNode] {
+        let candidates = graphState.semanticSearch(query: query, limit: limit).map {
+            RetrievalCandidate(
+                node: makeQueryResultNode(from: $0.node, in: graphStore, score: $0.score),
+                source: .semanticGraph
+            )
+        }
+        return rerankedCandidates(query: query, candidates: candidates).map(\.node)
+    }
+
+    private func appendNoteResult(
+        pageId: String,
+        score: Float,
+        snippet: String,
+        source: RetrievalCandidateSource,
+        seen: inout Set<String>,
+        candidates: inout [RetrievalCandidate]
+    ) {
+        guard let graphNode = graphStore.node(bySourceId: pageId, type: .note),
+              seen.insert(graphNode.id).inserted else { return }
+        candidates.append(
+            RetrievalCandidate(
+                node: makeQueryResultNode(
+                    from: graphNode,
+                    in: graphStore,
+                    score: score,
+                    snippet: snippet
+                ),
+                source: source
+            )
+        )
+    }
+
+    private func rerankedCandidates(
+        query: String,
+        candidates: [RetrievalCandidate]
+    ) -> [RetrievalCandidate] {
+        guard candidates.count > 1, rerankLimit > 0 else { return candidates }
+        let prefixCount = min(rerankLimit, candidates.count)
+        let prefix = Array(candidates.prefix(prefixCount))
+        let rerankedPrefix = reranker.rerank(query: query, candidates: prefix)
+        guard rerankedPrefix.count == prefix.count,
+              Set(rerankedPrefix.map(\.node.id)) == Set(prefix.map(\.node.id)) else {
+            return candidates
+        }
+        return rerankedPrefix + candidates.dropFirst(prefixCount)
+    }
+}
+
 // MARK: - QueryRuntime
 // Executes QueryPlan against the appropriate backends.
 
@@ -9,12 +332,22 @@ final class QueryRuntime {
 
     private let graphStore: GraphStore
     private let graphState: GraphState
-    private let searchIndex: SearchIndexService
+    private let retrieval: RetrievalRuntime
 
-    init(graphStore: GraphStore, graphState: GraphState, searchIndex: SearchIndexService) {
+    init(
+        graphStore: GraphStore,
+        graphState: GraphState,
+        searchIndex: SearchIndexService,
+        reranker: any RetrievalReranking = PassthroughRetrievalReranker()
+    ) {
         self.graphStore = graphStore
         self.graphState = graphState
-        self.searchIndex = searchIndex
+        retrieval = RetrievalRuntime(
+            graphStore: graphStore,
+            graphState: graphState,
+            searchIndex: searchIndex,
+            reranker: reranker
+        )
     }
 
     func execute(_ plan: QueryPlan) -> QueryResult {
@@ -54,18 +387,26 @@ final class QueryRuntime {
             return nodes.sorted { ($0.score ?? 0) > ($1.score ?? 0) }
         case .connections:
             return nodes.sorted {
-                (graphStore.adjacency[$0.id]?.count ?? 0) > (graphStore.adjacency[$1.id]?.count ?? 0)
+                if $0.connectionCount == $1.connectionCount {
+                    if $0.createdAt == $1.createdAt {
+                        return $0.id < $1.id
+                    }
+                    return $0.createdAt > $1.createdAt
+                }
+                return $0.connectionCount > $1.connectionCount
             }
         case .created(let ascending):
             return nodes.sorted {
-                let a = graphStore.nodes[$0.id]?.createdAt ?? .distantPast
-                let b = graphStore.nodes[$1.id]?.createdAt ?? .distantPast
+                let a = $0.createdAt
+                let b = $1.createdAt
+                guard a != b else { return $0.id < $1.id }
                 return ascending ? a < b : a > b
             }
         case .updated(let ascending):
             return nodes.sorted {
-                let a = graphStore.nodes[$0.id]?.updatedAt ?? .distantPast
-                let b = graphStore.nodes[$1.id]?.updatedAt ?? .distantPast
+                let a = $0.updatedAt
+                let b = $1.updatedAt
+                guard a != b else { return $0.id < $1.id }
                 return ascending ? a < b : a > b
             }
         }
@@ -149,16 +490,15 @@ final class QueryRuntime {
             for i in 1..<resultSets.count { acc = acc.union(resultSets[i]) }
             combined = acc
         case .complement:
-            // NOT: full universe minus the matched set
             let excluded = resultSets.reduce(into: Set<String>()) { $0.formUnion($1) }
-            let allIds = Set(graphStore.nodes.keys)
-            combined = allIds.subtracting(excluded)
-            // Populate nodeMap for complement nodes
-            for id in combined where nodeMap[id] == nil {
-                if let node = graphStore.nodes[id] {
-                    nodeMap[id] = QueryResultNode(from: node)
-                }
+            var nodes: [QueryResultNode] = []
+            nodes.reserveCapacity(max(0, graphStore.nodeCount - excluded.count))
+            graphStore.forEachNodeNewestFirst { node in
+                guard !excluded.contains(node.id) else { return true }
+                nodes.append(nodeMap[node.id] ?? makeQueryResultNode(from: node, in: graphStore))
+                return true
             }
+            return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
         case .single, .sequential:
             combined = resultSets[0]
         }
@@ -179,37 +519,152 @@ final class QueryRuntime {
     // MARK: - Backend Implementations
 
     private func executeNodeFilter(_ filter: NodeFilter) -> QueryResult {
-        var results = Array(graphStore.nodes.values)
-        if let types = filter.types {
-            results = results.filter { types.contains($0.type) }
+        guard filter.limit > 0 else { return .empty }
+
+        let labelContains = filter.labelContains
+        var results: [GraphNodeRecord] = []
+        results.reserveCapacity(min(filter.limit, graphStore.nodeCount))
+
+        if let labelContains {
+            appendMatchingNodes(
+                from: graphStore.nodes(matchingLabelContains: labelContains, types: filter.types),
+                into: &results,
+                types: nil,
+                labelContains: nil,
+                createdAfter: filter.createdAfter,
+                createdBefore: filter.createdBefore,
+                updatedAfter: filter.updatedAfter,
+                updatedBefore: filter.updatedBefore,
+                limit: filter.limit
+            )
+        } else {
+            graphStore.forEachNodeNewestFirst(ofTypes: filter.types) { node in
+                guard nodeMatchesFilter(
+                    node,
+                    types: nil,
+                    labelContains: nil,
+                    createdAfter: filter.createdAfter,
+                    createdBefore: filter.createdBefore,
+                    updatedAfter: filter.updatedAfter,
+                    updatedBefore: filter.updatedBefore
+                ) else {
+                    return true
+                }
+                results.append(node)
+                return results.count < filter.limit
+            }
         }
-        if let labelContains = filter.labelContains {
-            let lower = labelContains.lowercased()
-            results = results.filter { $0.label.lowercased().contains(lower) }
-        }
-        if let after = filter.createdAfter {
-            results = results.filter { $0.createdAt >= after }
-        }
-        if let before = filter.createdBefore {
-            results = results.filter { $0.createdAt <= before }
-        }
-        if let after = filter.updatedAfter {
-            results = results.filter { $0.updatedAt >= after }
-        }
-        if let before = filter.updatedBefore {
-            results = results.filter { $0.updatedAt <= before }
-        }
-        results.sort { $0.createdAt > $1.createdAt }
-        let nodes = Array(results.prefix(filter.limit)).map { QueryResultNode(from: $0) }
+        let nodes = results.map { makeQueryResultNode(from: $0, in: graphStore) }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
 
-    private func executeEdgeFilter(_ filter: EdgeFilter) -> QueryResult {
-        var results = Array(graphStore.edges.values)
-        if let types = filter.types {
-            results = results.filter { types.contains($0.type) }
+    private func appendMatchingNodes<S: Sequence>(
+        from candidates: S,
+        into results: inout [GraphNodeRecord],
+        types: [GraphNodeType]?,
+        labelContains: String?,
+        createdAfter: Date?,
+        createdBefore: Date?,
+        updatedAfter: Date?,
+        updatedBefore: Date?,
+        limit: Int
+    ) where S.Element == GraphNodeRecord {
+        for node in candidates {
+            guard nodeMatchesFilter(
+                node,
+                types: types,
+                labelContains: labelContains,
+                createdAfter: createdAfter,
+                createdBefore: createdBefore,
+                updatedAfter: updatedAfter,
+                updatedBefore: updatedBefore
+            ) else { continue }
+            insertNewestNode(node, into: &results, limit: limit)
         }
-        let edgeResults = Array(results.prefix(filter.limit)).map { edge -> QueryResultEdge in
+    }
+
+    private func nodeMatchesFilter(
+        _ node: GraphNodeRecord,
+        types: [GraphNodeType]?,
+        labelContains: String?,
+        createdAfter: Date?,
+        createdBefore: Date?,
+        updatedAfter: Date?,
+        updatedBefore: Date?
+    ) -> Bool {
+        if let types, !types.contains(node.type) {
+            return false
+        }
+        if let labelContains,
+           node.label.range(of: labelContains, options: .caseInsensitive) == nil {
+            return false
+        }
+        if let createdAfter, node.createdAt < createdAfter {
+            return false
+        }
+        if let createdBefore, node.createdAt > createdBefore {
+            return false
+        }
+        if let updatedAfter, node.updatedAt < updatedAfter {
+            return false
+        }
+        if let updatedBefore, node.updatedAt > updatedBefore {
+            return false
+        }
+        return true
+    }
+
+    private func insertNewestNode(
+        _ node: GraphNodeRecord,
+        into results: inout [GraphNodeRecord],
+        limit: Int
+    ) {
+        guard limit > 0 else { return }
+        if results.count == limit, let last = results.last, node.createdAt <= last.createdAt {
+            return
+        }
+
+        var insertionIndex = results.count
+        while insertionIndex > 0, results[insertionIndex - 1].createdAt < node.createdAt {
+            insertionIndex -= 1
+        }
+
+        results.insert(node, at: insertionIndex)
+        if results.count > limit {
+            results.removeLast()
+        }
+    }
+
+    private func executeEdgeFilter(_ filter: EdgeFilter) -> QueryResult {
+        guard filter.limit > 0 else { return .empty }
+
+        let scopedNodeID = filter.involvingNodeRef.flatMap(resolveNodeRef)
+        if filter.involvingNodeRef != nil, scopedNodeID == nil {
+            return .empty
+        }
+
+        var results: [GraphEdgeRecord] = []
+        results.reserveCapacity(min(filter.limit, graphStore.edgeCount))
+
+        if let scopedNodeID {
+            appendMatchingEdges(
+                from: graphStore.edges(for: scopedNodeID),
+                into: &results,
+                types: filter.types,
+                involvingNodeID: scopedNodeID,
+                limit: filter.limit
+            )
+        } else {
+            appendMatchingEdges(
+                from: graphStore.edges.values,
+                into: &results,
+                types: filter.types,
+                involvingNodeID: nil,
+                limit: filter.limit
+            )
+        }
+
+        let edgeResults = results.map { edge -> QueryResultEdge in
             QueryResultEdge(
                 id: edge.id,
                 sourceLabel: graphStore.nodes[edge.sourceNodeId]?.label ?? "?",
@@ -221,11 +676,61 @@ final class QueryRuntime {
         return QueryResult(nodes: [], edges: edgeResults, aggregation: nil, executionTimeMs: 0)
     }
 
+    private func appendMatchingEdges<S: Sequence>(
+        from candidates: S,
+        into results: inout [GraphEdgeRecord],
+        types: [GraphEdgeType]?,
+        involvingNodeID: String?,
+        limit: Int
+    ) where S.Element == GraphEdgeRecord {
+        for edge in candidates {
+            guard edgeMatchesFilter(edge, types: types, involvingNodeID: involvingNodeID) else { continue }
+            insertNewestEdge(edge, into: &results, limit: limit)
+        }
+    }
+
+    private func edgeMatchesFilter(
+        _ edge: GraphEdgeRecord,
+        types: [GraphEdgeType]?,
+        involvingNodeID: String?
+    ) -> Bool {
+        if let types, !types.contains(edge.type) {
+            return false
+        }
+        if let involvingNodeID,
+           edge.sourceNodeId != involvingNodeID,
+           edge.targetNodeId != involvingNodeID {
+            return false
+        }
+        return true
+    }
+
+    private func insertNewestEdge(
+        _ edge: GraphEdgeRecord,
+        into results: inout [GraphEdgeRecord],
+        limit: Int
+    ) {
+        guard limit > 0 else { return }
+        if results.count == limit, let last = results.last, edge.createdAt <= last.createdAt {
+            return
+        }
+
+        var insertionIndex = results.count
+        while insertionIndex > 0, results[insertionIndex - 1].createdAt < edge.createdAt {
+            insertionIndex -= 1
+        }
+
+        results.insert(edge, at: insertionIndex)
+        if results.count > limit {
+            results.removeLast()
+        }
+    }
+
     private func executePath(from: NodeRef, to: NodeRef, maxHops: Int) -> QueryResult {
         guard let fromId = resolveNodeRef(from),
               let toId = resolveNodeRef(to) else { return .empty }
         let path = graphStore.query(.pathBetween(from: fromId, to: toId, maxHops: maxHops))
-        let nodes = path.map { QueryResultNode(from: $0, score: nil) }
+        let nodes = path.map { makeQueryResultNode(from: $0, in: graphStore) }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
 
@@ -238,51 +743,34 @@ final class QueryRuntime {
             }
             var seen = Set<String>()
             let unique = allNeighbors.filter { seen.insert($0.id).inserted }
-            let nodes = unique.map { QueryResultNode(from: $0) }
+            let nodes = unique.map { makeQueryResultNode(from: $0, in: graphStore) }
             return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
         } else {
             let connectedIds = graphStore.connected(to: nodeId, maxDepth: depth)
             let nodes = connectedIds
                 .compactMap { graphStore.nodes[$0] }
                 .filter { $0.id != nodeId }
-                .map { QueryResultNode(from: $0) }
+                .map { makeQueryResultNode(from: $0, in: graphStore) }
             return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
         }
     }
 
     private func executeFTS(query: String, scope: SearchScope) -> QueryResult {
-        var seen = Set<String>()
-        var nodes: [QueryResultNode] = []
-
-        // Page-level FTS (unless scope is blocks-only)
-        if scope != .blocks {
-            let results = (try? searchIndex.search(query: query)) ?? []
-            for result in results {
-                if let graphNode = graphStore.node(bySourceId: result.pageId, type: .note),
-                   seen.insert(graphNode.id).inserted {
-                    nodes.append(QueryResultNode(from: graphNode, score: Float(result.rank), snippet: result.snippet))
-                }
-            }
-        }
-
-        // Block-level FTS (for .blocks and .all scopes)
-        if scope == .blocks || scope == .all {
-            let blockResults = (try? searchIndex.searchBlocks(query: query)) ?? []
-            for result in blockResults {
-                if let graphNode = graphStore.node(bySourceId: result.pageId, type: .note),
-                   seen.insert(graphNode.id).inserted {
-                    nodes.append(QueryResultNode(from: graphNode, score: Float(result.rank), snippet: result.snippet))
-                }
-            }
-        }
-
-        return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
+        QueryResult(
+            nodes: retrieval.fullText(query: query, scope: scope),
+            edges: [],
+            aggregation: nil,
+            executionTimeMs: 0
+        )
     }
 
     private func executeSemantic(query: String, limit: Int) -> QueryResult {
-        let hits = graphState.hybridSearch(query: query, limit: limit)
-        let nodes = hits.map { QueryResultNode(from: $0.node, score: $0.score) }
-        return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
+        QueryResult(
+            nodes: retrieval.semantic(query: query, limit: limit),
+            edges: [],
+            aggregation: nil,
+            executionTimeMs: 0
+        )
     }
 
     private func executeBTKPropertyFilter(key: String, op: CompOp, value: PropertyValue) -> QueryResult {
@@ -291,41 +779,33 @@ final class QueryRuntime {
         let opCode = op.ffiCode
         let (valType, valStr) = value.ffiEncoded
 
-        let resultPtr = key.withCString { keyPtr in
+        let buffer = key.withCString { keyPtr in
             valStr.withCString { valPtr in
                 graph_engine_btk_query_property(engine, keyPtr, opCode, valType, valPtr)
             }
         }
-        return pageIdsToQueryResult(resultPtr)
+        return pageIdsToQueryResult(buffer)
     }
 
     private func executeBTKDepthFilter(op: CompOp, value: Int) -> QueryResult {
         guard let engine = graphState.engineHandle else { return .empty }
 
-        let resultPtr = graph_engine_btk_query_depth(engine, op.ffiCode, UInt32(max(0, value)))
-        return pageIdsToQueryResult(resultPtr)
+        let buffer = graph_engine_btk_query_depth(engine, op.ffiCode, UInt32(max(0, value)))
+        return pageIdsToQueryResult(buffer)
     }
 
-    /// Convert newline-separated page_ids from FFI into QueryResult by looking up graph nodes.
-    private func pageIdsToQueryResult(_ ptr: UnsafePointer<CChar>?) -> QueryResult {
-        guard let ptr else { return .empty }
-        let str = String(cString: ptr)
-        graph_engine_free_string(UnsafeMutablePointer(mutating: ptr))
-
-        let pageIds = str.split(separator: "\n").map(String.init)
+    private func pageIdsToQueryResult(_ buffer: GraphEngineByteBuffer) -> QueryResult {
+        let pageIds = BTKQueryPageIDBufferDecoder.decode(buffer)
         let nodes = pageIds.compactMap { pageId -> QueryResultNode? in
             guard let node = graphStore.node(bySourceId: pageId, type: .note) else { return nil }
-            return QueryResultNode(from: node)
+            return makeQueryResultNode(from: node, in: graphStore)
         }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
 
     private func executeLabelFilter(_ text: String) -> QueryResult {
-        let lower = text.lowercased()
-        let matches = graphStore.nodes.values.filter {
-            $0.label.lowercased().contains(lower)
-        }
-        let nodes = matches.map { QueryResultNode(from: $0) }
+        let matches = graphStore.nodes(matchingLabelContains: text)
+        let nodes = matches.map { makeQueryResultNode(from: $0, in: graphStore) }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
 
@@ -333,7 +813,7 @@ final class QueryRuntime {
         switch ref {
         case .id(let id): return graphStore.nodes[id] != nil ? id : nil
         case .label(let label): return graphStore.fuzzySearch(query: label, limit: 1).first?.id
-        case .type(let type): return graphStore.nodes.values.first { $0.type == type }?.id
+        case .type(let type): return graphStore.firstNode(ofType: type)?.id
         }
     }
 }

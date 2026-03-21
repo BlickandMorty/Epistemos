@@ -50,6 +50,9 @@ final class AppBootstrap {
     // MARK: - Services
     let llmService: LLMService
     let localInferenceService: MLXInferenceService
+    let localMLXClient: LocalMLXClient
+    let preparedModelRegistryState: PreparedModelRegistryState
+    let preparedModelRegistry: PreparedModelRegistry
     let localLLMClient: LocalMLXClient
     let triageService: TriageService
     let vaultSync: VaultSyncService
@@ -102,12 +105,30 @@ final class AppBootstrap {
         let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)
         self.localInferenceService = localInferenceService
 
-        let localLLMClient = LocalMLXClient(
+        let preparedModelRegistryState = PreparedModelRegistryState()
+        self.preparedModelRegistryState = preparedModelRegistryState
+
+        let preparedModelRegistry = PreparedModelRegistry()
+        self.preparedModelRegistry = preparedModelRegistry
+        do {
+            let snapshot = try preparedModelRegistry.load()
+            preparedModelRegistryState.apply(snapshot)
+            graphState.applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
+        } catch {
+            preparedModelRegistryState.apply(error: error)
+            graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
+        }
+
+        let localMLXClient = LocalMLXClient(
             runtime: localInferenceService,
             inference: inference,
-            paths: localModelManager.paths
+            paths: localModelManager.paths,
+            prepareForRequest: {
+                localModelManager.refreshFromDisk()
+            }
         )
-        self.localLLMClient = localLLMClient
+        self.localMLXClient = localMLXClient
+        self.localLLMClient = localMLXClient
 
         // LLMService is now the shared local-only gateway used by older subsystems.
         let llm = LLMService(
@@ -119,7 +140,10 @@ final class AppBootstrap {
         // TriageService routes between Apple Intelligence and local Qwen.
         let triage = TriageService(
             inference: inference,
-            localLLMService: localLLMClient
+            localLLMService: localLLMClient,
+            prepareForRouting: {
+                localModelManager.refreshFromDisk()
+            }
         )
         self.triageService = triage
 
@@ -219,12 +243,13 @@ final class AppBootstrap {
             graphState: graphState,
             searchIndexProvider: { [vaultSync] in
                 vaultSync.searchService ?? (try? SearchIndexService())
-            }
+            },
+            preparedRetrievalRuntimeConfiguration: preparedModelRegistryState.retrievalRuntimeConfiguration
         )
 
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
-        Log.app.info("AppBootstrap: initialized — local-only AI stack ready")
+        Log.app.info("AppBootstrap: initialized — local AI stack ready")
     }
 
     // MARK: - Forwarding (for external callers that reference AppBootstrap directly)
@@ -234,6 +259,19 @@ final class AppBootstrap {
     func loadChat(chatId: String) { coordinator.loadChat(chatId: chatId) }
     func requestVaultBriefing(chatState: ChatState) { coordinator.requestVaultBriefing(chatState: chatState) }
     static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade { ChatCoordinator.gradeFromConfidence(confidence) }
+
+    func refreshPreparedModelRegistry() {
+        do {
+            let snapshot = try preparedModelRegistry.load()
+            preparedModelRegistryState.apply(snapshot)
+            graphState.applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
+            queryEngine.applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
+        } catch {
+            preparedModelRegistryState.apply(error: error)
+            graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
+            queryEngine.applyPreparedRetrievalRuntimeConfiguration(nil)
+        }
+    }
 
     // MARK: - Database Recovery
 

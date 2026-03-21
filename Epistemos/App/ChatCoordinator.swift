@@ -307,6 +307,39 @@ final class ChatCoordinator {
             }
         }
 
+        if referencedNotes.isEmpty,
+           let referencedTitle = explicitNoteReferenceTitle(in: cleanedQuery) {
+            let ids = uniquePreservingOrder((await findNotesByTitle(referencedTitle)).map(\.pageId))
+            if !ids.isEmpty {
+                let bodies = await fetchNoteBodies(ids)
+                appendLoadedNotes(
+                    bodies,
+                    to: &referencedNotes,
+                    loadedIDs: &nextLoadedNoteIds,
+                    loadedTitles: &nextLoadedTitles
+                )
+            }
+        }
+
+        if referencedNotes.isEmpty,
+           queryLikelyTargetsExistingNote(cleanedQuery) {
+            let ids = await autoMatchedReferencedNoteIDs(
+                for: cleanedQuery,
+                manifest: manifest,
+                findNotesByTitle: findNotesByTitle,
+                searchNoteIDs: searchNoteIDs
+            )
+            if !ids.isEmpty {
+                let bodies = await fetchNoteBodies(ids)
+                appendLoadedNotes(
+                    bodies,
+                    to: &referencedNotes,
+                    loadedIDs: &nextLoadedNoteIds,
+                    loadedTitles: &nextLoadedTitles
+                )
+            }
+        }
+
         if includeManifest {
             let matchedIDs = await matchedVaultNoteIDs(
                 for: cleanedQuery,
@@ -685,6 +718,141 @@ final class ChatCoordinator {
         return results
     }
 
+    private static func explicitNoteReferenceTitle(in query: String) -> String? {
+        let patterns = [
+            #/(?i)\b(?:go\s+to|open|find|use|read|show|look\s+for|check)\s+(?:my\s+)?note\s+(.+?)(?=\s+(?:and|then|please|summarize|rewrite|analyze|compare|review|explain|tell|show|use)\b|[?.!,]|$)/#,
+            #/(?i)\b(?:my\s+)?note\s+(.+?)(?=\s+(?:and|then|please|summarize|rewrite|analyze|compare|review|explain|tell|show|use)\b|[?.!,]|$)/#,
+        ]
+
+        for pattern in patterns {
+            if let match = query.firstMatch(of: pattern) {
+                let title = String(match.output.1)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”‘’"))
+                    .lowercased()
+                if !title.isEmpty {
+                    return title
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func queryLikelyTargetsExistingNote(_ query: String) -> Bool {
+        let normalized = normalizedSearchField(query)
+        guard !normalized.isEmpty else { return false }
+        let cues = [
+            "note", "essay", "draft", "wrote", "written", "mentioned", "mentioning",
+            "summarize it", "summarize that", "find", "look for", "show me", "open",
+            "a few weeks ago", "few weeks ago", "last week", "yesterday", "earlier",
+        ]
+        return cues.contains { normalized.contains($0) }
+    }
+
+    private static func noteLookupSearchPhrases(from query: String) -> [String] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return [] }
+
+        var phrases = [trimmedQuery]
+        let patterns = [
+            #/(?i)\b(?:essay|note|draft)\s+(?:on|about)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open|where)\b|[?.!,]|$)/#,
+            #/(?i)\b(?:mentioned|mentioning)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
+            #/(?i)\b(?:called|titled)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
+        ]
+
+        for pattern in patterns {
+            if let match = trimmedQuery.firstMatch(of: pattern) {
+                let phrase = String(match.output.1)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”‘’"))
+                if !phrase.isEmpty {
+                    phrases.append(phrase)
+                }
+            }
+        }
+
+        if let explicitTitle = explicitNoteReferenceTitle(in: trimmedQuery) {
+            phrases.append(explicitTitle)
+        }
+
+        return uniquePreservingOrder(phrases)
+    }
+
+    private static func autoMatchedReferencedNoteIDs(
+        for query: String,
+        manifest: VaultManifest,
+        findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
+        searchNoteIDs: @escaping @Sendable (String) async -> [String]
+    ) async -> [String] {
+        let phrases = noteLookupSearchPhrases(from: query)
+        guard !phrases.isEmpty else { return [] }
+
+        var scoresByPageID: [String: Int] = [:]
+        let normalizedQuery = normalizedSearchField(query)
+
+        for (phraseIndex, phrase) in phrases.enumerated() {
+            let normalizedPhrase = normalizedSearchField(phrase)
+            let terms = searchTerms(from: normalizedPhrase)
+            guard !terms.isEmpty else { continue }
+
+            let titleMatches = await findNotesByTitle(phrase)
+            for (offset, entry) in titleMatches.prefix(8).enumerated() {
+                let boost = max(48, 120 - (offset * 12) - (phraseIndex * 8))
+                scoresByPageID[entry.pageId] = max(scoresByPageID[entry.pageId] ?? 0, boost)
+            }
+
+            let indexedIDs = uniquePreservingOrder(await searchNoteIDs(phrase))
+            let indexedBoosts = indexedNoteBoosts(pageIDs: indexedIDs, limit: 12)
+            for entry in manifest.entries {
+                let score = noteSearchScore(
+                    for: entry,
+                    normalizedFilter: normalizedPhrase,
+                    terms: terms
+                ) + (indexedBoosts[entry.pageId] ?? 0) + temporalHintBoost(
+                    for: entry,
+                    normalizedQuery: normalizedQuery
+                )
+                guard score > 0 else { continue }
+                scoresByPageID[entry.pageId] = max(scoresByPageID[entry.pageId] ?? 0, score)
+            }
+        }
+
+        let ranked = scoresByPageID.sorted { lhsPair, rhsPair in
+            if lhsPair.value != rhsPair.value { return lhsPair.value > rhsPair.value }
+            let lhsEntry = manifest.entries.first { $0.pageId == lhsPair.key }
+            let rhsEntry = manifest.entries.first { $0.pageId == rhsPair.key }
+            return (lhsEntry?.updatedAt ?? .distantPast) > (rhsEntry?.updatedAt ?? .distantPast)
+        }
+        guard let top = ranked.first, top.value >= 90 else { return [] }
+        if let second = ranked.dropFirst().first, top.value < second.value + 18 {
+            return []
+        }
+        return [top.key]
+    }
+
+    private static func temporalHintBoost(
+        for entry: VaultManifest.ManifestEntry,
+        normalizedQuery: String
+    ) -> Int {
+        if normalizedQuery.contains("few weeks ago") || normalizedQuery.contains("a few weeks ago") {
+            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            return (10...45).contains(ageInDays) ? 18 : 0
+        }
+        if normalizedQuery.contains("last week") {
+            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            return (5...14).contains(ageInDays) ? 16 : 0
+        }
+        if normalizedQuery.contains("yesterday") {
+            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            return ageInDays == 1 ? 16 : 0
+        }
+        if normalizedQuery.contains("today") {
+            let ageInDays = Int(Date().timeIntervalSince(entry.updatedAt) / 86_400)
+            return ageInDays == 0 ? 16 : 0
+        }
+        return 0
+    }
+
     private static func appendLoadedNotes(
         _ bodies: [VaultManifest.NoteBody],
         to destination: inout [VaultManifest.NoteBody],
@@ -808,6 +976,8 @@ final class ChatCoordinator {
 
     static func queryContainsExplicitNoteContext(_ query: String) -> Bool {
         query.contains("@[")
+            || explicitNoteReferenceTitle(in: query) != nil
+            || queryLikelyTargetsExistingNote(query)
     }
 
     static func queryContainsExplicitContext(_ query: String, attachments: [ContextAttachment]) -> Bool {

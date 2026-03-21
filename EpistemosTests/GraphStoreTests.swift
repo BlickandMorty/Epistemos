@@ -163,4 +163,21 @@ struct GraphStoreTests {
         #expect(store.adjacency["x"] == nil)
         #expect(store.edgesByNode["x"] == nil)
     }
+
+    @Test("label-containing lookup preserves exact substring semantics while narrowing by type")
+    func labelContainingLookupPreservesExactSubstringSemantics() {
+        let store = GraphStore()
+
+        store.addNode(makeNode(id: "note-alpha", type: .note, label: "Alpha Systems"))
+        store.addNode(makeNode(id: "note-beta", type: .note, label: "Beta Systems"))
+        store.addNode(makeNode(id: "tag-alpha", type: .tag, label: "Alpha Tag"))
+
+        let allAlpha = store.nodes(matchingLabelContains: "alpha")
+        let noteAlpha = store.nodes(matchingLabelContains: "alpha", types: [.note])
+        let emptyNeedle = store.nodes(matchingLabelContains: "", types: [.note])
+
+        #expect(allAlpha.map(\.id).sorted() == ["note-alpha", "tag-alpha"])
+        #expect(noteAlpha.map(\.id) == ["note-alpha"])
+        #expect(Set(emptyNeedle.map(\.id)) == ["note-alpha", "note-beta"])
+    }
 }

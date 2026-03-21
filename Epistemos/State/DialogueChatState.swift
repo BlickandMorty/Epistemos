@@ -532,11 +532,15 @@ final class DialogueChatState {
 
     // MARK: - Private
 
-    private var streamingTask: Task<Void, Never>?
-    private var pendingTokens = ""
-    private var flushTask: Task<Void, Never>?
-    private var typewriterTask: Task<Void, Never>?
-    private var nodeProfiles: [String: DialogueNodeProfile] = [:]
+    @ObservationIgnored private var streamingTask: Task<Void, Never>?
+    @ObservationIgnored
+    private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
+        guard let self, !self.messages.isEmpty else { return }
+        self.messages[self.messages.count - 1].text += delta
+        self.startTypewriter()
+    }
+    @ObservationIgnored private var typewriterTask: Task<Void, Never>?
+    @ObservationIgnored private var nodeProfiles: [String: DialogueNodeProfile] = [:]
 
     // MARK: - Lifecycle
 
@@ -548,6 +552,14 @@ final class DialogueChatState {
         linkedNodeLabels: [String],
         insight: DialogueNodeInsight? = nil
     ) {
+        if activeNodeId != nodeId {
+            streamingTask?.cancel()
+            streamingTask = nil
+            streamBuffer.reset()
+            typewriterTask?.cancel()
+            isStreaming = false
+            onStreamingChanged?(false)
+        }
         // Look up cached ML signals from NoteInsightService (avoids live NLTagger on open)
         let cached = Self.cachedSignals(for: nodeId)
 
@@ -609,7 +621,8 @@ final class DialogueChatState {
 
     func close() {
         streamingTask?.cancel()
-        flushTask?.cancel()
+        streamingTask = nil
+        streamBuffer.reset()
         typewriterTask?.cancel()
         activeNodeId = nil
         activeNodeLabel = ""
@@ -633,6 +646,7 @@ final class DialogueChatState {
         guard !isStreaming else { return }
         inputText = ""
         streamingTask?.cancel()
+        streamBuffer.reset()
 
         if let activeNodeId {
             var profile = nodeProfiles[activeNodeId] ?? DialogueNodeProfile.derive(
@@ -688,31 +702,14 @@ final class DialogueChatState {
         }
     }
 
-    // MARK: - Token Buffering (60ms, matches NoteChatState)
+    // MARK: - Token Buffering
 
     private func appendStreamingText(_ text: String) {
-        pendingTokens += text
-        if pendingTokens.utf8.count > 65_536 {
-            flushTokens()
-            return
-        }
-        guard flushTask == nil else { return }
-        flushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(60))
-            guard let self, !Task.isCancelled else { return }
-            self.flushTokens()
-        }
+        streamBuffer.append(text)
     }
 
     private func flushTokens() {
-        flushTask?.cancel()
-        flushTask = nil
-        guard !pendingTokens.isEmpty else { return }
-        let delta = pendingTokens
-        pendingTokens = ""
-        guard !messages.isEmpty else { return }
-        messages[messages.count - 1].text += delta
-        startTypewriter()
+        streamBuffer.flushNow()
     }
 
     // MARK: - Typewriter (~30 chars/sec)

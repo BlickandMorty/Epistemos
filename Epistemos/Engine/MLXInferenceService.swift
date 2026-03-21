@@ -192,15 +192,18 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
     private let runtime: any LocalMLXRuntime
     private let inference: InferenceState
     private let paths: LocalModelPaths
+    private let prepareForRequest: @MainActor @Sendable () async -> Void
 
     init(
         runtime: any LocalMLXRuntime,
         inference: InferenceState,
-        paths: LocalModelPaths
+        paths: LocalModelPaths,
+        prepareForRequest: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.runtime = runtime
         self.inference = inference
         self.paths = paths
+        self.prepareForRequest = prepareForRequest
     }
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
@@ -219,13 +222,15 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil
     ) async throws -> String {
-        try await runtime.generate(request: try resolvedRequest(
+        let request = try resolvedRequest(
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID
-        ))
+        )
+        await prepareForRequest()
+        return try await runtime.generate(request: request)
     }
 
     func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
@@ -254,7 +259,8 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             )
             return AsyncThrowingStream { continuation in
                 let task = Task {
-                    let stream = await runtime.stream(request: request)
+                    await self.prepareForRequest()
+                    let stream = await self.runtime.stream(request: request)
                     do {
                         for try await chunk in stream {
                             continuation.yield(chunk)

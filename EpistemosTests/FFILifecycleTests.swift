@@ -1,5 +1,8 @@
 import Testing
 import Foundation
+import Metal
+import QuartzCore
+@testable import Epistemos
 
 // MARK: - FFI Lifecycle Tests
 // Tests the lifecycle of FFI resources including:
@@ -12,6 +15,12 @@ import Foundation
 
 @Suite("FFI Lifecycle")
 struct FFILifecycleTests {
+
+    private func makeSemanticVector(_ activeIndex: Int) -> [Float] {
+        var vector = [Float](repeating: 0, count: 512)
+        vector[activeIndex] = 1
+        return vector
+    }
     
     // MARK: - Engine Creation Tests
     
@@ -57,6 +66,60 @@ struct FFILifecycleTests {
         // After destruction, pointer should not be used
         engine = nil
         #expect(engine == nil)
+    }
+
+    @Test("semantic embedding lifecycle clears the Rust store")
+    @MainActor
+    func semanticEmbeddingLifecycleClearsRustStore() throws {
+        let device = try #require(MTLCreateSystemDefaultDevice())
+        let layer = CAMetalLayer()
+        layer.device = device
+        layer.pixelFormat = .bgra8Unorm
+        layer.frame = CGRect(x: 0, y: 0, width: 64, height: 64)
+
+        let engine = try #require(GraphEngine(device: device, layer: layer))
+        engine.addNode(uuid: "a", x: 0, y: 0, nodeType: .note, linkCount: 1, label: "A")
+        engine.addNode(uuid: "b", x: 10, y: 10, nodeType: .note, linkCount: 1, label: "B")
+        engine.commit(entrance: false)
+
+        engine.setNodeEmbedding(uuid: "a", vector: makeSemanticVector(0))
+        engine.setNodeEmbedding(uuid: "b", vector: makeSemanticVector(1))
+        engine.recomputeSemanticNeighbors(k: 1, threshold: 0)
+
+        #expect(engine.semanticEmbeddingCount() == 2)
+
+        engine.clearSemanticEmbeddings()
+
+        #expect(engine.semanticEmbeddingCount() == 0)
+    }
+
+    @Test("semantic embedding dimension reset clears stored vectors and accepts the new shape")
+    @MainActor
+    func semanticEmbeddingDimensionResetReconfiguresRustStore() throws {
+        let device = try #require(MTLCreateSystemDefaultDevice())
+        let layer = CAMetalLayer()
+        layer.device = device
+        layer.pixelFormat = .bgra8Unorm
+        layer.frame = CGRect(x: 0, y: 0, width: 64, height: 64)
+
+        let engine = try #require(GraphEngine(device: device, layer: layer))
+        engine.addNode(uuid: "a", x: 0, y: 0, nodeType: .note, linkCount: 1, label: "A")
+        engine.commit(entrance: false)
+
+        #expect(engine.semanticEmbeddingDimension() == 512)
+
+        engine.setNodeEmbedding(uuid: "a", vector: makeSemanticVector(0))
+        #expect(engine.semanticEmbeddingCount() == 1)
+
+        #expect(engine.resetSemanticEmbeddingDimension(to: 1024))
+        #expect(engine.semanticEmbeddingDimension() == 1024)
+        #expect(engine.semanticEmbeddingCount() == 0)
+
+        engine.setNodeEmbedding(uuid: "a", vector: makeSemanticVector(0))
+        #expect(engine.semanticEmbeddingCount() == 0)
+
+        engine.setNodeEmbedding(uuid: "a", vector: [Float](repeating: 0, count: 1024))
+        #expect(engine.semanticEmbeddingCount() == 1)
     }
     
     // MARK: - Create/Destroy Cycle Tests

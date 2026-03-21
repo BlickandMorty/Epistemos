@@ -322,6 +322,19 @@ void graph_engine_set_node_embedding(
     uint32_t dim
 );
 
+/// Clear all stored semantic embeddings and neighbor pairs.
+void graph_engine_clear_embeddings(Engine* engine);
+
+/// Return the number of stored semantic embeddings.
+uint32_t graph_engine_embedding_count(Engine* engine);
+
+/// Return the active semantic embedding dimension.
+uint32_t graph_engine_embedding_dimension(Engine* engine);
+
+/// Reset the semantic embedding dimension and clear stored vectors/neighbors.
+/// Returns 1 when the dimension changed, 0 when the request was invalid or unchanged.
+uint8_t graph_engine_reset_embedding_dimension(Engine* engine, uint32_t dim);
+
 /// Set semantic attraction strength (0 = off, 1 = strong).
 void graph_engine_set_semantic_strength(Engine* engine, float strength);
 
@@ -395,6 +408,40 @@ GraphSearchResult* graph_engine_semantic_search(
     const float* query_data,
     uint32_t dim,
     uint32_t limit,
+    uint32_t* out_count
+);
+
+/// Load a built prepared retrieval index manifest into the engine.
+/// Returns 1 on success, 0 on failure.
+uint8_t graph_engine_load_prepared_retrieval_index(
+    Engine* engine,
+    const char* manifest_path
+);
+
+/// Clear the loaded prepared retrieval index runtime.
+void graph_engine_clear_prepared_retrieval_index(Engine* engine);
+
+/// Return the loaded prepared retrieval index embedding dimension, or 0 when unavailable.
+uint32_t graph_engine_prepared_retrieval_dimension(Engine* engine);
+
+/// Search the loaded prepared retrieval index with a query embedding.
+/// Returns page IDs in the `uuid` field of GraphSearchResult. Free with graph_engine_free_search_results.
+GraphSearchResult* graph_engine_prepared_retrieval_search(
+    Engine* engine,
+    const float* query_data,
+    uint32_t dim,
+    uint32_t limit,
+    uint32_t* out_count
+);
+
+/// Score a fixed set of page IDs against the loaded prepared retrieval index.
+/// Returns page IDs in the `uuid` field of GraphSearchResult. Free with graph_engine_free_search_results.
+GraphSearchResult* graph_engine_prepared_retrieval_score_page_ids(
+    Engine* engine,
+    const float* query_data,
+    uint32_t dim,
+    const char* const* page_ids,
+    uint32_t page_id_count,
     uint32_t* out_count
 );
 
@@ -582,10 +629,10 @@ uint8_t graph_engine_btk_update_block(
 void graph_engine_free_string(char* s);
 
 /// Query BTK trees for blocks matching a property filter.
-/// Returns newline-separated page_ids, or NULL if no matches.
+/// Returns a length-prefixed byte buffer of page_ids.
 /// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte, 6=contains
 /// val_type: 0=string, 1=float, 2=int, 3=bool
-const char* graph_engine_btk_query_property(
+GraphEngineByteBuffer graph_engine_btk_query_property(
     Engine* engine,
     const char* key,
     uint8_t op,
@@ -594,9 +641,9 @@ const char* graph_engine_btk_query_property(
 );
 
 /// Query BTK trees for blocks matching a depth filter.
-/// Returns newline-separated page_ids, or NULL if no matches.
+/// Returns a length-prefixed byte buffer of page_ids.
 /// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte
-const char* graph_engine_btk_query_depth(
+GraphEngineByteBuffer graph_engine_btk_query_depth(
     Engine* engine,
     uint8_t op,
     uint32_t depth

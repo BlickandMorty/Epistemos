@@ -300,7 +300,7 @@ struct PipelineServiceTests {
             "Here's a thinking",
             " process that leads to the comparison:\n\n",
             "Final Answer:\n",
-            "Use the DPO adapter as the main local reasoner."
+            "Use the prepared router as the main local model."
         ]
 
         let pipelineState = PipelineState()
@@ -332,7 +332,7 @@ struct PipelineServiceTests {
             }
         }
 
-        #expect(texts.joined() == "Use the DPO adapter as the main local reasoner.")
+        #expect(texts.joined() == "Use the prepared router as the main local model.")
     }
 
     @Test("Plain chat completion carries no analytical metadata")
@@ -989,6 +989,184 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.loadedNoteTitles == ["Project Atlas"])
     }
 
+    @Test("natural language note requests resolve note context without mention syntax")
+    func naturalLanguageNoteRequestsResolveNoteContext() async {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "determinism-id",
+                    title: "Determinism",
+                    tags: ["philosophy"],
+                    folderName: nil,
+                    wordCount: 140,
+                    snippet: "Determinism overview",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+        let manifestEntries = manifest.entries
+
+        #expect(ChatCoordinator.queryContainsExplicitNoteContext("please go to my note determinism and summarize it"))
+
+        let resolution = await ChatCoordinator.resolveNotesContext(
+            query: "please go to my note determinism and summarize it",
+            manifest: manifest,
+            loadedNoteIds: [],
+            loadedNoteTitles: [],
+            includeAllNotesContext: false,
+            findNotesByTitle: { query in
+                query == "determinism"
+                    ? manifestEntries
+                    : []
+            },
+            fetchNoteBodies: { ids in
+                ids.contains("determinism-id")
+                    ? [
+                        VaultManifest.NoteBody(
+                            pageId: "determinism-id",
+                            title: "Determinism",
+                            body: "Determinism says every event is fixed by prior causes."
+                        )
+                    ]
+                    : []
+            },
+            searchNoteIDs: { _ in [] }
+        )
+
+        #expect(resolution.cleanedQuery == "please go to my note determinism and summarize it")
+        #expect(resolution.loadedNoteIds == Set(["determinism-id"]))
+        #expect(resolution.loadedNoteTitles == ["Determinism"])
+        #expect(resolution.context?.contains("### Referenced Note: Determinism") == true)
+        #expect(resolution.context?.contains("Determinism says every event is fixed by prior causes.") == true)
+    }
+
+    @Test("semantic note-seeking prompts auto-resolve the best matching note without explicit note syntax")
+    func semanticNoteSeekingPromptsResolveBestMatchingNoteContext() async {
+        let now = Date()
+        let week = TimeInterval(86_400 * 7)
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "determinism-id",
+                    title: "A Neuroscientific Explanation of Determinism in Society",
+                    tags: ["philosophy"],
+                    folderName: "Essays",
+                    wordCount: 900,
+                    snippet: "An essay on determinism and institutions.",
+                    updatedAt: now.addingTimeInterval(-week * 3),
+                    createdAt: now.addingTimeInterval(-week * 3)
+                ),
+                VaultManifest.ManifestEntry(
+                    pageId: "psych-id",
+                    title: "Psychoneuroimmunology Notes",
+                    tags: ["biology"],
+                    folderName: "Research",
+                    wordCount: 400,
+                    snippet: "Immune-system notes.",
+                    updatedAt: now.addingTimeInterval(-week),
+                    createdAt: now.addingTimeInterval(-week)
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+        let determinismEntry = manifest.entries[0]
+        let psychEntry = manifest.entries[1]
+
+        #expect(ChatCoordinator.queryContainsExplicitNoteContext("i wrote an essay on determinism a few weeks ago, summarize it"))
+        #expect(ChatCoordinator.queryContainsExplicitNoteContext("find the essay where i mentioned psychoneuroimmunology a few weeks ago and summarize it"))
+
+        let determinism = await ChatCoordinator.resolveNotesContext(
+            query: "i wrote an essay on determinism a few weeks ago, summarize it",
+            manifest: manifest,
+            loadedNoteIds: [],
+            loadedNoteTitles: [],
+            includeAllNotesContext: false,
+            findNotesByTitle: { query in
+                query.contains("determinism")
+                    ? [determinismEntry]
+                    : []
+            },
+            fetchNoteBodies: { ids in
+                ids.compactMap { id in
+                    switch id {
+                    case "determinism-id":
+                        VaultManifest.NoteBody(
+                            pageId: "determinism-id",
+                            title: "A Neuroscientific Explanation of Determinism in Society",
+                            body: "Essay body on determinism."
+                        )
+                    case "psych-id":
+                        VaultManifest.NoteBody(
+                            pageId: "psych-id",
+                            title: "Psychoneuroimmunology Notes",
+                            body: "Psych body."
+                        )
+                    default:
+                        nil
+                    }
+                }
+            },
+            searchNoteIDs: { query in
+                query.contains("determinism") ? ["determinism-id"] : []
+            }
+        )
+
+        #expect(determinism.loadedNoteIds == Set(["determinism-id"]))
+        #expect(determinism.loadedNoteTitles == ["A Neuroscientific Explanation of Determinism in Society"])
+        #expect(determinism.context?.contains("Essay body on determinism.") == true)
+
+        let psych = await ChatCoordinator.resolveNotesContext(
+            query: "find the essay where i mentioned psychoneuroimmunology a few weeks ago and summarize it",
+            manifest: manifest,
+            loadedNoteIds: [],
+            loadedNoteTitles: [],
+            includeAllNotesContext: false,
+            findNotesByTitle: { query in
+                query.contains("psychoneuroimmunology")
+                    ? [psychEntry]
+                    : []
+            },
+            fetchNoteBodies: { ids in
+                ids.compactMap { id in
+                    switch id {
+                    case "determinism-id":
+                        VaultManifest.NoteBody(
+                            pageId: "determinism-id",
+                            title: "A Neuroscientific Explanation of Determinism in Society",
+                            body: "Essay body on determinism."
+                        )
+                    case "psych-id":
+                        VaultManifest.NoteBody(
+                            pageId: "psych-id",
+                            title: "Psychoneuroimmunology Notes",
+                            body: "Psychoneuroimmunology body."
+                        )
+                    default:
+                        nil
+                    }
+                }
+            },
+            searchNoteIDs: { query in
+                query.contains("psychoneuroimmunology") ? ["psych-id"] : []
+            }
+        )
+
+        #expect(psych.loadedNoteIds == Set(["psych-id"]))
+        #expect(psych.loadedNoteTitles == ["Psychoneuroimmunology Notes"])
+        #expect(psych.context?.contains("Psychoneuroimmunology body.") == true)
+    }
+
     @Test("pipeline direct stream uses bare prompts and only appends explicit note context")
     @MainActor func pipelineDirectStreamUsesBarePrompts() async throws {
         let mock = MockLLMClient()
@@ -1018,7 +1196,8 @@ struct ChatCoordinatorPersistenceTests {
         for try await _ in stream {}
 
         #expect(mock.streamCalls.count == 1)
-        #expect(mock.streamCalls[0].systemPrompt == nil)
+        let firstSystemPrompt = try #require(mock.streamCalls[0].systemPrompt)
+        #expect(firstSystemPrompt.contains("local Epistemos assistant powered by Qwen"))
         #expect(mock.streamCalls[0].prompt == "What is truth?")
         #expect(!mock.streamCalls[0].prompt.contains("You are Epistemos"))
         #expect(!mock.streamCalls[0].prompt.contains("User's Knowledge Vault"))
@@ -1032,7 +1211,8 @@ struct ChatCoordinatorPersistenceTests {
         for try await _ in streamWithNotes {}
 
         #expect(mock.streamCalls.count == 1)
-        #expect(mock.streamCalls[0].systemPrompt == nil)
+        let secondSystemPrompt = try #require(mock.streamCalls[0].systemPrompt)
+        #expect(secondSystemPrompt.contains("local Epistemos assistant powered by Qwen"))
         #expect(mock.streamCalls[0].prompt.contains("### Referenced Note: Alpha"))
         #expect(mock.streamCalls[0].prompt.contains("Compare this with today"))
     }

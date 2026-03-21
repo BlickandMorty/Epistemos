@@ -81,10 +81,7 @@ final class ChatState {
     /// Start a fresh chat session. Clears old messages and activeChatId so the
     /// next submitQuery creates a new conversation. Preserves mode preferences.
     func startNewChat() {
-        // Cancel pending token flushes
-        streamFlushTask?.cancel()
-        streamFlushTask = nil
-        pendingStreamTokens = ""
+        streamBuffer.reset()
 
         messages = []
         markTranscriptChanged()
@@ -203,13 +200,14 @@ final class ChatState {
 
     /// Pending token buffer — accumulated between flushes.
     /// Not @Observable; only `streamingText` triggers SwiftUI updates.
-    private var pendingStreamTokens = ""
-    private var streamFlushTask: Task<Void, Never>?
+    @ObservationIgnored
+    private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
+        self?.streamingText += delta
+    }
 
     func startStreaming() {
         isStreaming = true
-        // Pre-allocate for typical response (~16KB). Avoids repeated reallocation during streaming.
-        pendingStreamTokens.reserveCapacity(16_384)
+        streamBuffer.reset()
         streamingText.reserveCapacity(16_384)
     }
 
@@ -223,27 +221,11 @@ final class ChatState {
     /// Live response text is intentionally not flushed into observable UI state unless the
     /// display policy enables it or the buffer grows abnormally large.
     func appendStreamingText(_ text: String) {
-        pendingStreamTokens += text
-        // Safety: flush immediately if buffer grows too large (>64KB).
-        if pendingStreamTokens.utf8.count > 65_536 {
-            flushStreamingTokens()
-            return
-        }
-        guard ChatStreamingDisplayPolicy.showsLiveResponseText else { return }
-        guard streamFlushTask == nil else { return }
-        streamFlushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(60))
-            guard let self, !Task.isCancelled else { return }
-            self.flushStreamingTokens()
-        }
+        streamBuffer.append(text, scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText)
     }
 
     private func flushStreamingTokens() {
-        streamFlushTask?.cancel()
-        streamFlushTask = nil
-        guard !pendingStreamTokens.isEmpty else { return }
-        streamingText += pendingStreamTokens
-        pendingStreamTokens = ""
+        streamBuffer.flushNow()
     }
 
     // MARK: - Attachments
@@ -277,10 +259,7 @@ final class ChatState {
 
     func clearMessages() {
         let chatId = activeChatId
-        // Cancel pending flushes — we're clearing everything
-        streamFlushTask?.cancel()
-        streamFlushTask = nil
-        pendingStreamTokens = ""
+        streamBuffer.reset()
 
         messages = []
         markTranscriptChanged()
@@ -325,5 +304,56 @@ final class ChatState {
             restoredTitles.append(attachment.title)
         }
         loadedNoteTitles = restoredTitles
+    }
+}
+
+@MainActor
+final class DisplayPacedTextBuffer {
+    private let flushInterval: Duration
+    private let flushThresholdBytes: Int
+    private let onFlush: (String) -> Void
+
+    private var pendingText = ""
+    private var flushTask: Task<Void, Never>?
+
+    init(
+        flushInterval: Duration = .milliseconds(16),
+        flushThresholdBytes: Int = 65_536,
+        onFlush: @escaping (String) -> Void
+    ) {
+        self.flushInterval = flushInterval
+        self.flushThresholdBytes = flushThresholdBytes
+        self.onFlush = onFlush
+        pendingText.reserveCapacity(16_384)
+    }
+
+    func append(_ text: String, scheduleFlush: Bool = true) {
+        pendingText += text
+        if pendingText.utf8.count > flushThresholdBytes {
+            flushNow()
+            return
+        }
+        guard scheduleFlush, flushTask == nil else { return }
+        let interval = flushInterval
+        flushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: interval)
+            guard let self, !Task.isCancelled else { return }
+            self.flushNow()
+        }
+    }
+
+    func flushNow() {
+        flushTask?.cancel()
+        flushTask = nil
+        guard !pendingText.isEmpty else { return }
+        let delta = pendingText
+        pendingText.removeAll(keepingCapacity: true)
+        onFlush(delta)
+    }
+
+    func reset() {
+        flushTask?.cancel()
+        flushTask = nil
+        pendingText.removeAll(keepingCapacity: true)
     }
 }

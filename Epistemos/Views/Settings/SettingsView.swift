@@ -269,6 +269,9 @@ private struct InferenceDetailView: View {
     @State private var tokenCapDraft: Int = 2000
 
     private var theme: EpistemosTheme { ui.theme }
+    private var activeLocalModelDisplayName: String {
+        return inference.activeLocalTextModelDisplayName
+    }
 
     var body: some View {
         Form {
@@ -316,7 +319,7 @@ private struct InferenceDetailView: View {
                 }
 
                 LabeledContent("Active Tier") {
-                    Text(inference.activeLocalTextModelDisplayName)
+                    Text(activeLocalModelDisplayName)
                         .font(.system(size: 13, weight: .medium))
                 }
 
@@ -343,7 +346,7 @@ private struct InferenceDetailView: View {
                     }
                 }
 
-                Text("Epistemos keeps AI on-device. Epistemos uses the exact Qwen tier you select and sends plain single-pass local requests by default. If that tier is unavailable, choose or install another supported tier.")
+                Text("Epistemos keeps AI on-device. Local generation runs in-process through the MLX tier you select.")
                 .font(.system(size: 11))
                 .foregroundStyle(theme.textSecondary)
 

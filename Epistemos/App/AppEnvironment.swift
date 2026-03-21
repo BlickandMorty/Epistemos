@@ -17,6 +17,7 @@ extension View {
             .environment(bootstrap.notesUI)
             .environment(bootstrap.eventBus)
             .environment(bootstrap.inferenceState)
+            .environment(bootstrap.preparedModelRegistryState)
             .environment(bootstrap.localModelManager)
             .environment(bootstrap.llmService)
             .environment(bootstrap.triageService)

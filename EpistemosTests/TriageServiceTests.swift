@@ -1,6 +1,30 @@
 import Testing
 @testable import Epistemos
 
+private let isolatedInferenceDefaultsKeys = [
+    "epistemos.localRoutingMode",
+    "epistemos.preferredLocalTextModelID",
+]
+
+@MainActor
+private func makeIsolatedInferenceState() -> InferenceState {
+    let defaults = UserDefaults.standard
+    let savedValues = isolatedInferenceDefaultsKeys.reduce(into: [String: Any?]()) { partialResult, key in
+        partialResult[key] = defaults.object(forKey: key)
+        defaults.removeObject(forKey: key)
+    }
+    defer {
+        for key in isolatedInferenceDefaultsKeys {
+            if let value = savedValues[key] ?? nil {
+                defaults.set(value, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+    }
+    return InferenceState()
+}
+
 @Suite("TriageService")
 struct TriageServiceTests {
 
@@ -60,6 +84,12 @@ struct TriageServiceTests {
     func routingSurfaceRemainsTwoState() {
         #expect(LocalRoutingMode.allCases == [.auto, .localOnly])
         #expect(LLMProviderType.allCases == [.appleIntelligence, .localMLX])
+    }
+
+    @Test("local routing errors no longer mention switch routing modes")
+    func localRoutingErrorsUseCurrentArchitectureCopy() {
+        #expect(LocalInferenceRoutingError.modelRequired.errorDescription?.contains("switch routing modes") == false)
+        #expect(LocalInferenceRoutingError.modelRequired.errorDescription?.contains("installed local model") == false)
     }
 }
 
@@ -334,6 +364,31 @@ struct InferencePolicyEngineTests {
         #expect(decision.reasonCodes.contains(.preferredLocalModelUsed))
     }
 
+    @Test("light Apple requests are not kicked local solely for crossing the old content cliff")
+    func lightAppleRequestsDoNotTripOldContentCliff() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 6_100,
+                promptLength: 48,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 180,
+                baseComplexity: 0.10,
+                queryComplexity: 0.02,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(appleAvailable: true)
+        )
+
+        #expect(decision.selectedRoute == .appleIntelligence)
+        #expect(decision.reasonCodes.contains(.simpleTaskAppleEligible))
+    }
+
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,
@@ -411,7 +466,80 @@ final class TriageIntegrationMockLLMClient: LLMClientProtocol {
 
 }
 
-@Suite("TriageService Integration")
+@MainActor
+final class RecordingConfigurableLocalLLMClient: LocalConfigurableLLMClient {
+    struct GenerateRequest: Equatable {
+        let prompt: String
+        let systemPrompt: String?
+        let maxTokens: Int
+        let reasoningMode: LocalReasoningMode
+        let modelID: String?
+    }
+
+    var generateRequests: [GenerateRequest] = []
+    var generateResult = "mock-generate"
+
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: .fast,
+            modelID: nil
+        )
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: .fast,
+            modelID: nil
+        )
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?
+    ) async throws -> String {
+        generateRequests.append(
+            GenerateRequest(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                modelID: modelID
+            )
+        )
+        return generateResult
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.finish()
+        }
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(provider: .localMLX, model: "", reasoningMode: .fast)
+    }
+}
+
+@Suite("TriageService Integration", .serialized)
 struct TriageServiceIntegrationTests {
 
     @Test("notes triage uses Apple Intelligence for simple transforms in Auto mode")
@@ -514,7 +642,9 @@ struct TriageServiceIntegrationTests {
         #expect(triage.lastDecision == .localMLX)
         #expect(llm.generateCalls.count == 1)
         #expect(llm.generateCalls[0].prompt == "Prompt A")
-        #expect(llm.generateCalls[0].systemPrompt == "System A")
+        let systemPrompt = try #require(llm.generateCalls[0].systemPrompt)
+        #expect(systemPrompt.contains("local Epistemos assistant powered by Qwen"))
+        #expect(systemPrompt.contains("System A"))
         #expect(llm.generateCalls[0].maxTokens == 4096)
     }
 
@@ -600,6 +730,31 @@ struct TriageServiceIntegrationTests {
                 == "It usually refers to the modern US-led imperial order rather than the British Empire itself."
         )
         #expect(outcome.error == nil)
+        let systemPrompt = try? #require(llm.streamCalls.first?.systemPrompt)
+        #expect(systemPrompt?.contains("local Epistemos assistant powered by Qwen") == true)
+    }
+
+    @Test("local path injects a baseline qwen system prompt when none is provided")
+    @MainActor func localPathInjectsBaselineQwenSystemPrompt() async throws {
+        let llm = TriageIntegrationMockLLMClient()
+        llm.generateResult = .success("local-response")
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            routingMode: .localOnly,
+            localLLMService: llm
+        )
+
+        _ = try await triage.generateGeneral(
+            prompt: "What tools do you have?",
+            systemPrompt: nil,
+            operation: .chatResponse(query: "What tools do you have?"),
+            contentLength: 24
+        )
+
+        let systemPrompt = try #require(llm.generateCalls.first?.systemPrompt)
+        #expect(systemPrompt.contains("do not claim to have browsing, external tool use, research mode"))
+        #expect(systemPrompt.contains("local Epistemos assistant powered by Qwen"))
     }
 
     @Test("missing local model throws in local only mode")
@@ -617,6 +772,34 @@ struct TriageServiceIntegrationTests {
                 contentLength: 200
             )
         }
+    }
+
+    @Test("triage refreshes local model state before local-only requests")
+    @MainActor func triageRefreshesLocalModelStateBeforeLocalOnlyRequests() async throws {
+        let llm = TriageIntegrationMockLLMClient()
+        llm.generateResult = .success("local-response")
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: llm,
+            prepareForRouting: {
+                inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+            }
+        )
+
+        let result = try await triage.generateGeneral(
+            prompt: "Summarize this note.",
+            operation: .chatResponse(query: "Summarize this note."),
+            contentLength: 64
+        )
+
+        #expect(result == "local-response")
+        #expect(llm.generateCalls.count == 1)
     }
 
     @Test("refusal detection is case-insensitive and prefix-bounded")
@@ -720,7 +903,7 @@ struct TriageServiceIntegrationTests {
     @MainActor
     @Test("constrained runtime keeps the chosen local model but disables automatic local routing")
     func constrainedRuntimeKeepsChosenModel() {
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.setInstalledLocalTextModelIDs([
             LocalTextModelID.qwen35_2B4Bit.rawValue,
             LocalTextModelID.qwen35_4B4Bit.rawValue,
@@ -749,7 +932,6 @@ struct TriageServiceIntegrationTests {
         #expect(!inference.canRouteToLocalMLX(contentLength: 4_000))
     }
 
-    @MainActor
     @Test("preferred local tier is used for simple local work")
     func preferredTierIsUsedForSimpleLocalWork() async throws {
         let paths = temporaryLocalModelPaths()
@@ -764,7 +946,7 @@ struct TriageServiceIntegrationTests {
             )
         }
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
@@ -797,9 +979,10 @@ struct TriageServiceIntegrationTests {
             withIntermediateDirectories: true
         )
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
+        inference.setPreferredLocalTextModelID(descriptor.id)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -829,9 +1012,10 @@ struct TriageServiceIntegrationTests {
             withIntermediateDirectories: true
         )
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
+        inference.setPreferredLocalTextModelID(descriptor.id)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -861,9 +1045,10 @@ struct TriageServiceIntegrationTests {
             withIntermediateDirectories: true
         )
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
+        inference.setPreferredLocalTextModelID(descriptor.id)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -893,7 +1078,7 @@ struct TriageServiceIntegrationTests {
             withIntermediateDirectories: true
         )
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .localOnly
         inference.setPreferredLocalTextModelID(descriptor.id)
@@ -912,7 +1097,9 @@ struct TriageServiceIntegrationTests {
 
         let request = try #require(await runtime.lastGenerateRequest)
         #expect(request.reasoningMode == .fast)
-        #expect(request.systemPrompt == "Be helpful.")
+        let systemPrompt = try #require(request.systemPrompt)
+        #expect(systemPrompt.contains("local Epistemos assistant powered by Qwen"))
+        #expect(systemPrompt.contains("Be helpful."))
     }
 
     @MainActor
@@ -931,7 +1118,7 @@ struct TriageServiceIntegrationTests {
             )
         }
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_2B4Bit.rawValue)
@@ -979,7 +1166,7 @@ struct TriageServiceIntegrationTests {
             )
         }
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
         inference.routingMode = .auto
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
@@ -1012,7 +1199,7 @@ struct TriageServiceIntegrationTests {
             withIntermediateDirectories: true
         )
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.setPreferredLocalTextModelID(descriptor.id)
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
@@ -1043,6 +1230,40 @@ struct TriageServiceIntegrationTests {
         )
 
         #expect(request.resolvedMaxTokens == nil)
+    }
+
+    @MainActor
+    @Test("local client prepares residency before generating with MLX")
+    func localClientPreparesResidencyBeforeGenerating() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeIsolatedInferenceState()
+        inference.setPreferredLocalTextModelID(descriptor.id)
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let events = LocalRuntimeEventRecorder()
+        let client = LocalMLXClient(
+            runtime: runtime,
+            inference: inference,
+            paths: paths,
+            prepareForRequest: {
+                await events.record("prepare-local")
+            }
+        )
+
+        _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+
+        let request = try #require(await runtime.lastGenerateRequest)
+        #expect(request.modelID == descriptor.id)
+        #expect(await events.snapshot() == ["prepare-local"])
     }
 
     @Test("thinking mode does not hard-cap long-form local output to 1024 tokens")
@@ -1105,7 +1326,7 @@ struct TriageServiceIntegrationTests {
             withIntermediateDirectories: true
         )
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
         inference.setInstalledLocalTextModelIDs([installed.id])
 
@@ -1133,7 +1354,7 @@ struct TriageServiceIntegrationTests {
             )
         }
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
         inference.setInstalledLocalTextModelIDs([smallest.id, smaller.id])
 
@@ -1158,7 +1379,7 @@ struct TriageServiceIntegrationTests {
             withIntermediateDirectories: true
         )
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.setInstalledLocalTextModelIDs([descriptor.id])
 
         let runtime = RecordingLocalMLXRuntime()
@@ -1186,7 +1407,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         let runtime = RecordingLocalMLXRuntime()
         let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
 
@@ -1201,7 +1422,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         let runtime = RecordingLocalMLXRuntime()
         let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
 
@@ -1215,7 +1436,7 @@ struct TriageServiceIntegrationTests {
         routingMode: LocalRoutingMode = .auto,
         localLLMService: (any LLMClientProtocol)? = nil
     ) -> TriageService {
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = appleAvailable
         inference.routingMode = routingMode
         inference.setInstalledLocalTextModelIDs(Set(localInstalled))
@@ -1241,7 +1462,7 @@ struct TriageServiceIntegrationTests {
 struct LLMServiceLocalSnapshotTests {
     @Test("config snapshot keeps local mode fast")
     @MainActor func configSnapshotKeepsFastMode() {
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
@@ -1256,7 +1477,7 @@ struct LLMServiceLocalSnapshotTests {
 
     @Test("local snapshots use the selected tier instead of the last routed tier")
     @MainActor func localSnapshotsUseSelectedTier() {
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([
             LocalTextModelID.qwen35_2B4Bit.rawValue,
@@ -1273,7 +1494,7 @@ struct LLMServiceLocalSnapshotTests {
 
     @Test("local snapshots stay in fast mode")
     @MainActor func localSnapshotsStayFast() {
-        let inference = InferenceState()
+        let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
@@ -1289,6 +1510,7 @@ struct LLMServiceLocalSnapshotTests {
 private actor RecordingLocalMLXRuntime: LocalMLXRuntime {
     var lastGenerateRequest: LocalMLXRequest?
     var lastStreamRequest: LocalMLXRequest?
+    var unloadCount = 0
 
     func generate(request: LocalMLXRequest) async throws -> String {
         lastGenerateRequest = request
@@ -1303,5 +1525,19 @@ private actor RecordingLocalMLXRuntime: LocalMLXRuntime {
         }
     }
 
-    func unload() async {}
+    func unload() async {
+        unloadCount += 1
+    }
+}
+
+private actor LocalRuntimeEventRecorder {
+    private var events: [String] = []
+
+    func record(_ event: String) {
+        events.append(event)
+    }
+
+    func snapshot() -> [String] {
+        events
+    }
 }

@@ -20,6 +20,7 @@ use crate::block_kernel::{BlockTree, BtkQueryKernel, OpLog};
 use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
+use crate::retrieval_index::PreparedRetrievalStore;
 use crate::renderer::{Renderer, viewport_bounds};
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
@@ -128,6 +129,9 @@ pub struct Engine {
     /// Embedding vectors for semantic similarity (SIMD-accelerated cosine).
     pub(crate) embedding_store: EmbeddingStore,
 
+    /// Built retrieval index loaded from prepared assets for semantic page search.
+    pub(crate) prepared_retrieval_store: Option<PreparedRetrievalStore>,
+
     /// Pre-computed KNN pairs for semantic attraction force.
     /// Recomputed only when embeddings change, not per-tick.
     pub(crate) semantic_neighbors: Vec<(u32, u32, f32)>,
@@ -191,6 +195,7 @@ impl Engine {
             idle_frame_count: 0,
             search_index: crate::search::SearchIndex::new(),
             embedding_store: EmbeddingStore::new(crate::embedding::DEFAULT_DIM),
+            prepared_retrieval_store: None,
             semantic_neighbors: Vec::new(),
             time_filter: None,
             version_store: VersionStore::new(),

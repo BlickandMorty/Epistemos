@@ -89,14 +89,25 @@ struct QueryResultNode: Identifiable, Sendable {
     let label: String
     let type: GraphNodeType
     let sourceId: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let connectionCount: UInt32
     let score: Float?
     let snippet: String?
 
-    init(from record: GraphNodeRecord, score: Float? = nil, snippet: String? = nil) {
+    init(
+        from record: GraphNodeRecord,
+        score: Float? = nil,
+        snippet: String? = nil,
+        connectionCount: UInt32 = 0
+    ) {
         self.id = record.id
         self.label = record.label
         self.type = record.type
         self.sourceId = record.sourceId
+        self.createdAt = record.createdAt
+        self.updatedAt = record.updatedAt
+        self.connectionCount = connectionCount
         self.score = score
         self.snippet = snippet
     }

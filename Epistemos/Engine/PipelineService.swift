@@ -20,7 +20,7 @@ nonisolated enum PipelineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noLLMService: "No local AI runtime is available. Install a Qwen 3.5 model in Settings."
+        case .noLLMService: "No usable local Qwen model is available. Open Settings to install or select one."
         case .analysisFailure(let msg): msg
         }
     }
@@ -100,7 +100,7 @@ final class PipelineService {
                     guard finalVisibleAnswer.count >= 10 else {
                         let reason =
                             finalVisibleAnswer.isEmpty ? "No response received" : "Response too short"
-                        continuation.yield(.error("\(reason) — install a local Qwen model in Settings."))
+                        continuation.yield(.error("\(reason) — install or select a local Qwen model in Settings."))
                         pipelineState.completeProcessing()
                         if finisher.tryFinish() { continuation.finish() }
                         return
