@@ -1035,13 +1035,20 @@ struct CommandPaletteOverlay: View {
             cachedPageSearchEntries.map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        cachedTitleSearchIndex.rebuild(
-            cachedPageSearchEntries.map { entry in
-                (key: entry.id, text: ([entry.normalizedTitle] + entry.normalizedTags).joined(separator: "\n"))
-            }
-        )
         cachedTitleMatchIDsByQuery.removeAll(keepingCapacity: true)
         cachedFTSResultsByQuery.removeAll(keepingCapacity: true)
+        
+        let indexData = cachedPageSearchEntries.map { entry in
+            (key: entry.id, text: ([entry.normalizedTitle] + entry.normalizedTags).joined(separator: "\n"))
+        }
+        
+        Task.detached(priority: .userInitiated) {
+            var newIndex = TrigramSearchIndex<String>()
+            newIndex.rebuild(indexData)
+            await MainActor.run {
+                cachedTitleSearchIndex = newIndex
+            }
+        }
     }
 
     private func computeTitleResults(for query: String) -> [LandingCommandItem] {
