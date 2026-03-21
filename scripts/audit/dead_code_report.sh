@@ -50,9 +50,13 @@ rg -n "DeepSeek|reasoner|sidecar" \
   "${ROOT_DIR}/Epistemos" \
   "${ROOT_DIR}/graph-engine" \
   "${ROOT_DIR}/scripts" \
-  "${ROOT_DIR}/docs" \
   --glob '!scripts/audit/*' \
+  --glob '!docs/**' \
   --glob '!docs/audits/dead-code-report-*' > "${tmpdir}/legacy_ai_hits.txt" || true
+
+rg -n "DeepSeek|reasoner|sidecar" \
+  "${ROOT_DIR}/docs" \
+  --glob '!docs/audits/dead-code-report-*' > "${tmpdir}/legacy_ai_doc_hits.txt" || true
 
 {
   echo "# Dead Code Report"
@@ -83,9 +87,16 @@ rg -n "DeepSeek|reasoner|sidecar" \
     echo "- none"
   fi
   echo
-  echo "## Legacy AI Stack References"
+  echo "## Live Legacy AI Runtime References"
   if [[ -s "${tmpdir}/legacy_ai_hits.txt" ]]; then
     sed 's/^/- /' "${tmpdir}/legacy_ai_hits.txt"
+  else
+    echo "- none"
+  fi
+  echo
+  echo "## Historical Legacy AI Doc References"
+  if [[ -s "${tmpdir}/legacy_ai_doc_hits.txt" ]]; then
+    sed 's/^/- /' "${tmpdir}/legacy_ai_doc_hits.txt"
   else
     echo "- none"
   fi

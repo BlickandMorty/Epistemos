@@ -569,17 +569,17 @@ private final class ActivityProbe: @unchecked Sendable {
     }
 }
 
-@Suite("Network Process Activity")
-struct NetworkProcessActivityTests {
+@Suite("Process Activity")
+struct ProcessActivityTests {
     @Test("scoped activity pairs begin and end around async work")
     @MainActor func scopedActivityPairsBeginAndEnd() async {
         let probe = ActivityProbe()
-        let manager = NetworkProcessActivityManager(
+        let manager = ProcessActivityManager(
             begin: { reason, _ in probe.begin(reason: reason) },
             end: { _ in probe.end() }
         )
 
-        let value = await NetworkProcessActivity.withActivityOnMainActor(
+        let value = await ProcessActivity.withActivityOnMainActor(
             reason: "Epistemos AI request",
             manager: manager
         ) {
@@ -593,12 +593,12 @@ struct NetworkProcessActivityTests {
     @Test("stream activity stays open until the stream finishes")
     @MainActor func streamActivityEndsAfterCompletion() async throws {
         let probe = ActivityProbe()
-        let manager = NetworkProcessActivityManager(
+        let manager = ProcessActivityManager(
             begin: { reason, _ in probe.begin(reason: reason) },
             end: { _ in probe.end() }
         )
 
-        let stream = NetworkProcessActivity.makeStream(
+        let stream = ProcessActivity.makeStream(
             reason: "Epistemos AI stream",
             manager: manager
         ) { continuation in
@@ -620,7 +620,7 @@ struct NetworkProcessActivityTests {
         let key = DispatchSpecificKey<UInt8>()
         DispatchQueue.main.setSpecific(key: key, value: 1)
 
-        let stream = NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+        let stream = ProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
             let isMainQueue = DispatchQueue.getSpecific(key: key) == 1
             continuation.yield(isMainQueue ? "main" : "background")
             continuation.finish()

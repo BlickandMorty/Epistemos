@@ -241,9 +241,6 @@ void graph_engine_set_clear_color(Engine* engine, double r, double g, double b, 
 /// Set graph mode: 0 = global, 1 = page.
 void graph_engine_set_mode(Engine* engine, uint8_t mode);
 
-/// Set lite rendering mode: 0 = full (3D, effects), 1 = lite (2D flat, no glow).
-void graph_engine_set_lite_mode(Engine* engine, uint8_t enabled);
-
 /// Set light/dark mode color palette: 0 = dark, 1 = light.
 void graph_engine_set_light_mode(Engine* engine, uint8_t enabled);
 
@@ -358,11 +355,6 @@ void graph_engine_set_node_time(
     double updated_at
 );
 
-/// Apply time filter: nodes with created_at outside [min_ts, max_ts] become invisible.
-/// Nodes with created_at == 0.0 remain always visible.
-/// Pass (0.0, 1e18) to clear the filter.
-void graph_engine_set_time_filter(Engine* engine, double min_ts, double max_ts);
-
 // ── Confidence ─────────────────────────────────────────────────────────────
 
 /// Set a node's confidence score (0.0–1.0).
@@ -381,24 +373,6 @@ void graph_engine_set_node_metadata_batch(
     const double* updated_ats,
     const float* confidences,
     uint32_t count
-);
-
-// ── Version Chain ──────────────────────────────────────────────────────────
-
-/// Add a version to a node's hash-linked version chain.
-/// Returns 1 on success, 0 if orphan/duplicate rejected.
-uint8_t graph_engine_add_version(
-    Engine* engine,
-    const char* node_uuid,
-    uint64_t hash,
-    uint64_t parent_hash,
-    double timestamp
-);
-
-/// Get the number of versions in a node's chain.
-uint32_t graph_engine_get_version_count(
-    Engine* engine,
-    const char* node_uuid
 );
 
 /// Semantic search: find nodes most similar to a query embedding.
@@ -898,26 +872,6 @@ uint32_t graph_engine_kc_payload_rows(
     KnowledgeQueryRowFFI* out,
     uint32_t max_rows
 );
-
-// ── Dialogue ────────────────────────────────────────────────────────────────
-
-/// Open dialogue on a node (activates face geometry + dialogue box).
-void graph_engine_dialogue_open(Engine* engine, const char* node_uuid);
-
-/// Close dialogue (deactivates face + box).
-void graph_engine_dialogue_close(Engine* engine);
-
-/// Set streaming state (animates mouth when true).
-void graph_engine_dialogue_set_streaming(Engine* engine, uint8_t streaming);
-
-/// Get dialogue box screen rect (x, y, w, h). Writes 4 floats into `out`.
-void graph_engine_dialogue_screen_rect(Engine* engine, float* out);
-
-/// Get dialogue node screen position (x, y). Writes 2 floats into `out`.
-void graph_engine_dialogue_node_screen_pos(Engine* engine, float* out);
-
-/// Check if dialogue is currently active. Returns 1 if active, 0 if not.
-uint8_t graph_engine_dialogue_is_active(Engine* engine);
 
 #ifdef __cplusplus
 }

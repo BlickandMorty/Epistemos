@@ -251,11 +251,11 @@ nonisolated struct ProcessActivityToken: @unchecked Sendable {
     }
 }
 
-nonisolated struct NetworkProcessActivityManager: Sendable {
+nonisolated struct ProcessActivityManager: Sendable {
     let begin: @Sendable (String, ProcessInfo.ActivityOptions) -> ProcessActivityToken
     let end: @Sendable (ProcessActivityToken) -> Void
 
-    static let live = NetworkProcessActivityManager(
+    static let live = ProcessActivityManager(
         begin: { reason, options in
             ProcessActivityToken(
                 raw: ProcessInfo.processInfo.beginActivity(options: options, reason: reason)
@@ -267,12 +267,12 @@ nonisolated struct NetworkProcessActivityManager: Sendable {
     )
 }
 
-nonisolated enum NetworkProcessActivity {
+nonisolated enum ProcessActivity {
     @MainActor
     static func withActivityOnMainActor<T>(
         reason: String,
         options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
-        manager: NetworkProcessActivityManager = .live,
+        manager: ProcessActivityManager = .live,
         _ operation: () async throws -> T
     ) async rethrows -> T {
         let token = manager.begin(reason, options)
@@ -283,7 +283,7 @@ nonisolated enum NetworkProcessActivity {
     static func withActivity<T>(
         reason: String,
         options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
-        manager: NetworkProcessActivityManager = .live,
+        manager: ProcessActivityManager = .live,
         _ operation: () async throws -> T
     ) async rethrows -> T {
         let token = manager.begin(reason, options)
@@ -294,7 +294,7 @@ nonisolated enum NetworkProcessActivity {
     static func makeStream<Element>(
         reason: String,
         options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
-        manager: NetworkProcessActivityManager = .live,
+        manager: ProcessActivityManager = .live,
         _ operation: @escaping @Sendable (AsyncThrowingStream<Element, Error>.Continuation) async -> Void
     ) -> AsyncThrowingStream<Element, Error> {
         AsyncThrowingStream { continuation in

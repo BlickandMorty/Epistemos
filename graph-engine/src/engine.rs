@@ -25,7 +25,6 @@ use crate::renderer::{Renderer, viewport_bounds};
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
 use crate::types::{Graph, VisualTheme};
-use crate::version::VersionStore;
 use std::collections::HashMap;
 
 /// Adaptive physics tick rate scaled by node count.
@@ -136,14 +135,6 @@ pub struct Engine {
     /// Recomputed only when embeddings change, not per-tick.
     pub(crate) semantic_neighbors: Vec<(u32, u32, f32)>,
 
-    /// Active time filter: (min_ts, max_ts). Nodes with created_at outside
-    /// this range become invisible. Nodes with created_at == 0.0 are always visible.
-    /// None = no filter active (all nodes visible).
-    time_filter: Option<(f64, f64)>,
-
-    /// Merkle-like version chains per node (pure data, no render/physics cost).
-    pub(crate) version_store: VersionStore,
-
     /// Quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
     pub(crate) quality_level: u8,
 
@@ -197,8 +188,6 @@ impl Engine {
             embedding_store: EmbeddingStore::new(crate::embedding::DEFAULT_DIM),
             prepared_retrieval_store: None,
             semantic_neighbors: Vec::new(),
-            time_filter: None,
-            version_store: VersionStore::new(),
             quality_level: 0, // Cinematic
             btk_trees: HashMap::new(),
             btk_logs: HashMap::new(),
@@ -1434,16 +1423,6 @@ impl Engine {
         self.renderer.clear_color = [r, g, b, a];
     }
 
-    pub fn set_lite_mode(&mut self, enabled: bool) {
-        let level = if enabled { 2u8 } else { 0 };
-        self.quality_level = level;
-        self.renderer.quality_level = level;
-        self.sim.lock().lite_mode = enabled;
-        self.quality_rebuild_pending = true;
-        self.highlight_dirty = true;
-        self.idle_frame_count = 0;
-    }
-
     /// Switch renderer between light and dark mode color palettes.
     pub fn set_light_mode(&mut self, enabled: bool) {
         self.renderer.light_mode = enabled;
@@ -1543,36 +1522,6 @@ impl Engine {
         }
     }
 
-    /// Apply a time filter: nodes with created_at outside [min_ts, max_ts] become invisible.
-    /// Nodes with created_at == 0.0 (no timestamp) remain always visible.
-    /// Pass (0.0, f64::MAX) to clear the filter.
-    pub fn set_time_filter(&mut self, min_ts: f64, max_ts: f64) {
-        // Check if clearing filter
-        if min_ts <= 0.0 && max_ts >= 1e18 {
-            if self.time_filter.is_none() {
-                return; // Already cleared
-            }
-            self.time_filter = None;
-            // Restore all nodes to visible
-            for node in &mut self.graph.nodes {
-                node.visible = true;
-            }
-        } else {
-            self.time_filter = Some((min_ts, max_ts));
-            // Apply filter: nodes with timestamp outside range become invisible
-            for node in &mut self.graph.nodes {
-                if node.created_at == 0.0 {
-                    // No timestamp — always visible
-                    node.visible = true;
-                } else {
-                    node.visible = node.created_at >= min_ts && node.created_at <= max_ts;
-                }
-            }
-        }
-        // Refresh simulation + renderer with new visibility
-        self.refresh_visibility();
-    }
-
     // ── Confidence ──────────────────────────────────────────────────
 
     /// Set a node's confidence score (0.0–1.0).
@@ -1609,47 +1558,6 @@ impl Engine {
 
     // ── Dialogue ──────────────────────────────────────────────────────
 
-    /// Activate dialogue face on the node matching `node_uuid`.
-    pub fn dialogue_open(&mut self, node_uuid: &str) {
-        if let Some(&id) = self.graph.uuid_to_id.get(node_uuid) {
-            if let Some(idx) = self.world.index_of_node_id(id) {
-                self.renderer.dialogue.active = true;
-                self.renderer.dialogue.node_index = Some(idx);
-                self.renderer.dialogue.look_target_world =
-                    [self.world.transform[idx].x, self.world.transform[idx].y];
-                self.idle_frame_count = 0;
-            }
-        }
-    }
-
-    /// Deactivate dialogue face.
-    pub fn dialogue_close(&mut self) {
-        self.renderer.dialogue.active = false;
-        self.renderer.dialogue.node_index = None;
-        self.renderer.dialogue.is_streaming = false;
-        self.renderer.dialogue.look_target_world = [0.0; 2];
-        self.idle_frame_count = 0;
-    }
-
-    /// Set streaming state (mouth animation).
-    pub fn dialogue_set_streaming(&mut self, streaming: bool) {
-        self.renderer.dialogue.is_streaming = streaming;
-        if streaming {
-            self.idle_frame_count = 0;
-        }
-    }
-
-    pub fn dialogue_screen_rect(&self) -> [f32; 4] {
-        self.renderer.dialogue.box_screen_rect
-    }
-
-    pub fn dialogue_node_screen_pos(&self) -> [f32; 2] {
-        self.renderer.dialogue.node_screen_pos
-    }
-
-    pub fn dialogue_is_active(&self) -> bool {
-        self.renderer.dialogue.active
-    }
 }
 
 impl Drop for Engine {

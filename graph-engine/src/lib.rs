@@ -19,7 +19,6 @@ pub mod search;
 pub mod simulation;
 pub mod spatial;
 pub mod types;
-pub mod version;
 
 #[cfg(test)]
 pub mod physics_audit_test;
@@ -1099,13 +1098,6 @@ pub extern "C" fn graph_engine_set_mode(engine: *mut Engine, mode: u8) {
     engine.set_mode(mode);
 }
 
-/// Set lite rendering mode: 0 = full (3D, effects), 1 = lite (2D flat, no glow).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_lite_mode(engine: *mut Engine, enabled: u8) {
-    ffi_engine!(engine);
-    engine.set_lite_mode(enabled != 0);
-}
-
 /// Set light/dark mode color palette: 0 = dark, 1 = light.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) {
@@ -1410,15 +1402,6 @@ pub extern "C" fn graph_engine_set_node_time(
     engine.set_node_time(uuid_str, created_at, updated_at);
 }
 
-/// Apply a time filter: nodes with created_at outside [min_ts, max_ts] become invisible.
-/// Nodes with created_at == 0.0 (no timestamp) remain always visible.
-/// Pass (0.0, very large number) to clear the filter.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_time_filter(engine: *mut Engine, min_ts: f64, max_ts: f64) {
-    ffi_engine!(engine);
-    engine.set_time_filter(min_ts, max_ts);
-}
-
 // ── Confidence ─────────────────────────────────────────────────────────────
 
 /// Set a node's confidence score (0.0–1.0) from enrichment pipeline.
@@ -1698,41 +1681,6 @@ pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
         .collect();
 
     Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
-}
-
-// ── Version Chain ──────────────────────────────────────────────────────────
-
-/// Add a version to a node's hash-linked version chain.
-/// Returns 1 on success, 0 if orphan/duplicate rejected.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_add_version(
-    engine: *mut Engine,
-    node_uuid: *const c_char,
-    hash: u64,
-    parent_hash: u64,
-    timestamp: f64,
-) -> u8 {
-    ffi_engine_or!(engine, 0);
-    let uuid = ffi_cstr!(node_uuid);
-    if engine
-        .version_store
-        .add_version(uuid, hash, parent_hash, timestamp)
-    {
-        1
-    } else {
-        0
-    }
-}
-
-/// Get the number of versions in a node's chain.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_get_version_count(
-    engine: *mut Engine,
-    node_uuid: *const c_char,
-) -> u32 {
-    ffi_engine_or!(engine, 0);
-    let uuid = ffi_cstr!(node_uuid);
-    engine.version_store.version_count(uuid)
 }
 
 // ── Block Transaction Kernel (BTK) ───────────────────────────────────────────
@@ -2787,72 +2735,6 @@ pub extern "C" fn graph_engine_btk_payload_rows(
         slice.len() as u32
     })
     .unwrap_or(0)
-}
-
-// ── Dialogue ────────────────────────────────────────────────────────────────
-
-/// Open dialogue on a node (activates face geometry + dialogue box).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_dialogue_open(engine: *mut Engine, node_uuid: *const c_char) {
-    ffi_engine!(engine);
-    let uuid = ffi_cstr!(node_uuid);
-    engine.dialogue_open(uuid);
-}
-
-/// Close dialogue (deactivates face + box).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_dialogue_close(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.dialogue_close();
-}
-
-/// Set streaming state (animates mouth when true).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_dialogue_set_streaming(engine: *mut Engine, streaming: u8) {
-    ffi_engine!(engine);
-    engine.dialogue_set_streaming(streaming != 0);
-}
-
-/// Get dialogue box screen rect (x, y, w, h) for SwiftUI overlay positioning.
-/// Writes 4 floats into `out`.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_dialogue_screen_rect(engine: *mut Engine, out: *mut f32) {
-    ffi_engine!(engine);
-    if out.is_null() {
-        return;
-    }
-    let rect = engine.dialogue_screen_rect();
-    // SAFETY: `out` points to caller-owned array of at least 4 floats.
-    unsafe {
-        *out.add(0) = rect[0];
-        *out.add(1) = rect[1];
-        *out.add(2) = rect[2];
-        *out.add(3) = rect[3];
-    }
-}
-
-/// Get dialogue node screen position (x, y).
-/// Writes 2 floats into `out`.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_dialogue_node_screen_pos(engine: *mut Engine, out: *mut f32) {
-    ffi_engine!(engine);
-    if out.is_null() {
-        return;
-    }
-    let pos = engine.dialogue_node_screen_pos();
-    // SAFETY: `out` points to caller-owned array of at least 2 floats.
-    unsafe {
-        *out.add(0) = pos[0];
-        *out.add(1) = pos[1];
-    }
-}
-
-/// Check if dialogue is currently active.
-/// Returns 1 if active, 0 if not.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_dialogue_is_active(engine: *mut Engine) -> u8 {
-    ffi_engine_or!(engine, 0);
-    u8::from(engine.dialogue_is_active())
 }
 
 #[cfg(test)]

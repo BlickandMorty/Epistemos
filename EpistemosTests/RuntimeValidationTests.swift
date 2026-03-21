@@ -287,6 +287,30 @@ struct RuntimeValidationTests {
         #expect(swiftWrapper.contains("func resetSemanticEmbeddingDimension(to dimension: Int) -> Bool"))
     }
 
+    @Test("retired graph ffi controls stay out of the live bridge surface")
+    func retiredGraphFFIControlsStayRemoved() throws {
+        let rustFFI = try loadRepoTextFile("graph-engine/src/lib.rs")
+        let header = try loadRepoTextFile("graph-engine-bridge/graph_engine.h")
+
+        let retiredExports = [
+            "graph_engine_set_lite_mode",
+            "graph_engine_set_time_filter",
+            "graph_engine_add_version",
+            "graph_engine_get_version_count",
+            "graph_engine_dialogue_open",
+            "graph_engine_dialogue_close",
+            "graph_engine_dialogue_set_streaming",
+            "graph_engine_dialogue_screen_rect",
+            "graph_engine_dialogue_node_screen_pos",
+            "graph_engine_dialogue_is_active",
+        ]
+
+        for symbol in retiredExports {
+            #expect(!rustFFI.contains(symbol))
+            #expect(!header.contains(symbol))
+        }
+    }
+
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
         let testsFileURL = URL(fileURLWithPath: #filePath)
         let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
