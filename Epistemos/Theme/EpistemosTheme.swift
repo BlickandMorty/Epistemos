@@ -867,7 +867,6 @@ enum AppHeadingRole: Sendable {
     case h2
     case h3
     case section
-    case chatTitle
 
     nonisolated var fontName: String { AppDisplayTypography.fontName }
 
@@ -878,13 +877,12 @@ enum AppHeadingRole: Sendable {
         case .h2: 20
         case .h3: 16
         case .section: 12
-        case .chatTitle: 28
         }
     }
 
     var topPadding: CGFloat {
         switch self {
-        case .pageTitle, .section, .chatTitle: 0
+        case .pageTitle, .section: 0
         case .h1: 16
         case .h2: 12
         case .h3: 8
@@ -905,12 +903,7 @@ enum AppHeadingRole: Sendable {
         }
     }
 
-    var font: Font {
-        AppDisplayTypography.font(
-            size: fontSize,
-            allowDisplayFont: self == .h1 || self == .pageTitle || self == .chatTitle
-        )
-    }
+    var font: Font { AppDisplayTypography.font(size: fontSize) }
 
     nonisolated static func markdownRole(level: Int) -> AppHeadingRole? {
         switch level {
@@ -979,10 +972,9 @@ enum AppDisplayTypography: Sendable {
     static func font(
         size: CGFloat,
         weight: Font.Weight = .regular,
-        design: Font.Design = .default,
-        allowDisplayFont: Bool = true
+        design: Font.Design = .default
     ) -> Font {
-        if allowDisplayFont && currentMode.usesDisplayFont {
+        if currentMode.usesDisplayFont {
             .custom(displayFontName, size: size)
         } else if design == .default {
             Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
@@ -991,12 +983,8 @@ enum AppDisplayTypography: Sendable {
         }
     }
 
-    nonisolated static func nsFont(
-        size: CGFloat,
-        weight: NSFont.Weight = .regular,
-        allowDisplayFont: Bool = true
-    ) -> NSFont {
-        if allowDisplayFont && currentMode.usesDisplayFont {
+    nonisolated static func nsFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        if currentMode.usesDisplayFont {
             NSFont(name: displayFontName, size: size)
                 ?? NSFont.systemFont(ofSize: size, weight: weight)
         } else {

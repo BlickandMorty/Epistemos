@@ -255,7 +255,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading
             )
-            let usesDisplayFont = (level == 1)
+            let usesDisplayFont = (1...3).contains(level)
             let headingFont =
                 if usesDisplayFont {
                     AppDisplayTypography.nsFont(size: fontSize, weight: weight)
@@ -298,21 +298,19 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     to: attrStr,
                     line: line,
                     prefix: "## ",
-                    color: headingAccent.withAlphaComponent(0.50),
-                    bold: true
+                    color: headingAccent.withAlphaComponent(0.50)
                 )
             case 3:
                 applyPrefixColor(
                     to: attrStr,
                     line: line,
                     prefix: "### ",
-                    color: headingAccent.withAlphaComponent(0.45),
-                    bold: true
+                    color: headingAccent.withAlphaComponent(0.45)
                 )
             case 4:
-                applyPrefixColor(to: attrStr, line: line, prefix: "#### ", color: accent.withAlphaComponent(0.40), bold: true)
+                applyPrefixColor(to: attrStr, line: line, prefix: "#### ", color: accent.withAlphaComponent(0.40))
             default:
-                applyPrefixColor(to: attrStr, line: line, prefix: "##### ", color: accent.withAlphaComponent(0.35), bold: true)
+                applyPrefixColor(to: attrStr, line: line, prefix: "##### ", color: accent.withAlphaComponent(0.35))
             }
 
         case 6:  // CodeBlock
@@ -821,19 +819,12 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         to attrStr: NSMutableAttributedString,
         line: String,
         prefix: String,
-        color: NSColor,
-        bold: Bool = false
+        color: NSColor
     ) {
         let leadingSpaces = line.prefix(while: { $0 == " " }).count
         let dimRange = NSRange(location: leadingSpaces, length: prefix.utf16.count)
         guard dimRange.location + dimRange.length <= attrStr.length else { return }
-        
-        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: color]
-        if bold {
-            attributes[.font] = NSFont.systemFont(ofSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3) - 2, weight: .bold)
-        }
-        
-        attrStr.addAttributes(attributes, range: dimRange)
+        attrStr.addAttributes([.foregroundColor: color], range: dimRange)
     }
 
     private func applyH1PrefixStyle(

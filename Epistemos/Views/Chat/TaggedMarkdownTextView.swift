@@ -475,12 +475,12 @@ struct TaggedMarkdownTextView: View {
             baseSize: baseFontSize,
             nextLevelSize: AppHeadingRole.h2.fontSize
         )
-        let font: Font = {
-            if level == 1 {
-                return AppDisplayTypography.font(size: fontSize)
-            } else {
-                let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
-                return .system(size: fontSize, weight: weight)
+        let font: Font = retroRole.map { _ in
+            AppDisplayTypography.font(size: fontSize)
+        } ?? {
+            switch level {
+            case 4: .system(size: 15, weight: .medium)
+            default: .system(size: 14, weight: .medium)
             }
         }()
         let topPad = retroRole?.topPadding ?? 6

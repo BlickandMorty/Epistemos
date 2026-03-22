@@ -30,16 +30,14 @@ enum MarkdownHeadingDisplay {
 
     nonisolated static func noteHeadingFontWeight(for level: Int) -> Font.Weight {
         switch level {
-        case 1: .bold
-        case 2: .heavy
-        case 3, 4: .bold
+        case 1, 2: .bold
+        case 3, 4: .semibold
         default: .medium
         }
     }
 
     nonisolated static func noteHeadingWeight(for level: Int) -> NSFont.Weight {
         switch noteHeadingFontWeight(for: level) {
-        case .heavy: .heavy
         case .bold: .bold
         case .semibold: .semibold
         case .medium: .medium
@@ -96,7 +94,7 @@ enum MarkdownHeadingDisplay {
     }
 
     nonisolated static func displayText(_ text: String, level: Int) -> String {
-        guard level == 1 else { return text }
+        guard (1...3).contains(level) else { return text }
         return sameLengthUppercase(text)
     }
 
@@ -1245,11 +1243,7 @@ struct MarkdownTextView: View {
         let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font =
             if retroRole != nil {
-                AppDisplayTypography.font(
-                    size: fontSize,
-                    weight: fontWeight,
-                    allowDisplayFont: false // No retro font in chat bubbles
-                )
+                AppDisplayTypography.font(size: fontSize, weight: fontWeight)
             } else {
                 .system(size: fontSize, weight: fontWeight)
             }
