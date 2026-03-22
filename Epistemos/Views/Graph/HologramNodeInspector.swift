@@ -626,7 +626,7 @@ struct HologramNodeInspector: View {
 
             TypewriterHeading(
                 text: MarkdownHeadingDisplay.displayText(node.label, level: 1),
-                role: .h2,
+                role: .pageTitle,
                 color: theme.fontAccent,
                 animateOnAppear: true,
                 animationKey: node.id

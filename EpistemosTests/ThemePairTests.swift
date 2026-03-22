@@ -735,7 +735,7 @@ struct ThemePairTests {
             ChatMessage(chatId: "chat", role: .assistant, content: "second answer"),
         ]
 
-        let rows = makeChatTranscriptRows(from: messages)
+        let rows = makeChatTranscriptRows(from: messages, chatTitle: nil)
 
         #expect(rows.count == 5)
         #expect(rows[0].originalQuery == nil)

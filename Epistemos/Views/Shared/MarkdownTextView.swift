@@ -30,14 +30,16 @@ enum MarkdownHeadingDisplay {
 
     nonisolated static func noteHeadingFontWeight(for level: Int) -> Font.Weight {
         switch level {
-        case 1, 2: .bold
-        case 3, 4: .semibold
+        case 1: .bold
+        case 2: .heavy
+        case 3, 4: .bold
         default: .medium
         }
     }
 
     nonisolated static func noteHeadingWeight(for level: Int) -> NSFont.Weight {
         switch noteHeadingFontWeight(for: level) {
+        case .heavy: .heavy
         case .bold: .bold
         case .semibold: .semibold
         case .medium: .medium
@@ -94,8 +96,7 @@ enum MarkdownHeadingDisplay {
     }
 
     nonisolated static func displayText(_ text: String, level: Int) -> String {
-        guard (1...3).contains(level) else { return text }
-        return sameLengthUppercase(text)
+        return text
     }
 
     nonisolated static func foregroundColor(for theme: EpistemosTheme, level: Int) -> Color {
@@ -220,23 +221,6 @@ enum MarkdownHeadingDisplay {
         let prefix = String(repeating: "#", count: level) + " "
         guard trimmed.hasPrefix(prefix) else { return Substring(trimmed) }
         return trimmed.dropFirst(prefix.count)
-    }
-
-    private nonisolated static func sameLengthUppercase(_ text: String) -> String {
-        var transformed = String()
-        transformed.reserveCapacity(text.count)
-
-        for character in text {
-            let original = String(character)
-            let uppercased = original.uppercased()
-            if uppercased.utf16.count == original.utf16.count {
-                transformed.append(contentsOf: uppercased)
-            } else {
-                transformed.append(character)
-            }
-        }
-
-        return transformed
     }
 }
 
@@ -1243,7 +1227,11 @@ struct MarkdownTextView: View {
         let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font =
             if retroRole != nil {
-                AppDisplayTypography.font(size: fontSize, weight: fontWeight)
+                AppDisplayTypography.font(
+                    size: fontSize,
+                    weight: fontWeight,
+                    allowDisplayFont: false // No retro font in chat bubbles
+                )
             } else {
                 .system(size: fontSize, weight: fontWeight)
             }

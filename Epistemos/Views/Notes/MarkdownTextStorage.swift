@@ -381,7 +381,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("## ") && !t.hasPrefix("### ") {
             var attributes: [NSAttributedString.Key: Any] = [
-                .font: displayFont(
+                .font: AppDisplayTypography.regularUIFont(
                     size: MarkdownHeadingDisplay.noteHeadingFontSize(
                         for: 2,
                         text: line,
@@ -390,8 +390,6 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                     weight: MarkdownHeadingDisplay.noteHeadingWeight(for: 2)
                 ),
                 .foregroundColor: headingAccentColor,
-                .underlineStyle: NSUnderlineStyle.single.rawValue,
-                .underlineColor: headingAccentColor.withAlphaComponent(0.18),
                 .paragraphStyle: Self.h2Style
             ]
             if let h2Shadow {
@@ -407,7 +405,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("### ") && !t.hasPrefix("#### ") {
             var attributes: [NSAttributedString.Key: Any] = [
-                .font: displayFont(
+                .font: AppDisplayTypography.regularUIFont(
                     size: MarkdownHeadingDisplay.noteHeadingFontSize(
                         for: 3,
                         text: line,
@@ -431,8 +429,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("#### ") && !t.hasPrefix("##### ") {
             backing.addAttributes([
-                .font: NSFont.systemFont(
-                    ofSize: MarkdownHeadingDisplay.noteHeadingFontSize(
+                .font: AppDisplayTypography.regularUIFont(
+                    size: MarkdownHeadingDisplay.noteHeadingFontSize(
                         for: 4,
                         text: line,
                         baseFontSize: baseFontSize
@@ -446,8 +444,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("##### ") {
             backing.addAttributes([
-                .font: NSFont.systemFont(
-                    ofSize: MarkdownHeadingDisplay.noteHeadingFontSize(
+                .font: AppDisplayTypography.regularUIFont(
+                    size: MarkdownHeadingDisplay.noteHeadingFontSize(
                         for: 5,
                         text: line,
                         baseFontSize: baseFontSize
@@ -1063,7 +1061,10 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         let prefixLen = prefix.utf16.count
         let dimRange = NSRange(location: lineStart + leadingSpaces, length: prefixLen)
         guard dimRange.location + dimRange.length <= backing.length else { return }
-        backing.addAttributes([.foregroundColor: color], range: dimRange)
+        backing.addAttributes([
+            .foregroundColor: color,
+            .font: NSFont.systemFont(ofSize: baseFontSize * 0.8, weight: .bold)
+        ], range: dimRange)
     }
 
     /// Ulysses-style H1 prefix: renders the `# ` marker as tiny + muted alongside the large title.

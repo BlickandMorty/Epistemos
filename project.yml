@@ -22,12 +22,6 @@ targets:
     platform: macOS
     sources:
       - path: Epistemos
-        excludes:
-          - "**/.DS_Store"
-          - "AppIcon.icon"
-          - "AppIcon.icon/**"
-          - "Epistemos.entitlements"
-          - "PrivacyInfo.xcprivacy"
     resources:
       - path: Epistemos/Resources
       - path: Epistemos/AppIcon.icon
@@ -47,8 +41,20 @@ targets:
         CODE_SIGN_STYLE: Automatic
         SWIFT_EMIT_LOC_STRINGS: true
         ENABLE_PREVIEWS: true
+        SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine
+    preBuildScripts:
+      - name: Build Rust Engine
+        script: bash "${SRCROOT}/build-rust.sh"
     dependencies:
       - package: GRDB
+      - package: HuggingFace
+      - package: MLX
+        product: MLX
+      - package: MLX-LM
+        product: MLXLMCommon
+      - package: MLX-LM
+        product: MLXLLM
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -75,8 +81,30 @@ targets:
         ALWAYS_SEARCH_USER_PATHS: false
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
         BUNDLE_LOADER: "$(TEST_HOST)"
+        SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
 
 packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift.git
     version: 7.10.0
+  HuggingFace:
+    url: https://github.com/huggingface/swift-huggingface.git
+    version: 0.9.0
+  MLX:
+    url: https://github.com/ml-explore/mlx-swift
+    revision: b6e128c41569be1ecc041b9dfc64c3ac602a462c
+  MLX-LM:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    revision: bc3c20ef4644c86f2b347debcfe1efe4308712a6
+
+schemes:
+  Epistemos:
+    build:
+      targets:
+        Epistemos: all
+        EpistemosTests: test
+    test:
+      targets:
+        - EpistemosTests
+    run:
+      executable: Epistemos

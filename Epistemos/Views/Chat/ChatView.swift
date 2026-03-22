@@ -8,10 +8,27 @@ private enum ChatPresentationFormatter {
         pattern: #"^\[[A-Z ]+MODE\]\s*"#
     )
 
-    nonisolated static func displayContent(for message: ChatMessage) -> String {
+    nonisolated static func displayContent(for message: ChatMessage, chatTitle: String? = nil, isFirstAssistantMessage: Bool = false) -> String {
         let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard message.role == .user else {
-            return UserFacingModelOutput.finalVisibleText(from: trimmed)
+            let final = UserFacingModelOutput.finalVisibleText(from: trimmed)
+            
+            // If this is the "large first sentence/heading" the user wants to replace with the title:
+            // Strip leading # Heading if it matches the title or if it's the first assistant message
+            // following a main title.
+            var lines = final.components(separatedBy: .newlines)
+            if let first = lines.first, first.hasPrefix("# ") {
+                let headingText = first.dropFirst(2).trimmingCharacters(in: .whitespacesAndNewlines)
+                let t = chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                
+                // If it matches the chat title OR it's the first assistant message and looks redundant:
+                if headingText.caseInsensitiveCompare(t) == .orderedSame || isFirstAssistantMessage {
+                    lines.removeFirst()
+                    return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+            
+            return final
         }
 
         let fullRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
@@ -24,24 +41,7 @@ private enum ChatPresentationFormatter {
     }
 
     nonisolated static func heading(forAssistantText text: String) -> String? {
-        let lines = text.components(separatedBy: .newlines)
-        guard
-            let firstNonEmpty = lines.first(where: {
-                !$0.trimmingCharacters(in: .whitespaces).isEmpty
-            })
-        else { return nil }
-        if firstNonEmpty.trimmingCharacters(in: .whitespaces).hasPrefix("#") { return nil }
-
-        let cleaned = firstNonEmpty
-            .replacingOccurrences(
-                of: "^(Sure|Certainly|Of course|Great question|Absolutely)[,!.]?\\s*",
-                with: "",
-                options: .regularExpression
-            )
-            .replacingOccurrences(of: "\\*\\*|\\*|`", with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cleaned.count > 10 else { return nil }
-        return String(cleaned.prefix(50))
+        return nil
     }
 
     nonisolated static func sourceReferences(
@@ -77,8 +77,9 @@ struct ChatTranscriptRow: Identifiable, Sendable {
     var id: String { message.id }
 }
 
-nonisolated func makeChatTranscriptRows(from messages: [ChatMessage]) -> [ChatTranscriptRow] {
+nonisolated func makeChatTranscriptRows(from messages: [ChatMessage], chatTitle: String?) -> [ChatTranscriptRow] {
     var lastUserQuery: String?
+    var assistantMessageCount = 0
     var rows: [ChatTranscriptRow] = []
     rows.reserveCapacity(messages.count)
 
@@ -90,12 +91,18 @@ nonisolated func makeChatTranscriptRows(from messages: [ChatMessage]) -> [ChatTr
                 ChatTranscriptRow(
                     message: message,
                     originalQuery: nil,
-                    displayContent: displayContent,
+                    displayContent: ChatPresentationFormatter.displayContent(for: message, chatTitle: chatTitle),
                     heading: nil,
                     sourceReferences: []
                 )
             )
         } else {
+            assistantMessageCount += 1
+            let displayContent = ChatPresentationFormatter.displayContent(
+                for: message,
+                chatTitle: chatTitle,
+                isFirstAssistantMessage: assistantMessageCount == 1
+            )
             rows.append(
                 ChatTranscriptRow(
                     message: message,
@@ -139,6 +146,19 @@ struct ChatView: View {
                     HStack {
                         Spacer(minLength: 0)
                         LazyVStack(spacing: ChatLayout.transcriptSpacing) {
+                            // Chat Title Header
+                            if let headerTitle = chat.chatTitle, !headerTitle.isEmpty {
+                                TypewriterHeading(
+                                    text: headerTitle,
+                                    role: .chatTitle,
+                                    color: theme.fontAccent,
+                                    animateOnAppear: true
+                                )
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 18)
+                                .padding(.bottom, 8)
+                            }
+
                             ForEach(transcriptRows) { row in
                                 MessageBubble(
                                     message: row.message,
@@ -187,7 +207,7 @@ struct ChatView: View {
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
                 .onChange(of: chat.transcriptRevision) { _, _ in
-                    transcriptRows = makeChatTranscriptRows(from: chat.messages)
+                    transcriptRows = makeChatTranscriptRows(from: chat.messages, chatTitle: chat.chatTitle)
                 }
                 .onChange(of: chat.streamingText) { _, _ in
                     // Throttle to ~4fps during streaming for "smooth" feel
@@ -202,7 +222,7 @@ struct ChatView: View {
                 }
                 .onAppear {
                     Task { @MainActor in
-                        transcriptRows = makeChatTranscriptRows(from: chat.messages)
+                        transcriptRows = makeChatTranscriptRows(from: chat.messages, chatTitle: chat.chatTitle)
                         autoFollow.markProgrammaticScrollToBottom()
                         proxy.scrollTo("bottom-anchor", anchor: .bottom)
                     }

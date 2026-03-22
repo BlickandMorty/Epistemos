@@ -255,7 +255,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading
             )
-            let usesDisplayFont = (1...3).contains(level)
+            let usesDisplayFont = (level == 1)
             let headingFont =
                 if usesDisplayFont {
                     AppDisplayTypography.nsFont(size: fontSize, weight: weight)
@@ -274,8 +274,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 headingAttributes[.shadow] = shadow
             }
             if level == 2 {
-                headingAttributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
-                headingAttributes[.underlineColor] = headingAccent.withAlphaComponent(0.18)
+                // Remove underline for Level 2
             }
             if level == 4 {
                 headingAttributes[.foregroundColor] = foreground.withAlphaComponent(
@@ -298,19 +297,21 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     to: attrStr,
                     line: line,
                     prefix: "## ",
-                    color: headingAccent.withAlphaComponent(0.50)
+                    color: headingAccent.withAlphaComponent(0.50),
+                    bold: true
                 )
             case 3:
                 applyPrefixColor(
                     to: attrStr,
                     line: line,
                     prefix: "### ",
-                    color: headingAccent.withAlphaComponent(0.45)
+                    color: headingAccent.withAlphaComponent(0.45),
+                    bold: true
                 )
             case 4:
-                applyPrefixColor(to: attrStr, line: line, prefix: "#### ", color: accent.withAlphaComponent(0.40))
+                applyPrefixColor(to: attrStr, line: line, prefix: "#### ", color: accent.withAlphaComponent(0.40), bold: true)
             default:
-                applyPrefixColor(to: attrStr, line: line, prefix: "##### ", color: accent.withAlphaComponent(0.35))
+                applyPrefixColor(to: attrStr, line: line, prefix: "##### ", color: accent.withAlphaComponent(0.35), bold: true)
             }
 
         case 6:  // CodeBlock
@@ -819,12 +820,19 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         to attrStr: NSMutableAttributedString,
         line: String,
         prefix: String,
-        color: NSColor
+        color: NSColor,
+        bold: Bool = false
     ) {
         let leadingSpaces = line.prefix(while: { $0 == " " }).count
         let dimRange = NSRange(location: leadingSpaces, length: prefix.utf16.count)
         guard dimRange.location + dimRange.length <= attrStr.length else { return }
-        attrStr.addAttributes([.foregroundColor: color], range: dimRange)
+        
+        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: color]
+        if bold {
+            attributes[.font] = NSFont.systemFont(ofSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3) - 2, weight: .bold)
+        }
+        
+        attrStr.addAttributes(attributes, range: dimRange)
     }
 
     private func applyH1PrefixStyle(
