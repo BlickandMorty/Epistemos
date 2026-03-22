@@ -1,0 +1,9 @@
+id: ffi-json-copy-ban-swift
+language: swift
+rule:
+  any:
+    - pattern: 'JSONEncoder().encode($VALUE)'
+    - pattern: 'JSONDecoder().decode($TYPE.self, from: $DATA)'
+    - pattern: 'JSONSerialization.data(withJSONObject: $VALUE)'
+message: JSON serialization is banned in hot Swift/Rust FFI paths.
+severity: warning

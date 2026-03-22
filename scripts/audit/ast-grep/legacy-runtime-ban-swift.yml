@@ -1,0 +1,11 @@
+id: legacy-runtime-ban-swift
+language: swift
+rule:
+  any:
+    - pattern: LocalSidecarClient
+    - pattern: LocalSidecarController
+    - pattern: LocalSidecarSSEStreamDecoder
+    - pattern: DeepSeek
+    - pattern: reasoner
+message: Legacy distributed-runtime residue is banned from the live Swift app.
+severity: error

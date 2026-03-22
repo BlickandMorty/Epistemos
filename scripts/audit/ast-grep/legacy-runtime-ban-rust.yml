@@ -1,0 +1,9 @@
+id: legacy-runtime-ban-rust
+language: rust
+rule:
+  any:
+    - pattern: DeepSeek
+    - pattern: reasoner
+    - pattern: LocalSidecar
+message: Legacy distributed-runtime residue is banned from the live Rust path.
+severity: error

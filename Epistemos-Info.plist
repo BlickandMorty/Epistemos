@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ATSApplicationFontsPath</key>
+	<string>Resources/Fonts</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.epistemos.app</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>com.epistemos.openNote</string>
+	</array>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>CreateNoteIntent</string>
+		<string>CreateJournalIntent</string>
+		<string>SearchJournalIntent</string>
+		<string>SystemSearchIntent</string>
+		<string>AskAboutNotesIntent</string>
+		<string>DailyBriefingIntent</string>
+		<string>QuickCaptureIntent</string>
+		<string>SummarizeNoteIntent</string>
+		<string>OpenVaultFileIntent</string>
+		<string>MoveNoteToFolderIntent</string>
+		<string>SearchDocumentsIntent</string>
+		<string>OpenPanelIntent</string>
+		<string>OpenMiniChatIntent</string>
+	</array>
+</dict>
+</plist>

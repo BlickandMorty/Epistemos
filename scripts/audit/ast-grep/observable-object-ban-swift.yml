@@ -1,0 +1,9 @@
+id: observable-object-ban-swift
+language: swift
+rule:
+  any:
+    - pattern: ObservableObject
+    - pattern: "@Published"
+    - pattern: objectWillChange
+message: SwiftUI state must use @Observable instead of ObservableObject-era patterns.
+severity: warning

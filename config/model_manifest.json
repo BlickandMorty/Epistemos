@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "defaults": {
+    "prepared_root": "~/Library/Application Support/Epistemos/PreparedModels",
+    "download_root": "~/Library/Application Support/Epistemos/PreparedModels/downloads",
+    "target_hardware": "18GB-class Apple Silicon"
+  },
+  "models": {
+    "retriever_primary": {
+      "role": "retriever",
+      "display_name": "BAAI BGE-M3",
+      "model_id": "BAAI/bge-m3",
+      "served_model_id": "BAAI/bge-m3",
+      "download_path": "~/Library/Application Support/Epistemos/PreparedModels/retrieval/bge-m3/source",
+      "status": "missing"
+    }
+  }
+}

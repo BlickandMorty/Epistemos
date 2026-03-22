@@ -1,0 +1,336 @@
+# FFI Surface Report
+
+- Generated: 2026-03-21
+- Root: `/Users/jojo/Epistemos`
+- Export count: 119
+
+## Candidate Unused FFI Exports
+- `graph_engine_btk_get_markdown`
+- `graph_engine_free_string`
+- `graph_engine_btk_payload_version`
+- `graph_engine_btk_payload_kind`
+- `graph_engine_btk_payload_row_count`
+- `graph_engine_kc_subscription_kind`
+- `graph_engine_kc_payload_tx_id`
+- `graph_engine_kc_payload_subscription_id`
+- `graph_engine_kc_payload_kind`
+- `graph_engine_kc_payload_row_count`
+
+## Export Coverage Samples
+- `graph_engine_create`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:32:        // In real FFI: graph_engine_create(nil, layer) returns nil`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:48:        // graph_engine_create should return null`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:494:        // On failure, graph_engine_create returns null`
+- `graph_engine_destroy`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:71:            graph_engine_destroy(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:293:    /// before calling graph_engine_destroy, preventing use-after-free races.`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:55:        // FFI: graph_engine_destroy(nil) should be a no-op`
+- `graph_engine_clear`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:81:        graph_engine_clear(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:210:        graph_engine_clear_highlight(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:448:        graph_engine_clear_embeddings(h)`
+- `graph_engine_add_node`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFIDataStructureTests.swift:24:        // In real FFI: graph_engine_add_nodes_batch with count=0 returns early`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:191:        // graph_engine_add_node(nil, ...) - returns early`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:202:        // graph_engine_add_node(engine, nil, ...) should use empty UUID`
+- `graph_engine_add_edge`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:330:                    graph_engine_add_edges_batch(`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:116:                graph_engine_add_edge(h, srcPtr, tgtPtr, weight, edgeType)`
+- `graph_engine_add_nodes_batch`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:210:        // graph_engine_add_nodes_batch with null arrays should return early`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFIDataStructureTests.swift:24:        // In real FFI: graph_engine_add_nodes_batch with count=0 returns early`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:286:                            graph_engine_add_nodes_batch(`
+- `graph_engine_add_edges_batch`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:330:                    graph_engine_add_edges_batch(`
+- `graph_engine_commit`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:127:        graph_engine_commit(h, entrance ? 1 : 0)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:643:        graph_engine_commit(engine, entrance)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:745:            graph_engine_commit_incremental(engine)`
+- `graph_engine_remove_node`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:347:        graph_engine_remove_nodes_batch(engine, uuidPtrs.baseAddress, UInt32(nodeIds.count))`
+- `graph_engine_remove_edge`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:765:                    graph_engine_remove_edge(engine, srcPtr, tgtPtr)`
+- `graph_engine_remove_nodes_batch`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:347:        graph_engine_remove_nodes_batch(engine, uuidPtrs.baseAddress, UInt32(nodeIds.count))`
+- `graph_engine_commit_incremental`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:745:            graph_engine_commit_incremental(engine)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:771:            graph_engine_commit_incremental(engine)`
+- `graph_engine_render`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:192:        // graph_engine_render(nil, ...) - returns 0`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFISafetyTests.swift:28:        // graph_engine_render(nil, ...) -> returns 0`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:409:    /// and after graph_engine_render() returns.`
+- `graph_engine_mouse_down`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:149:        graph_engine_mouse_down(h, x, y, shiftHeld ? 1 : 0)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1180:        graph_engine_mouse_down(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale), shift)`
+- `graph_engine_mouse_moved`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1172:            graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1217:        graph_engine_mouse_moved(engine, screenX, screenY)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1296:        graph_engine_mouse_moved(engine, screenX, screenY)`
+- `graph_engine_mouse_up`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:161:        graph_engine_mouse_up(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1250:        graph_engine_mouse_up(engine)`
+- `graph_engine_scroll`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:167:        graph_engine_scroll(h, deltaX, deltaY)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1440:            graph_engine_scroll(engine, dx, dy)`
+- `graph_engine_magnify`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:904:        graph_engine_magnify(engine, cx, cy, 1.5)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1445:            graph_engine_magnify(engine, sx, sy, magnification)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1472:                graph_engine_magnify(engine, cx, cy, 0.15)`
+- `graph_engine_set_force_params`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:811:        graph_engine_set_force_params(`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:186:        graph_engine_set_force_params(h, linkDistance, chargeStrength, chargeRange, linkStrength)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:472:    // The Rust engine receives core via graph_engine_set_force_params(),`
+- `graph_engine_set_extended_force_params`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:196:        graph_engine_set_extended_force_params(h, velocityDecay, centerStrength, collisionRadius)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:473:    // extended via graph_engine_set_extended_force_params().`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:823:        graph_engine_set_extended_force_params(`
+- `graph_engine_highlight_neighbors`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:950:            graph_engine_highlight_neighbors(engine, ptr)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:204:        uuid.withCString { graph_engine_highlight_neighbors(h, $0) }`
+- `graph_engine_clear_highlight`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1243:            graph_engine_clear_highlight(engine)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1456:            graph_engine_clear_highlight(engine)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:210:        graph_engine_clear_highlight(h)`
+- `graph_engine_search_highlight`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:217:        query.withCString { graph_engine_search_highlight(h, $0) }`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1202:            graph_engine_search_highlight(engine, cQuery)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:941:            graph_engine_search_highlight(engine, ptr)`
+- `graph_engine_poll_haptic`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:223:        return graph_engine_poll_haptic(h)`
+- `graph_engine_set_search_active`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:229:        graph_engine_set_search_active(h, active ? 1 : 0)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1209:        graph_engine_set_search_active(engine, active ? 1 : 0)`
+- `graph_engine_set_lab_params`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:242:        graph_engine_set_lab_params(`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:834:        graph_engine_set_lab_params(`
+- `graph_engine_center_camera`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:261:        graph_engine_center_camera(h)`
+- `graph_engine_center_on_node`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:267:        uuid.withCString { graph_engine_center_on_node(h, $0) }`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:911:            graph_engine_center_on_node(engine, ptr)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:951:            graph_engine_center_on_node(engine, ptr)`
+- `graph_engine_zoom_to_fit`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:273:        graph_engine_zoom_to_fit(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:887:        graph_engine_zoom_to_fit(engine)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:893:        graph_engine_zoom_to_fit(engine)`
+- `graph_engine_pause`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:414:        // graph_engine_pause should stop physics thread`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:281:        graph_engine_pause(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:600:        if let engine { graph_engine_pause(engine) }`
+- `graph_engine_resume`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFILifecycleTests.swift:421:        // graph_engine_resume should restart physics thread`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:287:        graph_engine_resume(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:606:        if let engine { graph_engine_resume(engine) }`
+- `graph_engine_set_user_frozen`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:680:        graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1040:            graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)`
+- `graph_engine_set_cluster_params`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:295:        graph_engine_set_cluster_params(h, clusterStrength)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:854:        graph_engine_set_cluster_params(engine, graphState.clusterStrength)`
+- `graph_engine_set_center_mode`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:301:        graph_engine_set_center_mode(h, mode.rawValue)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:307:        graph_engine_set_center_mode(h, mode)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:855:        graph_engine_set_center_mode(engine, graphState.centerMode)`
+- `graph_engine_screen_to_world`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1300:        graph_engine_screen_to_world(engine, screenX, screenY, &worldX, &worldY)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:316:        graph_engine_screen_to_world(h, screenX, screenY, &wx, &wy)`
+- `graph_engine_node_screen_pos`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1120:                    graph_engine_node_screen_pos(engine, ptr, &posBuf)`
+- `graph_engine_node_drift`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/HologramNodeInspector.swift:550:            return node.id.withCString { graph_engine_node_drift(engine, $0) }`
+- `graph_engine_set_node_visible`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:326:        uuid.withCString { graph_engine_set_node_visible(h, $0, visible ? 1 : 0) }`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:788:                graph_engine_set_node_visible(engine, uuid, visible)`
+- `graph_engine_refresh_visibility`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:332:        graph_engine_refresh_visibility(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:791:        graph_engine_refresh_visibility(engine)`
+- `graph_engine_set_clear_color`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:340:        graph_engine_set_clear_color(h, r, g, b, a)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:497:            graph_engine_set_clear_color(engine, 0, 0, 0, 0)`
+- `graph_engine_set_mode`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:346:        graph_engine_set_mode(h, mode.rawValue)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:352:        graph_engine_set_mode(h, mode)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:921:        graph_engine_set_mode(engine, mode)`
+- `graph_engine_set_light_mode`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:504:        graph_engine_set_light_mode(engine, enabled ? 1 : 0)`
+- `graph_engine_set_quality_level`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:665:        graph_engine_set_quality_level(engine, graphState.qualityLevel)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:980:            graph_engine_set_quality_level(engine, graphState.qualityLevel)`
+- `graph_engine_set_visual_theme`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:669:        graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:987:            graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)`
+- `graph_engine_set_node_color_override`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1668:                graph_engine_set_node_color_override(engine, uuidPtr, color.r, color.g, color.b, color.a)`
+- `graph_engine_set_anchor_rect`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:928:        graph_engine_set_anchor_rect(`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:358:        graph_engine_set_anchor_rect(h, x, y, width, height)`
+- `graph_engine_is_settled`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:380:        return graph_engine_is_settled(h) != 0`
+- `graph_engine_is_static_layout`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:656:        graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:794:        graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:386:        return graph_engine_is_static_layout(h) != 0`
+- `graph_engine_hovered_node_uuid`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:366:        guard let ptr = graph_engine_hovered_node_uuid(h) else { return nil }`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1183:        if graph_engine_hovered_node_uuid(engine) != nil {`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1226:            if let uuidPtr = graph_engine_hovered_node_uuid(engine) {`
+- `graph_engine_selected_node_uuid`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:373:        guard let ptr = graph_engine_selected_node_uuid(h) else { return nil }`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:1254:        let uuidPtr = graph_engine_selected_node_uuid(engine)`
+- `graph_engine_search`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFISafetyTests.swift:410:        // Results from graph_engine_search must be freed`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:217:        query.withCString { graph_engine_search_highlight(h, $0) }`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:405:            graph_engine_search(h, qPtr, limit, &count)`
+- `graph_engine_free_search_results`
+  - `/Users/jojo/Epistemos/EpistemosTests/FFISafetyTests.swift:277:        // Must be freed with graph_engine_free_search_results`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:400:        #expect(!queryRuntime.contains("graph_engine_free_search_results(results, count)"))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:408:        defer { graph_engine_free_search_results(ptr, count) }`
+- `graph_engine_set_cluster_ids`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:431:                graph_engine_set_cluster_ids(h, uuidBuf.baseAddress, idsBuf.baseAddress!, UInt32(uuids.count))`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:875:                graph_engine_set_cluster_ids(`
+- `graph_engine_set_node_embedding`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:441:                graph_engine_set_node_embedding(h, uuidPtr, baseAddress, UInt32(buffer.count))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:197:                            graph_engine_set_node_embedding(engine, cUuid, base, UInt32(dim))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:285:                    graph_engine_set_node_embedding(engine, cId, base, UInt32(dim))`
+- `graph_engine_clear_embeddings`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:448:        graph_engine_clear_embeddings(h)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:327:        graph_engine_clear_embeddings(engine)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:340:        graph_engine_clear_embeddings(engine)`
+- `graph_engine_embedding_count`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:301:        #expect(graphState.contains("graph_engine_embedding_count(engine) > 0"))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:453:        return Int(graph_engine_embedding_count(h))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1050:              graph_engine_embedding_count(engine) > 0,`
+- `graph_engine_embedding_dimension`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:302:        #expect(graphState.contains("Int(graph_engine_embedding_dimension(engine)) == embeddingService.dimension"))`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:312:        #expect(rustFFI.contains("pub extern \"C\" fn graph_engine_embedding_dimension"))`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:314:        #expect(header.contains("uint32_t graph_engine_embedding_dimension(Engine* engine);"))`
+- `graph_engine_reset_embedding_dimension`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:464:        return graph_engine_reset_embedding_dimension(h, UInt32(dimension)) != 0`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:338:            return graph_engine_reset_embedding_dimension(engine, UInt32(dimension)) != 0`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:313:        #expect(rustFFI.contains("pub extern \"C\" fn graph_engine_reset_embedding_dimension"))`
+- `graph_engine_set_semantic_strength`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:861:        graph_engine_set_semantic_strength(engine, graphState.semanticStrength)`
+- `graph_engine_recompute_semantic_neighbors`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:469:        graph_engine_recompute_semantic_neighbors(h, k, threshold)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:202:                graph_engine_recompute_semantic_neighbors(engine, 8, 0.3)`
+- `graph_engine_set_node_time`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1003:            graph_engine_set_node_time(engine, uuidPtr, createdAt, updatedAt)`
+- `graph_engine_set_node_confidence`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1004:            graph_engine_set_node_confidence(engine, uuidPtr, confidence)`
+- `graph_engine_set_node_metadata_batch`
+  - `/Users/jojo/Epistemos/Epistemos/Views/Graph/MetalGraphView.swift:310:                    graph_engine_set_node_metadata_batch(`
+- `graph_engine_semantic_search`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1075:            let results = graph_engine_semantic_search(`
+- `graph_engine_load_prepared_retrieval_index`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:289:        #expect(graphState.contains("graph_engine_load_prepared_retrieval_index(engine, $0)"))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1159:        let loaded = manifestPath.withCString { graph_engine_load_prepared_retrieval_index(engine, $0) != 0 }`
+- `graph_engine_clear_prepared_retrieval_index`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/EmbeddingService.swift:332:        graph_engine_clear_prepared_retrieval_index(engine)`
+- `graph_engine_prepared_retrieval_dimension`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift:149:        let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1097:        let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))`
+- `graph_engine_prepared_retrieval_search`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:290:        #expect(graphState.contains("graph_engine_prepared_retrieval_search("))`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphState.swift:1105:            let results = graph_engine_prepared_retrieval_search(`
+- `graph_engine_prepared_retrieval_score_page_ids`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:397:        #expect(queryRuntime.contains("graph_engine_prepared_retrieval_score_page_ids("))`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift:161:                let list = graph_engine_prepared_retrieval_score_page_ids(`
+- `graph_engine_free_prepared_retrieval_candidates`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift:168:                defer { graph_engine_free_prepared_retrieval_candidates(list) }`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:398:        #expect(queryRuntime.contains("graph_engine_free_prepared_retrieval_candidates(list)"))`
+  - `/Users/jojo/Epistemos/EpistemosTests/RuntimeValidationTests.swift:403:        #expect(header.contains("graph_engine_free_prepared_retrieval_candidates"))`
+- `graph_engine_btk_init`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/BlockEditTranslator.swift:22:            graph_engine_btk_init(engine, pageIdPtr)`
+- `graph_engine_btk_load_blocks`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/BlockEditTranslator.swift:62:                    graph_engine_btk_load_blocks(`
+- `graph_engine_btk_translate_edit`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/BlockEditTranslator.swift:81:                graph_engine_btk_translate_edit(`
+- `graph_engine_btk_update_block`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/BlockEditTranslator.swift:106:                    graph_engine_btk_update_block(engine, pageIdPtr, buf.baseAddress, contentPtr)`
+- `graph_engine_btk_query_property`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift:766:                graph_engine_btk_query_property(engine, keyPtr, opCode, valType, valPtr)`
+- `graph_engine_btk_query_depth`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift:775:        let buffer = graph_engine_btk_query_depth(engine, op.ffiCode, UInt32(max(0, value)))`
+- `graph_engine_free_bytes`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift:23:                graph_engine_free_bytes(buffer)`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/QueryRuntime.swift:28:        defer { graph_engine_free_bytes(buffer) }`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:727:                graph_engine_free_bytes(buffer)`
+- `graph_engine_btk_subscribe_outline`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:571:        let id = pageId.withCString { graph_engine_btk_subscribe_outline(h, $0) }`
+- `graph_engine_btk_subscribe_property`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:580:                    graph_engine_btk_subscribe_property(h, keyPtr, valuePtr)`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:583:                return graph_engine_btk_subscribe_property(h, keyPtr, nil)`
+- `graph_engine_btk_subscribe_links`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:591:        let id = blockId.withCString { graph_engine_btk_subscribe_links(h, $0, maxDepth) }`
+- `graph_engine_btk_unsubscribe`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:598:        return graph_engine_btk_unsubscribe(h, id) != 0`
+- `graph_engine_btk_take_subscription_update`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:603:        return decodeBTKPayload(buffer: graph_engine_btk_take_subscription_update(h, id))`
+- `graph_engine_btk_snapshot_subscription`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:609:            buffer: graph_engine_btk_snapshot_subscription(h, id, version)`
+- `graph_engine_btk_latest_subscription_seq`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:615:        return graph_engine_btk_latest_subscription_seq(h)`
+- `graph_engine_btk_payload_summary`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:641:        guard graph_engine_btk_payload_summary(base, UInt64(count), &summary) != 0,`
+- `graph_engine_btk_payload_row`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:667:            let written = graph_engine_btk_payload_rows(`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:698:            guard graph_engine_btk_payload_row(base, UInt64(count), section, index, &ffiRow) != 0 else {`
+- `graph_engine_btk_payload_rows`
+  - `/Users/jojo/Epistemos/Epistemos/Graph/GraphEngine.swift:667:            let written = graph_engine_btk_payload_rows(`
+- `graph_engine_kc_create`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:125:        guard let core = graph_engine_kc_create(slotCount, slotPayloadBytes, peerId) else {`
+- `graph_engine_kc_destroy`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:135:            graph_engine_kc_destroy(core)`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:155:        graph_engine_kc_destroy(core)`
+- `graph_engine_kc_ring_region`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:129:        let region = graph_engine_kc_ring_region(core)`
+- `graph_engine_kc_ring_layout`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:130:        let layout = graph_engine_kc_ring_layout(core)`
+- `graph_engine_kc_ring_head`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:320:        let head = graph_engine_kc_ring_head(core)`
+- `graph_engine_kc_ring_tail`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:321:        var tail = graph_engine_kc_ring_tail(core)`
+- `graph_engine_kc_ring_set_tail`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:352:        graph_engine_kc_ring_set_tail(core, tail)`
+- `graph_engine_kc_subscribe_outline`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:159:        let id = pageId.withCString { graph_engine_kc_subscribe_outline(core, $0) }`
+- `graph_engine_kc_subscribe_tasks`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:166:            id = pageId.withCString { graph_engine_kc_subscribe_tasks(core, $0) }`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:168:            id = graph_engine_kc_subscribe_tasks(core, nil)`
+- `graph_engine_kc_subscribe_properties`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:179:                    graph_engine_kc_subscribe_properties(core, pagePtr, keyPtr)`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:183:            id = pageId.withCString { graph_engine_kc_subscribe_properties(core, $0, nil) }`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:185:            id = key.withCString { graph_engine_kc_subscribe_properties(core, nil, $0) }`
+- `graph_engine_kc_unsubscribe`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:194:        finish(graph_engine_kc_unsubscribe(core, subscriptionId) != 0)`
+- `graph_engine_kc_ingest_document`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:201:                finish(graph_engine_kc_ingest_document(core, pagePtr, format.rawValue, textPtr) != 0)`
+- `graph_engine_kc_insert_block`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:219:                            finish(graph_engine_kc_insert_block(`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:229:                        return finish(graph_engine_kc_insert_block(`
+- `graph_engine_kc_move_block`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:254:                        finish(graph_engine_kc_move_block(`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:263:                    return finish(graph_engine_kc_move_block(core, pagePtr, blockPtr, nil, index) != 0)`
+- `graph_engine_kc_delete_block`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:273:                finish(graph_engine_kc_delete_block(core, pagePtr, blockPtr) != 0)`
+- `graph_engine_kc_last_error_code`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:565:        let rawCode = graph_engine_kc_last_error_code(core)`
+- `graph_engine_kc_last_error_message`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:567:        let message = decode(graph_engine_kc_last_error_message(core))`
+- `graph_engine_kc_backpressure_policy`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:283:        KnowledgeCoreBackpressurePolicy(rawValue: graph_engine_kc_backpressure_policy(core)) ?? .failFast`
+- `graph_engine_kc_transport_stats`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:287:        let stats = graph_engine_kc_transport_stats(core)`
+- `graph_engine_kc_payload_summary`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:384:        guard graph_engine_kc_payload_summary(slot.payload, slot.len, &summary) != 0,`
+- `graph_engine_kc_payload_row`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:427:            let written = graph_engine_kc_payload_rows(`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:459:            guard graph_engine_kc_payload_row(slot.payload, slot.len, section, index, &row) != 0,`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:769:            let written = graph_engine_kc_payload_rows(`
+- `graph_engine_kc_payload_rows`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:427:            let written = graph_engine_kc_payload_rows(`
+  - `/Users/jojo/Epistemos/Epistemos/Engine/KnowledgeCoreBridge.swift:769:            let written = graph_engine_kc_payload_rows(`
+
+## Notes
+- This scan reports symbols exported from `graph_engine.h` with no caller hits in Swift, tests, or the bridge layer.
+- Treat candidate unused exports as audit leads, not auto-delete proof.

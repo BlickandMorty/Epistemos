@@ -1,0 +1,3 @@
+    Checking graph-engine v0.1.0 (/Users/jojo/Epistemos/graph-engine)
+src/quadtree.rs:1484:22: error: useless use of `vec!`
+error: could not compile `graph-engine` (lib test) due to 1 previous error

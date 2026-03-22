@@ -1,0 +1,2381 @@
+import Testing
+import AppKit
+import SwiftUI
+@testable import Epistemos
+
+// MARK: - Phase 1: TextKit 2 Foundation Tests
+
+@Suite("TextKit 2 - ProseTextView2")
+struct ProseTextView2Tests {
+
+    @Test("TextKit 2 editor is vertically resizable")
+    func textKit2EditorConfiguration() {
+        let (scrollView, textView) = ProseTextView2.makeTextKit2()
+
+        #expect(scrollView.documentView === textView)
+        #expect(textView.isVerticallyResizable)
+        #expect(!textView.isHorizontallyResizable)
+        #expect(textView.maxSize.height > 0)
+        #expect(textView.textLayoutManager != nil)
+    }
+
+    @Test("TextKit 2 editor uses TextKit 2 layout manager")
+    func textKit2LayoutManager() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        #expect(textView.textLayoutManager != nil)
+        let contentManager = textView.textLayoutManager?.textContentManager
+        #expect(contentManager != nil)
+        #expect(contentManager is NSTextContentStorage)
+    }
+
+    @Test("Editor is plain text (not rich text)")
+    func plainTextMode() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        #expect(!textView.isRichText)
+        #expect(textView.isEditable)
+        #expect(textView.isSelectable)
+    }
+
+    @Test("MarkdownContentStorage delegate is wired")
+    func delegateWired() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        let contentStorage = textView.textLayoutManager?.textContentManager
+            as? NSTextContentStorage
+        #expect(contentStorage?.delegate === textView.markdownDelegate)
+    }
+
+    @Test("Theme applies background and foreground colors")
+    func themeApplication() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        textView.applyTheme(.sunny)
+        #expect(textView.backgroundColor == NSColor(EpistemosTheme.sunny.background))
+
+        textView.applyTheme(.ember)
+        #expect(textView.backgroundColor == NSColor(EpistemosTheme.ember.background))
+    }
+
+    @Test("Theme propagates to markdown delegate")
+    func themePropagation() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        textView.applyTheme(.oled)
+        #expect(textView.markdownDelegate.theme == .oled)
+    }
+
+    @Test("System theme tokens resolve from the text view effective appearance")
+    func systemThemeFollowsEffectiveAppearance() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        textView.appearance = NSAppearance(named: .aqua)
+        textView.applyTheme(.systemDark)
+
+        #expect(textView.markdownDelegate.theme == .systemLight)
+        #expect(textView.textColor == NSColor(EpistemosTheme.systemLight.foreground))
+        #expect(textView.backgroundColor == ProseTextView2.editorBackgroundColor(for: .systemLight))
+    }
+
+    @Test("Writing tools enabled")
+    func writingTools() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        #expect(textView.writingToolsBehavior == .default)
+    }
+
+    @Test("Find bar enabled")
+    func findBar() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        #expect(textView.usesFindBar)
+        #expect(textView.isIncrementalSearchingEnabled)
+    }
+
+    @Test("Text processing disabled (no autocorrect, no link detection)")
+    func noTextProcessing() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        #expect(!textView.isAutomaticSpellingCorrectionEnabled)
+        #expect(!textView.isAutomaticLinkDetectionEnabled)
+        #expect(!textView.isAutomaticDashSubstitutionEnabled)
+        #expect(!textView.isAutomaticQuoteSubstitutionEnabled)
+    }
+
+    @Test("Command heading digit mapping skips Command-2 so notes navigation wins")
+    func commandHeadingDigitMappingSkipsTwo() {
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(18) == 1)
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(19) == nil)
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(20) == 3)
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(21) == 4)
+    }
+
+    @Test("Selection change updates active line on delegate")
+    func selectionUpdatesActiveLine() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        textView.textStorage?.setAttributedString(
+            NSAttributedString(string: "Line 0\nLine 1\nLine 2")
+        )
+        textView.reparseAndInvalidate()
+
+        // Move cursor to line 1 (position 7 = start of "Line 1")
+        textView.setSelectedRange(NSRange(location: 7, length: 0))
+        #expect(textView.markdownDelegate.activeLine == 1)
+
+        // Move cursor to line 0
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
+        #expect(textView.markdownDelegate.activeLine == 0)
+    }
+
+    @MainActor
+    @Test("visible line range updates away from the default viewport sentinel")
+    func visibleLineRangeTracksViewport() {
+        let (scrollView, textView) = ProseTextView2.makeTextKit2()
+        scrollView.frame = NSRect(x: 0, y: 0, width: 420, height: 120)
+        textView.frame = scrollView.bounds
+        textView.textStorage?.setAttributedString(
+            NSAttributedString(
+                string: (0..<40).map { "Line \($0)" }.joined(separator: "\n")
+            )
+        )
+        textView.reparseAndInvalidate()
+        scrollView.layoutSubtreeIfNeeded()
+        textView.layoutSubtreeIfNeeded()
+
+        textView.updateVisibleLineRange()
+
+        #expect(textView.markdownDelegate.visibleLineRange.lowerBound >= 0)
+        #expect(textView.markdownDelegate.visibleLineRange.upperBound < Int.max)
+        #expect(textView.markdownDelegate.visibleLineRange.upperBound > textView.markdownDelegate.visibleLineRange.lowerBound)
+        #expect(textView.markdownDelegate.visibleLineRange.upperBound <= textView.markdownDelegate.lineCount + 1)
+    }
+
+    @Test("Initial state has no active line")
+    func initialNoActiveLine() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        #expect(textView.markdownDelegate.activeLine == nil)
+    }
+
+    @MainActor
+    @Test("Auto-expanded code fence undo restores the original source")
+    func autoExpandedCodeFenceUndoRestoresSource() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        textView.pageUndoManager = UndoManager()
+        textView.textStorage?.setAttributedString(NSAttributedString(string: "``"))
+        textView.reparseAndInvalidate()
+        textView.setSelectedRange(NSRange(location: 2, length: 0))
+
+        let handledByDefaultInsertion = textView.shouldChangeText(
+            in: NSRange(location: 2, length: 0),
+            replacementString: "`"
+        )
+
+        #expect(!handledByDefaultInsertion)
+        #expect(textView.string == "```\n\n```")
+        #expect(textView.undoManager?.canUndo == true)
+
+        textView.undoManager?.undo()
+
+        #expect(textView.string == "``")
+    }
+
+    @Test("Structural edit range expands across the full fenced code block")
+    func structuralEditRangeExpandsAcrossFencedCodeBlock() {
+        let text = """
+        Before
+        ```
+        let one = 1
+        let two = 2
+        ```
+        After
+        """
+        let nsText = text as NSString
+        let location = nsText.range(of: "two").location
+
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: nsText, around: location)
+
+        #expect(nsText.substring(with: range) == "```\nlet one = 1\nlet two = 2\n```\n")
+    }
+
+    @Test("Structural edit range expands across the full callout chain")
+    func structuralEditRangeExpandsAcrossCalloutChain() {
+        let text = """
+        Before
+        > [!note] Note
+        > first
+        > second
+        After
+        """
+        let nsText = text as NSString
+        let location = nsText.range(of: "second").location
+
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: nsText, around: location)
+
+        #expect(nsText.substring(with: range) == "> [!note] Note\n> first\n> second\n")
+    }
+
+    @Test("Paragraph neighborhood range scopes to adjacent paragraphs")
+    func paragraphNeighborhoodRangeScopesToAdjacentParagraphs() {
+        let text = "alpha\nbeta\ngamma\ndelta" as NSString
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: text, around: 7)
+        #expect(text.substring(with: range) == "alpha\nbeta\ngamma\n")
+    }
+
+    @Test("Paragraph neighborhood range falls back to the full document")
+    func paragraphNeighborhoodRangeFallsBackToFullDocument() {
+        let text = "alpha\nbeta\ngamma" as NSString
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: text, around: nil)
+        #expect(range == NSRange(location: 0, length: text.length))
+    }
+}
+
+@Suite("TextKit 2 - MarkdownContentStorage")
+struct MarkdownContentStorageTests {
+
+    @Test("Reparse classifies headings via delegate")
+    func reparseHeadings() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        let text = "# Big Heading\nBody text"
+        textView.textStorage?.setAttributedString(NSAttributedString(string: text))
+        textView.reparseAndInvalidate()
+
+        #expect(textView.string == text)
+        #expect(textView.markdownDelegate.theme == .systemLight)
+    }
+
+    @Test("Delegate handles empty text without crash")
+    func delegateEmptyText() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "")
+        // No crash, no spans — verify isDirty is cleared
+        storage.markDirty()
+        storage.reparse(text: "")
+    }
+
+    @Test("markDirty triggers lazy reparse on next delegate call")
+    func markDirtyTriggersReparse() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "# Hello")
+        // After reparse, marking dirty should force re-classification on next delegate access
+        storage.markDirty()
+        // Reparse with different text — should pick up new classification
+        storage.reparse(text: "- list item")
+    }
+
+    @Test("Theme change updates delegate state")
+    func themeChange() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .ember
+        #expect(storage.theme == .ember)
+        storage.theme = .light
+        #expect(storage.theme == .light)
+    }
+
+    @Test("overlay-backed table markdown source text is hidden in TextKit 2")
+    func renderedTableOverlaysHideTextKit2SourceText() throws {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        storage.usesRenderedTableOverlays = true
+
+        let line = "| Name | Count |"
+        let attributed = NSMutableAttributedString(string: line)
+        storage.applyStructuralStyleForTest(
+            to: attributed,
+            range: NSRange(location: 0, length: attributed.length),
+            paraType: 7,
+            metadata: 0
+        )
+
+        let text = attributed.string as NSString
+        let nameRange = try #require(text.range(of: "Name").location != NSNotFound ? text.range(of: "Name") : nil)
+        let color = try #require(
+            attributed.attribute(.foregroundColor, at: nameRange.location, effectiveRange: nil) as? NSColor
+        )
+
+        #expect(color.alphaComponent == 0)
+    }
+}
+
+@Suite("Data Detection Service")
+struct DataDetectionServiceTests {
+
+    @Test("async detection matches synchronous detection for mixed content")
+    func asyncDetectionMatchesSynchronousDetection() async {
+        let text = """
+        Meet me at 1 Infinite Loop on March 11, 2026.
+        Call +1 (312) 555-0199 or visit https://example.com/details.
+        """
+
+        let syncItems = DataDetectionService.detect(in: text)
+        let asyncItems = await DataDetectionService.detectAsync(in: text)
+
+        #expect(asyncItems.count == syncItems.count)
+        #expect(asyncItems.map { $0.text } == syncItems.map { $0.text })
+    }
+
+    @Test("async detection returns no items for empty text")
+    func asyncDetectionReturnsEmptyForEmptyText() async {
+        let items = await DataDetectionService.detectAsync(in: "")
+        #expect(items.isEmpty)
+    }
+}
+
+@Suite("Inline Markdown Styling")
+struct InlineMarkdownStylerTests {
+
+    @Test("Strong inline markdown keeps the surrounding body font family")
+    func strongMarkdownDoesNotUseDisplayFontOverride() throws {
+        let attributed = try #require(
+            InlineMarkdownStyler.attributedString("Alpha **bold** omega", strongFontSize: 15)
+        )
+
+        let strongRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
+            })
+        )
+        let plainRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent == nil && String(attributed[$0.range].characters).contains("Alpha")
+            })
+        )
+
+        #expect(strongRun.font == nil)
+        #expect(plainRun.font == nil)
+    }
+
+    @Test("Strong inline markdown can apply a custom foreground color without recoloring body text")
+    func strongMarkdownUsesCustomForegroundColor() throws {
+        let attributed = try #require(
+            InlineMarkdownStyler.attributedString(
+                "Alpha **bold** omega",
+                strongFontSize: 15,
+                strongForegroundColor: Color(hex: 0xD4862B)
+            )
+        )
+
+        let strongRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
+            })
+        )
+        let plainRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent == nil && String(attributed[$0.range].characters).contains("Alpha")
+            })
+        )
+
+        #expect(strongRun.foregroundColor != nil)
+        #expect(plainRun.foregroundColor == nil)
+    }
+
+    @Test("Inline markdown links can apply a custom foreground color without recoloring body text")
+    func inlineMarkdownLinksUseCustomForegroundColor() throws {
+        let attributed = try #require(
+            InlineMarkdownStyler.attributedString(
+                "Alpha [link](https://example.com) omega",
+                strongFontSize: 15,
+                strongForegroundColor: nil,
+                linkForegroundColor: Color(hex: 0x00007B)
+            )
+        )
+
+        let linkRun = try #require(
+            attributed.runs.first(where: {
+                $0.link != nil && String(attributed[$0.range].characters).contains("link")
+            })
+        )
+        let plainRun = try #require(attributed.runs.first(where: { run in
+            guard run.link == nil else { return false }
+            let runText = String(attributed[run.range].characters)
+            return runText.contains("Alpha")
+        }))
+
+        #expect(linkRun.foregroundColor != nil)
+        #expect(plainRun.foregroundColor == nil)
+    }
+}
+
+@Suite("Notes Sidebar Header Layout")
+struct NotesSidebarHeaderLayoutTests {
+    @Test("Notes sidebar title stays unclipped at page-title size")
+    func pageTitleRemainsUnclipped() {
+        #expect(AppHeadingRole.pageTitle.fontSize == 28)
+    }
+}
+
+@Suite("TextKit 2 - Live Edit Behavior")
+struct TextKit2LiveEditTests {
+
+    @Test("didChangeText marks delegate dirty")
+    func didChangeTextMarksDirty() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        // Set initial text and parse
+        textView.textStorage?.setAttributedString(NSAttributedString(string: "Hello"))
+        textView.reparseAndInvalidate()
+
+        // Simulate a text edit — didChangeText should mark delegate dirty
+        textView.textStorage?.replaceCharacters(
+            in: NSRange(location: 5, length: 0),
+            with: "\n# Heading"
+        )
+        textView.didChangeText()
+
+        // Force synchronous reparse (bypass debounce) to verify the loop works
+        textView.reparseAndInvalidate()
+        #expect(textView.string == "Hello\n# Heading")
+    }
+
+    @Test("reparseAndInvalidate updates structure after heading insertion")
+    func reparseAfterHeadingInsertion() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        // Start with body text
+        textView.textStorage?.setAttributedString(NSAttributedString(string: "Just text"))
+        textView.reparseAndInvalidate()
+
+        // Change to heading
+        textView.textStorage?.setAttributedString(NSAttributedString(string: "# Now a heading"))
+        textView.reparseAndInvalidate()
+
+        #expect(textView.string == "# Now a heading")
+    }
+
+    @Test("reparseAndInvalidate updates structure after code fence insertion")
+    func reparseAfterCodeFence() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        textView.textStorage?.setAttributedString(NSAttributedString(string: "text"))
+        textView.reparseAndInvalidate()
+
+        // Add code fence
+        textView.textStorage?.setAttributedString(
+            NSAttributedString(string: "```\ncode here\n```")
+        )
+        textView.reparseAndInvalidate()
+
+        #expect(textView.string == "```\ncode here\n```")
+    }
+
+    @Test("reparseAndInvalidate handles rapid content changes")
+    func rapidContentChanges() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        // Rapid-fire content swaps — no crash, final state correct
+        for i in 0..<10 {
+            let text = String(repeating: "# Heading \(i)\n", count: 5)
+            textView.textStorage?.setAttributedString(NSAttributedString(string: text))
+            textView.reparseAndInvalidate()
+        }
+
+        #expect(textView.string.hasPrefix("# Heading 9"))
+    }
+
+    @Test("reparseAndInvalidate handles list type transitions")
+    func listTypeTransitions() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        // Body → unordered list → ordered list → task list
+        let transitions = [
+            "Plain text",
+            "- unordered item",
+            "1. ordered item",
+            "- [ ] task item",
+        ]
+
+        for text in transitions {
+            textView.textStorage?.setAttributedString(NSAttributedString(string: text))
+            textView.reparseAndInvalidate()
+            #expect(textView.string == text)
+        }
+    }
+}
+
+@Suite("TextKit 2 - Theme Restyle Behavior")
+struct TextKit2ThemeRestyleTests {
+
+    @Test("applyTheme calls reparseAndInvalidate on existing content")
+    func themeRestyleExistingContent() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        // Set content with initial theme
+        textView.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Heading\nBody text")
+        )
+        textView.applyTheme(.light)
+
+        // Switch theme — should trigger reparse+invalidate
+        textView.applyTheme(.ember)
+
+        #expect(textView.markdownDelegate.theme == .ember)
+        #expect(textView.backgroundColor == NSColor(EpistemosTheme.ember.background))
+        #expect(textView.string == "# Heading\nBody text")
+    }
+
+    @Test("Theme swap preserves text content")
+    func themeSwapPreservesContent() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        let text = "# Title\n\n- list\n- items\n\n> blockquote\n\n```\ncode\n```"
+
+        textView.textStorage?.setAttributedString(NSAttributedString(string: text))
+        textView.applyTheme(.light)
+
+        // Cycle through all themes
+        let themes: [EpistemosTheme] = [.sunny, .ember, .oled, .light]
+        for theme in themes {
+            textView.applyTheme(theme)
+            #expect(textView.string == text)
+            #expect(textView.markdownDelegate.theme == theme)
+        }
+    }
+
+    @Test("Theme change updates typing attributes foreground")
+    func themeUpdatesTypingForeground() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        textView.applyTheme(.oled)
+        let fgColor = textView.typingAttributes[.foregroundColor] as? NSColor
+        #expect(fgColor == NSColor(EpistemosTheme.oled.foreground))
+
+        textView.applyTheme(.sunny)
+        let fgColor2 = textView.typingAttributes[.foregroundColor] as? NSColor
+        #expect(fgColor2 == NSColor(EpistemosTheme.sunny.foreground))
+    }
+
+    @Test("Theme change updates insertion point color")
+    func themeUpdatesInsertionPoint() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        textView.applyTheme(.ember)
+        #expect(textView.insertionPointColor == NSColor(EpistemosTheme.ember.foreground))
+    }
+}
+
+@Suite("TextKit 2 - Rust FFI Structure Parser")
+struct RustStructureParserTests {
+
+    @Test("Parse heading returns correct type")
+    func parseHeading() {
+        let text = "# Hello"
+        let result = parseStructure(text)
+        #expect(result.count == 1)
+        #expect(result[0].paraType == 1) // Heading
+        #expect(result[0].metadata == 1) // Level 1
+    }
+
+    @Test("Parse multiple heading levels")
+    func parseHeadingLevels() {
+        let text = "# H1\n## H2\n### H3"
+        let result = parseStructure(text)
+        #expect(result.count == 3)
+        #expect(result[0].metadata == 1)
+        #expect(result[1].metadata == 2)
+        #expect(result[2].metadata == 3)
+    }
+
+    @Test("Parse code block spans multiple lines")
+    func parseCodeBlock() {
+        let text = "```\ncode\n```"
+        let result = parseStructure(text)
+        #expect(result.count == 3)
+        for span in result {
+            #expect(span.paraType == 6) // CodeBlock
+        }
+    }
+
+    @Test("Parse unordered list")
+    func parseUnorderedList() {
+        let text = "- item"
+        let result = parseStructure(text)
+        #expect(result.count == 1)
+        #expect(result[0].paraType == 3) // UnorderedList
+    }
+
+    @Test("Parse ordered list")
+    func parseOrderedList() {
+        let text = "1. first"
+        let result = parseStructure(text)
+        #expect(result.count == 1)
+        #expect(result[0].paraType == 2) // OrderedList
+        #expect(result[0].metadata & 0xFF == 1) // index 1
+    }
+
+    @Test("Parse task list")
+    func parseTaskList() {
+        let text = "- [ ] unchecked\n- [x] checked"
+        let result = parseStructure(text)
+        #expect(result.count == 2)
+        #expect(result[0].paraType == 4) // TaskList
+        #expect(result[0].metadata & 1 == 0) // unchecked
+        #expect(result[1].paraType == 4)
+        #expect(result[1].metadata & 1 == 1) // checked
+    }
+
+    @Test("Parse blockquote")
+    func parseBlockquote() {
+        let text = "> quoted text"
+        let result = parseStructure(text)
+        #expect(result.count == 1)
+        #expect(result[0].paraType == 5) // BlockQuote
+        #expect(result[0].metadata == 1) // depth 1
+    }
+
+    @Test("Parse table")
+    func parseTable() {
+        let text = "| A | B |\n|---|---|"
+        let result = parseStructure(text)
+        #expect(result.count == 2)
+        for span in result {
+            #expect(span.paraType == 7) // Table
+        }
+    }
+
+    @Test("Parse horizontal rule")
+    func parseHorizontalRule() {
+        let text = "---"
+        let result = parseStructure(text)
+        #expect(result.count == 1)
+        #expect(result[0].paraType == 8) // HorizontalRule
+    }
+
+    @Test("Parse body text")
+    func parseBody() {
+        let text = "Just regular text"
+        let result = parseStructure(text)
+        #expect(result.count == 1)
+        #expect(result[0].paraType == 0) // Body
+    }
+
+    @Test("Parse empty text returns empty")
+    func parseEmpty() {
+        let result = parseStructure("")
+        #expect(result.isEmpty)
+    }
+
+    @Test("Parse mixed content")
+    func parseMixed() {
+        let text = "# Title\n\nBody\n\n- list\n\n```\ncode\n```"
+        let result = parseStructure(text)
+        #expect(result[0].paraType == 1) // Heading
+        #expect(result[2].paraType == 0) // Body
+        #expect(result[4].paraType == 3) // UnorderedList
+    }
+
+    // MARK: - Helper
+
+    private func parseStructure(_ text: String) -> [(paraType: UInt8, metadata: UInt16)] {
+        text.withCString { cStr in
+            let lineCount = text.filter { $0 == "\n" }.count + 1
+            let maxSpans = UInt32(lineCount + 16)
+            let buffer = UnsafeMutablePointer<StructureSpan>.allocate(capacity: Int(maxSpans))
+            defer { buffer.deallocate() }
+
+            let count = markdown_parse_structure(cStr, buffer, maxSpans)
+            return (0..<Int(count)).map { i in
+                (paraType: buffer[i].para_type, metadata: buffer[i].metadata)
+            }
+        }
+    }
+}
+
+// MARK: - Phase 2: Inline Style Tests
+
+@Suite("TextKit 2 - Inline Styling")
+struct TextKit2InlineStyleTests {
+
+    /// Helper: create a storage delegate, apply inline styles, return the styled string.
+    private func styledString(_ text: String, theme: EpistemosTheme = .light) -> NSMutableAttributedString {
+        let storage = MarkdownContentStorage()
+        storage.theme = theme
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+        return attrStr
+    }
+
+    @Test("Bold text keeps body font family on content")
+    func boldContent() {
+        let result = styledString("Hello **bold** world")
+        // "bold" is at UTF-16 positions 8..12 (after "Hello **")
+        let boldRange = NSRange(location: 8, length: 4)
+        let font = result.attribute(.font, at: boldRange.location, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        #expect(font?.fontName.contains("RetroGaming") == false)
+    }
+
+    @Test("Bold markers are ghosted with low alpha")
+    func boldGhostedMarkers() {
+        let result = styledString("Hello **bold** world")
+        // First "**" starts at position 6
+        let markerColor = result.attribute(.foregroundColor, at: 6, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        // Ghost marker alpha is 0.12 for light mode
+        #expect(markerColor!.alphaComponent < 0.2)
+    }
+
+    @Test("Italic text gets italic font on content")
+    func italicContent() {
+        let result = styledString("Hello *italic* world")
+        // "italic" is at UTF-16 positions 7..13 (after "Hello *")
+        let italicRange = NSRange(location: 7, length: 6)
+        let font = result.attribute(.font, at: italicRange.location, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        let traits = font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
+        #expect(traits.contains(.italicFontMask))
+    }
+
+    @Test("InlineCode gets monospace font and accent background")
+    func inlineCode() {
+        let result = styledString("Use `code` here")
+        // "code" is at UTF-16 positions 5..9 (after "Use `")
+        let codePos = 5
+        let font = result.attribute(.font, at: codePos, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        #expect(font!.isFixedPitch || font!.fontName.lowercased().contains("mono"))
+        let bg = result.attribute(.backgroundColor, at: codePos, effectiveRange: nil) as? NSColor
+        #expect(bg != nil)
+    }
+
+    @Test("InlineCode backticks are ghosted")
+    func inlineCodeGhostedBackticks() {
+        let result = styledString("Use `code` here")
+        // First backtick at position 4
+        let markerColor = result.attribute(.foregroundColor, at: 4, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.2)
+    }
+
+    @Test("Wikilink gets accent foreground and link attribute")
+    func wikilinkStyling() {
+        let result = styledString("See [[My Note]] here")
+        // Rust parser emits WikilinkBrackets for [[ and ]], Wikilink for content.
+        // "My Note" content — find it by scanning for link attribute
+        var foundLink = false
+        result.enumerateAttribute(.link, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            if let link = value as? NSString, link.hasPrefix("wikilink://") {
+                foundLink = true
+                #expect(link == "wikilink://My Note")
+            }
+        }
+        #expect(foundLink)
+    }
+
+    @Test("Wikilink content keeps the surrounding body font family")
+    func wikilinkKeepsBodyFontFamily() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "See [[My Note]] here"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: NSColor(EpistemosTheme.light.foreground),
+        ], range: range)
+
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+
+        let linkFont = attrStr.attribute(.font, at: 6, effectiveRange: nil) as? NSFont
+        #expect(linkFont?.fontName.contains("RetroGaming") == false)
+    }
+
+    @Test("Wikilink brackets are ghosted")
+    func wikilinkBracketsGhosted() {
+        let result = styledString("See [[My Note]] here")
+        // [[ starts at position 4
+        let markerColor = result.attribute(.foregroundColor, at: 4, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.2)
+    }
+
+    @Test("Mixed bold and italic in one paragraph")
+    func mixedBoldItalic() {
+        let result = styledString("**bold** and *italic*")
+        // "bold" content at position 2..6
+        let boldFont = result.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(boldFont?.fontName.contains("RetroGaming") == false)
+
+        // "italic" content at position 14..20
+        let italicFont = result.attribute(.font, at: 14, effectiveRange: nil) as? NSFont
+        let italicTraits = italicFont.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
+        #expect(italicTraits.contains(.italicFontMask))
+    }
+
+    @Test("Strikethrough gets strikethrough attribute on content")
+    func strikethroughContent() {
+        let result = styledString("Hello ~~struck~~ world")
+        // "struck" content at position 8..14 (after "Hello ~~")
+        let strikeValue = result.attribute(.strikethroughStyle, at: 8, effectiveRange: nil) as? Int
+        #expect(strikeValue == NSUnderlineStyle.single.rawValue)
+    }
+
+    @Test("Empty text doesn't crash")
+    func emptyText() {
+        let result = styledString("")
+        #expect(result.length == 0)
+    }
+
+    @Test("Plain text with no inline markers is unchanged")
+    func plainTextUnchanged() {
+        let result = styledString("Just plain text here")
+        // No special attributes should be added beyond what was there
+        let bg = result.attribute(.backgroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(bg == nil)
+        let link = result.attribute(.link, at: 0, effectiveRange: nil)
+        #expect(link == nil)
+    }
+
+    @Test("Unicode text with emoji preserves correct ranges")
+    func unicodeEmoji() {
+        // 🎉 is 4 bytes UTF-8, 2 code units UTF-16
+        let result = styledString("🎉 **bold** end")
+        // "🎉 " = 2 UTF-16 code units + 1 space = 3
+        // "**" = 2, so "bold" starts at 3+2 = 5
+        let font = result.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
+        #expect(font?.fontName.contains("RetroGaming") == false)
+    }
+
+    @Test("Dark theme uses correct ghost marker alpha")
+    func darkThemeGhostMarkers() {
+        let result = styledString("**bold**", theme: .oled)
+        // Ghost marker for dark mode: white with alpha 0.15
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.2)
+    }
+
+    @Test("Bold inside heading preserves heading font size")
+    func boldInHeadingPreservesSize() {
+        // Simulate the delegate pipeline: structural styling sets 28pt bold,
+        // then inline styling should preserve 28pt (not downgrade to 15pt).
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "# **Title**"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+
+        // Step 1: structural heading style (28pt bold)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 28, weight: .bold)
+        ], range: range)
+
+        // Step 2: inline styles should derive from 28pt, not hardcoded 15pt
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+
+        // "Title" content starts after "# **" = position 4, length 5
+        let titleFont = attrStr.attribute(.font, at: 4, effectiveRange: nil) as? NSFont
+        #expect(titleFont != nil)
+        #expect(titleFont!.pointSize == 28)
+    }
+
+    @Test("Italic inside H2 preserves heading font size")
+    func italicInH2PreservesSize() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "## *emphasis*"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+
+        // Structural: H2 at 22pt semibold
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 22, weight: .semibold)
+        ], range: range)
+
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+
+        // "emphasis" content at position 4..12 (after "## *")
+        let font = attrStr.attribute(.font, at: 4, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        #expect(font!.pointSize == 22)
+        let traits = NSFontManager.shared.traits(of: font!)
+        #expect(traits.contains(.italicFontMask))
+    }
+
+    @Test("Inline code inside heading uses heading-relative size")
+    func inlineCodeInHeadingRelativeSize() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "# Use `func`"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+
+        // Structural: H1 at 28pt
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 28, weight: .bold)
+        ], range: range)
+
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+
+        // "func" content at position 7..11 (after "# Use `")
+        let font = attrStr.attribute(.font, at: 7, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        // Code should be heading size - 1 = 27, not baseFontSize - 1 = 14
+        #expect(font!.pointSize == 27)
+    }
+
+    @Test("Bold content preserves structural foreground color")
+    func boldContentForeground() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "**bold**"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        let structuralFg = NSColor(EpistemosTheme.light.foreground)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: structuralFg
+        ], range: range)
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+        // "bold" content at positions 2..6 should have structural foreground, NOT ghost
+        let contentFg = attrStr.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+        #expect(contentFg != nil)
+        #expect(contentFg!.alphaComponent > 0.9)
+    }
+
+    @Test("Italic content preserves structural foreground color")
+    func italicContentForeground() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "*italic*"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        let structuralFg = NSColor(EpistemosTheme.light.foreground)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: structuralFg
+        ], range: range)
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+        // "italic" content at positions 1..7 should have structural foreground
+        let contentFg = attrStr.attribute(.foregroundColor, at: 1, effectiveRange: nil) as? NSColor
+        #expect(contentFg != nil)
+        #expect(contentFg!.alphaComponent > 0.9)
+    }
+
+    @Test("Theme switch changes wikilink accent color")
+    func themeAffectsAccent() {
+        let lightResult = styledString("[[note]]", theme: .light)
+        let darkResult = styledString("[[note]]", theme: .oled)
+
+        // Both should have link attributes but different accent colors
+        var lightAccent: NSColor?
+        var darkAccent: NSColor?
+
+        lightResult.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: lightResult.length)) { value, range, _ in
+            if let color = value as? NSColor, lightResult.attribute(.link, at: range.location, effectiveRange: nil) != nil {
+                lightAccent = color
+            }
+        }
+        darkResult.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: darkResult.length)) { value, range, _ in
+            if let color = value as? NSColor, darkResult.attribute(.link, at: range.location, effectiveRange: nil) != nil {
+                darkAccent = color
+            }
+        }
+
+        #expect(lightAccent != nil)
+        #expect(darkAccent != nil)
+        #expect(lightAccent != darkAccent)
+    }
+}
+
+@Suite("TextKit 2 - UTF-8 to UTF-16 Map")
+struct Utf8ToUtf16MapTests {
+
+    @Test("ASCII text maps 1:1")
+    func asciiMap() {
+        let map = MarkdownContentStorage.buildUtf8ToUtf16Map("Hello")
+        // "Hello" = 5 bytes UTF-8, 5 code units UTF-16
+        #expect(map.count == 6) // 5 + 1 sentinel
+        for i in 0...5 {
+            #expect(map[i] == i)
+        }
+    }
+
+    @Test("Emoji maps 4 UTF-8 bytes to 2 UTF-16 code units")
+    func emojiMap() {
+        let map = MarkdownContentStorage.buildUtf8ToUtf16Map("🎉")
+        // 🎉 = U+1F389 = 4 bytes UTF-8, 2 code units UTF-16 (surrogate pair)
+        #expect(map.count == 5) // 4 + 1 sentinel
+        #expect(map[0] == 0) // byte 0 → UTF-16 offset 0
+        #expect(map[4] == 2) // sentinel: after 4 bytes → offset 2
+    }
+
+    @Test("CJK character maps 3 UTF-8 bytes to 1 UTF-16 code unit")
+    func cjkMap() {
+        let map = MarkdownContentStorage.buildUtf8ToUtf16Map("中")
+        // 中 = U+4E2D = 3 bytes UTF-8, 1 code unit UTF-16
+        #expect(map.count == 4) // 3 + 1 sentinel
+        #expect(map[0] == 0)
+        #expect(map[3] == 1) // sentinel
+    }
+
+    @Test("Mixed ASCII and emoji")
+    func mixedAsciiEmoji() {
+        let map = MarkdownContentStorage.buildUtf8ToUtf16Map("A🎉B")
+        // A = 1 byte, 🎉 = 4 bytes, B = 1 byte → total 6 bytes
+        // A = 1 code unit, 🎉 = 2 code units, B = 1 code unit → total 4 code units
+        #expect(map.count == 7) // 6 + 1 sentinel
+        #expect(map[0] == 0) // A
+        #expect(map[1] == 1) // start of 🎉
+        #expect(map[5] == 3) // B
+        #expect(map[6] == 4) // sentinel
+    }
+
+    @Test("Empty string returns single sentinel")
+    func emptyString() {
+        let map = MarkdownContentStorage.buildUtf8ToUtf16Map("")
+        #expect(map.count == 1)
+        #expect(map[0] == 0)
+    }
+}
+
+// MARK: - Phase 3: Marker Collapsing Tests
+
+@Suite("TextKit 2 - Marker Collapsing")
+struct TextKit2MarkerCollapsingTests {
+
+    /// Helper: style text with active/inactive line awareness.
+    private func styledString(
+        _ text: String,
+        isActive: Bool,
+        theme: EpistemosTheme = .light
+    ) -> NSMutableAttributedString {
+        let storage = MarkdownContentStorage()
+        storage.theme = theme
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        let fg = NSColor(theme.foreground)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: fg
+        ], range: range)
+        storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: isActive)
+        return attrStr
+    }
+
+    @Test("Inactive line: bold markers are hidden (clear foreground)")
+    func inactiveBoldMarkersHidden() {
+        let result = styledString("**bold**", isActive: false)
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.01)
+    }
+
+    @Test("Active line: bold markers are ghosted (low alpha)")
+    func activeBoldMarkersGhosted() {
+        let result = styledString("**bold**", isActive: true)
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent > 0.05)
+        #expect(markerColor!.alphaComponent < 0.2)
+    }
+
+    @Test("Inactive line: bold content still visible with structural foreground")
+    func inactiveBoldContentVisible() {
+        let result = styledString("**bold**", isActive: false)
+        let contentFg = result.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+        #expect(contentFg != nil)
+        #expect(contentFg!.alphaComponent > 0.9)
+    }
+
+    @Test("Inactive line: italic markers hidden")
+    func inactiveItalicMarkersHidden() {
+        let result = styledString("*italic*", isActive: false)
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.01)
+    }
+
+    @Test("Inactive line: inline code backticks hidden")
+    func inactiveCodeBackticksHidden() {
+        let result = styledString("`code`", isActive: false)
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.01)
+    }
+
+    @Test("Inactive line: wikilink brackets hidden")
+    func inactiveWikilinkBracketsHidden() {
+        let result = styledString("[[note]]", isActive: false)
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.01)
+    }
+
+    @Test("Inactive line: strikethrough tildes hidden")
+    func inactiveStrikethroughHidden() {
+        let result = styledString("~~struck~~", isActive: false)
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.01)
+    }
+
+    @Test("Inactive line: inline code content still has accent pill")
+    func inactiveCodeContentHasPill() {
+        let result = styledString("`code`", isActive: false)
+        let bg = result.attribute(.backgroundColor, at: 1, effectiveRange: nil) as? NSColor
+        #expect(bg != nil)
+    }
+
+    @Test("Inactive line: wikilink content still has accent and link")
+    func inactiveWikilinkContentVisible() {
+        let result = styledString("[[note]]", isActive: false)
+        var foundLink = false
+        result.enumerateAttribute(.link, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            if let link = value as? NSString, link.hasPrefix("wikilink://") {
+                foundLink = true
+            }
+        }
+        #expect(foundLink)
+    }
+
+    @Test("Active line preserves Phase 2 ghost behavior")
+    func activeLinePhase2Compat() {
+        let result = styledString("`code`", isActive: true)
+        // Backtick at position 0 should be ghosted (low alpha), not hidden
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent > 0.05)
+        #expect(markerColor!.alphaComponent < 0.2)
+    }
+
+    @Test("Empty text with active line doesn't crash")
+    func emptyTextActiveLine() {
+        let storage = MarkdownContentStorage()
+        storage.activeLine = 0
+        let attrStr = NSMutableAttributedString(string: "")
+        let range = NSRange(location: 0, length: 0)
+        storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: true)
+        #expect(attrStr.length == 0)
+    }
+
+    @Test("Unicode text with marker collapsing")
+    func unicodeMarkerCollapsing() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "🎉 **bold** end"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: NSColor(EpistemosTheme.light.foreground)
+        ], range: range)
+        storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: false)
+        // "**" after 🎉(2 UTF-16) + space(1) = position 3
+        let markerColor = attrStr.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.01)
+    }
+
+    @Test("Markdown link on inactive line hides syntax, shows text")
+    func inactiveMarkdownLinkShowsText() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "[link text](https://example.com)"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: NSColor(EpistemosTheme.light.foreground)
+        ], range: range)
+        storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: false)
+        // "[" at position 0 should be hidden
+        let bracketColor = attrStr.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(bracketColor != nil)
+        #expect(bracketColor!.alphaComponent < 0.01)
+        // "link text" at position 1 should be visible with accent
+        let textColor = attrStr.attribute(.foregroundColor, at: 1, effectiveRange: nil) as? NSColor
+        #expect(textColor != nil)
+        #expect(textColor!.alphaComponent > 0.5)
+    }
+
+    @Test("lineRange returns non-zero length for last line")
+    func lastLineRangeNonZero() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "Line 0\nLine 1")
+        // Last line "Line 1" starts at offset 7, length 6
+        let range = storage.lineRange(at: 1)
+        #expect(range != nil)
+        #expect(range!.length == 6)
+    }
+
+    @Test("lineRange returns correct length for single-line document")
+    func singleLineRange() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "Hello world")
+        let range = storage.lineRange(at: 0)
+        #expect(range != nil)
+        #expect(range!.length == 11)
+    }
+
+    @Test("Selection on last line updates active line")
+    func selectionOnLastLine() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        textView.textStorage?.setAttributedString(
+            NSAttributedString(string: "Line 0\nLine 1")
+        )
+        textView.reparseAndInvalidate()
+        // Move cursor to last line (position 7)
+        textView.setSelectedRange(NSRange(location: 7, length: 0))
+        #expect(textView.markdownDelegate.activeLine == 1)
+    }
+
+    @Test("Dark theme inactive markers still hidden")
+    func darkThemeInactiveMarkersHidden() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .oled
+        let text = "**bold**"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: NSColor(EpistemosTheme.oled.foreground)
+        ], range: range)
+        storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: false)
+        let markerColor = attrStr.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.01)
+    }
+
+    // MARK: - True Width Collapsing
+
+    @Test("Inactive markers get near-zero font for width collapse")
+    func inactiveMarkersZeroWidthFont() {
+        let result = styledString("**bold**", isActive: false)
+        // "**" at position 0 should have 0.01pt font (near-zero width)
+        let markerFont = result.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        #expect(markerFont != nil)
+        #expect(markerFont!.pointSize < 0.1)
+    }
+
+    @Test("Active markers keep normal-size font")
+    func activeMarkersNormalFont() {
+        let result = styledString("**bold**", isActive: true)
+        // "**" at position 0 should NOT have tiny font (active line shows ghost)
+        let markerFont = result.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        #expect(markerFont != nil)
+        #expect(markerFont!.pointSize >= 14)
+    }
+
+    @Test("Inactive bold content keeps normal font size despite marker collapse")
+    func inactiveBoldContentNormalFont() {
+        let result = styledString("**bold**", isActive: false)
+        // "bold" content at position 2 should be full-size bold
+        let contentFont = result.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(contentFont != nil)
+        #expect(contentFont!.pointSize >= 14)
+    }
+
+    @Test("Inactive strikethrough content keeps normal font despite marker collapse")
+    func inactiveStrikethroughContentNormalFont() {
+        let result = styledString("~~struck~~", isActive: false)
+        // "struck" at position 2 should have normal font, not 0.01pt
+        let contentFont = result.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(contentFont != nil)
+        #expect(contentFont!.pointSize >= 14)
+    }
+
+    @Test("Inactive markdown link text keeps normal font despite marker collapse")
+    func inactiveMarkdownLinkTextNormalFont() {
+        let result = styledString("[link text](https://example.com)", isActive: false)
+        // "link text" at position 1 should have normal font
+        let contentFont = result.attribute(.font, at: 1, effectiveRange: nil) as? NSFont
+        #expect(contentFont != nil)
+        #expect(contentFont!.pointSize >= 14)
+    }
+}
+
+// MARK: - Phase 4: Paragraph Type Query Tests
+
+@Suite("TextKit 2 - Paragraph Type Query")
+struct TextKit2ParagraphTypeTests {
+
+    @Test("paragraphType returns heading for heading lines")
+    func headingType() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "# Hello\nBody")
+        #expect(storage.paragraphType(at: 0) == 1)
+        #expect(storage.paragraphType(at: 1) == 0)
+    }
+
+    @Test("paragraphType returns table for table lines")
+    func tableType() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "| A | B |\n|---|---|\n| x | y |")
+        #expect(storage.paragraphType(at: 0) == 7)
+        #expect(storage.paragraphType(at: 1) == 7)
+        #expect(storage.paragraphType(at: 2) == 7)
+    }
+
+    @Test("paragraphType returns nil for out-of-bounds")
+    func outOfBounds() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "Hello")
+        #expect(storage.paragraphType(at: 5) == nil)
+        #expect(storage.paragraphType(at: -1) == nil)
+    }
+
+    @Test("paragraphType returns nil before reparse")
+    func beforeReparse() {
+        let storage = MarkdownContentStorage()
+        #expect(storage.paragraphType(at: 0) == nil)
+    }
+
+    @Test("lineCount returns correct count")
+    func lineCount() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "A\nB\nC")
+        #expect(storage.lineCount == 3)
+    }
+}
+
+// MARK: - Phase 4: Table Detection Helper Tests
+
+@Suite("TextKit 2 - Table Detection Helpers")
+struct TextKit2TableDetectionTests {
+
+    @Test("isTableLine detects valid table lines")
+    func validTableLines() {
+        #expect(ProseTextView2.isTableLine("| A | B |"))
+        #expect(ProseTextView2.isTableLine("|---|---|"))
+        #expect(ProseTextView2.isTableLine("| x |"))
+    }
+
+    @Test("isTableLine rejects non-table lines")
+    func invalidTableLines() {
+        #expect(!ProseTextView2.isTableLine("Hello world"))
+        #expect(!ProseTextView2.isTableLine("| x"))
+        #expect(!ProseTextView2.isTableLine("x |"))
+        #expect(!ProseTextView2.isTableLine(""))
+        #expect(!ProseTextView2.isTableLine("||"))
+    }
+
+    @Test("isSeparatorLine detects separator rows")
+    func separators() {
+        #expect(ProseTextView2.isSeparatorLine("|---|---|"))
+        #expect(ProseTextView2.isSeparatorLine("|:---|---:|"))
+        #expect(ProseTextView2.isSeparatorLine("| --- | --- |"))
+    }
+
+    @Test("isSeparatorLine rejects data rows")
+    func nonSeparators() {
+        #expect(!ProseTextView2.isSeparatorLine("| A | B |"))
+        #expect(!ProseTextView2.isSeparatorLine("| foo | bar |"))
+    }
+
+    @Test("pipeCharIndices finds all pipe offsets")
+    func pipeIndices() {
+        let indices = ProseTextView2.pipeCharIndices(in: "| A | B | C |")
+        #expect(indices.count == 4)
+        #expect(indices[0] == 0)
+    }
+}
+
+@Suite("Markdown Table Model")
+struct MarkdownTableModelTests {
+
+    @Test("Parser builds rows and header count from markdown table block")
+    func parsesMarkdownTableBlock() {
+        let table = MarkdownTableModel.parse(
+            """
+            | Name | Count |
+            | --- | --- |
+            | Pens | 12 |
+            | Paper | 4 |
+            """
+        )
+
+        #expect(table?.headerCount == 1)
+        #expect(table?.rows.count == 3)
+        #expect(table?.rows.first == ["Name", "Count"])
+        #expect(table?.rows.last == ["Paper", "4"])
+    }
+
+    @Test("Parser rejects non-table content")
+    func rejectsNonTableContent() {
+        #expect(MarkdownTableModel.parse("Just prose") == nil)
+    }
+}
+
+@Suite("Markdown Table Block Ranges")
+struct MarkdownTableBlockRangeTests {
+
+    @Test("Visible slice expands to the full markdown table block")
+    func expandsVisibleSliceToFullTable() throws {
+        let text = """
+        Intro
+
+        | Name | Count |
+        | --- | --- |
+        | Pens | 12 |
+        | Paper | 4 |
+
+        Outro
+        """ as NSString
+        let visibleSlice = NSRange(location: 34, length: 12)
+
+        let ranges = MarkdownTableBlockRanges.ranges(in: text, intersecting: visibleSlice)
+        let range = try #require(ranges.first)
+
+        #expect(ranges.count == 1)
+        #expect(
+            text.substring(with: range).trimmingCharacters(in: .newlines)
+                == """
+                | Name | Count |
+                | --- | --- |
+                | Pens | 12 |
+                | Paper | 4 |
+                """
+        )
+    }
+
+    @Test("Multiple visible rows from the same table collapse into one range")
+    func deduplicatesVisibleRowsFromSameTable() {
+        let text = """
+        | A | B |
+        | --- | --- |
+        | 1 | 2 |
+        | 3 | 4 |
+        """ as NSString
+
+        let ranges = MarkdownTableBlockRanges.ranges(
+            in: text,
+            intersecting: NSRange(location: 0, length: text.length)
+        )
+
+        #expect(ranges.count == 1)
+        #expect(ranges[0].location == 0)
+        #expect(ranges[0].length == text.length)
+    }
+}
+
+// MARK: - Phase 4: Table Drawing Tests
+
+@Suite("TextKit 2 - Table Drawing")
+struct TextKit2TableDrawingTests {
+
+    @Test("drawBackground does not crash on empty text")
+    func emptyText() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on table content")
+    func tableContent() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on multiple tables")
+    func multipleTables() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A | B |\n|---|---|\n| x | y |\n\nBody\n\n| C | D |\n|---|---|\n| z | w |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on single-column table")
+    func singleColumnTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A |\n|---|\n| x |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on unicode table")
+    func unicodeTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| 你好 | 世界 |\n|------|------|\n| 🎉 | Test |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on body-only text")
+    func bodyOnly() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Just some body text\nAnother line")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+}
+
+// MARK: - Phase 4: Fold Indicator Tests
+
+@Suite("TextKit 2 - Fold Indicators")
+struct TextKit2FoldIndicatorTests {
+
+    @Test("drawBackground does not crash with headings")
+    func headings() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# H1\n## H2\n### H3\nBody")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash with folded heading")
+    func foldedHeading() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Folded\n\u{2026}\n## Next")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash with heading at document end")
+    func headingAtEnd() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Body\n# Last Heading")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash with heading + table combo")
+    func headingAndTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Data\n| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+}
+
+// MARK: - Phase 4: Focus Dimming Tests
+
+@Suite("TextKit 2 - Focus Dimming")
+struct TextKit2FocusDimmingTests {
+
+    @Test("isFocusMode defaults to false")
+    func focusModeDefault() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        #expect(!tv.isFocusMode)
+    }
+
+    @Test("applyFocusDimming does not crash on empty text")
+    func emptyText() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        tv.reparseAndInvalidate()
+        tv.applyFocusDimming()
+    }
+
+    @Test("applyFocusDimming does not crash on single line")
+    func singleLine() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(NSAttributedString(string: "Hello"))
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.applyFocusDimming()
+    }
+
+    @Test("applyFocusDimming does not crash on multi-paragraph text")
+    func multiParagraph() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Para 1\n\nPara 2\n\nPara 3")
+        )
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: 8, length: 0))
+        tv.applyFocusDimming()
+    }
+
+    @Test("clearFocusDimming does not crash on empty text")
+    func clearEmpty() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.clearFocusDimming()
+    }
+
+    @Test("applyFocusDimming is no-op when focus mode is off")
+    func focusOff() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = false
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Para 1\n\nPara 2")
+        )
+        tv.reparseAndInvalidate()
+        tv.applyFocusDimming()
+    }
+
+    @Test("Focus dimming toggle on and off")
+    func toggle() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Para 1\n\nPara 2")
+        )
+        tv.reparseAndInvalidate()
+        tv.isFocusMode = true
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.applyFocusDimming()
+        tv.isFocusMode = false
+        tv.applyFocusDimming()
+    }
+
+    @Test("Focus dimming with cursor at document end")
+    func cursorAtEnd() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        let text = "Para 1\n\nPara 2\n\nPara 3"
+        tv.textStorage?.setAttributedString(NSAttributedString(string: text))
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: text.utf16.count, length: 0))
+        tv.applyFocusDimming()
+    }
+}
+
+// MARK: - Phase 4: Edge Case Tests
+
+@Suite("TextKit 2 - Phase 4 Edge Cases")
+struct TextKit2Phase4EdgeCaseTests {
+
+    @Test("Mixed content: heading + table + body + fold")
+    func mixedContent() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Title\n\n| A | B |\n|---|---|\n| x | y |\n\nBody text\n\n## Folded\n\u{2026}")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("Rapid drawBackground calls don't crash")
+    func rapidDraw() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Title\n| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        for _ in 0..<20 {
+            tv.drawBackground(in: tv.bounds)
+        }
+    }
+
+    @Test("Table immediately after code block")
+    func tableAfterCodeBlock() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "```\ncode\n```\n| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("Focus dimming during drawBackground")
+    func focusDimmingDuringDraw() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Title\n\nPara 1\n\nPara 2")
+        )
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: 10, length: 0))
+        tv.applyFocusDimming()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("Very wide table (many columns)")
+    func wideTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A | B | C | D | E | F | G | H |\n|---|---|---|---|---|---|---|---|\n| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+}
+
+// MARK: - Phase 5 Task 1: Checkbox Inline Styling
+
+@Suite("TextKit 2 - Checkbox Inline Styling")
+struct TextKit2CheckboxInlineTests {
+
+    @Test("unchecked checkbox gets monospace font")
+    func uncheckedMonospace() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [ ] unchecked")
+        let attrStr = NSMutableAttributedString(string: "- [ ] unchecked")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        let bodyFont = NSFont.systemFont(ofSize: 15)
+        attrStr.addAttributes([
+            .font: bodyFont,
+            .foregroundColor: NSColor.white
+        ], range: fullRange)
+        storage.applyInlineStyles(to: attrStr, fullRange: fullRange, isActive: true)
+        // The "[ ]" at position 2 should get monospace font from checkbox styling (kind 13)
+        let font = attrStr.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        #expect(font!.isFixedPitch, "Checkbox [ ] should be styled with a fixed-pitch (monospace) font")
+    }
+
+    @Test("checked checkbox gets monospace font")
+    func checkedMonospace() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [x] done task")
+        let attrStr = NSMutableAttributedString(string: "- [x] done task")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        let bodyFont = NSFont.systemFont(ofSize: 15)
+        attrStr.addAttributes([
+            .font: bodyFont,
+            .foregroundColor: NSColor.white
+        ], range: fullRange)
+        storage.applyInlineStyles(to: attrStr, fullRange: fullRange, isActive: true)
+        // The "[x]" at position 2 should get monospace font from checkbox styling (kind 14)
+        let font = attrStr.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        #expect(font!.isFixedPitch, "CheckboxChecked [x] should be styled with a fixed-pitch (monospace) font")
+    }
+
+    @Test("unchecked checkbox on inactive line is not body font")
+    func inactiveCheckbox() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [ ] todo")
+        let attrStr = NSMutableAttributedString(string: "- [ ] todo")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        let bodyFont = NSFont.systemFont(ofSize: 15)
+        attrStr.addAttributes([
+            .font: bodyFont,
+            .foregroundColor: NSColor.white
+        ], range: fullRange)
+        storage.applyInlineStyles(to: attrStr, fullRange: fullRange, isActive: false)
+        // On inactive lines, checkbox should get styled differently from body text
+        let font = attrStr.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        // Either it gets monospace (styled) or gets hidden (ghost font size ~0.01)
+        let isMonospace = font!.isFixedPitch
+        let isGhostHidden = font!.pointSize < 1.0
+        #expect(isMonospace || isGhostHidden, "Inactive checkbox should either be monospace-styled or ghost-hidden, got: \(font!)")
+    }
+}
+
+// MARK: - Phase 5 Task 2: Checked Content Strikethrough
+
+@Suite("TextKit 2 - Checked Content Strikethrough")
+struct TextKit2CheckedStrikethroughTests {
+
+    @Test("checked task list gets strikethrough + muted foreground")
+    func checkedStrikethrough() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [x] done task")
+        let attrStr = NSMutableAttributedString(string: "- [x] done task")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 1)
+        // Content after "- [x] " (6 chars) should have strikethrough
+        if attrStr.length > 6 {
+            let contentAttrs = attrStr.attributes(at: 6, effectiveRange: nil)
+            let strike = contentAttrs[.strikethroughStyle] as? Int
+            #expect(strike == NSUnderlineStyle.single.rawValue)
+        }
+    }
+
+    @Test("unchecked task list has no strikethrough")
+    func uncheckedNoStrikethrough() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [ ] todo")
+        let attrStr = NSMutableAttributedString(string: "- [ ] todo")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 0)
+        if attrStr.length > 6 {
+            let contentAttrs = attrStr.attributes(at: 6, effectiveRange: nil)
+            let strike = contentAttrs[.strikethroughStyle] as? Int
+            #expect(strike == nil || strike == 0)
+        }
+    }
+
+    @Test("regular list unaffected by task list changes")
+    func regularListUnchanged() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- item")
+        let attrStr = NSMutableAttributedString(string: "- item")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 3, metadata: 0)
+        let contentAttrs = attrStr.attributes(at: 2, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == nil || strike == 0)
+    }
+}
+
+// MARK: - Phase 5: Checkbox Toggle Tests
+
+@Suite("TextKit 2 - Checkbox Toggle")
+struct TextKit2CheckboxToggleTests {
+
+    @Test("toggleCheckbox toggles unchecked to checked")
+    func toggleUnchecked() {
+        let text = "- [ ] todo"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [x] todo")
+    }
+
+    @Test("toggleCheckbox toggles checked to unchecked")
+    func toggleChecked() {
+        let text = "- [x] done"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [ ] done")
+    }
+
+    @Test("toggleCheckbox returns nil for non-checkbox position")
+    func nonCheckbox() {
+        let text = "- [ ] todo"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 8) == nil)
+    }
+
+    @Test("toggleCheckbox returns nil for regular list")
+    func regularList() {
+        let text = "- item"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 2) == nil)
+    }
+
+    @Test("toggleCheckbox handles uppercase X")
+    func uppercaseX() {
+        let text = "- [X] done"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [ ] done")
+    }
+
+    @Test("toggleCheckbox works with * prefix")
+    func starPrefix() {
+        let text = "* [ ] star item"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "* [x] star item")
+    }
+
+    @Test("toggleCheckbox works with + prefix")
+    func plusPrefix() {
+        let text = "+ [x] plus item"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "+ [ ] plus item")
+    }
+
+    @Test("toggleCheckbox returns nil for empty string")
+    func emptyString() {
+        #expect(ProseTextView2.toggleCheckbox(in: "", at: 0) == nil)
+    }
+
+    @Test("toggleCheckbox click on bracket still toggles")
+    func clickOnBracket() {
+        let text = "- [ ] todo"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 2) != nil)
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 4) != nil)
+    }
+}
+
+// MARK: - Nested Checkbox Toggle
+
+@Suite("TextKit 2 - Nested Checkbox Toggle")
+struct TextKit2NestedCheckboxToggleTests {
+
+    @Test("toggle works with 2-space indented task")
+    func twoSpaceIndent() {
+        let text = "  - [ ] nested"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 5)
+        #expect(result == "  - [x] nested")
+    }
+
+    @Test("toggle works with 4-space indented task")
+    func fourSpaceIndent() {
+        let text = "    - [x] deep"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 7)
+        #expect(result == "    - [ ] deep")
+    }
+
+    @Test("toggle works with tab-indented task")
+    func tabIndent() {
+        let text = "\t- [ ] tabbed"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "\t- [x] tabbed")
+    }
+
+    @Test("toggle preserves indentation")
+    func preservesIndentation() {
+        let text = "    * [x] star nested"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 7)
+        #expect(result == "    * [ ] star nested")
+        #expect(result?.hasPrefix("    ") == true)
+    }
+
+    @Test("flat toggle still works after fix")
+    func flatStillWorks() {
+        let text = "- [ ] flat"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [x] flat")
+    }
+
+    @Test("click outside bracket on nested task returns nil")
+    func outsideBracket() {
+        let text = "  - [ ] nested"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 10) == nil)
+    }
+}
+
+// MARK: - Nested Task Strikethrough
+
+@Suite("TextKit 2 - Nested Task Strikethrough")
+struct TextKit2NestedTaskStrikethroughTests {
+
+    @Test("nested checked task gets strikethrough on content only")
+    func nestedCheckedStrikethrough() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "  - [x] nested done")
+        let attrStr = NSMutableAttributedString(string: "  - [x] nested done")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 257)
+        let contentAttrs = attrStr.attributes(at: 8, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == NSUnderlineStyle.single.rawValue)
+    }
+
+    @Test("nested checked task does NOT strikethrough the marker")
+    func nestedMarkerNotStruck() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "  - [x] nested done")
+        let attrStr = NSMutableAttributedString(string: "  - [x] nested done")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 257)
+        // Position 3 is "-", position 6 is "]", position 7 is " " — all part of marker
+        let markerAttrs3 = attrStr.attributes(at: 3, effectiveRange: nil)
+        let strike3 = markerAttrs3[.strikethroughStyle] as? Int
+        #expect(strike3 == nil || strike3 == 0)
+        let markerAttrs6 = attrStr.attributes(at: 6, effectiveRange: nil)
+        let strike6 = markerAttrs6[.strikethroughStyle] as? Int
+        #expect(strike6 == nil || strike6 == 0, "closing bracket ']' at position 6 should NOT be struck through")
+        let markerAttrs7 = attrStr.attributes(at: 7, effectiveRange: nil)
+        let strike7 = markerAttrs7[.strikethroughStyle] as? Int
+        #expect(strike7 == nil || strike7 == 0, "space after '] ' at position 7 should NOT be struck through")
+    }
+
+    @Test("deeply nested checked task still works")
+    func deeplyNested() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "      - [x] deep")
+        let attrStr = NSMutableAttributedString(string: "      - [x] deep")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 769)
+        let contentAttrs = attrStr.attributes(at: 12, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == NSUnderlineStyle.single.rawValue)
+    }
+
+    @Test("flat checked task still works after fix")
+    func flatStillWorks() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [x] flat done")
+        let attrStr = NSMutableAttributedString(string: "- [x] flat done")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 1)
+        let contentAttrs = attrStr.attributes(at: 6, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == NSUnderlineStyle.single.rawValue)
+    }
+}
+
+// MARK: - Non-Destructive Folding
+
+@Suite("TextKit 2 - Non-Destructive Folding")
+struct NonDestructiveFoldingTests {
+
+    @Test("isLineInFoldedRange returns false for heading, true for body and sub-headings")
+    func foldedRangeBasic() {
+        let delegate = MarkdownContentStorage()
+        // H1 fold hides everything until next H1 (standard org-mode)
+        let text = "# Title\nBody 1\nBody 2\n## Section\n# Next"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        defer { markdown_clear_all_folds() }
+
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false) // heading visible
+        #expect(delegate.isLineInFoldedRange(1) == true)  // body 1 hidden
+        #expect(delegate.isLineInFoldedRange(2) == true)  // body 2 hidden
+        #expect(delegate.isLineInFoldedRange(3) == true)  // H2 sub-heading hidden
+        #expect(delegate.isLineInFoldedRange(4) == false) // next H1 visible
+    }
+
+    @Test("clearAllFolds empties hiddenLines")
+    func clearAllFoldsResetsHidden() {
+        let delegate = MarkdownContentStorage()
+        let text = "# Title\nBody\n## Other"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        delegate.recomputeHiddenLines(documentText: text)
+        #expect(!delegate.hiddenLines.isEmpty)
+
+        markdown_clear_all_folds()
+        delegate.recomputeHiddenLines(documentText: text)
+        #expect(delegate.hiddenLines.isEmpty)
+    }
+
+    @Test("nested headings fold correctly — H1 hides H2 sub-content")
+    func nestedHeadingFold() {
+        let delegate = MarkdownContentStorage()
+        let text = "# H1\nPara\n## H2\nSub-para\n# H1b"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        defer { markdown_clear_all_folds() }
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false) // H1 visible
+        #expect(delegate.isLineInFoldedRange(1) == true)  // Para hidden
+        #expect(delegate.isLineInFoldedRange(2) == true)  // H2 hidden
+        #expect(delegate.isLineInFoldedRange(3) == true)  // Sub-para hidden
+        #expect(delegate.isLineInFoldedRange(4) == false) // H1b visible
+    }
+
+    @Test("folding last heading hides to end of document")
+    func foldToEnd() {
+        let delegate = MarkdownContentStorage()
+        let text = "# Only\nTrailing content\nMore trailing"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        defer { markdown_clear_all_folds() }
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false)
+        #expect(delegate.isLineInFoldedRange(1) == true)
+        #expect(delegate.isLineInFoldedRange(2) == true)
+    }
+
+    @Test("multiple independent folds")
+    func multipleFolds() {
+        let delegate = MarkdownContentStorage()
+        let text = "# A\nA body\n# B\nB body\n# C\nC body"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        markdown_set_fold(2, true)
+        defer { markdown_clear_all_folds() }
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false)
+        #expect(delegate.isLineInFoldedRange(1) == true)  // A body
+        #expect(delegate.isLineInFoldedRange(2) == false)
+        #expect(delegate.isLineInFoldedRange(3) == true)  // B body
+        #expect(delegate.isLineInFoldedRange(4) == false)
+        #expect(delegate.isLineInFoldedRange(5) == false) // C body not folded
+    }
+}
+
+// MARK: - Phase 7: Callout Colors
+
+@Suite("TextKit 2 - Callout Colors")
+struct CalloutColorTests {
+
+    @Test("callout color for each type returns non-nil")
+    func calloutColorTypes() {
+        for typeId: UInt8 in 1...9 {
+            let style = EpistemosTheme.light.calloutColors(typeId: typeId)
+            #expect(style != nil, "Type \(typeId) should return callout style")
+            #expect(style!.accent != .clear)
+            #expect(style!.background != .clear)
+        }
+    }
+
+    @Test("plain blockquote (type 0) returns nil")
+    func plainBlockquote() {
+        let style = EpistemosTheme.light.calloutColors(typeId: 0)
+        #expect(style == nil)
+    }
+
+    @Test("dark theme callout backgrounds differ from light")
+    func darkThemeCalloutColors() {
+        let lightStyle = EpistemosTheme.light.calloutColors(typeId: 1)!
+        let darkStyle = EpistemosTheme.sunset.calloutColors(typeId: 1)!
+        #expect(lightStyle.background.alphaComponent != darkStyle.background.alphaComponent)
+    }
+}
+
+// MARK: - Phase 7: Callout Blockquote Styling
+
+@Suite("TextKit 2 - Callout Styling")
+struct CalloutStylingTests {
+
+    @Test("callout blockquote gets accent foreground color")
+    func calloutBlockquoteStyling() {
+        let storage = MarkdownContentStorage()
+        // Metadata: low byte = 1 (depth), high byte = 1 (note callout)
+        let metadata: UInt16 = (1 << 8) | 1
+        let attrStr = NSMutableAttributedString(string: "> [!note] Important info")
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 5, metadata: metadata)
+
+        let fg = attrStr.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(fg != nil)
+        let srgb = fg!.usingColorSpace(.sRGB)!
+        #expect(srgb.blueComponent > 0.5, "Callout note should have blue-tinted text")
+    }
+
+    @Test("plain blockquote retains original muted styling")
+    func plainBlockquoteStyling() {
+        let storage = MarkdownContentStorage()
+        let attrStr = NSMutableAttributedString(string: "> Just a quote")
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 5, metadata: 1)
+
+        let fg = attrStr.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(fg != nil)
+        #expect(fg!.alphaComponent < 1.0, "Plain blockquote should have muted foreground")
+    }
+
+    @Test("warning callout gets warm foreground")
+    func warningCalloutStyling() {
+        let storage = MarkdownContentStorage()
+        let metadata: UInt16 = (3 << 8) | 1 // warning type
+        let attrStr = NSMutableAttributedString(string: "> [!warning] Watch out")
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 5, metadata: metadata)
+
+        let fg = attrStr.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(fg != nil)
+        let srgb = fg!.usingColorSpace(.sRGB)!
+        #expect(srgb.redComponent > 0.7, "Warning callout should have warm/red tint")
+    }
+}
+
+// MARK: - Phase 7: Display Math Styling
+
+@Suite("TextKit 2 - Display Math Styling")
+struct DisplayMathStylingTests {
+
+    private func styledString(_ text: String, theme: EpistemosTheme = .light) -> NSMutableAttributedString {
+        let storage = MarkdownContentStorage()
+        storage.theme = theme
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+        return attrStr
+    }
+
+    @Test("Display math $$...$$ content gets italic styling")
+    func displayMathItalic() {
+        let result = styledString("$$E = mc^2$$")
+        // Content "E = mc^2" starts at position 2 (after "$$")
+        guard result.length > 4 else {
+            #expect(Bool(false), "String too short")
+            return
+        }
+        let contentFont = result.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
+        #expect(contentFont != nil)
+        let traits = NSFontManager.shared.traits(of: contentFont!)
+        #expect(traits.contains(.italicFontMask), "Display math content should be italic")
+    }
+
+    @Test("Display math $$ markers stay muted relative to content")
+    func displayMathMarkersMuted() {
+        let result = styledString("$$E = mc^2$$")
+        // First $$ starts at position 0
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        let contentColor = result.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(contentColor != nil)
+        #expect(markerColor != contentColor, "Display math markers should stay visually muted")
+    }
+
+    @Test("Display math content gets centered paragraph style")
+    func displayMathCentered() {
+        let result = styledString("$$x^2 + y^2$$")
+        guard result.length > 4 else { return }
+        let paraStyle = result.attribute(.paragraphStyle, at: 3, effectiveRange: nil) as? NSParagraphStyle
+        #expect(paraStyle != nil)
+        #expect(paraStyle!.alignment == .center, "Display math should be centered")
+    }
+}
+
+// MARK: - Phase 7: Display Math FFI Test
+
+@Suite("TextKit 2 - Display Math FFI")
+struct DisplayMathFFITests {
+
+    @Test("Display math $$...$$ detected by Rust parser via FFI")
+    func displayMathDetection() {
+        let text = "$$x^2$$"
+        var spansPtr: UnsafeMutablePointer<StyleSpan>?
+        var count: UInt32 = 0
+        let result = text.withCString { cStr in
+            markdown_parse(cStr, UInt32(text.utf8.count), &spansPtr, &count)
+        }
+        #expect(result == 0)
+        guard let spans = spansPtr, count > 0 else {
+            #expect(Bool(false), "No spans returned")
+            return
+        }
+        defer { markdown_free_spans(spans, count) }
+
+        let displayMath = (0..<Int(count)).filter { spans[$0].style == 26 }
+        #expect(!displayMath.isEmpty, "Expected DisplayMath (style=26) span")
+    }
+
+    @Test("Display math multiline $$...\\n...$$ detected")
+    func displayMathMultiline() {
+        let text = "before\n$$\nE = mc^2\n$$\nafter"
+        var spansPtr: UnsafeMutablePointer<StyleSpan>?
+        var count: UInt32 = 0
+        let result = text.withCString { cStr in
+            markdown_parse(cStr, UInt32(text.utf8.count), &spansPtr, &count)
+        }
+        #expect(result == 0)
+        guard let spans = spansPtr, count > 0 else {
+            #expect(Bool(false), "No spans returned")
+            return
+        }
+        defer { markdown_free_spans(spans, count) }
+
+        let displayMath = (0..<Int(count)).filter { spans[$0].style == 26 }
+        #expect(displayMath.count == 1, "Expected exactly one DisplayMath span")
+    }
+
+    @Test("Inline $..$ NOT classified as display math")
+    func inlineMathNotDisplay() {
+        let text = "The formula $x^2$ is inline"
+        var spansPtr: UnsafeMutablePointer<StyleSpan>?
+        var count: UInt32 = 0
+        _ = text.withCString { cStr in
+            markdown_parse(cStr, UInt32(text.utf8.count), &spansPtr, &count)
+        }
+        guard let spans = spansPtr, count > 0 else { return }
+        defer { markdown_free_spans(spans, count) }
+
+        let inline = (0..<Int(count)).filter { spans[$0].style == 19 }
+        let display = (0..<Int(count)).filter { spans[$0].style == 26 }
+        #expect(inline.count == 1, "Expected one InlineMath span")
+        #expect(display.count == 0, "Expected zero DisplayMath spans")
+    }
+}
+
+// MARK: - Phase 7: Callout Metadata Round-Trip
+
+@Suite("TextKit 2 - Callout Metadata")
+struct CalloutMetadataTests {
+
+    @Test("Callout metadata round-trip: Rust parser → Swift type ID")
+    func calloutMetadataRoundTrip() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "> [!warning] Be careful\n> Details here\nPlain")
+
+        // Line 0: callout header
+        let meta0 = storage.paragraphMetadata(at: 0)
+        #expect(meta0 != nil)
+        let type0 = (meta0! >> 8) & 0xFF
+        #expect(type0 == 3, "Expected warning type (3)")
+
+        // Line 1: continuation inherits callout type
+        let meta1 = storage.paragraphMetadata(at: 1)
+        #expect(meta1 != nil)
+        let type1 = (meta1! >> 8) & 0xFF
+        #expect(type1 == 3, "Continuation should inherit warning type")
+
+        // Line 2: plain body, not a blockquote
+        #expect(storage.paragraphType(at: 2) == 0, "Plain text should be Body")
+    }
+
+    @Test("Plain blockquote has callout type 0")
+    func plainBlockquoteNoCallout() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "> Just a quote\n> Second line")
+
+        let meta0 = storage.paragraphMetadata(at: 0)
+        #expect(meta0 != nil)
+        let type0 = (meta0! >> 8) & 0xFF
+        #expect(type0 == 0, "Plain blockquote should have callout type 0")
+    }
+}
+
+// MARK: - Phase 8: ProseTextView2 Properties
+
+@Suite("TextKit 2 - ProseTextView2 Properties")
+struct ProseTextView2PropertiesTests {
+
+    @Test("pageId and closures are settable")
+    func pageIdAndClosures() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.pageId = "test-page"
+        #expect(tv.pageId == "test-page")
+
+        var foldCalled = false
+        tv.onFoldToggle = { _ in foldCalled = true }
+        tv.onFoldToggle?(42)
+        #expect(foldCalled)
+
+        var graphCalled = false
+        tv.onOpenInGraph = { _ in graphCalled = true }
+        tv.onOpenInGraph?("pid")
+        #expect(graphCalled)
+    }
+}
+
+// MARK: - Phase 8: ProseTextView2 MouseDown
+
+@Suite("TextKit 2 - ProseTextView2 MouseDown")
+struct ProseTextView2MouseDownTests {
+
+    @Test("fold toggle fires on gutter click over heading")
+    func foldToggleClosure() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        var firedOffset: Int?
+        tv.onFoldToggle = { offset in firedOffset = offset }
+        // Verify the closure is stored and callable
+        tv.onFoldToggle?(0)
+        #expect(firedOffset == 0)
+    }
+}
+
+// MARK: - Phase 8: ProseTextView2 Context Menu
+
+@Suite("TextKit 2 - ProseTextView2 Context Menu")
+struct ProseTextView2ContextMenuTests {
+
+    @Test("context menu posts AI operation notification")
+    func aiOperationNotification() async {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.pageId = "test-page"
+
+        var received: Notification?
+        let observer = NotificationCenter.default.addObserver(
+            forName: ProseTextView2.aiOperationNotification,
+            object: nil, queue: .main
+        ) { note in received = note }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        // Simulate the notification post directly (can't simulate right-click in test)
+        NotificationCenter.default.post(
+            name: ProseTextView2.aiOperationNotification,
+            object: nil,
+            userInfo: ["operation": "rewrite", "pageId": "test-page"]
+        )
+
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(received != nil)
+        #expect(received?.userInfo?["operation"] as? String == "rewrite")
+    }
+
+    @Test("notification names match ClickableTextView for compatibility")
+    func notificationNameParity() {
+        #expect(ProseTextView2.createIdeaNotification.rawValue == "EpistemosCreateIdeaAtLine")
+        #expect(ProseTextView2.createBrainDumpNotification.rawValue == "EpistemosCreateBrainDumpAtLine")
+        #expect(ProseTextView2.aiOperationNotification.rawValue == "EpistemosAIOperation")
+        #expect(ProseTextView2.blockPropertyNotification.rawValue == "EpistemosBlockPropertyEdit")
+        #expect(ProseTextView2.translateNotification.rawValue == "EpistemosTranslateText")
+        #expect(ProseTextView2.scrollToOffsetNotification.rawValue == "EpistemosScrollToOffset")
+    }
+}

@@ -1,0 +1,819 @@
+import Foundation
+
+nonisolated enum ThinkingTagSyntax {
+    private static let tagPairs: [(open: String, close: String)] = [
+        ("<thinking>", "</thinking>"),
+        ("<think>", "</think>"),
+    ]
+
+    static func openingMatch(in text: String) -> (range: Range<String.Index>, closingTag: String)? {
+        tagPairs
+            .compactMap { pair in
+                text.range(of: pair.open).map { ($0, pair.close) }
+            }
+            .min { $0.range.lowerBound < $1.range.lowerBound }
+    }
+}
+
+nonisolated enum ThinkingPreludeSyntax {
+    private static let openingMarkers = [
+        "Thinking Process:",
+        "Thought Process:",
+        "Reasoning:",
+        "Analyze the Request:",
+        "Analyze the Input:",
+        "1. Analyze the Request:",
+        "1. Analyze the Input:",
+        "1. **Analyze the Request:**",
+        "1. **Analyze the Input:**",
+        "## Thinking Process",
+        "## Thought Process",
+        "## Reasoning",
+        "**Thinking Process:**",
+        "**Thought Process:**",
+        "**Reasoning:**",
+    ]
+
+    private static let answerMarkers = [
+        "Final Answer:",
+        "Answer:",
+        "Final Response:",
+        "Response:",
+        "## Final Answer",
+        "## Answer",
+        "**Final Answer:**",
+        "**Answer:**",
+    ]
+
+    private static let proseOpeningCues = [
+        "let me think",
+        "let's think",
+        "i need to think",
+        "i should think",
+        "let me reason through",
+        "i need to reason through",
+        "let me work through",
+        "i'll work through",
+        "i'm going to think through",
+        "thinking this through",
+    ]
+
+    private static let proseOpeningPrefixes = [
+        "okay, ",
+        "ok, ",
+        "alright, ",
+        "well, ",
+        "hmm, ",
+        "first, ",
+    ]
+
+    private static let conclusionMarkers = [
+        "\n\nTherefore",
+        "\nTherefore",
+        "\n\nSo ",
+        "\nSo ",
+        "\n\nOverall",
+        "\nOverall",
+        "\n\nIn short",
+        "\nIn short",
+        "\n\nIn summary",
+        "\nIn summary",
+        "\n\nThe answer is",
+        "\nThe answer is",
+        "\n\nThat means",
+        "\nThat means",
+        "\n\nBottom line",
+        "\nBottom line",
+        "\n\nTaken together",
+        "\nTaken together",
+    ]
+
+    static var maxOpeningMarkerLength: Int {
+        openingMarkers.map(\.count).max() ?? 0
+    }
+
+    static var maxAnswerMarkerLength: Int {
+        answerMarkers.map(\.count).max() ?? 0
+    }
+
+    static var maxNarrativeOpeningProbeLength: Int {
+        let cueLength = proseOpeningCues.map(\.count).max() ?? 0
+        let prefixLength = proseOpeningPrefixes.map(\.count).max() ?? 0
+        return cueLength + prefixLength + 32
+    }
+
+    static func openingMatch(in text: String) -> Range<String.Index>? {
+        let trimmedStart = text.firstIndex(where: { !$0.isWhitespace && !$0.isNewline }) ?? text.endIndex
+        guard trimmedStart < text.endIndex else { return nil }
+        return firstMatch(in: text, markers: openingMarkers, range: trimmedStart..<text.endIndex, anchored: true)
+    }
+
+    static func answerMatch(in text: String) -> Range<String.Index>? {
+        let searchRange = text.startIndex..<text.endIndex
+        var lineStart = searchRange.lowerBound
+
+        while lineStart < searchRange.upperBound {
+            let contentStart = text[lineStart...]
+                .firstIndex(where: { !$0.isWhitespace && !$0.isNewline })
+                ?? searchRange.upperBound
+            if contentStart < searchRange.upperBound,
+               let match = firstMatch(
+                   in: text,
+                   markers: answerMarkers,
+                   range: contentStart..<searchRange.upperBound,
+                   anchored: true
+               ) {
+                return match
+            }
+
+            guard let nextNewline = text[lineStart..<searchRange.upperBound].firstIndex(of: "\n") else {
+                break
+            }
+            lineStart = text.index(after: nextNewline)
+        }
+
+        return nil
+    }
+
+    static func proseOpeningDetected(in text: String) -> Bool {
+        let trimmedStart = text.firstIndex(where: { !$0.isWhitespace && !$0.isNewline }) ?? text.endIndex
+        guard trimmedStart < text.endIndex else { return false }
+        let probeEnd = text.index(
+            trimmedStart,
+            offsetBy: min(maxNarrativeOpeningProbeLength, text.distance(from: trimmedStart, to: text.endIndex)),
+            limitedBy: text.endIndex
+        ) ?? text.endIndex
+        let probe = text[trimmedStart..<probeEnd]
+            .lowercased()
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if proseOpeningCues.contains(where: { probe.hasPrefix($0) }) {
+            return true
+        }
+
+        return proseOpeningPrefixes.contains { prefix in
+            proseOpeningCues.contains { cue in
+                probe.hasPrefix(prefix + cue)
+            }
+        }
+    }
+
+    static func answerBoundary(in text: String) -> (reasoningEnd: String.Index, answerStart: String.Index)? {
+        let explicitBoundary = answerMatch(in: text).map { range in
+            (reasoningEnd: range.lowerBound, answerStart: range.upperBound)
+        }
+        let conclusionBoundary = firstMatch(
+            in: text,
+            markers: conclusionMarkers,
+            range: text.startIndex..<text.endIndex,
+            anchored: false
+        ).map { range in
+            (reasoningEnd: range.lowerBound, answerStart: range.lowerBound)
+        }
+
+        switch (explicitBoundary, conclusionBoundary) {
+        case let (explicit?, conclusion?):
+            return explicit.reasoningEnd <= conclusion.reasoningEnd ? explicit : conclusion
+        case let (explicit?, nil):
+            return explicit
+        case let (nil, conclusion?):
+            return conclusion
+        case (nil, nil):
+            return nil
+        }
+    }
+
+    static func strippingOpeningMarker(in text: String) -> String {
+        guard let range = openingMatch(in: text) else { return text }
+        return String(text[range.upperBound...]).trimmingLeadingWhitespaceAndNewlines()
+    }
+
+    static func splitReasoningAndAnswer(in text: String) -> (reasoning: String, answer: String)? {
+        let explicitOpening = openingMatch(in: text) != nil
+        let proseOpening = proseOpeningDetected(in: text)
+        guard explicitOpening || proseOpening else { return nil }
+
+        let stripped = strippingOpeningMarker(in: text)
+        let normalized = stripped
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return nil }
+
+        if let boundary = answerBoundary(in: normalized) {
+            let reasoning = String(normalized[..<boundary.reasoningEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let answer = String(normalized[boundary.answerStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !reasoning.isEmpty, !answer.isEmpty else { return nil }
+            return (reasoning, answer)
+        }
+
+        let paragraphs = normalized
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        if paragraphs.count >= 2 {
+            for answerIndex in stride(from: paragraphs.count - 1, through: 1, by: -1) {
+                let candidate = paragraphs[answerIndex]
+                if isHeadingLike(candidate) || isBulletOnlyParagraph(candidate) {
+                    continue
+                }
+                let reasoning = paragraphs[..<answerIndex]
+                    .joined(separator: "\n\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let answer = paragraphs[answerIndex...]
+                    .joined(separator: "\n\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !reasoning.isEmpty, !answer.isEmpty {
+                    return (reasoning, answer)
+                }
+            }
+        }
+
+        let lines = normalized
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        if lines.count >= 2,
+           let answerLine = lines.last,
+           !isHeadingLike(answerLine),
+           !answerLine.hasPrefix("-"),
+           !answerLine.hasPrefix("*"),
+           !answerLine.hasPrefix("•"),
+           answerLine.count >= 20 {
+            let reasoning = lines.dropLast().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !reasoning.isEmpty else { return nil }
+            return (reasoning, answerLine)
+        }
+
+        return nil
+    }
+
+    static func flushableReasoningPrefix(in text: String) -> (flush: String, remainder: String)? {
+        guard answerBoundary(in: text) == nil else { return nil }
+
+        if let paragraphBreak = text.range(of: "\n\n", options: .backwards) {
+            let flush = String(text[text.startIndex..<paragraphBreak.upperBound])
+            let remainder = String(text[paragraphBreak.upperBound...])
+            if !flush.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               !remainder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return (flush, remainder)
+            }
+        }
+
+        if let lineBreak = text.lastIndex(of: "\n") {
+            let remainderStart = text.index(after: lineBreak)
+            let flush = String(text[text.startIndex..<remainderStart])
+            let remainder = String(text[remainderStart...])
+            if !flush.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               !remainder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return (flush, remainder)
+            }
+        }
+
+        if text.count > 1024 {
+            let splitIndex = text.index(text.endIndex, offsetBy: -256)
+            let flush = String(text[text.startIndex..<splitIndex])
+            let remainder = String(text[splitIndex...])
+            if !flush.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               !remainder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return (flush, remainder)
+            }
+        }
+
+        return nil
+    }
+
+    static func likelyAnswerCandidate(in text: String) -> Bool {
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return false }
+
+        if isHeadingLike(normalized) || isBulletOnlyParagraph(normalized) {
+            return false
+        }
+
+        let lowercased = normalized.lowercased()
+        let reasoningPrefixes = [
+            "first,",
+            "second,",
+            "third,",
+            "then ",
+            "next,",
+            "let me",
+            "let's",
+            "i need to",
+            "i should",
+            "okay,",
+            "ok,",
+            "alright,",
+            "well,",
+            "hmm,",
+            "user query:",
+            "analyze the request",
+        ]
+        if reasoningPrefixes.contains(where: { lowercased.hasPrefix($0) }) {
+            return false
+        }
+
+        return normalized.count >= 20
+    }
+
+    static func salvagedAnswer(in text: String) -> String? {
+        if let split = splitReasoningAndAnswer(in: text) {
+            return split.answer
+        }
+
+        let stripped = strippingOpeningMarker(in: text)
+        let normalized = stripped
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return nil }
+
+        if let drafted = draftedAnswerCandidate(in: normalized) {
+            return drafted
+        }
+
+        if let answerRange = answerMatch(in: normalized) {
+            let answer = String(normalized[answerRange.upperBound...]).trimmingLeadingWhitespaceAndNewlines()
+            return answer.isEmpty ? nil : answer
+        }
+
+        let paragraphs = normalized
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        for paragraph in paragraphs.reversed() {
+            if isHeadingLike(paragraph) { continue }
+            if isBulletOnlyParagraph(paragraph) && paragraphs.count > 1 { continue }
+            return paragraph
+        }
+
+        let lines = normalized
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        for line in lines.reversed() {
+            if line.hasPrefix("-") || line.hasPrefix("*") || line.hasPrefix("•") { continue }
+            if isHeadingLike(line) { continue }
+            if line.count < 12 { continue }
+            return line
+        }
+
+        return nil
+    }
+
+    private static func draftedAnswerCandidate(in text: String) -> String? {
+        let markers = [
+            "let's write:",
+            "lets write:",
+            "i'll write:",
+            "ill write:",
+            "let's go with:",
+            "lets go with:",
+            "go with:",
+            "response:",
+            "answer:",
+            "the safest and most supportive response is:",
+            "the safest response is:",
+        ]
+
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { line in
+                line
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: "*", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            .filter { !$0.isEmpty }
+
+        for line in lines.reversed() {
+            let lowercased = line.lowercased()
+            guard let marker = markers.first(where: { lowercased.contains($0) }),
+                  let markerRange = lowercased.range(of: marker) else {
+                continue
+            }
+            let distance = lowercased.distance(from: lowercased.startIndex, to: markerRange.upperBound)
+            let originalIndex = line.index(line.startIndex, offsetBy: distance)
+            let candidate = String(line[originalIndex...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”"))
+            if candidate.count >= 12 {
+                return candidate
+            }
+        }
+
+        return nil
+    }
+
+    private static func isHeadingLike(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+
+        let normalized = trimmed
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "#", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        if openingMarkers.contains(where: { normalized == $0.lowercased().replacingOccurrences(of: "*", with: "").replacingOccurrences(of: "#", with: "") }) {
+            return true
+        }
+
+        let wordCount = normalized.split(whereSeparator: \.isWhitespace).count
+        return normalized.hasSuffix(":") && wordCount <= 4
+    }
+
+    private static func isBulletOnlyParagraph(_ text: String) -> Bool {
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return false }
+        return lines.allSatisfy { line in
+            line.hasPrefix("-") || line.hasPrefix("*") || line.hasPrefix("•")
+        }
+    }
+
+    private static func firstMatch(
+        in text: String,
+        markers: [String],
+        range: Range<String.Index>,
+        anchored: Bool
+    ) -> Range<String.Index>? {
+        markers
+            .compactMap { marker in
+                text.range(
+                    of: marker,
+                    options: anchored ? [.caseInsensitive, .anchored] : [.caseInsensitive],
+                    range: range
+                )
+            }
+            .min { $0.lowerBound < $1.lowerBound }
+    }
+}
+
+// MARK: - Collection Safe Subscript
+
+extension Collection {
+    /// Returns the element at the specified index if it is within bounds, otherwise nil.
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+extension String {
+    nonisolated func strippingThinkingBlocks() -> String {
+        var cleaned = self
+        while let match = ThinkingTagSyntax.openingMatch(in: cleaned),
+              let endRange = cleaned.range(
+                  of: match.closingTag,
+                  range: match.range.upperBound..<cleaned.endIndex
+              ) {
+            cleaned.removeSubrange(match.range.lowerBound..<endRange.upperBound)
+        }
+        return cleaned
+    }
+
+    nonisolated func trimmingLeadingWhitespaceAndNewlines() -> String {
+        let trimmedStart = firstIndex(where: { !$0.isWhitespace && !$0.isNewline }) ?? endIndex
+        return String(self[trimmedStart...])
+    }
+}
+
+nonisolated enum UserFacingModelOutput {
+    private static let reasoningParagraphPrefixes = [
+        "here's a thinking process",
+        "here is a thinking process",
+        "here's the thinking process",
+        "here is the thinking process",
+        "thinking process:",
+        "thinking process",
+        "thought process:",
+        "thought process",
+        "reasoning:",
+        "deconstruct the request",
+        "analyze the request",
+        "analyze the input",
+        "implicit need:",
+        "correction/refinement:",
+        "most likely interpretation:",
+        "self-correction during drafting:",
+        "final review against safety guidelines:",
+        "refining the tone:",
+        "final answer:",
+        "final response:",
+        "answer:",
+        "response:",
+        "let's check if",
+        "lets check if",
+        "wait, one more possibility",
+        "wait, is it possible",
+        "wait, could it be",
+        "does this promote hate speech?",
+        "is it politically sensitive?",
+        "ensure i don't validate",
+        "maintain neutrality.",
+        "acknowledge the complexity.",
+        "topic:",
+        "comparison:",
+        "user query:",
+    ]
+
+    static func streamingVisibleText(from raw: String) -> String {
+        let cleaned = cleanedStreamingText(from: raw)
+        guard !cleaned.isEmpty else { return "" }
+
+        if let directAnswer = directAnswerText(in: cleaned) {
+            return directAnswer
+        }
+
+        guard containsReasoningArtifacts(raw: raw, cleaned: cleaned) else {
+            return cleaned
+        }
+
+        return ""
+    }
+
+    static func finalVisibleText(from raw: String) -> String {
+        let cleaned = cleanedVisibleText(from: raw, suppressIncompleteThinkingTail: true)
+        guard !cleaned.isEmpty else { return "" }
+
+        if let directAnswer = directAnswerText(in: cleaned) {
+            return directAnswer
+        }
+
+        let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
+        guard hasReasoningArtifacts else {
+            return cleaned
+        }
+
+        return bestAnswerCandidate(in: cleaned) ?? ""
+    }
+
+    private static func cleanedVisibleText(
+        from raw: String,
+        suppressIncompleteThinkingTail: Bool
+    ) -> String {
+        strippedThinkingArtifacts(
+            in: raw,
+            suppressIncompleteThinkingTail: suppressIncompleteThinkingTail
+        )
+        .replacingOccurrences(of: "\r\n", with: "\n")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func cleanedStreamingText(from raw: String) -> String {
+        strippedThinkingArtifacts(
+            in: raw,
+            suppressIncompleteThinkingTail: true
+        )
+        .replacingOccurrences(of: "\r\n", with: "\n")
+        .trimmingLeadingWhitespaceAndNewlines()
+    }
+
+    private static func strippedThinkingArtifacts(
+        in raw: String,
+        suppressIncompleteThinkingTail: Bool
+    ) -> String {
+        var cleaned = raw
+        while let match = ThinkingTagSyntax.openingMatch(in: cleaned) {
+            if let endRange = cleaned.range(
+                of: match.closingTag,
+                range: match.range.upperBound..<cleaned.endIndex
+            ) {
+                cleaned.removeSubrange(match.range.lowerBound..<endRange.upperBound)
+                continue
+            }
+
+            guard suppressIncompleteThinkingTail else { break }
+            cleaned.removeSubrange(match.range.lowerBound..<cleaned.endIndex)
+            break
+        }
+        return cleaned
+    }
+
+    private static func containsReasoningArtifacts(raw: String, cleaned: String) -> Bool {
+        if ThinkingTagSyntax.openingMatch(in: raw) != nil {
+            return true
+        }
+        if ThinkingPreludeSyntax.openingMatch(in: cleaned) != nil {
+            return true
+        }
+        if ThinkingPreludeSyntax.proseOpeningDetected(in: cleaned) {
+            return true
+        }
+        if hasIncompleteReasoningLeadIn(cleaned) {
+            return true
+        }
+
+        return paragraphs(in: cleaned).contains(where: isReasoningParagraph)
+    }
+
+    private static func directAnswerText(in text: String) -> String? {
+        guard let answerRange = ThinkingPreludeSyntax.answerMatch(in: text) else { return nil }
+        let answer = String(text[answerRange.upperBound...]).trimmingLeadingWhitespaceAndNewlines()
+        return answer.isEmpty ? nil : answer
+    }
+
+    private static func bestAnswerCandidate(in text: String) -> String? {
+        if let split = ThinkingPreludeSyntax.splitReasoningAndAnswer(in: text) {
+            let answer = split.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !answer.isEmpty {
+                return answer
+            }
+        }
+
+        if let salvaged = ThinkingPreludeSyntax.salvagedAnswer(in: text)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !salvaged.isEmpty,
+           !isReasoningParagraph(salvaged) {
+            return salvaged
+        }
+
+        let filteredParagraphs = paragraphs(in: text).filter { !isReasoningParagraph($0) }
+        if let lastParagraph = filteredParagraphs.last, !lastParagraph.isEmpty {
+            return lastParagraph
+        }
+
+        return nil
+    }
+
+    private static func paragraphs(in text: String) -> [String] {
+        text
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private static func isReasoningParagraph(_ paragraph: String) -> Bool {
+        let normalized = normalizedReasoningText(paragraph)
+
+        guard !normalized.isEmpty else { return true }
+
+        if reasoningParagraphPrefixes.contains(where: { normalized.hasPrefix($0) }) {
+            return true
+        }
+
+        if normalized.hasPrefix("1.") || normalized.hasPrefix("2.") || normalized.hasPrefix("3.") {
+            return normalized.contains("deconstruct") || normalized.contains("analyze")
+        }
+
+        if normalized.hasPrefix("- ") || normalized.hasPrefix("• ") {
+            return normalized.contains("maintain neutrality") ||
+                normalized.contains("acknowledge the complexity") ||
+                normalized.contains("does this promote hate speech") ||
+                normalized.contains("is it politically sensitive")
+        }
+
+        if normalized.hasPrefix("wait,") || normalized.hasPrefix("let's ") || normalized.hasPrefix("lets ") {
+            return true
+        }
+
+        return false
+    }
+
+    private static func hasIncompleteReasoningLeadIn(_ text: String) -> Bool {
+        let normalized = normalizedReasoningText(text)
+        guard normalized.count >= 8 else { return false }
+
+        return reasoningParagraphPrefixes.contains { prefix in
+            prefix.hasPrefix(normalized)
+        }
+    }
+
+    private static func normalizedReasoningText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: "`", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+}
+
+nonisolated struct BorrowedUTF8StringCacheStats: Sendable, Equatable {
+    let hits: UInt64
+    let misses: UInt64
+    let uniqueStrings: Int
+}
+
+nonisolated final class BorrowedUTF8StringCache {
+    private var buckets: [UInt64: [String]] = [:]
+    private(set) var hits: UInt64 = 0
+    private(set) var misses: UInt64 = 0
+
+    init() {}
+
+    func string(for slice: GraphEngineStringSlice) -> String {
+        guard let ptr = slice.ptr, slice.len > 0 else { return "" }
+        let bytes = UnsafeBufferPointer(start: ptr, count: Int(slice.len))
+        let hash = Self.hash(bytes)
+        if let bucket = buckets[hash] {
+            for candidate in bucket where Self.matches(candidate, bytes: bytes) {
+                hits &+= 1
+                return candidate
+            }
+        }
+
+        let decoded = String(decoding: bytes, as: UTF8.self)
+        buckets[hash, default: []].append(decoded)
+        misses &+= 1
+        return decoded
+    }
+
+    func stats() -> BorrowedUTF8StringCacheStats {
+        BorrowedUTF8StringCacheStats(
+            hits: hits,
+            misses: misses,
+            uniqueStrings: buckets.values.reduce(0) { $0 + $1.count }
+        )
+    }
+
+    private static func hash(_ bytes: UnsafeBufferPointer<UInt8>) -> UInt64 {
+        var value: UInt64 = 0xcbf29ce484222325
+        for byte in bytes {
+            value ^= UInt64(byte)
+            value &*= 0x100000001b3
+        }
+        return value
+    }
+
+    private static func matches(_ candidate: String, bytes: UnsafeBufferPointer<UInt8>) -> Bool {
+        guard candidate.utf8.count == bytes.count else { return false }
+        return candidate.utf8.elementsEqual(bytes)
+    }
+}
+
+@discardableResult
+nonisolated func withStableCStringArray<T>(
+    _ strings: [String],
+    _ body: (UnsafeMutableBufferPointer<UnsafePointer<CChar>?>) -> T
+) -> T? {
+    let cStrings = strings.compactMap { strdup($0) }
+    guard cStrings.count == strings.count else {
+        cStrings.forEach { free($0) }
+        return nil
+    }
+    defer { cStrings.forEach { free($0) } }
+
+    var pointers: [UnsafePointer<CChar>?] = cStrings.map { UnsafePointer($0) }
+    return pointers.withUnsafeMutableBufferPointer { buffer in
+        body(buffer)
+    }
+}
+
+nonisolated struct TrigramSearchIndex<Key: Hashable> {
+    private var postingLists: [String: [Key]] = [:]
+
+    init() {}
+
+    mutating func rebuild<S: Sequence>(_ entries: S) where S.Element == (key: Key, text: String) {
+        postingLists.removeAll(keepingCapacity: true)
+
+        for entry in entries {
+            for trigram in Self.trigrams(from: entry.text) {
+                postingLists[trigram, default: []].append(entry.key)
+            }
+        }
+    }
+
+    func orderedCandidates(for query: String) -> [Key]? {
+        let queryTrigrams = Self.trigrams(from: query)
+        guard !queryTrigrams.isEmpty else { return nil }
+
+        let postings = queryTrigrams.compactMap { postingLists[$0] }.sorted { $0.count < $1.count }
+        guard let base = postings.first else { return [] }
+        guard postings.count > 1 else { return base }
+
+        var remainderSets: [Set<Key>] = []
+        remainderSets.reserveCapacity(postings.count - 1)
+        for posting in postings.dropFirst() {
+            remainderSets.append(Set(posting))
+        }
+
+        return base.filter { key in
+            remainderSets.allSatisfy { $0.contains(key) }
+        }
+    }
+
+    private static func trigrams(from text: String) -> Set<String> {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let characters = Array(normalized)
+        guard characters.count >= 3 else { return [] }
+
+        var trigrams: Set<String> = []
+        trigrams.reserveCapacity(characters.count - 2)
+
+        for index in 0..<(characters.count - 2) {
+            trigrams.insert(String(characters[index...(index + 2)]))
+        }
+
+        return trigrams
+    }
+}

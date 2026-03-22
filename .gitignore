@@ -1,0 +1,34 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.profraw
+*.profdata
+
+# Swift Package Manager
+.build/
+Packages/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Logs
+*.log
+
+# Credentials
+.env
+*.pem
+
+# Rust
+graph-engine/target/
+build-rust/
+
+# Reference repos
+logseq/
+.superpowers/
