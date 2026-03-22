@@ -80,6 +80,10 @@ final class SDPage {
     /// Avoids the O(n) SHA256 recompute of isDirtyVault across all pages.
     var needsVaultSync: Bool = false
 
+    /// Persistent cache of outgoing block references ((blockId)).
+    /// Extracted during saveBody() to avoid O(N) disk I/O in the graph builder.
+    var blockReferences: [String] = []
+
     // MARK: - Relationships
     // Note: .cascade delete rules work through SwiftData's managed context.
     // Direct batch deletes (e.g. try context.delete(model:where:)) bypass cascade
@@ -117,6 +121,7 @@ final class SDPage {
         self.journalDate = journalDate
         self.createdAt = .now
         self.updatedAt = .now
+        self.blockReferences = []
     }
 
     // MARK: - Computed Accessors
@@ -212,6 +217,15 @@ final class SDPage {
         NoteFileStorage.writeBody(pageId: id, content: content)
         // Clear inline body to keep SQLite rows small.
         if !body.isEmpty { body = "" }
+
+        // Extract block references ((blockId)) for the structural graph.
+        // Storing these on the model eliminates O(N) disk I/O during graph building.
+        let pattern = /\(\(([^)]+)\)\)/
+        let matches = content.matches(of: pattern)
+        self.blockReferences = matches.compactMap { match -> String? in
+            let refId = String(match.1).trimmingCharacters(in: .whitespaces)
+            return refId.isEmpty ? nil : refId
+        }
     }
 
     /// SHA256 hash prefix (16 hex chars) for dirty detection.

@@ -1059,4 +1059,25 @@ final class GraphStore {
         guard let idx = _nodeIdx[nodeId], idx < _neighbors.count else { return 0 }
         return UInt32(_neighbors[idx].count)
     }
+
+    /// Snapshot the current store state for background FFI payload building.
+    /// Captures a thread-safe copy of nodes, edges, and pre-computed link counts.
+    func snapshot() -> GraphStoreSnapshot {
+        let nIdx = _nodeIdx
+        let neighbors = _neighbors
+        var counts: [String: UInt32] = [:]
+        counts.reserveCapacity(nIdx.count)
+
+        for (id, idx) in nIdx {
+            if idx < neighbors.count {
+                counts[id] = UInt32(neighbors[idx].count)
+            }
+        }
+
+        return GraphStoreSnapshot(
+            nodes: nodes,
+            edges: edges,
+            linkCounts: counts
+        )
+    }
 }

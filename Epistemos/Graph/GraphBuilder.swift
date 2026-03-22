@@ -139,20 +139,18 @@ final class GraphBuilder: @unchecked Sendable {
 
         let blockRefPattern = /\(\(([^)]+)\)\)/
 
-        // Pass 1: scan bodies for block refs.
+        // Pass 1: collect block refs from pages.
+        // SDPage extracts these during saveBody() to avoid O(N) disk I/O here.
         struct BlockRef { let noteNodeId: String; let refId: String }
         var blockRefs: [BlockRef] = []
         var referencedBlockIds = Set<String>()
 
         for page in pages {
             guard let noteNodeId = sourceIdToNodeId[page.id] else { continue }
-            let body = page.loadBody(mapped: true)
-            guard !body.isEmpty else { continue }
+            let refs = page.blockReferences
+            guard !refs.isEmpty else { continue }
 
-            // Block references — ((blockId))
-            for match in body.matches(of: blockRefPattern) {
-                let refId = String(match.1).trimmingCharacters(in: .whitespaces)
-                guard !refId.isEmpty else { continue }
+            for refId in refs {
                 referencedBlockIds.insert(refId)
                 blockRefs.append(BlockRef(noteNodeId: noteNodeId, refId: refId))
             }

@@ -101,25 +101,6 @@ struct GraphNodeHoverHapticState {
     }
 }
 
-nonisolated struct GraphFilterSnapshot: Sendable {
-    let activeNodeTypes: Set<GraphNodeType>
-    let focusedConnected: Set<String>?
-
-    @MainActor
-    init(filter: FilterEngine) {
-        activeNodeTypes = filter.activeNodeTypes
-        focusedConnected = filter.focusedConnected
-    }
-
-    func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
-        guard activeNodeTypes.contains(node.type) else { return false }
-        if let focusedConnected {
-            guard focusedConnected.contains(node.id) else { return false }
-        }
-        return true
-    }
-}
-
 @MainActor
 final class GraphDeferredMetadataDriver {
     private enum Phase {
@@ -187,11 +168,10 @@ func graphDisplayLinkTransition(
     return hasDisplayLink ? .stop : .none
 }
 
-@MainActor
-func makeVisibleNodeBatchPayload<Nodes: Collection>(
+nonisolated func makeVisibleNodeBatchPayload<Nodes: Collection>(
     from nodes: Nodes,
-    store: GraphStore,
-    filter: FilterEngine
+    store: GraphStoreSnapshot,
+    filter: GraphFilterSnapshot
 ) -> GraphNodeBatchPayload where Nodes.Element == GraphNodeRecord {
     var payload = GraphNodeBatchPayload()
     payload.ids.reserveCapacity(nodes.count)
@@ -213,11 +193,10 @@ func makeVisibleNodeBatchPayload<Nodes: Collection>(
     return payload
 }
 
-@MainActor
-func makeVisibleEdgeBatchPayload<Edges: Collection>(
+nonisolated func makeVisibleEdgeBatchPayload<Edges: Collection>(
     from edges: Edges,
-    store: GraphStore,
-    filter: FilterEngine
+    store: GraphStoreSnapshot,
+    filter: GraphFilterSnapshot
 ) -> GraphEdgeBatchPayload where Edges.Element == GraphEdgeRecord {
     var payload = GraphEdgeBatchPayload()
     payload.sourceIds.reserveCapacity(edges.count)
@@ -615,80 +594,103 @@ final class MetalGraphNSView: NSView {
     /// N individual calls (critical for 10K+ node performance).
     func commitGraphData() {
         let interval = Log.graphPerf.beginInterval("commitGraphData")
-        defer { Log.graphPerf.endInterval("commitGraphData", interval) }
-        guard let engine, let graphState else { return }
-        let store = graphState.store
-        let filter = graphState.filter
+        guard let engine, let graphState else {
+            Log.graphPerf.endInterval("commitGraphData", interval)
+            return
+        }
 
+        // 1. Capture thread-safe snapshots of current state on the MainActor.
+        let storeSnapshot = graphState.store.snapshot()
+        let filterSnapshot = graphState.filter.snapshot()
+        let isCommittedBefore = self.isCommitted
+        let playedEntranceBefore = graphState.hasPlayedEntrance
+        let physicsFrozenBefore = graphState.isPhysicsFrozen
+        let nodeCount = graphState.store.nodeCount
+        let staticThreshold = GraphState.staticLayoutThreshold
+
+        // 2. Clear engine immediately to prepare for new batch.
         graph_engine_clear(engine)
 
-        let nodePayload = makeVisibleNodeBatchPayload(
-            from: store.nodes.values,
-            store: store,
-            filter: filter
-        )
-        sendNodeBatch(nodePayload, to: engine)
+        // 3. Offload O(N) payload building to a background thread.
+        // This prevents the 2-3s main thread freeze for large (10K+) graphs.
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
 
-        let edgePayload = makeVisibleEdgeBatchPayload(
-            from: store.edges.values,
-            store: store,
-            filter: filter
-        )
-        sendEdgeBatch(edgePayload, to: engine)
+            let nodePayload = makeVisibleNodeBatchPayload(
+                from: Array(storeSnapshot.nodes.values),
+                store: storeSnapshot,
+                filter: filterSnapshot
+            )
 
-        // Entrance animation: always play for small graphs (under static threshold),
-        // skip for large graphs or when already committed (mid-session recommit).
-        let isSmallGraph = graphState.store.nodeCount <= GraphState.staticLayoutThreshold
-        let entrance: UInt8 = (isCommitted || (!isSmallGraph && graphState.hasPlayedEntrance)) ? 0 : 1
-        graph_engine_commit(engine, entrance)
-        if entrance == 1 {
-            graphState.hasPlayedEntrance = true
-            // Rust clears user_frozen on entrance — sync Swift side so the
-            // freeze toggle reflects the actual engine state.
-            if graphState.isPhysicsFrozen {
-                graphState.isPhysicsFrozen = false
-                graphState.physicsFrozenVersion += 1
-                graphState.savePhysicsSettings()
+            let edgePayload = makeVisibleEdgeBatchPayload(
+                from: Array(storeSnapshot.edges.values),
+                store: storeSnapshot,
+                filter: filterSnapshot
+            )
+
+            // 4. Push payloads back to engine on MainActor (FFI requires MainActor).
+            await MainActor.run { [weak self] in
+                guard let self, let engine = self.engine, let graphState = self.graphState else {
+                    Log.graphPerf.endInterval("commitGraphData", interval)
+                    return
+                }
+
+                sendNodeBatch(nodePayload, to: engine)
+                sendEdgeBatch(edgePayload, to: engine)
+
+                // Entrance animation logic.
+                let isSmallGraph = nodeCount <= staticThreshold
+                let entrance: UInt8 = (isCommittedBefore || (!isSmallGraph && playedEntranceBefore)) ? 0 : 1
+                graph_engine_commit(engine, entrance)
+
+                if entrance == 1 {
+                    graphState.hasPlayedEntrance = true
+                    if physicsFrozenBefore {
+                        graphState.isPhysicsFrozen = false
+                        graphState.physicsFrozenVersion += 1
+                        graphState.savePhysicsSettings()
+                    }
+                }
+
+                graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
+
+                self.pushForceParams()
+                self.pushExtendedForceParams()
+                self.pushClusterParams()
+                self.pushSemanticForce()
+                self.pushLabParams()
+                self.applyDialogueDepthPalette()
+
+                // Push graph render mode to Rust.
+                graph_engine_set_quality_level(engine, graphState.qualityLevel)
+                self.lastLiteModeVersion = graphState.liteModeVersion
+
+                // Push visual theme to Rust.
+                graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
+                self.lastVisualThemeVersion = graphState.visualThemeVersion
+
+                if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
+                    self.pushSemanticClusters()
+                    self.lastSemanticClusterVersion = graphState.semanticClusterVersion
+                } else {
+                    self.lastSemanticClusterVersion = -1
+                }
+
+                graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
+                self.lastForceConfigVersion = graphState.forceConfigVersion
+                self.lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
+                self.lastClusterConfigVersion = graphState.clusterConfigVersion
+                self.lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
+                self.lastLabConfigVersion = graphState.labConfigVersion
+                self.lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
+
+                self.isCommitted = true
+                self.needsRender = true
+                Log.graphPerf.endInterval("commitGraphData", interval)
+
+                self.scheduleDeferredNodeMetadataPush()
             }
         }
-
-        // Update static layout flag — physics controls grey out when true.
-        graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
-
-        pushForceParams()
-        pushExtendedForceParams()
-        pushClusterParams()
-        pushSemanticForce()
-        pushLabParams()
-
-        // Push graph render mode to Rust.
-        graph_engine_set_quality_level(engine, graphState.qualityLevel)
-        lastLiteModeVersion = graphState.liteModeVersion
-
-        // Push visual theme to Rust.
-        graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
-        applyDialogueDepthPalette()
-        lastVisualThemeVersion = graphState.visualThemeVersion
-
-        if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
-            pushSemanticClusters()
-            lastSemanticClusterVersion = graphState.semanticClusterVersion
-        } else {
-            lastSemanticClusterVersion = -1
-        }
-
-        graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
-        lastForceConfigVersion = graphState.forceConfigVersion
-        lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
-        lastClusterConfigVersion = graphState.clusterConfigVersion
-        lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
-        lastLabConfigVersion = graphState.labConfigVersion
-        lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
-
-        isCommitted = true
-        needsRender = true
-
-        scheduleDeferredNodeMetadataPush()
     }
 
     @MainActor
@@ -724,20 +726,20 @@ final class MetalGraphNSView: NSView {
     /// O(k) where k = pending items, vs O(N) for a full recommit.
     private func commitIncrementalAdds(graphState: GraphState) {
         guard let engine else { return }
-        let store = graphState.store
-        let filter = graphState.filter
+        let storeSnapshot = graphState.store.snapshot()
+        let filterSnapshot = graphState.filter.snapshot()
 
         let nodePayload = makeVisibleNodeBatchPayload(
             from: graphState.pendingNodeAdds,
-            store: store,
-            filter: filter
+            store: storeSnapshot,
+            filter: filterSnapshot
         )
         sendNodeBatch(nodePayload, to: engine)
 
         let edgePayload = makeVisibleEdgeBatchPayload(
             from: graphState.pendingEdgeAdds,
-            store: store,
-            filter: filter
+            store: storeSnapshot,
+            filter: filterSnapshot
         )
         sendEdgeBatch(edgePayload, to: engine)
 

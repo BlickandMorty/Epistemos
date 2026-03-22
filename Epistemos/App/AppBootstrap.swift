@@ -421,17 +421,36 @@ final class AppBootstrap {
 
     private func migrateBodiesToFileStorage() async {
         let migrationKey = "v2_body_migration_complete"
-        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        let blockMigrationKey = "v2_block_ref_migration_complete"
         let interval = Log.appPerf.beginInterval("migrateBodiesToFileStorage")
         defer { Log.appPerf.endInterval("migrateBodiesToFileStorage", interval) }
-        do {
-            let migrated = try await BodyMigrationActor(modelContainer: modelContainer).migrateInlineBodiesToFiles()
-            UserDefaults.standard.set(true, forKey: migrationKey)
-            if migrated > 0 {
-                Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
+
+        let actor = BodyMigrationActor(modelContainer: modelContainer)
+
+        // 1. Body migration
+        if !UserDefaults.standard.bool(forKey: migrationKey) {
+            do {
+                let migrated = try await actor.migrateInlineBodiesToFiles()
+                UserDefaults.standard.set(true, forKey: migrationKey)
+                if migrated > 0 {
+                    Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
+                }
+            } catch {
+                Log.app.error("Body migration: failed — \(error.localizedDescription, privacy: .public)")
             }
-        } catch {
-            Log.app.error("Body migration: failed — will retry on next launch: \(error.localizedDescription, privacy: .public)")
+        }
+
+        // 2. Block reference migration (for graph performance)
+        if !UserDefaults.standard.bool(forKey: blockMigrationKey) {
+            do {
+                let migrated = try await actor.migrateBlockReferences()
+                UserDefaults.standard.set(true, forKey: blockMigrationKey)
+                if migrated > 0 {
+                    Log.app.info("Block reference migration: cached \(migrated) pages")
+                }
+            } catch {
+                Log.app.error("Block ref migration: failed — \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -523,6 +542,30 @@ private actor BodyMigrationActor {
             NoteFileStorage.writeBody(pageId: page.id, content: page.body)
             page.body = ""
             migrated += 1
+        }
+        if migrated > 0 {
+            try modelContext.save()
+        }
+        return migrated
+    }
+
+    func migrateBlockReferences() throws -> Int {
+        let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
+        var migrated = 0
+        let pattern = /\(\(([^)]+)\)\)/
+
+        for page in pages where page.blockReferences.isEmpty {
+            let body = page.loadBody(mapped: true)
+            guard !body.isEmpty else { continue }
+            let matches = body.matches(of: pattern)
+            let refs = matches.compactMap { match -> String? in
+                let refId = String(match.1).trimmingCharacters(in: .whitespaces)
+                return refId.isEmpty ? nil : refId
+            }
+            if !refs.isEmpty {
+                page.blockReferences = refs
+                migrated += 1
+            }
         }
         if migrated > 0 {
             try modelContext.save()

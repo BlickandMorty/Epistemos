@@ -79,4 +79,9 @@ final class FilterEngine {
     ) -> Bool {
         sourceVisible && targetVisible
     }
+
+    /// Snapshot the current filter state for background FFI payload building.
+    func snapshot() -> GraphFilterSnapshot {
+        GraphFilterSnapshot(filter: self)
+    }
 }

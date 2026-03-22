@@ -159,3 +159,51 @@ nonisolated struct GraphNodeMetadata: Codable, Sendable, Equatable {
     var originChatId: String?
     var originNoteId: String?
 }
+
+// MARK: - Snapshots
+// Sendable snapshots of graph state for background FFI payload generation.
+// Prevents MainActor contention when building large (10K+) node batches.
+
+nonisolated struct GraphFilterSnapshot: Sendable {
+    let activeNodeTypes: Set<GraphNodeType>
+    let focusedNodeId: String?
+    let focusedConnected: Set<String>?
+
+    @MainActor
+    init(filter: FilterEngine) {
+        activeNodeTypes = filter.activeNodeTypes
+        focusedNodeId = filter.focusedNodeId
+        focusedConnected = filter.focusedConnected
+    }
+
+    func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
+        // 1. Type filter
+        guard activeNodeTypes.contains(node.type) else { return false }
+
+        // 2. Focus filter
+        if let connected = focusedConnected {
+            guard connected.contains(node.id) else { return false }
+        }
+
+        return true
+    }
+
+    func isEdgeVisible(
+        _ edge: GraphEdgeRecord,
+        sourceVisible: Bool,
+        targetVisible: Bool
+    ) -> Bool {
+        sourceVisible && targetVisible
+    }
+}
+
+nonisolated struct GraphStoreSnapshot: Sendable {
+    let nodes: [String: GraphNodeRecord]
+    let edges: [String: GraphEdgeRecord]
+    /// Pre-computed link counts (degree) for each node ID.
+    let linkCounts: [String: UInt32]
+
+    func linkCount(for nodeId: String) -> UInt32 {
+        linkCounts[nodeId] ?? 0
+    }
+}
