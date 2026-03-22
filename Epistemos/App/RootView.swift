@@ -253,7 +253,7 @@ struct RootView: View {
         LocalModelToolbarMenu(
             variant: .toolbar,
             overrideTitle: title,
-            overrideFont: title != nil ? .system(size: 16, weight: .semibold, design: .rounded) : nil
+            overrideFont: title != nil ? Font.system(size: 16, weight: .semibold, design: .rounded) : nil
         )
         .fixedSize()
     }
@@ -375,109 +375,135 @@ struct LocalModelToolbarMenu: View {
         if let overrideFont { return overrideFont }
         switch variant {
         case .toolbar:
-            .system(size: 14, weight: .medium)
+            return Font.system(size: 14, weight: .medium)
         case .content:
-            .system(size: 13.5, weight: .medium)
+            return Font.system(size: 13.5, weight: .medium)
+        }
+    }
+
+    private var cloudModelSection: some View {
+        Section("Cloud Models") {
+            ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
+                Section(provider.displayName) {
+                    ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
+                        let providerConfigured = inference.configuredCloudProviders.contains(provider)
+                        Button {
+                            inference.setPreferredChatModelSelection(.cloud(model))
+                        } label: {
+                            HStack {
+                                Text(model.displayName)
+                                if selectedMenuItem == .cloud(model) {
+                                    Spacer(minLength: 8)
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                        .disabled(!providerConfigured)
+                    }
+                }
+            }
+
+            if !inference.hasConfiguredCloudModels {
+                Text("Add API keys in Settings to enable cloud models")
+            }
+
+            Button("Configure Cloud API Keys") {
+                UtilityWindowManager.shared.show(.settings)
+                NSApp.activate()
+            }
         }
     }
 
     var body: some View {
         Menu {
             if inference.appleIntelligenceAvailable {
-                Button {
-                    inference.setPreferredChatModelSelection(.appleIntelligence)
-                } label: {
-                    HStack {
-                        Text("Apple Intelligence")
-                        if selectedMenuItem == .appleIntelligence {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-
+                appleIntelligenceButton
+                
                 if !installedSelectableModels.isEmpty {
                     Divider()
                 }
             }
 
             if !installedSelectableModels.isEmpty {
-                ForEach(installedSelectableModels, id: \.id) { model in
-                    Button {
-                        inference.setPreferredChatModelSelection(.localQwen(model.id))
-                    } label: {
-                        HStack {
-                            Text(model.displayName)
-                            if selectedMenuItem == .inProcess(model) {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
+                localModelsSection
             } else if !inference.appleIntelligenceAvailable {
                 Text("No supported local models installed")
             }
 
             Divider()
 
-            Section("Cloud Models") {
-                ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
-                    Section(provider.displayName) {
-                        ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
-                            let providerConfigured = inference.configuredCloudProviders.contains(provider)
-                            Button {
-                                inference.setPreferredChatModelSelection(.cloud(model))
-                            } label: {
-                                HStack {
-                                    Text(model.displayName)
-                                    if selectedMenuItem == .cloud(model) {
-                                        Spacer(minLength: 8)
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                            .disabled(!providerConfigured)
-                        }
-                    }
-                }
-
-                if !inference.hasConfiguredCloudModels {
-                    Text("Add API keys in Settings to enable cloud models")
-                }
-
-                Button("Configure Cloud API Keys") {
-                    UtilityWindowManager.shared.show(.settings)
-                    NSApp.activate()
-                }
-            }
+            cloudModelSection
 
             Divider()
 
-            Button("Open Settings") {
-                UtilityWindowManager.shared.show(.settings)
-                NSApp.activate()
-            }
+            settingsSection
         } label: {
-            HStack(spacing: 5) {
-                if overrideTitle != nil {
-                    TypewriterASCIIRippleText(
-                        text: labelText,
-                        font: labelFont,
-                        color: theme.textSecondary,
-                        configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
-                    )
-                } else {
-                    ASCIIRippleText(
-                        text: labelText,
-                        font: labelFont,
-                        color: theme.textSecondary,
-                        configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
-                    )
+            menuLabel
+        }
+    }
+
+    @ViewBuilder
+    private var appleIntelligenceButton: some View {
+        Button {
+            inference.setPreferredChatModelSelection(.appleIntelligence)
+        } label: {
+            HStack {
+                Text("Apple Intelligence")
+                if selectedMenuItem == .appleIntelligence {
+                    Image(systemName: "checkmark")
                 }
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(theme.textTertiary)
             }
-            .fixedSize()
+        }
+    }
+
+    @ViewBuilder
+    private var localModelsSection: some View {
+        ForEach(installedSelectableModels, id: \.id) { model in
+            Button {
+                inference.setPreferredChatModelSelection(.localQwen(model.id))
+            } label: {
+                HStack {
+                    Text(model.displayName)
+                    if selectedMenuItem == .inProcess(model) {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var settingsSection: some View {
+        Button("Open Settings") {
+            UtilityWindowManager.shared.show(.settings)
+            NSApp.activate()
+        }
+    }
+
+    @ViewBuilder
+    private var menuLabel: some View {
+        HStack(spacing: 5) {
+            if overrideTitle != nil {
+                TypewriterASCIIRippleText(
+                    text: labelText,
+                    font: labelFont,
+                    color: theme.textSecondary,
+                    configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
+                )
+            } else {
+                ASCIIRippleText(
+                    text: labelText,
+                    font: labelFont,
+                    color: theme.textSecondary,
+                    configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
+                )
+            }
+            Image(systemName: "chevron.down")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
+        }
+        .fixedSize()
+    }
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)

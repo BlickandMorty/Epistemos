@@ -59,7 +59,8 @@ struct LandingView: View {
     private var allPages: [SDPage]
 
     // Inline search state
-    @State private var showingSearch = false
+    @State private var showingSearchPopover = false
+    @State private var tapLocation: CGPoint? = nil
     @State private var landingSearchText = ""
     @State private var landingComposerHeight: CGFloat = LandingSearchLayout.inputMinHeight
     @State private var isLandingSearchFocused = false
@@ -90,20 +91,40 @@ struct LandingView: View {
 
     var body: some View {
         ZStack {
+            // ── Background Tap Layer ──
+            // Captures clicks on the landing background to trigger the search popover.
+            Color.clear
+                .contentShape(Rectangle())
+                .onContinuousHover { _ in }
+                .simultaneousGesture(
+                    SpatialTapGesture(coordinateSpace: .named(LandingCoordinateSpace.root))
+                        .onEnded { event in
+                            activateLandingSearch(at: event.location)
+                        }
+                )
+                .zIndex(0)
+
             // ── Greeting Mode ──
             // Blurs and fades when Daily Brief or inline search is active.
             greetingContent
-                .scaleEffect((showingBrief || showingSearch) ? 0.985 : 1)
-                .opacity((showingBrief || showingSearch) ? 0 : 1)
-                .allowsHitTesting(!showingBrief && !showingSearch)
+                .blur(radius: (showingBrief || showingSearchPopover) ? 4 : 0)
+                .opacity((showingBrief || showingSearchPopover) ? 0.7 : 1)
+                .allowsHitTesting(!showingBrief && !showingSearchPopover)
                 .zIndex(1)
 
-            // ── Inline Search Mode ──
-            // Click anywhere on landing → greeting blur-replaces into search bar.
-            if showingSearch {
-                landingSearchContent
-                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
-                    .zIndex(2)
+            // ── Inline Search Popover ──
+            // Click anywhere on landing → popover at click location.
+            // Popover is anchored to the tap location in the root coordinate space.
+            if let location = tapLocation, showingSearchPopover {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .position(location)
+                    .popover(isPresented: $showingSearchPopover) {
+                        landingSearchPopoverContent
+                            .frame(width: 480)
+                            .assistantGlassInputChrome(theme: theme, cornerRadius: 20)
+                            .padding(12)
+                    }
             }
 
             // ── Daily Brief Mode ──
@@ -117,7 +138,7 @@ struct LandingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .coordinateSpace(name: LandingCoordinateSpace.root)
         .animation(Motion.smooth, value: showingBrief)
-        .animation(Motion.smooth, value: showingSearch)
+        .animation(Motion.smooth, value: showingSearchPopover)
         .background {
             // Hidden ⌘N shortcut — creates new note and teleports there
             Button(action: { createAndOpenNote() }) {}
@@ -141,7 +162,7 @@ struct LandingView: View {
 
         }
         .onKeyPress(.escape) {
-            if showingSearch {
+            if showingSearchPopover {
                 dismissLandingSearch()
                 return .handled
             }
@@ -224,16 +245,12 @@ struct LandingView: View {
                 }
                 .padding(.bottom, 28)
             }
-        .contentShape(Rectangle())
-        .onTapGesture { activateLandingSearch() }
     }
 
-    // MARK: - Landing Search Content (replaces greeting in-place)
-
-    private var landingSearchContent: some View {
-        VStack(spacing: 0) {
-            Spacer()
-                .allowsHitTesting(false)
+    // MARK: - Landing Search Content (Compact for Popover)
+    
+    private var landingSearchPopoverContent: some View {
+        VStack(spacing: 16) {
 
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -392,52 +409,25 @@ struct LandingView: View {
                         }
                     }
                 }
-                .padding(.horizontal, LandingSearchLayout.horizontalPadding)
-                .padding(.top, LandingSearchLayout.topPadding)
-                .padding(.bottom, LandingSearchLayout.bottomPadding)
-                .assistantGlassInputChrome(
-                    theme: theme,
-                    cornerRadius: LandingSearchLayout.cornerRadius,
-                    isActive: isLandingSearchFocused
-                        || !trimmedLandingSearchText.isEmpty
-                        || !landingContextAttachments.isEmpty
-                )
-                .frame(maxWidth: LandingSearchLayout.maxWidth)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 4)
             }
-            .padding(.horizontal, Spacing.xxl)
 
             Spacer()
                 .allowsHitTesting(false)
 
-            VStack(spacing: 16) {
-                // Hint to dismiss
-                Text("Press Esc to go back")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(theme.textTertiary.opacity(0.4))
-                
-                // Quick action chips moved to the bottom
-                HStack(spacing: 12) {
-                    landingChip(label: "New Note", icon: "doc.badge.plus") {
-                        dismissLandingSearch()
-                        createAndOpenNote()
-                    }
-                    landingChip(label: "Quick Idea", icon: "lightbulb") {
-                        dismissLandingSearch()
-                        captureQuickIdea()
-                    }
-                    landingChip(label: "Vault Briefing", icon: "book.pages") {
-                        dismissLandingSearch()
-                        chat.startNewChat()
-                        ui.setActivePanel(.home)
-                        AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
-                    }
-                    landingChip(label: "Daily Brief", icon: "newspaper.fill") {
-                        dismissLandingSearch()
-                        dailyBrief.requestDailyBrief(prompt: buildDailyBriefPrompt())
-                    }
+            HStack(spacing: 12) {
+                landingChip(label: "Vault Briefing", icon: "book.pages") {
+                    dismissLandingSearch()
+                    chat.startNewChat()
+                    ui.setActivePanel(.home)
+                    AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
+                }
+                landingChip(label: "Daily Brief", icon: "newspaper.fill") {
+                    dismissLandingSearch()
+                    dailyBrief.requestDailyBrief(prompt: buildDailyBriefPrompt())
                 }
             }
-            .padding(.bottom, 28)
         }
     }
 
@@ -462,9 +452,11 @@ struct LandingView: View {
             .accessibilityLabel("Local Model")
     }
 
-    private func activateLandingSearch() {
+    private func activateLandingSearch(at location: CGPoint? = nil) {
         guard !showingBrief else { return }
-        showingSearch = true
+        // If no location (e.g. from shortcut), center it roughly
+        tapLocation = location ?? CGPoint(x: 400, y: 300) 
+        showingSearchPopover = true
         Task { @MainActor in
             await Task.yield()
             try? await Task.sleep(for: .milliseconds(16))
@@ -473,7 +465,8 @@ struct LandingView: View {
     }
 
     private func dismissLandingSearch() {
-        showingSearch = false
+        showingSearchPopover = false
+        tapLocation = nil
         landingSearchText = ""
         landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
