@@ -609,6 +609,22 @@ struct RuntimeValidationTests {
         #expect(!popover.contains("GeometryReader { proxy in"))
     }
 
+    @Test("note editor keeps markdown tables as plain editor text")
+    func noteEditorKeepsMarkdownTablesAsPlainEditorText() throws {
+        let tk1 = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable.swift")
+        let tk2 = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
+        let pool = try loadRepoTextFile("Epistemos/Views/Notes/PageStoragePool.swift")
+
+        #expect(tk1.contains("storage.usesRenderedTableOverlays = false"))
+        #expect(tk1.contains("tv.usesRenderedTableOverlays = false"))
+        #expect(!tk1.contains("let renderedTableMgr = RenderedTableOverlayManager(textView: tv, theme: theme)"))
+        #expect(tk2.contains("tv.usesRenderedTableOverlays = false"))
+        #expect(tk2.contains("tv.markdownDelegate.usesRenderedTableOverlays = false"))
+        #expect(!tk2.contains("coord.renderedTableOverlayManager = RenderedTableOverlayManager2("))
+        #expect(pool.contains("existing.storage.usesRenderedTableOverlays = false"))
+        #expect(pool.contains("storage.usesRenderedTableOverlays = false"))
+    }
+
     @Test("mini chat stays a real resizable window without the removed palette shell")
     func miniChatStaysARealResizableWindowWithoutPaletteShell() throws {
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
@@ -623,9 +639,12 @@ struct RuntimeValidationTests {
         #expect(!miniChat.contains("AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics)"))
         #expect(miniChat.contains("static let messageColumnMaxWidth: CGFloat = 560"))
         #expect(miniChat.contains("MiniChatBubble(message: msg)\n                                            .frame(maxWidth: .infinity)"))
-        #expect(miniChat.contains(".frame(maxWidth: .infinity, alignment: .leading)"))
+        #expect(miniChat.contains("HStack {\n                            Spacer(minLength: 0)"))
+        #expect(miniChat.contains("}\n                        .frame(maxWidth: .infinity)"))
         #expect(miniChat.contains(".background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))"))
-        #expect(miniChat.contains(".frame(maxWidth: .infinity, alignment: .trailing)"))
+        #expect(miniChat.contains("HStack(spacing: 0) {"))
+        #expect(miniChat.contains("Spacer(minLength: 0)"))
+        #expect(miniChat.contains(".frame(maxWidth: .infinity)"))
     }
 
     @Test("mini chat launches in its own real window and keeps main-chat styling cues")

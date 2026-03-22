@@ -205,9 +205,9 @@ private struct MiniChatThread: View {
                                 Color.clear.frame(height: 1).id("bottom")
                             }
                             .frame(maxWidth: MiniChatLayout.messageColumnMaxWidth)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                             Spacer(minLength: 0)
                         }
+                        .frame(maxWidth: .infinity)
                         .padding(.horizontal, Spacing.lg)
                         .padding(.vertical, 18)
                     }
@@ -368,20 +368,21 @@ private struct MiniChatBubble: View {
             ? UserFacingModelOutput.finalVisibleText(from: message.content)
             : message.content
         if isUser {
-            VStack(alignment: .trailing, spacing: Spacing.xs) {
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
                 TaggedMarkdownTextView(
                     content: displayContent,
                     theme: theme,
                     rippleStyle: .none,
                     foregroundOverride: theme.userBubbleText
                 )
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .frame(maxWidth: 360, alignment: .leading)
+                .textSelection(.enabled)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .frame(maxWidth: 360, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(maxWidth: .infinity)
         } else {
             MiniChatAssistantBubbleChrome {
                 VStack(alignment: .leading, spacing: Spacing.md) {

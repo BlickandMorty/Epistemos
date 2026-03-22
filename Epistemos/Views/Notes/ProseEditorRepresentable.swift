@@ -107,7 +107,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         let storage = MarkdownTextStorage()
         storage.isDark = theme.isDark
         storage.theme = theme
-        storage.usesRenderedTableOverlays = true
+        storage.usesRenderedTableOverlays = false
 
         let layoutManager = NSLayoutManager()
         // Only lay out visible text — skip everything below the fold.
@@ -194,7 +194,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         tv.layoutManager?.delegate = context.coordinator
         context.coordinator.textView = tv
         context.coordinator.storage = storage
-        tv.usesRenderedTableOverlays = true
+        tv.usesRenderedTableOverlays = false
 
         // Transclusion overlays — editable inline block-ref content
         let transclusionMgr = TransclusionOverlayManager(textView: tv)
@@ -205,9 +205,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             context?.handleTransclusionEdit(blockId: blockId, newContent: newContent)
         }
         context.coordinator.transclusionManager = transclusionMgr
-
-        let renderedTableMgr = RenderedTableOverlayManager(textView: tv, theme: theme)
-        context.coordinator.renderedTableOverlayManager = renderedTableMgr
 
         // Block ref autocomplete — triggered by typing ((
         if let mc = modelContext {
@@ -407,7 +404,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 // Swap storage — detach old, attach new
                 coord.storage?.removeLayoutManager(layoutManager)
                 slot.storage.addLayoutManager(layoutManager)
-                slot.storage.usesRenderedTableOverlays = true
+                slot.storage.usesRenderedTableOverlays = false
                 coord.storage = slot.storage
 
                 // Swap per-page undo manager
@@ -476,7 +473,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             coord.lastTheme = theme
             coord.storage?.isDark = theme.isDark
             coord.storage?.theme = theme
-            coord.storage?.usesRenderedTableOverlays = true
+            coord.storage?.usesRenderedTableOverlays = false
             Self.applyEditorAppearance(to: tv, theme: theme)
             Self.progressiveRestyle(coord.storage)
             PageStoragePool.shared.invalidateExcept(activePageId: pageId)

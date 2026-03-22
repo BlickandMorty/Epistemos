@@ -50,8 +50,8 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
         tv.isEditable = isEditable
         tv.delegate = coord
-        tv.usesRenderedTableOverlays = true
-        tv.markdownDelegate.usesRenderedTableOverlays = true
+        tv.usesRenderedTableOverlays = false
+        tv.markdownDelegate.usesRenderedTableOverlays = false
         tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
 
         tv.applyTheme(theme)
@@ -75,11 +75,6 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastTheme = theme
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
-        coord.renderedTableOverlayManager = RenderedTableOverlayManager2(
-            textView: tv,
-            theme: tv.resolvedTheme
-        )
-
         // Wire AI chat callbacks
         coord.wireNoteChatCallbacks()
 
@@ -287,7 +282,7 @@ extension ProseEditorRepresentable2 {
 
         func handleUpdate() {
             guard let tv = textView else { return }
-            tv.markdownDelegate.usesRenderedTableOverlays = true
+            tv.markdownDelegate.usesRenderedTableOverlays = false
 
             // Page swap
             if parent.pageId != currentPageId {
