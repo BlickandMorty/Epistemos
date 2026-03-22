@@ -226,17 +226,15 @@ struct RootView: View {
 
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
-            settingsToolbarButton
-
             if showLandingToolbarControls {
+                settingsToolbarButton
                 landingGreetingToolbarButton
+                historyToolbarButton
             }
 
             if activeHomeChat {
                 modelToolbarButton(title: chat.chatTitle)
             }
-
-            historyToolbarButton
         }
         .fixedSize()
     }
@@ -359,7 +357,7 @@ struct LocalModelToolbarMenu: View {
 
     private var labelText: String {
         if let overrideTitle { return overrideTitle }
-        switch selectedMenuItem {
+        return switch selectedMenuItem {
         case .appleIntelligence:
             "Apple Intelligence"
         case .cloud(let model):

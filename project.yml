@@ -24,7 +24,6 @@ targets:
       - path: Epistemos
     resources:
       - path: Epistemos/Resources
-      - path: Epistemos/AppIcon.icon
       - path: Epistemos/PrivacyInfo.xcprivacy
     entitlements:
       path: Epistemos/Epistemos.entitlements

@@ -103,29 +103,21 @@ struct LandingView: View {
                         }
                 )
                 .zIndex(0)
+                .appKitPopover(isPresented: $showingSearchPopover, location: tapLocation) {
+                    landingSearchPopoverContent
+                        .frame(width: 480)
+                        .padding(14)
+                }
 
             // ── Greeting Mode ──
-            // Blurs and fades when Daily Brief or inline search is active.
+            // Blurs and fades when Daily Brief is active. Search popover uses background ripple instead.
             greetingContent
-                .blur(radius: (showingBrief || showingSearchPopover) ? 4 : 0)
+                .blur(radius: showingBrief ? 4 : 0)
                 .opacity((showingBrief || showingSearchPopover) ? 0.7 : 1)
                 .allowsHitTesting(!showingBrief && !showingSearchPopover)
                 .zIndex(1)
 
-            // ── Inline Search Popover ──
-            // Click anywhere on landing → popover at click location.
-            // Popover is anchored to the tap location in the root coordinate space.
-            if let location = tapLocation, showingSearchPopover {
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .position(location)
-                    .popover(isPresented: $showingSearchPopover) {
-                        landingSearchPopoverContent
-                            .frame(width: 480)
-                            .assistantGlassInputChrome(theme: theme, cornerRadius: 20)
-                            .padding(12)
-                    }
-            }
+             // (Inline Search Overlay logic migrated to .appKitPopover on ZIndex 0 layer)
 
             // ── Daily Brief Mode ──
             // Fades in on top of the blurred greeting.
@@ -411,22 +403,6 @@ struct LandingView: View {
                 }
                 .padding(.horizontal, 4)
                 .padding(.bottom, 4)
-            }
-
-            Spacer()
-                .allowsHitTesting(false)
-
-            HStack(spacing: 12) {
-                landingChip(label: "Vault Briefing", icon: "book.pages") {
-                    dismissLandingSearch()
-                    chat.startNewChat()
-                    ui.setActivePanel(.home)
-                    AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
-                }
-                landingChip(label: "Daily Brief", icon: "newspaper.fill") {
-                    dismissLandingSearch()
-                    dailyBrief.requestDailyBrief(prompt: buildDailyBriefPrompt())
-                }
             }
         }
     }

@@ -232,6 +232,8 @@ struct ChatView: View {
         .toolbar {
             // Right: chat controls (title + nav handled by toolbar)
             ToolbarItemGroup(placement: .primaryAction) {
+                historyToolbarButton
+                
                 Button(action: exportChat) {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }
@@ -257,6 +259,21 @@ struct ChatView: View {
                 do { try md.write(to: url, atomically: true, encoding: .utf8) }
                 catch { Log.app.error("Chat export failed: \(error.localizedDescription)") }
             }
+        }
+    }
+    private var historyToolbarButton: some View {
+        @Bindable var ui = ui
+        return Button {
+            ui.toggleChatSidebar()
+        } label: {
+            Label("History", systemImage: "sidebar.left")
+        }
+        .accessibilityLabel("Chat History")
+        .help("Chat History (⇧⌘H)")
+        .popover(isPresented: $ui.showChatSidebar) {
+            ChatSidebarView()
+                .frame(width: 300, height: 500)
+                .preferredColorScheme(ui.preferredColorScheme)
         }
     }
 }
