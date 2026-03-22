@@ -125,7 +125,7 @@ struct ChatInputBar: View {
                         )
 
                         LocalModelToolbarMenu(variant: .toolbar)
-                            .accessibilityLabel("Local model")
+                            .accessibilityLabel("Chat model")
 
                         Spacer(minLength: 8)
 

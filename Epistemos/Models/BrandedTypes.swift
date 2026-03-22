@@ -55,12 +55,18 @@ enum NavTab: String, Codable, Sendable, CaseIterable {
 enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     case appleIntelligence
     case localMLX
+    case openAI
+    case anthropic
+    case google
 
     /// Display name shown in badges and UI.
     nonisolated var displayName: String {
         switch self {
         case .appleIntelligence: "Apple Intelligence"
         case .localMLX: "Qwen 3.5 Local"
+        case .openAI: "OpenAI"
+        case .anthropic: "Anthropic"
+        case .google: "Google"
         }
     }
 
@@ -69,6 +75,9 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         switch self {
         case .appleIntelligence: "apple.intelligence"
         case .localMLX: "memorychip"
+        case .openAI: "sparkles.rectangle.stack"
+        case .anthropic: "brain.head.profile"
+        case .google: "cloud"
         }
     }
 
@@ -77,6 +86,9 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         switch self {
         case .appleIntelligence: Color.purple
         case .localMLX: Color(red: 0.22, green: 0.64, blue: 0.78)
+        case .openAI: Color(red: 0.07, green: 0.67, blue: 0.54)
+        case .anthropic: Color(red: 0.77, green: 0.48, blue: 0.18)
+        case .google: Color(red: 0.24, green: 0.52, blue: 0.96)
         }
     }
 }

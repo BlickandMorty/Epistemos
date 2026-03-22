@@ -295,6 +295,7 @@ struct LocalModelToolbarMenu: View {
     private enum MenuSelection: Identifiable, Equatable {
         case appleIntelligence
         case inProcess(LocalModelDescriptor)
+        case cloud(CloudTextModelID)
 
         var id: String {
             switch self {
@@ -302,6 +303,8 @@ struct LocalModelToolbarMenu: View {
                 "apple-intelligence"
             case .inProcess(let descriptor):
                 "mlx:\(descriptor.id)"
+            case .cloud(let model):
+                "cloud:\(model.rawValue)"
             }
         }
     }
@@ -339,6 +342,9 @@ struct LocalModelToolbarMenu: View {
         if inference.preferredChatModelSelection == .appleIntelligence {
             return .appleIntelligence
         }
+        if case .cloud(let model) = inference.preferredChatModelSelection {
+            return .cloud(model)
+        }
         if let descriptor = selectedDescriptor {
             return .inProcess(descriptor)
         }
@@ -349,10 +355,12 @@ struct LocalModelToolbarMenu: View {
         switch selectedMenuItem {
         case .appleIntelligence:
             "Apple Intelligence"
+        case .cloud(let model):
+            model.displayName
         case .inProcess(let descriptor):
             descriptor.displayName
         case nil:
-            "Install Local Model"
+            "Select Model"
         }
     }
 
@@ -399,6 +407,39 @@ struct LocalModelToolbarMenu: View {
                 }
             } else if !inference.appleIntelligenceAvailable {
                 Text("No supported local models installed")
+            }
+
+            Divider()
+
+            Section("Cloud Models") {
+                ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
+                    Section(provider.displayName) {
+                        ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
+                            let providerConfigured = inference.configuredCloudProviders.contains(provider)
+                            Button {
+                                inference.setPreferredChatModelSelection(.cloud(model))
+                            } label: {
+                                HStack {
+                                    Text(model.displayName)
+                                    if selectedMenuItem == .cloud(model) {
+                                        Spacer(minLength: 8)
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                            .disabled(!providerConfigured)
+                        }
+                    }
+                }
+
+                if !inference.hasConfiguredCloudModels {
+                    Text("Add API keys in Settings to enable cloud models")
+                }
+
+                Button("Configure Cloud API Keys") {
+                    UtilityWindowManager.shared.show(.settings)
+                    NSApp.activate()
+                }
             }
 
             Divider()

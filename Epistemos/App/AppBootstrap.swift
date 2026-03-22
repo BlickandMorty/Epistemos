@@ -74,6 +74,7 @@ final class AppBootstrap {
     let preparedModelRegistryState: PreparedModelRegistryState
     let preparedModelRegistry: PreparedModelRegistry
     let localLLMClient: LocalMLXClient
+    let cloudLLMClient: CloudLLMClient
     let triageService: TriageService
     let vaultSync: VaultSyncService
     let noteInsightService: NoteInsightService
@@ -153,11 +154,14 @@ final class AppBootstrap {
         )
         self.localMLXClient = localMLXClient
         self.localLLMClient = localMLXClient
+        let cloudLLMClient = CloudLLMClient(inference: inference)
+        self.cloudLLMClient = cloudLLMClient
 
         // LLMService is now the shared local-only gateway used by older subsystems.
         let llm = LLMService(
             inference: inference,
-            localLLMClient: localLLMClient
+            localLLMClient: localLLMClient,
+            cloudLLMClient: cloudLLMClient
         )
         self.llmService = llm
 
@@ -165,6 +169,7 @@ final class AppBootstrap {
         let triage = TriageService(
             inference: inference,
             localLLMService: localLLMClient,
+            cloudLLMService: cloudLLMClient,
             prepareForRouting: {
                 localModelRefreshThrottle.refreshIfNeeded()
             }

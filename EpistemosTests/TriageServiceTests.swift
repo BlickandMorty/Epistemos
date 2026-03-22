@@ -83,13 +83,36 @@ struct TriageServiceTests {
     @Test("routing stays Apple plus local without stale cloud modes or providers")
     func routingSurfaceRemainsTwoState() {
         #expect(LocalRoutingMode.allCases == [.auto, .localOnly])
-        #expect(LLMProviderType.allCases == [.appleIntelligence, .localMLX])
+        #expect(LLMProviderType.allCases == [.appleIntelligence, .localMLX, .openAI, .anthropic, .google])
     }
 
     @Test("local routing errors no longer mention switch routing modes")
     func localRoutingErrorsUseCurrentArchitectureCopy() {
         #expect(LocalInferenceRoutingError.modelRequired.errorDescription?.contains("switch routing modes") == false)
         #expect(LocalInferenceRoutingError.modelRequired.errorDescription?.contains("installed local model") == false)
+    }
+
+    @Test("chat model selection preserves cloud model raw values")
+    func chatModelSelectionPreservesCloudModelRawValues() {
+        let selection = ChatModelSelection(rawValue: "cloud:openai:gpt-5.4")
+        #expect(selection == .cloud(.openAIGPT54))
+        #expect(selection?.rawValue == "cloud:openai:gpt-5.4")
+    }
+
+    @Test("legacy cloud model selections migrate to supported cloud models")
+    func legacyCloudModelSelectionsMigrateForward() {
+        #expect(ChatModelSelection(rawValue: "cloud:openai:gpt-5.3") == .cloud(.openAIGPT54))
+        #expect(ChatModelSelection(rawValue: "cloud:anthropic:claude-sonnet-4-6") == .cloud(.anthropicClaudeSonnet4))
+        #expect(ChatModelSelection(rawValue: "cloud:google:gemini-1.5-pro") == .cloud(.googleGemini25Pro))
+    }
+
+    @Test("cloud catalog still covers the flagship provider families")
+    func cloudCatalogStillCoversFlagshipFamilies() {
+        #expect(CloudTextModelID.models(for: .openAI).contains(.openAIGPT54))
+        #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeOpus41))
+        #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeSonnet4))
+        #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeHaiku35))
+        #expect(CloudTextModelID.models(for: .google).contains(.googleGemini31ProPreview))
     }
 }
 
@@ -468,6 +491,46 @@ final class TriageIntegrationMockLLMClient: LLMClientProtocol {
 }
 
 @MainActor
+final class TriageIntegrationMockCloudLLMClient: LLMClientProtocol {
+    var generateCalls: [(prompt: String, systemPrompt: String?, maxTokens: Int)] = []
+    var streamCalls: [(prompt: String, systemPrompt: String?, maxTokens: Int)] = []
+
+    var generateResult: Result<String, Error> = .success("mock-cloud-generate")
+    var streamTokens: [String] = ["mock-cloud-stream"]
+
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        generateCalls.append((prompt, systemPrompt, maxTokens))
+        switch generateResult {
+        case .success(let output):
+            return output
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        streamCalls.append((prompt, systemPrompt, maxTokens))
+        let tokens = streamTokens
+        return AsyncThrowingStream { continuation in
+            Task {
+                for token in tokens {
+                    continuation.yield(token)
+                }
+                continuation.finish()
+            }
+        }
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(provider: .openAI, model: CloudTextModelID.openAIGPT54.vendorModelID, reasoningMode: .fast)
+    }
+}
+
+@MainActor
 final class RecordingConfigurableLocalLLMClient: LocalConfigurableLLMClient {
     struct GenerateRequest: Equatable {
         let prompt: String
@@ -801,6 +864,30 @@ struct TriageServiceIntegrationTests {
 
         #expect(result == "local-response")
         #expect(llm.generateCalls.count == 1)
+    }
+
+    @Test("explicit cloud selection bypasses Apple and local triage for general generation")
+    @MainActor func explicitCloudSelectionBypassesAppleAndLocal() async throws {
+        let cloud = TriageIntegrationMockCloudLLMClient()
+        cloud.generateResult = .success("cloud answer")
+
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            selectedChatModel: .cloud(.openAIGPT54),
+            cloudLLMService: cloud
+        )
+
+        let result = try await triage.generateGeneral(
+            prompt: "Use the cloud model",
+            systemPrompt: "System",
+            operation: .chatResponse(query: "Use the cloud model"),
+            contentLength: 19
+        )
+
+        #expect(result == "cloud answer")
+        #expect(cloud.generateCalls.count == 1)
+        #expect(triage.lastDecision == .cloud)
     }
 
     @Test("refusal detection is case-insensitive and prefix-bounded")
@@ -1463,7 +1550,9 @@ struct TriageServiceIntegrationTests {
         appleAvailable: Bool,
         localInstalled: [String] = [],
         routingMode: LocalRoutingMode = .auto,
-        localLLMService: (any LLMClientProtocol)? = nil
+        localLLMService: (any LLMClientProtocol)? = nil,
+        selectedChatModel: ChatModelSelection? = nil,
+        cloudLLMService: (any LLMClientProtocol)? = nil
     ) -> TriageService {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = appleAvailable
@@ -1472,10 +1561,14 @@ struct TriageServiceIntegrationTests {
         if let firstInstalled = localInstalled.first {
             inference.setPreferredLocalTextModelID(firstInstalled)
         }
+        if let selectedChatModel {
+            inference.setPreferredChatModelSelection(selectedChatModel)
+        }
 
         return TriageService(
             inference: inference,
-            localLLMService: localLLMService
+            localLLMService: localLLMService,
+            cloudLLMService: cloudLLMService
         )
     }
 

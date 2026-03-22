@@ -61,6 +61,30 @@ struct RuntimeValidationTests {
         }
     }
 
+    @Test("inference migrates legacy secure cloud keys and selections forward")
+    func inferenceMigratesLegacyCloudConfigurationForward() throws {
+        let source = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+
+        #expect(source.contains("migrateLegacyCloudAPIKeysIfNeeded()"))
+        #expect(source.contains("epistemos.apiKey.openai"))
+        #expect(source.contains("epistemos.apiKey.anthropic"))
+        #expect(source.contains("epistemos.apiKey.google"))
+        #expect(source.contains("migrateLegacyCloudSelection(defaults: defaults)"))
+        #expect(source.contains("\"gpt-5.3\": .openAIGPT54"))
+        #expect(source.contains("\"claude-sonnet-4-6\": .anthropicClaudeSonnet4"))
+        #expect(source.contains("\"gemini-1.5-pro\": .googleGemini25Pro"))
+    }
+
+    @Test("chat model selector groups cloud models by provider")
+    func chatModelSelectorGroupsCloudModelsByProvider() throws {
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(rootView.contains("Section(\"Cloud Models\")"))
+        #expect(rootView.contains("ForEach(CloudModelProvider.allCases"))
+        #expect(rootView.contains("Section(provider.displayName)"))
+        #expect(rootView.contains("ForEach(CloudTextModelID.models(for: provider)"))
+    }
+
     @MainActor
     @Test("warm relaunch bootstrap also starts without an eager local model load")
     func warmBootstrapAlsoStartsCold() async {
@@ -743,6 +767,17 @@ struct RuntimeValidationTests {
         #expect(triage.contains("selectedRoute: .appleIntelligence"))
         #expect(root.contains("Apple Intelligence"))
         #expect(root.contains("setPreferredChatModelSelection("))
+    }
+
+    @Test("chat model selector always exposes cloud models and shows configuration guidance")
+    func chatModelSelectorAlwaysExposesCloudModelsAndShowsConfigurationGuidance() throws {
+        let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(root.contains("Section(\"Cloud Models\")"))
+        #expect(root.contains("ForEach(CloudTextModelID.allCases"))
+        #expect(root.contains(".disabled(!providerConfigured)"))
+        #expect(root.contains("Add API keys in Settings to enable cloud models"))
+        #expect(!root.contains("if !configuredCloudModels.isEmpty"))
     }
 
     @Test("chat file picker defers panel presentation and reads files under a security scope")

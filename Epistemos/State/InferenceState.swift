@@ -43,13 +43,184 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     }
 }
 
+nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
+    case openAI
+    case anthropic
+    case google
+
+    var displayName: String {
+        switch self {
+        case .openAI: "OpenAI"
+        case .anthropic: "Anthropic"
+        case .google: "Google"
+        }
+    }
+
+    var apiKeyKeychainKey: String {
+        switch self {
+        case .openAI: "epistemos.openai.apiKey"
+        case .anthropic: "epistemos.anthropic.apiKey"
+        case .google: "epistemos.google.apiKey"
+        }
+    }
+
+    var legacyAPIKeyKeychainKeys: [String] {
+        switch self {
+        case .openAI:
+            ["epistemos.apiKey.openai"]
+        case .anthropic:
+            ["epistemos.apiKey.anthropic"]
+        case .google:
+            ["epistemos.apiKey.google"]
+        }
+    }
+}
+
+nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+    case openAIGPT54 = "openai:gpt-5.4"
+    case openAIGPT54Mini = "openai:gpt-5.4-mini"
+    case openAIGPT54Nano = "openai:gpt-5.4-nano"
+    case openAIGPT52 = "openai:gpt-5.2"
+    case openAIGPT41 = "openai:gpt-4.1"
+    case openAIGPT41Mini = "openai:gpt-4.1-mini"
+    case openAIO3 = "openai:o3"
+    case openAIO3Mini = "openai:o3-mini"
+    case anthropicClaudeOpus41 = "anthropic:claude-opus-4-1"
+    case anthropicClaudeOpus4 = "anthropic:claude-opus-4"
+    case anthropicClaudeSonnet4 = "anthropic:claude-sonnet-4"
+    case anthropicClaudeSonnet37 = "anthropic:claude-3-7-sonnet"
+    case anthropicClaudeHaiku35 = "anthropic:claude-3-5-haiku"
+    case googleGemini25Pro = "google:gemini-2.5-pro"
+    case googleGemini25Flash = "google:gemini-2.5-flash"
+    case googleGemini3FlashPreview = "google:gemini-3-flash-preview"
+    case googleGemini3ProPreview = "google:gemini-3-pro-preview"
+    case googleGemini31ProPreview = "google:gemini-3.1-pro-preview"
+
+    var provider: CloudModelProvider {
+        switch self {
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52, .openAIGPT41,
+             .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
+            .openAI
+        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+             .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
+            .anthropic
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
+             .googleGemini3ProPreview, .googleGemini31ProPreview:
+            .google
+        }
+    }
+
+    var vendorModelID: String {
+        switch self {
+        case .openAIGPT54: "gpt-5.4"
+        case .openAIGPT54Mini: "gpt-5.4-mini"
+        case .openAIGPT54Nano: "gpt-5.4-nano"
+        case .openAIGPT52: "gpt-5.2"
+        case .openAIGPT41: "gpt-4.1"
+        case .openAIGPT41Mini: "gpt-4.1-mini"
+        case .openAIO3: "o3"
+        case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeOpus41: "claude-opus-4-1-20250805"
+        case .anthropicClaudeOpus4: "claude-opus-4-20250514"
+        case .anthropicClaudeSonnet4: "claude-sonnet-4-20250514"
+        case .anthropicClaudeSonnet37: "claude-3-7-sonnet-20250219"
+        case .anthropicClaudeHaiku35: "claude-3-5-haiku-latest"
+        case .googleGemini25Pro: "gemini-2.5-pro"
+        case .googleGemini25Flash: "gemini-2.5-flash"
+        case .googleGemini3FlashPreview: "gemini-3-flash-preview"
+        case .googleGemini3ProPreview: "gemini-3-pro-preview"
+        case .googleGemini31ProPreview: "gemini-3.1-pro-preview"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .openAIGPT54: "GPT-5.4"
+        case .openAIGPT54Mini: "GPT-5.4 Mini"
+        case .openAIGPT54Nano: "GPT-5.4 Nano"
+        case .openAIGPT52: "GPT-5.2"
+        case .openAIGPT41: "GPT-4.1"
+        case .openAIGPT41Mini: "GPT-4.1 Mini"
+        case .openAIO3: "o3"
+        case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeOpus41: "Claude Opus 4.1 (Latest Opus)"
+        case .anthropicClaudeOpus4: "Claude Opus 4"
+        case .anthropicClaudeSonnet4: "Claude Sonnet 4 (Latest Sonnet)"
+        case .anthropicClaudeSonnet37: "Claude Sonnet 3.7"
+        case .anthropicClaudeHaiku35: "Claude Haiku 3.5 (Latest Haiku)"
+        case .googleGemini25Pro: "Gemini 2.5 Pro"
+        case .googleGemini25Flash: "Gemini 2.5 Flash"
+        case .googleGemini3FlashPreview: "Gemini 3 Flash Preview"
+        case .googleGemini3ProPreview: "Gemini 3 Pro Preview"
+        case .googleGemini31ProPreview: "Gemini 3.1 Pro Preview"
+        }
+    }
+
+    var providerDisplayName: String {
+        provider.displayName
+    }
+
+    nonisolated static func models(for provider: CloudModelProvider) -> [CloudTextModelID] {
+        allCases.filter { $0.provider == provider }
+    }
+
+    nonisolated static func from(rawValueOrVendorID value: String) -> CloudTextModelID? {
+        if let direct = CloudTextModelID(rawValue: value) {
+            return direct
+        }
+
+        if let exactVendorMatch = allCases.first(where: { $0.vendorModelID == value }) {
+            return exactVendorMatch
+        }
+
+        return legacyMigrationMap[value]
+    }
+
+    private nonisolated static let legacyMigrationMap: [String: CloudTextModelID] = [
+        "gpt-5.3": .openAIGPT54,
+        "gpt-5.2": .openAIGPT52,
+        "gpt-5.1": .openAIGPT52,
+        "gpt-4.1": .openAIGPT41,
+        "gpt-4.1-mini": .openAIGPT41Mini,
+        "o1-pro": .openAIO3,
+        "o3": .openAIO3,
+        "o3-mini": .openAIO3Mini,
+        "claude-opus-4-6": .anthropicClaudeOpus41,
+        "claude-opus-4-1": .anthropicClaudeOpus41,
+        "claude-opus-4-20250514": .anthropicClaudeOpus4,
+        "claude-sonnet-4-6": .anthropicClaudeSonnet4,
+        "claude-sonnet-4-5": .anthropicClaudeSonnet4,
+        "claude-sonnet-4-5-20250929": .anthropicClaudeSonnet4,
+        "claude-sonnet-4-20250514": .anthropicClaudeSonnet4,
+        "claude-3-7-sonnet-20250219": .anthropicClaudeSonnet37,
+        "claude-haiku-4-5-20251001": .anthropicClaudeHaiku35,
+        "claude-3-5-haiku-latest": .anthropicClaudeHaiku35,
+        "gemini-1.5-pro": .googleGemini25Pro,
+        "gemini-1.5-flash": .googleGemini25Flash,
+        "gemini-2.0-flash": .googleGemini25Flash,
+        "gemini-2.0-flash-lite": .googleGemini25Flash,
+        "gemini-2.5-pro": .googleGemini25Pro,
+        "gemini-2.5-flash": .googleGemini25Flash,
+        "gemini-3-flash-preview": .googleGemini3FlashPreview,
+        "gemini-3-pro-preview": .googleGemini3ProPreview,
+        "gemini-3.1-pro-preview": .googleGemini31ProPreview,
+    ]
+}
+
 nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
     case appleIntelligence
     case localQwen(String)
+    case cloud(CloudTextModelID)
 
     init?(rawValue: String) {
         if rawValue == "apple-intelligence" {
             self = .appleIntelligence
+            return
+        }
+        if rawValue.hasPrefix("cloud:") {
+            let cloudRawValue = String(rawValue.dropFirst("cloud:".count))
+            guard let model = CloudTextModelID.from(rawValueOrVendorID: cloudRawValue) else { return nil }
+            self = .cloud(model)
             return
         }
         guard LocalTextModelID(rawValue: rawValue) != nil else { return nil }
@@ -62,6 +233,8 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
             "apple-intelligence"
         case .localQwen(let modelID):
             modelID
+        case .cloud(let model):
+            "cloud:\(model.rawValue)"
         }
     }
 
@@ -71,6 +244,8 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
             "Apple Intelligence"
         case .localQwen(let modelID):
             LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+        case .cloud(let model):
+            model.displayName
         }
     }
 }
@@ -297,16 +472,13 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
 }
 
 // MARK: - Inference State
-// Manages the local-only AI stack: Apple Intelligence availability,
-// prepared local roles, stock local model policy, and runtime conditions.
+// Manages chat model availability and selection: Apple Intelligence,
+// local models, cloud providers, and runtime conditions.
 
 @MainActor @Observable
 final class InferenceState {
     private nonisolated static let legacyRemoteDefaultsKeys = [
         "epistemos.apiProvider",
-        "epistemos.anthropicModel",
-        "epistemos.openaiModel",
-        "epistemos.googleModel",
         "epistemos.kimiModel",
         "epistemos.ollamaBaseUrl",
         "epistemos.ollamaModel",
@@ -339,6 +511,7 @@ final class InferenceState {
         let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
         self.appleIntelligenceAvailable = available
         self.appleIntelligenceUnavailableReason = reason
+        migrateLegacyCloudAPIKeysIfNeeded()
 
         let defaults = UserDefaults.standard
         if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
@@ -355,6 +528,12 @@ final class InferenceState {
         if let saved = defaults.string(forKey: "epistemos.preferredChatModelSelection"),
            let selection = ChatModelSelection(rawValue: saved) {
             self.preferredChatModelSelection = selection
+        } else if let migratedSelection = Self.migrateLegacyCloudSelection(defaults: defaults) {
+            self.preferredChatModelSelection = migratedSelection
+            defaults.set(
+                migratedSelection.rawValue,
+                forKey: "epistemos.preferredChatModelSelection"
+            )
         } else {
             self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
         }
@@ -367,6 +546,54 @@ final class InferenceState {
         for key in legacyRemoteDefaultsKeys {
             defaults.removeObject(forKey: key)
         }
+    }
+
+    private func migrateLegacyCloudAPIKeysIfNeeded() {
+        for provider in CloudModelProvider.allCases {
+            if let existing = apiKey(for: provider)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               !existing.isEmpty {
+                continue
+            }
+
+            for legacyKey in provider.legacyAPIKeyKeychainKeys {
+                guard let legacyValue = Keychain.load(for: legacyKey)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                      !legacyValue.isEmpty else {
+                    continue
+                }
+
+                guard setAPIKey(legacyValue, for: provider) else { break }
+                Keychain.delete(for: legacyKey)
+                break
+            }
+        }
+    }
+
+    private nonisolated static func migrateLegacyCloudSelection(
+        defaults: UserDefaults
+    ) -> ChatModelSelection? {
+        guard let legacyProvider = defaults.string(forKey: "epistemos.apiProvider")?.lowercased() else {
+            return nil
+        }
+
+        let modelKey: String
+        switch legacyProvider {
+        case "openai":
+            modelKey = "epistemos.openaiModel"
+        case "anthropic":
+            modelKey = "epistemos.anthropicModel"
+        case "google":
+            modelKey = "epistemos.googleModel"
+        default:
+            return nil
+        }
+
+        guard let legacyModel = defaults.string(forKey: modelKey),
+              let model = CloudTextModelID.from(rawValueOrVendorID: legacyModel) else {
+            return nil
+        }
+        return .cloud(model)
     }
 
     func setInferenceMode(_ mode: InferenceMode) { inferenceMode = mode }
@@ -420,6 +647,31 @@ final class InferenceState {
 
     var activeChatModelDisplayName: String {
         preferredChatModelSelection.displayName
+    }
+
+    var configuredCloudProviders: [CloudModelProvider] {
+        CloudModelProvider.allCases.filter { provider in
+            guard let key = apiKey(for: provider) else { return false }
+            return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    var hasConfiguredCloudModels: Bool {
+        !configuredCloudProviders.isEmpty
+    }
+
+    func apiKey(for provider: CloudModelProvider) -> String? {
+        Keychain.load(for: provider.apiKeyKeychainKey)
+    }
+
+    @discardableResult
+    func setAPIKey(_ value: String, for provider: CloudModelProvider) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            Keychain.delete(for: provider.apiKeyKeychainKey)
+            return true
+        }
+        return Keychain.save(trimmed, for: provider.apiKeyKeychainKey)
     }
 
     func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {

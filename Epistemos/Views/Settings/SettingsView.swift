@@ -255,6 +255,9 @@ private struct InferenceDetailView: View {
     @State private var showLocalModelManager = false
     @State private var tokenCapEnabled = false
     @State private var tokenCapDraft: Int = 2000
+    @State private var openAIKey = ""
+    @State private var anthropicKey = ""
+    @State private var googleKey = ""
 
     private var theme: EpistemosTheme { ui.theme }
     private var activeLocalModelDisplayName: String {
@@ -334,7 +337,7 @@ private struct InferenceDetailView: View {
                     }
                 }
 
-                Text("Epistemos keeps AI on-device. Local generation runs in-process through the MLX tier you select.")
+                Text("Local generation runs in-process through the MLX tier you select. Cloud models can also be enabled below and use the same chat and note context path.")
                 .font(.system(size: 11))
                 .foregroundStyle(theme.textSecondary)
 
@@ -358,6 +361,36 @@ private struct InferenceDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(theme.accent)
+            }
+
+            Section("Cloud AI") {
+                cloudKeyRow(
+                    title: "OpenAI API Key",
+                    text: $openAIKey,
+                    provider: .openAI
+                )
+                cloudKeyRow(
+                    title: "Anthropic API Key",
+                    text: $anthropicKey,
+                    provider: .anthropic
+                )
+                cloudKeyRow(
+                    title: "Google API Key",
+                    text: $googleKey,
+                    provider: .google
+                )
+
+                Text("Configured providers appear under Cloud Models in the chat model picker. Cloud selections use the same note and chat context path as local models.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
+
+                Text("API keys are stored in the Apple Data Protection Keychain with device-only access, and legacy secure keys are migrated automatically.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
+
+                Text("Anthropic uses the current official lineup here: Claude Opus 4.1, Claude Sonnet 4, and Claude Haiku 3.5.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
             }
 
             Section("Response Tokens") {
@@ -403,11 +436,40 @@ private struct InferenceDetailView: View {
                 let saved = inference.chatOutputTokens
                 tokenCapEnabled = saved > 0
                 if saved > 0 { tokenCapDraft = saved }
+                openAIKey = inference.apiKey(for: .openAI) ?? ""
+                anthropicKey = inference.apiKey(for: .anthropic) ?? ""
+                googleKey = inference.apiKey(for: .google) ?? ""
             }
         }
         .sheet(isPresented: $showLocalModelManager) {
             LocalModelManagerSheet()
                 .frame(minWidth: 700, minHeight: 520)
+        }
+    }
+
+    @ViewBuilder
+    private func cloudKeyRow(
+        title: String,
+        text: Binding<String>,
+        provider: CloudModelProvider
+    ) -> some View {
+        LabeledContent(title) {
+            HStack(spacing: 8) {
+                SecureField("Not Set", text: text)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 280)
+
+                Button("Save") {
+                    _ = inference.setAPIKey(text.wrappedValue, for: provider)
+                }
+                .buttonStyle(.bordered)
+
+                Button("Clear") {
+                    text.wrappedValue = ""
+                    _ = inference.setAPIKey("", for: provider)
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
 }
