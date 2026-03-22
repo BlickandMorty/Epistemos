@@ -43,6 +43,38 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     }
 }
 
+nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
+    case appleIntelligence
+    case localQwen(String)
+
+    init?(rawValue: String) {
+        if rawValue == "apple-intelligence" {
+            self = .appleIntelligence
+            return
+        }
+        guard LocalTextModelID(rawValue: rawValue) != nil else { return nil }
+        self = .localQwen(rawValue)
+    }
+
+    var rawValue: String {
+        switch self {
+        case .appleIntelligence:
+            "apple-intelligence"
+        case .localQwen(let modelID):
+            modelID
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .appleIntelligence:
+            "Apple Intelligence"
+        case .localQwen(let modelID):
+            LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+        }
+    }
+}
+
 nonisolated enum LocalRoutingMode: String, Codable, Sendable, CaseIterable {
     case auto
     case localOnly
@@ -144,7 +176,6 @@ nonisolated struct LocalRuntimeConditions: Sendable, Equatable {
 nonisolated enum LocalModelSelectionSurface: String, Sendable, Equatable {
     case mainChat
     case miniChat
-    case commandPalette
     case noteChat
     case graph
 }
@@ -290,6 +321,9 @@ final class InferenceState {
     var inferenceMode: InferenceMode = .api
     var routingMode: LocalRoutingMode = .auto
     var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
+    var preferredChatModelSelection: ChatModelSelection = .localQwen(
+        LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
+    )
     private(set) var installedLocalTextModelIDs: Set<String> = []
     private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current
@@ -318,6 +352,12 @@ final class InferenceState {
            LocalTextModelID(rawValue: saved) != nil {
             self.preferredLocalTextModelID = saved
         }
+        if let saved = defaults.string(forKey: "epistemos.preferredChatModelSelection"),
+           let selection = ChatModelSelection(rawValue: saved) {
+            self.preferredChatModelSelection = selection
+        } else {
+            self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
+        }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
@@ -339,6 +379,7 @@ final class InferenceState {
         InferencePolicyContext(
             routingMode: routingMode,
             appleIntelligenceAvailable: appleIntelligenceAvailable,
+            preferredChatModelSelection: preferredChatModelSelection,
             preferredLocalTextModelID: preferredLocalTextModelID,
             installedLocalTextModelIDs: installedLocalTextModelIDs,
             hardwareCapabilitySnapshot: hardwareCapabilitySnapshot,
@@ -375,6 +416,10 @@ final class InferenceState {
             return model.displayName
         }
         return modelID
+    }
+
+    var activeChatModelDisplayName: String {
+        preferredChatModelSelection.displayName
     }
 
     func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {
@@ -425,6 +470,22 @@ final class InferenceState {
         guard LocalTextModelID(rawValue: modelID) != nil else { return }
         preferredLocalTextModelID = modelID
         UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
+        if case .localQwen = preferredChatModelSelection {
+            preferredChatModelSelection = .localQwen(modelID)
+            UserDefaults.standard.set(
+                preferredChatModelSelection.rawValue,
+                forKey: "epistemos.preferredChatModelSelection"
+            )
+        }
+    }
+
+    func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
+        preferredChatModelSelection = selection
+        UserDefaults.standard.set(selection.rawValue, forKey: "epistemos.preferredChatModelSelection")
+        if case .localQwen(let modelID) = selection {
+            preferredLocalTextModelID = modelID
+            UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
+        }
     }
 
     func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {

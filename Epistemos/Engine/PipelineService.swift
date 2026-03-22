@@ -95,17 +95,6 @@ final class PipelineService {
                         return
                     }
 
-                    let finalVisibleAnswer = emittedVisibleText.trimmingCharacters(
-                        in: .whitespacesAndNewlines)
-                    guard finalVisibleAnswer.count >= 10 else {
-                        let reason =
-                            finalVisibleAnswer.isEmpty ? "No response received" : "Response too short"
-                        continuation.yield(.error("\(reason) — install or select a local Qwen model in Settings."))
-                        pipelineState.completeProcessing()
-                        if finisher.tryFinish() { continuation.finish() }
-                        return
-                    }
-
                     continuation.yield(
                         .completed(
                             DualMessage(rawAnalysis: "", uncertaintyTags: [], modelVsDataFlags: []),
@@ -158,7 +147,8 @@ final class PipelineService {
             systemPrompt: nil,
             operation: .chatResponse(query: query),
             contentLength: finalPrompt.count,
-            localReasoningMode: .fast
+            localReasoningMode: .fast,
+            localSurface: .miniChat
         )
     }
 }

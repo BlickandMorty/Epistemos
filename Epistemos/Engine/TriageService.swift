@@ -130,6 +130,7 @@ nonisolated struct InferenceRequestProfile: Sendable, Equatable {
 nonisolated struct InferencePolicyContext: Sendable, Equatable {
     let routingMode: LocalRoutingMode
     let appleIntelligenceAvailable: Bool
+    let preferredChatModelSelection: ChatModelSelection
     let preferredLocalTextModelID: String
     let installedLocalTextModelIDs: Set<String>
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
@@ -169,6 +170,44 @@ nonisolated struct InferencePolicyEngine {
             reasonCodes: &reasonCodes
         )
 
+        if let explicitRoute = explicitRoute(for: profile, context: context, localSelection: localSelection.selection) {
+            return InferenceRouteDecision(
+                selectedRoute: explicitRoute,
+                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                    for: profile,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                ),
+                localSelection: localSelection.selection,
+                reuseWarmModel: localSelection.reuseWarmModel,
+                complexityTier: complexityTier,
+                contextTier: contextTier,
+                reasonCodes: reasonCodes
+            )
+        }
+
+        if prefersDedicatedLocalChatRouting(
+            for: profile,
+            localSelection: localSelection.selection
+        ) {
+            return InferenceRouteDecision(
+                selectedRoute: localRouteKind(
+                    for: localSelection.selection,
+                    context: context
+                ),
+                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                    for: profile,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                ),
+                localSelection: localSelection.selection,
+                reuseWarmModel: localSelection.reuseWarmModel,
+                complexityTier: complexityTier,
+                contextTier: contextTier,
+                reasonCodes: reasonCodes
+            )
+        }
+
         if context.routingMode == .localOnly {
             reasonCodes.insert(.localModeForced)
             return InferenceRouteDecision(
@@ -199,8 +238,8 @@ nonisolated struct InferencePolicyEngine {
             return InferenceRouteDecision(
                 selectedRoute: .appleIntelligence,
                 selectedReasoningMode: .fast,
-                localSelection: nil,
-                reuseWarmModel: false,
+                localSelection: localSelection.selection,
+                reuseWarmModel: localSelection.reuseWarmModel,
                 complexityTier: complexityTier,
                 contextTier: contextTier,
                 reasonCodes: reasonCodes
@@ -358,6 +397,32 @@ nonisolated struct InferencePolicyEngine {
         return .localQwen
     }
 
+    private func explicitRoute(
+        for profile: InferenceRequestProfile,
+        context: InferencePolicyContext,
+        localSelection: LocalModelSelection?
+    ) -> InferenceRouteKind? {
+        switch context.preferredChatModelSelection {
+        case .appleIntelligence:
+            return context.appleIntelligenceAvailable ? .appleIntelligence : nil
+        case .localQwen:
+            return localSelection != nil ? .localQwen : nil
+        }
+    }
+
+    private func prefersDedicatedLocalChatRouting(
+        for profile: InferenceRequestProfile,
+        localSelection: LocalModelSelection?
+    ) -> Bool {
+        guard localSelection != nil else { return false }
+        switch profile.surface {
+        case .mainChat, .miniChat:
+            return true
+        case .noteChat, .graph:
+            return false
+        }
+    }
+
     private func supportedInstalledModels(in context: InferencePolicyContext) -> [LocalTextModelID] {
         context.installedLocalTextModelIDs
             .compactMap(LocalTextModelID.init(rawValue:))
@@ -377,7 +442,7 @@ nonisolated struct InferencePolicyEngine {
         switch profile.surface {
         case .mainChat:
             break
-        case .miniChat, .commandPalette:
+        case .miniChat:
             score += 0.01
         case .noteChat:
             score += 0.03
@@ -883,12 +948,8 @@ final class TriageService {
                             continuation.finish()
                         } catch {
                             Log.engine.info("Local model fallback also failed — using Apple Intelligence response")
-                            if !Self.isRefusalResponse(result) {
-                                continuation.yield(result)
-                                continuation.finish()
-                            } else {
-                                continuation.finish(throwing: error)
-                            }
+                            continuation.yield(result)
+                            continuation.finish()
                         }
                         return
                     }
@@ -1059,7 +1120,7 @@ final class TriageService {
     ) -> Int {
         let divisor: Double
         switch surface {
-        case .mainChat, .miniChat, .commandPalette:
+        case .mainChat, .miniChat:
             divisor = 2_400
         case .noteChat:
             divisor = 1_800

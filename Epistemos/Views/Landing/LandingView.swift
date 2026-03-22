@@ -46,8 +46,6 @@ enum LandingCoordinateSpace {
 
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
-// Search/command palette is now a global overlay (CommandPaletteOverlay)
-// shown from any panel via Option+Space — no longer embedded here.
 
 struct LandingView: View {
     @Environment(UIState.self) private var ui
@@ -68,6 +66,7 @@ struct LandingView: View {
     @State private var showLandingMentionDropdown = false
     @State private var landingMentionFilter = ""
     @State private var landingMentionPickerAutofocus = false
+    @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
 
@@ -127,6 +126,12 @@ struct LandingView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
 
+            Button(action: { MiniChatWindowController.shared.openNewChat() }) {}
+                .keyboardShortcut("3", modifiers: .command)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+
             // Hidden ⌘I shortcut — quick idea capture
             Button(action: { captureQuickIdea() }) {}
                 .keyboardShortcut("i", modifiers: .command)
@@ -176,17 +181,6 @@ struct LandingView: View {
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
-                    CommandHint(modIcon: "option", key: "Space", label: "Palette", theme: theme) {
-                        Task { @MainActor in
-                            CommandPaletteWindowController.shared.show()
-                        }
-                    }
-                    .springEntrance(index: 1, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
                     HoverRevealCommandHint(
                         primary: .init(modIcon: "command", key: "2", label: "Notes"),
                         secondary: .init(modIcon: "command", key: "N", label: "New Note"),
@@ -198,6 +192,15 @@ struct LandingView: View {
                             createAndOpenNote()
                         }
                     )
+                    .springEntrance(index: 2, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
+                    CommandHint(modIcon: "command", key: "3", label: "Mini Chat", theme: theme) {
+                        MiniChatWindowController.shared.openNewChat()
+                    }
                     .springEntrance(index: 2, stagger: 0.08)
 
                     Circle()
@@ -229,18 +232,11 @@ struct LandingView: View {
 
     private var landingSearchContent: some View {
         VStack(spacing: 0) {
-             Spacer()
-                 .allowsHitTesting(false)
+            Spacer()
+                .allowsHitTesting(false)
 
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
-                    ComposerContextShortcutBar(
-                        noteLabel: "Chat with Note",
-                        vaultLabel: "Chat with Vault",
-                        onChatWithNote: openLandingNotePicker,
-                        onChatWithVault: attachLandingVaultContext
-                    )
-
                     if !landingContextAttachments.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
@@ -283,7 +279,7 @@ struct LandingView: View {
                                         ],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
-                                   )
+                                    )
                                 )
                                 .padding(.top, 8)
 
@@ -300,9 +296,13 @@ struct LandingView: View {
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(height: landingComposerHeight)
-                                .frame(minHeight: LandingSearchLayout.inputMinHeight, alignment: .topLeading)
+                                .frame(
+                                    minHeight: LandingSearchLayout.inputMinHeight,
+                                    alignment: .topLeading
+                                )
                                 .onChange(of: landingSearchText) { _, newValue in
                                     if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
+                                        landingReferencePopoverStyle = .mention
                                         landingMentionFilter = filter
                                         landingMentionPickerAutofocus = false
                                         if !showLandingMentionDropdown {
@@ -310,6 +310,7 @@ struct LandingView: View {
                                         }
                                     } else if showLandingMentionDropdown {
                                         showLandingMentionDropdown = false
+                                        landingReferencePopoverStyle = .mention
                                         landingMentionPickerAutofocus = false
                                         landingReferenceSearch.reset()
                                     }
@@ -320,7 +321,12 @@ struct LandingView: View {
 
                                 if landingSearchText.isEmpty {
                                     Text("Ask Epistemos\u{2026}")
-                                        .font(.system(size: LandingSearchLayout.inputFontSize, weight: .regular))
+                                        .font(
+                                            .system(
+                                                size: LandingSearchLayout.inputFontSize,
+                                                weight: .regular
+                                            )
+                                        )
                                         .foregroundStyle(theme.mutedForeground.opacity(0.55))
                                         .padding(.top, ChatComposerInputMetrics.verticalInset)
                                         .allowsHitTesting(false)
@@ -329,6 +335,13 @@ struct LandingView: View {
                         }
 
                         HStack(spacing: LandingSearchLayout.controlRowSpacing) {
+                            ComposerContextShortcutBar(
+                                noteLabel: "Chat with Note",
+                                vaultLabel: "Chat with Vault",
+                                onChatWithNote: openLandingNotePicker,
+                                onChatWithVault: attachLandingVaultContext
+                            )
+
                             landingInferenceControl
 
                             Spacer(minLength: 0)
@@ -365,23 +378,29 @@ struct LandingView: View {
                     .overlay(alignment: .topLeading) {
                         if showLandingMentionDropdown {
                             ComposerReferencePopover(
+                                isPresented: $showLandingMentionDropdown,
                                 results: landingMentionSearchResults,
                                 query: $landingMentionFilter,
-                                idealWidth: 600,
-                                maxHeight: 430,
+                                idealWidth: landingReferencePopoverStyle.idealWidth,
+                                maxHeight: landingReferencePopoverStyle.maxHeight,
+                                style: landingReferencePopoverStyle,
                                 autofocusSearchField: landingMentionPickerAutofocus,
+                                onDismiss: dismissLandingReferencePopover,
                                 onSelect: attachLandingMentionReference
                             )
-                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         }
                     }
+                }
                 .padding(.horizontal, LandingSearchLayout.horizontalPadding)
                 .padding(.top, LandingSearchLayout.topPadding)
                 .padding(.bottom, LandingSearchLayout.bottomPadding)
                 .assistantGlassInputChrome(
                     theme: theme,
                     cornerRadius: LandingSearchLayout.cornerRadius,
-                    isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty || !landingContextAttachments.isEmpty
+                    isActive: isLandingSearchFocused
+                        || !trimmedLandingSearchText.isEmpty
+                        || !landingContextAttachments.isEmpty
                 )
                 .frame(maxWidth: LandingSearchLayout.maxWidth)
             }
@@ -459,6 +478,7 @@ struct LandingView: View {
         landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
         showLandingMentionDropdown = false
+        landingReferencePopoverStyle = .mention
         landingMentionFilter = ""
         landingMentionPickerAutofocus = false
         landingReferenceSearch.reset()
@@ -479,6 +499,7 @@ struct LandingView: View {
     }
 
     private func openLandingNotePicker() {
+        landingReferencePopoverStyle = .notePicker
         landingMentionFilter = ""
         landingMentionPickerAutofocus = true
         showLandingMentionDropdown = true
@@ -499,9 +520,15 @@ struct LandingView: View {
         }
         landingSearchText = ComposerReferenceHelpers.removingTrailingMention(from: landingSearchText)
         showLandingMentionDropdown = false
+        landingReferencePopoverStyle = .mention
         landingMentionFilter = ""
         landingMentionPickerAutofocus = false
         landingReferenceSearch.reset()
+    }
+
+    private func dismissLandingReferencePopover() {
+        showLandingMentionDropdown = false
+        landingMentionPickerAutofocus = false
     }
 
     private func removeLandingContextAttachment(_ id: String) {

@@ -32,7 +32,7 @@ struct OpenMiniChatIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        CommandPaletteWindowController.shared.toggleChatMode()
+        MiniChatWindowController.shared.show()
         return .result()
     }
 }

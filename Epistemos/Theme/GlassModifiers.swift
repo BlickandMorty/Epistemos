@@ -278,18 +278,6 @@ struct AssistantSurfaceMetrics: Equatable {
     let shadowRadius: CGFloat
     let shadowYOffset: CGFloat
 
-    static let commandPalette = AssistantSurfaceMetrics(
-        outerRadius: 30,
-        innerRadius: 24,
-        controlRadius: 18,
-        borderWidth: 0.82,
-        showsOuterStroke: true,
-        contentHorizontalPadding: 18,
-        contentVerticalPadding: 16,
-        shadowRadius: 26,
-        shadowYOffset: 12
-    )
-
     static let popout = AssistantSurfaceMetrics(
         outerRadius: 30,
         innerRadius: 24,
@@ -310,7 +298,7 @@ struct AssistantSurfaceChrome<Content: View>: View {
 
     init(
         theme: EpistemosTheme,
-        metrics: AssistantSurfaceMetrics = .commandPalette,
+        metrics: AssistantSurfaceMetrics = .popout,
         @ViewBuilder content: () -> Content
     ) {
         self.theme = theme

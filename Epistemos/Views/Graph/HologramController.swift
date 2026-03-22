@@ -47,8 +47,6 @@ final class HologramController {
         self.dialogueChatState = dialogueChatState
         // Provide a ModelContext for interactive graph mutations (node/edge creation).
         graphState.modelContext = modelContainer.mainContext
-        // Global hotkey (⌘G) is now registered in CommandPaletteWindowController
-        // alongside all other global hotkeys. No duplicate monitors needed.
         observeScreenChanges()
     }
 
@@ -179,7 +177,6 @@ final class HologramController {
     // MARK: - Teardown
 
     func teardown() {
-        // Global hotkey monitors are managed by CommandPaletteWindowController.
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         screenObserver = nil
         graphState?.cancelOverlayPhysicsCycle()

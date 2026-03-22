@@ -197,6 +197,8 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("Menu(\"Format\")"))
         #expect(source.contains("Label(\"Backlinks\", systemImage: \"link\")"))
         #expect(source.contains("Label(\"Apple Writing Tools\", systemImage: \"apple.intelligence\")"))
+        #expect(source.contains("glyph: .miniChat"))
+        #expect(source.contains("openMiniChatForCurrentNote()"))
         #expect(!source.contains("Menu(\"Options\")"))
         #expect(!source.contains("formatToolbarMenu"))
         #expect(!source.contains("appleWritingToolsButton"))

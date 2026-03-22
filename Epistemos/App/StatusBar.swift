@@ -44,7 +44,7 @@ final class StatusBar {
 
         // MiniChat toggle
         let miniChat = NSMenuItem(
-            title: "Toggle Mini Chat", action: #selector(toggleMiniChat), keyEquivalent: "")
+            title: "New Mini Chat", action: #selector(toggleMiniChat), keyEquivalent: "")
         miniChat.image = NSImage(
             systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: nil)
         miniChat.target = self
@@ -83,7 +83,7 @@ final class StatusBar {
 
     @objc private func toggleMiniChat() {
         Task { @MainActor in
-            CommandPaletteWindowController.shared.toggleChatMode()
+            MiniChatWindowController.shared.openNewChat()
         }
     }
 

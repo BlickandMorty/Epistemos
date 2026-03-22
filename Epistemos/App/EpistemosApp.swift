@@ -10,8 +10,11 @@ import UserNotifications
 enum WindowPresentationPolicy {
     static let mainWindowMinimumSize = CGSize(width: 720, height: 520)
 
-    static func needsModularZoomBehavior(_ window: NSWindow) -> Bool {
-        if window.contentMinSize != mainWindowMinimumSize {
+    static func needsModularZoomBehavior(
+        _ window: NSWindow,
+        minimumContentSize: CGSize = mainWindowMinimumSize
+    ) -> Bool {
+        if window.contentMinSize != minimumContentSize {
             return true
         }
         if window.collectionBehavior.contains(.fullScreenPrimary)
@@ -26,9 +29,12 @@ enum WindowPresentationPolicy {
         return zoomButton.target !== window || zoomButton.action != #selector(NSWindow.performZoom(_:))
     }
 
-    static func applyModularZoomBehavior(to window: NSWindow) {
-        if window.contentMinSize != mainWindowMinimumSize {
-            window.contentMinSize = mainWindowMinimumSize
+    static func applyModularZoomBehavior(
+        to window: NSWindow,
+        minimumContentSize: CGSize = mainWindowMinimumSize
+    ) {
+        if window.contentMinSize != minimumContentSize {
+            window.contentMinSize = minimumContentSize
         }
 
         var collectionBehavior = window.collectionBehavior
@@ -106,7 +112,6 @@ struct EpistemosApp: App {
                 .onAppear {
                     StatusBar.shared.setup()
                     HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
-                    CommandPaletteWindowController.shared.setup(bootstrap: bootstrap)
                 }
                 // Handle Spotlight deep-links — user tapped a note in Spotlight results
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
@@ -127,7 +132,6 @@ struct EpistemosApp: App {
                     bootstrap.vaultSync.stopWatching(preserveData: true)
                     StatusBar.shared.remove()
                     HologramController.shared.teardown()
-                    CommandPaletteWindowController.shared.teardown()
                 }
         }
         .defaultSize(width: 1100, height: 720)
@@ -218,16 +222,8 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         newNote.target = self
         menu.addItem(newNote)
 
-        let search = NSMenuItem(
-            title: "Search Notes", action: #selector(dockSearch), keyEquivalent: "")
-        search.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Search")
-        search.target = self
-        menu.addItem(search)
-
-        menu.addItem(.separator())
-
         let miniChat = NSMenuItem(
-            title: "Toggle Mini Chat", action: #selector(dockMiniChat), keyEquivalent: "")
+            title: "New Mini Chat", action: #selector(dockMiniChat), keyEquivalent: "")
         miniChat.image = NSImage(
             systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: "Mini Chat")
         miniChat.target = self
@@ -246,15 +242,9 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
     }
 
-    @objc private func dockSearch() {
-        Task { @MainActor in
-            CommandPaletteWindowController.shared.show()
-        }
-    }
-
     @objc private func dockMiniChat() {
         Task { @MainActor in
-            CommandPaletteWindowController.shared.toggleChatMode()
+            MiniChatWindowController.shared.openNewChat()
         }
     }
 }
@@ -282,6 +272,11 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
+            Button("New Mini Chat") {
+                MiniChatWindowController.shared.openNewChat()
+            }
+            .keyboardShortcut("3", modifiers: .command)
+
             Button("Knowledge Graph") {
                 HologramController.shared.toggle()
             }
@@ -296,8 +291,8 @@ struct EpistemosCommands: Commands {
 
             Divider()
 
-            Button("Toggle Mini Chat") {
-                CommandPaletteWindowController.shared.toggleChatMode()
+            Button("New Mini Chat") {
+                MiniChatWindowController.shared.openNewChat()
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
         }
@@ -311,13 +306,6 @@ struct EpistemosCommands: Commands {
                 }
             }
             .keyboardShortcut("n", modifiers: .command)
-        }
-
-        CommandGroup(replacing: .saveItem) {
-            Button("Search") {
-                CommandPaletteWindowController.shared.show()
-            }
-            .keyboardShortcut(.space, modifiers: .option)
         }
 
         CommandGroup(replacing: .appVisibility) {

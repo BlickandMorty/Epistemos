@@ -522,20 +522,17 @@ struct ThemePairTests {
 
     @Test("Assistant chrome tokens keep the floating surface hierarchy intact")
     func assistantSurfaceMetricsStayCalm() {
-        let palette = AssistantSurfaceMetrics.commandPalette
         let popout = AssistantSurfaceMetrics.popout
 
-        #expect(palette.outerRadius == 30)
-        #expect(palette.innerRadius == 24)
-        #expect(palette.controlRadius == 18)
-        #expect(palette.borderWidth == 0.82)
-        #expect(palette.showsOuterStroke)
-        #expect(palette.outerRadius > palette.innerRadius)
-        #expect(palette.innerRadius > palette.controlRadius)
         #expect(popout.showsOuterStroke)
-        #expect(popout.outerRadius == palette.outerRadius)
-        #expect(popout.contentVerticalPadding > palette.contentVerticalPadding)
-        #expect(popout.shadowRadius >= palette.shadowRadius)
+        #expect(popout.outerRadius == 30)
+        #expect(popout.innerRadius == 24)
+        #expect(popout.controlRadius == 18)
+        #expect(popout.borderWidth == 0.72)
+        #expect(popout.outerRadius > popout.innerRadius)
+        #expect(popout.innerRadius > popout.controlRadius)
+        #expect(popout.contentVerticalPadding == 18)
+        #expect(popout.shadowRadius == 28)
     }
 
     @Test("Floating assistant surfaces follow the light and dark shell contrast rules")
@@ -647,14 +644,6 @@ struct ThemePairTests {
         #expect(AssistantComposerMetrics.mainChat.shadowYOffset > 0)
         #expect(AssistantComposerMetrics.compactChat.shadowRadius > 0)
         #expect(AssistantComposerMetrics.compactChat.shadowYOffset > 0)
-    }
-
-    @Test("Command palette starts compact and expands through search and chat states")
-    func commandPaletteSizeLadderStaysOrdered() {
-        #expect(CommandPaletteLayout.compactWidth < CommandPaletteLayout.expandedSearchWidth)
-        #expect(CommandPaletteLayout.expandedSearchWidth < CommandPaletteLayout.chatWidth)
-        #expect(CommandPaletteLayout.compactPanelSize.width < CommandPaletteLayout.chatPanelSize.width)
-        #expect(CommandPaletteLayout.compactPanelSize.height < CommandPaletteLayout.chatPanelSize.height)
     }
 
     @Test("Landing greeting toolbar glyph stays stable after cursor fx removal")
@@ -786,21 +775,18 @@ struct ThemePairTests {
     func landingAndActiveChatUseSharedPlainLocalModelMenu() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
-        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(landingView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
         #expect(rootView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
-        #expect(commandPalette.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        #expect(miniChat.contains("LocalModelToolbarMenu(variant: .toolbar)"))
         #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .content)"))
         #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
         #expect(rootView.contains("ASCIIRippleText("))
         #expect(rootView.contains(".menuStyle(.borderlessButton)"))
         #expect(rootView.contains("inference.setPreferredLocalTextModelID(model.id)"))
-        #expect(!commandPalette.contains("chatTabBar"))
-        #expect(!commandPalette.contains("paletteModeMenu"))
-        #expect(!commandPalette.contains("activeTabId"))
-        #expect(!commandPalette.contains("Label(\"Local Only\""))
+        #expect(miniChat.contains("threadState.createMiniChatThread("))
         #expect(!noteWorkspace.contains("Label(\"Local Only\""))
         #expect(!rootView.contains("AnchoredPopoverButton("))
         #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
@@ -844,13 +830,11 @@ struct ThemePairTests {
         let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
         let chatInputBar = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
 
         #expect(!chatView.contains("struct ResearchModeControl"))
         #expect(!chatInputBar.contains("Ask a research question"))
         #expect(!chatInputBar.contains("ResearchModeControl"))
         #expect(!landingView.contains("ResearchModeControl"))
-        #expect(!commandPalette.contains("ResearchModeControl"))
     }
 
     @Test("Settings and landing metadata drop SOAR and confidence-era chat chrome")
@@ -1006,21 +990,6 @@ struct ThemePairTests {
         #expect(coordinator.contains("static func searchReferenceResults("))
     }
 
-    @Test("Command palette chat uses the shared attachment picker and resolver")
-    func commandPaletteUsesSharedAttachmentPickerAndResolver() throws {
-        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
-
-        #expect(commandPalette.contains("ComposerReferencePopover("))
-        #expect(commandPalette.contains("ChatCoordinator.searchReferenceResults("))
-        #expect(commandPalette.contains("ChatCoordinator.resolveAttachedContext("))
-        #expect(commandPalette.contains("threadState.ensurePaletteThread()"))
-        #expect(commandPalette.contains("threadState.addPaletteContextAttachment("))
-        #expect(commandPalette.contains("threadState.removePaletteContextAttachment("))
-        #expect(commandPalette.contains("threadState.paletteThread()"))
-        #expect(!commandPalette.contains("focusedPageId"))
-        #expect(!commandPalette.contains("notesUI.activePageId"))
-    }
-
     @Test("Note chat shows the explicit locked note attachment chip")
     func noteChatShowsLockedNoteAttachmentChip() throws {
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
@@ -1141,7 +1110,7 @@ struct ThemePairTests {
     func commandSurfacesRouteSettingsToUtilityWindow() throws {
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
         let appCommands = try loadTextFile("Epistemos/App/EpistemosApp.swift")
-        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(!rootView.contains("case .library"))
@@ -1149,12 +1118,9 @@ struct ThemePairTests {
         #expect(!rootView.contains("Picker(\"\", selection: $uiBindable.homeTab)"))
         #expect(appCommands.contains("UtilityWindowManager.shared.show(.settings)"))
         #expect(!appCommands.contains(".keyboardShortcut(\",\", modifiers: .command)"))
-        #expect(commandPalette.contains("UtilityWindowManager.shared.show(.settings)"))
-        #expect(commandPalette.contains("badge: \"\\u{2318}S\""))
+        #expect(miniChat.contains("showRecentChats"))
         #expect(landingView.contains("label: \"Settings\""))
         #expect(landingView.contains("key: \"S\""))
-        #expect(!commandPalette.contains("nav-library"))
-        #expect(!commandPalette.contains("Open Library"))
     }
 
     @Test("landing notes hint reveals the new note shortcut on hover")

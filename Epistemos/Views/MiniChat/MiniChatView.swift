@@ -1,30 +1,89 @@
 import SwiftData
 import SwiftUI
 
+private enum MiniChatLayout {
+    static let messageColumnMaxWidth: CGFloat = 560
+    static let composerMaxWidth: CGFloat = 620
+    static let userBubbleMaxWidth: CGFloat = 360
+    static let toolbarHeight: CGFloat = 36
+}
+
 // MARK: - MiniChat View
 // Floating single-thread chat panel with input.
 
 struct MiniChatView: View {
     @Environment(UIState.self) private var ui
     @Environment(ThreadState.self) private var threadState
+    @Environment(\.modelContext) private var modelContext
+    @Query(SDChat.recentChatsDescriptor) private var recentChats: [SDChat]
+    @State private var showRecentChats = false
+    @State private var appliedInitialContextAttachment = false
+
+    let chatID: String
+    let initialContextAttachment: ContextAttachment?
 
     private var theme: EpistemosTheme { ui.theme }
-    private let surfaceMetrics = AssistantSurfaceMetrics.popout
 
     var body: some View {
-        AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics) {
-            VStack(spacing: 0) {
-                MiniChatThread()
+        VStack(spacing: 0) {
+            miniChatHeader
+            if showRecentChats {
+                MiniChatRecentChatsList(recentChats: recentChats) {
+                    showRecentChats = false
+                }
+            } else {
+                MiniChatThread(chatID: chatID)
                 miniChatDivider
-                MiniChatInputBar()
+                MiniChatInputBar(chatID: chatID)
             }
         }
-        .frame(width: 400, height: 520)
+        .padding(.horizontal, 28)
+        .padding(.top, 18)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             Task { @MainActor in
-                threadState.ensureMiniChatThread()
+                loadMiniChatSessionIfNeeded()
             }
         }
+    }
+
+    private var miniChatHeader: some View {
+        HStack(spacing: 10) {
+            if showRecentChats {
+                Button(action: { showRecentChats = false }) {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(NativeToolbarButtonStyle())
+                .help("Back")
+            }
+
+            Text(showRecentChats ? "Recent Chats" : activeTitle)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(theme.foreground)
+                .lineLimit(1)
+
+            Spacer(minLength: 12)
+
+            Button(action: { showRecentChats = true }) {
+                Label("Recent Chats", systemImage: "clock.arrow.circlepath")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(NativeToolbarButtonStyle())
+            .help("Recent Chats")
+
+            Button(action: { MiniChatWindowController.shared.openNewChat() }) {
+                Label("Add Chat", systemImage: "plus")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(NativeToolbarButtonStyle())
+            .help("Add Chat")
+        }
+        .frame(height: MiniChatLayout.toolbarHeight)
+    }
+
+    private var activeTitle: String {
+        threadState.miniChatSession(id: chatID)?.label ?? "Mini Chat"
     }
 
     private var miniChatDivider: some View {
@@ -34,6 +93,48 @@ struct MiniChatView: View {
             .padding(.horizontal, 2)
             .padding(.vertical, 8)
     }
+
+    private func loadMiniChatSessionIfNeeded() {
+        let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
+        if let chat = try? modelContext.fetch(descriptor).first {
+            let current = threadState.miniChatSession(id: chatID)
+            let needsRestore = current == nil
+                || current?.messages.isEmpty == true
+                || current?.contextAttachments.isEmpty == true
+            guard needsRestore else {
+                MiniChatWindowController.shared.updateWindowTitle(chatID: chat.id, title: current?.label ?? chat.title)
+                return
+            }
+            threadState.upsertMiniChatSession(
+                id: chat.id,
+                label: chat.title,
+                pageId: chat.linkedPageId,
+                messages: chat.sortedMessages.map { message in
+                    AssistantMessage(
+                        id: message.id,
+                        role: MessageRole(rawValue: message.role) ?? .assistant,
+                        content: message.content,
+                        loadedNoteTitles: message.chatMessage(chatId: chat.id).loadedNoteTitles,
+                        contextAttachments: message.chatMessage(chatId: chat.id).contextAttachments,
+                        createdAt: message.createdAt
+                    )
+                }
+            )
+            MiniChatWindowController.shared.updateWindowTitle(chatID: chat.id, title: chat.title)
+            applyInitialContextAttachmentIfNeeded()
+            return
+        }
+        threadState.ensureMiniChatSession(id: chatID)
+        applyInitialContextAttachmentIfNeeded()
+    }
+
+    private func applyInitialContextAttachmentIfNeeded() {
+        guard !appliedInitialContextAttachment, let initialContextAttachment else { return }
+        appliedInitialContextAttachment = true
+        let existingAttachments = threadState.miniChatSession(id: chatID)?.contextAttachments ?? []
+        guard !existingAttachments.contains(initialContextAttachment) else { return }
+        threadState.addMiniChatContextAttachment(initialContextAttachment, chatID: chatID)
+    }
 }
 
 // MARK: - Thread View
@@ -42,6 +143,8 @@ private struct MiniChatThread: View {
     @Environment(UIState.self) private var ui
     @Environment(ThreadState.self) private var threadState
 
+    let chatID: String
+
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
@@ -49,12 +152,12 @@ private struct MiniChatThread: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var miniChatThread: ChatThread? {
-        threadState.miniChatThread()
+        threadState.miniChatSession(id: chatID)
     }
 
     private var hasContent: Bool {
         if let thread = miniChatThread, !thread.messages.isEmpty { return true }
-        return threadState.miniChatIsStreaming
+        return threadState.miniChatIsStreaming(chatID: chatID)
     }
 
     var body: some View {
@@ -62,41 +165,51 @@ private struct MiniChatThread: View {
             if hasContent {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 10) {
-                            if let thread = miniChatThread {
-                                ForEach(thread.messages) { msg in
-                                    MiniChatBubble(message: msg)
-                                        .id(msg.id)
-                                }
-                            }
-
-                            // Live streaming bubble
-                            if threadState.miniChatIsStreaming {
-                                let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(
-                                    from: threadState.miniChatStreamingText
-                                )
-                                VStack(alignment: .leading, spacing: 0) {
-                                    if visibleStreamingText.isEmpty {
-                                        HStack(spacing: 6) {
-                                            ProgressView().controlSize(.small)
-                                            Text("Responding…")
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(theme.mutedForeground)
-                                        }
-                                    } else {
-                                        MarkdownTextView(content: visibleStreamingText + " ▍", theme: theme)
-                                            .font(.system(size: 13))
-                                            .textSelection(.enabled)
+                        HStack {
+                            Spacer(minLength: 0)
+                            LazyVStack(spacing: ChatLayout.transcriptSpacing) {
+                                if let thread = miniChatThread {
+                                    ForEach(thread.messages) { msg in
+                                        MiniChatBubble(message: msg)
+                                            .frame(maxWidth: .infinity)
+                                            .id(msg.id)
                                     }
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .id("streaming")
-                            }
 
-                            Color.clear.frame(height: 1).id("bottom")
+                                if threadState.miniChatIsStreaming(chatID: chatID) {
+                                    let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(
+                                        from: threadState.miniChatStreamingText(chatID: chatID)
+                                    )
+                                    MiniChatAssistantBubbleChrome {
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            if visibleStreamingText.isEmpty {
+                                                HStack(spacing: 6) {
+                                                    ProgressView().controlSize(.small)
+                                                    Text("Responding…")
+                                                        .font(.system(size: 12))
+                                                        .foregroundStyle(theme.mutedForeground)
+                                                }
+                                            } else {
+                                                TaggedMarkdownTextView(
+                                                    content: visibleStreamingText + " ▍",
+                                                    theme: theme
+                                                )
+                                                .textSelection(.enabled)
+                                            }
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id("streaming")
+                                }
+
+                                Color.clear.frame(height: 1).id("bottom")
+                            }
+                            .frame(maxWidth: MiniChatLayout.messageColumnMaxWidth)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            Spacer(minLength: 0)
                         }
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 16)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, 18)
                     }
                     .onScrollGeometryChange(
                         for: CGFloat.self,
@@ -116,7 +229,7 @@ private struct MiniChatThread: View {
                             proxy.scrollTo("bottom", anchor: .bottom)
                         }
                     }
-                    .onChange(of: threadState.miniChatStreamingText) { _, _ in
+                    .onChange(of: threadState.miniChatStreamingText(chatID: chatID)) { _, _ in
                         // Throttle to ~4fps during streaming (matches ChatView)
                         let now = ContinuousClock.now
                         guard autoFollow.isFollowingBottom,
@@ -149,7 +262,98 @@ private struct MiniChatThread: View {
     }
 }
 
+private struct MiniChatRecentChatsList: View {
+    let recentChats: [SDChat]
+    let onSelect: () -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 10) {
+                ForEach(recentChats, id: \.id) { chat in
+                    Button {
+                        MiniChatWindowController.shared.openChat(chat.id)
+                        onSelect()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(chat.title)
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(theme.foreground)
+                                    .lineLimit(1)
+                                Spacer(minLength: 12)
+                                Text(chat.updatedAt.formatted(.relative(presentation: .named)))
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundStyle(theme.mutedForeground)
+                            }
+
+                            if let preview = preview(for: chat) {
+                                Text(preview)
+                                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                                    .foregroundStyle(theme.mutedForeground)
+                                    .lineLimit(2)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(theme.border.opacity(0.8), lineWidth: 0.8)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 18)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func preview(for chat: SDChat) -> String? {
+        let message = chat.sortedMessages.last(where: { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        guard let message else { return nil }
+        let compact = message.content.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else { return nil }
+        return String(compact.prefix(120))
+    }
+}
+
 // MARK: - Chat Bubble
+
+private struct MiniChatAssistantBubbleChrome<Content: View>: View {
+    @Environment(UIState.self) private var ui
+
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        if theme.assistantBubbleBackgroundHex != nil {
+            content
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(
+                    theme.assistantBubbleBackground,
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(theme.border.opacity(0.85), lineWidth: 0.8)
+                )
+        } else {
+            content
+        }
+    }
+}
 
 private struct MiniChatBubble: View {
     let message: AssistantMessage
@@ -164,28 +368,35 @@ private struct MiniChatBubble: View {
             ? UserFacingModelOutput.finalVisibleText(from: message.content)
             : message.content
         if isUser {
-            HStack {
-                Spacer(minLength: 24)
-                Text(displayContent)
-                    .font(.system(size: 13))
-                    .foregroundStyle(theme.foreground)
-                    .textSelection(.enabled)
-                    .padding(.vertical, 2)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                MarkdownTextView(content: displayContent, theme: theme)
-                    .font(.system(size: 13))
-                    .textSelection(.enabled)
-
-                AssistantSourcesFooter(
-                    sources: AssistantSourceReference.extract(
-                        from: displayContent,
-                        noteTitles: message.loadedNoteTitles ?? []
-                    ),
+            VStack(alignment: .trailing, spacing: Spacing.xs) {
+                TaggedMarkdownTextView(
+                    content: displayContent,
                     theme: theme,
-                    compact: true
+                    rippleStyle: .none,
+                    foregroundOverride: theme.userBubbleText
                 )
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .frame(maxWidth: 360, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        } else {
+            MiniChatAssistantBubbleChrome {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    TaggedMarkdownTextView(content: displayContent, theme: theme)
+                        .textSelection(.enabled)
+
+                    AssistantSourcesFooter(
+                        sources: AssistantSourceReference.extract(
+                            from: displayContent,
+                            noteTitles: message.loadedNoteTitles ?? []
+                        ),
+                        theme: theme,
+                        compact: true
+                    )
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -355,14 +566,18 @@ private struct MiniChatInputBar: View {
     @State private var text = ""
     @State private var isProcessing = false
     @State private var streamTask: Task<Void, Never>?
-    @FocusState private var isFocused: Bool
+    @State private var isFocused = false
+    @State private var composerHeight = ChatComposerInputMetrics.minHeight
 
     // @-mention dropdown
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
     @State private var mentionPickerAutofocus = false
+    @State private var referencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var referenceSearch = ComposerReferenceSearchState()
     @State private var snapshotStore = MiniChatSnapshotStore()
+
+    let chatID: String
 
     private var theme: EpistemosTheme { ui.theme }
     private let composerMetrics = AssistantComposerMetrics.compactChat
@@ -371,8 +586,12 @@ private struct MiniChatInputBar: View {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing
     }
 
+    private var composerIsActive: Bool {
+        isFocused || canSend || isProcessing || !activeContextAttachments.isEmpty
+    }
+
     private var miniChatThread: ChatThread? {
-        threadState.miniChatThread()
+        threadState.miniChatSession(id: chatID)
     }
 
     private var activeContextAttachments: [ContextAttachment] {
@@ -399,14 +618,6 @@ private struct MiniChatInputBar: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            ComposerContextShortcutBar(
-                noteLabel: "Chat with Note",
-                vaultLabel: "Chat with Vault",
-                onChatWithNote: openNotePicker,
-                onChatWithVault: attachVaultContext
-            )
-
-            // Quick action chips when a note is active
             if explicitScopedPageID != nil, activePage() != nil, !isProcessing {
                 quickActions
             }
@@ -415,64 +626,109 @@ private struct MiniChatInputBar: View {
                 composerAttachmentChips
             }
 
-            HStack(spacing: 10) {
-                TextField("Ask anything...", text: $text, axis: .vertical)
-                    .font(.system(size: 13))
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...4)
-                    .focused($isFocused)
-                    .writingToolsBehavior(.limited)
-                    .foregroundStyle(theme.foreground)
-                    .onSubmit { send() }
-                    .onChange(of: text) { _, newVal in
-                        if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
-                            mentionFilter = filter
-                            mentionPickerAutofocus = false
-                            if !showMentionDropdown { showMentionDropdown = true }
-                        } else if showMentionDropdown {
-                            showMentionDropdown = false
-                            mentionPickerAutofocus = false
-                            referenceSearch.reset()
+            VStack(alignment: .leading, spacing: 0) {
+                composerTextArea
+
+                HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
+                    ComposerContextShortcutBar(
+                        noteLabel: "Chat with Note",
+                        vaultLabel: "Chat with Vault",
+                        onChatWithNote: openNotePicker,
+                        onChatWithVault: attachVaultContext
+                    )
+
+                    LocalModelToolbarMenu(variant: .toolbar)
+                        .accessibilityLabel("Local model")
+
+                    Spacer(minLength: 8)
+
+                    AssistantSendButton(
+                        theme: theme,
+                        isEnabled: canSend,
+                        isProcessing: isProcessing,
+                        metrics: composerMetrics
+                    ) {
+                        if isProcessing {
+                            cancelStream()
+                        } else {
+                            send()
                         }
                     }
-                    .onChange(of: mentionFilter) { _, newValue in
-                        updateMentionReferenceSearch(filter: newValue)
-                    }
-
-                AssistantSendButton(
-                    theme: theme,
-                    isEnabled: canSend,
-                    isProcessing: isProcessing,
-                    metrics: composerMetrics
-                ) {
-                    if isProcessing {
-                        cancelStream()
-                    } else {
-                        send()
-                    }
+                    .help(isProcessing ? "Stop" : "Send")
+                    .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
                 }
-                .help(isProcessing ? "Stop" : "Send")
-                .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
+                .padding(.top, MainChatComposerLayout.controlRowTopPadding)
             }
-            .padding(.horizontal, composerMetrics.horizontalPadding)
-            .padding(.vertical, composerMetrics.verticalPadding)
-            .assistantGlassInputChrome(
+            .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+            .padding(.top, MainChatComposerLayout.topPadding)
+            .padding(.bottom, MainChatComposerLayout.bottomPadding)
+            .assistantComposerChrome(
                 theme: theme,
-                cornerRadius: composerMetrics.cornerRadius,
-                isActive: isFocused || canSend || isProcessing || !activeContextAttachments.isEmpty
+                metrics: composerMetrics,
+                isActive: composerIsActive
             )
         }
+        .frame(maxWidth: MiniChatLayout.composerMaxWidth)
+        .frame(maxWidth: .infinity)
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
                 ComposerReferencePopover(
+                    isPresented: $showMentionDropdown,
                     results: mentionSearchResults,
                     query: $mentionFilter,
-                    idealWidth: 560,
-                    maxHeight: 420,
+                    idealWidth: referencePopoverStyle.idealWidth,
+                    maxHeight: referencePopoverStyle.maxHeight,
+                    style: referencePopoverStyle,
                     autofocusSearchField: mentionPickerAutofocus,
+                    onDismiss: dismissReferencePopover,
                     onSelect: attachMentionReference
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+        }
+    }
+
+    private var composerTextArea: some View {
+        ZStack(alignment: .topLeading) {
+            ChatComposerTextEditor(
+                text: $text,
+                height: $composerHeight,
+                isFocused: $isFocused,
+                theme: theme,
+                isProcessing: isProcessing
+            ) {
+                send()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: composerHeight)
+            .accessibilityLabel("Mini chat message input")
+
+            if text.isEmpty {
+                Text("Ask anything…")
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                    .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)
+        .layoutPriority(1)
+        .onChange(of: text) { _, newVal in
+            if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
+                referencePopoverStyle = .mention
+                mentionFilter = filter
+                mentionPickerAutofocus = false
+                if !showMentionDropdown { showMentionDropdown = true }
+            } else if showMentionDropdown {
+                showMentionDropdown = false
+                referencePopoverStyle = .mention
+                mentionPickerAutofocus = false
+                referenceSearch.reset()
+            }
+        }
+        .onChange(of: mentionFilter) { _, newValue in
+            updateMentionReferenceSearch(filter: newValue)
         }
     }
 
@@ -487,7 +743,8 @@ private struct MiniChatInputBar: View {
                             .font(.epSmall)
                             .lineLimit(1)
                         Button {
-                            threadState.removeMiniChatContextAttachment(attachment.id)
+                            threadState.removeMiniChatContextAttachment(attachment.id, chatID: chatID)
+                            persistMiniChatSession()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.epSmall)
@@ -640,15 +897,19 @@ private struct MiniChatInputBar: View {
         }
 
         // Show action as user message
-        threadState.addMiniChatMessage(AssistantMessage(role: .user, content: "✨ \(actionLabel): \(pageTitle)"))
+        threadState.addMiniChatMessage(
+            AssistantMessage(role: .user, content: "✨ \(actionLabel): \(pageTitle)"),
+            chatID: chatID
+        )
+        persistMiniChatSession()
         isProcessing = true
-        threadState.miniChatIsStreaming = true
-        threadState.miniChatStreamingText = ""
+        threadState.setMiniChatStreaming(true, chatID: chatID)
+        threadState.setMiniChatStreamingText("", chatID: chatID)
 
         streamTask = Task {
             defer {
                 isProcessing = false
-                threadState.miniChatIsStreaming = false
+                threadState.setMiniChatStreaming(false, chatID: chatID)
             }
             do {
                 let contentLength = prompt.count
@@ -656,15 +917,17 @@ private struct MiniChatInputBar: View {
 
                 for try await chunk in triage.streamGeneral(
                     prompt: prompt, systemPrompt: nil,
-                    operation: .brainstorm, contentLength: contentLength
+                    operation: .brainstorm,
+                    contentLength: contentLength,
+                    localSurface: .miniChat
                 ) {
                     guard !Task.isCancelled else { break }
                     accumulated += chunk
-                    threadState.miniChatStreamingText = accumulated
+                    threadState.setMiniChatStreamingText(accumulated, chatID: chatID)
                 }
 
                 let final = UserFacingModelOutput.finalVisibleText(from: accumulated)
-                threadState.miniChatStreamingText = ""
+                threadState.setMiniChatStreamingText("", chatID: chatID)
 
                 // Auto-apply certain actions
                 if action == .autoTag {
@@ -674,20 +937,34 @@ private struct MiniChatInputBar: View {
                     page.updatedAt = .now
                 }
 
-                threadState.addMiniChatMessage(AssistantMessage(
-                    role: .assistant,
-                    content: final.isEmpty ? "No response generated." : final
-                ))
+                threadState.addMiniChatMessage(
+                    AssistantMessage(
+                        role: .assistant,
+                        content: final.isEmpty ? "No response generated." : final
+                    ),
+                    chatID: chatID
+                )
+                persistMiniChatSession()
 
             } catch is CancellationError {
-                let partial = UserFacingModelOutput.finalVisibleText(from: threadState.miniChatStreamingText)
-                threadState.miniChatStreamingText = ""
+                let partial = UserFacingModelOutput.finalVisibleText(
+                    from: threadState.miniChatStreamingText(chatID: chatID)
+                )
+                threadState.setMiniChatStreamingText("", chatID: chatID)
                 if !partial.isEmpty {
-                    threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"))
+                    threadState.addMiniChatMessage(
+                        AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"),
+                        chatID: chatID
+                    )
+                    persistMiniChatSession()
                 }
             } catch {
-                threadState.miniChatStreamingText = ""
-                threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
+                threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.addMiniChatMessage(
+                    AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"),
+                    chatID: chatID
+                )
+                persistMiniChatSession()
             }
         }
     }
@@ -722,20 +999,23 @@ private struct MiniChatInputBar: View {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isProcessing else { return }
 
-        threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed))
+        threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
+        refreshMiniChatLabel(using: trimmed)
+        persistMiniChatSession()
         text = ""
+        composerHeight = ChatComposerInputMetrics.minHeight
         isProcessing = true
-        threadState.miniChatIsStreaming = true
-        threadState.miniChatStreamingText = ""
+        threadState.setMiniChatStreaming(true, chatID: chatID)
+        threadState.setMiniChatStreamingText("", chatID: chatID)
 
         streamTask = Task {
             defer {
                 isProcessing = false
-                threadState.miniChatIsStreaming = false
+                threadState.setMiniChatStreaming(false, chatID: chatID)
             }
             do {
                 let page = activePage()
-                let currentThread = threadState.miniChatThread()
+                let currentThread = threadState.miniChatSession(id: chatID)
                 let attachments = currentThread?.contextAttachments ?? []
 
                 let notesContext: ChatCoordinator.AttachedContextResolution
@@ -781,11 +1061,12 @@ private struct MiniChatInputBar: View {
                 }
                 threadState.updateMiniChatLoadedNotes(
                     ids: notesContext.loadedNoteIds,
-                    titles: notesContext.loadedNoteTitles
+                    titles: notesContext.loadedNoteTitles,
+                    chatID: chatID
                 )
 
                 // Build conversation-aware prompt from thread history
-                let allMessages = threadState.miniChatThread()?.messages ?? []
+                let allMessages = threadState.miniChatSession(id: chatID)?.messages ?? []
 
                 var promptParts: [String] = []
                 if let context = notesContext.context {
@@ -810,37 +1091,52 @@ private struct MiniChatInputBar: View {
                     prompt: conversationPrompt,
                     systemPrompt: nil,
                     operation: .chatResponse(query: trimmed),
-                    contentLength: contentLength
+                    contentLength: contentLength,
+                    localSurface: .miniChat
                 ) {
                     guard !Task.isCancelled else { break }
                     accumulated += chunk
-                    threadState.miniChatStreamingText = accumulated
+                    threadState.setMiniChatStreamingText(accumulated, chatID: chatID)
                 }
 
                 var final = UserFacingModelOutput.finalVisibleText(from: accumulated)
-                threadState.miniChatStreamingText = ""
+                threadState.setMiniChatStreamingText("", chatID: chatID)
 
                 // Parse and execute any action markers
                 if let page {
                     final = executeActions(in: final, page: page)
                 }
 
-                threadState.addMiniChatMessage(AssistantMessage(
-                    role: .assistant,
-                    content: final.isEmpty ? "No response generated." : final,
-                    loadedNoteTitles: notesContext.loadedNoteTitles,
-                    contextAttachments: attachments
-                ))
+                threadState.addMiniChatMessage(
+                    AssistantMessage(
+                        role: .assistant,
+                        content: final.isEmpty ? "No response generated." : final,
+                        loadedNoteTitles: notesContext.loadedNoteTitles,
+                        contextAttachments: attachments
+                    ),
+                    chatID: chatID
+                )
+                persistMiniChatSession()
 
             } catch is CancellationError {
-                let partial = UserFacingModelOutput.finalVisibleText(from: threadState.miniChatStreamingText)
-                threadState.miniChatStreamingText = ""
+                let partial = UserFacingModelOutput.finalVisibleText(
+                    from: threadState.miniChatStreamingText(chatID: chatID)
+                )
+                threadState.setMiniChatStreamingText("", chatID: chatID)
                 if !partial.isEmpty {
-                    threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"))
+                    threadState.addMiniChatMessage(
+                        AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"),
+                        chatID: chatID
+                    )
+                    persistMiniChatSession()
                 }
             } catch {
-                threadState.miniChatStreamingText = ""
-                threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
+                threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.addMiniChatMessage(
+                    AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"),
+                    chatID: chatID
+                )
+                persistMiniChatSession()
             }
         }
     }
@@ -916,16 +1212,20 @@ private struct MiniChatInputBar: View {
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
         threadState.addMiniChatContextAttachment(
-            ComposerReferenceHelpers.contextAttachment(for: choice)
+            ComposerReferenceHelpers.contextAttachment(for: choice),
+            chatID: chatID
         )
+        persistMiniChatSession()
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
+        referencePopoverStyle = .mention
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
     }
 
     private func openNotePicker() {
+        referencePopoverStyle = .notePicker
         mentionFilter = ""
         mentionPickerAutofocus = true
         showMentionDropdown = true
@@ -934,7 +1234,13 @@ private struct MiniChatInputBar: View {
     }
 
     private func attachVaultContext() {
-        threadState.addMiniChatContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
+        threadState.addMiniChatContextAttachment(ComposerReferenceHelpers.allNotesAttachment, chatID: chatID)
+        persistMiniChatSession()
+    }
+
+    private func dismissReferencePopover() {
+        showMentionDropdown = false
+        mentionPickerAutofocus = false
     }
 
     private func updateMentionReferenceSearch(filter: String) {
@@ -954,6 +1260,56 @@ private struct MiniChatInputBar: View {
         var descriptor = SDChat.recentChatsDescriptor
         descriptor.fetchLimit = 20
         return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    private func refreshMiniChatLabel(using prompt: String) {
+        guard let index = threadState.chatThreads.firstIndex(where: { $0.id == chatID })
+        else { return }
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let compact = trimmed.replacingOccurrences(of: "\n", with: " ")
+        threadState.chatThreads[index].label = String(compact.prefix(36))
+        MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: threadState.chatThreads[index].label)
+    }
+
+    private func persistMiniChatSession() {
+        guard let thread = threadState.miniChatSession(id: chatID) else { return }
+
+        let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
+        let chat: SDChat
+        if let existing = try? modelContext.fetch(descriptor).first {
+            chat = existing
+        } else {
+            let created = SDChat(title: thread.label, chatType: thread.pageId == nil ? "chat" : "notes")
+            created.id = chatID
+            modelContext.insert(created)
+            chat = created
+        }
+
+        chat.title = thread.label
+        chat.chatType = thread.pageId == nil ? "chat" : "notes"
+        chat.linkedPageId = thread.pageId
+        chat.updatedAt = thread.messages.last?.createdAt ?? .now
+        MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: thread.label)
+
+        for message in chat.messages ?? [] {
+            modelContext.delete(message)
+        }
+
+        chat.messages = thread.messages.map { message in
+            let stored = SDMessage(role: message.role.rawValue, content: message.content)
+            stored.id = message.id
+            stored.createdAt = message.createdAt
+            stored.updatePresentationSnapshot(
+                attachments: [],
+                loadedNoteTitles: message.loadedNoteTitles,
+                contextAttachments: message.contextAttachments
+            )
+            stored.chat = chat
+            return stored
+        }
+
+        try? modelContext.save()
     }
 
     private func cancelStream() {

@@ -85,7 +85,7 @@ final class DailyBriefState {
     }
 
     /// Builds the daily brief prompt from recent pages and chats.
-    /// Shared by LandingView and CommandPaletteOverlay.
+    /// Shared by landing and compact chat surfaces.
     static func buildBriefPrompt(pages: [SDPage], chats: [SDChat]) -> String {
         var context: [String] = []
 

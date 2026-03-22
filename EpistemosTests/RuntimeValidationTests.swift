@@ -7,6 +7,7 @@ struct RuntimeValidationTests {
     private let inferenceDefaultsKeys = [
         "epistemos.localRoutingMode",
         "epistemos.preferredLocalTextModelID",
+        "epistemos.preferredChatModelSelection",
     ]
 
     @MainActor
@@ -53,6 +54,10 @@ struct RuntimeValidationTests {
 
             #expect(inference.routingMode == .auto)
             #expect(inference.preferredLocalTextModelID == LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue)
+            #expect(
+                inference.preferredChatModelSelection
+                    == .localQwen(LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue)
+            )
         }
     }
 
@@ -168,7 +173,6 @@ struct RuntimeValidationTests {
         let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
         let noteSidebar = try loadRepoTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
         let chatSidebar = try loadRepoTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
-        let palette = try loadRepoTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
         let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
         let workspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
@@ -177,7 +181,6 @@ struct RuntimeValidationTests {
         #expect(chatView.contains(".onAppear {\n                    Task { @MainActor in"))
         #expect(noteSidebar.contains(".onAppear {\n                Task { @MainActor in"))
         #expect(chatSidebar.contains(".onAppear {\n            Task { @MainActor in"))
-        #expect(palette.contains(".onAppear {\n            Task { @MainActor in"))
         #expect(settings.contains(".onAppear {\n            Task { @MainActor in"))
         #expect(inspector.contains(".onAppear {\n            Task { @MainActor in"))
         #expect(workspace.contains(".onAppear {\n                Task { @MainActor in"))
@@ -444,33 +447,12 @@ struct RuntimeValidationTests {
         #expect(uiState.contains("\"epistemos.landingCursorAnimationEnabled\""))
     }
 
-    @Test("command palette full text search runs body and block scans concurrently")
-    func commandPaletteFullTextSearchRunsBodyAndBlockScansConcurrently() throws {
-        let palette = try loadRepoTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+    @Test("command palette source files are removed from the app")
+    func commandPaletteSourceFilesAreRemoved() {
+        let repoRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
 
-        #expect(palette.contains("@State private var cachedPageSearchEntries: [PalettePageSearchEntry] = []"))
-        #expect(palette.contains("@State private var cachedPageSearchEntryByID: [String: PalettePageSearchEntry] = [:]"))
-        #expect(palette.contains("@State private var cachedTitleSearchIndex = TrigramSearchIndex<String>()"))
-        #expect(palette.contains("@State private var cachedTitleMatchIDsByQuery: [String: [String]] = [:]"))
-        #expect(palette.contains("@State private var cachedFTSResultsByQuery: [String: [LandingCommandItem]] = [:]"))
-        #expect(palette.contains("refreshPageSearchEntries()"))
-        #expect(palette.contains(".onChange(of: allPages.count) { _, _ in"))
-        #expect(palette.contains(".onChange(of: allPages.first?.updatedAt) { _, _ in"))
-        #expect(palette.contains(".onReceive(NotificationCenter.default.publisher(for: .searchIndexDidUpdate)) { _ in"))
-        #expect(palette.contains("cachedTitleSearchIndex.rebuild("))
-        #expect(palette.contains("private func longestCachedTitleMatchIDs(for query: String) -> [String]?"))
-        #expect(palette.contains("let matchedIDs = cachedTitleMatchIDsByQuery[q]"))
-        #expect(palette.contains("cachedTitleSearchIndex.orderedCandidates(for: q)"))
-        #expect(palette.contains("let scored: [(entry: PalettePageSearchEntry, score: Int)] = matchedIDs"))
-        #expect(palette.contains("let resultIndexByID = Dictionary("))
-        #expect(palette.contains("async let bodyHits = vaultSync.searchFullAsync"))
-        #expect(palette.contains("async let blockHits = vaultSync.searchBlocksAsync"))
-        #expect(palette.contains("let (resolvedBodyHits, resolvedBlockHits) = await (bodyHits, blockHits)"))
-        #expect(palette.contains("guard normalizedQuery.count >= 3 else { return }"))
-        #expect(palette.contains("if let cached = cachedFTSResultsByQuery[normalizedQuery]"))
-        #expect(palette.contains("cachedFTSResultsByQuery[normalizedQuery] = results"))
-        #expect(!palette.contains("private var pageSearchSnapshot"))
-        #expect(!palette.contains("withAnimation(Motion.quick) {\n                cachedSearchResults = titleItems + bodyItems + blockItems"))
+        #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Epistemos/Views/Landing/CommandPaletteOverlay.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Epistemos/Views/Landing/CommandPaletteWindowController.swift").path))
     }
 
     @Test("search index uses a user-initiated query queue for interactive full text search")
@@ -597,6 +579,171 @@ struct RuntimeValidationTests {
         #expect(inspector.contains("if let cachedProfile = profileCache[cacheKey]"))
         #expect(inspector.contains("displayedSummary = full"))
         #expect(!inspector.contains("Task.sleep(for: .milliseconds(16))"))
+    }
+
+    @Test("node inspector chat expands folder descendants and linked graph context")
+    func nodeInspectorChatExpandsFolderDescendantsAndLinkedGraphContext() throws {
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+
+        #expect(inspector.contains("let predicate = #Predicate<SDFolder> { $0.id == folderID }"))
+        #expect(inspector.contains("return subfolder == relativePath || (!nestedPrefix.isEmpty && subfolder.hasPrefix(nestedPrefix))"))
+        #expect(inspector.contains("Items loaded for context:"))
+        #expect(inspector.contains("Connected graph context:"))
+        #expect(inspector.contains("Treat folder context as a bundle of descendant notes and relationships"))
+    }
+
+    @Test("note picker uses a dedicated split context panel instead of the cramped mention dropdown")
+    func notePickerUsesDedicatedSplitContextPanel() throws {
+        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+
+        #expect(popover.contains("if style == .notePicker"))
+        #expect(popover.contains("notePickerSidebar"))
+        #expect(popover.contains("Attach exactly what this turn should know."))
+        #expect(popover.contains("Attach the full vault retrieval index for this message."))
+        #expect(popover.contains("Searches titles, folders, tags, and indexed body snippets."))
+        #expect(popover.contains("final class ComposerReferencePopoverCoordinator"))
+        #expect(popover.contains("private let popover = NSPopover()"))
+        #expect(popover.contains("popover.show(relativeTo:"))
+        #expect(popover.contains("await Task.yield()"))
+        #expect(popover.contains("guard let self, let anchorView, anchorView.window != nil"))
+        #expect(!popover.contains("GeometryReader { proxy in"))
+    }
+
+    @Test("mini chat stays a real resizable window without the removed palette shell")
+    func miniChatStaysARealResizableWindowWithoutPaletteShell() throws {
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let controller = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+
+        #expect(controller.contains("styleMask: [.titled, .closable, .resizable, .fullSizeContentView]"))
+        #expect(controller.contains("window.maxSize = NSSize(width: 1600, height: 1400)"))
+        #expect(miniChat.contains(".padding(.horizontal, 28)"))
+        #expect(miniChat.contains(".padding(.top, 18)"))
+        #expect(miniChat.contains(".padding(.bottom, 20)"))
+        #expect(miniChat.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"))
+        #expect(!miniChat.contains("AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics)"))
+        #expect(miniChat.contains("static let messageColumnMaxWidth: CGFloat = 560"))
+        #expect(miniChat.contains("MiniChatBubble(message: msg)\n                                            .frame(maxWidth: .infinity)"))
+        #expect(miniChat.contains(".frame(maxWidth: .infinity, alignment: .leading)"))
+        #expect(miniChat.contains(".background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))"))
+        #expect(miniChat.contains(".frame(maxWidth: .infinity, alignment: .trailing)"))
+    }
+
+    @Test("mini chat launches in its own real window and keeps main-chat styling cues")
+    func miniChatUsesDedicatedWindowAndCompactMainChatLayout() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let statusBar = try loadRepoTextFile("Epistemos/App/StatusBar.swift")
+        let intents = try loadRepoTextFile("Epistemos/Intents/Custom/NavigationIntents.swift")
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let windowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(app.contains("MiniChatWindowController.shared.openNewChat()"))
+        #expect(statusBar.contains("MiniChatWindowController.shared.openNewChat()"))
+        #expect(intents.contains("MiniChatWindowController.shared.show()"))
+        #expect(sidebar.contains("MiniChatWindowController.shared.openNewChat()"))
+        #expect(!app.contains("CommandPaletteWindowController"))
+        #expect(!statusBar.contains("CommandPaletteWindowController"))
+        #expect(!intents.contains("CommandPaletteWindowController"))
+        #expect(!sidebar.contains("CommandPaletteWindowController"))
+
+        #expect(app.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
+        #expect(landing.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
+        #expect(landing.contains("CommandHint(modIcon: \"command\", key: \"3\", label: \"Mini Chat\", theme: theme)"))
+
+        #expect(windowController.contains("let window = NSWindow("))
+        #expect(!windowController.contains(".nonactivatingPanel"))
+        #expect(!windowController.contains(".utilityWindow"))
+        #expect(!windowController.contains("let panel = NSPanel("))
+        #expect(windowController.contains("WindowPresentationPolicy.applyModularZoomBehavior("))
+        #expect(windowController.contains("minimumContentSize: Self.minimumContentSize"))
+        #expect(windowController.contains("window.maxSize = NSSize(width: 1600, height: 1400)"))
+        #expect(windowController.contains("window.tabbingMode = .preferred"))
+        #expect(windowController.contains("window.tabbingIdentifier = \"epistemos-mini-chat-tabs\""))
+        #expect(!windowController.contains(".padding(22)"))
+
+        #expect(miniChat.contains("ChatComposerTextEditor("))
+        #expect(miniChat.contains(".assistantComposerChrome("))
+        #expect(miniChat.contains("TaggedMarkdownTextView("))
+        #expect(miniChat.contains(".frame(maxWidth: 360, alignment: .leading)"))
+    }
+
+    @Test("mini chat uses native macOS tab groups and loads app-wide chats by chat id")
+    func miniChatUsesNativeMacOSTabGroupsAndLoadsAppWideChatsByChatId() throws {
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let threadState = try loadRepoTextFile("Epistemos/State/ThreadState.swift")
+        let windowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+
+        #expect(!miniChat.contains("MiniChatTabBar"))
+        #expect(!miniChat.contains("threadState.activeMiniChatThread()"))
+        #expect(miniChat.contains("Recent Chats"))
+        #expect(miniChat.contains("MiniChatWindowController.shared.openNewChat()"))
+        #expect(miniChat.contains("MiniChatWindowController.shared.openChat("))
+        #expect(threadState.contains("func upsertMiniChatSession("))
+        #expect(threadState.contains("func miniChatSession(id: String) -> ChatThread?"))
+        #expect(windowController.contains("window.tabbingIdentifier = \"epistemos-mini-chat-tabs\""))
+        #expect(windowController.contains("existingWindow.addTabbedWindow(window, ordered: .above)"))
+    }
+
+    @Test("main chat pipeline stays aligned with the compact chat streaming path")
+    func mainChatPipelineMatchesCompactChatStreamingPath() throws {
+        let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
+
+        #expect(pipeline.contains("localSurface: .miniChat"))
+        #expect(miniChat.contains("localSurface: .miniChat"))
+        #expect(!pipeline.contains("Response too short"))
+        #expect(!pipeline.contains("No response received"))
+        #expect(!pipeline.contains("finalVisibleAnswer.count >= 10"))
+        #expect(triage.contains("if prefersDedicatedLocalChatRouting("))
+        #expect(triage.contains("case .mainChat, .miniChat:"))
+    }
+
+    @Test("apple fallback preserves the available response when local qwen is unavailable")
+    func appleFallbackKeepsVisibleResponseWhenLocalFallbackFails() throws {
+        let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
+
+        #expect(triage.contains("Log.engine.info(\"Local model fallback also failed — using Apple Intelligence response\")"))
+        #expect(triage.contains("continuation.yield(result)"))
+        #expect(!triage.contains("if !Self.isRefusalResponse(result)"))
+        #expect(triage.contains("selectedRoute: .appleIntelligence"))
+        #expect(triage.contains("localSelection: localSelection.selection"))
+    }
+
+    @Test("chat model selection can explicitly force Apple Intelligence")
+    func chatModelSelectionCanExplicitlyForceAppleIntelligence() throws {
+        let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+        let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
+        let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(inference.contains("enum ChatModelSelection"))
+        #expect(inference.contains("case appleIntelligence"))
+        #expect(inference.contains("var preferredChatModelSelection"))
+        #expect(triage.contains("preferredChatModelSelection"))
+        #expect(triage.contains("selectedRoute: .appleIntelligence"))
+        #expect(root.contains("Apple Intelligence"))
+        #expect(root.contains("setPreferredChatModelSelection("))
+    }
+
+    @Test("chat file picker defers panel presentation and reads files under a security scope")
+    func chatFilePickerDefersPanelPresentationAndReadsFilesUnderASecurityScope() throws {
+        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+
+        #expect(chatInput.contains("await Task.yield()"))
+        #expect(chatInput.contains("panel.beginSheetModal(for: window, completionHandler: handler)"))
+        #expect(chatInput.contains("panel.begin(completionHandler: handler)"))
+        #expect(chatInput.contains("url.startAccessingSecurityScopedResource()"))
+        #expect(chatInput.contains("url.stopAccessingSecurityScopedResource()"))
+    }
+
+    @Test("node inspector profile copy avoids synthetic knowledge cluster filler text")
+    func nodeInspectorProfileCopyAvoidsSyntheticKnowledgeClusterFillerText() throws {
+        let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+        let inspectorView = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+
+        #expect(!inspectorState.contains("is part of a connected knowledge cluster"))
+        #expect(inspectorView.contains("if !p.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty"))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

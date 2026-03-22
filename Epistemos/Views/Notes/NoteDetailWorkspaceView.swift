@@ -505,6 +505,7 @@ enum NoteToolbarGlyph: Sendable {
     case format
     case preview
     case edit
+    case miniChat
     case writingTools
     case more
     case backlinks
@@ -520,6 +521,8 @@ enum NoteToolbarGlyph: Sendable {
             "eye"
         case .edit:
             "pencil"
+        case .miniChat:
+            "bubble.left.and.text.bubble.right"
         case .writingTools:
             "apple.intelligence"
         case .more:
@@ -1071,6 +1074,13 @@ struct NoteDetailWorkspaceView: View {
             }
 
             moreMenu
+
+            toolbarIconButton(
+                glyph: .miniChat,
+                help: "Open Mini Chat"
+            ) {
+                openMiniChatForCurrentNote()
+            }
 
             ForEach(NoteWorkspaceQuickAction.allCases, id: \.self) { action in
                 noteWorkspaceQuickActionButton(action)
@@ -1718,6 +1728,10 @@ struct NoteDetailWorkspaceView: View {
             Capsule()
                 .fill(ui.theme.accent.opacity(0.1))
         )
+    }
+
+    private func openMiniChatForCurrentNote() {
+        MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)
     }
 
     // MARK: - More Menu

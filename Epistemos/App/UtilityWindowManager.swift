@@ -201,7 +201,6 @@ final class UtilityWindowManager {
         }
         NoteWindowManager.shared.syncTheme(uiState: uiState)
         MiniChatWindowController.shared.syncTheme(uiState: uiState)
-        CommandPaletteWindowController.shared.syncTheme(uiState: uiState)
     }
 
     private func windowFor(_ panel: UtilityPanel) -> NSWindow? {

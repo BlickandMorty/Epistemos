@@ -455,7 +455,7 @@ final class ChatCoordinator {
                         kind: .chat,
                         targetId: thread.id,
                         title: thread.label,
-                        subtitle: thread.type == "palette" ? "Palette chat" : "Mini chat"
+                        subtitle: "Mini chat"
                     ),
                     preview: thread.messages.last?.content.trimmingCharacters(in: .whitespacesAndNewlines)
                 )

@@ -2322,7 +2322,7 @@ private struct EditorActionsBar: View {
 
             if NotesSidebarMetrics.showsBottomMiniChatButton {
                 SidebarIconButton(icon: "bubble.left.and.bubble.right", tooltip: "Mini Chat") {
-                    CommandPaletteWindowController.shared.toggleChatMode()
+                    MiniChatWindowController.shared.openNewChat()
                 }
             }
         }

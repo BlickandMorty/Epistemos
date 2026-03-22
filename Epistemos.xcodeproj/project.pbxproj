@@ -83,7 +83,6 @@
 		2EDD6B28FDB5E43BEA63DCC0 /* BrandedTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF03138061D7396317DF9F6 /* BrandedTypes.swift */; };
 		318F59F99B73474F10B56618 /* NoteSavingAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D71E5D02A6C6C0EDFCEB6B6 /* NoteSavingAuditTests.swift */; };
 		31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEEF8225F9781F4C3647074 /* LandingView.swift */; };
-		31FB3429E47D659C3B1A2AAA /* CommandPaletteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F7CD7B8D3DCC3622AD5163 /* CommandPaletteWindowController.swift */; };
 		3317DC949FD0C3F292257011 /* VaultManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D12B79B2E861637C19926D /* VaultManifest.swift */; };
 		33C00A85A6F9B9522023D78D /* SDPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654F422C75468BDA30E3F786 /* SDPage.swift */; };
 		33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */; };
@@ -174,7 +173,6 @@
 		93E1229FD62D97E68E306C86 /* MarkdownEditorCommandsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D92DD5B51C7CF95DB3BE034E /* MarkdownEditorCommandsTests.swift */; };
 		94DF594D0050718D7B0E0A94 /* NoteFileStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15D91F3FDBB5D7D9D06A18D /* NoteFileStorage.swift */; };
 		96CF31810B09B3634A966001 /* FFILifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1442A136FFACC135771EABFA /* FFILifecycleTests.swift */; };
-		96FB7AD7B6833B867CC1B4B6 /* CommandPaletteOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */; };
 		986166A75033C3FF046A1B94 /* PageStoragePool.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */; };
 		9C63C274562EF873FCDF079C /* NotesUIState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04D63187FD2C7EC9B1445BB /* NotesUIState.swift */; };
 		9E7B4EEC473C4F9617F097F6 /* LocalModelInfrastructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E24D8D3D2B56954E80FE988 /* LocalModelInfrastructureTests.swift */; };
@@ -297,7 +295,6 @@
 		02B216DBC3FC345751B73DAD /* SearchIndexServiceIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndexServiceIntegrationTests.swift; sourceTree = "<group>"; };
 		031828FAA933A87F88035B50 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		03A4ABA96DC3504C892ECC23 /* GraphMetadataComprehensiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphMetadataComprehensiveTests.swift; sourceTree = "<group>"; };
-		048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteOverlay.swift; sourceTree = "<group>"; };
 		050AD3156D37BFE3E139EFFE /* EditableTransclusionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditableTransclusionView.swift; sourceTree = "<group>"; };
 		0718573D4BE2D44999758A16 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		0735CB2532A434111036257E /* PageEditorCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageEditorCache.swift; sourceTree = "<group>"; };
@@ -376,7 +373,6 @@
 		4F528AC5E8D5C5E7A6F8FEB1 /* VaultIndexActorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultIndexActorTests.swift; sourceTree = "<group>"; };
 		50604F1EB2DF6F05D43CD51C /* InferenceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceState.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
-		50F7CD7B8D3DCC3622AD5163 /* CommandPaletteWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteWindowController.swift; sourceTree = "<group>"; };
 		5175241C97D791510EE85B37 /* GraphFloatingControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphFloatingControls.swift; sourceTree = "<group>"; };
 		535B5EEE5A4AC1A2D3C80400 /* ScrollStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollStabilityTests.swift; sourceTree = "<group>"; };
 		53C2264C2022DF6B4D9BBE67 /* NoteDetailWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDetailWorkspaceView.swift; sourceTree = "<group>"; };
@@ -809,8 +805,6 @@
 		873EB1E67106B1DBCAB7E1E7 /* Landing */ = {
 			isa = PBXGroup;
 			children = (
-				048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */,
-				50F7CD7B8D3DCC3622AD5163 /* CommandPaletteWindowController.swift */,
 				7DEEF8225F9781F4C3647074 /* LandingView.swift */,
 				834BA1C13F6D89591F703A0F /* LiquidGreeting.swift */,
 			);
@@ -1322,8 +1316,6 @@
 				E8511B6F1B784CA7A9AE1D56 /* ChatView.swift in Sources */,
 				5A99228979EEFCB222451FBD /* ClickableTextView.swift in Sources */,
 				A4B49D73FE5849013B00C96C /* CollectionRegistry.swift in Sources */,
-				96FB7AD7B6833B867CC1B4B6 /* CommandPaletteOverlay.swift in Sources */,
-				31FB3429E47D659C3B1A2AAA /* CommandPaletteWindowController.swift in Sources */,
 				8723B93064BDD5DC6E886A81 /* ContentManagerDelegateHelper.m in Sources */,
 				139DACAE4ECA3C28086FD969 /* DailyBriefState.swift in Sources */,
 				730BF308BBCCB1C2059F2710 /* DailyBriefingIntent.swift in Sources */,

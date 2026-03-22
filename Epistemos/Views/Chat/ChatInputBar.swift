@@ -33,6 +33,7 @@ struct ChatInputBar: View {
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
     @State private var mentionPickerAutofocus = false
+    @State private var referencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var referenceSearch = ComposerReferenceSearchState()
 
     private var theme: EpistemosTheme { ui.theme }
@@ -112,24 +113,26 @@ struct ChatInputBar: View {
             .animation(Motion.quick, value: chat.pendingAttachments.count + chat.pendingContextAttachments.count)
 
             VStack(alignment: .leading, spacing: 0) {
-                ComposerContextShortcutBar(
-                    noteLabel: "Chat with Note",
-                    vaultLabel: "Chat with Vault",
-                    onChatWithNote: openNotePicker,
-                    onChatWithVault: attachVaultContext
-                )
-                .padding(.bottom, 8)
-
                 composerTextArea
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
-                    HStack(spacing: MainChatComposerLayout.controlRowSpacing) {
+                    HStack(spacing: 8) {
+                        ComposerContextShortcutBar(
+                            noteLabel: "Chat with Note",
+                            vaultLabel: "Chat with Vault",
+                            onChatWithNote: openNotePicker,
+                            onChatWithVault: attachVaultContext
+                        )
+
+                        LocalModelToolbarMenu(variant: .toolbar)
+                            .accessibilityLabel("Local model")
+
+                        Spacer(minLength: 8)
+
                         attachButton
 
                         incognitoButton
                     }
-
-                    Spacer(minLength: 0)
 
                     sendButton
                 }
@@ -147,13 +150,17 @@ struct ChatInputBar: View {
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
                 ComposerReferencePopover(
+                    isPresented: $showMentionDropdown,
                     results: mentionSearchResults,
                     query: $mentionFilter,
-                    idealWidth: 560,
-                    maxHeight: 420,
+                    idealWidth: referencePopoverStyle.idealWidth,
+                    maxHeight: referencePopoverStyle.maxHeight,
+                    style: referencePopoverStyle,
                     autofocusSearchField: mentionPickerAutofocus,
+                    onDismiss: dismissReferencePopover,
                     onSelect: attachMentionReference
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
         .padding(.horizontal, ChatLayout.mainComposerHorizontalPadding)
@@ -195,11 +202,13 @@ struct ChatInputBar: View {
         .layoutPriority(1)
         .onChange(of: text) { _, newVal in
             if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
+                referencePopoverStyle = .mention
                 mentionFilter = filter
                 mentionPickerAutofocus = false
                 if !showMentionDropdown { showMentionDropdown = true }
             } else if showMentionDropdown {
                 showMentionDropdown = false
+                referencePopoverStyle = .mention
                 mentionPickerAutofocus = false
                 referenceSearch.reset()
             }
@@ -258,17 +267,35 @@ struct ChatInputBar: View {
     }
 
     private func openFilePicker() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
-        panel.begin { response in
-            guard response == .OK else { return }
-            let urls = panel.urls
-            Task { @MainActor in
-                let attachments = await FileAttachmentBuilder.buildAll(from: urls)
-                for attachment in attachments {
-                    chat.addAttachment(attachment)
-                }
+        Task { @MainActor in
+            await Task.yield()
+
+            let panel = NSOpenPanel()
+            panel.allowsMultipleSelection = true
+            panel.allowedContentTypes = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
+            panel.canChooseDirectories = false
+
+            let urls = await presentFilePicker(panel)
+            guard !urls.isEmpty else { return }
+
+            let attachments = await FileAttachmentBuilder.buildAll(from: urls)
+            for attachment in attachments {
+                chat.addAttachment(attachment)
+            }
+        }
+    }
+
+    @MainActor
+    private func presentFilePicker(_ panel: NSOpenPanel) async -> [URL] {
+        await withCheckedContinuation { continuation in
+            let handler: (NSApplication.ModalResponse) -> Void = { response in
+                continuation.resume(returning: response == .OK ? panel.urls : [])
+            }
+
+            if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+                panel.beginSheetModal(for: window, completionHandler: handler)
+            } else {
+                panel.begin(completionHandler: handler)
             }
         }
     }
@@ -289,12 +316,14 @@ struct ChatInputBar: View {
         text = ""
         composerHeight = ChatComposerInputMetrics.minHeight
         showMentionDropdown = false
+        referencePopoverStyle = .mention
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
     }
 
     private func openNotePicker() {
+        referencePopoverStyle = .notePicker
         mentionFilter = ""
         mentionPickerAutofocus = true
         showMentionDropdown = true
@@ -310,9 +339,15 @@ struct ChatInputBar: View {
         chat.addContextAttachment(ComposerReferenceHelpers.contextAttachment(for: choice))
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
+        referencePopoverStyle = .mention
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
+    }
+
+    private func dismissReferencePopover() {
+        showMentionDropdown = false
+        mentionPickerAutofocus = false
     }
 
     private func updateMentionReferenceSearch(filter: String) {
@@ -609,6 +644,13 @@ enum FileAttachmentBuilder {
     }
 
     private nonisolated static func buildSync(from url: URL) -> FileAttachment {
+        let gainedSecurityScope = url.startAccessingSecurityScopedResource()
+        defer {
+            if gainedSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
         let name = url.lastPathComponent
         let ext = url.pathExtension.lowercased()
         let size = fileSize(for: url)

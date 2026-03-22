@@ -134,8 +134,6 @@ struct RootView: View {
                 .animation(.easeInOut(duration: 0.25), value: ui.toastMessage)
             }
         }
-        // Command palette is now a global floating NSPanel (CommandPaletteWindowController).
-        // Activated via Option+Space from any app.
         .frame(
             minWidth: WindowPresentationPolicy.mainWindowMinimumSize.width,
             minHeight: WindowPresentationPolicy.mainWindowMinimumSize.height
@@ -295,10 +293,13 @@ struct RootView: View {
 
 struct LocalModelToolbarMenu: View {
     private enum MenuSelection: Identifiable, Equatable {
+        case appleIntelligence
         case inProcess(LocalModelDescriptor)
 
         var id: String {
             switch self {
+            case .appleIntelligence:
+                "apple-intelligence"
             case .inProcess(let descriptor):
                 "mlx:\(descriptor.id)"
             }
@@ -321,12 +322,13 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var selectedDescriptor: LocalModelDescriptor? {
-        if let modelID = inference.activeLocalTextModelID,
+        if case .localQwen(let modelID) = inference.preferredChatModelSelection,
            let descriptor = LocalModelCatalog.descriptor(for: modelID),
            installedSelectableModels.contains(descriptor) {
             return descriptor
         }
-        if let descriptor = LocalModelCatalog.descriptor(for: inference.preferredLocalTextModelID),
+        if let modelID = inference.activeLocalTextModelID,
+           let descriptor = LocalModelCatalog.descriptor(for: modelID),
            installedSelectableModels.contains(descriptor) {
             return descriptor
         }
@@ -334,6 +336,9 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var selectedMenuItem: MenuSelection? {
+        if inference.preferredChatModelSelection == .appleIntelligence {
+            return .appleIntelligence
+        }
         if let descriptor = selectedDescriptor {
             return .inProcess(descriptor)
         }
@@ -342,6 +347,8 @@ struct LocalModelToolbarMenu: View {
 
     private var labelText: String {
         switch selectedMenuItem {
+        case .appleIntelligence:
+            "Apple Intelligence"
         case .inProcess(let descriptor):
             descriptor.displayName
         case nil:
@@ -360,17 +367,27 @@ struct LocalModelToolbarMenu: View {
 
     var body: some View {
         Menu {
-            if installedSelectableModels.isEmpty {
-                Text("No supported local models installed")
-                Divider()
-                Button("Open Settings") {
-                    UtilityWindowManager.shared.show(.settings)
-                    NSApp.activate()
+            if inference.appleIntelligenceAvailable {
+                Button {
+                    inference.setPreferredChatModelSelection(.appleIntelligence)
+                } label: {
+                    HStack {
+                        Text("Apple Intelligence")
+                        if selectedMenuItem == .appleIntelligence {
+                            Image(systemName: "checkmark")
+                        }
+                    }
                 }
-            } else {
+
+                if !installedSelectableModels.isEmpty {
+                    Divider()
+                }
+            }
+
+            if !installedSelectableModels.isEmpty {
                 ForEach(installedSelectableModels, id: \.id) { model in
                     Button {
-                        inference.setPreferredLocalTextModelID(model.id)
+                        inference.setPreferredChatModelSelection(.localQwen(model.id))
                     } label: {
                         HStack {
                             Text(model.displayName)
@@ -380,13 +397,15 @@ struct LocalModelToolbarMenu: View {
                         }
                     }
                 }
+            } else if !inference.appleIntelligenceAvailable {
+                Text("No supported local models installed")
+            }
 
-                Divider()
+            Divider()
 
-                Button("Open Settings") {
-                    UtilityWindowManager.shared.show(.settings)
-                    NSApp.activate()
-                }
+            Button("Open Settings") {
+                UtilityWindowManager.shared.show(.settings)
+                NSApp.activate()
             }
         } label: {
             HStack(spacing: 5) {

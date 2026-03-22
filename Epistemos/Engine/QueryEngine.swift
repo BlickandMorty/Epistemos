@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - QueryEngine
 // @Observable coordinator for the query system.
 // Wires QueryParser/StructuredQueryParser → QueryCompiler → QueryRuntime.
-// Injected as environment object; consumed by HologramSearchSidebar and CommandPalette.
+// Injected as environment object; consumed by search-driven SwiftUI surfaces.
 
 @MainActor
 @Observable

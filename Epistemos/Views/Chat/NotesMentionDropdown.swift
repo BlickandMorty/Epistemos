@@ -71,6 +71,15 @@ enum ComposerReferenceHelpers {
             result.attachment
         }
     }
+
+    static func noteAttachment(pageID: String, title: String, subtitle: String? = nil) -> ContextAttachment {
+        ContextAttachment(
+            kind: .note,
+            targetId: pageID,
+            title: title.isEmpty ? "Untitled" : title,
+            subtitle: subtitle
+        )
+    }
 }
 
 enum ComposerReferenceChoice: Identifiable {
@@ -122,6 +131,26 @@ enum ComposerReferencePopoverLayout {
             return minAllowedX - proposedMinX
         }
         return 0
+    }
+
+    static func prefersAboveAnchor(
+        popoverHeight: CGFloat,
+        anchorFrame: CGRect,
+        screenFrame: CGRect,
+        preferredAbove: Bool
+    ) -> Bool {
+        let availableBelow = screenFrame.maxY - anchorFrame.minY - screenInset
+        let availableAbove = anchorFrame.maxY - screenFrame.minY - screenInset
+
+        if preferredAbove {
+            if availableAbove >= popoverHeight { return true }
+            if availableBelow >= popoverHeight { return false }
+            return availableAbove >= availableBelow
+        }
+
+        if availableBelow >= popoverHeight { return false }
+        if availableAbove >= popoverHeight { return true }
+        return availableAbove > availableBelow
     }
 }
 
@@ -224,8 +253,8 @@ struct ComposerContextShortcutBar: View {
                 icon: "books.vertical",
                 action: onChatWithVault
             )
-            Spacer(minLength: 0)
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func actionButton(
@@ -250,11 +279,187 @@ struct ComposerContextShortcutBar: View {
     }
 }
 
-struct ComposerReferencePopover: View {
+enum ComposerReferencePopoverStyle {
+    case mention
+    case notePicker
+
+    var idealWidth: CGFloat {
+        switch self {
+        case .mention: 560
+        case .notePicker: 760
+        }
+    }
+
+    var maxHeight: CGFloat {
+        switch self {
+        case .mention: 420
+        case .notePicker: 560
+        }
+    }
+
+    var searchSectionHeight: CGFloat {
+        switch self {
+        case .mention: 62
+        case .notePicker: 96
+        }
+    }
+
+    var preferredEdge: NSRectEdge {
+        switch self {
+        case .mention: .maxY
+        case .notePicker: .minY
+        }
+    }
+}
+
+final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
+    private let popover = NSPopover()
+    private var host: NSHostingController<AnyView>?
+    private var onDismiss: (() -> Void)?
+    private var showTask: Task<Void, Never>?
+    private var suppressNextDismissCallback = false
+
+    override init() {
+        super.init()
+        popover.behavior = .semitransient
+        popover.animates = true
+        popover.delegate = self
+    }
+
+    func present(from anchorView: NSView, configuration: ComposerReferencePopover) {
+        onDismiss = configuration.onDismiss
+
+        let anchorFrame = anchorView.window?.convertToScreen(anchorView.bounds) ?? .zero
+        let screenFrame = anchorView.window?.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? CGRect(x: 0, y: 0, width: configuration.idealWidth, height: configuration.maxHeight)
+        let width = ComposerReferencePopoverLayout.resolvedWidth(
+            idealWidth: configuration.idealWidth,
+            anchorFrame: anchorFrame,
+            screenFrame: screenFrame
+        )
+        let content = ComposerReferencePopoverContent(
+            results: configuration.results,
+            query: configuration.$query,
+            width: width,
+            maxHeight: configuration.maxHeight,
+            style: configuration.style,
+            autofocusSearchField: configuration.autofocusSearchField,
+            onSelect: configuration.onSelect
+        )
+        let hostingController = host ?? NSHostingController(rootView: AnyView(content))
+        hostingController.rootView = AnyView(content)
+        host = hostingController
+        popover.contentViewController = hostingController
+        popover.contentSize = NSSize(width: width, height: configuration.maxHeight)
+
+        guard !popover.isShown else { return }
+        showTask?.cancel()
+        showTask = Task { @MainActor [weak self, weak anchorView] in
+            await Task.yield()
+            guard let self, let anchorView, anchorView.window != nil else { return }
+            let anchorRect = NSRect(
+                x: 0,
+                y: 0,
+                width: max(anchorView.bounds.width, 1),
+                height: max(anchorView.bounds.height, 1)
+            )
+            self.popover.show(
+                relativeTo: anchorRect,
+                of: anchorView,
+                preferredEdge: configuration.style.preferredEdge
+            )
+        }
+    }
+
+    func dismiss() {
+        showTask?.cancel()
+        showTask = nil
+        guard popover.isShown else { return }
+        suppressNextDismissCallback = true
+        popover.close()
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        if suppressNextDismissCallback {
+            suppressNextDismissCallback = false
+            return
+        }
+        onDismiss?()
+    }
+
+    deinit {
+        showTask?.cancel()
+    }
+}
+
+private final class ComposerReferencePopoverAnchorView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+struct ComposerReferencePopover: NSViewRepresentable {
+    @Binding var isPresented: Bool
     let results: ChatCoordinator.ReferenceSearchResults
     let onSelect: (ComposerReferenceChoice) -> Void
     let idealWidth: CGFloat
     let maxHeight: CGFloat
+    let style: ComposerReferencePopoverStyle
+    @Binding var query: String
+    let autofocusSearchField: Bool
+    let onDismiss: () -> Void
+
+    init(
+        isPresented: Binding<Bool>,
+        results: ChatCoordinator.ReferenceSearchResults,
+        query: Binding<String>,
+        idealWidth: CGFloat = 428,
+        maxHeight: CGFloat = 360,
+        style: ComposerReferencePopoverStyle = .mention,
+        autofocusSearchField: Bool = false,
+        onDismiss: @escaping () -> Void = {},
+        onSelect: @escaping (ComposerReferenceChoice) -> Void
+    ) {
+        _isPresented = isPresented
+        self.results = results
+        _query = query
+        self.onSelect = onSelect
+        self.idealWidth = idealWidth
+        self.maxHeight = maxHeight
+        self.style = style
+        self.autofocusSearchField = autofocusSearchField
+        self.onDismiss = onDismiss
+    }
+
+    func makeCoordinator() -> ComposerReferencePopoverCoordinator {
+        ComposerReferencePopoverCoordinator()
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = ComposerReferencePopoverAnchorView(frame: .zero)
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if isPresented {
+            context.coordinator.present(from: nsView, configuration: self)
+        } else {
+            context.coordinator.dismiss()
+        }
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: ComposerReferencePopoverCoordinator) {
+        coordinator.dismiss()
+    }
+}
+
+private struct ComposerReferencePopoverContent: View {
+    let results: ChatCoordinator.ReferenceSearchResults
+    let onSelect: (ComposerReferenceChoice) -> Void
+    let width: CGFloat
+    let maxHeight: CGFloat
+    let style: ComposerReferencePopoverStyle
     @Binding private var query: String
     private let autofocusSearchField: Bool
 
@@ -266,62 +471,23 @@ struct ComposerReferencePopover: View {
     init(
         results: ChatCoordinator.ReferenceSearchResults,
         query: Binding<String>,
-        idealWidth: CGFloat = 428,
-        maxHeight: CGFloat = 360,
-        autofocusSearchField: Bool = false,
+        width: CGFloat,
+        maxHeight: CGFloat,
+        style: ComposerReferencePopoverStyle,
+        autofocusSearchField: Bool,
         onSelect: @escaping (ComposerReferenceChoice) -> Void
     ) {
         self.results = results
         _query = query
-        self.onSelect = onSelect
-        self.idealWidth = idealWidth
+        self.width = width
         self.maxHeight = maxHeight
+        self.style = style
         self.autofocusSearchField = autofocusSearchField
+        self.onSelect = onSelect
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let anchorFrame = proxy.frame(in: .global)
-            let screenFrame = screenFrame(containing: anchorFrame) ?? CGRect(
-                x: 0,
-                y: 0,
-                width: max(idealWidth + (ComposerReferencePopoverLayout.screenInset * 2), proxy.size.width),
-                height: 900
-            )
-            let width = ComposerReferencePopoverLayout.resolvedWidth(
-                idealWidth: idealWidth,
-                anchorFrame: anchorFrame,
-                screenFrame: screenFrame
-            )
-            let horizontalOffset = ComposerReferencePopoverLayout.horizontalOffset(
-                width: width,
-                anchorFrame: anchorFrame,
-                screenFrame: screenFrame
-            )
-
-            VStack(alignment: .leading, spacing: 0) {
-                popoverHeader
-                popoverSearchField
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 12)
-                Divider()
-                    .overlay(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.28))
-
-                ScrollView(.vertical, showsIndicators: false) {
-                    NotesMentionDropdown(
-                        results: results,
-                        onSelect: onSelect
-                    )
-                    .padding(.vertical, 8)
-                }
-                .frame(maxHeight: maxHeight - 62, alignment: .topLeading)
-
-                if results.vaultNoteCount > 0 {
-                    Divider()
-                        .overlay(theme.glassBorder.opacity(theme.isDark ? 0.4 : 0.24))
-                    footerHint
-                }
-            }
+        popoverContent
             .frame(width: width, alignment: .topLeading)
             .frame(maxHeight: maxHeight, alignment: .topLeading)
             .assistantPopoverChrome(theme: theme)
@@ -332,35 +498,145 @@ struct ComposerReferencePopover: View {
                     .padding(.horizontal, 18)
                     .padding(.top, 1)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .offset(x: horizontalOffset, y: 8)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
             .task(id: autofocusSearchField) {
                 guard autofocusSearchField else { return }
                 try? await Task.sleep(for: .milliseconds(60))
                 isSearchFocused = true
             }
+    }
+
+    @ViewBuilder
+    private var popoverContent: some View {
+        if style == .notePicker {
+            HStack(spacing: 0) {
+                notePickerSidebar
+                    .frame(width: min(220, width * 0.3), alignment: .topLeading)
+                Divider()
+                    .overlay(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.28))
+                VStack(alignment: .leading, spacing: 0) {
+                    popoverHeader
+                    popoverSearchField
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 14)
+                    Divider()
+                        .overlay(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.28))
+                    resultsScrollContent
+                    Divider()
+                        .overlay(theme.glassBorder.opacity(theme.isDark ? 0.4 : 0.24))
+                    footerHint
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                popoverHeader
+                popoverSearchField
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
+                Divider()
+                    .overlay(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.28))
+                resultsScrollContent
+                if results.vaultNoteCount > 0 {
+                    Divider()
+                        .overlay(theme.glassBorder.opacity(theme.isDark ? 0.4 : 0.24))
+                    footerHint
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: maxHeight + 12, alignment: .topLeading)
+    }
+
+    private var resultsScrollContent: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            NotesMentionDropdown(
+                results: results,
+                style: style,
+                onSelect: onSelect
+            )
+            .padding(.vertical, 8)
+        }
+        .frame(maxHeight: maxHeight - style.searchSectionHeight, alignment: .topLeading)
+    }
+
+    private var notePickerSidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Context", systemImage: "sidebar.left")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+
+                Text("Attach exactly what this turn should know.")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(theme.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Pick one note, search your vault, or attach the full vault retrieval index for this message.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 18)
+
+            VStack(alignment: .leading, spacing: 10) {
+                notePickerSidebarButton(
+                    title: "All Notes",
+                    subtitle: results.vaultNoteCount > 0
+                        ? "Attach \(results.vaultNoteCount) indexed notes through retrieval."
+                        : "Attach the vault retrieval index for this turn.",
+                    systemName: "books.vertical.fill"
+                ) {
+                    onSelect(.note(.allNotes))
+                }
+
+                if let firstNote = firstConcreteNoteChoice {
+                    notePickerSidebarButton(
+                        title: "Top Match",
+                        subtitle: firstNote.title,
+                        systemName: "doc.text.magnifyingglass"
+                    ) {
+                        onSelect(.note(.entry(firstNote)))
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+
+            Spacer(minLength: 0)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Searches titles, folders, tags, and indexed body snippets.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if resultCount > 0 {
+                    Text("\(resultCount) contextual results ready")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.textSecondary)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+        }
+        .background(theme.glassBg.opacity(theme.isDark ? 0.28 : 0.4))
     }
 
     private var popoverHeader: some View {
         HStack(alignment: .center, spacing: 10) {
-            Image(systemName: results.query.isEmpty ? "books.vertical.fill" : "magnifyingglass")
-                .font(.system(size: 12, weight: .semibold))
+            Image(systemName: headerIcon)
+                .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
                 .foregroundStyle(theme.accent.opacity(0.92))
-                .frame(width: 26, height: 26)
+                .frame(width: style == .notePicker ? 30 : 26, height: style == .notePicker ? 30 : 26)
                 .background(
                     Circle()
                         .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.10))
                 )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(results.query.isEmpty ? "Browse Note Context" : "Search Notes and Chats")
-                    .font(.system(size: 12.5, weight: .semibold))
+                Text(headerTitle)
+                    .font(.system(size: style == .notePicker ? 13.5 : 12.5, weight: .semibold))
                     .foregroundStyle(theme.foreground)
                 Text(popoverSubtitle)
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.system(size: style == .notePicker ? 11.5 : 10.5, weight: .medium))
                     .foregroundStyle(theme.textTertiary)
                     .lineLimit(2)
             }
@@ -377,21 +653,40 @@ struct ComposerReferencePopover: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
+        .padding(.top, style == .notePicker ? 16 : 12)
+        .padding(.bottom, style == .notePicker ? 12 : 10)
     }
 
     private var popoverSubtitle: String {
+        if style == .notePicker {
+            return results.query.isEmpty
+                ? "Search your notes and chats, then attach the exact context you want in this turn."
+                : "Search your notes and chats, then attach the exact context you want in this turn."
+        }
         if results.query.isEmpty {
             return "Attach a note, search your vault, or bring the whole index into this turn."
         }
         return "Searching titles, folders, tags, and body excerpts for “\(results.query)”."
     }
 
+    private var headerTitle: String {
+        if style == .notePicker {
+            return results.query.isEmpty ? "Find Note Context" : "Search Results"
+        }
+        return results.query.isEmpty ? "Browse Note Context" : "Search Notes and Chats"
+    }
+
+    private var headerIcon: String {
+        if style == .notePicker {
+            return "magnifyingglass"
+        }
+        return results.query.isEmpty ? "books.vertical.fill" : "magnifyingglass"
+    }
+
     private var popoverSearchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
                 .foregroundStyle(theme.textSecondary)
 
             TextField(
@@ -399,7 +694,7 @@ struct ComposerReferencePopover: View {
                 text: $query
             )
             .textFieldStyle(.plain)
-            .font(.system(size: 12.5, weight: .medium, design: .rounded))
+            .font(.system(size: style == .notePicker ? 13.5 : 12.5, weight: .medium, design: .rounded))
             .foregroundStyle(theme.foreground)
             .focused($isSearchFocused)
 
@@ -414,11 +709,11 @@ struct ComposerReferencePopover: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, style == .notePicker ? 14 : 12)
+        .padding(.vertical, style == .notePicker ? 12 : 10)
         .assistantInsetChrome(
             theme: theme,
-            cornerRadius: 16,
+            cornerRadius: style == .notePicker ? 18 : 16,
             isEmphasized: isSearchFocused || !query.isEmpty
         )
     }
@@ -439,13 +734,55 @@ struct ComposerReferencePopover: View {
         .padding(.vertical, 10)
     }
 
+    private var firstConcreteNoteChoice: VaultManifest.ManifestEntry? {
+        for note in results.notes {
+            if case .entry(let entry) = note {
+                return entry
+            }
+        }
+        return nil
+    }
+
     private var resultCount: Int {
         results.notes.count + results.chats.count
     }
 
-    private func screenFrame(containing anchorFrame: CGRect) -> CGRect? {
-        NSScreen.screens.first(where: { $0.visibleFrame.intersects(anchorFrame) })?.visibleFrame
-            ?? NSScreen.main?.visibleFrame
+    private func notePickerSidebarButton(
+        title: String,
+        subtitle: String,
+        systemName: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: systemName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.accent.opacity(0.92))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.10))
+                    )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .assistantInsetChrome(theme: theme, cornerRadius: 16, isEmphasized: false)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -455,6 +792,7 @@ struct ComposerReferencePopover: View {
 
 struct NotesMentionDropdown: View {
     let results: ChatCoordinator.ReferenceSearchResults
+    let style: ComposerReferencePopoverStyle
     let onSelect: (ComposerReferenceChoice) -> Void
 
     @Environment(UIState.self) private var ui
@@ -499,17 +837,17 @@ struct NotesMentionDropdown: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("No matching notes or chats", systemImage: "sparkle.magnifyingglass")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
                 .foregroundStyle(theme.foreground)
             Text(results.vaultNoteCount > 0
                  ? "Search checks note titles, folders, tags, and snippets across your vault."
                  : "Attach a vault to browse notes here, or keep typing to search chats.")
-                .font(.system(size: 11))
+                .font(.system(size: style == .notePicker ? 11.5 : 11))
                 .foregroundStyle(theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, style == .notePicker ? 16 : 12)
+        .padding(.vertical, style == .notePicker ? 16 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -545,9 +883,9 @@ struct NotesMentionDropdown: View {
                     .background(Capsule().fill(theme.foreground.opacity(0.06)))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
+            .padding(.horizontal, style == .notePicker ? 16 : 12)
+            .padding(.top, style == .notePicker ? 12 : 10)
+            .padding(.bottom, 6)
     }
 
     private var vaultSummaryText: String {
@@ -585,11 +923,11 @@ struct NotesMentionDropdown: View {
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text("All Notes")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
                             .foregroundStyle(theme.foreground)
                             .lineLimit(1)
                         Text("Use the full vault index for this message.")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: style == .notePicker ? 11.5 : 10.5))
                             .foregroundStyle(theme.textTertiary)
                         if results.vaultNoteCount > 0 {
                             Text("\(results.vaultNoteCount) notes")
@@ -618,7 +956,7 @@ struct NotesMentionDropdown: View {
                     VStack(alignment: .leading, spacing: 5) {
                         HStack(alignment: .center, spacing: 8) {
                             Text(entry.title)
-                                .font(.system(size: 12.5, weight: .semibold))
+                                .font(.system(size: style == .notePicker ? 13.5 : 12.5, weight: .semibold))
                                 .foregroundStyle(theme.foreground)
                                 .lineLimit(1)
                             if results.indexedMatchedNoteIDs.contains(entry.pageId) {
@@ -700,9 +1038,9 @@ struct NotesMentionDropdown: View {
 
     private func rowIcon(systemName: String, tint: Color) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
             .foregroundStyle(tint)
-            .frame(width: 24, height: 24)
+            .frame(width: style == .notePicker ? 28 : 24, height: style == .notePicker ? 28 : 24)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(tint.opacity(theme.isDark ? 0.12 : 0.08))
@@ -723,8 +1061,8 @@ struct NotesMentionDropdown: View {
 
     private func rowChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, style == .notePicker ? 16 : 14)
+            .padding(.vertical, style == .notePicker ? 14 : 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)

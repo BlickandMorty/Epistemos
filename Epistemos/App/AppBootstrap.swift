@@ -371,6 +371,7 @@ final class AppBootstrap {
             "epistemos.theme.pair",
             "epistemos.localRoutingMode",
             "epistemos.preferredLocalTextModelID",
+            "epistemos.preferredChatModelSelection",
         ]
         InferenceState.purgeLegacyRemoteConfiguration(defaults: defaults)
         for key in keysToRemove {
@@ -384,6 +385,9 @@ final class AppBootstrap {
         inferenceState.setRoutingMode(.auto)
         inferenceState.setPreferredLocalTextModelID(
             inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        )
+        inferenceState.setPreferredChatModelSelection(
+            .localQwen(inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue)
         )
 
         vaultSync.stopWatching()

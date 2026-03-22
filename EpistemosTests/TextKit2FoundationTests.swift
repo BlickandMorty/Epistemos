@@ -394,30 +394,6 @@ struct InlineMarkdownStylerTests {
     }
 }
 
-@Suite("Command Palette Window Transparency")
-struct CommandPaletteWindowTransparencyTests {
-    @MainActor
-    @Test("Clearing the background chain keeps palette host ancestors transparent")
-    func clearsAncestorLayers() {
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
-        let middle = NSView(frame: root.bounds)
-        let leaf = NSView(frame: middle.bounds)
-        root.addSubview(middle)
-        middle.addSubview(leaf)
-
-        for view in [root, middle, leaf] {
-            view.wantsLayer = true
-            view.layer?.backgroundColor = NSColor.systemBrown.cgColor
-        }
-
-        CommandPaletteWindowTransparency.clearBackgroundChain(startingAt: leaf)
-
-        #expect(CommandPaletteWindowTransparency.isClear(root.layer?.backgroundColor))
-        #expect(CommandPaletteWindowTransparency.isClear(middle.layer?.backgroundColor))
-        #expect(CommandPaletteWindowTransparency.isClear(leaf.layer?.backgroundColor))
-    }
-}
-
 @Suite("Notes Sidebar Header Layout")
 struct NotesSidebarHeaderLayoutTests {
     @Test("Notes sidebar title stays unclipped at page-title size")

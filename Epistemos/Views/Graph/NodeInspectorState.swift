@@ -228,15 +228,21 @@ final class NodeInspectorState {
                         tier: tier,
                         prominence: prominence
                     )
-                    let hierarchyLabel = "Layer \(structureDepth)"
-                    let contentLabel = contentWords > 0 ? "\(contentWords)w" : (linkedCount > 0 ? "\(linkedCount) links" : "thin")
                     let richness = contentRichness(
                         body: normalizedBody,
                         linkedNodeLabels: linkedLabels,
                         keywords: keywords
                     )
                     let mood = DialogueMood.steady
-                    let summary = "\(label) contains connected context for retrieval and answer synthesis. \(hierarchyLabel). \(contentLabel)."
+                    let summary: String = {
+                        guard !normalizedBody.isEmpty else { return "" }
+                        let collapsed = normalizedBody
+                            .components(separatedBy: .whitespacesAndNewlines)
+                            .filter { !$0.isEmpty }
+                            .joined(separator: " ")
+                        guard !collapsed.isEmpty else { return "" }
+                        return String(collapsed.prefix(180)) + (collapsed.count > 180 ? "…" : "")
+                    }()
                     let portrait = DialoguePortraitAsset(symbol: "square.stack.3d.up.fill", crestLabel: "Node")
                     let careHealth = min(1.0, max(0.0, 0.20 + richness * 0.34 + resolvedInsight.prominence * 0.30 + depthResilience(for: resolvedInsight) * 0.14))
                     let careAttention = min(1.0, max(0.0, 0.34 + min(0.18, Double(linkedCount) * 0.025) + resolvedInsight.prominence * 0.18 + depthCuriosity(for: resolvedInsight)))
@@ -451,27 +457,69 @@ final class NodeInspectorState {
     }
 
     private func fetchFolderContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {
-        let neighborIds = store.adjacency[node.id] ?? []
-        let children: [(sourceId: String?, label: String)] = neighborIds.compactMap { store.nodes[$0] }
-            .filter { $0.type != .folder }
-            .prefix(15)
-            .map { (sourceId: $0.sourceId, label: $0.label) }
+        guard let folderID = node.sourceId else {
+            return await fetchConnectedContext(for: node, store: store)
+        }
 
-        // Batch file reads off main actor.
-        let bodies = await Task.detached {
-            children.map { child in
-                guard let sid = child.sourceId else { return "" }
-                return NoteFileStorage.readBody(pageId: sid)
+        let predicate = #Predicate<SDFolder> { $0.id == folderID }
+        var descriptor = FetchDescriptor<SDFolder>(predicate: predicate)
+        descriptor.fetchLimit = 1
+
+        guard let folder = try? modelContext.fetch(descriptor).first else {
+            return await fetchConnectedContext(for: node, store: store)
+        }
+
+        let relativePath = folder.relativePath
+        let nestedPrefix = relativePath.isEmpty ? "" : relativePath + "/"
+        let childFolderNames = (folder.children ?? [])
+            .map(\.name)
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+
+        let pageDescriptor = FetchDescriptor<SDPage>(
+            sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
+        )
+        let allPages = (try? modelContext.fetch(pageDescriptor)) ?? []
+        let descendantPages = Array(
+            allPages.filter { page in
+                if page.folder?.id == folderID {
+                    return true
+                }
+                guard let subfolder = page.subfolder else { return false }
+                return subfolder == relativePath || (!nestedPrefix.isEmpty && subfolder.hasPrefix(nestedPrefix))
+            }
+            .prefix(10)
+        )
+
+        let descendantPageIDs = descendantPages.map(\.id)
+        let pageBodies = await Task.detached {
+            descendantPageIDs.map { pageID in
+                NoteFileStorage.readBody(pageId: pageID)
             }
         }.value
 
-        var parts: [String] = ["Folder: \(node.label)\n"]
-        for (i, child) in children.enumerated() {
-            let content = bodies[i].isEmpty ? child.label : bodies[i]
-            let preview = String(content.prefix(800))
-            parts.append("- \(child.label): \(preview)")
+        var parts: [String] = [
+            "Folder: \(node.label)",
+            "Path: \(relativePath.isEmpty ? node.label : relativePath)",
+            "Items loaded for context: \(descendantPages.count)"
+        ]
+
+        if !childFolderNames.isEmpty {
+            parts.append("Subfolders: \(childFolderNames.prefix(8).joined(separator: ", "))")
         }
-        return parts.joined(separator: "\n")
+
+        for (index, page) in descendantPages.enumerated() {
+            let body = pageBodies[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            let previewSource = body.isEmpty ? page.title : body
+            let preview = String(previewSource.prefix(900))
+            parts.append("Note: \(page.title)\n\(preview)")
+        }
+
+        let connectedContext = await fetchConnectedContext(for: node, store: store, excluding: Set(descendantPages.map(\.id)))
+        if !connectedContext.isEmpty {
+            parts.append(connectedContext)
+        }
+
+        return parts.joined(separator: "\n\n")
     }
 
     private func fetchTagContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {
@@ -495,6 +543,44 @@ final class NodeInspectorState {
             parts.append("- \(rel.label): \(preview)")
         }
         return parts.joined(separator: "\n")
+    }
+
+    private func fetchConnectedContext(
+        for node: GraphNodeRecord,
+        store: GraphStore,
+        excluding excludedSourceIDs: Set<String> = []
+    ) async -> String {
+        let relatedNodes = (store.adjacency[node.id] ?? [])
+            .compactMap { store.nodes[$0] }
+            .filter { neighbor in
+                guard neighbor.id != node.id else { return false }
+                guard let sourceId = neighbor.sourceId else { return true }
+                return !excludedSourceIDs.contains(sourceId)
+            }
+            .prefix(8)
+
+        let relatedArray = Array(relatedNodes)
+        guard !relatedArray.isEmpty else { return "" }
+
+        let previews = await Task.detached {
+            relatedArray.map { related -> String in
+                guard let sourceId = related.sourceId else {
+                    return related.metadata.abstract ?? related.metadata.quoteText ?? related.label
+                }
+                let body = NoteFileStorage.readBody(pageId: sourceId).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !body.isEmpty {
+                    return body
+                }
+                return related.metadata.abstract ?? related.metadata.quoteText ?? related.label
+            }
+        }.value
+
+        var lines = ["Connected graph context:"]
+        for (index, related) in relatedArray.enumerated() {
+            let preview = String(previews[index].prefix(420))
+            lines.append("- \(related.label) (\(related.type.displayName)): \(preview)")
+        }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Chat
@@ -551,8 +637,8 @@ final class NodeInspectorState {
 
         let nodeContent = await fetchContent(for: node, store: store, modelContext: modelContext)
         var context = "Selected node: \(node.label) (\(node.type.displayName))\n\n"
-        context += "Content:\n\(String(nodeContent.prefix(3000)))\n\n"
-        context += "Answer the user's question directly from this content. If the content does not answer it, say so plainly.\n\n"
+        context += "Node context:\n\(String(nodeContent.prefix(4200)))\n\n"
+        context += "Answer from the selected node and its linked context. Treat folder context as a bundle of descendant notes and relationships, not just the folder label. If something is genuinely missing, say what is missing briefly.\n\n"
         context += "User question: \(query)"
         return context
     }

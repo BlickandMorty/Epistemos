@@ -127,7 +127,7 @@ enum LandingGreetingAnimationPolicy {
 
 // MARK: - UI State
 // Ephemeral UI state only — no persistent data arrays.
-// Theme pair, navigation, command palette, breathe mode, toast, window visibility.
+// Theme pair, navigation, breathe mode, toast, window visibility.
 
 @MainActor @Observable
 final class UIState {
@@ -206,11 +206,6 @@ final class UIState {
 
     var showChatSidebar = false
 
-    // MARK: - Command Palette
-
-    /// Global command palette overlay — visible from any panel via Option+Space.
-    var isCommandPaletteVisible = false
-
     // MARK: - Window Visibility
     /// True when the main window is minimized to the Dock.
     /// Animations (starfield, typewriter) should pause when this is true to save CPU.
@@ -253,10 +248,6 @@ final class UIState {
     var landingGreetingPlaylistSignature: String {
         LandingGreetingResolver.signature(for: resolvedLandingGreetingPlaylist)
     }
-
-    // MARK: - Mini-Chat
-
-    var miniChatOpen = false
 
     // MARK: - Toast
 
@@ -404,20 +395,6 @@ final class UIState {
         showChatSidebar = false
     }
 
-    // MARK: - Command Palette Methods
-
-    func toggleCommandPalette() {
-        withAnimation(Motion.smooth) {
-            isCommandPaletteVisible.toggle()
-        }
-    }
-
-    func dismissCommandPalette() {
-        withAnimation(Motion.smooth) {
-            isCommandPaletteVisible = false
-        }
-    }
-
     func addLandingGreeting() {
         landingCustomGreetings.append(
             LandingGreetingEntry(text: "", durationSeconds: LandingGreetingEntry.defaultDurationSeconds)
@@ -452,10 +429,6 @@ final class UIState {
     func removeLandingGreeting(id: UUID) {
         landingCustomGreetings.removeAll { $0.id == id }
     }
-
-    // MARK: - Mini-Chat Methods
-
-    func toggleMiniChat() { miniChatOpen.toggle() }
 
     // MARK: - Toast Methods
 

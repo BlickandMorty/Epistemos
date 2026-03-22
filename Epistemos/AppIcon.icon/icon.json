@@ -4,8 +4,8 @@
     {
       "value" : {
         "linear-gradient" : [
-          "display-p3:0.55431,0.92592,1.00000,1.00000",
-          "display-p3:1.00000,0.58324,0.84645,1.00000"
+          "extended-gray:1.00000,1.00000",
+          "display-p3:0.71110,0.77190,0.80227,1.00000"
         ],
         "orientation" : {
           "start" : {
@@ -21,22 +21,7 @@
     },
     {
       "appearance" : "dark",
-      "value" : {
-        "linear-gradient" : [
-          "display-p3:0.29863,0.11682,0.19897,1.00000",
-          "display-p3:0.22704,0.09763,0.17008,1.00000"
-        ],
-        "orientation" : {
-          "start" : {
-            "x" : 0.5,
-            "y" : 0
-          },
-          "stop" : {
-            "x" : 0.5,
-            "y" : 0.7
-          }
-        }
-      }
+      "value" : "automatic"
     }
   ],
   "groups" : [
@@ -54,106 +39,40 @@
         {
           "blend-mode-specializations" : [
             {
-              "value" : "normal"
+              "value" : "multiply"
             },
             {
               "appearance" : "dark",
-              "value" : "normal"
-            }
-          ],
-          "fill" : "none",
-          "glass-specializations" : [
-            {
-              "value" : true
+              "value" : "plus-lighter"
             },
             {
-              "appearance" : "dark",
-              "value" : true
-            }
-          ],
-          "hidden" : false,
-          "image-name" : "Gemini Generated Image 5 (1) 3.png",
-          "name" : "Gemini Generated Image 5 (1) 3",
-          "opacity-specializations" : [
-            {
-              "value" : 0
-            },
-            {
-              "appearance" : "dark",
-              "value" : 0.8
-            }
-          ],
-          "position" : {
-            "scale" : 0.57,
-            "translation-in-points" : [
-              9.120000000000118,
-              40.38937499999986
-            ]
-          }
-        },
-        {
-          "fill-specializations" : [
-            {
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "display-p3:1.00000,0.58324,0.84645,1.00000"
-              }
-            }
-          ],
-          "image-name" : "Gemini Generated Image (8).png",
-          "name" : "Gemini Generated Image (8)",
-          "opacity-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : 1
-            }
-          ],
-          "position" : {
-            "scale" : 1.2,
-            "translation-in-points" : [
-              13.495000000000005,
-              47.29499999999996
-            ]
-          }
-        },
-        {
-          "blend-mode-specializations" : [
-            {
-              "value" : "hard-light"
-            },
-            {
-              "appearance" : "dark",
-              "value" : "normal"
+              "appearance" : "tinted",
+              "value" : "overlay"
             }
           ],
           "fill-specializations" : [
             {
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
               "value" : {
                 "linear-gradient" : [
-                  "extended-srgb:0.79608,0.18824,0.87843,1.00000",
-                  "display-p3:0.82194,0.67514,1.00000,1.00000"
+                  "extended-gray:0.50000,0.23523",
+                  "extended-gray:1.00000,1.00000"
                 ],
                 "orientation" : {
                   "start" : {
-                    "x" : 0.7904810872116287,
-                    "y" : 0.817741528577238
+                    "x" : 0.2565758404392673,
+                    "y" : 0.3952451239645637
                   },
                   "stop" : {
-                    "x" : 0.3235742422511589,
-                    "y" : 0.28390727323757875
+                    "x" : 0.3288578925559023,
+                    "y" : 0.586315090131714
                   }
                 }
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "automatic-gradient" : "display-p3:1.00000,0.58324,0.84645,1.00000"
               }
             },
             {
@@ -165,14 +84,14 @@
           ],
           "glass-specializations" : [
             {
-              "value" : true
+              "value" : false
             },
             {
               "appearance" : "dark",
               "value" : true
             }
           ],
-          "hidden" : false,
+          "hidden" : true,
           "image-name" : "Gemini Generated Image 5.png",
           "name" : "Gemini Generated Image 5",
           "opacity-specializations" : [
@@ -199,23 +118,111 @@
         {
           "blend-mode-specializations" : [
             {
-              "value" : "hard-light"
+              "value" : "multiply"
             },
             {
               "appearance" : "dark",
-              "value" : "normal"
+              "value" : "plus-lighter"
             }
           ],
           "fill-specializations" : [
             {
               "value" : {
-                "automatic-gradient" : "display-p3:0.62032,0.90398,1.00000,1.00000"
+                "solid" : "srgb:0.00000,0.99144,1.00000,1.00000"
               }
             },
             {
               "appearance" : "dark",
               "value" : {
-                "solid" : "gray:1.00000,1.00000"
+                "solid" : "extended-gray:0.50000,0.23523"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : false
+            },
+            {
+              "appearance" : "dark",
+              "value" : false
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5.png",
+          "name" : "Gemini Generated Image 5",
+          "opacity-specializations" : [
+            {
+              "value" : 0.8
+            },
+            {
+              "appearance" : "dark",
+              "value" : 0
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.6,
+            "translation-in-points" : [
+              -14.134999999999991,
+              -4.265625
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "plus-lighter"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "plus-lighter"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "extended-gray:0.00000,1.00000",
+                  "extended-gray:1.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.16292759453041697,
+                    "y" : 0.8555607663453292
+                  },
+                  "stop" : {
+                    "x" : 0.13151421349668174,
+                    "y" : 0.266044147695103
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "extended-gray:1.00000,1.00000",
+                  "extended-gray:0.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.40107485579150914,
+                    "y" : 0.49999999999999983
+                  },
+                  "stop" : {
+                    "x" : 0.29352817865573544,
+                    "y" : 0.39347997328819045
+                  }
+                }
               }
             },
             {
@@ -255,6 +262,385 @@
             "translation-in-points" : [
               -14.134999999999991,
               -4.265625
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "soft-light"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "plus-lighter"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "plus-lighter"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "extended-gray:1.00000,1.00000",
+                  "extended-gray:0.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.14392384048399853,
+                    "y" : 0.5615231002056257
+                  },
+                  "stop" : {
+                    "x" : 0.5652765992326086,
+                    "y" : 0.5621387287308094
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:0.00000,0.99144,1.00000,1.00000",
+                  "srgb:0.00000,0.00000,0.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.8270858824894567,
+                    "y" : 0.9105995426400032
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.3
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "automatic"
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : false
+            },
+            {
+              "appearance" : "dark",
+              "value" : true
+            },
+            {
+              "appearance" : "tinted",
+              "value" : true
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5.png",
+          "name" : "Gemini Generated Image 5",
+          "opacity-specializations" : [
+            {
+              "value" : 1
+            },
+            {
+              "appearance" : "dark",
+              "value" : 0
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.6,
+            "translation-in-points" : [
+              -14.134999999999991,
+              -4.265625
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "plus-darker"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "overlay"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "plus-lighter"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "extended-gray:0.75000,1.00000",
+                  "extended-gray:0.75000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.3089348061231934,
+                    "y" : 0.721968992097293
+                  },
+                  "stop" : {
+                    "x" : 1.3858978516590825,
+                    "y" : -0.18794056072694906
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : false
+            },
+            {
+              "appearance" : "dark",
+              "value" : true
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5.png",
+          "name" : "Gemini Generated Image 5",
+          "opacity-specializations" : [
+            {
+              "value" : 1
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.6,
+            "translation-in-points" : [
+              -14.134999999999991,
+              -4.265625
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "plus-darker"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "lighten"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "plus-lighter"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "srgb:0.00000,0.00000,0.00000,0.44881",
+                  "extended-gray:0.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.6831414076686012,
+                    "y" : 0.3262594258003673
+                  },
+                  "stop" : {
+                    "x" : 0.8279145104763054,
+                    "y" : 0.4422284015573941
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : true
+            },
+            {
+              "appearance" : "dark",
+              "value" : false
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5.png",
+          "name" : "Gemini Generated Image 5",
+          "opacity-specializations" : [
+            {
+              "value" : 1
+            },
+            {
+              "appearance" : "dark",
+              "value" : 0.6
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.6,
+            "translation-in-points" : [
+              -14.134999999999991,
+              -4.265625
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "plus-darker"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "lighten"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "plus-lighter"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "extended-gray:1.00000,1.00000",
+                  "extended-gray:1.00000,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.25631413858510876,
+                    "y" : 0.4232140459819435
+                  },
+                  "stop" : {
+                    "x" : 0.2925983434368542,
+                    "y" : 0.6140668202350358
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-gray:1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : false
+            },
+            {
+              "appearance" : "dark",
+              "value" : true
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5.png",
+          "name" : "Gemini Generated Image 5",
+          "opacity-specializations" : [
+            {
+              "value" : 1
+            },
+            {
+              "appearance" : "dark",
+              "value" : 0
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.6,
+            "translation-in-points" : [
+              -14.134999999999991,
+              -4.265625
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "multiply"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "multiply"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : "automatic"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "automatic"
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : true
+            },
+            {
+              "appearance" : "dark",
+              "value" : true
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "Gemini Generated Image 5 (1) 3.png",
+          "name" : "Gemini Generated Image 5 (1) 3",
+          "opacity-specializations" : [
+            {
+              "value" : 0
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.6,
+            "translation-in-points" : [
+              3.5650000000000546,
+              54.90000000000009
             ]
           }
         }
@@ -326,6 +712,42 @@
       ],
       "layers" : [
         {
+          "blend-mode" : "overlay",
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "gray:1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : true
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "Gemini Generated Image 5 (1) 2.png",
+          "name" : "Gemini Generated Image 5 (1) 2",
+          "opacity-specializations" : [
+            {
+              "value" : 0.3
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 0.58,
+            "translation-in-points" : [
+              4.685000000000173,
+              64.05000000000001
+            ]
+          }
+        },
+        {
           "blend-mode-specializations" : [
             {
               "value" : "normal"
@@ -364,7 +786,7 @@
           "name" : "Gemini Generated Image 5 (2)",
           "opacity-specializations" : [
             {
-              "value" : 0.5
+              "value" : 0.7
             },
             {
               "appearance" : "dark",
@@ -378,36 +800,8 @@
           "position" : {
             "scale" : 1.2,
             "translation-in-points" : [
-              0.4375,
-              49.694999999999936
-            ]
-          }
-        },
-        {
-          "blend-mode" : "overlay",
-          "fill-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "extended-gray:0.75000,1.00000"
-              }
-            }
-          ],
-          "glass-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : true
-            }
-          ],
-          "hidden" : true,
-          "image-name" : "Gemini Generated Image 5 (1) 2.png",
-          "name" : "Gemini Generated Image 5 (1) 2",
-          "opacity" : 0.3,
-          "position" : {
-            "scale" : 0.5,
-            "translation-in-points" : [
-              8,
-              17.87781250000012
+              9.425000000000182,
+              53.94937499999992
             ]
           }
         },
@@ -422,7 +816,15 @@
             }
           ],
           "fill" : "none",
-          "glass" : true,
+          "glass-specializations" : [
+            {
+              "value" : true
+            },
+            {
+              "appearance" : "dark",
+              "value" : true
+            }
+          ],
           "hidden" : true,
           "image-name" : "Gemini Generated Image 5 (1) 3.png",
           "name" : "Gemini Generated Image 5 (1) 3",
@@ -536,190 +938,7 @@
       ],
       "hidden" : false,
       "layers" : [
-        {
-          "fill-specializations" : [
-            {
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
-              }
-            },
-            {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "srgb:1.00000,0.00000,0.00094,1.00000"
-              }
-            }
-          ],
-          "image-name" : "Gemini Generated Image (8).png",
-          "name" : "Gemini Generated Image (8)",
-          "position" : {
-            "scale" : 1.2,
-            "translation-in-points" : [
-              13.495000000000005,
-              47.29499999999996
-            ]
-          }
-        },
-        {
-          "blend-mode-specializations" : [
-            {
-              "appearance" : "tinted",
-              "value" : "screen"
-            }
-          ],
-          "hidden" : false,
-          "image-name" : "Gemini Generated Image 5 (4).png",
-          "name" : "Gemini Generated Image 5 (4)",
-          "opacity-specializations" : [
-            {
-              "value" : 0.3
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0.1
-            }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              11.761674854424541,
-              -1
-            ]
-          }
-        },
-        {
-          "fill" : {
-            "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
-          },
-          "image-name" : "Gemini Generated Image (8).png",
-          "name" : "Gemini Generated Image (8)",
-          "opacity" : 1,
-          "position" : {
-            "scale" : 1.2,
-            "translation-in-points" : [
-              13.495000000000005,
-              47.29499999999996
-            ]
-          }
-        },
-        {
-          "glass" : false,
-          "hidden" : false,
-          "image-name" : "Gemini Generated Image 5 (4).png",
-          "name" : "Gemini Generated Image 5 (4)",
-          "opacity-specializations" : [
-            {
-              "value" : 0.1
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0.05
-            }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              213.409446148038,
-              107.6970426112286
-            ]
-          }
-        },
-        {
-          "glass-specializations" : [
-            {
-              "value" : false
-            },
-            {
-              "appearance" : "tinted",
-              "value" : false
-            }
-          ],
-          "hidden" : false,
-          "image-name" : "Gemini Generated Image 5 (4).png",
-          "name" : "Gemini Generated Image 5 (4)",
-          "opacity-specializations" : [
-            {
-              "value" : 0.05
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0.05
-            }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              289.604542074247,
-              -256.4763237429401
-            ]
-          }
-        },
-        {
-          "fill-specializations" : [
-            {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "extended-srgb:0.38039,0.33333,0.96078,1.00000"
-              }
-            }
-          ],
-          "glass" : false,
-          "hidden" : false,
-          "image-name" : "Gemini Generated Image 5 (4).png",
-          "name" : "Gemini Generated Image 5 (4)",
-          "opacity-specializations" : [
-            {
-              "value" : 0.12
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0.05
-            }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              -256.23832514557546,
-              -226.84489754941438
-            ]
-          }
-        },
-        {
-          "fill-specializations" : [
-            {
-              "appearance" : "tinted",
-              "value" : {
-                "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
-              }
-            }
-          ],
-          "glass" : false,
-          "hidden" : false,
-          "image-name" : "Gemini Generated Image 5 (4).png",
-          "name" : "Gemini Generated Image 5 (4)",
-          "opacity-specializations" : [
-            {
-              "value" : 0.1
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0.05
-            }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              -268,
-              136.9380780179111
-            ]
-          }
-        }
+
       ],
       "lighting-specializations" : [
         {

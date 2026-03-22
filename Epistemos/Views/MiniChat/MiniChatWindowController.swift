@@ -2,90 +2,155 @@ import AppKit
 import SwiftData
 import SwiftUI
 
-// MARK: - MiniChat Window Controller
-// Manages a floating NSPanel that stays above all windows (.floating level).
-// Non-activating so the user's focus stays in their current app.
-
 @MainActor
-final class MiniChatWindowController: NSWindowController {
-
+final class MiniChatWindowController {
     static let shared = MiniChatWindowController()
 
-    private var isConfigured = false
+    private static let minimumContentSize = CGSize(width: 420, height: 520)
+    private let tabDelegate = MiniChatTabDelegate()
+    private var windows: [String: NSWindow] = [:]
+    private var observers: [String: any NSObjectProtocol] = [:]
 
-    private init() {
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 580),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel, .utilityWindow],
+    private init() {}
+
+    func toggle() {
+        if windows.values.contains(where: \.isVisible) {
+            openNewChat()
+        } else {
+            show()
+        }
+    }
+
+    func show() {
+        if let window = windows.values.first {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        openNewChat()
+    }
+
+    func hide() {
+        for window in windows.values {
+            window.orderOut(nil)
+        }
+    }
+
+    func openNewChat(attaching attachment: ContextAttachment? = nil) {
+        let resolvedAttachment: ContextAttachment?
+        if let attachment {
+            resolvedAttachment = attachment
+        } else if let bootstrap = AppBootstrap.shared {
+            resolvedAttachment = activeNoteAttachment(in: bootstrap)
+        } else {
+            resolvedAttachment = nil
+        }
+        openChat(UUID().uuidString, initialContextAttachment: resolvedAttachment)
+    }
+
+    func openChat(_ chatID: String) {
+        openChat(chatID, initialContextAttachment: nil)
+    }
+
+    func openChat(_ chatID: String, initialContextAttachment: ContextAttachment?) {
+        if let existing = windows[chatID] {
+            NSApp.activate(ignoringOtherApps: true)
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
+        guard let bootstrap = AppBootstrap.shared else { return }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 760),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        panel.title = "MiniChat"
-        panel.titlebarAppearsTransparent = true
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = false
-        panel.isMovableByWindowBackground = true
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
-        panel.minSize = NSSize(width: 320, height: 400)
-        panel.maxSize = NSSize(width: 700, height: 900)
-        WindowPresentationPolicy.applyModularZoomBehavior(to: panel)
+        window.title = "Mini Chat"
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.isMovableByWindowBackground = true
+        window.collectionBehavior = [.moveToActiveSpace]
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 420, height: 520)
+        window.maxSize = NSSize(width: 1600, height: 1400)
+        window.tabbingMode = .preferred
+        window.tabbingIdentifier = "epistemos-mini-chat-tabs"
+        window.delegate = tabDelegate
+        WindowPresentationPolicy.applyModularZoomBehavior(
+            to: window,
+            minimumContentSize: Self.minimumContentSize
+        )
 
-        // Unified toolbar gives rounded corners matching the main window
         let toolbar = NSToolbar(identifier: "MiniChatToolbar")
-        panel.toolbar = toolbar
-        panel.toolbarStyle = .unifiedCompact
-        panel.titleVisibility = .hidden
+        window.toolbar = toolbar
+        window.toolbarStyle = .unifiedCompact
+        window.titleVisibility = .hidden
 
-        panel.center()
-        super.init(window: panel)
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    func configure(bootstrap: AppBootstrap) {
-        let view = MiniChatView()
-            .padding(22)
+        let view = MiniChatView(chatID: chatID, initialContextAttachment: initialContextAttachment)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
             .preferredColorScheme(bootstrap.uiState.preferredColorScheme)
         let host = NSHostingView(rootView: view)
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
-        window?.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)
-        if let window {
-            WindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
-        }
+        window.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)
+        WindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
 
-        isConfigured = true
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] notification in
+            guard let window = notification.object as? NSWindow else { return }
+            Task { @MainActor in
+                self?.handleWindowClose(window, chatID: chatID)
+            }
+        }
+        observers[chatID] = observer
+
+        if let existingWindow = windows.values.first {
+            existingWindow.addTabbedWindow(window, ordered: .above)
+        }
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        windows[chatID] = window
+        NSApp.activate(ignoringOtherApps: true)
     }
 
-    func toggle() {
-        guard let window else { return }
-        if window.isVisible {
-            window.orderOut(nil)
-        } else {
-            showPanel()
-        }
+    func updateWindowTitle(chatID: String, title: String) {
+        guard let window = windows[chatID] else { return }
+        window.title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Mini Chat" : title
     }
 
-    func show() { showPanel() }
-    func hide() { window?.orderOut(nil) }
-
-    /// Sync NSPanel appearance and background to the current theme.
     func syncTheme(uiState: UIState) {
-        guard let window else { return }
-        WindowThemeStyler.apply(to: window, uiState: uiState)
+        for window in windows.values {
+            WindowThemeStyler.apply(to: window, uiState: uiState)
+        }
     }
 
-    private func showPanel() {
-        // Auto-configure on first show — NSPanel always creates a default contentView,
-        // so we track configuration state with a flag instead of checking contentView == nil.
-        if !isConfigured, let bootstrap = AppBootstrap.shared {
-            configure(bootstrap: bootstrap)
+    private func handleWindowClose(_ window: NSWindow, chatID: String) {
+        if let observer = observers.removeValue(forKey: chatID) {
+            NotificationCenter.default.removeObserver(observer)
         }
-        window?.makeKeyAndOrderFront(nil)
+        windows.removeValue(forKey: chatID)
+        if !window.isVisible {
+            AppBootstrap.shared?.threadState.setMiniChatStreaming(false, chatID: chatID)
+        }
+    }
+
+    private func activeNoteAttachment(in bootstrap: AppBootstrap) -> ContextAttachment? {
+        guard let pageID = bootstrap.notesUI.activePageId else { return nil }
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageID })
+        guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else { return nil }
+        return ComposerReferenceHelpers.noteAttachment(pageID: page.id, title: page.title)
+    }
+}
+
+private final class MiniChatTabDelegate: NSObject, NSWindowDelegate {
+    @MainActor func newWindowForTab(_ sender: NSWindow) {
+        MiniChatWindowController.shared.openNewChat()
     }
 }

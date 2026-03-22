@@ -492,10 +492,12 @@ struct HologramNodeInspector: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 if let p = inspectorState.profile {
-                    Text(p.summary)
-                        .font(.callout)
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if !p.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(p.summary)
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     // Node vitals: Age, Drift, Resonance
                     if let node = inspectorState.selectedNode {

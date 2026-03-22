@@ -402,6 +402,7 @@ struct InferencePolicyEngineTests {
         InferencePolicyContext(
             routingMode: routingMode,
             appleIntelligenceAvailable: appleAvailable,
+            preferredChatModelSelection: .localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue),
             preferredLocalTextModelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             installedLocalTextModelIDs: Set(installed.map(\.rawValue)),
             hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
