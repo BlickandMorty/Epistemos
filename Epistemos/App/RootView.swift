@@ -233,7 +233,7 @@ struct RootView: View {
             }
 
             if activeHomeChat {
-                modelToolbarButton
+                modelToolbarButton(title: chat.chatTitle)
             }
 
             historyToolbarButton
@@ -249,8 +249,12 @@ struct RootView: View {
         .help("Settings (⌘S)")
     }
 
-    private var modelToolbarButton: some View {
-        LocalModelToolbarMenu(variant: .toolbar)
+    private func modelToolbarButton(title: String? = nil) -> some View {
+        LocalModelToolbarMenu(
+            variant: .toolbar,
+            overrideTitle: title,
+            overrideFont: title != nil ? .system(size: 16, weight: .semibold, design: .rounded) : nil
+        )
         .fixedSize()
     }
 
@@ -310,6 +314,8 @@ struct LocalModelToolbarMenu: View {
     }
 
     var variant: NativeControlVariant = .toolbar
+    var overrideTitle: String? = nil
+    var overrideFont: Font? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
@@ -352,6 +358,7 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var labelText: String {
+        if let overrideTitle { return overrideTitle }
         switch selectedMenuItem {
         case .appleIntelligence:
             "Apple Intelligence"
@@ -365,6 +372,7 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var labelFont: Font {
+        if let overrideFont { return overrideFont }
         switch variant {
         case .toolbar:
             .system(size: 14, weight: .medium)
@@ -450,12 +458,21 @@ struct LocalModelToolbarMenu: View {
             }
         } label: {
             HStack(spacing: 5) {
-                ASCIIRippleText(
-                    text: labelText,
-                    font: labelFont,
-                    color: theme.textSecondary,
-                    configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
-                )
+                if overrideTitle != nil {
+                    TypewriterASCIIRippleText(
+                        text: labelText,
+                        font: labelFont,
+                        color: theme.textSecondary,
+                        configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
+                    )
+                } else {
+                    ASCIIRippleText(
+                        text: labelText,
+                        font: labelFont,
+                        color: theme.textSecondary,
+                        configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
+                    )
+                }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(theme.textTertiary)

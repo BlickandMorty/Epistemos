@@ -146,19 +146,6 @@ struct ChatView: View {
                     HStack {
                         Spacer(minLength: 0)
                         LazyVStack(spacing: ChatLayout.transcriptSpacing) {
-                            // Chat Title Header
-                            if let headerTitle = chat.chatTitle, !headerTitle.isEmpty {
-                                TypewriterHeading(
-                                    text: headerTitle,
-                                    role: .chatTitle,
-                                    color: theme.fontAccent,
-                                    animateOnAppear: true
-                                )
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 18)
-                                .padding(.bottom, 8)
-                            }
-
                             ForEach(transcriptRows) { row in
                                 MessageBubble(
                                     message: row.message,
