@@ -440,6 +440,11 @@ struct LocalModelToolbarMenu: View {
         } label: {
             menuLabel
         }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(labelText)
+        .accessibilityLabel(labelText)
     }
 
     @ViewBuilder
@@ -504,14 +509,8 @@ struct LocalModelToolbarMenu: View {
         }
         .fixedSize()
     }
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(labelText)
-        .accessibilityLabel(labelText)
-    }
 }
+
 
 private struct VaultRecoveryOverlay: View {
     let issue: VaultRecoveryIssue
