@@ -36,6 +36,18 @@ final class MiniChatWindowController {
         }
     }
 
+    func closeAll() {
+        for observer in observers.values {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        let openWindows = Array(windows.values)
+        observers.removeAll()
+        windows.removeAll()
+        for window in openWindows {
+            window.close()
+        }
+    }
+
     func openNewChat(attaching attachment: ContextAttachment? = nil) {
         let resolvedAttachment: ContextAttachment?
         if let attachment {
@@ -119,6 +131,11 @@ final class MiniChatWindowController {
         windows[chatID] = window
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    // MARK: - Workspace Capture
+
+    /// All currently open mini chat IDs.
+    var openChatIds: [String] { Array(windows.keys) }
 
     func updateWindowTitle(chatID: String, title: String) {
         guard let window = windows[chatID] else { return }

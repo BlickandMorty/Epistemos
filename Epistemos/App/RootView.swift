@@ -31,6 +31,7 @@ struct RootView: View {
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
     @State private var showGreetingControls = false
+    @State private var showWorkspaceSwitcher = false
 
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
@@ -210,6 +211,23 @@ struct RootView: View {
                 )
                 .transition(.opacity)
             }
+        }
+        .overlay {
+            if showWorkspaceSwitcher {
+                WorkspaceSwitcherOverlay(isPresented: $showWorkspaceSwitcher)
+                    .transition(.opacity)
+            }
+        }
+        .background {
+            Button(action: { showWorkspaceSwitcher.toggle() }) {}
+                .keyboardShortcut("w", modifiers: [.command, .control])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
+        .animation(Motion.smooth, value: showWorkspaceSwitcher)
+        .onReceive(NotificationCenter.default.publisher(for: .toggleWorkspaceSwitcher)) { _ in
+            showWorkspaceSwitcher.toggle()
         }
         .animation(Motion.smooth, value: ui.needsSetup)
         .onAppear {

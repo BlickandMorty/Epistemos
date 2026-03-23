@@ -7,9 +7,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
-    @State private var selection: SettingsSection? = .inference
+    @State private var selection: SettingsSection? = .general
 
     enum SettingsSection: String, CaseIterable, Identifiable {
+        case general = "General"
         case inference = "Inference"
         case landing = "Landing"
         case appearance = "Appearance"
@@ -22,6 +23,7 @@ struct SettingsView: View {
 
         var icon: String {
             switch self {
+            case .general: "gearshape"
             case .inference: "cpu"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
@@ -60,6 +62,7 @@ struct SettingsView: View {
     private var settingsDetail: some View {
         Group {
             switch selection {
+            case .general: GeneralDetailView()
             case .inference: InferenceDetailView()
             case .landing: LandingDetailView()
             case .appearance: AppearanceDetailView()
@@ -67,7 +70,7 @@ struct SettingsView: View {
             case .security: SecurityDetailView()
             case .export: ExportDetailView()
             case .reset: ResetDetailView()
-            case nil: InferenceDetailView()
+            case nil: GeneralDetailView()
             }
         }
         .safeAreaPadding(.top, 16)
@@ -97,6 +100,117 @@ struct SettingsView: View {
             return
         }
         _ = firstResponder.tryToPerform(#selector(NSSplitViewController.toggleSidebar(_:)), with: nil)
+    }
+}
+
+// MARK: - General Detail
+
+private struct GeneralDetailView: View {
+    @State private var restoreLastSession = UserDefaults.standard.bool(
+        forKey: "epistemos.restoreLastSession"
+    )
+    @State private var showSaveOnQuit: Bool = {
+        let defaults = UserDefaults.standard
+        return defaults.object(forKey: "epistemos.showSaveOnQuitDialog") == nil
+            ? true : defaults.bool(forKey: "epistemos.showSaveOnQuitDialog")
+    }()
+    @State private var summaryInterval: WorkspaceSummaryService.SummaryInterval = {
+        let raw = UserDefaults.standard.string(forKey: "epistemos.summaryInterval") ?? "15m"
+        return WorkspaceSummaryService.SummaryInterval(rawValue: raw) ?? .fifteenMinutes
+    }()
+    @State private var workspaces: [SDWorkspace] = []
+    @State private var renamingWorkspace: SDWorkspace?
+    @State private var renameText = ""
+
+    var body: some View {
+        Form {
+            Section("Session") {
+                Toggle("Restore last session on launch", isOn: $restoreLastSession)
+                    .onChange(of: restoreLastSession) { _, newValue in
+                        AppBootstrap.shared?.workspaceService.restoreLastSession = newValue
+                    }
+                Toggle("Show save dialog on quit", isOn: $showSaveOnQuit)
+                    .onChange(of: showSaveOnQuit) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "epistemos.showSaveOnQuitDialog")
+                    }
+                Text("When enabled, Epistemos asks to save your workspace before quitting.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Workspace Summaries") {
+                Picker("Auto-summarize interval", selection: $summaryInterval) {
+                    ForEach(WorkspaceSummaryService.SummaryInterval.allCases, id: \.self) { interval in
+                        Text(interval.displayName).tag(interval)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: summaryInterval) { _, newValue in
+                    AppBootstrap.shared?.workspaceSummaryService.summaryInterval = newValue
+                }
+                Text("AI-generated summaries describe what you're working on. Runs entirely on-device.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Saved Workspaces") {
+                if workspaces.isEmpty {
+                    Text("No saved workspaces. Use Cmd+Ctrl+S to save your current workspace.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(workspaces, id: \.id) { workspace in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(workspace.name)
+                                    .font(.body)
+                                Text(workspace.updatedAt, style: .date)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Load") {
+                                AppBootstrap.shared?.workspaceService.loadWorkspace(workspace)
+                            }
+                            .buttonStyle(.bordered)
+                            Button("Rename") {
+                                renameText = workspace.name
+                                renamingWorkspace = workspace
+                            }
+                            .buttonStyle(.borderless)
+                            Button(role: .destructive) {
+                                AppBootstrap.shared?.workspaceService.deleteWorkspace(workspace)
+                                refreshWorkspaces()
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+        .onAppear { refreshWorkspaces() }
+        .alert("Rename Workspace", isPresented: Binding(
+            get: { renamingWorkspace != nil },
+            set: { if !$0 { renamingWorkspace = nil } }
+        )) {
+            TextField("Name", text: $renameText)
+            Button("Rename") {
+                if let ws = renamingWorkspace {
+                    AppBootstrap.shared?.workspaceService.renameWorkspace(ws, to: renameText)
+                    refreshWorkspaces()
+                }
+                renamingWorkspace = nil
+            }
+            Button("Cancel", role: .cancel) { renamingWorkspace = nil }
+        }
+    }
+
+    private func refreshWorkspaces() {
+        workspaces = AppBootstrap.shared?.workspaceService.listWorkspaces() ?? []
     }
 }
 

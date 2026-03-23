@@ -112,6 +112,13 @@ struct EpistemosApp: App {
                 .onAppear {
                     StatusBar.shared.setup()
                     HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
+                    // Restore last session after UI settles, then start tracking
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        bootstrap.workspaceService.autoRestore()
+                        bootstrap.activityTracker.startTracking()
+                        bootstrap.workspaceSummaryService.startAutoSummaryLoop()
+                    }
                 }
                 // Handle Spotlight deep-links — user tapped a note in Spotlight results
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
@@ -129,9 +136,7 @@ struct EpistemosApp: App {
                     NotificationCenter.default.publisher(
                         for: NSApplication.willTerminateNotification)
                 ) { _ in
-                    bootstrap.vaultSync.stopWatching(preserveData: true)
-                    StatusBar.shared.remove()
-                    HologramController.shared.teardown()
+                    // Teardown handled by EpistemosAppDelegate.applicationShouldTerminate / applicationWillTerminate
                 }
         }
         .defaultSize(width: 1100, height: 720)
@@ -151,6 +156,15 @@ struct EpistemosApp: App {
 
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var mainWindowObservers: [NSObjectProtocol] = []
+    private var didTeardown = false
+    private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
+
+    var showSaveOnQuitDialogEnabled: Bool {
+        let defaults = UserDefaults.standard
+        return defaults.object(forKey: Self.showQuitDialogKey) == nil
+            ? true
+            : defaults.bool(forKey: Self.showQuitDialogKey)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let center = NotificationCenter.default
@@ -176,10 +190,102 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard showSaveOnQuitDialogEnabled else {
+            performTeardown()
+            return .terminateNow
+        }
+        let hasOpenNotes = !NoteWindowManager.shared.orderedPageIds().isEmpty
+        let hasOpenChats = !MiniChatWindowController.shared.openChatIds.isEmpty
+        guard hasOpenNotes || hasOpenChats else {
+            performTeardown()
+            return .terminateNow
+        }
+        showSaveOnQuitAlert()
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
+        // Idempotent fallback — performTeardown guards against double calls
+        performTeardown()
         let center = NotificationCenter.default
         mainWindowObservers.forEach(center.removeObserver)
         mainWindowObservers.removeAll()
+    }
+
+    private func performTeardown() {
+        guard !didTeardown else { return }
+        didTeardown = true
+        guard let bootstrap = AppBootstrap.shared else { return }
+        bootstrap.activityTracker.stopTracking()
+        bootstrap.workspaceSummaryService.stopAutoSummaryLoop()
+        bootstrap.workspaceService.autoSave()
+        bootstrap.vaultSync.stopWatching(preserveData: true)
+        StatusBar.shared.remove()
+        HologramController.shared.teardown()
+    }
+
+    private func showSaveOnQuitAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Save workspace before quitting?"
+        alert.informativeText = "Your open notes and chats can be saved as a workspace."
+        alert.addButton(withTitle: "Save & Quit")
+        alert.addButton(withTitle: "Quit Without Saving")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
+
+        let nameField = NSTextField(frame: NSRect(x: 0, y: 32, width: 300, height: 24))
+        nameField.placeholderString = "Workspace name (optional)"
+        nameField.bezelStyle = .roundedBezel
+        container.addSubview(nameField)
+
+        let noteField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        noteField.placeholderString = "What were you working on?"
+        noteField.bezelStyle = .roundedBezel
+        container.addSubview(noteField)
+
+        alert.accessoryView = container
+        alert.window.initialFirstResponder = nameField
+
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn:
+            // Save & Quit
+            let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let userNote = noteField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let ws = AppBootstrap.shared?.workspaceService {
+                if !name.isEmpty {
+                    ws.saveWorkspace(name: name)
+                    // Apply user note to the just-created workspace
+                    if !userNote.isEmpty, let saved = ws.listWorkspaces().first(where: { $0.name == name }) {
+                        saved.userNote = userNote
+                        try? AppBootstrap.shared?.modelContainer.mainContext.save()
+                    }
+                } else {
+                    ws.autoSave()
+                    // Apply user note to auto-save workspace
+                    if !userNote.isEmpty {
+                        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+                        if let autoSave = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
+                            FetchDescriptor(predicate: predicate)
+                        ).first {
+                            autoSave.userNote = userNote
+                            try? AppBootstrap.shared?.modelContainer.mainContext.save()
+                        }
+                    }
+                }
+            }
+            performTeardown()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        case .alertSecondButtonReturn:
+            // Quit Without Saving
+            performTeardown()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        default:
+            // Cancel
+            NSApp.reply(toApplicationShouldTerminate: false)
+        }
     }
 
     @MainActor
@@ -251,12 +357,27 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 
 // MARK: - Keyboard Commands
 
+extension Notification.Name {
+    static let toggleWorkspaceSwitcher = Notification.Name("epistemos.toggleWorkspaceSwitcher")
+}
+
 struct EpistemosCommands: Commands {
     let ui: UIState
     let chat: ChatState
     let notesUI: NotesUIState
     let vaultSync: VaultSyncService
     var body: some Commands {
+        CommandGroup(after: .saveItem) {
+            Button("Save Workspace...") {
+                promptSaveWorkspace()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .control])
+
+            Button("Switch Workspace  \u{2303}\u{2318}W") {
+                NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
+            }
+        }
+
         CommandGroup(after: .sidebar) {
             Button("Show Home") {
                 chat.goHome()
@@ -329,5 +450,24 @@ struct EpistemosCommands: Commands {
                 NSApp.unhideAllApplications(nil)
             }
         }
+    }
+
+    private func promptSaveWorkspace() {
+        let alert = NSAlert()
+        alert.messageText = "Save Workspace"
+        alert.informativeText = "Enter a name for this workspace:"
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        input.stringValue = ""
+        input.placeholderString = "e.g. Essay Research"
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        AppBootstrap.shared?.workspaceService.saveWorkspace(name: name)
     }
 }

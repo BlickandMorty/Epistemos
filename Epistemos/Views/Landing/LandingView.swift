@@ -54,6 +54,9 @@ struct LandingView: View {
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(\.modelContext) private var modelContext
 
+    @State private var showWelcomeBack = false
+    @State private var welcomeBackDismissTask: Task<Void, Never>?
+
     // Recent data for Daily Brief context
     @Query(SDPage.recentDescriptor(limit: 50))
     private var allPages: [SDPage]
@@ -73,6 +76,7 @@ struct LandingView: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
+    private var showingOverlay: Bool { showingBrief || showWelcomeBack }
     private var trimmedLandingSearchText: String {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -112,11 +116,11 @@ struct LandingView: View {
                 }
 
             // ── Greeting Mode ──
-            // Blurs and fades when Daily Brief is active. Search popover uses background ripple instead.
+            // Blurs and fades when Daily Brief or Welcome Back is active.
             greetingContent
-                .blur(radius: showingBrief ? 4 : 0)
-                .opacity((showingBrief || showingSearchPopover) ? 0.7 : 1)
-                .allowsHitTesting(!showingBrief && !showingSearchPopover)
+                .blur(radius: showingOverlay ? 4 : 0)
+                .opacity((showingOverlay || showingSearchPopover) ? 0.7 : 1)
+                .allowsHitTesting(!showingOverlay && !showingSearchPopover)
                 .zIndex(1)
 
              // (Inline Search Overlay logic migrated to .appKitPopover on ZIndex 0 layer)
@@ -128,11 +132,35 @@ struct LandingView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
                 .zIndex(3)
             }
+
+            // ── Welcome Back Mode ──
+            // Shows after workspace auto-restore with session summary.
+            if showWelcomeBack, let info = AppBootstrap.shared?.workspaceService.welcomeBack {
+                welcomeBackContent(info: info)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    .zIndex(2)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .coordinateSpace(name: LandingCoordinateSpace.root)
         .animation(Motion.smooth, value: showingBrief)
+        .animation(Motion.smooth, value: showWelcomeBack)
         .animation(Motion.smooth, value: showingSearchPopover)
+        .onAppear {
+            // Check for welcome-back info after workspace restore
+            if let info = AppBootstrap.shared?.workspaceService.welcomeBack, !info.displayText.isEmpty {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(800))
+                    showWelcomeBack = true
+                    // Auto-dismiss after 12 seconds
+                    welcomeBackDismissTask = Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(12))
+                        guard !Task.isCancelled else { return }
+                        dismissWelcomeBack()
+                    }
+                }
+            }
+        }
         .background {
             // Hidden ⌘N shortcut — creates new note and teleports there
             Button(action: { createAndOpenNote() }) {}
@@ -158,6 +186,10 @@ struct LandingView: View {
         .onKeyPress(.escape) {
             if showingSearchPopover {
                 dismissLandingSearch()
+                return .handled
+            }
+            if showWelcomeBack {
+                dismissWelcomeBack()
                 return .handled
             }
             if showingBrief {
@@ -237,6 +269,16 @@ struct LandingView: View {
                     }
                     .help("Graph overlay (\u{2318}G).")
                     .springEntrance(index: 4, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
+                    CommandHint(modIcon: "control", key: "\u{2318}W", label: "Workspaces", theme: theme) {
+                        NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
+                    }
+                    .help("Switch workspace (\u{2303}\u{2318}W).")
+                    .springEntrance(index: 5, stagger: 0.08)
                 }
                 .padding(.bottom, 28)
             }
@@ -518,6 +560,73 @@ struct LandingView: View {
             manifest: AppBootstrap.shared?.ambientManifest,
             vaultSync: vaultSync
         )
+    }
+
+    // MARK: - Welcome Back Content
+
+    private func welcomeBackContent(info: WelcomeBackInfo) -> some View {
+        VStack(spacing: 0) {
+            Text("welcome back")
+                .font(AppDisplayTypography.font(size: 24))
+                .foregroundStyle(theme.fontAccent)
+                .shadow(color: theme.isDark ? theme.fontAccent.opacity(0.12) : .clear, radius: 8)
+                .padding(.top, 28)
+                .padding(.bottom, 4)
+
+            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(theme.mutedForeground.opacity(0.5))
+                .padding(.bottom, 16)
+
+            ScrollView {
+                TypewriterPlainText(content: info.displayText)
+                    .font(.system(size: 14.5, weight: .regular))
+                    .foregroundStyle(theme.fontAccent.opacity(0.85))
+                    .lineSpacing(5)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: 580, alignment: .leading)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 16)
+            }
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 16)
+                    Rectangle()
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 24)
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    dismissWelcomeBack()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("Continue")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(theme.foreground.opacity(0.06), in: Capsule())
+                    .foregroundStyle(theme.fontAccent.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+
+                Text("auto-dismisses in a few seconds")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(theme.mutedForeground.opacity(0.3))
+            }
+            .padding(.bottom, 20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onTapGesture { dismissWelcomeBack() }
+    }
+
+    private func dismissWelcomeBack() {
+        welcomeBackDismissTask?.cancel()
+        showWelcomeBack = false
+        AppBootstrap.shared?.workspaceService.welcomeBack = nil
     }
 
     // MARK: - Daily Brief Content (replaces greeting in-place)

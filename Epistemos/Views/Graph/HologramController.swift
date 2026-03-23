@@ -115,6 +115,10 @@ final class HologramController {
         overlay?.isVisible ?? false
     }
 
+    var isMinimized: Bool {
+        overlay?.isMinimized ?? false
+    }
+
     // MARK: - Overlay Lifecycle
 
     private func ensureOverlay() {

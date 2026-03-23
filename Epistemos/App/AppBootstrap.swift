@@ -57,6 +57,9 @@ final class AppBootstrap {
     let queryEngine = QueryEngine()
     let physicsCoordinator = PhysicsCoordinator()
     let dialogueChatState = DialogueChatState()
+    private(set) var workspaceService: WorkspaceService!
+    let activityTracker = ActivityTracker()
+    private(set) var workspaceSummaryService: WorkspaceSummaryService!
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
@@ -230,6 +233,11 @@ final class AppBootstrap {
 
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
+
+        self.workspaceService = WorkspaceService(modelContainer: container)
+        self.workspaceSummaryService = WorkspaceSummaryService(
+            triageService: triage, activityTracker: activityTracker, modelContainer: container
+        )
 
         if !Self.isRunningTests {
             wireLocalRuntimeLifecycle()

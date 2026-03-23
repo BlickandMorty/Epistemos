@@ -914,6 +914,12 @@ struct NoteDetailWorkspaceView: View {
                     } else {
                         queueMissingPageRecovery()
                     }
+                    // Apply pending workspace editor restore (cursor + scroll).
+                    if let restore = navState?.pendingEditorRestore {
+                        navState?.pendingEditorRestore = nil
+                        try? await Task.sleep(for: .milliseconds(100))
+                        applyEditorRestore(cursor: restore.cursor, scrollFraction: restore.scrollFraction)
+                    }
                 }
             }
             .onDisappear {
@@ -1392,6 +1398,20 @@ struct NoteDetailWorkspaceView: View {
         // Flash the line briefly by selecting the whole line
         let lineRange = (tv.string as NSString).lineRange(for: range)
         tv.showFindIndicator(for: lineRange)
+    }
+
+    // MARK: - Workspace Editor Restore
+
+    private func applyEditorRestore(cursor: Int, scrollFraction: Double) {
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return }
+        let safeCursor = min(cursor, tv.string.count)
+        tv.setSelectedRange(NSRange(location: safeCursor, length: 0))
+        if let scrollView = tv.enclosingScrollView,
+           let docHeight = scrollView.documentView?.bounds.height, docHeight > 0 {
+            let scrollY = scrollFraction * docHeight
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: scrollY))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
     }
 
     // MARK: - Editor Flush & Pool Reset (Mode Switching)

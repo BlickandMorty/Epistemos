@@ -101,6 +101,8 @@ enum LandingGreetingResolver {
             LandingGreetingPhrase(text: "the AI can analyze connections between your notes automatically", durationSeconds: 3.4),
             LandingGreetingPhrase(text: "try asking me to summarize, expand, or restructure your writing", durationSeconds: 3.4),
             LandingGreetingPhrase(text: "shift-click a graph node to highlight its neighborhood", durationSeconds: 3.0),
+            LandingGreetingPhrase(text: "save your window layout as a workspace — Ctrl+\u{2318}S to save, Ctrl+\u{2318}W to switch", durationSeconds: 3.6),
+            LandingGreetingPhrase(text: "workspaces remember your open notes, chats, and even cursor positions", durationSeconds: 3.4),
         ]
 
         return titles + instructions + facts

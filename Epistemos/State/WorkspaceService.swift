@@ -1,0 +1,353 @@
+import Foundation
+import SwiftData
+import os
+
+// MARK: - Welcome Back Info
+// Shown on the landing page after workspace auto-restore. Contains the AI summary,
+// user note, and activity stats from the previous session.
+
+struct WelcomeBackInfo {
+    var summary: String
+    var userNote: String
+    var noteCount: Int
+    var chatCount: Int
+    var graphWasOpen: Bool
+    var sessionMinutes: Int
+    var editedNoteTitles: [String]
+
+    var displayText: String {
+        var lines: [String] = []
+
+        if !userNote.isEmpty {
+            lines.append("\"\(userNote)\"")
+            lines.append("")
+        }
+
+        if !summary.isEmpty {
+            lines.append(summary)
+            lines.append("")
+        }
+
+        // Activity stats
+        var stats: [String] = []
+        if noteCount > 0 { stats.append("\(noteCount) note\(noteCount == 1 ? "" : "s")") }
+        if chatCount > 0 { stats.append("\(chatCount) chat\(chatCount == 1 ? "" : "s")") }
+        if graphWasOpen { stats.append("knowledge graph") }
+        if !stats.isEmpty {
+            lines.append("Restored: \(stats.joined(separator: ", "))")
+        }
+
+        if !editedNoteTitles.isEmpty {
+            let titles = editedNoteTitles.prefix(4).joined(separator: ", ")
+            let suffix = editedNoteTitles.count > 4 ? " and \(editedNoteTitles.count - 4) more" : ""
+            lines.append("Last edited: \(titles)\(suffix)")
+        }
+
+        if sessionMinutes > 0 {
+            lines.append("Previous session: \(sessionMinutes) minute\(sessionMinutes == 1 ? "" : "s")")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+// MARK: - Workspace Service
+// Captures and restores full workspace state — open note tabs, mini chats, utility panels,
+// graph overlay, sidebar state, and editor cursor positions. Supports auto-save on quit
+// and named workspace workflows.
+
+@MainActor @Observable
+final class WorkspaceService {
+    private static let log = Logger(subsystem: "com.epistemos", category: "Workspace")
+    private static let restoreDefaultsKey = "epistemos.restoreLastSession"
+
+    var restoreLastSession: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.restoreDefaultsKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.restoreDefaultsKey) }
+    }
+
+    /// Set after auto-restore — read by LandingView to show welcome-back overlay.
+    var welcomeBack: WelcomeBackInfo?
+
+    private let modelContainer: ModelContainer
+
+    init(modelContainer: ModelContainer) {
+        self.modelContainer = modelContainer
+        // Default to true on first launch
+        if UserDefaults.standard.object(forKey: Self.restoreDefaultsKey) == nil {
+            UserDefaults.standard.set(true, forKey: Self.restoreDefaultsKey)
+        }
+    }
+
+    // MARK: - Capture
+
+    func captureSnapshot() -> WorkspaceSnapshot {
+        guard let bootstrap = AppBootstrap.shared else {
+            return WorkspaceSnapshot(
+                activePanel: "home", activeChatId: nil, showChatSidebar: false,
+                showLanding: true, openNoteTabs: [], activeNoteTabPageId: nil,
+                openMiniChatIds: [], notesBrowserVisible: false, settingsVisible: false,
+                graphOverlay: GraphOverlaySnapshot(visibility: .hidden),
+                expandedFolderIds: [], isJournalExpanded: false, isIdeasExpanded: false
+            )
+        }
+
+        // Note tabs in tab-bar order
+        let noteManager = NoteWindowManager.shared
+        let orderedPageIds = noteManager.orderedPageIds()
+        var noteTabs: [NoteTabSnapshot] = []
+        for rootPageId in orderedPageIds {
+            let nav = noteManager.navState(forTab: rootPageId)
+            let editor = noteManager.editorState(for: rootPageId)
+            let breadcrumbs = nav?.stack.map {
+                BreadcrumbSnapshot(pageId: $0.id, title: $0.title)
+            } ?? [BreadcrumbSnapshot(pageId: rootPageId, title: "")]
+            let forward = nav?.forwardStack.map {
+                BreadcrumbSnapshot(pageId: $0.id, title: $0.title)
+            } ?? []
+
+            noteTabs.append(NoteTabSnapshot(
+                rootPageId: rootPageId,
+                currentPageId: nav?.currentPageId ?? rootPageId,
+                breadcrumbs: breadcrumbs,
+                forwardStack: forward,
+                cursorPosition: editor?.cursor,
+                scrollFraction: editor?.scrollFraction
+            ))
+        }
+
+        // Graph overlay state
+        let holo = HologramController.shared
+        let graphVisibility: GraphOverlaySnapshot.Visibility
+        if holo.isVisible {
+            graphVisibility = holo.isMinimized ? .minimized : .full
+        } else {
+            graphVisibility = .hidden
+        }
+
+        return WorkspaceSnapshot(
+            activePanel: bootstrap.uiState.activePanel.rawValue,
+            activeChatId: bootstrap.chatState.activeChatId,
+            showChatSidebar: bootstrap.uiState.showChatSidebar,
+            showLanding: bootstrap.chatState.showLanding,
+            openNoteTabs: noteTabs,
+            activeNoteTabPageId: bootstrap.notesUI.activePageId,
+            openMiniChatIds: MiniChatWindowController.shared.openChatIds,
+            notesBrowserVisible: UtilityWindowManager.shared.isVisible(.notes),
+            settingsVisible: UtilityWindowManager.shared.isVisible(.settings),
+            graphOverlay: GraphOverlaySnapshot(
+                visibility: graphVisibility,
+                selectedNodeId: bootstrap.graphState.selectedNodeId
+            ),
+            expandedFolderIds: Array(bootstrap.notesUI.expandedFolderIds),
+            isJournalExpanded: bootstrap.notesUI.isJournalExpanded,
+            isIdeasExpanded: bootstrap.notesUI.isIdeasExpanded,
+            activityDigest: bootstrap.activityTracker.buildDigest(
+                since: bootstrap.activityTracker.trackingStartedAt ?? Date()
+            )
+        )
+    }
+
+    // MARK: - Restore
+
+    func restoreSnapshot(_ snapshot: WorkspaceSnapshot) {
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let context = modelContainer.mainContext
+
+        // 1. Close existing windows
+        NoteWindowManager.shared.resetForVaultRebuild()
+        MiniChatWindowController.shared.closeAll()
+        UtilityWindowManager.shared.hide(.notes)
+        UtilityWindowManager.shared.hide(.settings)
+
+        // 2. Main window state
+        if let panel = NavTab(rawValue: snapshot.activePanel) {
+            bootstrap.uiState.setActivePanel(panel)
+        }
+        bootstrap.uiState.showChatSidebar = snapshot.showChatSidebar
+        bootstrap.chatState.showLanding = snapshot.showLanding
+        if let chatId = snapshot.activeChatId {
+            bootstrap.loadChat(chatId: chatId)
+        }
+
+        // 3. Sidebar state
+        bootstrap.notesUI.expandedFolderIds = Set(snapshot.expandedFolderIds)
+        bootstrap.notesUI.isJournalExpanded = snapshot.isJournalExpanded
+        bootstrap.notesUI.isIdeasExpanded = snapshot.isIdeasExpanded
+
+        // 4. Note tabs (in order — first creates tab group, rest join)
+        for tab in snapshot.openNoteTabs {
+            let pageId = tab.rootPageId
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.id == pageId }
+            )
+            guard (try? context.fetch(descriptor).first) != nil else {
+                Self.log.info("Workspace restore: skipping deleted page \(pageId, privacy: .public)")
+                continue
+            }
+            NoteWindowManager.shared.open(pageId: pageId)
+
+            // Restore breadcrumb navigation if user had navigated via wikilinks
+            if let nav = NoteWindowManager.shared.navState(forTab: pageId) {
+                // Push breadcrumbs beyond the root (root is already in place from open)
+                for crumb in tab.breadcrumbs.dropFirst() {
+                    nav.push(pageId: crumb.pageId, title: crumb.title)
+                }
+                // Restore pending editor state
+                if let cursor = tab.cursorPosition {
+                    nav.pendingEditorRestore = (
+                        cursor: cursor,
+                        scrollFraction: tab.scrollFraction ?? 0
+                    )
+                }
+            }
+        }
+
+        // Set active note tab
+        if let activePageId = snapshot.activeNoteTabPageId {
+            bootstrap.notesUI.openPage(activePageId)
+        }
+
+        // 5. Mini chat windows
+        for chatId in snapshot.openMiniChatIds {
+            let descriptor = FetchDescriptor<SDChat>(
+                predicate: #Predicate<SDChat> { $0.id == chatId }
+            )
+            guard (try? context.fetch(descriptor).first) != nil else {
+                Self.log.info("Workspace restore: skipping deleted chat \(chatId, privacy: .public)")
+                continue
+            }
+            MiniChatWindowController.shared.openChat(chatId)
+        }
+
+        // 6. Utility panels
+        if snapshot.notesBrowserVisible {
+            UtilityWindowManager.shared.show(.notes)
+        }
+        if snapshot.settingsVisible {
+            UtilityWindowManager.shared.show(.settings)
+        }
+
+        // 7. Graph overlay
+        switch snapshot.graphOverlay.visibility {
+        case .full:
+            HologramController.shared.show()
+        case .minimized:
+            HologramController.shared.show()
+            // Slight delay to let the overlay initialize before minimizing
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(200))
+                HologramController.shared.minimize()
+            }
+        case .hidden:
+            break
+        }
+
+        Self.log.info("Workspace restored: \(snapshot.openNoteTabs.count) notes, \(snapshot.openMiniChatIds.count) mini chats")
+    }
+
+    // MARK: - Auto-Save / Auto-Restore
+
+    func autoSave() {
+        let snapshot = captureSnapshot()
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            Self.log.error("Workspace auto-save: failed to encode snapshot")
+            return
+        }
+
+        let context = modelContainer.mainContext
+        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+        let existing = try? context.fetch(FetchDescriptor(predicate: predicate)).first
+
+        if let existing {
+            existing.snapshotData = data
+            existing.updatedAt = Date()
+        } else {
+            let ws = SDWorkspace(name: "Last Session", isAutoSave: true)
+            ws.snapshotData = data
+            context.insert(ws)
+        }
+        try? context.save()
+        Self.log.info("Workspace auto-saved")
+    }
+
+    func autoRestore() {
+        guard restoreLastSession else { return }
+
+        let context = modelContainer.mainContext
+        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+        guard let workspace = try? context.fetch(FetchDescriptor(predicate: predicate)).first,
+              !workspace.snapshotData.isEmpty else {
+            return
+        }
+
+        guard let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData) else {
+            Self.log.error("Workspace auto-restore: failed to decode snapshot")
+            return
+        }
+
+        // Only restore if there's actual content to restore
+        guard !snapshot.openNoteTabs.isEmpty || !snapshot.openMiniChatIds.isEmpty
+            || snapshot.notesBrowserVisible || snapshot.settingsVisible
+            || snapshot.graphOverlay.visibility != .hidden else {
+            return
+        }
+
+        restoreSnapshot(snapshot)
+
+        // Build welcome-back info from the restored workspace
+        let digest = snapshot.activityDigest
+        welcomeBack = WelcomeBackInfo(
+            summary: workspace.summary,
+            userNote: workspace.userNote,
+            noteCount: snapshot.openNoteTabs.count,
+            chatCount: snapshot.openMiniChatIds.count,
+            graphWasOpen: snapshot.graphOverlay.visibility != .hidden,
+            sessionMinutes: digest?.sessionDurationMinutes ?? 0,
+            editedNoteTitles: digest?.editedNotes.map(\.title) ?? []
+        )
+    }
+
+    // MARK: - Named Workspaces
+
+    func saveWorkspace(name: String) {
+        let snapshot = captureSnapshot()
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+
+        let context = modelContainer.mainContext
+        let ws = SDWorkspace(name: name, isAutoSave: false)
+        ws.snapshotData = data
+        context.insert(ws)
+        try? context.save()
+        Self.log.info("Workspace saved: \(name, privacy: .public)")
+    }
+
+    func loadWorkspace(_ workspace: SDWorkspace) {
+        guard !workspace.snapshotData.isEmpty,
+              let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData) else {
+            return
+        }
+        restoreSnapshot(snapshot)
+    }
+
+    func deleteWorkspace(_ workspace: SDWorkspace) {
+        let context = modelContainer.mainContext
+        context.delete(workspace)
+        try? context.save()
+    }
+
+    func renameWorkspace(_ workspace: SDWorkspace, to newName: String) {
+        workspace.name = newName
+        workspace.updatedAt = Date()
+        try? modelContainer.mainContext.save()
+    }
+
+    func listWorkspaces() -> [SDWorkspace] {
+        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == false }
+        let descriptor = FetchDescriptor<SDWorkspace>(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        return (try? modelContainer.mainContext.fetch(descriptor)) ?? []
+    }
+}

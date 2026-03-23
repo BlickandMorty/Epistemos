@@ -109,6 +109,9 @@ final class NoteNavigationState {
     /// Cleared on any new push() (new navigation branch).
     private(set) var forwardStack: [BreadcrumbItem] = []
 
+    /// Pending cursor/scroll restore from workspace snapshot. Applied once by Coordinator, then nil'd.
+    var pendingEditorRestore: (cursor: Int, scrollFraction: Double)?
+
     /// Fallback ID — the root page this tab was opened with.
     let rootPageId: String
 
@@ -373,6 +376,7 @@ final class NoteWindowManager {
         windows[page.id] = window
 
         Self.log.info("Opened note tab for: \(page.title, privacy: .public)")
+        AppBootstrap.shared?.activityTracker.recordNoteOpened(pageId: page.id, title: page.title)
     }
 
     static func sanitizedNoteWindowFrame(proposedFrame: NSRect, visibleFrame: NSRect) -> NSRect {
@@ -425,6 +429,7 @@ final class NoteWindowManager {
         }
         windows.removeValue(forKey: pageId)
         navigationStates.removeValue(forKey: pageId)
+        AppBootstrap.shared?.activityTracker.recordNoteClosed(pageId: pageId, title: window.title)
     }
 
     // MARK: - Version Tab (Read-Only)
@@ -508,6 +513,49 @@ final class NoteWindowManager {
         for rootPageId in rootPageIds {
             windows[rootPageId]?.close()
         }
+    }
+
+    // MARK: - Workspace Capture
+
+    /// All currently open page IDs (unordered).
+    var openPageIds: [String] { Array(windows.keys) }
+
+    /// Page IDs in tab-bar order (uses NSWindow.tabbedWindows).
+    func orderedPageIds() -> [String] {
+        guard let firstWindow = windows.values.first,
+              let tabbedWindows = firstWindow.tabbedWindows else {
+            return Array(windows.keys)
+        }
+        return tabbedWindows.compactMap { pageId(for: $0) }
+    }
+
+    /// Navigation state for a tab (breadcrumb + forward stacks).
+    func navState(forTab tabPageId: String) -> NoteNavigationState? {
+        navigationStates[tabPageId]
+    }
+
+    /// Read cursor position and scroll fraction from the live NSTextView in a note window.
+    func editorState(for pageId: String) -> (cursor: Int, scrollFraction: Double)? {
+        guard let window = windows[pageId] else { return nil }
+        guard let textView = Self.findTextView(in: window.contentView) else { return nil }
+        let cursor = textView.selectedRange().location
+        let scroll: Double
+        if let scrollView = textView.enclosingScrollView,
+           let docHeight = scrollView.documentView?.bounds.height, docHeight > 0 {
+            scroll = scrollView.contentView.bounds.origin.y / docHeight
+        } else {
+            scroll = 0
+        }
+        return (cursor, scroll)
+    }
+
+    private static func findTextView(in view: NSView?) -> NSTextView? {
+        guard let view else { return nil }
+        if let tv = view as? NSTextView { return tv }
+        for sub in view.subviews {
+            if let found = findTextView(in: sub) { return found }
+        }
+        return nil
     }
 
     func resetForVaultRebuild() {

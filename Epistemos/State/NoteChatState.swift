@@ -103,6 +103,8 @@ final class NoteChatState {
         useResponsePanel = true
         responseText.reserveCapacity(16_384)
 
+        AppBootstrap.shared?.activityTracker.recordChatMessage(chatId: pageId, snippet: trimmed)
+
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
         // Build prompt with conversation history for follow-ups
