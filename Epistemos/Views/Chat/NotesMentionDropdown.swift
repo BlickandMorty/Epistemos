@@ -235,8 +235,10 @@ final class ComposerReferenceSearchState {
 struct ComposerContextShortcutBar: View {
     let noteLabel: String
     let vaultLabel: String
+    var chatLabel: String = "Chat with Chat"
     let onChatWithNote: () -> Void
     let onChatWithVault: () -> Void
+    var onChatWithChat: (() -> Void)? = nil
 
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
@@ -253,6 +255,13 @@ struct ComposerContextShortcutBar: View {
                 icon: "books.vertical",
                 action: onChatWithVault
             )
+            if let onChatWithChat {
+                actionButton(
+                    title: chatLabel,
+                    icon: "bubble.left.and.bubble.right",
+                    action: onChatWithChat
+                )
+            }
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -282,11 +291,13 @@ struct ComposerContextShortcutBar: View {
 enum ComposerReferencePopoverStyle {
     case mention
     case notePicker
+    case chatPicker
 
     var idealWidth: CGFloat {
         switch self {
         case .mention: 560
         case .notePicker: 760
+        case .chatPicker: 560
         }
     }
 
@@ -294,6 +305,7 @@ enum ComposerReferencePopoverStyle {
         switch self {
         case .mention: 420
         case .notePicker: 560
+        case .chatPicker: 460
         }
     }
 
@@ -301,13 +313,14 @@ enum ComposerReferencePopoverStyle {
         switch self {
         case .mention: 62
         case .notePicker: 96
+        case .chatPicker: 62
         }
     }
 
     var preferredEdge: NSRectEdge {
         switch self {
         case .mention: .maxY
-        case .notePicker: .minY
+        case .notePicker, .chatPicker: .minY
         }
     }
 }
@@ -507,7 +520,17 @@ private struct ComposerReferencePopoverContent: View {
 
     @ViewBuilder
     private var popoverContent: some View {
-        if style == .notePicker {
+        if style == .chatPicker {
+            VStack(alignment: .leading, spacing: 0) {
+                popoverHeader
+                popoverSearchField
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
+                Divider()
+                    .overlay(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.28))
+                resultsScrollContent
+            }
+        } else if style == .notePicker {
             HStack(spacing: 0) {
                 notePickerSidebar
                     .frame(width: min(220, width * 0.3), alignment: .topLeading)
@@ -658,6 +681,11 @@ private struct ComposerReferencePopoverContent: View {
     }
 
     private var popoverSubtitle: String {
+        if style == .chatPicker {
+            return results.query.isEmpty
+                ? "Search your past conversations to reference or ask about them."
+                : "Search your past conversations to reference or ask about them."
+        }
         if style == .notePicker {
             return results.query.isEmpty
                 ? "Search your notes and chats, then attach the exact context you want in this turn."
@@ -670,6 +698,9 @@ private struct ComposerReferencePopoverContent: View {
     }
 
     private var headerTitle: String {
+        if style == .chatPicker {
+            return results.query.isEmpty ? "Browse Conversations" : "Search Chats"
+        }
         if style == .notePicker {
             return results.query.isEmpty ? "Find Note Context" : "Search Results"
         }
@@ -677,6 +708,9 @@ private struct ComposerReferencePopoverContent: View {
     }
 
     private var headerIcon: String {
+        if style == .chatPicker {
+            return results.query.isEmpty ? "bubble.left.and.bubble.right.fill" : "magnifyingglass"
+        }
         if style == .notePicker {
             return "magnifyingglass"
         }
@@ -798,16 +832,23 @@ struct NotesMentionDropdown: View {
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
 
+    private var showNotes: Bool { style != .chatPicker }
+    private var showChats: Bool { true }
+
+    private var hasResults: Bool {
+        (showNotes && !results.notes.isEmpty) || (showChats && !results.chats.isEmpty)
+    }
+
     var body: some View {
-        if results.notes.isEmpty && results.chats.isEmpty {
+        if !hasResults {
             emptyState
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                if results.vaultNoteCount > 0 {
+                if showNotes && results.vaultNoteCount > 0 {
                     vaultSummaryHeader
                 }
 
-                if !results.notes.isEmpty {
+                if showNotes && !results.notes.isEmpty {
                     sectionHeader("Notes")
                     ForEach(results.notes) { choice in
                         Button { onSelect(.note(choice)) } label: {
@@ -817,8 +858,8 @@ struct NotesMentionDropdown: View {
                     }
                 }
 
-                if !results.chats.isEmpty {
-                    if !results.notes.isEmpty {
+                if showChats && !results.chats.isEmpty {
+                    if showNotes && !results.notes.isEmpty {
                         Divider()
                             .padding(.vertical, 4)
                     }
@@ -836,12 +877,14 @@ struct NotesMentionDropdown: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("No matching notes or chats", systemImage: "sparkle.magnifyingglass")
+            Label(style == .chatPicker ? "No matching conversations" : "No matching notes or chats", systemImage: "sparkle.magnifyingglass")
                 .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
                 .foregroundStyle(theme.foreground)
-            Text(results.vaultNoteCount > 0
-                 ? "Search checks note titles, folders, tags, and snippets across your vault."
-                 : "Attach a vault to browse notes here, or keep typing to search chats.")
+            Text(style == .chatPicker
+                 ? "Search your past conversations by topic, question, or content."
+                 : (results.vaultNoteCount > 0
+                    ? "Search checks note titles, folders, tags, and snippets across your vault."
+                    : "Attach a vault to browse notes here, or keep typing to search chats."))
                 .font(.system(size: style == .notePicker ? 11.5 : 11))
                 .foregroundStyle(theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -393,7 +393,8 @@ struct LandingView: View {
                                 noteLabel: "Chat with Note",
                                 vaultLabel: "Chat with Vault",
                                 onChatWithNote: openLandingNotePicker,
-                                onChatWithVault: attachLandingVaultContext
+                                onChatWithVault: attachLandingVaultContext,
+                                onChatWithChat: openLandingChatPicker
                             )
 
                             landingInferenceControl
@@ -510,6 +511,15 @@ struct LandingView: View {
         }
         chat.submitQuery(trimmed)
         ui.setActivePanel(.home)
+    }
+
+    private func openLandingChatPicker() {
+        landingReferencePopoverStyle = .chatPicker
+        landingMentionFilter = ""
+        landingMentionPickerAutofocus = true
+        showLandingMentionDropdown = true
+        isLandingSearchFocused = true
+        landingReferenceSearch.reset()
     }
 
     private func openLandingNotePicker() {

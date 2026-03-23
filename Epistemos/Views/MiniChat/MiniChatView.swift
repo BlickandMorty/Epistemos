@@ -635,7 +635,8 @@ private struct MiniChatInputBar: View {
                         noteLabel: "Chat with Note",
                         vaultLabel: "Chat with Vault",
                         onChatWithNote: openNotePicker,
-                        onChatWithVault: attachVaultContext
+                        onChatWithVault: attachVaultContext,
+                        onChatWithChat: openChatPicker
                     )
 
                     LocalModelToolbarMenu(variant: .toolbar)
@@ -1223,6 +1224,15 @@ private struct MiniChatInputBar: View {
         referencePopoverStyle = .mention
         mentionPickerAutofocus = false
         mentionFilter = ""
+        referenceSearch.reset()
+    }
+
+    private func openChatPicker() {
+        referencePopoverStyle = .chatPicker
+        mentionFilter = ""
+        mentionPickerAutofocus = true
+        showMentionDropdown = true
+        isFocused = true
         referenceSearch.reset()
     }
 
