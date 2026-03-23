@@ -4,16 +4,14 @@ import AppKit
 
 enum GraphMiniPanelLayout {
     static let defaultSide: CGFloat = 620
-    static let horizontalBias: CGFloat = 78
     static let screenPadding: CGFloat = 24
 
     static func frame(in visibleFrame: NSRect) -> NSRect {
         let availableSquare = max(240, min(visibleFrame.width, visibleFrame.height) - screenPadding * 2)
         let side = min(defaultSide, availableSquare)
-        let x = min(
-            max(visibleFrame.midX - side * 0.5 + horizontalBias, visibleFrame.minX + screenPadding),
-            visibleFrame.maxX - side - screenPadding
-        )
+        // Pin to the right edge of the screen so the left side stays clear
+        // for the note editor window.
+        let x = visibleFrame.maxX - side - screenPadding
         let y = min(
             max(visibleFrame.midY - side * 0.5, visibleFrame.minY + screenPadding),
             visibleFrame.maxY - side - screenPadding
@@ -133,6 +131,11 @@ final class HologramOverlay {
     private var noteWindowResizeObserver: Any?
     // KVO observation for system appearance (light/dark mode) changes.
     private var appearanceObserver: NSKeyValueObservation?
+    // Draggable toolbar and sidebar hosting views.
+    private var controlsHostView: NSHostingView<AnyView>?
+    private var sidebarHostView: NSHostingView<AnyView>?
+    private var controlsConstraints: [NSLayoutConstraint] = []
+    private var sidebarConstraints: [NSLayoutConstraint] = []
 
     // Mini floating panel (chromeless glass float).
     private var miniPanel: GraphOverlayPanel?
@@ -157,6 +160,9 @@ final class HologramOverlay {
     // Parent window miniaturize observers
     private var parentMiniaturizeObserver: Any?
     private var parentDeminiaturizeObserver: Any?
+    /// True after the overlay has been shown at least once this session.
+    /// The very first open uses a longer delay to hide engine initialization.
+    private var hasShownBefore = false
 
     init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
         self.graphState = graphState
@@ -237,10 +243,25 @@ final class HologramOverlay {
             window.makeFirstResponder(metalView)
         }
 
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.3
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            window.animator().alphaValue = 1.0
+        // On the very first open, delay the fade-in so the engine has time to
+        // create Metal pipelines, load graph data, and run the initial commit.
+        // This hides the initialization freeze behind a smooth transition.
+        // Subsequent opens reuse the cached engine and skip this delay.
+        let isFirstOpen = !hasShownBefore
+        hasShownBefore = true
+        let fadeDelay: TimeInterval = isFirstOpen ? 0.6 : 0.0
+
+        let fadeDuration = isFirstOpen ? 0.5 : 0.3
+        Task { @MainActor [weak window] in
+            if fadeDelay > 0 {
+                try? await Task.sleep(for: .seconds(fadeDelay))
+            }
+            guard let window else { return }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = fadeDuration
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                window.animator().alphaValue = 1.0
+            }, completionHandler: {})
         }
     }
 
@@ -704,12 +725,9 @@ final class HologramOverlay {
 
         lastQueuedInspectorAnchor = currentAnchor
         lastQueuedInspectorMode = currentMode
-        inspectorRepositionTask?.cancel()
-        inspectorRepositionTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(32))
-            guard !Task.isCancelled, let self else { return }
-            repositionInspector()
-        }
+        // Reposition immediately — no sleep, no task. The observation loop
+        // already fires at screen-point change frequency (every rendered frame).
+        repositionInspector()
     }
 
     private func shouldQueueInspectorReposition(
@@ -722,7 +740,7 @@ final class HologramOverlay {
         case (nil, nil):
             return false
         case let (lhs?, rhs?):
-            return abs(lhs.x - rhs.x) >= 8.0 || abs(lhs.y - rhs.y) >= 8.0
+            return abs(lhs.x - rhs.x) >= 1.0 || abs(lhs.y - rhs.y) >= 1.0
         default:
             return true
         }
@@ -781,8 +799,8 @@ final class HologramOverlay {
 
     private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool {
         guard let existing = lastInspectorFrame else { return true }
-        return abs(existing.origin.x - targetFrame.origin.x) >= 4.0
-            || abs(existing.origin.y - targetFrame.origin.y) >= 4.0
+        return abs(existing.origin.x - targetFrame.origin.x) >= 0.5
+            || abs(existing.origin.y - targetFrame.origin.y) >= 0.5
             || abs(existing.size.width - targetFrame.size.width) >= 0.5
             || abs(existing.size.height - targetFrame.size.height) >= 0.5
     }
@@ -1005,6 +1023,52 @@ final class HologramOverlay {
         updateMiniPanelTint(miniInspectorPanel, theme: theme)
     }
 
+    // MARK: - Draggable Panels
+
+    /// Drag origin for the controls toolbar.
+    private var controlsDragOrigin: CGPoint = .zero
+    /// Drag origin for the sidebar.
+    private var sidebarDragOrigin: CGPoint = .zero
+
+    @objc private func handleControlsDrag(_ gesture: NSPanGestureRecognizer) {
+        guard let view = gesture.view, let superview = view.superview else { return }
+        switch gesture.state {
+        case .began:
+            // Switch from constraints to frame-based positioning on first drag.
+            NSLayoutConstraint.deactivate(controlsConstraints)
+            view.translatesAutoresizingMaskIntoConstraints = true
+            controlsDragOrigin = view.frame.origin
+        case .changed:
+            let translation = gesture.translation(in: superview)
+            view.frame.origin = CGPoint(
+                x: controlsDragOrigin.x + translation.x,
+                y: controlsDragOrigin.y + translation.y
+            )
+        case .ended, .cancelled:
+            controlsDragOrigin = view.frame.origin
+        default: break
+        }
+    }
+
+    @objc private func handleSidebarDrag(_ gesture: NSPanGestureRecognizer) {
+        guard let view = gesture.view, let superview = view.superview else { return }
+        switch gesture.state {
+        case .began:
+            NSLayoutConstraint.deactivate(sidebarConstraints)
+            view.translatesAutoresizingMaskIntoConstraints = true
+            sidebarDragOrigin = view.frame.origin
+        case .changed:
+            let translation = gesture.translation(in: superview)
+            view.frame.origin = CGPoint(
+                x: sidebarDragOrigin.x + translation.x,
+                y: sidebarDragOrigin.y + translation.y
+            )
+        case .ended, .cancelled:
+            sidebarDragOrigin = view.frame.origin
+        default: break
+        }
+    }
+
     /// Destroy all views and the Rust engine to free GPU/CPU memory.
     /// Called after the fade-out animation completes.
     private func teardown() {
@@ -1122,7 +1186,7 @@ final class HologramOverlay {
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
 
-        // Floating controls (SwiftUI hosted at the bottom).
+        // Floating controls (SwiftUI hosted — draggable).
         let controlsView = NSHostingView(
             rootView: HologramOverlayHostedViewBuilder.root(
                 GraphFloatingControls()
@@ -1130,14 +1194,20 @@ final class HologramOverlay {
         )
         controlsView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(controlsView)
+        self.controlsHostView = controlsView as? NSHostingView<AnyView>
 
-        NSLayoutConstraint.activate([
+        let ctrlConstraints = [
             controlsView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            controlsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40),
+            controlsView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 56),
             controlsView.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, constant: -80),
-        ])
+        ]
+        NSLayoutConstraint.activate(ctrlConstraints)
+        self.controlsConstraints = ctrlConstraints
 
-        // Search sidebar (SwiftUI hosted on the left).
+        let ctrlDrag = NSPanGestureRecognizer(target: self, action: #selector(handleControlsDrag(_:)))
+        controlsView.addGestureRecognizer(ctrlDrag)
+
+        // Search sidebar (SwiftUI hosted — draggable).
         let sidebarRoot = HologramSearchSidebar { [weak graphView, weak self] uuid in
             graphView?.isolateNode(uuid)
             self?.graphState.selectNode(uuid)
@@ -1147,11 +1217,14 @@ final class HologramOverlay {
         )
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(sidebarView)
+        self.sidebarHostView = sidebarView as? NSHostingView<AnyView>
 
-        NSLayoutConstraint.activate([
+        let sbConstraints = [
             sidebarView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             sidebarView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 60),
-        ])
+        ]
+        NSLayoutConstraint.activate(sbConstraints)
+        self.sidebarConstraints = sbConstraints
 
         // Node inspector panel (SwiftUI hosted, follows selected node).
         if let modelContainer {
@@ -1270,3 +1343,4 @@ final class HologramOverlay {
     }
 
 }
+

@@ -219,7 +219,7 @@ private struct MessageToolbar: View {
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             // Copy the visible answer only.
             Button {
                 let fullContent = buildFullExport(message: message)
@@ -232,6 +232,7 @@ private struct MessageToolbar: View {
                 }
             } label: {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(copied ? theme.success : .secondary)
             }
             .buttonStyle(NativeToolbarButtonStyle())
@@ -249,6 +250,7 @@ private struct MessageToolbar: View {
                 }
             } label: {
                 Image(systemName: "note.text.badge.plus")
+                    .font(.system(size: 12, weight: .medium))
             }
             .buttonStyle(NativeToolbarButtonStyle())
             .help("Send to Notes")
@@ -267,6 +269,7 @@ private struct MessageToolbar: View {
                 }
             } label: {
                 Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 12, weight: .medium))
             }
             .buttonStyle(NativeToolbarButtonStyle())
             .help("Export as Markdown")
@@ -278,37 +281,12 @@ private struct MessageToolbar: View {
                     onResubmit(originalQuery ?? String(message.content.prefix(200)))
                 } label: {
                     Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .medium))
                 }
                 .buttonStyle(NativeToolbarButtonStyle())
                 .help("Resubmit this query")
                 .accessibilityLabel("Resubmit this query")
             }
-
-            // Thumbs up
-            Button {
-                withAnimation(Motion.quick) {
-                    rating = rating == .up ? nil : .up
-                }
-            } label: {
-                Image(systemName: rating == .up ? "hand.thumbsup.fill" : "hand.thumbsup")
-                    .foregroundStyle(rating == .up ? theme.success : .secondary)
-            }
-            .buttonStyle(NativeToolbarButtonStyle())
-            .help("Good response")
-            .accessibilityLabel("Good response")
-
-            // Thumbs down
-            Button {
-                withAnimation(Motion.quick) {
-                    rating = rating == .down ? nil : .down
-                }
-            } label: {
-                Image(systemName: rating == .down ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                    .foregroundStyle(rating == .down ? theme.error : .secondary)
-            }
-            .buttonStyle(NativeToolbarButtonStyle())
-            .help("Poor response")
-            .accessibilityLabel("Poor response")
         }
     }
 

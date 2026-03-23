@@ -49,14 +49,17 @@ fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Duration) {
         return (24, Duration::from_millis(2));
     }
 
+    // Generous pre-settle budgets so the graph opens with nodes already near
+    // equilibrium. Without enough ticks, nodes start visibly spread out and
+    // "get sucked in" during the first few rendered frames.
     if node_count < 128 {
-        (180, Duration::from_millis(12))
+        (300, Duration::from_millis(25))
     } else if node_count < 512 {
-        (120, Duration::from_millis(10))
+        (200, Duration::from_millis(20))
     } else if node_count < 1_200 {
-        (72, Duration::from_millis(8))
+        (120, Duration::from_millis(16))
     } else {
-        (36, Duration::from_millis(6))
+        (60, Duration::from_millis(10))
     }
 }
 
@@ -122,6 +125,12 @@ pub struct Engine {
     /// Used to throttle render calls when idle.
     idle_frame_count: u32,
 
+    /// Timestamp of the last commit(). During a grace period after commit,
+    /// viewport culling is disabled so ALL nodes participate in physics —
+    /// not just the ones currently on-screen. This ensures off-screen nodes
+    /// reach equilibrium before the user zooms out and sees them.
+    commit_instant: Instant,
+
     /// Fuzzy search index over node labels, rebuilt on commit().
     pub(crate) search_index: crate::search::SearchIndex,
 
@@ -184,6 +193,7 @@ impl Engine {
             anchor_rect: None,
             uuid_buf: None,
             idle_frame_count: 0,
+            commit_instant: Instant::now(),
             search_index: crate::search::SearchIndex::new(),
             embedding_store: EmbeddingStore::new(crate::embedding::DEFAULT_DIM),
             prepared_retrieval_store: None,
@@ -208,6 +218,7 @@ impl Engine {
     pub fn commit(&mut self, entrance: bool) {
         // Wake rendering for the new graph data.
         self.idle_frame_count = 0;
+        self.commit_instant = Instant::now();
 
         // Fresh graph load: clear user freeze so physics starts fresh.
         // User must explicitly re-freeze if they want static layout.
@@ -227,9 +238,10 @@ impl Engine {
             use std::collections::VecDeque;
             let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());
 
-            // Child placement distance: slightly under link_distance so springs
-            // gently push outward rather than needing to pull inward from far away.
-            let child_spacing = 150.0_f32;
+            // Child placement distance: compact enough that the pre-settle physics
+            // only needs fine-tuning, not long-range hauling. Keeps the graph
+            // visually stable from the very first rendered frame.
+            let child_spacing = 80.0_f32;
 
             // Build adjacency list from graph edges.
             let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
@@ -344,6 +356,18 @@ impl Engine {
                         }
                     }
                 }
+
+                if entrance {
+                    // Zero velocities so the first frame is still, then set a
+                    // low alpha so physics gently nudges nodes into their
+                    // force-directed equilibrium (the tight ball) without the
+                    // violent "sucked in" snap that high alpha causes.
+                    for v in sim.vx.iter_mut() { *v = 0.0; }
+                    for v in sim.vy.iter_mut() { *v = 0.0; }
+                    sim.params.alpha = 0.008;
+                    sim.params.alpha_decay = 0.008;
+                }
+
                 if !entrance {
                     sim.sustain_interaction_motion_for(
                         INTERACTION_MOTION_HOLD,
@@ -635,8 +659,12 @@ impl Engine {
         let (sim_active, haptic_event, _is_frozen) = {
             let mut sim = self.sim.lock();
             // Pass viewport bounds for scoped physics (Phase 4 optimization).
-            // At low zoom or when frozen, simulate all nodes (viewport covers everything).
-            if sim.user_frozen || self.renderer.camera_zoom < 0.3 {
+            // At low zoom, when frozen, or within 3s of a commit, simulate ALL nodes.
+            // The post-commit grace period ensures off-screen nodes reach equilibrium
+            // before the user zooms out — prevents the "crystal" layout artifact where
+            // nodes outside the initial viewport stay in their BFS positions.
+            let in_settle_grace = self.commit_instant.elapsed() < Duration::from_secs(3);
+            if sim.user_frozen || self.renderer.camera_zoom < 0.3 || in_settle_grace {
                 sim.viewport_bounds = None;
             } else {
                 let vp = viewport_bounds(
@@ -2240,7 +2268,7 @@ mod tests {
             ticks < 1_200,
             "entrance pre-settle should no longer block on 1200 ticks"
         );
-        assert!(budget <= Duration::from_millis(6));
+        assert!(budget <= Duration::from_millis(10));
     }
 
     #[test]

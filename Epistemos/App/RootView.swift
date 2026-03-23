@@ -413,36 +413,46 @@ struct LocalModelToolbarMenu: View {
     }
 
     var body: some View {
-        Menu {
-            if inference.appleIntelligenceAvailable {
-                appleIntelligenceButton
-                
-                if !installedSelectableModels.isEmpty {
-                    Divider()
-                }
-            }
-
-            if !installedSelectableModels.isEmpty {
-                localModelsSection
-            } else if !inference.appleIntelligenceAvailable {
-                Text("No supported local models installed")
-            }
-
-            Divider()
-
-            cloudModelSection
-
-            Divider()
-
-            settingsSection
-        } label: {
+        if overrideTitle != nil {
+            // Toolbar title — plain label, no menu interaction.
             menuLabel
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .help(labelText)
+                .accessibilityLabel(labelText)
+        } else {
+            // Input bar model selector — full menu.
+            Menu {
+                if inference.appleIntelligenceAvailable {
+                    appleIntelligenceButton
+
+                    if !installedSelectableModels.isEmpty {
+                        Divider()
+                    }
+                }
+
+                if !installedSelectableModels.isEmpty {
+                    localModelsSection
+                } else if !inference.appleIntelligenceAvailable {
+                    Text("No supported local models installed")
+                }
+
+                Divider()
+
+                cloudModelSection
+
+                Divider()
+
+                settingsSection
+            } label: {
+                menuLabel
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(labelText)
+            .accessibilityLabel(labelText)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(labelText)
-        .accessibilityLabel(labelText)
     }
 
     @ViewBuilder
@@ -501,9 +511,8 @@ struct LocalModelToolbarMenu: View {
                     configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
                 )
             }
-            Image(systemName: "chevron.down")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(theme.textTertiary)
+            // Chevron removed — the title acts as a clean label.
+            // The menu is still accessible via click; no visual dropdown indicator.
         }
         .fixedSize()
     }

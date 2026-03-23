@@ -343,6 +343,7 @@ final class GraphState {
     }
 
     var isLoaded = false
+    var isWarmed = false
     /// True after the entrance animation has played once. Prevents replay on re-open.
     var hasPlayedEntrance = false
     var isScanning = false

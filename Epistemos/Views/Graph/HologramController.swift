@@ -103,6 +103,10 @@ final class HologramController {
         prepareOverlayForGlobalMode()
     }
 
+    func minimize() {
+        overlay?.minimize()
+    }
+
     func syncTheme(_ uiState: UIState) {
         overlay?.syncTheme(uiState: uiState)
     }

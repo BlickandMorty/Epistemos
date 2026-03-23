@@ -71,12 +71,40 @@ struct LandingGreetingPhrase: Equatable, Sendable {
 }
 
 enum LandingGreetingResolver {
-    static let defaultPlaylist: [LandingGreetingPhrase] = [
-        LandingGreetingPhrase(text: LiquidGreeting.restingGreeting, durationSeconds: 2.8),
-        LandingGreetingPhrase(text: "Greetings, Researcher", durationSeconds: 3.0),
-        LandingGreetingPhrase(text: "Sup, Brainiac!", durationSeconds: 2.6),
-        LandingGreetingPhrase(text: "click me to search…", durationSeconds: 2.4),
-    ]
+    static let defaultPlaylist: [LandingGreetingPhrase] = {
+        // Title greetings — cycle through personas.
+        let titles: [LandingGreetingPhrase] = [
+            LandingGreetingPhrase(text: LiquidGreeting.restingGreeting, durationSeconds: 2.8),
+            LandingGreetingPhrase(text: "Greetings, Researcher", durationSeconds: 2.4),
+            LandingGreetingPhrase(text: "Greetings, Student", durationSeconds: 2.4),
+            LandingGreetingPhrase(text: "Greetings, Engineer??", durationSeconds: 2.6),
+        ]
+
+        // Instructional phrases.
+        let instructions: [LandingGreetingPhrase] = [
+            LandingGreetingPhrase(text: "click anywhere to chat", durationSeconds: 2.6),
+            LandingGreetingPhrase(text: "chat with notes, maybe an old chat", durationSeconds: 3.0),
+            LandingGreetingPhrase(text: "you can literally ask me to chat about other chats...", durationSeconds: 3.2),
+        ]
+
+        // Fun facts about Epistemos — things users might not know.
+        let facts: [LandingGreetingPhrase] = [
+            LandingGreetingPhrase(text: "your notes are embedded into vectors for semantic search", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "the graph runs on a Rust physics engine at 120fps", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "try attaching a note to your chat for context-aware answers", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "Cmd+G opens the knowledge graph — your ideas visualized", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "AI runs entirely on-device — your data never leaves your Mac", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "right-click a graph node to open the note directly", durationSeconds: 3.0),
+            LandingGreetingPhrase(text: "wikilinks connect your notes — type [[note name]] anywhere", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "block references let you embed paragraphs across notes", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "your vault syncs to markdown files — portable, forever yours", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "the AI can analyze connections between your notes automatically", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "try asking me to summarize, expand, or restructure your writing", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "shift-click a graph node to highlight its neighborhood", durationSeconds: 3.0),
+        ]
+
+        return titles + instructions + facts
+    }()
 
     static func resolve(
         sourceMode: LandingGreetingSourceMode,

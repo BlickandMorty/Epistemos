@@ -755,7 +755,7 @@ private struct MiniChatInputBar: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .background(theme.mutedForeground.opacity(0.08), in: Capsule())
                     .foregroundStyle(theme.mutedForeground.opacity(0.7))
                 }
             }
@@ -1093,6 +1093,7 @@ private struct MiniChatInputBar: View {
                     systemPrompt: nil,
                     operation: .chatResponse(query: trimmed),
                     contentLength: contentLength,
+                    localReasoningMode: .fast,
                     localSurface: .miniChat
                 ) {
                     guard !Task.isCancelled else { break }

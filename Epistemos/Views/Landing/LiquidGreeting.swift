@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LiquidGreeting: View {
-    nonisolated static let restingGreeting = "welcome back"
+    nonisolated static let restingGreeting = "Greetings, Twin"
 
     @Environment(UIState.self) private var ui
     var compact: Bool = false
@@ -84,14 +84,22 @@ struct LiquidGreeting: View {
 
         var phraseIndex = 0
         while !Task.isCancelled {
-            let phrase = activePlaylist[phraseIndex]
-            await typePhrase(phrase.text)
+            let current = activePlaylist[phraseIndex]
+            let next = activePlaylist[(phraseIndex + 1) % activePlaylist.count]
+
+            // Type the current phrase (from whatever is already on screen).
+            let keepFrom = sharedPrefixLength(displayText, current.text)
+            await typeFrom(current.text, startAt: keepFrom)
             guard !Task.isCancelled else { return }
 
-            try? await Task.sleep(for: .seconds(phrase.durationSeconds))
+            // Hold.
+            try? await Task.sleep(for: .seconds(current.durationSeconds))
             guard !Task.isCancelled else { return }
 
-            await untypePhrase(phrase.text)
+            // Backspace only the suffix that differs from the next phrase.
+            // e.g. "Greetings, Brainiac" → "Greetings, Researcher" only erases "Brainiac".
+            let keepTo = sharedPrefixLength(current.text, next.text)
+            await untypeTo(current.text, stopAt: keepTo)
             guard !Task.isCancelled else { return }
 
             try? await Task.sleep(for: .milliseconds(320))
@@ -99,14 +107,26 @@ struct LiquidGreeting: View {
         }
     }
 
+    /// Number of leading characters shared between two strings.
+    private func sharedPrefixLength(_ a: String, _ b: String) -> Int {
+        var count = 0
+        for (ca, cb) in zip(a, b) {
+            guard ca == cb else { break }
+            count += 1
+        }
+        return count
+    }
+
     @MainActor
-    private func typePhrase(_ phrase: String) async {
+    private func typeFrom(_ phrase: String, startAt: Int) async {
         guard !phrase.isEmpty else {
             displayText = ""
             return
         }
-
-        for index in 1...phrase.count {
+        // Skip characters already on screen.
+        let start = max(startAt, 0)
+        if start == 0 { displayText = "" }
+        for index in (start + 1)...phrase.count {
             guard !Task.isCancelled else { return }
             displayText = String(phrase.prefix(index))
             try? await Task.sleep(for: .milliseconds(Int.random(in: 45...75)))
@@ -114,9 +134,10 @@ struct LiquidGreeting: View {
     }
 
     @MainActor
-    private func untypePhrase(_ phrase: String) async {
+    private func untypeTo(_ phrase: String, stopAt: Int) async {
         var index = phrase.count
-        while index > 0 && !Task.isCancelled {
+        let floor = max(stopAt, 0)
+        while index > floor && !Task.isCancelled {
             index -= 1
             displayText = String(phrase.prefix(index))
             try? await Task.sleep(for: .milliseconds(Int.random(in: 20...40)))

@@ -685,7 +685,8 @@ struct NoteWindowManagerTests {
         #expect(frame.width == frame.height)
         #expect(frame.width == GraphMiniPanelLayout.defaultSide)
         #expect(frame.midY == visible.midY)
-        #expect(frame.midX == visible.midX + GraphMiniPanelLayout.horizontalBias)
+        // Mini panel is pinned to the right edge of the screen.
+        #expect(frame.maxX == visible.maxX - GraphMiniPanelLayout.screenPadding)
         #expect(frame.maxX <= visible.maxX - GraphMiniPanelLayout.screenPadding)
         #expect(frame.minX >= visible.minX + GraphMiniPanelLayout.screenPadding)
         #expect(frame.minY >= visible.minY + GraphMiniPanelLayout.screenPadding)

@@ -168,10 +168,11 @@ func graphDisplayLinkTransition(
     return hasDisplayLink ? .stop : .none
 }
 
-nonisolated func makeVisibleNodeBatchPayload<Nodes: Collection>(
+@MainActor
+func makeVisibleNodeBatchPayload<Nodes: Collection>(
     from nodes: Nodes,
-    store: GraphStoreSnapshot,
-    filter: GraphFilterSnapshot
+    store: GraphStore,
+    filter: FilterEngine
 ) -> GraphNodeBatchPayload where Nodes.Element == GraphNodeRecord {
     var payload = GraphNodeBatchPayload()
     payload.ids.reserveCapacity(nodes.count)
@@ -193,10 +194,11 @@ nonisolated func makeVisibleNodeBatchPayload<Nodes: Collection>(
     return payload
 }
 
-nonisolated func makeVisibleEdgeBatchPayload<Edges: Collection>(
+@MainActor
+func makeVisibleEdgeBatchPayload<Edges: Collection>(
     from edges: Edges,
-    store: GraphStoreSnapshot,
-    filter: GraphFilterSnapshot
+    store: GraphStore,
+    filter: FilterEngine
 ) -> GraphEdgeBatchPayload where Edges.Element == GraphEdgeRecord {
     var payload = GraphEdgeBatchPayload()
     payload.sourceIds.reserveCapacity(edges.count)
@@ -461,7 +463,7 @@ final class MetalGraphNSView: NSView {
     private var pendingSelectedNodeScreenPoint: CGPoint?
     private var selectedNodeScreenPointStableFrames = 0
     private var selectedNodeScreenPointSampleFrame = 0
-    private let selectedNodeScreenPointSampleIntervalFrames = 3
+    private let selectedNodeScreenPointSampleIntervalFrames = 1
 
     // Track whether graph data has been committed.
     private(set) var isCommitted = false
@@ -534,6 +536,7 @@ final class MetalGraphNSView: NSView {
         let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
         engine = graph_engine_create(devicePtr, layerPtr)
         graphState?.engineHandle = engine
+        graphState?.isWarmed = true
 
         startDisplayLink()
     }
@@ -594,103 +597,80 @@ final class MetalGraphNSView: NSView {
     /// N individual calls (critical for 10K+ node performance).
     func commitGraphData() {
         let interval = Log.graphPerf.beginInterval("commitGraphData")
-        guard let engine, let graphState else {
-            Log.graphPerf.endInterval("commitGraphData", interval)
-            return
-        }
+        defer { Log.graphPerf.endInterval("commitGraphData", interval) }
+        guard let engine, let graphState else { return }
+        let store = graphState.store
+        let filter = graphState.filter
 
-        // 1. Capture thread-safe snapshots of current state on the MainActor.
-        let storeSnapshot = graphState.store.snapshot()
-        let filterSnapshot = graphState.filter.snapshot()
-        let isCommittedBefore = self.isCommitted
-        let playedEntranceBefore = graphState.hasPlayedEntrance
-        let physicsFrozenBefore = graphState.isPhysicsFrozen
-        let nodeCount = graphState.store.nodeCount
-        let staticThreshold = GraphState.staticLayoutThreshold
-
-        // 2. Clear engine immediately to prepare for new batch.
         graph_engine_clear(engine)
 
-        // 3. Offload O(N) payload building to a background thread.
-        // This prevents the 2-3s main thread freeze for large (10K+) graphs.
-        Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self else { return }
+        let nodePayload = makeVisibleNodeBatchPayload(
+            from: store.nodes.values,
+            store: store,
+            filter: filter
+        )
+        sendNodeBatch(nodePayload, to: engine)
 
-            let nodePayload = makeVisibleNodeBatchPayload(
-                from: Array(storeSnapshot.nodes.values),
-                store: storeSnapshot,
-                filter: filterSnapshot
-            )
+        let edgePayload = makeVisibleEdgeBatchPayload(
+            from: store.edges.values,
+            store: store,
+            filter: filter
+        )
+        sendEdgeBatch(edgePayload, to: engine)
 
-            let edgePayload = makeVisibleEdgeBatchPayload(
-                from: Array(storeSnapshot.edges.values),
-                store: storeSnapshot,
-                filter: filterSnapshot
-            )
-
-            // 4. Push payloads back to engine on MainActor (FFI requires MainActor).
-            await MainActor.run { [weak self] in
-                guard let self, let engine = self.engine, let graphState = self.graphState else {
-                    Log.graphPerf.endInterval("commitGraphData", interval)
-                    return
-                }
-
-                sendNodeBatch(nodePayload, to: engine)
-                sendEdgeBatch(edgePayload, to: engine)
-
-                // Entrance animation logic.
-                let isSmallGraph = nodeCount <= staticThreshold
-                let entrance: UInt8 = (isCommittedBefore || (!isSmallGraph && playedEntranceBefore)) ? 0 : 1
-                graph_engine_commit(engine, entrance)
-
-                if entrance == 1 {
-                    graphState.hasPlayedEntrance = true
-                    if physicsFrozenBefore {
-                        graphState.isPhysicsFrozen = false
-                        graphState.physicsFrozenVersion += 1
-                        graphState.savePhysicsSettings()
-                    }
-                }
-
-                graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
-
-                self.pushForceParams()
-                self.pushExtendedForceParams()
-                self.pushClusterParams()
-                self.pushSemanticForce()
-                self.pushLabParams()
-                self.applyDialogueDepthPalette()
-
-                // Push graph render mode to Rust.
-                graph_engine_set_quality_level(engine, graphState.qualityLevel)
-                self.lastLiteModeVersion = graphState.liteModeVersion
-
-                // Push visual theme to Rust.
-                graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
-                self.lastVisualThemeVersion = graphState.visualThemeVersion
-
-                if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
-                    self.pushSemanticClusters()
-                    self.lastSemanticClusterVersion = graphState.semanticClusterVersion
-                } else {
-                    self.lastSemanticClusterVersion = -1
-                }
-
-                graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
-                self.lastForceConfigVersion = graphState.forceConfigVersion
-                self.lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
-                self.lastClusterConfigVersion = graphState.clusterConfigVersion
-                self.lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
-                self.lastLabConfigVersion = graphState.labConfigVersion
-                self.lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
-
-                self.isCommitted = true
-                self.needsRender = true
-                Log.graphPerf.endInterval("commitGraphData", interval)
-
-                self.scheduleDeferredNodeMetadataPush()
+        // Entrance animation: always play for small graphs (under static threshold),
+        // skip for large graphs or when already committed (mid-session recommit).
+        let isSmallGraph = graphState.store.nodeCount <= GraphState.staticLayoutThreshold
+        let entrance: UInt8 = (isCommitted || (!isSmallGraph && graphState.hasPlayedEntrance)) ? 0 : 1
+        graph_engine_commit(engine, entrance)
+        if entrance == 1 {
+            graphState.hasPlayedEntrance = true
+            // Rust clears user_frozen on entrance — sync Swift side so the
+            // freeze toggle reflects the actual engine state.
+            if graphState.isPhysicsFrozen {
+                graphState.isPhysicsFrozen = false
+                graphState.physicsFrozenVersion += 1
+                graphState.savePhysicsSettings()
             }
         }
+
+        // Update static layout flag — physics controls grey out when true.
+        graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
+
+        pushForceParams()
+        pushExtendedForceParams()
+        pushClusterParams()
+        pushSemanticForce()
+        pushLabParams()
+
+        // Push graph render mode to Rust.
+        graph_engine_set_quality_level(engine, graphState.qualityLevel)
+        lastLiteModeVersion = graphState.liteModeVersion
+
+        // Push visual theme to Rust.
+        graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
+        applyDialogueDepthPalette()
+        lastVisualThemeVersion = graphState.visualThemeVersion
+
+        if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
+            pushSemanticClusters()
+            lastSemanticClusterVersion = graphState.semanticClusterVersion
+        } else {
+            lastSemanticClusterVersion = -1
+        }
+
+        graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
+        lastForceConfigVersion = graphState.forceConfigVersion
+        lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
+        lastClusterConfigVersion = graphState.clusterConfigVersion
+        lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
+        lastLabConfigVersion = graphState.labConfigVersion
+        lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
+
+        isCommitted = true
+        needsRender = true
+
+        scheduleDeferredNodeMetadataPush()
     }
 
     @MainActor
@@ -726,20 +706,20 @@ final class MetalGraphNSView: NSView {
     /// O(k) where k = pending items, vs O(N) for a full recommit.
     private func commitIncrementalAdds(graphState: GraphState) {
         guard let engine else { return }
-        let storeSnapshot = graphState.store.snapshot()
-        let filterSnapshot = graphState.filter.snapshot()
+        let store = graphState.store
+        let filter = graphState.filter
 
         let nodePayload = makeVisibleNodeBatchPayload(
             from: graphState.pendingNodeAdds,
-            store: storeSnapshot,
-            filter: filterSnapshot
+            store: store,
+            filter: filter
         )
         sendNodeBatch(nodePayload, to: engine)
 
         let edgePayload = makeVisibleEdgeBatchPayload(
             from: graphState.pendingEdgeAdds,
-            store: storeSnapshot,
-            filter: filterSnapshot
+            store: store,
+            filter: filter
         )
         sendEdgeBatch(edgePayload, to: engine)
 
@@ -1085,6 +1065,7 @@ final class MetalGraphNSView: NSView {
                 zoomInClose()
             } else {
                 graph_engine_zoom_to_fit(engine)
+                graph_engine_center_camera(engine)
             }
         }
 
@@ -1127,23 +1108,9 @@ final class MetalGraphNSView: NSView {
                         x: CGFloat(posBuf[0]) / scale,
                         y: bounds.height - CGFloat(posBuf[1]) / scale
                     )
-                    if let pending = pendingSelectedNodeScreenPoint,
-                       abs(pending.x - pt.x) < 2.0, abs(pending.y - pt.y) < 2.0 {
-                        selectedNodeScreenPointStableFrames += 1
-                    } else {
-                        pendingSelectedNodeScreenPoint = pt
-                        selectedNodeScreenPointStableFrames = 0
-                    }
-
-                    if selectedNodeScreenPointStableFrames >= 1 {
-                        if let existing = lastPublishedSelectedNodeScreenPoint,
-                           abs(existing.x - pt.x) < 4.0, abs(existing.y - pt.y) < 4.0 {
-                            // Skip — published anchor hasn't moved enough to matter
-                        } else {
-                            lastPublishedSelectedNodeScreenPoint = pt
-                            graphState?.selectedNodeScreenPoint = pt
-                        }
-                    }
+                    // Publish every frame for smooth inspector tracking.
+                    lastPublishedSelectedNodeScreenPoint = pt
+                    graphState?.selectedNodeScreenPoint = pt
                 } else if graphState?.selectedNodeScreenPoint != nil || sampledSelectedNodeId != nil {
                     resetSelectedNodeScreenPointTracking(for: graphState)
                 }
@@ -1317,21 +1284,12 @@ final class MetalGraphNSView: NSView {
         let menu = NSMenu()
 
         // "Open Note" — only for note-type nodes that have a sourceId.
-        if node.type == .note, node.sourceId != nil {
+        if node.type == .note, let sourceId = node.sourceId {
             let openItem = NSMenuItem(title: "Open Note", action: #selector(contextOpenNote(_:)), keyEquivalent: "")
             openItem.target = self
-            openItem.representedObject = node.sourceId
+            openItem.representedObject = ["pageId": sourceId, "nodeId": uuid]
             openItem.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "Open Note")
             menu.addItem(openItem)
-        }
-
-        // "Edit Note" — inline editor for note-type nodes.
-        if node.type == .note, node.sourceId != nil {
-            let editItem = NSMenuItem(title: "Edit Note", action: #selector(contextEditNote(_:)), keyEquivalent: "")
-            editItem.target = self
-            editItem.representedObject = uuid
-            editItem.image = NSImage(systemSymbolName: "pencil.line", accessibilityDescription: "Edit Note")
-            menu.addItem(editItem)
         }
 
         // "Focus" — zoom into this node's neighborhood.
@@ -1347,7 +1305,13 @@ final class MetalGraphNSView: NSView {
     // MARK: Context Menu Actions
 
     @objc private func contextOpenNote(_ sender: NSMenuItem) {
-        guard let pageId = sender.representedObject as? String else { return }
+        guard let info = sender.representedObject as? [String: String],
+              let pageId = info["pageId"],
+              let nodeId = info["nodeId"] else { return }
+        // Focus the graph on this node, minimize to mini mode, then open the note.
+        isolateNode(nodeId)
+        graphState?.selectNode(nodeId)
+        HologramController.shared.minimize()
         NoteWindowManager.shared.open(pageId: pageId)
     }
 

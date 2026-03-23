@@ -216,6 +216,7 @@
 		C5DEB26A0F8F784F288EFFBF /* GraphSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D91CBE85F690A46A89FBD00 /* GraphSyncTests.swift */; };
 		C60743D68EAB469FDF082106 /* EpistemosShortcutsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F3DBA4481F47B024B088B /* EpistemosShortcutsProvider.swift */; };
 		C8980C716EEE1FBB3D2662E5 /* ProseTextView2AppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C009EB7CCEE00469F8AE4FF /* ProseTextView2AppearanceTests.swift */; };
+		C8D9E0F1A2B3C4D5E6F7A8B9 /* GraphWarmupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3D4E5F6A7B8C9D0E1F2A3 /* GraphWarmupView.swift */; };
 		C9D17154299D8B521AC1A991 /* FFIDataStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0D2AD44CC0DF5C65E22D7F /* FFIDataStructureTests.swift */; };
 		C9E3A3EFAA815C9E250BF631 /* PipelineErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F8256BEE8E59EF5C0CDFC8A /* PipelineErrorTests.swift */; };
 		CB7CE8A9F258F310FE533BD1 /* NoteChatSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E82167680E9AE24CA8BF083 /* NoteChatSidebar.swift */; };
@@ -475,6 +476,7 @@
 		B0FBECC69F77F3F9BC99D936 /* AppKitPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppKitPopover.swift; sourceTree = "<group>"; };
 		B39B3AA6F3003107096F4E6C /* NavigationIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationIntents.swift; sourceTree = "<group>"; };
 		B72D9561314A46255F127AA4 /* MarkdownEditorCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorCommands.swift; sourceTree = "<group>"; };
+		B7C3D4E5F6A7B8C9D0E1F2A3 /* GraphWarmupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphWarmupView.swift; sourceTree = "<group>"; };
 		B920AF680012DC208899993A /* FilterEngineComprehensiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterEngineComprehensiveTests.swift; sourceTree = "<group>"; };
 		B92139C925B971D190F4C2DE /* GraphBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphBuilder.swift; sourceTree = "<group>"; };
 		B980FE6E8ADB38B410D728FC /* LineDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiff.swift; sourceTree = "<group>"; };
@@ -641,6 +643,7 @@
 				5175241C97D791510EE85B37 /* GraphFloatingControls.swift */,
 				E4D53333E338DCA2093CF224 /* GraphForceSettings.swift */,
 				980E414DBA487C5A678E912D /* GraphOverlayPanel.swift */,
+				B7C3D4E5F6A7B8C9D0E1F2A3 /* GraphWarmupView.swift */,
 				32186F0FF89A179A2B0CC5E6 /* HologramController.swift */,
 				3B250D49A16B04364E4C70CC /* HologramNodeInspector.swift */,
 				A11009083D15E102656AC6E6 /* HologramOverlay.swift */,
@@ -1320,6 +1323,7 @@
 				458CD3FDDDB7E115565F58AD /* GraphFloatingControls.swift in Sources */,
 				C5BBCD3F730A7870BEB85964 /* GraphForceSettings.swift in Sources */,
 				F2ACAD05F317D67EFDF283EC /* GraphOverlayPanel.swift in Sources */,
+				C8D9E0F1A2B3C4D5E6F7A8B9 /* GraphWarmupView.swift in Sources */,
 				1147DC3EDD21701EC83C308A /* GraphState.swift in Sources */,
 				8B14A1D34B4C1D377D8043DD /* GraphStore.swift in Sources */,
 				0111829EA017ED2492CC1072 /* GraphTypes.swift in Sources */,

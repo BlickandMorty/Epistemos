@@ -160,8 +160,8 @@ struct HologramSearchSidebar: View {
                 queryContent
             }
         }
-        .frame(width: 280)
-        .frame(maxHeight: 560)
+        .frame(width: 400)
+        .frame(maxHeight: 700)
         .onAppear {
             refreshNotesTreeSnapshotIfNeeded()
         }
@@ -343,8 +343,8 @@ struct HologramSearchSidebar: View {
             // Show NL results if available
             if let result = queryEngine.currentResult {
                 QueryResultsView(result: result, onSelectNode: onSelectNode)
-            } else if let selectedId = graphState.selectedNodeId, let node = graphState.store.nodes[selectedId] {
-                // Context: which node we're querying about
+            } else if let _ = graphState.selectedNodeId, let node = graphState.store.nodes[graphState.selectedNodeId!] {
+                // Context: show which node is selected
                 HStack(spacing: 6) {
                     Circle().fill(node.type.swiftUIColor).frame(width: 6, height: 6)
                     Text(node.label)
@@ -353,61 +353,7 @@ struct HologramSearchSidebar: View {
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 12)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-
-                Divider().opacity(0.2)
-
-                // Quick query buttons
-                ScrollView {
-                    VStack(spacing: 4) {
-                        sectionHeader("Semantic")
-
-                        queryButton("Supports", icon: "checkmark.circle", color: .green) {
-                            graphState.store.query(.supportsOf(nodeId: selectedId))
-                        }
-                        queryButton("Contradicts", icon: "xmark.circle", color: .red) {
-                            graphState.store.query(.contradictsOf(nodeId: selectedId))
-                        }
-                        queryButton("Expands", icon: "arrow.up.left.and.arrow.down.right", color: .blue) {
-                            graphState.store.query(.nodesWithEdgeType(.expands, from: selectedId))
-                        }
-                        queryButton("Questions", icon: "questionmark.circle", color: .orange) {
-                            graphState.store.query(.nodesWithEdgeType(.questions, from: selectedId))
-                        }
-
-                        sectionHeader("Structural")
-
-                        queryButton("Cites", icon: "quote.opening", color: .purple) {
-                            graphState.store.query(.nodesWithEdgeType(.cites, from: selectedId))
-                        }
-                        queryButton("References", icon: "arrow.right", color: .secondary) {
-                            graphState.store.query(.nodesWithEdgeType(.reference, from: selectedId))
-                        }
-                        queryButton("Contains", icon: "folder", color: Color(red: 0.64, green: 0.52, blue: 0.37)) {
-                            graphState.store.query(.nodesWithEdgeType(.contains, from: selectedId))
-                        }
-
-                        if !queryResults.isEmpty {
-                            Divider().opacity(0.2).padding(.vertical, 4)
-
-                            if let label = activeQueryLabel {
-                                Text("\(label) (\(queryResults.count))")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.primary.opacity(0.4))
-                                    .textCase(.uppercase)
-                                    .tracking(0.4)
-                                    .padding(.horizontal, 12)
-                                    .padding(.bottom, 2)
-                            }
-
-                            ForEach(queryResults, id: \.id) { node in
-                                nodeRow(node)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
+                .padding(.vertical, 8)
             } else {
                 // No node selected — show quick presets
                 ScrollView {

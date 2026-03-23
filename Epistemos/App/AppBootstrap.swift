@@ -1,7 +1,9 @@
 import AppIntents
 import AppKit
 import Foundation
+import Metal
 import os
+import QuartzCore
 import SwiftData
 
 // MARK: - App Bootstrap
@@ -254,6 +256,28 @@ final class AppBootstrap {
         // before this Task completes.
         graphState.modelContext = container.mainContext
         Task(priority: .utility) { await graphState.loadGraph(container: container) }
+
+        // Pre-warm Metal shader cache.
+        // The Rust engine compiles Metal shaders from source during graph_engine_create(),
+        // which blocks for 300-800ms on first invocation. Creating a throwaway engine at
+        // launch warms the Metal shader cache so the real engine creation in
+        // MetalGraphNSView.setupMetal() hits the cache and completes in <5ms.
+        //
+        // CAMetalLayer must be created on the main thread (Core Animation requirement),
+        // so we create the layer here and hand it to a background task for engine creation.
+        // The engine creation (shader compilation + pipeline state) runs off-main.
+        let warmupLayer = CAMetalLayer()
+        warmupLayer.pixelFormat = .bgra8Unorm
+        Task.detached(priority: .userInitiated) { [warmupLayer] in
+            guard let device = MTLCreateSystemDefaultDevice() else { return }
+            warmupLayer.device = device
+            let devicePtr = Unmanaged.passUnretained(device).toOpaque()
+            let layerPtr = Unmanaged.passUnretained(warmupLayer).toOpaque()
+            let warmupEngine = graph_engine_create(devicePtr, layerPtr)
+            if let warmupEngine {
+                graph_engine_destroy(warmupEngine)
+            }
+        }
 
         // Configure query engine with live dependencies (used by graph sidebar search).
         // The search index resolves lazily on first query so launch does not pay

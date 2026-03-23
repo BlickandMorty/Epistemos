@@ -105,8 +105,10 @@ struct LandingView: View {
                 .zIndex(0)
                 .appKitPopover(isPresented: $showingSearchPopover, location: tapLocation) {
                     landingSearchPopoverContent
-                        .frame(width: 480)
+                        .frame(width: 520)
+                        .frame(maxHeight: 400)
                         .padding(14)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
             // ── Greeting Mode ──
@@ -180,6 +182,7 @@ struct LandingView: View {
                 LiquidGreeting(retractNow: .constant(false))
             }
             .padding(.horizontal, Spacing.xxl)
+            .allowsHitTesting(false)
 
             Spacer()
 
@@ -267,7 +270,7 @@ struct LandingView: View {
                                     }
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
-                                    .glassEffect(.regular.interactive(), in: Capsule())
+                                    .background(theme.textSecondary.opacity(0.08), in: Capsule())
                                     .foregroundStyle(theme.textSecondary)
                                 }
                             }

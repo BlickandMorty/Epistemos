@@ -844,6 +844,7 @@ struct AssistantSourcesFooter: View {
                         metrics: metrics
                     )
                     .padding(14)
+                    .preferredColorScheme(theme.isDark ? .dark : .light)
                 }
             }
         }
@@ -884,7 +885,6 @@ private struct AssistantSourcesListPanel: View {
             .frame(maxHeight: 320)
         }
         .frame(width: 360, alignment: .leading)
-        .assistantPopoverChrome(theme: theme, metrics: metrics)
     }
 }
 
@@ -1003,6 +1003,7 @@ private struct AssistantSourceChip: View {
         .popover(isPresented: $showsPreview, arrowEdge: .top) {
             AssistantSourcePreviewCard(source: source, theme: theme, metrics: metrics)
                 .padding(14)
+                .preferredColorScheme(theme.isDark ? .dark : .light)
         }
         .onHover { hovering in
             withAnimation(Motion.micro) { isHovered = hovering }
@@ -1077,7 +1078,6 @@ private struct AssistantSourcePreviewCard: View {
             }
         }
         .frame(width: 280, alignment: .leading)
-        .assistantPopoverChrome(theme: theme, metrics: metrics)
     }
 }
 

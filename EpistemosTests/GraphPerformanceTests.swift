@@ -774,8 +774,8 @@ struct GraphPerformanceTests {
 
         let payload = makeVisibleNodeBatchPayload(
             from: fixture.nodes,
-            store: fixture.store.snapshot(),
-            filter: fixture.filter.snapshot()
+            store: fixture.store,
+            filter: fixture.filter
         )
 
         #expect(payload.ids == ["note-a", "note-c"])
@@ -792,8 +792,8 @@ struct GraphPerformanceTests {
 
         let payload = makeVisibleEdgeBatchPayload(
             from: fixture.edges,
-            store: fixture.store.snapshot(),
-            filter: fixture.filter.snapshot()
+            store: fixture.store,
+            filter: fixture.filter
         )
 
         #expect(payload.sourceIds == ["note-a"])
