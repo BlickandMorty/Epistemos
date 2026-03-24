@@ -273,8 +273,8 @@ final class WorkspaceSummaryService {
 
     private func storeSummary(_ text: String) {
         let context = modelContainer.mainContext
-        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-        guard let workspace = try? context.fetch(FetchDescriptor(predicate: predicate)).first else { return }
+        guard let workspace = try? context.fetch(FetchDescriptor<SDWorkspace>())
+            .first(where: { $0.isAutoSave }) else { return }
         workspace.summary = text
         workspace.lastSummaryAt = Date()
         try? context.save()
@@ -282,8 +282,8 @@ final class WorkspaceSummaryService {
 
     private func fetchAutoSaveLastSummaryAt() -> Date? {
         let context = modelContainer.mainContext
-        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-        return try? context.fetch(FetchDescriptor(predicate: predicate)).first?.lastSummaryAt
+        return try? context.fetch(FetchDescriptor<SDWorkspace>())
+            .first(where: { $0.isAutoSave })?.lastSummaryAt
     }
 
     private func fetchPageTitle(pageId: String) -> String? {

@@ -13,6 +13,7 @@ struct SettingsView: View {
         case general = "General"
         case inference = "Inference"
         case knowledgeFusion = "Knowledge Fusion"
+        case omega = "Omega"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -24,6 +25,7 @@ struct SettingsView: View {
             case .general: "gearshape"
             case .inference: "cpu"
             case .knowledgeFusion: "brain.head.profile.fill"
+            case .omega: "cpu.fill"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -52,6 +54,7 @@ struct SettingsView: View {
         case .general: GeneralDetailView()
         case .inference: InferenceDetailView()
         case .knowledgeFusion: KnowledgeFusionDetailView()
+        case .omega: OmegaSettingsDetailView()
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()

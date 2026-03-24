@@ -1040,10 +1040,9 @@ final class ChatCoordinator {
         let context = bootstrap.modelContainer.mainContext
 
         // Latest AI workspace summary
-        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-        if let workspace = try? context.fetch(
-            FetchDescriptor(predicate: predicate)
-        ).first, !workspace.summary.isEmpty {
+        // Note: Uses direct fetch + filter to avoid #Predicate macro expansion scope issue.
+        let allWorkspaces: [SDWorkspace] = (try? context.fetch(FetchDescriptor<SDWorkspace>())) ?? []
+        if let workspace = allWorkspaces.first(where: { $0.isAutoSave }), !workspace.summary.isEmpty {
             parts.append("[Workspace Summary] \(workspace.summary)")
             if !workspace.userNote.isEmpty {
                 parts.append("[User Session Note] \(workspace.userNote)")

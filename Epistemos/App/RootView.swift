@@ -279,6 +279,7 @@ struct RootView: View {
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
             if showLandingToolbarControls {
+                omegaToolbarButton
                 settingsToolbarButton
                 landingGreetingToolbarButton
                 historyToolbarButton
@@ -289,6 +290,16 @@ struct RootView: View {
             }
         }
         .fixedSize()
+    }
+
+    private var omegaToolbarButton: some View {
+        Button {
+            UtilityWindowManager.shared.show(.omega)
+        } label: {
+            Label("Omega", systemImage: "cpu")
+        }
+        .accessibilityLabel("Omega Agent")
+        .help("Omega Agent (⌘4)")
     }
 
     private var settingsToolbarButton: some View {

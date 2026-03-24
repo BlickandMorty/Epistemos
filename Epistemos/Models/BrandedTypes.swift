@@ -39,6 +39,7 @@ enum MessageRole: String, Codable, Sendable {
 enum NavTab: String, Codable, Sendable, CaseIterable {
     case home
     case notes
+    case omega
     case settings
 
     /// Human-readable display name for UI and intents.
@@ -46,6 +47,7 @@ enum NavTab: String, Codable, Sendable, CaseIterable {
         switch self {
         case .home: "Home"
         case .notes: "Notes"
+        case .omega: "Omega"
         case .settings: "Settings"
         }
     }

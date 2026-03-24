@@ -57,6 +57,7 @@ final class AppBootstrap {
     let queryEngine = QueryEngine()
     let physicsCoordinator = PhysicsCoordinator()
     let dialogueChatState = DialogueChatState()
+    let orchestratorState = OrchestratorState()
     private(set) var workspaceService: WorkspaceService!
     let activityTracker = ActivityTracker()
     private(set) var workspaceSummaryService: WorkspaceSummaryService!
@@ -257,6 +258,12 @@ final class AppBootstrap {
 
         // Give VaultSyncService access to EventBus for change notifications
         vaultSync.setEventBus(eventBus)
+
+        // Register Omega specialist agents
+        orchestratorState.registerAgents(
+            vaultURL: vaultSync.vaultURL,
+            modelContainer: container
+        )
 
         // Body-file migration runs off-main to avoid launch hitching.
         // Orphan cleanup now waits for a confirmed healthy vault attach/import.

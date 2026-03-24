@@ -1,0 +1,23 @@
+[package]
+name = "omega-ax"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+name = "omega_ax"
+
+[dependencies]
+uniffi = { version = "0.28", features = ["cli", "bindgen"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+core-foundation = "0.10"
+core-graphics = "0.24"
+
+[build-dependencies]
+uniffi = { version = "0.28", features = ["build"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"

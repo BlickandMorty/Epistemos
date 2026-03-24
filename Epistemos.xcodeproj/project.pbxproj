@@ -354,7 +354,44 @@
 		FF005EE4AC3444FEBE4A1C30 /* MLXInferenceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC8C19B6E3D4428855AFE31 /* MLXInferenceBridge.swift */; };
 		C3D4E5F6A7B849012345CDEF /* PythonEnvironmentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F647890123ABCD /* PythonEnvironmentManager.swift */; };
 		B2C3D4E5F6A748901234BCDE /* PythonEnvironmentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F647890123ABCD /* PythonEnvironmentManager.swift */; };
-		/* End PBXBuildFile section */
+				CF9D4E6BFA9B743184BC4669 /* OmegaAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47AA129DF5278C16762C6D3 /* OmegaAgent.swift */; };
+		B9D5483A666EBF7435D8CD93 /* FileAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EDA371B7E2770FE49EB97E3 /* FileAgent.swift */; };
+		5C1F4F8E5919B2B5CA46C5F7 /* NotesAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BBD5068FAFEE24D13D7C04C /* NotesAgent.swift */; };
+		73FAFB57E95030B69AB7ED38 /* SafariAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD21B321C60C7C57F2F937A5 /* SafariAgent.swift */; };
+		73B65E5848AA3599F4B9ABFD /* TerminalAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF075716717F53347EEAAD5 /* TerminalAgent.swift */; };
+		AC52567CF2CBD564B4CB3EAA /* AutomationAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 968C32A7D839D00FB02BF2EF /* AutomationAgent.swift */; };
+		2396DA99D964C8A5BDD60348 /* TaskGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC1E15905C42EFE122D12797 /* TaskGraph.swift */; };
+		2530AD29EE87688C112F72B7 /* OrchestratorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7AB422A1A2EBD534744D2A0 /* OrchestratorState.swift */; };
+		C89C56F44D2E2A2C15352478 /* ConfirmationGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E3D6CB4F2941B724A8C8811 /* ConfirmationGate.swift */; };
+		E70943C429F5E9A69A3D8880 /* ResearchPause.swift in Sources */ = {isa = PBXBuildFile; fileRef = F158E9AEBAB8A7AEBFE477F1 /* ResearchPause.swift */; };
+		CB40E534B9064971F9F5B7E5 /* OmegaInferenceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6293EC5C9DF8E3B6CFFAF198 /* OmegaInferenceBridge.swift */; };
+		16D3F5BB15DCBD4F62DC928D /* ToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBC0D29052E997F4FD40422 /* ToolCallParser.swift */; };
+		2716D9E4B5ED13D53CF5FED1 /* OmegaPlanningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04630ECE3E42AE80F0A915C /* OmegaPlanningService.swift */; };
+		2414BB8CB87509B5274D5A65 /* ScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DE183831631F9A22C11A62 /* ScreenCaptureService.swift */; };
+		77F7F8C9BE729A1B9888E88A /* Screen2AXService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10111F8900C9710EA9C6FB71 /* Screen2AXService.swift */; };
+		381546F88D7BD88F2A03F883 /* OmegaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8C639FAEA27E3357B71497A /* OmegaPanel.swift */; };
+		EF9DAB650E963A1E3C18D2B1 /* TaskInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F3A3BA9DC4C7797143CCF10 /* TaskInputBar.swift */; };
+		A7B17C790ECE1AA08BBDCF59 /* PlanReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0CD6B9CF50A5AF98DBD9E1 /* PlanReviewView.swift */; };
+		91DCCA663C3106710A574227 /* ConfirmationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF35FBA6C8669B976C4FD9AE /* ConfirmationSheet.swift */; };
+		D40C80F000AE5BBFD727AB2C /* ResearchRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8AF6EEC4A2FBD35A2B521E /* ResearchRequestView.swift */; };
+		1E2E62C8903BD67BD9D51B09 /* ExecutionProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 402662D1E0D91C81C0798EB9 /* ExecutionProgressView.swift */; };
+		36FBE9B0DB5CCCA00E898E76 /* ExecutionLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E5C3E45CCF693755401A91 /* ExecutionLogView.swift */; };
+		2D8BB0BF915E796C784D6B8F /* omega_mcp.swift in Sources */ = {isa = PBXBuildFile; settings = {COMPILER_FLAGS = "-Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; fileRef = 9A7A23115BD1673B8E317FEC /* omega_mcp.swift */; };
+		F6736A2131B38F0D39C325FE /* omega_ax.swift in Sources */ = {isa = PBXBuildFile; settings = {COMPILER_FLAGS = "-Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; fileRef = 975A8F9EC9F3356026AE8ED1 /* omega_ax.swift */; };
+		8518B0E7843F82C670B0EBEB /* ODIATraceGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 392E469A20F968B24DA659D2 /* ODIATraceGenerator.swift */; };
+		FF8B72F9394DD23482CC8CCD /* TraceDataMixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4381F08962855D76F29DB913 /* TraceDataMixer.swift */; };
+		2707D83885BFC3B9075D4C23 /* MoLoRARouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A5DAB9CAD2CA72FF543F45 /* MoLoRARouter.swift */; };
+		1E9C5AAF5C2893C9CBF77140 /* CSISafeguard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C8C14CD0D714A739AC8275 /* CSISafeguard.swift */; };
+		552A7BC25EAFB7B223DBC3F1 /* OmegaToolCallParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769CE4A6209D4A83FD5F2E4F /* OmegaToolCallParserTests.swift */; };
+		0AD8DC91EC3B85B107C7EE05 /* OmegaTaskGraphTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4F08980905EFFCBB4B3CFF /* OmegaTaskGraphTests.swift */; };
+		A518698AA84DE7F748DD375C /* OmegaConfirmationGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C85450876F1A6DA505C6F2E /* OmegaConfirmationGateTests.swift */; };
+		F87128B8F0072AA8EA121B71 /* OmegaAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC085DB9CD5C51EB54EF9F4 /* OmegaAgentTests.swift */; };
+		C261CC3C63BA90652B98DBC5 /* OmegaCSISafeguardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7655BFE12DB860A15C57C7EF /* OmegaCSISafeguardTests.swift */; };
+		5ADE74A001C5E582EC747624 /* OmegaMoLoRARouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DC7BC55A9FE241DBBFC96D4 /* OmegaMoLoRARouterTests.swift */; };
+		39280CB1EC362358DA2109F6 /* OmegaODIATraceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00DF1CD6ADBCE107CB4177A0 /* OmegaODIATraceTests.swift */; };
+		0FED5B572968B0DA0DD5B645 /* OmegaTrainingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5096E7AC010151F9FDADCADB /* OmegaTrainingCoordinator.swift */; };
+		F8B141E59E68A4804C09FDD1 /* OmegaSettingsDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826E1B0B7DB27F37C56F6CFC /* OmegaSettingsDetailView.swift */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		E962285A2AB8BCE0C8A526DE /* PBXContainerItemProxy */ = {
@@ -683,7 +720,44 @@
 		AA11BB22CC33DD44EE55FF66 /* SkillManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillManifest.swift; sourceTree = "<group>"; };
 		DD44EE55FF66001122334455 /* RepoAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoAnalyzer.swift; sourceTree = "<group>"; };
 		001122334455667788AABB01 /* SkillGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillGenerator.swift; sourceTree = "<group>"; };
-		/* End PBXFileReference section */
+				D47AA129DF5278C16762C6D3 /* OmegaAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaAgent.swift; sourceTree = "<group>"; };
+		9EDA371B7E2770FE49EB97E3 /* FileAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileAgent.swift; sourceTree = "<group>"; };
+		0BBD5068FAFEE24D13D7C04C /* NotesAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesAgent.swift; sourceTree = "<group>"; };
+		FD21B321C60C7C57F2F937A5 /* SafariAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariAgent.swift; sourceTree = "<group>"; };
+		CDF075716717F53347EEAAD5 /* TerminalAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAgent.swift; sourceTree = "<group>"; };
+		968C32A7D839D00FB02BF2EF /* AutomationAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationAgent.swift; sourceTree = "<group>"; };
+		EC1E15905C42EFE122D12797 /* TaskGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskGraph.swift; sourceTree = "<group>"; };
+		A7AB422A1A2EBD534744D2A0 /* OrchestratorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrchestratorState.swift; sourceTree = "<group>"; };
+		0E3D6CB4F2941B724A8C8811 /* ConfirmationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationGate.swift; sourceTree = "<group>"; };
+		F158E9AEBAB8A7AEBFE477F1 /* ResearchPause.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchPause.swift; sourceTree = "<group>"; };
+		6293EC5C9DF8E3B6CFFAF198 /* OmegaInferenceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaInferenceBridge.swift; sourceTree = "<group>"; };
+		3BBC0D29052E997F4FD40422 /* ToolCallParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallParser.swift; sourceTree = "<group>"; };
+		D04630ECE3E42AE80F0A915C /* OmegaPlanningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaPlanningService.swift; sourceTree = "<group>"; };
+		98DE183831631F9A22C11A62 /* ScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureService.swift; sourceTree = "<group>"; };
+		10111F8900C9710EA9C6FB71 /* Screen2AXService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screen2AXService.swift; sourceTree = "<group>"; };
+		C8C639FAEA27E3357B71497A /* OmegaPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaPanel.swift; sourceTree = "<group>"; };
+		1F3A3BA9DC4C7797143CCF10 /* TaskInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskInputBar.swift; sourceTree = "<group>"; };
+		8B0CD6B9CF50A5AF98DBD9E1 /* PlanReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanReviewView.swift; sourceTree = "<group>"; };
+		AF35FBA6C8669B976C4FD9AE /* ConfirmationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationSheet.swift; sourceTree = "<group>"; };
+		1A8AF6EEC4A2FBD35A2B521E /* ResearchRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchRequestView.swift; sourceTree = "<group>"; };
+		402662D1E0D91C81C0798EB9 /* ExecutionProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutionProgressView.swift; sourceTree = "<group>"; };
+		96E5C3E45CCF693755401A91 /* ExecutionLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutionLogView.swift; sourceTree = "<group>"; };
+		9A7A23115BD1673B8E317FEC /* omega_mcp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "build-rust/swift-bindings/omega_mcp.swift"; sourceTree = "<group>"; };
+		975A8F9EC9F3356026AE8ED1 /* omega_ax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "build-rust/swift-bindings/omega_ax.swift"; sourceTree = "<group>"; };
+		392E469A20F968B24DA659D2 /* ODIATraceGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ODIATraceGenerator.swift; path = Epistemos/KnowledgeFusion/SyntheticData/ODIATraceGenerator.swift; sourceTree = SOURCE_ROOT; };
+		4381F08962855D76F29DB913 /* TraceDataMixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TraceDataMixer.swift; path = Epistemos/KnowledgeFusion/SyntheticData/TraceDataMixer.swift; sourceTree = SOURCE_ROOT; };
+		F9A5DAB9CAD2CA72FF543F45 /* MoLoRARouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MoLoRARouter.swift; path = Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift; sourceTree = SOURCE_ROOT; };
+		62C8C14CD0D714A739AC8275 /* CSISafeguard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CSISafeguard.swift; path = Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift; sourceTree = SOURCE_ROOT; };
+		769CE4A6209D4A83FD5F2E4F /* OmegaToolCallParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaToolCallParserTests.swift; path = EpistemosTests/OmegaToolCallParserTests.swift; sourceTree = SOURCE_ROOT; };
+		0B4F08980905EFFCBB4B3CFF /* OmegaTaskGraphTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaTaskGraphTests.swift; path = EpistemosTests/OmegaTaskGraphTests.swift; sourceTree = SOURCE_ROOT; };
+		9C85450876F1A6DA505C6F2E /* OmegaConfirmationGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaConfirmationGateTests.swift; path = EpistemosTests/OmegaConfirmationGateTests.swift; sourceTree = SOURCE_ROOT; };
+		DAC085DB9CD5C51EB54EF9F4 /* OmegaAgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaAgentTests.swift; path = EpistemosTests/OmegaAgentTests.swift; sourceTree = SOURCE_ROOT; };
+		7655BFE12DB860A15C57C7EF /* OmegaCSISafeguardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaCSISafeguardTests.swift; path = EpistemosTests/OmegaCSISafeguardTests.swift; sourceTree = SOURCE_ROOT; };
+		5DC7BC55A9FE241DBBFC96D4 /* OmegaMoLoRARouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaMoLoRARouterTests.swift; path = EpistemosTests/OmegaMoLoRARouterTests.swift; sourceTree = SOURCE_ROOT; };
+		00DF1CD6ADBCE107CB4177A0 /* OmegaODIATraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaODIATraceTests.swift; path = EpistemosTests/OmegaODIATraceTests.swift; sourceTree = SOURCE_ROOT; };
+		5096E7AC010151F9FDADCADB /* OmegaTrainingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaTrainingCoordinator.swift; path = Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		826E1B0B7DB27F37C56F6CFC /* OmegaSettingsDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaSettingsDetailView.swift; path = Epistemos/Views/Settings/OmegaSettingsDetailView.swift; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A336EB9C9FD0E5D5C3C96E9D /* Frameworks */ = {
@@ -805,6 +879,7 @@
 		31ACE8B1C071D13DEE4C40A1 /* Epistemos */ = {
 			isa = PBXGroup;
 			children = (
+				B2C3D4E5F6A7B8C9D0E1F200 /* Omega */,
 				EF84617CEB476B8870BC4BE4 /* AppIcon.icon */,
 				031828FAA933A87F88035B50 /* Assets.xcassets */,
 				5EB3CBD89872B6B1F886EB0A /* Epistemos.entitlements */,
@@ -928,6 +1003,7 @@
 		788AD73887C09636A5194E2D /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F6A7B8C9D0E1F7 /* Omega */,
 				6B31B8C368EB9E3C060757EC /* Chat */,
 				27FC7B03BECD432BF7B73B45 /* Graph */,
 				873EB1E67106B1DBCAB7E1E7 /* Landing */,
@@ -1040,6 +1116,13 @@
 		D8F909B4136260E53B042874 /* EpistemosTests */ = {
 			isa = PBXGroup;
 			children = (
+				769CE4A6209D4A83FD5F2E4F /* */,
+				0B4F08980905EFFCBB4B3CFF /* */,
+				9C85450876F1A6DA505C6F2E /* */,
+				DAC085DB9CD5C51EB54EF9F4 /* */,
+				7655BFE12DB860A15C57C7EF /* */,
+				5DC7BC55A9FE241DBBFC96D4 /* */,
+				00DF1CD6ADBCE107CB4177A0 /* */,
 				0746E270A7C8C63A4291A78E /* BackgroundGraphLoadingTests.swift */,
 				7923A133620F989762D7A9C6 /* BlockEmbeddingTests.swift */,
 				E05D1514D3B1D0DAA1A1B447 /* BlockPropertyParsingTests.swift */,
@@ -1318,7 +1401,81 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
-		/* End PBXGroup section */
+				A1B2C3D4E5F6A7B8C9D0E1F3 /* Agents */ = {
+			isa = PBXGroup;
+			path = Agents;
+			children = (
+				D47AA129DF5278C16762C6D3 /* */,
+				9EDA371B7E2770FE49EB97E3 /* */,
+				0BBD5068FAFEE24D13D7C04C /* */,
+				FD21B321C60C7C57F2F937A5 /* */,
+				CDF075716717F53347EEAAD5 /* */,
+				968C32A7D839D00FB02BF2EF /* */,
+			);
+			name = "Agents";
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6A7B8C9D0E1F4 /* Orchestrator */ = {
+			isa = PBXGroup;
+			path = Orchestrator;
+			children = (
+				EC1E15905C42EFE122D12797 /* */,
+				A7AB422A1A2EBD534744D2A0 /* */,
+				0E3D6CB4F2941B724A8C8811 /* */,
+				F158E9AEBAB8A7AEBFE477F1 /* */,
+				6293EC5C9DF8E3B6CFFAF198 /* */,
+			);
+			name = "Orchestrator";
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6A7B8C9D0E1F5 /* Inference */ = {
+			isa = PBXGroup;
+			path = Inference;
+			children = (
+				3BBC0D29052E997F4FD40422 /* */,
+				D04630ECE3E42AE80F0A915C /* */,
+			);
+			name = "Inference";
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6A7B8C9D0E1F6 /* Vision */ = {
+			isa = PBXGroup;
+			path = Vision;
+			children = (
+				98DE183831631F9A22C11A62 /* */,
+				10111F8900C9710EA9C6FB71 /* */,
+			);
+			name = "Vision";
+			sourceTree = "<group>";
+		};
+		B2C3D4E5F6A7B8C9D0E1F200 /* Omega */ = {
+			isa = PBXGroup;
+			path = Omega;
+			children = (
+				A1B2C3D4E5F6A7B8C9D0E1F3 /* */,
+				A1B2C3D4E5F6A7B8C9D0E1F4 /* */,
+				A1B2C3D4E5F6A7B8C9D0E1F5 /* */,
+				A1B2C3D4E5F6A7B8C9D0E1F6 /* */,
+			);
+			name = "Omega";
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6A7B8C9D0E1F7 /* Omega */ = {
+			isa = PBXGroup;
+			path = Omega;
+			children = (
+				C8C639FAEA27E3357B71497A /* */,
+				1F3A3BA9DC4C7797143CCF10 /* */,
+				8B0CD6B9CF50A5AF98DBD9E1 /* */,
+				AF35FBA6C8669B976C4FD9AE /* */,
+				1A8AF6EEC4A2FBD35A2B521E /* */,
+				402662D1E0D91C81C0798EB9 /* */,
+				96E5C3E45CCF693755401A91 /* */,
+			);
+			name = "Omega";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
 		37D6F96B1B2A55707390C24A /* EpistemosTests */ = {
@@ -1344,6 +1501,7 @@
 			buildConfigurationList = 4F9732676A2B95B64895445F /* Build configuration list for PBXNativeTarget "Epistemos" */;
 			buildPhases = (
 				9ECE8015F787406179285179 /* Build Rust Engine */,
+				A1B2C3D4E5F6A7B8C9D0E1F8 /* Build Omega Crates */,
 				C4947A90CF3CE40B692640EF /* Sources */,
 				01A65B568692F58396CECD39 /* Resources */,
 				A336EB9C9FD0E5D5C3C96E9D /* Frameworks */,
@@ -1437,6 +1595,21 @@
 			shellPath = /bin/sh;
 			shellScript = "bash \"${SRCROOT}/build-rust.sh\"";
 		};
+		A1B2C3D4E5F6A7B8C9D0E1F8 /* Build Omega Crates */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build Omega Crates";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1444,6 +1617,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				39280CB1EC362358DA2109F6 /* OmegaODIATraceTests.swift in Sources */,
+				5ADE74A001C5E582EC747624 /* OmegaMoLoRARouterTests.swift in Sources */,
+				C261CC3C63BA90652B98DBC5 /* OmegaCSISafeguardTests.swift in Sources */,
+				F87128B8F0072AA8EA121B71 /* OmegaAgentTests.swift in Sources */,
+				A518698AA84DE7F748DD375C /* OmegaConfirmationGateTests.swift in Sources */,
+				0AD8DC91EC3B85B107C7EE05 /* OmegaTaskGraphTests.swift in Sources */,
+				552A7BC25EAFB7B223DBC3F1 /* OmegaToolCallParserTests.swift in Sources */,
 				44893EA9F79A4573A3ECFA17 /* EndToEndTest.swift in Sources */,
 				424EED9320C843FDBE13EF13 /* ForgettingTest.swift in Sources */,
 				45F64DCD1A9C4C1C8A94662F /* PrivacyTest.swift in Sources */,
@@ -1548,6 +1728,36 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F8B141E59E68A4804C09FDD1 /* OmegaSettingsDetailView.swift in Sources */,
+				0FED5B572968B0DA0DD5B645 /* OmegaTrainingCoordinator.swift in Sources */,
+				1E9C5AAF5C2893C9CBF77140 /* CSISafeguard.swift in Sources */,
+				2707D83885BFC3B9075D4C23 /* MoLoRARouter.swift in Sources */,
+				FF8B72F9394DD23482CC8CCD /* TraceDataMixer.swift in Sources */,
+				8518B0E7843F82C670B0EBEB /* ODIATraceGenerator.swift in Sources */,
+				F6736A2131B38F0D39C325FE /* omega_ax.swift in Sources */,
+				2D8BB0BF915E796C784D6B8F /* omega_mcp.swift in Sources */,
+				36FBE9B0DB5CCCA00E898E76 /* ExecutionLogView.swift in Sources */,
+				1E2E62C8903BD67BD9D51B09 /* ExecutionProgressView.swift in Sources */,
+				D40C80F000AE5BBFD727AB2C /* ResearchRequestView.swift in Sources */,
+				91DCCA663C3106710A574227 /* ConfirmationSheet.swift in Sources */,
+				A7B17C790ECE1AA08BBDCF59 /* PlanReviewView.swift in Sources */,
+				EF9DAB650E963A1E3C18D2B1 /* TaskInputBar.swift in Sources */,
+				381546F88D7BD88F2A03F883 /* OmegaPanel.swift in Sources */,
+				77F7F8C9BE729A1B9888E88A /* Screen2AXService.swift in Sources */,
+				2414BB8CB87509B5274D5A65 /* ScreenCaptureService.swift in Sources */,
+				2716D9E4B5ED13D53CF5FED1 /* OmegaPlanningService.swift in Sources */,
+				16D3F5BB15DCBD4F62DC928D /* ToolCallParser.swift in Sources */,
+				CB40E534B9064971F9F5B7E5 /* OmegaInferenceBridge.swift in Sources */,
+				E70943C429F5E9A69A3D8880 /* ResearchPause.swift in Sources */,
+				C89C56F44D2E2A2C15352478 /* ConfirmationGate.swift in Sources */,
+				2530AD29EE87688C112F72B7 /* OrchestratorState.swift in Sources */,
+				2396DA99D964C8A5BDD60348 /* TaskGraph.swift in Sources */,
+				AC52567CF2CBD564B4CB3EAA /* AutomationAgent.swift in Sources */,
+				73B65E5848AA3599F4B9ABFD /* TerminalAgent.swift in Sources */,
+				73FAFB57E95030B69AB7ED38 /* SafariAgent.swift in Sources */,
+				5C1F4F8E5919B2B5CA46C5F7 /* NotesAgent.swift in Sources */,
+				B9D5483A666EBF7435D8CD93 /* FileAgent.swift in Sources */,
+				CF9D4E6BFA9B743184BC4669 /* OmegaAgent.swift in Sources */,
 				FF005EE4AC3444FEBE4A1C30 /* MLXInferenceBridge.swift in Sources */,
 				B2C3D4E5F6A748901234BCDE /* PythonEnvironmentManager.swift in Sources */,
 				0C6FA28EC9C441A9BDFFB411 /* KnowledgeFusionViewModel.swift in Sources */,
@@ -1844,6 +2054,7 @@
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos";
+				SWIFT_INCLUDE_PATHS = ("$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI");
 			};
 			name = Debug;
 		};
@@ -1863,7 +2074,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine";
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lsqlite3";
+				SWIFT_INCLUDE_PATHS = ("$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI");
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -1888,7 +2100,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine";
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lsqlite3";
+				SWIFT_INCLUDE_PATHS = ("$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI");
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -1983,6 +2196,7 @@
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos";
+				SWIFT_INCLUDE_PATHS = ("$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI", "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI");
 			};
 			name = Release;
 		};

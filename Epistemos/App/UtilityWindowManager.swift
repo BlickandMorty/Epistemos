@@ -87,11 +87,13 @@ enum WindowThemeStyler {
 
 enum UtilityPanel: String, CaseIterable {
     case notes
+    case omega
     case settings
 
     var title: String {
         switch self {
         case .notes: "Notes"
+        case .omega: "Omega"
         case .settings: "Settings"
         }
     }
@@ -99,6 +101,7 @@ enum UtilityPanel: String, CaseIterable {
     var icon: String {
         switch self {
         case .notes: "pencil.line"
+        case .omega: "cpu"
         case .settings: "gearshape"
         }
     }
@@ -106,6 +109,7 @@ enum UtilityPanel: String, CaseIterable {
     var defaultSize: NSSize {
         switch self {
         case .notes: NSSize(width: 320, height: 600)
+        case .omega: NSSize(width: 480, height: 700)
         case .settings: NSSize(width: 680, height: 580)
         }
     }
@@ -113,6 +117,7 @@ enum UtilityPanel: String, CaseIterable {
     var minimumSize: NSSize {
         switch self {
         case .notes: NSSize(width: 400, height: 300)
+        case .omega: NSSize(width: 400, height: 400)
         case .settings: NSSize(width: 680, height: 420)
         }
     }
@@ -133,9 +138,25 @@ enum UtilityPanelChrome {
         switch kind {
         case .notes:
             applySidebarChrome(to: panel)
+        case .omega:
+            applyOmegaChrome(to: panel)
         case .settings:
             applySettingsChrome(to: panel)
         }
+    }
+
+    @MainActor
+    static func applyOmegaChrome(to panel: NSPanel) {
+        panel.styleMask.insert(.fullSizeContentView)
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.isMovableByWindowBackground = true
+        panel.hasShadow = true
+        panel.backgroundColor = .windowBackgroundColor
+        let toolbar = panel.toolbar ?? NSToolbar(identifier: "OmegaToolbar")
+        toolbar.showsBaselineSeparator = false
+        panel.toolbar = toolbar
+        panel.toolbarStyle = .unified
     }
 
     @MainActor
@@ -279,6 +300,7 @@ private struct ThemedUtilityRoot: View {
         Group {
             switch kind {
             case .notes: NotesBrowserView()
+            case .omega: OmegaPanel()
             case .settings: SettingsView()
             }
         }

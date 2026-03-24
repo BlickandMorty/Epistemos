@@ -375,6 +375,9 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
+            Button("Show Omega") { UtilityWindowManager.shared.show(.omega) }
+                .keyboardShortcut("4", modifiers: .command)
+
             Button("New Mini Chat") {
                 MiniChatWindowController.shared.openNewChat()
             }

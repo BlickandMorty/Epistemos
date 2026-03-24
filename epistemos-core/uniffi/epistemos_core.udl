@@ -1,0 +1,102 @@
+namespace epistemos_core {
+    // ── Vault Analysis ──────────────────────────────────────────────────────
+
+    /// Bi-directional MTLD lexical diversity score.
+    /// High MTLD (>100) → rich vocabulary → higher LoRA rank needed.
+    /// Low MTLD (<50) → limited vocabulary → lower rank sufficient.
+    double compute_mtld(sequence<string> tokens, double threshold);
+
+    /// Tokenize text for MTLD computation (lowercase, alphanumeric + hyphens).
+    sequence<string> tokenize_for_mtld(string text);
+
+    /// Dual-bound token estimation: max(chars/3.5, words*1.33).
+    /// Replaces the existing 1.3x word multiplier.
+    u64 estimate_tokens(string content);
+
+    /// BLAKE3 content hash for incremental analysis caching.
+    string content_hash(string content);
+
+    /// Classify a document as prose/source_code/technical_docs/mixed_media.
+    DocumentClassification classify_document(string content);
+
+    /// Filter boilerplate from content. Returns cleaned text, removed byte count, and JSON array of section names removed.
+    BoilerplateResult filter_boilerplate(string content);
+
+    // ── Auto-Tuning ─────────────────────────────────────────────────────────
+
+    /// Data-aware LoRA rank selection from MTLD + token count.
+    u32 select_lora_rank(double mtld_score, u64 total_tokens);
+
+    /// LoRA alpha selection from rank + dataset size.
+    u32 select_lora_alpha(u32 rank, u64 dataset_size);
+
+    /// Generate a complete auto-tuned training config.
+    AutoTuneConfig auto_tune(
+        u64 dataset_size,
+        double mtld_score,
+        u64 total_tokens,
+        double model_size_b,
+        u32 available_memory_mb,
+        string profile
+    );
+
+    // ── Scheduling ──────────────────────────────────────────────────────────
+
+    /// Evaluate whether training should run and at which tier.
+    TrainingDecision evaluate_schedule(
+        u64 dirty_file_count,
+        i64 days_since_micro,
+        i64 days_since_deep,
+        u32 current_hour,
+        u32 current_weekday,
+        boolean is_on_battery,
+        boolean is_training
+    );
+};
+
+// ── Exported Types ──────────────────────────────────────────────────────────
+
+dictionary AutoTuneConfig {
+    u32 lora_rank;
+    u32 lora_alpha;
+    u32 epochs;
+    u32 max_iters;
+    u32 batch_size;
+    double learning_rate;
+    double warmup_ratio;
+    double weight_decay;
+    u32 max_seq_length;
+    u32 estimated_memory_mb;
+    sequence<string> target_modules;
+    string adapter_type;
+};
+
+[Enum]
+interface TrainingTier {
+    None();
+    MicroTraining();
+    DeepRetraining();
+    UserTriggered();
+};
+
+dictionary TrainingDecision {
+    boolean should_train;
+    TrainingTier tier;
+    string reason;
+    u64 dirty_file_count;
+    i64 days_since_last;
+};
+
+dictionary DocumentClassification {
+    string doc_type;
+    double code_prose_ratio;
+    double confidence;
+    u64 line_count;
+    boolean has_frontmatter;
+};
+
+dictionary BoilerplateResult {
+    string cleaned;
+    u64 removed_bytes;
+    string sections_removed_json;
+};

@@ -1,0 +1,48 @@
+namespace omega_mcp {
+    // ── JSON-RPC Protocol ────────────────────────────────────────────────────
+
+    /// Parse a JSON-RPC 2.0 request. Returns parsed request JSON on success,
+    /// error response JSON on failure.
+    string parse_jsonrpc_request(string input);
+
+    /// Create a JSON-RPC success response.
+    string jsonrpc_success(string id_json, string result_json);
+
+    /// Create a JSON-RPC error response.
+    string jsonrpc_error(string id_json, i64 code, string message);
+
+    // ── Tool Validation ──────────────────────────────────────────────────────
+
+    /// Validate tool arguments against a schema. Returns empty string on success,
+    /// error message on failure.
+    string validate_tool_args(string schema_json, string args_json);
+};
+
+// ── MCP Dispatcher (stateful object) ─────────────────────────────────────────
+
+interface MCPDispatcher {
+    // Construction — log_db_path is the SQLite database file path.
+    // Returns an instance (creates DB if it doesn't exist).
+    constructor(string log_db_path);
+
+    // Registry operations
+    string register_tool(string name, string description, string input_schema_json,
+                         boolean destructive, boolean requires_confirmation);
+    string list_tools_json();
+    string get_tool_json(string name);
+    u32 tool_count();
+    string validate_tool_args(string tool_name, string args_json);
+    boolean unregister_tool(string name);
+
+    // Logger operations
+    string log_execution(string id, string timestamp, string tool_name,
+                         string arguments_json, string result_json,
+                         u64 duration_ms, boolean success);
+    string recent_executions_json(u32 limit);
+    string executions_by_tool_json(string tool_name, u32 limit);
+    u64 execution_count();
+    u64 successful_execution_count();
+
+    // MCP dispatch
+    string dispatch(string request_json);
+};

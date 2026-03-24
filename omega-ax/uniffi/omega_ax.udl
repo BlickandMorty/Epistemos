@@ -1,0 +1,34 @@
+namespace omega_ax {
+    // ── Permission Management ────────────────────────────────────────────────
+
+    /// Check all macOS permissions needed for automation.
+    PermissionStatus check_permissions();
+
+    // ── AX Tree ──────────────────────────────────────────────────────────────
+
+    /// Walk the accessibility tree for the given PID. Returns JSON-encoded snapshot.
+    string walk_ax_tree_json(i64 pid);
+
+    // ── Input Simulation ─────────────────────────────────────────────────────
+
+    /// Simulate a click at (x, y). Returns JSON-encoded result.
+    string simulate_click(double x, double y);
+
+    /// Simulate typing text. Returns JSON-encoded result.
+    string simulate_type_text(string text);
+};
+
+// ── Exported Types ──────────────────────────────────────────────────────────
+
+[Enum]
+interface PermissionState {
+    Granted();
+    Denied();
+    Unknown();
+};
+
+dictionary PermissionStatus {
+    PermissionState accessibility;
+    PermissionState screen_recording;
+    PermissionState automation;
+};
