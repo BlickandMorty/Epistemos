@@ -88,17 +88,35 @@ final class QuitSavePanelController {
             }
         )
 
-        let hostingView: NSView
+        let swiftUIView: NSView
         if let bootstrap = AppBootstrap.shared {
             let themed = saveView
                 .withAppEnvironment(bootstrap)
                 .modelContainer(bootstrap.modelContainer)
-            hostingView = NSHostingView(rootView: themed)
+            swiftUIView = NSHostingView(rootView: themed)
         } else {
-            hostingView = NSHostingView(rootView: saveView)
+            swiftUIView = NSHostingView(rootView: saveView)
         }
 
-        floatingPanel.contentView = hostingView
+        // Frosted glass backdrop — NSVisualEffectView with hosting view on top
+        let blurView = NSVisualEffectView(frame: panelRect)
+        blurView.material = .hudWindow
+        blurView.blendingMode = .behindWindow
+        blurView.state = .active
+        blurView.wantsLayer = true
+        blurView.layer?.cornerRadius = 12
+        blurView.layer?.masksToBounds = true
+
+        swiftUIView.translatesAutoresizingMaskIntoConstraints = false
+        blurView.addSubview(swiftUIView)
+        NSLayoutConstraint.activate([
+            swiftUIView.topAnchor.constraint(equalTo: blurView.topAnchor),
+            swiftUIView.bottomAnchor.constraint(equalTo: blurView.bottomAnchor),
+            swiftUIView.leadingAnchor.constraint(equalTo: blurView.leadingAnchor),
+            swiftUIView.trailingAnchor.constraint(equalTo: blurView.trailingAnchor),
+        ])
+
+        floatingPanel.contentView = blurView
         floatingPanel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
