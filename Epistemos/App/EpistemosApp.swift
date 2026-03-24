@@ -118,6 +118,7 @@ struct EpistemosApp: App {
                         bootstrap.workspaceService.autoRestore()
                         bootstrap.activityTracker.startTracking()
                         bootstrap.workspaceSummaryService.startAutoSummaryLoop()
+                        bootstrap.workspaceService.startAutoSave()
                         // Generate a fresh welcome-back summary if workspace was restored
                         if bootstrap.workspaceService.welcomeBack != nil {
                             Task { @MainActor in
@@ -243,6 +244,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         guard let bootstrap = AppBootstrap.shared else { return }
         bootstrap.activityTracker.stopTracking()
         bootstrap.workspaceSummaryService.stopAutoSummaryLoop()
+        bootstrap.workspaceService.stopAutoSave()
         bootstrap.workspaceService.autoSave()
         bootstrap.vaultSync.stopWatching(preserveData: true)
         StatusBar.shared.remove()

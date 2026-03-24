@@ -1,4 +1,5 @@
 import AppKit
+import SwiftData
 import SwiftUI
 
 // MARK: - Global Overlay Controller
@@ -10,6 +11,13 @@ import SwiftUI
 private final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func cancelOperation(_ sender: Any?) {
+        // ESC key dismisses the overlay
+        Task { @MainActor in
+            GlobalOverlayController.shared.dismiss()
+        }
+    }
 }
 
 @MainActor
@@ -35,7 +43,7 @@ final class GlobalOverlayController {
         guard let screen = NSScreen.main else { return }
         self.dismissHandler = onDismiss
 
-        let isDark = AppBootstrap.shared?.uiState.theme.isDark ?? true
+        let isDark = AppBootstrap.shared?.uiState.theme.isDark ?? (NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
 
         // Scrim — full-screen dim
         let scrim = NSWindow(
@@ -51,7 +59,7 @@ final class GlobalOverlayController {
         scrim.isReleasedWhenClosed = false
         scrim.ignoresMouseEvents = false
 
-        let scrimColor = isDark ? NSColor.black.withAlphaComponent(0.4) : NSColor.gray.withAlphaComponent(0.2)
+        let scrimColor = isDark ? NSColor.black.withAlphaComponent(0.35) : NSColor.gray.withAlphaComponent(0.15)
         let scrimView = NSView(frame: screen.frame)
         scrimView.wantsLayer = true
         scrimView.layer?.backgroundColor = scrimColor.cgColor
@@ -79,10 +87,11 @@ final class GlobalOverlayController {
         floatingPanel.isOpaque = false
         floatingPanel.backgroundColor = .clear
         floatingPanel.hasShadow = true
-        floatingPanel.level = .floating + 1
+        floatingPanel.level = .modalPanel
         floatingPanel.isReleasedWhenClosed = false
         floatingPanel.isMovableByWindowBackground = true
         floatingPanel.becomesKeyOnlyIfNeeded = false
+        floatingPanel.hidesOnDeactivate = false
         floatingPanel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
 
         // Build the SwiftUI hosting view
@@ -225,6 +234,8 @@ private struct QuitSaveContent: View {
     @State private var sessionNote = ""
     @State private var existingWorkspaces: [SDWorkspace] = []
     @State private var selectedExistingId: String?
+    @State private var aiSuggestion = ""
+    @State private var isLoadingAISuggestion = false
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -305,6 +316,34 @@ private struct QuitSaveContent: View {
                         TextField("What were you working on?", text: $sessionNote, axis: .vertical)
                             .textFieldStyle(.roundedBorder).font(.system(size: 13)).lineLimit(3, reservesSpace: true)
                     }
+
+                    // AI summary suggestion
+                    if isLoadingAISuggestion {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small).scaleEffect(0.7)
+                            Text("Generating summary...").font(.system(size: 11, design: .rounded)).foregroundStyle(theme.textTertiary)
+                        }
+                    } else if !aiSuggestion.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("AI Suggestion").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(theme.textTertiary)
+                                Spacer()
+                                Button("Use This") {
+                                    sessionNote = aiSuggestion
+                                }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(theme.accent)
+                            }
+                            Text(aiSuggestion)
+                                .font(.system(size: 12, design: .rounded))
+                                .foregroundStyle(theme.textSecondary)
+                                .italic()
+                                .lineLimit(3)
+                        }
+                        .padding(10)
+                        .background(theme.foreground.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
+                    }
                 }
                 .padding(.horizontal, 24).padding(.vertical, 16)
             }
@@ -332,6 +371,21 @@ private struct QuitSaveContent: View {
         .onAppear {
             existingWorkspaces = AppBootstrap.shared?.workspaceService.listWorkspaces() ?? []
             selectedExistingId = existingWorkspaces.first?.id
+            // Pre-fill from existing workspace summary if updating
+            if !existingWorkspaces.isEmpty {
+                saveMode = .updateCurrent
+            }
+            // Generate AI summary suggestion
+            Task { @MainActor in
+                isLoadingAISuggestion = true
+                let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+                if let ws = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
+                    FetchDescriptor(predicate: predicate)
+                ).first, !ws.summary.isEmpty {
+                    aiSuggestion = ws.summary
+                }
+                isLoadingAISuggestion = false
+            }
         }
     }
 

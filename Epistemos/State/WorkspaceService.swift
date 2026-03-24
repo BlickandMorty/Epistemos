@@ -51,6 +51,22 @@ struct WelcomeBackInfo {
     }
 }
 
+// MARK: - Workspace Diff Summary
+
+struct WorkspaceDiffSummary {
+    var notesOpened: Int = 0
+    var notesClosed: Int = 0
+    var wordCountDeltas: [(title: String, delta: Int)] = []
+    var chatsStarted: Int = 0
+    var chatMessagesSent: Int = 0
+    var graphNodesAdded: Int = 0
+
+    var hasChanges: Bool {
+        notesOpened > 0 || notesClosed > 0 || !wordCountDeltas.isEmpty
+            || chatsStarted > 0 || chatMessagesSent > 0 || graphNodesAdded > 0
+    }
+}
+
 // MARK: - Workspace Service
 // Captures and restores full workspace state — open note tabs, mini chats, utility panels,
 // graph overlay, sidebar state, and editor cursor positions. Supports auto-save on quit
@@ -71,6 +87,10 @@ final class WorkspaceService {
 
     /// Time Machine service reference (set by AppBootstrap after init).
     var timeMachineService: TimeMachineService?
+
+    /// Auto-save timer — fires every `autoSaveInterval` seconds when active.
+    private var autoSaveTask: Task<Void, Never>?
+    var autoSaveInterval: TimeInterval = 300 // 5 minutes
 
     private let modelContainer: ModelContainer
 
@@ -109,13 +129,17 @@ final class WorkspaceService {
                 BreadcrumbSnapshot(pageId: $0.id, title: $0.title)
             } ?? []
 
+            let body = NoteFileStorage.readBody(pageId: rootPageId, mapped: true)
+            let wordCount = body.split(separator: " ").count
+
             noteTabs.append(NoteTabSnapshot(
                 rootPageId: rootPageId,
                 currentPageId: nav?.currentPageId ?? rootPageId,
                 breadcrumbs: breadcrumbs,
                 forwardStack: forward,
                 cursorPosition: editor?.cursor,
-                scrollFraction: editor?.scrollFraction
+                scrollFraction: editor?.scrollFraction,
+                wordCount: wordCount
             ))
         }
 
@@ -127,6 +151,11 @@ final class WorkspaceService {
         } else {
             graphVisibility = .hidden
         }
+
+        // Vault-level note census for accurate Time Machine diffs
+        let context = modelContainer.mainContext
+        let allPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let allPageIds = allPages.map(\.id)
 
         return WorkspaceSnapshot(
             activePanel: bootstrap.uiState.activePanel.rawValue,
@@ -147,7 +176,9 @@ final class WorkspaceService {
             isIdeasExpanded: bootstrap.notesUI.isIdeasExpanded,
             activityDigest: bootstrap.activityTracker.buildDigest(
                 since: bootstrap.activityTracker.trackingStartedAt ?? Date()
-            )
+            ),
+            totalNoteCount: allPages.count,
+            allPageIds: allPageIds
         )
     }
 
@@ -324,6 +355,80 @@ final class WorkspaceService {
             sessionMinutes: digest?.sessionDurationMinutes ?? 0,
             editedNoteTitles: digest?.editedNotes.map(\.title) ?? []
         )
+    }
+
+    // MARK: - Auto-Save Timer
+
+    func startAutoSave() {
+        stopAutoSave()
+        autoSaveTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(self?.autoSaveInterval ?? 300))
+                guard !Task.isCancelled, let self else { break }
+                // Only auto-save if there's actual content open
+                let hasWork = !NoteWindowManager.shared.orderedPageIds().isEmpty
+                    || !MiniChatWindowController.shared.openChatIds.isEmpty
+                guard hasWork else { continue }
+                self.autoSave()
+                Self.log.info("Workspace auto-save timer fired")
+            }
+        }
+    }
+
+    func stopAutoSave() {
+        autoSaveTask?.cancel()
+        autoSaveTask = nil
+    }
+
+    // MARK: - Workspace Diff (changes since last save)
+
+    func changesSinceLastSave(for workspace: SDWorkspace) -> WorkspaceDiffSummary {
+        guard !workspace.snapshotData.isEmpty,
+              let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData) else {
+            return WorkspaceDiffSummary()
+        }
+
+        let context = modelContainer.mainContext
+        var diff = WorkspaceDiffSummary()
+
+        // Current open note IDs
+        let currentOpenIds = Set(NoteWindowManager.shared.orderedPageIds())
+        let savedOpenIds = Set(snapshot.openNoteTabs.map(\.rootPageId))
+
+        // Notes opened since save
+        diff.notesOpened = currentOpenIds.subtracting(savedOpenIds).count
+        // Notes closed since save
+        diff.notesClosed = savedOpenIds.subtracting(currentOpenIds).count
+
+        // Word count deltas for notes that were open at save time and still open
+        for tab in snapshot.openNoteTabs {
+            guard currentOpenIds.contains(tab.rootPageId) else { continue }
+            let currentBody = NoteFileStorage.readBody(pageId: tab.rootPageId, mapped: true)
+            let currentWords = currentBody.split(separator: " ").count
+            let savedWords = tab.wordCount ?? 0
+            let delta = currentWords - savedWords
+            if delta != 0 {
+                let title = NoteWindowManager.shared.navState(forTab: tab.rootPageId)?.currentPageTitle ?? "Untitled"
+                diff.wordCountDeltas.append((title: title, delta: delta))
+            }
+        }
+
+        // Chat count delta
+        let currentChatCount = MiniChatWindowController.shared.openChatIds.count
+        diff.chatsStarted = max(0, currentChatCount - snapshot.openMiniChatIds.count)
+
+        // Events since last save
+        if let events = EventStore.shared?.events(from: workspace.updatedAt, to: Date()) {
+            diff.chatMessagesSent = events.filter { $0.kind == "chat_message" }.count
+        }
+
+        // Graph node delta
+        let currentNodeCount = (try? context.fetchCount(FetchDescriptor<SDGraphNode>())) ?? 0
+        if let savedAllPageCount = snapshot.totalNoteCount {
+            diff.graphNodesAdded = max(0, currentNodeCount - savedAllPageCount)
+        }
+
+        return diff
     }
 
     // MARK: - Named Workspaces

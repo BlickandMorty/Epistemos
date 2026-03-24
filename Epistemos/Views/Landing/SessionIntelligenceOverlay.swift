@@ -441,6 +441,9 @@ struct SessionIntelligenceOverlay: View {
             let title = original.dropFirst(lower.hasPrefix("new note ") ? 9 : 12).trimmingCharacters(in: .whitespaces)
             let resolvedTitle = title.isEmpty ? "Untitled" : title
             if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: resolvedTitle) {
+                // Save context before opening window to ensure SwiftData sees the new page
+                try? AppBootstrap.shared?.modelContainer.mainContext.save()
+                try? await Task.sleep(for: .milliseconds(100))
                 NoteWindowManager.shared.open(pageId: pageId)
                 return "Created and opened: \(resolvedTitle)"
             }
@@ -613,7 +616,60 @@ struct SessionIntelligenceOverlay: View {
             }
             return lines.joined(separator: "\n")
         }
+        // Summarize chats
+        if lower.contains("summarize") && (lower.contains("chat") || lower.contains("conversation")) {
+            return await summarizeChats()
+        }
         return nil
+    }
+
+    // MARK: - Chat Summarization
+
+    private func summarizeChats() async -> String {
+        guard let bootstrap = AppBootstrap.shared else { return "App not ready." }
+        let context = bootstrap.modelContainer.mainContext
+
+        // Get today's date range
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+
+        // Query EventStore for chat events today
+        let events = EventStore.shared?.events(from: startOfDay, to: Date()) ?? []
+        let chatEvents = events.filter { $0.kind == "chat_message" }
+
+        guard !chatEvents.isEmpty else {
+            return "No chat messages found today."
+        }
+
+        // Group by chatId and extract snippets
+        var chatGroups: [String: [String]] = [:]
+        for event in chatEvents {
+            if let data = event.payload.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let chatId = json["chatId"] as? String,
+               let snippet = json["snippet"] as? String {
+                chatGroups[chatId, default: []].append(snippet)
+            }
+        }
+
+        guard !chatGroups.isEmpty else {
+            return "\(chatEvents.count) chat events found but could not parse details."
+        }
+
+        // Build a brief summary
+        var summaryParts: [String] = []
+        for (chatId, snippets) in chatGroups.prefix(10) {
+            // Try to find the chat title
+            let targetId = chatId
+            let chatDesc = FetchDescriptor<SDChat>(
+                predicate: #Predicate<SDChat> { $0.id == targetId }
+            )
+            let chatTitle = (try? context.fetch(chatDesc).first?.title) ?? "Chat"
+            let preview = snippets.prefix(3).joined(separator: " | ")
+            summaryParts.append("**\(chatTitle)** (\(snippets.count) messages): \(String(preview.prefix(120)))")
+        }
+
+        return "Today's chats (\(chatGroups.count) conversation\(chatGroups.count == 1 ? "" : "s"), \(chatEvents.count) messages):\n" + summaryParts.joined(separator: "\n")
     }
 
     // MARK: - Create Session Note
@@ -689,6 +745,8 @@ struct SessionIntelligenceOverlay: View {
                 return await createSessionNote()
             }
             if let pageId = await bootstrap.vaultSync.createPage(title: title) {
+                try? bootstrap.modelContainer.mainContext.save()
+                try? await Task.sleep(for: .milliseconds(100))
                 NoteWindowManager.shared.open(pageId: pageId)
                 return "Created and opened note: \"\(title)\""
             }
@@ -732,7 +790,16 @@ struct SessionIntelligenceOverlay: View {
         IMPORTANT: If the user asks you to create a note, open a note, or perform an action, respond with the action result. You have the ability to create notes, open notes, navigate the app. Be direct and helpful. If you need to suggest a command, format it as: [CMD: command here]
         """
 
-        let systemPrompt = "You are a workspace assistant with full control over Epistemos. Answer concisely. When the user asks for actions (create note, open note, summarize), DO the action and confirm. Available commands you can suggest with [CMD: ...]: new note Title, open note X, close note X, save session as note, reveal X, show graph, activity."
+        let systemPrompt = """
+        You are a workspace assistant with full control over Epistemos. Answer concisely.
+        When you want to perform an action, output EXACTLY one of these commands on its own line:
+        [CREATE_NOTE: title] — Create a new note with the given title
+        [OPEN_NOTE: title] — Open an existing note by title
+        [NAVIGATE_GRAPH: nodeId] — Reveal a node in the knowledge graph
+        [CLOSE_NOTE: title] — Close a note window
+        [SAVE_SESSION] — Save the session as a note
+        You may include natural language before or after the command. Always include the command when performing an action.
+        """
 
         do {
             let response: String
@@ -750,14 +817,25 @@ struct SessionIntelligenceOverlay: View {
 
             let cleaned = response.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // Extract and execute any [CMD: ...] in the response
+            // Extract and execute bracketed commands from AI response
+            let actionResult = await extractAndExecuteActions(from: cleaned)
+            if let actionResult {
+                let textWithoutCommands = cleaned.replacingOccurrences(
+                    of: "\\[\\w+(?:_\\w+)*:\\s*.+?\\]|\\[SAVE_SESSION\\]",
+                    with: "",
+                    options: .regularExpression
+                ).trimmingCharacters(in: .whitespacesAndNewlines)
+                let display = textWithoutCommands.isEmpty ? actionResult : textWithoutCommands + "\n" + actionResult
+                return display
+            }
+
+            // Legacy: also check [CMD: ...] format
             if let cmdRange = cleaned.range(of: "\\[CMD:\\s*(.+?)\\]", options: .regularExpression) {
                 let cmd = String(cleaned[cmdRange])
                     .replacingOccurrences(of: "[CMD: ", with: "")
                     .replacingOccurrences(of: "[CMD:", with: "")
                     .replacingOccurrences(of: "]", with: "")
                     .trimmingCharacters(in: .whitespaces)
-                // Execute the extracted command
                 commandInput = cmd
                 let textWithoutCmd = cleaned.replacingOccurrences(of: String(cleaned[cmdRange]), with: "").trimmingCharacters(in: .whitespacesAndNewlines)
                 Task { await executeCommand() }
@@ -767,6 +845,62 @@ struct SessionIntelligenceOverlay: View {
             return cleaned
         } catch {
             return "Could not generate response."
+        }
+    }
+
+    /// Parse bracketed commands like [CREATE_NOTE: title], [OPEN_NOTE: title], etc. and execute them.
+    private func extractAndExecuteActions(from text: String) async -> String? {
+        // Match patterns like [CREATE_NOTE: My Title] or [SAVE_SESSION]
+        let pattern = "\\[(\\w+(?:_\\w+)*)(?::\\s*(.+?))?\\]"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else {
+            return nil
+        }
+
+        let actionRange = Range(match.range(at: 1), in: text)!
+        let action = String(text[actionRange]).uppercased()
+        let argument = match.range(at: 2).location != NSNotFound
+            ? String(text[Range(match.range(at: 2), in: text)!]).trimmingCharacters(in: .whitespaces)
+            : ""
+
+        switch action {
+        case "CREATE_NOTE":
+            let title = argument.isEmpty ? "Untitled" : argument
+            guard let bootstrap = AppBootstrap.shared else { return "App not ready." }
+            if let pageId = await bootstrap.vaultSync.createPage(title: title) {
+                try? bootstrap.modelContainer.mainContext.save()
+                try? await Task.sleep(for: .milliseconds(100))
+                NoteWindowManager.shared.open(pageId: pageId)
+                return "Created and opened: \"\(title)\""
+            }
+            return "Failed to create note."
+
+        case "OPEN_NOTE":
+            if let pageId = findNoteByTitle(argument) {
+                NoteWindowManager.shared.open(pageId: pageId)
+                return "Opened note: \"\(argument)\""
+            }
+            return "No note matching \"\(argument)\"."
+
+        case "NAVIGATE_GRAPH":
+            if let pageId = findNoteByTitle(argument) {
+                HologramController.shared.revealPage(pageId)
+                return "Revealing \"\(argument)\" in the graph."
+            }
+            return "No note matching \"\(argument)\" to reveal."
+
+        case "CLOSE_NOTE":
+            if let pageId = findNoteByTitle(argument) {
+                NoteWindowManager.shared.closeWindowDisplaying(pageId: pageId)
+                return "Closed note: \"\(argument)\""
+            }
+            return "No open note matching \"\(argument)\"."
+
+        case "SAVE_SESSION":
+            return await createSessionNote()
+
+        default:
+            return nil
         }
     }
 

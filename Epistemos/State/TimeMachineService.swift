@@ -81,13 +81,30 @@ final class TimeMachineService {
                 )
                 let version = try? context.fetch(versionDesc).first
                 let title = version?.title ?? tab.breadcrumbs.first?.title ?? "Untitled"
-                let body = version?.body ?? ""
+
+                // Word count priority: snapshot-stored > version record > current file fallback
+                let wordCount: Int
+                let bodyPreview: String
+                if let version, !version.body.isEmpty {
+                    wordCount = version.wordCount > 0 ? version.wordCount : version.body.split(separator: " ").count
+                    bodyPreview = String(version.body.prefix(500))
+                } else if let storedWordCount = tab.wordCount, storedWordCount > 0 {
+                    // Use word count captured at snapshot time
+                    wordCount = storedWordCount
+                    let currentBody = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+                    bodyPreview = String(currentBody.prefix(500))
+                } else {
+                    // Fallback: read current file (not historically accurate but better than 0)
+                    let currentBody = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+                    wordCount = currentBody.split(separator: " ").count
+                    bodyPreview = String(currentBody.prefix(500))
+                }
 
                 state.noteSnapshots.append(NoteSnapshot(
                     id: pageId,
                     title: title,
-                    bodyPreview: String(body.prefix(500)),
-                    wordCount: version?.wordCount ?? body.split(separator: " ").count,
+                    bodyPreview: bodyPreview,
+                    wordCount: wordCount,
                     versionDate: version?.createdAt
                 ))
             }
@@ -156,19 +173,59 @@ final class TimeMachineService {
         // Current note state
         let currentPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
         let currentPageIds = Set(currentPages.map(\.id))
-        let pastPageIds = Set(pastState.noteSnapshots.map(\.id))
 
-        // Added notes (exist now, didn't exist then)
+        // Use vault-level page IDs from the snapshot (not just open tabs)
+        // to avoid over-counting. Fall back to noteSnapshots if allPageIds unavailable (old snapshots).
+        let pastPageIds: Set<String>
+        if let snapshotAllIds = pastState.snapshot?.allPageIds, !snapshotAllIds.isEmpty {
+            pastPageIds = Set(snapshotAllIds)
+        } else {
+            // Fallback: use createdAt filter — only count pages created after snapshot date as "added"
+            let snapshotDate = pastState.timestamp
+            let pagesCreatedAfter = currentPages.filter { $0.createdAt > snapshotDate }
+            diff.addedNotes = pagesCreatedAfter.map(\.title)
+            // Can't determine removed notes without vault-level IDs
+            diff.removedNotes = []
+            // Skip to modified notes using only the open-tab snapshots
+            for pastNote in pastState.noteSnapshots {
+                guard let currentPage = currentPages.first(where: { $0.id == pastNote.id }) else { continue }
+                let currentBody = NoteFileStorage.readBody(pageId: currentPage.id, mapped: true)
+                let currentWordCount = currentBody.split(separator: " ").count
+                let delta = currentWordCount - pastNote.wordCount
+                if delta != 0 {
+                    diff.modifiedNotes.append(NoteDiff(
+                        id: pastNote.id,
+                        title: pastNote.title,
+                        wordCountDelta: delta,
+                        paragraphsChanged: abs(currentBody.components(separatedBy: "\n\n").count - (pastNote.bodyPreview.components(separatedBy: "\n\n").count))
+                    ))
+                }
+            }
+
+            // Chat/graph deltas
+            let currentChatCount = (try? context.fetchCount(FetchDescriptor<SDChat>())) ?? 0
+            diff.addedChats = max(0, currentChatCount - pastState.chatSnapshots.count)
+            diff.removedChats = max(0, pastState.chatSnapshots.count - currentChatCount)
+            let currentNodeCount = (try? context.fetchCount(FetchDescriptor<SDGraphNode>())) ?? 0
+            let currentEdgeCount = (try? context.fetchCount(FetchDescriptor<SDGraphEdge>())) ?? 0
+            diff.graphNodeDelta = currentNodeCount - pastState.graphStats.nodeCount
+            diff.graphEdgeDelta = currentEdgeCount - pastState.graphStats.edgeCount
+            return diff
+        }
+
+        // Added notes (exist now, didn't exist in vault at snapshot time)
         for page in currentPages where !pastPageIds.contains(page.id) {
             diff.addedNotes.append(page.title)
         }
 
-        // Removed notes (existed then, don't exist now)
-        for note in pastState.noteSnapshots where !currentPageIds.contains(note.id) {
-            diff.removedNotes.append(note.title)
+        // Removed notes (existed in vault at snapshot time, don't exist now)
+        for pastId in pastPageIds where !currentPageIds.contains(pastId) {
+            // Try to find the title from noteSnapshots (open tabs)
+            let title = pastState.noteSnapshots.first(where: { $0.id == pastId })?.title ?? "Untitled"
+            diff.removedNotes.append(title)
         }
 
-        // Modified notes (exist in both, check word count delta)
+        // Modified notes (exist in both, check word count delta — only for notes that were open in tabs)
         for pastNote in pastState.noteSnapshots {
             guard let currentPage = currentPages.first(where: { $0.id == pastNote.id }) else { continue }
             let currentBody = NoteFileStorage.readBody(pageId: currentPage.id, mapped: true)

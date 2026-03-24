@@ -152,12 +152,7 @@ struct LandingView: View {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(800))
                     showWelcomeBack = true
-                    // Auto-dismiss after 12 seconds
-                    welcomeBackDismissTask = Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(12))
-                        guard !Task.isCancelled else { return }
-                        dismissWelcomeBack()
-                    }
+                    // Do NOT auto-dismiss — persist until user interacts (ESC, click, or button)
                 }
             }
         }
@@ -635,18 +630,32 @@ struct LandingView: View {
                 Button {
                     dismissWelcomeBack()
                 } label: {
-                    HStack(spacing: 6) {
-                        Text("Continue")
+                    Text("Continue")
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(theme.foreground.opacity(0.06), in: Capsule())
+                        .foregroundStyle(theme.fontAccent.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    saveWelcomeBackAsNote(info: info)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.badge.plus")
+                            .font(.system(size: 10, weight: .medium))
+                        Text("Save as Note")
                             .font(.system(size: 12, weight: .medium))
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(theme.foreground.opacity(0.06), in: Capsule())
-                    .foregroundStyle(theme.fontAccent.opacity(0.7))
+                    .background(theme.accent.opacity(0.12), in: Capsule())
+                    .foregroundStyle(theme.accent)
                 }
                 .buttonStyle(.plain)
 
-                Text("auto-dismisses in a few seconds")
+                Text("click or press ESC to dismiss")
                     .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(theme.mutedForeground.opacity(0.3))
             }
@@ -660,6 +669,34 @@ struct LandingView: View {
         welcomeBackDismissTask?.cancel()
         showWelcomeBack = false
         AppBootstrap.shared?.workspaceService.welcomeBack = nil
+    }
+
+    private func saveWelcomeBackAsNote(info: WelcomeBackInfo) {
+        Task { @MainActor in
+            guard let bootstrap = AppBootstrap.shared else { return }
+            let title = "Session Summary — \(Date.now.formatted(.dateTime.month(.abbreviated).day().year()))"
+            var body = "# \(title)\n\n"
+            if !info.intentSummary.isEmpty {
+                body += "## Summary\n\(info.intentSummary)\n\n"
+            }
+            if !info.userNote.isEmpty {
+                body += "## Session Note\n\(info.userNote)\n\n"
+            }
+            if !info.editedNoteTitles.isEmpty {
+                body += "## Edited Notes\n" + info.editedNoteTitles.map { "- \($0)" }.joined(separator: "\n") + "\n\n"
+            }
+            body += "## Stats\n"
+            if info.noteCount > 0 { body += "- \(info.noteCount) notes open\n" }
+            if info.chatCount > 0 { body += "- \(info.chatCount) chats\n" }
+            if info.sessionMinutes > 0 { body += "- \(info.sessionMinutes) minutes\n" }
+
+            if let pageId = await bootstrap.vaultSync.createPage(title: title, body: body) {
+                try? bootstrap.modelContainer.mainContext.save()
+                try? await Task.sleep(for: .milliseconds(100))
+                NoteWindowManager.shared.open(pageId: pageId)
+            }
+            dismissWelcomeBack()
+        }
     }
 
     // MARK: - Daily Brief Content (replaces greeting in-place)

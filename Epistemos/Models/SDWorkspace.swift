@@ -54,6 +54,11 @@ struct WorkspaceSnapshot: Codable {
     var isIdeasExpanded: Bool
 
     var activityDigest: ActivityDigest?
+
+    /// Total notes in the vault at snapshot time (for accurate Time Machine diffs).
+    var totalNoteCount: Int?
+    /// IDs of all pages in the vault at snapshot time (for accurate added/removed detection).
+    var allPageIds: [String]?
 }
 
 struct ActivityDigest: Codable {
@@ -76,6 +81,8 @@ struct NoteTabSnapshot: Codable {
     var forwardStack: [BreadcrumbSnapshot]
     var cursorPosition: Int?
     var scrollFraction: Double?
+    /// Word count at snapshot time (for accurate Time Machine display).
+    var wordCount: Int?
 }
 
 struct BreadcrumbSnapshot: Codable {

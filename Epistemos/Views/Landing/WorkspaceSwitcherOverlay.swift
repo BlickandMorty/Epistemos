@@ -307,17 +307,53 @@ private struct WorkspaceRow: View {
     /// Shows how the saved workspace differs from the current live state.
     @ViewBuilder
     private var driftIndicator: some View {
-        let drift = computeDrift()
-        if !drift.isEmpty {
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.triangle.branch")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(theme.accent.opacity(0.5))
-                Text(drift)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(theme.textTertiary.opacity(0.7))
+        if let diff = AppBootstrap.shared?.workspaceService.changesSinceLastSave(for: workspace),
+           diff.hasChanges {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                    Text("Changes since save:")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(theme.textTertiary.opacity(0.7))
+                }
+                let parts = buildDiffParts(diff)
+                if !parts.isEmpty {
+                    Text(parts.joined(separator: " \u{2022} "))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary.opacity(0.7))
+                }
+                // Word count deltas
+                ForEach(diff.wordCountDeltas.prefix(2), id: \.title) { entry in
+                    Text("\(entry.title): \(entry.delta > 0 ? "+" : "")\(entry.delta) words")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(entry.delta > 0 ? theme.accent.opacity(0.6) : theme.textTertiary.opacity(0.6))
+                }
+            }
+        } else {
+            let drift = computeDrift()
+            if !drift.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                    Text(drift)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary.opacity(0.7))
+                }
             }
         }
+    }
+
+    private func buildDiffParts(_ diff: WorkspaceDiffSummary) -> [String] {
+        var parts: [String] = []
+        if diff.notesOpened > 0 { parts.append("+\(diff.notesOpened) opened") }
+        if diff.notesClosed > 0 { parts.append("-\(diff.notesClosed) closed") }
+        if diff.chatsStarted > 0 { parts.append("+\(diff.chatsStarted) chats") }
+        if diff.chatMessagesSent > 0 { parts.append("\(diff.chatMessagesSent) msgs") }
+        if diff.graphNodesAdded > 0 { parts.append("+\(diff.graphNodesAdded) nodes") }
+        return parts
     }
 
     /// Compares saved workspace snapshot against current live state.
