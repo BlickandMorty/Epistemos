@@ -128,6 +128,18 @@ final class ChatCoordinator {
                     effectiveQuery = resolvedQuery
                 }
 
+                // Inject workspace awareness into every query (always-on context).
+                // This lets the AI answer "what am I working on?" without manual attachments.
+                let workspaceContext = Self.buildWorkspaceAwarenessContext(bootstrap: bootstrap)
+                let effectiveNotesContextWithWorkspace: String?
+                if let enc = effectiveNotesContext {
+                    effectiveNotesContextWithWorkspace = enc + "\n\n" + workspaceContext
+                } else if !workspaceContext.isEmpty {
+                    effectiveNotesContextWithWorkspace = workspaceContext
+                } else {
+                    effectiveNotesContextWithWorkspace = nil
+                }
+
                 // Build conversation history for multi-turn context.
                 let conversationHistory: String?
                 let priorMessages = chatState.messages.dropLast()
@@ -151,7 +163,7 @@ final class ChatCoordinator {
                 let stream = pipeline.run(
                     query: effectiveQuery,
                     mode: mode,
-                    notesContext: effectiveNotesContext,
+                    notesContext: effectiveNotesContextWithWorkspace,
                     conversationHistory: conversationHistory
                 )
 
@@ -998,6 +1010,49 @@ final class ChatCoordinator {
 
     static func queryContainsExplicitContext(_ query: String, attachments: [ContextAttachment]) -> Bool {
         queryContainsExplicitNoteContext(query) || !attachments.isEmpty
+    }
+
+    // MARK: - Workspace Awareness Context
+
+    static func buildWorkspaceAwarenessContext(bootstrap: AppBootstrap) -> String {
+        var parts: [String] = []
+
+        // Latest AI workspace summary
+        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+        if let workspace = try? bootstrap.modelContainer.mainContext.fetch(
+            FetchDescriptor(predicate: predicate)
+        ).first, !workspace.summary.isEmpty {
+            parts.append("[Workspace Summary] \(workspace.summary)")
+        }
+
+        // Open note titles
+        let openPageIds = NoteWindowManager.shared.orderedPageIds()
+        if !openPageIds.isEmpty {
+            let titles = openPageIds.prefix(8).compactMap { pageId -> String? in
+                let targetId = pageId
+                let desc = FetchDescriptor<SDPage>(
+                    predicate: #Predicate<SDPage> { $0.id == targetId }
+                )
+                return try? bootstrap.modelContainer.mainContext.fetch(desc).first?.title
+            }
+            if !titles.isEmpty {
+                parts.append("[Currently Open Notes] \(titles.joined(separator: ", "))")
+            }
+        }
+
+        // Open mini chats
+        let chatCount = MiniChatWindowController.shared.openChatIds.count
+        if chatCount > 0 {
+            parts.append("[Open Mini Chats] \(chatCount)")
+        }
+
+        // Graph state
+        if HologramController.shared.isVisible {
+            let nodeCount = bootstrap.graphState.store.nodes.count
+            parts.append("[Knowledge Graph] Open with \(nodeCount) nodes")
+        }
+
+        return parts.joined(separator: "\n")
     }
 
     // MARK: - Vault Action Execution

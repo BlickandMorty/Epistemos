@@ -118,6 +118,19 @@ struct EpistemosApp: App {
                         bootstrap.workspaceService.autoRestore()
                         bootstrap.activityTracker.startTracking()
                         bootstrap.workspaceSummaryService.startAutoSummaryLoop()
+                        // Generate a fresh welcome-back summary if workspace was restored
+                        if bootstrap.workspaceService.welcomeBack != nil {
+                            Task { @MainActor in
+                                await bootstrap.workspaceSummaryService.generateSummaryNow()
+                                // Update welcome-back with the fresh summary
+                                let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+                                if let ws = try? bootstrap.modelContainer.mainContext.fetch(
+                                    FetchDescriptor(predicate: predicate)
+                                ).first, !ws.summary.isEmpty {
+                                    bootstrap.workspaceService.welcomeBack?.intentSummary = ws.summary
+                                }
+                            }
+                        }
                     }
                 }
                 // Handle Spotlight deep-links — user tapped a note in Spotlight results
