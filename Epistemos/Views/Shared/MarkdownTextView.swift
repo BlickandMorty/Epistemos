@@ -655,6 +655,11 @@ enum MarkdownPreviewSurfaceStyle {
         Color(nsColor: canvasNSColor(for: theme))
     }
 
+    /// Whether the preview should use a system material instead of a solid color.
+    static var usesSystemMaterial: Bool {
+        true
+    }
+
     static func flatBackground(for theme: EpistemosTheme) -> Color {
         theme.card.opacity(theme.isDark ? 0.92 : 0.96)
     }

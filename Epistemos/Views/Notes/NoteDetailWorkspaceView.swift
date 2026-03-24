@@ -870,13 +870,7 @@ struct NoteDetailWorkspaceView: View {
                         .frame(minWidth: 400, minHeight: 300)
                 }
 
-                TransitionGreetingView(
-                    message: transitionGreeting,
-                    theme: ui.theme
-                )
-                .opacity(transitionOpacity)
-                .ignoresSafeArea()
-                .allowsHitTesting(transitionOpacity > 0)
+                // Transition overlay removed — direct swap between editor/preview
             }
             .overlay(alignment: .bottom) {
                 noteFooter
@@ -1463,13 +1457,9 @@ struct NoteDetailWorkspaceView: View {
     // Timing: appear instantly → mode swaps behind it → fade out after settling.
 
     private func togglePreviewMode() {
-        guard !isTransitioning else { return }
         flushCurrentEditor()
-        let destinationLabel = showPreview ? "Editor" : "Preview"
-        performGreetingTransition(message: destinationLabel) {
-            invalidateEditorCache()
-            showPreview.toggle()
-        }
+        invalidateEditorCache()
+        showPreview.toggle()
     }
 
     @ViewBuilder
@@ -3136,7 +3126,7 @@ private struct AdaptiveNotePreviewView2: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: theme))
+            .background(.regularMaterial)
             .background {
                 NotePreviewTitlebarInsetReader(titlebarInset: $titlebarInset)
                     .frame(width: 0, height: 0)
