@@ -103,6 +103,16 @@ enum LandingGreetingResolver {
             LandingGreetingPhrase(text: "shift-click a graph node to highlight its neighborhood", durationSeconds: 3.0),
             LandingGreetingPhrase(text: "save your window layout as a workspace — Ctrl+\u{2318}S to save, Ctrl+\u{2318}W to switch", durationSeconds: 3.6),
             LandingGreetingPhrase(text: "workspaces remember your open notes, chats, and even cursor positions", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "Ctrl+\u{2318}R shows what you're working on — AI reads every open window", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "Ctrl+\u{2318}T opens the time machine — go back to any past session", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "every session is permanently logged — you'll never lose your work history", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "the app tracks paragraph-level changes to understand what you're editing", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "AI summaries use Map-Reduce — each window summarized, then synthesized", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "on quit, you can name your workspace and leave yourself a note", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "the time machine diffs your entire knowledge base — notes, chats, graph", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "restore any past session as a new workspace — non-destructive time travel", durationSeconds: 3.4),
+            LandingGreetingPhrase(text: "Chat with Chat lets you reference past conversations as context", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "session history uses a dedicated SQLite database — never slows down your notes", durationSeconds: 3.4),
         ]
 
         return titles + instructions + facts

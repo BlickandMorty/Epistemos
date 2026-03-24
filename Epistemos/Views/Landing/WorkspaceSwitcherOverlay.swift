@@ -113,7 +113,13 @@ struct WorkspaceSwitcherOverlay: View {
         .onKeyPress(.upArrow) { cycleSelection(-1); return .handled }
         .onKeyPress(.downArrow) { cycleSelection(1); return .handled }
         .onKeyPress(.return) { loadSelected(); return .handled }
-        .onKeyPress(.escape) { dismiss(); return .handled }
+        .background {
+            Button(action: { dismiss() }) {}
+                .keyboardShortcut(.escape, modifiers: [])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
         .onAppear {
             refreshWorkspaces()
             withAnimation(.easeOut(duration: 0.2)) { appeared = true }

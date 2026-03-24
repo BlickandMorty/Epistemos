@@ -108,7 +108,13 @@ struct SessionIntelligenceOverlay: View {
             .opacity(appeared ? 1 : 0)
             .foregroundStyle(theme.foreground)
         }
-        .onKeyPress(.escape) { dismiss(); return .handled }
+        .background {
+            Button(action: { dismiss() }) {}
+                .keyboardShortcut(.escape, modifiers: [])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
         .onAppear {
             withAnimation(.easeOut(duration: 0.2)) { appeared = true }
             buildWindowCards()

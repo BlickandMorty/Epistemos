@@ -39,9 +39,19 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
                 popover.animates = true
                 
                 let hostingController = NSHostingController(rootView: content())
-                // Ensure it fits the SwiftUI content tightly without extra scrollbars
                 hostingController.sizingOptions = .intrinsicContentSize
                 popover.contentViewController = hostingController
+
+                // Clamp popover size to fit within the window to prevent overflow
+                if let window = nsView.window {
+                    let maxWidth = min(window.frame.width - 40, 600)
+                    let maxHeight = min(window.frame.height - 80, 500)
+                    let intrinsic = hostingController.view.fittingSize
+                    popover.contentSize = NSSize(
+                        width: min(intrinsic.width, maxWidth),
+                        height: min(intrinsic.height, maxHeight)
+                    )
+                }
                 
                 context.coordinator.popover = popover
                 
