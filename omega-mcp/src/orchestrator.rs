@@ -3,10 +3,7 @@
 // ConfirmationGate, and ResearchPauseHandler.
 // Per Anti-Drift Anchor 1: orchestration MUST be in Rust.
 
-use crate::types::{ToolCall, ToolResult};
-use crate::dispatcher::MCPDispatcher;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
 
 // ── Risk Levels ──────────────────────────────────────────────────────────────
 
