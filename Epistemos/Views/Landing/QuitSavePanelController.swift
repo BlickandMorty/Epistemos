@@ -6,6 +6,12 @@ import SwiftUI
 // Used for workspace switcher, session intelligence, time machine, save workspace, and quit dialog.
 // Borderless panel with frosted glass blur and rounded corners — no traffic lights.
 
+/// NSPanel subclass that accepts key status for text input in floating overlays.
+private final class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
 @MainActor
 final class GlobalOverlayController {
     static let shared = GlobalOverlayController()
@@ -64,9 +70,9 @@ final class GlobalOverlayController {
             height: height
         )
 
-        let floatingPanel = NSPanel(
+        let floatingPanel = KeyablePanel(
             contentRect: panelRect,
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
@@ -76,6 +82,7 @@ final class GlobalOverlayController {
         floatingPanel.level = .floating + 1
         floatingPanel.isReleasedWhenClosed = false
         floatingPanel.isMovableByWindowBackground = true
+        floatingPanel.becomesKeyOnlyIfNeeded = false
         floatingPanel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
 
         // Build the SwiftUI hosting view

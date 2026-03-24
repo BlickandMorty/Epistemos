@@ -671,32 +671,116 @@ struct SessionIntelligenceOverlay: View {
         return "Failed to create session note."
     }
 
-    // MARK: - AI Query
+    // MARK: - AI Query with Action Extraction
 
     private func runAIQuery(_ query: String) async -> String {
         guard let bootstrap = AppBootstrap.shared else { return "AI not available." }
 
+        // First: try to detect intent and execute directly (smarter than exact prefix)
+        let lower = query.lowercased()
+
+        // "create me a note" / "make a note called X" / "please create the note"
+        if lower.contains("create") && lower.contains("note") || lower.contains("make") && lower.contains("note") {
+            // Extract title from query
+            var title = "Session Note"
+            if let range = query.range(of: "(?:called|titled|title|named)\\s+[\"']?(.+?)[\"']?$", options: .regularExpression, range: query.startIndex..<query.endIndex) {
+                title = String(query[range]).replacingOccurrences(of: "called ", with: "").replacingOccurrences(of: "titled ", with: "").replacingOccurrences(of: "title ", with: "").replacingOccurrences(of: "named ", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "\"' "))
+            } else if lower.contains("session") {
+                return await createSessionNote()
+            }
+            if let pageId = await bootstrap.vaultSync.createPage(title: title) {
+                NoteWindowManager.shared.open(pageId: pageId)
+                return "Created and opened note: \"\(title)\""
+            }
+            return "Failed to create note."
+        }
+
+        // "open it" / "open that" / "go to it" — open the last mentioned note/chat
+        if (lower == "open it" || lower == "open that" || lower.contains("open it up") || lower.contains("please open")) {
+            // Try to find the last note title mentioned in chat history
+            for entry in commandHistory.reversed() {
+                let combined = entry.query + " " + entry.response
+                if let pageId = extractAndFindNote(from: combined) {
+                    NoteWindowManager.shared.open(pageId: pageId)
+                    return "Opened the note."
+                }
+            }
+            return "Not sure which note to open. Try: open note <title>"
+        }
+
+        // "summarize everything" / "give me a summary"
+        if lower.contains("summarize") && (lower.contains("everything") || lower.contains("all") || lower.contains("session")) {
+            return await createSessionNote()
+        }
+
+        // Fall through to AI
         let context = ChatCoordinator.buildWorkspaceAwarenessContext(bootstrap: bootstrap, deepContext: true)
-        let prompt = "Context about the user's current workspace:\n\(context)\n\nUser asks: \(query)"
-        let systemPrompt = "You are a workspace assistant in the Session Intelligence panel. You have deep awareness of the user's open notes, chats, activity, and graph. Answer questions concisely (2-3 sentences). You can suggest commands: open note X, new note Title, close note X, open chat, show graph, reveal X, save session as note, activity, close all."
+
+        // List available notes for the AI to reference
+        let noteList = NoteWindowManager.shared.orderedPageIds().compactMap {
+            NoteWindowManager.shared.navState(forTab: $0)?.currentPageTitle
+        }.joined(separator: ", ")
+
+        let prompt = """
+        Context about the user's current workspace:
+        \(context)
+
+        Available notes: \(noteList)
+
+        User asks: \(query)
+
+        IMPORTANT: If the user asks you to create a note, open a note, or perform an action, respond with the action result. You have the ability to create notes, open notes, navigate the app. Be direct and helpful. If you need to suggest a command, format it as: [CMD: command here]
+        """
+
+        let systemPrompt = "You are a workspace assistant with full control over Epistemos. Answer concisely. When the user asks for actions (create note, open note, summarize), DO the action and confirm. Available commands you can suggest with [CMD: ...]: new note Title, open note X, close note X, save session as note, reveal X, show graph, activity."
 
         do {
+            let response: String
             switch chatModel {
             case .appleAI:
-                let response = try await AppleIntelligenceService.shared.generate(
+                response = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt, systemPrompt: systemPrompt
                 )
-                return response.trimmingCharacters(in: .whitespacesAndNewlines)
             case .local:
-                let response = try await bootstrap.triageService.generate(
+                response = try await bootstrap.triageService.generate(
                     prompt: prompt, systemPrompt: systemPrompt,
                     operation: .ask(query: query), contentLength: prompt.count, query: query
                 )
-                return response.trimmingCharacters(in: .whitespacesAndNewlines)
             }
+
+            let cleaned = response.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Extract and execute any [CMD: ...] in the response
+            if let cmdRange = cleaned.range(of: "\\[CMD:\\s*(.+?)\\]", options: .regularExpression) {
+                let cmd = String(cleaned[cmdRange])
+                    .replacingOccurrences(of: "[CMD: ", with: "")
+                    .replacingOccurrences(of: "[CMD:", with: "")
+                    .replacingOccurrences(of: "]", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+                // Execute the extracted command
+                commandInput = cmd
+                let textWithoutCmd = cleaned.replacingOccurrences(of: String(cleaned[cmdRange]), with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                Task { await executeCommand() }
+                return textWithoutCmd.isEmpty ? "Executing: \(cmd)" : textWithoutCmd
+            }
+
+            return cleaned
         } catch {
-            return "Could not generate response: \(error.localizedDescription)"
+            return "Could not generate response."
         }
+    }
+
+    /// Try to find a note title mentioned in text and return its pageId.
+    private func extractAndFindNote(from text: String) -> String? {
+        guard let context = AppBootstrap.shared?.modelContainer.mainContext else { return nil }
+        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        // Check if any note title appears in the text
+        for page in pages where !page.title.isEmpty {
+            if text.localizedCaseInsensitiveContains(page.title) {
+                return page.id
+            }
+        }
+        return nil
     }
 
     private func findNoteByTitle(_ title: String) -> String? {
