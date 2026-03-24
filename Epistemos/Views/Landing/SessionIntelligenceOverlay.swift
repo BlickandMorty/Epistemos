@@ -14,6 +14,10 @@ struct SessionIntelligenceOverlay: View {
     @State private var globalSynthesis = ""
     @State private var isGenerating = true
     @State private var appeared = false
+    @State private var commandInput = ""
+    @State private var commandResponse = ""
+    @State private var isRunningCommand = false
+    @State private var commandHistory: [(query: String, response: String)] = []
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -94,11 +98,16 @@ struct SessionIntelligenceOverlay: View {
                             .padding(.top, 8)
                         }
                     }
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 12)
                 }
-                .frame(maxHeight: 500)
+                .frame(maxHeight: 340)
+
+                Divider().opacity(0.3)
+
+                // Command chat
+                commandChatSection
             }
-            .frame(width: 600)
+            .frame(width: 640)
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
@@ -244,6 +253,168 @@ struct SessionIntelligenceOverlay: View {
         }
 
         isGenerating = false
+    }
+
+    // MARK: - Command Chat
+
+    private var commandChatSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Chat history
+            if !commandHistory.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(Array(commandHistory.enumerated()), id: \.offset) { _, entry in
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(theme.accent)
+                                    Text(entry.query)
+                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                }
+                                Text(entry.response)
+                                    .font(.system(size: 12, design: .rounded))
+                                    .foregroundStyle(theme.textSecondary)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .frame(maxHeight: 120)
+            }
+
+            // Input
+            HStack(spacing: 10) {
+                Image(systemName: "terminal")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(theme.accent)
+
+                TextField("Ask about your session, or command: \"open note X\", \"show chat Y\"...", text: $commandInput)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13, design: .rounded))
+                    .onSubmit { Task { await executeCommand() } }
+
+                if isRunningCommand {
+                    ProgressView().controlSize(.small).scaleEffect(0.7)
+                } else {
+                    Button {
+                        Task { await executeCommand() }
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(commandInput.isEmpty ? theme.textTertiary : theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(commandInput.isEmpty)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(theme.foreground.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 20)
+            .padding(.bottom, 14)
+        }
+    }
+
+    private func executeCommand() async {
+        let query = commandInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        commandInput = ""
+        isRunningCommand = true
+
+        let lower = query.lowercased()
+
+        // Direct commands: open note, open chat
+        if lower.hasPrefix("open note ") || lower.hasPrefix("go to note ") || lower.hasPrefix("show note ") {
+            let noteQuery = query.dropFirst(lower.hasPrefix("open note ") ? 10 : (lower.hasPrefix("go to note ") ? 11 : 10))
+                .trimmingCharacters(in: .whitespaces)
+            if let pageId = findNoteByTitle(String(noteQuery)) {
+                NoteWindowManager.shared.open(pageId: pageId)
+                commandHistory.append((query: query, response: "Opened note: \(noteQuery)"))
+                isRunningCommand = false
+                return
+            } else {
+                commandHistory.append((query: query, response: "Could not find a note matching \"\(noteQuery)\"."))
+                isRunningCommand = false
+                return
+            }
+        }
+
+        if lower.hasPrefix("open chat ") || lower.hasPrefix("show chat ") {
+            let chatQuery = query.dropFirst(10).trimmingCharacters(in: .whitespaces)
+            if let chatId = findChatByTitle(String(chatQuery)) {
+                MiniChatWindowController.shared.openChat(chatId)
+                commandHistory.append((query: query, response: "Opened chat: \(chatQuery)"))
+                isRunningCommand = false
+                return
+            } else {
+                commandHistory.append((query: query, response: "Could not find a chat matching \"\(chatQuery)\"."))
+                isRunningCommand = false
+                return
+            }
+        }
+
+        if lower == "open graph" || lower == "show graph" {
+            HologramController.shared.show()
+            commandHistory.append((query: query, response: "Opened the knowledge graph."))
+            isRunningCommand = false
+            return
+        }
+
+        if lower.hasPrefix("new note") {
+            let title = query.dropFirst(8).trimmingCharacters(in: .whitespaces)
+            let resolvedTitle = title.isEmpty ? "Untitled" : title
+            if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: resolvedTitle) {
+                NoteWindowManager.shared.open(pageId: pageId)
+                commandHistory.append((query: query, response: "Created and opened new note: \(resolvedTitle)"))
+            }
+            isRunningCommand = false
+            return
+        }
+
+        if lower == "new chat" || lower == "new mini chat" {
+            MiniChatWindowController.shared.openNewChat()
+            commandHistory.append((query: query, response: "Opened a new mini chat."))
+            isRunningCommand = false
+            return
+        }
+
+        // AI query — ask about the session with full workspace context
+        do {
+            guard let triage = AppBootstrap.shared?.triageService,
+                  let bootstrap = AppBootstrap.shared else {
+                commandHistory.append((query: query, response: "AI not available."))
+                isRunningCommand = false
+                return
+            }
+            let context = ChatCoordinator.buildWorkspaceAwarenessContext(bootstrap: bootstrap, deepContext: true)
+            let prompt = "Context about the user's current workspace:\n\(context)\n\nUser asks: \(query)"
+            let response = try await triage.generate(
+                prompt: prompt,
+                systemPrompt: "You are a workspace assistant embedded in the Session Intelligence panel. Answer questions about the user's current session, open notes, chats, and activity. Be concise (2-3 sentences). If the user asks to navigate somewhere, tell them to use commands like 'open note X' or 'open chat Y'.",
+                operation: .ask(query: query),
+                contentLength: prompt.count,
+                query: query
+            )
+            commandHistory.append((query: query, response: response.trimmingCharacters(in: .whitespacesAndNewlines)))
+        } catch {
+            commandHistory.append((query: query, response: "Could not generate response."))
+        }
+        isRunningCommand = false
+    }
+
+    private func findNoteByTitle(_ title: String) -> String? {
+        guard let context = AppBootstrap.shared?.modelContainer.mainContext else { return nil }
+        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let lower = title.lowercased()
+        return pages.first(where: { $0.title.lowercased().contains(lower) })?.id
+    }
+
+    private func findChatByTitle(_ title: String) -> String? {
+        guard let context = AppBootstrap.shared?.modelContainer.mainContext else { return nil }
+        let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []
+        let lower = title.lowercased()
+        return chats.first(where: { $0.title.lowercased().contains(lower) })?.id
     }
 
     private func dismiss() {
