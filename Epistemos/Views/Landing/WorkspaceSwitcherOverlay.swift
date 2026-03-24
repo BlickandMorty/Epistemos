@@ -252,6 +252,9 @@ private struct WorkspaceRow: View {
                                 .lineLimit(1)
                         }
                     }
+
+                    // Drift indicator — shows how workspace diverged from current state
+                    driftIndicator
                 }
 
                 // Open in Space button
@@ -299,5 +302,50 @@ private struct WorkspaceRow: View {
             parts.append("graph")
         }
         return parts.isEmpty ? "empty workspace" : parts.joined(separator: ", ")
+    }
+
+    /// Shows how the saved workspace differs from the current live state.
+    @ViewBuilder
+    private var driftIndicator: some View {
+        let drift = computeDrift()
+        if !drift.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(theme.accent.opacity(0.5))
+                Text(drift)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary.opacity(0.7))
+            }
+        }
+    }
+
+    /// Compares saved workspace snapshot against current live state.
+    private func computeDrift() -> String {
+        guard let snapshot = try? JSONDecoder().decode(
+            WorkspaceSnapshot.self, from: workspace.snapshotData
+        ) else { return "" }
+
+        let currentPageIds = Set(NoteWindowManager.shared.orderedPageIds())
+        let savedPageIds = Set(snapshot.openNoteTabs.map(\.rootPageId))
+        let addedNotes = currentPageIds.subtracting(savedPageIds).count
+        let removedNotes = savedPageIds.subtracting(currentPageIds).count
+
+        let currentChatIds = Set(MiniChatWindowController.shared.openChatIds)
+        let savedChatIds = Set(snapshot.openMiniChatIds)
+        let addedChats = currentChatIds.subtracting(savedChatIds).count
+
+        var parts: [String] = []
+        if addedNotes > 0 { parts.append("+\(addedNotes) note\(addedNotes == 1 ? "" : "s")") }
+        if removedNotes > 0 { parts.append("-\(removedNotes) note\(removedNotes == 1 ? "" : "s")") }
+        if addedChats > 0 { parts.append("+\(addedChats) chat\(addedChats == 1 ? "" : "s")") }
+
+        // Time drift
+        let hours = Int(Date().timeIntervalSince(workspace.updatedAt) / 3600)
+        if hours > 0 && parts.isEmpty {
+            parts.append("\(hours)h since save")
+        }
+
+        return parts.joined(separator: " \u{2022} ")
     }
 }

@@ -102,7 +102,8 @@ final class WorkspaceSummaryService {
         await generateAndStoreSummary()
     }
 
-    /// Per-window summary for the session intelligence overlay. Returns array of (title, summary).
+    /// Per-window summary using Apple Intelligence (fast, short context, ideal for one-sentence summaries).
+    /// Falls back to TriageService if Apple Intelligence is unavailable.
     func generatePerWindowSummaries() async -> [(title: String, summary: String)] {
         let openPageIds = NoteWindowManager.shared.orderedPageIds()
         guard !openPageIds.isEmpty else { return [] }
@@ -115,18 +116,30 @@ final class WorkspaceSummaryService {
                 results.append((title: title, summary: "Empty note"))
                 continue
             }
-            let snippet = String(body.prefix(800))
+            let snippet = String(body.prefix(600))
+            let prompt = "Summarize the intent and key content of this document in one sentence:\n\n\(snippet)"
+
             do {
-                let summary = try await triageService.generate(
-                    prompt: "Summarize the intent and key content of this document in one sentence:\n\n\(snippet)",
-                    systemPrompt: "You are a concise document summarizer. One sentence only.",
-                    operation: .summarize,
-                    contentLength: snippet.count,
-                    query: "per-window summary"
+                // Prefer Apple Intelligence for per-window summaries (fast, low-latency)
+                let summary = try await AppleIntelligenceService.shared.generate(
+                    prompt: prompt,
+                    systemPrompt: "You are a concise document summarizer. One sentence only."
                 )
                 results.append((title: title, summary: summary.trimmingCharacters(in: .whitespacesAndNewlines)))
             } catch {
-                results.append((title: title, summary: "Could not summarize"))
+                // Fallback to triage (Qwen) if Apple Intelligence unavailable
+                do {
+                    let summary = try await triageService.generate(
+                        prompt: prompt,
+                        systemPrompt: "You are a concise document summarizer. One sentence only.",
+                        operation: .summarize,
+                        contentLength: snippet.count,
+                        query: "per-window summary"
+                    )
+                    results.append((title: title, summary: summary.trimmingCharacters(in: .whitespacesAndNewlines)))
+                } catch {
+                    results.append((title: title, summary: "Could not summarize"))
+                }
             }
         }
         return results

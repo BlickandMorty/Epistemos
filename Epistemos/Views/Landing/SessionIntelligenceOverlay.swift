@@ -98,16 +98,17 @@ struct SessionIntelligenceOverlay: View {
                             .padding(.top, 8)
                         }
                     }
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 8)
                 }
-                .frame(maxHeight: 340)
+                .frame(maxHeight: 260)
 
                 Divider().opacity(0.3)
 
-                // Command chat
+                // Command chat — main interaction area
                 commandChatSection
+                    .frame(minHeight: 180)
             }
-            .frame(width: 640)
+            .frame(width: 680, height: 580)
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
@@ -260,28 +261,47 @@ struct SessionIntelligenceOverlay: View {
     private var commandChatSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Chat history
-            if !commandHistory.isEmpty {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
+            ScrollView {
+                if commandHistory.isEmpty {
+                    VStack(spacing: 8) {
+                        Text("Ask about your session or run commands")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(theme.textTertiary)
+                        Text("Try: \"what am I working on\" \u{2022} \"open note X\" \u{2022} \"summarize my chats\"")
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundStyle(theme.textTertiary.opacity(0.6))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                } else {
+                    VStack(alignment: .leading, spacing: 12) {
                         ForEach(Array(commandHistory.enumerated()), id: \.offset) { _, entry in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 6) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "person.fill")
                                         .font(.system(size: 9))
                                         .foregroundStyle(theme.accent)
+                                        .frame(width: 16, height: 16)
                                     Text(entry.query)
-                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 }
-                                Text(entry.response)
-                                    .font(.system(size: 12, design: .rounded))
-                                    .foregroundStyle(theme.textSecondary)
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "brain.head.profile")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(theme.textTertiary)
+                                        .frame(width: 16, height: 16)
+                                    Text(entry.response)
+                                        .font(.system(size: 12, design: .rounded))
+                                        .foregroundStyle(theme.textSecondary)
+                                        .textSelection(.enabled)
+                                }
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
                 }
-                .frame(maxHeight: 120)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
 
             // Input
             HStack(spacing: 10) {
