@@ -48,11 +48,26 @@ struct OmegaPanel: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
 
+                    // Planning method badge
+                    if !orchestrator.planningMethod.isEmpty && !orchestrator.isPlanning {
+                        HStack(spacing: 6) {
+                            Image(systemName: orchestrator.planningMethod.contains("AI") ? "brain" : "arrow.triangle.branch")
+                                .font(.caption)
+                            Text(orchestrator.planningMethod)
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.secondary.opacity(0.1))
+                        .clipShape(Capsule())
+                    }
+
                     // Planning error
                     if let error = orchestrator.planningError {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(.orange)
                             Text(error)
                                 .font(.subheadline)
                         }

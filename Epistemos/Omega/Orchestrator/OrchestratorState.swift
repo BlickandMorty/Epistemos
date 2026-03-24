@@ -24,6 +24,7 @@ final class OrchestratorState {
     var isExecuting: Bool = false
     var isPlanning: Bool = false
     var planningError: String?
+    var planningMethod: String = ""
     var executionLog: [AgentStepResult] = []
 
     // MARK: - Setup
@@ -72,18 +73,27 @@ final class OrchestratorState {
         executionLog.removeAll()
 
         // Generate plan via LLM or heuristic fallback
-        let steps: [AgentStep]
+        var steps: [AgentStep] = []
+        var usedLLM = false
+
         if let planner = planningService {
-            steps = await planner.generatePlan(for: description)
-        } else {
-            // No LLM available — use heuristic routing
+            let llmSteps = await planner.generatePlan(for: description)
+            if !llmSteps.isEmpty {
+                steps = llmSteps
+                usedLLM = true
+            }
+        }
+
+        // If LLM planning failed or unavailable, use heuristic
+        if steps.isEmpty {
             steps = heuristicPlan(for: description)
         }
 
         isPlanning = false
+        planningMethod = usedLLM ? "AI-planned" : "Heuristic routing"
 
         if steps.isEmpty {
-            planningError = "Could not generate a plan for this task."
+            planningError = "Could not determine what to do. Try rephrasing your task, or load a local AI model in Settings > Inference for intelligent planning."
             taskGraph.status = .failed
             return
         }
@@ -185,11 +195,24 @@ final class OrchestratorState {
 
     // MARK: - Heuristic Fallback
 
-    /// Simple keyword-based routing when no LLM is available.
+    /// Keyword-based routing when the LLM is unavailable or returns unparseable output.
+    /// Covers common task patterns. Falls back to a helpful error for unrecognized tasks.
     private func heuristicPlan(for task: String) -> [AgentStep] {
         let lower = task.lowercased()
 
-        if lower.contains("open") && (lower.contains("safari") || lower.contains("http") || lower.contains("url") || lower.contains("website")) {
+        // ── Writing / Summarization (use notes agent) ────────────────────
+        let writeKeywords = ["write", "summarize", "summary", "draft", "compose", "rewrite", "outline", "essay", "paragraph"]
+        if writeKeywords.contains(where: { lower.contains($0) }) {
+            return [AgentStep(
+                description: "Write/summarize: \(task)",
+                assignedAgent: "notes",
+                toolName: "create_note",
+                argumentsJson: "{\"title\":\"\(escapeJson(task))\",\"body\":\"\"}"
+            )]
+        }
+
+        // ── Web browsing ─────────────────────────────────────────────────
+        if lower.contains("open") && (lower.contains("safari") || lower.contains("http") || lower.contains("url") || lower.contains("website") || lower.contains("apple.com")) {
             let url = extractURL(from: task) ?? "https://www.apple.com"
             return [AgentStep(
                 description: "Open URL in Safari",
@@ -199,9 +222,14 @@ final class OrchestratorState {
             )]
         }
 
-        if lower.contains("search") && (lower.contains("web") || lower.contains("google")) {
-            let query = task.replacingOccurrences(of: "search for ", with: "", options: .caseInsensitive)
+        // ── Web search ───────────────────────────────────────────────────
+        let searchKeywords = ["search", "google", "look up", "find info", "research"]
+        if searchKeywords.contains(where: { lower.contains($0) }) {
+            let query = task
+                .replacingOccurrences(of: "search for ", with: "", options: .caseInsensitive)
                 .replacingOccurrences(of: "search the web for ", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "google ", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "look up ", with: "", options: .caseInsensitive)
             return [AgentStep(
                 description: "Search the web",
                 assignedAgent: "safari",
@@ -210,17 +238,27 @@ final class OrchestratorState {
             )]
         }
 
-        if lower.contains("list") && lower.contains("file") {
-            let path = "."
+        // ── File operations ──────────────────────────────────────────────
+        if lower.contains("list") && (lower.contains("file") || lower.contains("folder") || lower.contains("directory")) {
             return [AgentStep(
                 description: "List files",
                 assignedAgent: "file",
                 toolName: "list_files",
-                argumentsJson: "{\"path\":\"\(path)\"}"
+                argumentsJson: "{\"path\":\".\"}"
             )]
         }
 
-        if lower.contains("create") && lower.contains("note") {
+        if (lower.contains("read") || lower.contains("open") || lower.contains("show")) && lower.contains("file") {
+            return [AgentStep(
+                description: "Read file",
+                assignedAgent: "file",
+                toolName: "read_file",
+                argumentsJson: "{\"path\":\"\"}"
+            )]
+        }
+
+        // ── Note operations ──────────────────────────────────────────────
+        if lower.contains("note") && (lower.contains("create") || lower.contains("new") || lower.contains("make")) {
             return [AgentStep(
                 description: "Create a new note",
                 assignedAgent: "notes",
@@ -229,7 +267,17 @@ final class OrchestratorState {
             )]
         }
 
-        if lower.contains("delete") || lower.contains("remove") {
+        if lower.contains("note") && lower.contains("search") {
+            return [AgentStep(
+                description: "Search notes",
+                assignedAgent: "notes",
+                toolName: "search_notes",
+                argumentsJson: "{\"query\":\"\(escapeJson(task))\"}"
+            )]
+        }
+
+        // ── Destructive operations (high risk) ───────────────────────────
+        if lower.contains("delete") || lower.contains("remove") || lower.contains("trash") {
             return [AgentStep(
                 description: task,
                 assignedAgent: "file",
@@ -239,12 +287,36 @@ final class OrchestratorState {
             )]
         }
 
-        // Default: run as terminal command
+        // ── Shell commands (explicit) ────────────────────────────────────
+        if lower.contains("run ") || lower.contains("execute ") || lower.hasPrefix("ls") || lower.hasPrefix("pwd") || lower.hasPrefix("echo") {
+            let cmd = task.replacingOccurrences(of: "run ", with: "", options: .caseInsensitive)
+                         .replacingOccurrences(of: "execute ", with: "", options: .caseInsensitive)
+            return [AgentStep(
+                description: "Run command: \(cmd)",
+                assignedAgent: "terminal",
+                toolName: "run_command",
+                argumentsJson: "{\"command\":\"\(escapeJson(cmd))\"}"
+            )]
+        }
+
+        // ── Shortcut operations ──────────────────────────────────────────
+        if lower.contains("shortcut") || lower.contains("workflow") {
+            return [AgentStep(
+                description: task,
+                assignedAgent: "automation",
+                toolName: "run_shortcut",
+                argumentsJson: "{\"name\":\"\"}"
+            )]
+        }
+
+        // ── Default: try to use notes agent for general questions ─────────
+        // If no specific pattern matches, treat it as a question/writing task
+        // rather than blindly running a terminal command.
         return [AgentStep(
             description: task,
-            assignedAgent: "terminal",
-            toolName: "run_command",
-            argumentsJson: "{\"command\":\"echo 'Task: \(escapeJson(task))'\"}"
+            assignedAgent: "notes",
+            toolName: "create_note",
+            argumentsJson: "{\"title\":\"\(escapeJson(task))\",\"body\":\"Omega could not determine the right action. Please try rephrasing or load a local AI model for intelligent planning.\"}"
         )]
     }
 

@@ -42,17 +42,20 @@ final class NotesAgent: OmegaAgent, @unchecked Sendable {
         case "create_note":
             let title = args["title"] as? String ?? "Untitled"
             let body = args["body"] as? String ?? ""
-            return "{\"created\":true,\"title\":\(jsonEscape(title)),\"body_length\":\(body.count)}"
+            // TODO: Wire to VaultSyncService.createPage() for real note creation
+            return "{\"status\":\"acknowledged\",\"action\":\"create_note\",\"title\":\(jsonEscape(title)),\"note\":\"Note creation requires a local AI model for content generation. Load a model in Settings > Inference.\"}"
 
         case "search_notes":
             let query = args["query"] as? String ?? ""
-            return "{\"query\":\(jsonEscape(query)),\"results\":[]}"
+            // TODO: Wire to GraphStore.search() for real search
+            return "{\"status\":\"acknowledged\",\"action\":\"search_notes\",\"query\":\(jsonEscape(query)),\"results\":[],\"note\":\"Note search requires SwiftData integration.\"}"
 
         case "list_notes":
-            return "{\"notes\":[]}"
+            // TODO: Wire to SwiftData fetch for real listing
+            return "{\"status\":\"acknowledged\",\"action\":\"list_notes\",\"results\":[],\"note\":\"Note listing requires SwiftData integration.\"}"
 
         case "edit_note":
-            return "{\"edited\":true}"
+            return "{\"status\":\"acknowledged\",\"action\":\"edit_note\",\"note\":\"Note editing requires note ID and SwiftData integration.\"}"
 
         default:
             throw NotesAgentError.unknownTool(step.toolName)
