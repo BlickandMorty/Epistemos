@@ -53,6 +53,43 @@ final class KnowledgeFusionViewModel {
     /// Currently selected model for training.
     var selectedModelIndex: Int = 0
 
+    // MARK: - Training Configuration (user-adjustable)
+
+    /// Detected unified memory in GB.
+    let systemMemoryGB: Int = {
+        Int(ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024))
+    }()
+
+    /// Training iterations. More = better quality but slower. 100-1000 typical.
+    var trainingIterations: Int = 200
+    /// LoRA rank. Higher = more capacity but more memory. 8 for style, 16-32 for knowledge.
+    var loraRank: Int = 16
+    /// LoRA alpha. Usually 2x rank. Controls learning magnitude.
+    var loraAlpha: Int = 32
+    /// Batch size. 1 for 16GB, 2 for 32GB, 4 for 64GB+.
+    var batchSize: Int = 1
+    /// Max sequence length. 512-2048. Lower = less memory.
+    var maxSeqLength: Int = 1024
+    /// Learning rate. 1e-5 for style, 2e-5 for knowledge.
+    var learningRate: Double = 2e-5
+
+    /// Auto-configure based on system memory.
+    func autoConfigureForHardware() {
+        if systemMemoryGB >= 64 {
+            batchSize = 4; maxSeqLength = 2048; loraRank = 32; loraAlpha = 64
+            trainingIterations = 500
+        } else if systemMemoryGB >= 32 {
+            batchSize = 2; maxSeqLength = 2048; loraRank = 32; loraAlpha = 64
+            trainingIterations = 300
+        } else if systemMemoryGB >= 24 {
+            batchSize = 2; maxSeqLength = 1024; loraRank = 16; loraAlpha = 32
+            trainingIterations = 200
+        } else {
+            batchSize = 1; maxSeqLength = 1024; loraRank = 16; loraAlpha = 32
+            trainingIterations = 200
+        }
+    }
+
     var detectedModelPath: URL? {
         guard !availableModels.isEmpty, selectedModelIndex < availableModels.count else { return nil }
         return availableModels[selectedModelIndex].path
@@ -225,7 +262,7 @@ final class KnowledgeFusionViewModel {
                     modelPath: modelPath,
                     dataPath: dataURL,
                     outputPath: adapterOutputDir,
-                    numIters: 1000
+                    numIters: trainingIterations
                 ) { [weak self] tp in
                     Task { @MainActor in
                         let pct = 0.55 + Double(tp.iteration) / Double(tp.totalIterations) * 0.35
@@ -241,7 +278,7 @@ final class KnowledgeFusionViewModel {
                     modelPath: modelPath,
                     dataPath: dataURL,
                     outputPath: adapterOutputDir,
-                    numIters: 1000
+                    numIters: trainingIterations
                 )
             }
 

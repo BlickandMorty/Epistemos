@@ -8,11 +8,14 @@ struct TrainOnVaultView: View {
     @State private var selectedVaultURL: URL?
     @State private var pyEnv = PythonEnvironmentManager.shared
 
+    @State private var showAdvanced = false
+
     var body: some View {
         VStack(spacing: 16) {
             headerSection
             environmentSection
             modelInfoSection
+            advancedSettingsSection
             progressSection
             actionSection
         }
@@ -20,6 +23,7 @@ struct TrainOnVaultView: View {
         .frame(minWidth: 380)
         .task {
             pyEnv.checkExisting()
+            vm.autoConfigureForHardware()
         }
     }
 
@@ -227,6 +231,130 @@ struct TrainOnVaultView: View {
                 .pickerStyle(.menu)
                 .frame(maxWidth: 260)
             }
+        }
+    }
+
+    // MARK: - Advanced Settings
+
+    @ViewBuilder
+    private var advancedSettingsSection: some View {
+        VStack(spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showAdvanced.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Advanced Training Settings")
+                    Image(systemName: showAdvanced ? "chevron.up" : "chevron.down")
+                }
+                .font(.caption)
+                .foregroundStyle(.blue)
+            }
+            .buttonStyle(.plain)
+
+            if showAdvanced {
+                @Bindable var vm = vm
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Image(systemName: "memorychip")
+                            .foregroundStyle(.secondary)
+                        Text("Detected: \(vm.systemMemoryGB) GB unified memory")
+                            .font(.caption.weight(.medium))
+                        Spacer()
+                        Button("Auto") { vm.autoConfigureForHardware() }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                    }
+
+                    settingRow(
+                        title: "Training Iterations",
+                        value: $vm.trainingIterations,
+                        range: 20...2000,
+                        step: 20,
+                        desc: "More iterations = better quality but slower. 200 is a good start, 500-1000 for thorough training."
+                    )
+
+                    settingRow(
+                        title: "LoRA Rank",
+                        value: $vm.loraRank,
+                        range: 4...64,
+                        step: 4,
+                        desc: "Adapter capacity. 8 for style cloning, 16 for balanced, 32+ for deep knowledge absorption. Higher = more memory."
+                    )
+
+                    settingRow(
+                        title: "LoRA Alpha",
+                        value: $vm.loraAlpha,
+                        range: 8...128,
+                        step: 8,
+                        desc: "Learning magnitude. Usually 2x the rank. Controls how strongly new knowledge overrides the base model."
+                    )
+
+                    settingRow(
+                        title: "Batch Size",
+                        value: $vm.batchSize,
+                        range: 1...8,
+                        step: 1,
+                        desc: "Examples per step. 1 for 16GB, 2 for 32GB, 4 for 64GB+. Larger = faster but more memory."
+                    )
+
+                    settingRow(
+                        title: "Max Sequence Length",
+                        value: $vm.maxSeqLength,
+                        range: 256...4096,
+                        step: 256,
+                        desc: "Token window per example. 1024 for 16GB, 2048 for 32GB+. Longer captures more context per note."
+                    )
+
+                    HStack(spacing: 8) {
+                        Text("Hardware Guide")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        hardwareGuideRow("16 GB (M1/M2/M3)", "rank 8-16, batch 1, seq 1024")
+                        hardwareGuideRow("24 GB (M2/M3 Pro)", "rank 16-32, batch 2, seq 1024")
+                        hardwareGuideRow("32 GB (M1/M2/M3 Max)", "rank 32, batch 2, seq 2048")
+                        hardwareGuideRow("64 GB+ (M2/M3/M4 Max)", "rank 32-64, batch 4, seq 2048")
+                        hardwareGuideRow("128 GB (M4 Ultra)", "rank 64, batch 8, seq 4096")
+                    }
+                }
+                .padding(12)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func settingRow(title: String, value: Binding<Int>, range: ClosedRange<Int>, step: Int, desc: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title)
+                    .font(.caption.weight(.medium))
+                Spacer()
+                Text("\(value.wrappedValue)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .frame(width: 40, alignment: .trailing)
+                Stepper("", value: value, in: range, step: step)
+                    .labelsHidden()
+            }
+            Text(desc)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func hardwareGuideRow(_ machine: String, _ config: String) -> some View {
+        HStack(spacing: 6) {
+            Text(machine)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 150, alignment: .leading)
+            Text(config)
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
         }
     }
 

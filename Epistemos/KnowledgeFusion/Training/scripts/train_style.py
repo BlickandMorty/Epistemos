@@ -34,8 +34,8 @@ TARGET_MODULES = [
 LEARNING_RATE = 1e-5
 WEIGHT_DECAY = 0.01      # L2 regularization — per ANCHOR 4, Mitigation 4
 REPLAY_RATIO = 0.10      # 10% experience replay — per ANCHOR 4, Mitigation 1
-BATCH_SIZE = 4
-MAX_SEQ_LEN = 2048
+BATCH_SIZE = 1
+MAX_SEQ_LEN = 1024
 
 
 def parse_args():
