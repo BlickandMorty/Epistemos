@@ -1,30 +1,37 @@
 import AppKit
 import SwiftUI
 
-// MARK: - Quit Save Panel Controller
-// Manages a floating NSPanel that appears above ALL windows (note editors, mini chats, etc.)
-// when the user quits the app. Uses the same floating panel pattern as the graph overlay
-// so the user always sees the save dialog regardless of which window has focus.
+// MARK: - Global Overlay Controller
+// Manages floating NSPanel overlays that appear above ALL windows (note editors, mini chats, etc.).
+// Used for workspace switcher, session intelligence, time machine, save workspace, and quit dialog.
+// Borderless panel with frosted glass blur and rounded corners — no traffic lights.
 
 @MainActor
-final class QuitSavePanelController {
-    static let shared = QuitSavePanelController()
+final class GlobalOverlayController {
+    static let shared = GlobalOverlayController()
 
     private var panel: NSPanel?
     private var scrimWindow: NSWindow?
+    var dismissHandler: (() -> Void)?
 
     private init() {}
 
-    func show(isQuitFlow: Bool, onComplete: @escaping (Bool) -> Void) {
+    var isShowing: Bool { panel != nil }
+
+    /// Show a SwiftUI view as a global floating overlay with scrim.
+    func show<Content: View>(
+        width: CGFloat = 480,
+        height: CGFloat = 500,
+        onDismiss: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
         guard panel == nil else { return }
+        guard let screen = NSScreen.main else { return }
+        self.dismissHandler = onDismiss
 
-        // Create a full-screen scrim behind the panel
-        guard let screen = NSScreen.main else {
-            onComplete(false)
-            return
-        }
+        let isDark = AppBootstrap.shared?.uiState.theme.isDark ?? true
 
-        // Scrim window — covers entire screen with semi-transparent background
+        // Scrim — full-screen dim
         let scrim = NSWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
@@ -38,73 +45,60 @@ final class QuitSavePanelController {
         scrim.isReleasedWhenClosed = false
         scrim.ignoresMouseEvents = false
 
-        let isDark = AppBootstrap.shared?.uiState.theme.isDark ?? true
         let scrimColor = isDark ? NSColor.black.withAlphaComponent(0.4) : NSColor.gray.withAlphaComponent(0.2)
         let scrimView = NSView(frame: screen.frame)
         scrimView.wantsLayer = true
         scrimView.layer?.backgroundColor = scrimColor.cgColor
         scrim.contentView = scrimView
 
-        // Click scrim to cancel (for non-quit flow)
         let clickRecognizer = NSClickGestureRecognizer(target: self, action: #selector(scrimClicked))
         scrimView.addGestureRecognizer(clickRecognizer)
-
         scrim.orderFront(nil)
         self.scrimWindow = scrim
 
-        // Panel window — centered floating panel with the SwiftUI save UI
-        let panelWidth: CGFloat = 460
-        let panelHeight: CGFloat = 480
+        // Panel — borderless, rounded corners, frosted glass
         let panelRect = NSRect(
-            x: screen.frame.midX - panelWidth / 2,
-            y: screen.frame.midY - panelHeight / 2,
-            width: panelWidth,
-            height: panelHeight
+            x: screen.frame.midX - width / 2,
+            y: screen.frame.midY - height / 2,
+            width: width,
+            height: height
         )
 
         let floatingPanel = NSPanel(
             contentRect: panelRect,
-            styleMask: [.nonactivatingPanel, .titled, .closable],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         floatingPanel.isOpaque = false
         floatingPanel.backgroundColor = .clear
         floatingPanel.hasShadow = true
-        floatingPanel.level = .floating + 1 // Above scrim
+        floatingPanel.level = .floating + 1
         floatingPanel.isReleasedWhenClosed = false
-        floatingPanel.titlebarAppearsTransparent = true
-        floatingPanel.titleVisibility = .hidden
         floatingPanel.isMovableByWindowBackground = true
         floatingPanel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
 
-        // Wrap WorkspaceSavePanel in an NSHostingView
-        // Using a simpler inline SwiftUI view since WorkspaceSavePanel manages its own Binding
-        let saveView = QuitSaveContent(
-            isQuitFlow: isQuitFlow,
-            onComplete: { [weak self] shouldQuit in
-                self?.dismiss()
-                onComplete(shouldQuit)
-            }
-        )
-
+        // Build the SwiftUI hosting view
+        let swiftUIContent = content()
         let swiftUIView: NSView
         if let bootstrap = AppBootstrap.shared {
-            let themed = saveView
-                .withAppEnvironment(bootstrap)
-                .modelContainer(bootstrap.modelContainer)
-            swiftUIView = NSHostingView(rootView: themed)
+            swiftUIView = NSHostingView(rootView:
+                swiftUIContent
+                    .withAppEnvironment(bootstrap)
+                    .modelContainer(bootstrap.modelContainer)
+            )
         } else {
-            swiftUIView = NSHostingView(rootView: saveView)
+            swiftUIView = NSHostingView(rootView: swiftUIContent)
         }
 
-        // Frosted glass backdrop — NSVisualEffectView with hosting view on top
-        let blurView = NSVisualEffectView(frame: panelRect)
-        blurView.material = .hudWindow
+        // Frosted glass backdrop with rounded corners
+        let cornerRadius: CGFloat = 16
+        let blurView = NSVisualEffectView(frame: NSRect(origin: .zero, size: panelRect.size))
+        blurView.material = isDark ? .hudWindow : .popover
         blurView.blendingMode = .behindWindow
         blurView.state = .active
         blurView.wantsLayer = true
-        blurView.layer?.cornerRadius = 12
+        blurView.layer?.cornerRadius = cornerRadius
         blurView.layer?.masksToBounds = true
 
         swiftUIView.translatesAutoresizingMaskIntoConstraints = false
@@ -116,7 +110,16 @@ final class QuitSavePanelController {
             swiftUIView.trailingAnchor.constraint(equalTo: blurView.trailingAnchor),
         ])
 
-        floatingPanel.contentView = blurView
+        // Container view with shadow and rounded clip
+        let containerView = NSView(frame: NSRect(origin: .zero, size: panelRect.size))
+        containerView.wantsLayer = true
+        containerView.layer?.cornerRadius = cornerRadius
+        containerView.layer?.masksToBounds = true
+        containerView.addSubview(blurView)
+        blurView.frame = containerView.bounds
+        blurView.autoresizingMask = [.width, .height]
+
+        floatingPanel.contentView = containerView
         floatingPanel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -128,16 +131,82 @@ final class QuitSavePanelController {
         panel = nil
         scrimWindow?.close()
         scrimWindow = nil
+        let handler = dismissHandler
+        dismissHandler = nil
+        handler?()
     }
 
     @objc private func scrimClicked() {
-        // Cancel — don't quit
         dismiss()
-        NSApp.reply(toApplicationShouldTerminate: false)
     }
 }
 
-// MARK: - Inline Save Content (for the floating panel)
+// MARK: - Quit Save Panel (uses GlobalOverlayController)
+
+@MainActor
+enum QuitSavePanelController {
+    static func showQuitSave(onComplete: @escaping (Bool) -> Void) {
+        GlobalOverlayController.shared.show(width: 460, height: 480, onDismiss: {
+            // If dismissed via scrim click, treat as cancel
+            NSApp.reply(toApplicationShouldTerminate: false)
+        }) {
+            QuitSaveContent(isQuitFlow: true) { shouldQuit in
+                GlobalOverlayController.shared.dismissHandler = nil // prevent double-fire
+                GlobalOverlayController.shared.dismiss()
+                onComplete(shouldQuit)
+            }
+        }
+    }
+
+    static func showSave() {
+        GlobalOverlayController.shared.show(width: 460, height: 480) {
+            QuitSaveContent(isQuitFlow: false) { _ in
+                GlobalOverlayController.shared.dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Workspace Switcher (uses GlobalOverlayController)
+
+@MainActor
+enum GlobalWorkspaceSwitcher {
+    static func show() {
+        GlobalOverlayController.shared.show(width: 500, height: 520) {
+            GlobalWorkspaceSwitcherContent(onDismiss: {
+                GlobalOverlayController.shared.dismiss()
+            })
+        }
+    }
+}
+
+// MARK: - Session Intelligence (uses GlobalOverlayController)
+
+@MainActor
+enum GlobalSessionIntelligence {
+    static func show() {
+        GlobalOverlayController.shared.show(width: 620, height: 540) {
+            GlobalSessionIntelligenceContent(onDismiss: {
+                GlobalOverlayController.shared.dismiss()
+            })
+        }
+    }
+}
+
+// MARK: - Time Machine (uses GlobalOverlayController)
+
+@MainActor
+enum GlobalTimeMachine {
+    static func show() {
+        GlobalOverlayController.shared.show(width: 740, height: 560) {
+            GlobalTimeMachineContent(onDismiss: {
+                GlobalOverlayController.shared.dismiss()
+            })
+        }
+    }
+}
+
+// MARK: - Inline Save Content
 
 private struct QuitSaveContent: View {
     let isQuitFlow: Bool
@@ -155,7 +224,6 @@ private struct QuitSaveContent: View {
     enum SaveMode: String, CaseIterable {
         case saveNew = "Save as New"
         case updateCurrent = "Update Current"
-
         var icon: String {
             switch self {
             case .saveNew: "plus.square"
@@ -166,7 +234,6 @@ private struct QuitSaveContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 Image(systemName: "square.and.arrow.down")
                     .font(.system(size: 14, weight: .semibold))
@@ -182,155 +249,99 @@ private struct QuitSaveContent: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Mode picker
                     HStack(spacing: 8) {
                         ForEach(SaveMode.allCases, id: \.self) { mode in
                             Button {
                                 withAnimation(.easeInOut(duration: 0.15)) { saveMode = mode }
                             } label: {
                                 HStack(spacing: 6) {
-                                    Image(systemName: mode.icon)
-                                        .font(.system(size: 11, weight: .medium))
-                                    Text(mode.rawValue)
-                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    Image(systemName: mode.icon).font(.system(size: 11, weight: .medium))
+                                    Text(mode.rawValue).font(.system(size: 12, weight: .medium, design: .rounded))
                                 }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(
-                                    saveMode == mode
-                                        ? theme.accent.opacity(0.12)
-                                        : theme.foreground.opacity(0.04),
-                                    in: Capsule()
-                                )
+                                .padding(.horizontal, 14).padding(.vertical, 8)
+                                .background(saveMode == mode ? theme.accent.opacity(0.12) : theme.foreground.opacity(0.04), in: Capsule())
                                 .foregroundStyle(saveMode == mode ? theme.accent : theme.textSecondary)
                             }
                             .buttonStyle(.plain)
                         }
                     }
 
-                    // Current state preview
-                    currentStatePreview
+                    statePreview
 
-                    // Name or existing picker
                     if saveMode == .saveNew {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Workspace Name")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(theme.textTertiary)
-                            TextField("e.g. Essay Research, Sprint Planning", text: $workspaceName)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 13))
+                            Text("Workspace Name").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(theme.textTertiary)
+                            TextField("e.g. Essay Research", text: $workspaceName).textFieldStyle(.roundedBorder).font(.system(size: 13))
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Select Workspace to Update")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(theme.textTertiary)
-                            if existingWorkspaces.isEmpty {
-                                Text("No saved workspaces yet.")
-                                    .font(.system(size: 12, design: .rounded))
-                                    .foregroundStyle(theme.textTertiary)
-                            } else {
-                                ForEach(existingWorkspaces, id: \.id) { ws in
-                                    Button {
-                                        selectedExistingId = ws.id
-                                    } label: {
-                                        HStack {
-                                            Image(systemName: selectedExistingId == ws.id ? "checkmark.circle.fill" : "circle")
-                                                .foregroundStyle(selectedExistingId == ws.id ? theme.accent : theme.textTertiary)
-                                            Text(ws.name)
-                                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                            Spacer()
-                                            Text(ws.updatedAt, style: .relative)
-                                                .font(.system(size: 10, design: .rounded))
-                                                .foregroundStyle(theme.textTertiary)
-                                        }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(
-                                            selectedExistingId == ws.id ? theme.accent.opacity(0.06) : .clear,
-                                            in: RoundedRectangle(cornerRadius: 8)
-                                        )
-                                        .contentShape(Rectangle())
+                            Text("Update Existing").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(theme.textTertiary)
+                            ForEach(existingWorkspaces, id: \.id) { ws in
+                                Button { selectedExistingId = ws.id } label: {
+                                    HStack {
+                                        Image(systemName: selectedExistingId == ws.id ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selectedExistingId == ws.id ? theme.accent : theme.textTertiary)
+                                        Text(ws.name).font(.system(size: 12, weight: .medium, design: .rounded))
+                                        Spacer()
+                                        Text(ws.updatedAt, style: .relative).font(.system(size: 10, design: .rounded)).foregroundStyle(theme.textTertiary)
                                     }
-                                    .buttonStyle(.plain)
-                                }
+                                    .padding(.horizontal, 10).padding(.vertical, 6)
+                                    .background(selectedExistingId == ws.id ? theme.accent.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                                    .contentShape(Rectangle())
+                                }.buttonStyle(.plain)
                             }
                         }
                     }
 
-                    // Session note
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Session Note")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(theme.textTertiary)
-                        TextField("What were you working on? (optional)", text: $sessionNote, axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 13))
-                            .lineLimit(3, reservesSpace: true)
+                        Text("Session Note").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(theme.textTertiary)
+                        TextField("What were you working on?", text: $sessionNote, axis: .vertical)
+                            .textFieldStyle(.roundedBorder).font(.system(size: 13)).lineLimit(3, reservesSpace: true)
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 24).padding(.vertical, 16)
             }
 
             Divider().opacity(0.3)
 
-            // Action buttons
             HStack(spacing: 12) {
                 if isQuitFlow {
                     Button("Quit Without Saving") { onComplete(true) }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(theme.textTertiary)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .buttonStyle(.plain).foregroundStyle(theme.textTertiary).font(.system(size: 12, weight: .medium, design: .rounded))
                 }
                 Spacer()
                 Button("Cancel") { onComplete(false) }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(theme.textSecondary)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(theme.foreground.opacity(0.05), in: Capsule())
-
+                    .buttonStyle(.plain).foregroundStyle(theme.textSecondary).font(.system(size: 12, weight: .medium, design: .rounded))
+                    .padding(.horizontal, 14).padding(.vertical, 8).background(theme.foreground.opacity(0.05), in: Capsule())
                 Button(isQuitFlow ? "Save & Quit" : "Save") { performSave() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.white)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 8)
-                    .background(theme.accent, in: Capsule())
+                    .buttonStyle(.plain).foregroundStyle(.white).font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .padding(.horizontal, 18).padding(.vertical, 8).background(theme.accent, in: Capsule())
                     .disabled(saveMode == .saveNew && workspaceName.trimmingCharacters(in: .whitespaces).isEmpty)
                     .opacity(saveMode == .saveNew && workspaceName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 24).padding(.vertical, 14)
         }
-        .frame(width: 460, height: 460)
+        .foregroundStyle(theme.foreground)
         .onAppear {
             existingWorkspaces = AppBootstrap.shared?.workspaceService.listWorkspaces() ?? []
             selectedExistingId = existingWorkspaces.first?.id
         }
     }
 
-    private var currentStatePreview: some View {
-        let noteCount = NoteWindowManager.shared.orderedPageIds().count
-        let chatCount = MiniChatWindowController.shared.openChatIds.count
-        let graphOpen = HologramController.shared.isVisible
-
+    private var statePreview: some View {
+        let n = NoteWindowManager.shared.orderedPageIds().count
+        let c = MiniChatWindowController.shared.openChatIds.count
+        let g = HologramController.shared.isVisible
         return HStack(spacing: 16) {
-            if noteCount > 0 { Label("\(noteCount) note\(noteCount == 1 ? "" : "s")", systemImage: "doc.text.fill") }
-            if chatCount > 0 { Label("\(chatCount) chat\(chatCount == 1 ? "" : "s")", systemImage: "bubble.left.and.bubble.right.fill") }
-            if graphOpen { Label("Graph", systemImage: "point.3.connected.trianglepath.dotted") }
-        }
-        .font(.system(size: 11, weight: .medium, design: .rounded))
-        .foregroundStyle(theme.textTertiary)
+            if n > 0 { Label("\(n) note\(n == 1 ? "" : "s")", systemImage: "doc.text.fill") }
+            if c > 0 { Label("\(c) chat\(c == 1 ? "" : "s")", systemImage: "bubble.left.and.bubble.right.fill") }
+            if g { Label("Graph", systemImage: "point.3.connected.trianglepath.dotted") }
+        }.font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(theme.textTertiary)
     }
 
     private func performSave() {
         guard let ws = AppBootstrap.shared?.workspaceService else { return }
         let note = sessionNote.trimmingCharacters(in: .whitespacesAndNewlines)
-
         switch saveMode {
         case .saveNew:
             let name = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -341,19 +352,49 @@ private struct QuitSaveContent: View {
                 try? AppBootstrap.shared?.modelContainer.mainContext.save()
             }
         case .updateCurrent:
-            if let existingId = selectedExistingId,
-               let existing = existingWorkspaces.first(where: { $0.id == existingId }) {
-                let snapshot = ws.captureSnapshot()
-                if let data = try? JSONEncoder().encode(snapshot) {
-                    existing.snapshotData = data
-                    existing.updatedAt = Date()
+            if let id = selectedExistingId, let existing = existingWorkspaces.first(where: { $0.id == id }) {
+                if let data = try? JSONEncoder().encode(ws.captureSnapshot()) {
+                    existing.snapshotData = data; existing.updatedAt = Date()
                     if !note.isEmpty { existing.userNote = note }
                     try? AppBootstrap.shared?.modelContainer.mainContext.save()
                 }
-            } else {
-                ws.autoSave()
-            }
+            } else { ws.autoSave() }
         }
         onComplete(true)
+    }
+}
+
+// MARK: - Thin wrappers that delegate to existing overlay views with a dismiss callback
+
+struct GlobalWorkspaceSwitcherContent: View {
+    let onDismiss: () -> Void
+    @State private var isPresented = true
+    var body: some View {
+        WorkspaceSwitcherOverlay(isPresented: $isPresented)
+            .onChange(of: isPresented) { _, new in
+                if !new { onDismiss() }
+            }
+    }
+}
+
+struct GlobalSessionIntelligenceContent: View {
+    let onDismiss: () -> Void
+    @State private var isPresented = true
+    var body: some View {
+        SessionIntelligenceOverlay(isPresented: $isPresented)
+            .onChange(of: isPresented) { _, new in
+                if !new { onDismiss() }
+            }
+    }
+}
+
+struct GlobalTimeMachineContent: View {
+    let onDismiss: () -> Void
+    @State private var isPresented = true
+    var body: some View {
+        TimeMachineView(isPresented: $isPresented)
+            .onChange(of: isPresented) { _, new in
+                if !new { onDismiss() }
+            }
     }
 }

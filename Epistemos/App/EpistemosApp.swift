@@ -216,9 +216,9 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             return .terminateNow
         }
 
-        // Show a floating save panel above ALL windows (note editors, mini chats, etc.)
-        // Uses NSPanel at .floating level so the user always sees it.
-        QuitSavePanelController.shared.show(isQuitFlow: true) { [weak self] shouldQuit in
+        // Show a floating save panel above ALL windows (note editors, mini chats, etc.).
+        // Borderless panel with frosted glass blur and rounded corners.
+        QuitSavePanelController.showQuitSave { [weak self] shouldQuit in
             if shouldQuit {
                 self?.performTeardown()
                 NSApp.reply(toApplicationShouldTerminate: true)

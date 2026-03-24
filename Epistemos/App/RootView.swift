@@ -31,11 +31,7 @@ struct RootView: View {
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
     @State private var showGreetingControls = false
-    @State private var showWorkspaceSwitcher = false
-    @State private var showSessionIntelligence = false
-    @State private var showTimeMachine = false
-    @State private var showWorkspaceSavePanel = false
-    @State private var showQuitSavePanel = false
+    // Workspace overlays now use GlobalOverlayController (floating NSPanel above all windows).
 
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
@@ -216,27 +212,23 @@ struct RootView: View {
                 .transition(.opacity)
             }
         }
-        .overlay { workspaceOverlays }
+        // Workspace overlays are now global floating panels (GlobalOverlayController).
         .background { workspaceKeyboardShortcuts }
-        .animation(Motion.smooth, value: showWorkspaceSwitcher)
-        .animation(Motion.smooth, value: showSessionIntelligence)
-        .animation(Motion.smooth, value: showTimeMachine)
-        .animation(Motion.smooth, value: showWorkspaceSavePanel)
-        .animation(Motion.smooth, value: showQuitSavePanel)
         .onReceive(NotificationCenter.default.publisher(for: .toggleWorkspaceSwitcher)) { _ in
-            showWorkspaceSwitcher.toggle()
+            if GlobalOverlayController.shared.isShowing { GlobalOverlayController.shared.dismiss() }
+            else { GlobalWorkspaceSwitcher.show() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleSessionIntelligence)) { _ in
-            showSessionIntelligence.toggle()
+            if GlobalOverlayController.shared.isShowing { GlobalOverlayController.shared.dismiss() }
+            else { GlobalSessionIntelligence.show() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleTimeMachine)) { _ in
-            showTimeMachine.toggle()
+            if GlobalOverlayController.shared.isShowing { GlobalOverlayController.shared.dismiss() }
+            else { GlobalTimeMachine.show() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showSaveWorkspacePanel)) { _ in
-            showWorkspaceSavePanel = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .showQuitSavePanel)) { _ in
-            showQuitSavePanel = true
+            if GlobalOverlayController.shared.isShowing { GlobalOverlayController.shared.dismiss() }
+            else { QuitSavePanelController.showSave() }
         }
         .animation(Motion.smooth, value: ui.needsSetup)
         .onAppear {
@@ -252,41 +244,27 @@ struct RootView: View {
     }
 
     @ViewBuilder
-    private var workspaceOverlays: some View {
-        if showWorkspaceSwitcher {
-            WorkspaceSwitcherOverlay(isPresented: $showWorkspaceSwitcher)
-                .transition(.opacity)
-        }
-        if showSessionIntelligence {
-            SessionIntelligenceOverlay(isPresented: $showSessionIntelligence)
-                .transition(.opacity)
-        }
-        if showTimeMachine {
-            TimeMachineView(isPresented: $showTimeMachine)
-                .transition(.opacity)
-        }
-        if showWorkspaceSavePanel {
-            WorkspaceSavePanel(isPresented: $showWorkspaceSavePanel)
-                .transition(.opacity)
-        }
-    }
-
-    @ViewBuilder
     private var workspaceKeyboardShortcuts: some View {
-        Button(action: { showWorkspaceSwitcher.toggle() }) {}
+        Button(action: { NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil) }) {}
             .keyboardShortcut("w", modifiers: [.command, .control])
             .frame(width: 0, height: 0)
             .opacity(0)
             .allowsHitTesting(false)
 
-        Button(action: { showSessionIntelligence.toggle() }) {}
+        Button(action: { NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil) }) {}
             .keyboardShortcut("r", modifiers: [.command, .control])
             .frame(width: 0, height: 0)
             .opacity(0)
             .allowsHitTesting(false)
 
-        Button(action: { showTimeMachine.toggle() }) {}
+        Button(action: { NotificationCenter.default.post(name: .toggleTimeMachine, object: nil) }) {}
             .keyboardShortcut("t", modifiers: [.command, .control])
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .allowsHitTesting(false)
+
+        Button(action: { NotificationCenter.default.post(name: .showSaveWorkspacePanel, object: nil) }) {}
+            .keyboardShortcut("s", modifiers: [.command, .control])
             .frame(width: 0, height: 0)
             .opacity(0)
             .allowsHitTesting(false)
