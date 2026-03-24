@@ -170,6 +170,7 @@ struct EpistemosApp: App {
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var mainWindowObservers: [NSObjectProtocol] = []
     private var didTeardown = false
+    private var quitObserver: NSObjectProtocol?
     private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
 
     var showSaveOnQuitDialogEnabled: Bool {
@@ -214,7 +215,19 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             performTeardown()
             return .terminateNow
         }
-        showSaveOnQuitAlert()
+
+        // Show the SwiftUI save panel overlay instead of a modal NSAlert.
+        // Listen for the proceedWithQuit notification to complete termination.
+        quitObserver = NotificationCenter.default.addObserver(
+            forName: .proceedWithQuit, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.performTeardown()
+            NSApp.reply(toApplicationShouldTerminate: true)
+            if let obs = self?.quitObserver {
+                NotificationCenter.default.removeObserver(obs)
+            }
+        }
+        NotificationCenter.default.post(name: .showQuitSavePanel, object: nil)
         return .terminateLater
     }
 
@@ -238,81 +251,8 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         HologramController.shared.teardown()
     }
 
-    private func showSaveOnQuitAlert() {
-        // Async pattern: return .terminateLater already set, present alert non-blocking.
-        // Uses beginSheetModal to avoid blocking the main thread runloop.
-        Task { @MainActor in
-            let alert = NSAlert()
-            alert.messageText = "Save workspace before quitting?"
-            alert.informativeText = "Your open notes and chats can be saved as a workspace."
-            alert.addButton(withTitle: "Save & Quit")
-            alert.addButton(withTitle: "Quit Without Saving")
-            alert.addButton(withTitle: "Cancel")
-
-            let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
-
-            let nameField = NSTextField(frame: NSRect(x: 0, y: 32, width: 300, height: 24))
-            nameField.placeholderString = "Workspace name (optional)"
-            nameField.bezelStyle = .roundedBezel
-            container.addSubview(nameField)
-
-            let noteField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
-            noteField.placeholderString = "What were you working on?"
-            noteField.bezelStyle = .roundedBezel
-            container.addSubview(noteField)
-
-            alert.accessoryView = container
-            alert.window.initialFirstResponder = nameField
-
-            // Present as sheet on main window if available, otherwise run modal as fallback
-            let response: NSApplication.ModalResponse
-            if let mainWindow = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                response = await alert.beginSheetModal(for: mainWindow)
-            } else {
-                response = await withCheckedContinuation { continuation in
-                    // Fallback: run modal but via detached task to not block caller
-                    let result = alert.runModal()
-                    continuation.resume(returning: result)
-                }
-            }
-
-            switch response {
-            case .alertFirstButtonReturn:
-                // Save & Quit
-                let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                let userNote = noteField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                if let ws = AppBootstrap.shared?.workspaceService {
-                    if !name.isEmpty {
-                        ws.saveWorkspace(name: name)
-                        if !userNote.isEmpty, let saved = ws.listWorkspaces().first(where: { $0.name == name }) {
-                            saved.userNote = userNote
-                            try? AppBootstrap.shared?.modelContainer.mainContext.save()
-                        }
-                    } else {
-                        ws.autoSave()
-                        if !userNote.isEmpty {
-                            let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-                            if let autoSave = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
-                                FetchDescriptor(predicate: predicate)
-                            ).first {
-                                autoSave.userNote = userNote
-                                try? AppBootstrap.shared?.modelContainer.mainContext.save()
-                            }
-                        }
-                    }
-                }
-                performTeardown()
-                NSApp.reply(toApplicationShouldTerminate: true)
-            case .alertSecondButtonReturn:
-                // Quit Without Saving
-                performTeardown()
-                NSApp.reply(toApplicationShouldTerminate: true)
-            default:
-                // Cancel
-                NSApp.reply(toApplicationShouldTerminate: false)
-            }
-        }
-    }
+    // Save-on-quit dialog is now handled via WorkspaceSavePanel (SwiftUI overlay).
+    // The panel posts .proceedWithQuit when the user confirms, which triggers performTeardown + reply.
 
     @MainActor
     private static func applyMainWindowPolicyIfNeeded(to window: NSWindow) {
@@ -387,6 +327,9 @@ extension Notification.Name {
     static let toggleWorkspaceSwitcher = Notification.Name("epistemos.toggleWorkspaceSwitcher")
     static let toggleSessionIntelligence = Notification.Name("epistemos.toggleSessionIntelligence")
     static let toggleTimeMachine = Notification.Name("epistemos.toggleTimeMachine")
+    static let showSaveWorkspacePanel = Notification.Name("epistemos.showSaveWorkspacePanel")
+    static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
+    static let proceedWithQuit = Notification.Name("epistemos.proceedWithQuit")
 }
 
 struct EpistemosCommands: Commands {
@@ -397,7 +340,7 @@ struct EpistemosCommands: Commands {
     var body: some Commands {
         CommandGroup(after: .saveItem) {
             Button("Save Workspace...") {
-                promptSaveWorkspace()
+                NotificationCenter.default.post(name: .showSaveWorkspacePanel, object: nil)
             }
             .keyboardShortcut("s", modifiers: [.command, .control])
 
@@ -484,22 +427,5 @@ struct EpistemosCommands: Commands {
         }
     }
 
-    private func promptSaveWorkspace() {
-        let alert = NSAlert()
-        alert.messageText = "Save Workspace"
-        alert.informativeText = "Enter a name for this workspace:"
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        input.stringValue = ""
-        input.placeholderString = "e.g. Essay Research"
-        alert.accessoryView = input
-        alert.window.initialFirstResponder = input
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let name = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
-        AppBootstrap.shared?.workspaceService.saveWorkspace(name: name)
-    }
+    // Save workspace UI is now handled via WorkspaceSavePanel (SwiftUI overlay).
 }

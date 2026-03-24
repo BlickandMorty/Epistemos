@@ -34,6 +34,8 @@ struct RootView: View {
     @State private var showWorkspaceSwitcher = false
     @State private var showSessionIntelligence = false
     @State private var showTimeMachine = false
+    @State private var showWorkspaceSavePanel = false
+    @State private var showQuitSavePanel = false
 
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
@@ -219,6 +221,8 @@ struct RootView: View {
         .animation(Motion.smooth, value: showWorkspaceSwitcher)
         .animation(Motion.smooth, value: showSessionIntelligence)
         .animation(Motion.smooth, value: showTimeMachine)
+        .animation(Motion.smooth, value: showWorkspaceSavePanel)
+        .animation(Motion.smooth, value: showQuitSavePanel)
         .onReceive(NotificationCenter.default.publisher(for: .toggleWorkspaceSwitcher)) { _ in
             showWorkspaceSwitcher.toggle()
         }
@@ -227,6 +231,12 @@ struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleTimeMachine)) { _ in
             showTimeMachine.toggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showSaveWorkspacePanel)) { _ in
+            showWorkspaceSavePanel = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showQuitSavePanel)) { _ in
+            showQuitSavePanel = true
         }
         .animation(Motion.smooth, value: ui.needsSetup)
         .onAppear {
@@ -254,6 +264,23 @@ struct RootView: View {
         if showTimeMachine {
             TimeMachineView(isPresented: $showTimeMachine)
                 .transition(.opacity)
+        }
+        if showWorkspaceSavePanel {
+            WorkspaceSavePanel(isPresented: $showWorkspaceSavePanel)
+                .transition(.opacity)
+        }
+        if showQuitSavePanel {
+            WorkspaceSavePanel(
+                isPresented: $showQuitSavePanel,
+                isQuitFlow: true
+            ) { shouldQuit in
+                if shouldQuit {
+                    NotificationCenter.default.post(name: .proceedWithQuit, object: nil)
+                } else {
+                    NSApp.reply(toApplicationShouldTerminate: false)
+                }
+            }
+            .transition(.opacity)
         }
     }
 

@@ -15,10 +15,15 @@ struct WorkspaceSwitcherOverlay: View {
 
     private var theme: EpistemosTheme { ui.theme }
 
+    private var scrimColor: Color { theme.isDark ? .black : .gray }
+    private var scrimOpacity: Double { theme.isDark ? 0.35 : 0.2 }
+    private var panelShadow: Color { theme.isDark ? .black.opacity(0.3) : .black.opacity(0.1) }
+    private var panelStroke: Color { theme.isDark ? .white.opacity(0.08) : .black.opacity(0.06) }
+
     var body: some View {
         ZStack {
             // Scrim
-            Color.black.opacity(appeared ? 0.35 : 0)
+            scrimColor.opacity(appeared ? scrimOpacity : 0)
                 .ignoresSafeArea()
                 .onTapGesture { dismiss() }
 
@@ -99,12 +104,12 @@ struct WorkspaceSwitcherOverlay: View {
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.2), radius: 20, y: 8)
+                    .shadow(color: panelShadow, radius: 20, y: 8)
             }
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(.white.opacity(0.08))
+                    .strokeBorder(panelStroke)
             }
             .scaleEffect(appeared ? 1 : 0.95)
             .opacity(appeared ? 1 : 0)
