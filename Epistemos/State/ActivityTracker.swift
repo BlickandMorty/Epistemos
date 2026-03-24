@@ -1,42 +1,74 @@
+import AppKit
+import CoreGraphics
 import Foundation
 import SwiftData
 import os
 
 // MARK: - Activity Tracker
-// Lightweight paragraph-level change detection for workspace summaries.
-// Every 30 seconds, hashes paragraphs of open notes to detect edits.
-// Records window open/close and chat message events in a ring buffer.
+// Adaptive paragraph-level change detection for workspace summaries.
+// Uses idle detection (CGEventSource) instead of rigid polling — scans only after
+// 5 seconds of user idle following activity. Deterministic FNV-1a hashing for
+// cross-session paragraph diffing. Events persisted to ring buffer (hot cache)
+// and flushed to EventStore for permanent history.
 
 @MainActor @Observable
 final class ActivityTracker {
     private static let log = Logger(subsystem: "com.epistemos", category: "ActivityTracker")
-    private static let scanInterval: Duration = .seconds(30)
-    private static let maxEvents = 200
+    private static let idleScanDelay: Duration = .seconds(5)
+    private static let maxEvents = 2000
     private static let maxTrackedTabs = 10
 
     private(set) var events: [ActivityEvent] = []
-    private var paragraphHashes: [String: [Int]] = [:] // pageId -> [hash per paragraph]
+    private var paragraphHashes: [String: [UInt64]] = [:] // pageId -> [FNV-1a hash per paragraph]
     private var scanTask: Task<Void, Never>?
+    private var eventMonitor: Any?
+    private var userWasActive = false
     private(set) var trackingStartedAt: Date?
+    let sessionId = UUID().uuidString
 
     // MARK: - Lifecycle
 
     func startTracking() {
         guard scanTask == nil else { return }
         trackingStartedAt = Date()
+
+        // Monitor user activity via NSEvent (keyDown, scrollWheel, leftMouseDown)
+        eventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.keyDown, .scrollWheel, .leftMouseDown]
+        ) { [weak self] event in
+            Task { @MainActor in
+                self?.userWasActive = true
+            }
+            return event
+        }
+
+        // Adaptive scan loop: check idle time, scan only after activity + idle
         scanTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: Self.scanInterval)
-                guard !Task.isCancelled else { break }
-                self?.scanOpenNotes()
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled, let self else { break }
+
+                // Only scan if user was recently active and is now idle
+                guard self.userWasActive else { continue }
+                let idleSeconds = CGEventSource.secondsSinceLastEventType(
+                    .combinedSessionState, eventType: .keyDown
+                )
+                guard idleSeconds >= 5 else { continue }
+
+                self.userWasActive = false
+                self.scanOpenNotes()
             }
         }
-        Self.log.info("Activity tracking started")
+        Self.log.info("Activity tracking started (adaptive idle detection)")
     }
 
     func stopTracking() {
         scanTask?.cancel()
         scanTask = nil
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
         Self.log.info("Activity tracking stopped")
     }
 
@@ -120,8 +152,8 @@ final class ActivityTracker {
             let maxCount = max(hashes.count, previous.count)
             var changedCount = 0
             for i in 0..<maxCount {
-                let oldHash = i < previous.count ? previous[i] : 0
-                let newHash = i < hashes.count ? hashes[i] : 0
+                let oldHash: UInt64 = i < previous.count ? previous[i] : 0
+                let newHash: UInt64 = i < hashes.count ? hashes[i] : 0
                 if oldHash != newHash { changedCount += 1 }
             }
 
@@ -145,10 +177,15 @@ final class ActivityTracker {
         paragraphHashes[pageId] = paragraphs.map { hashParagraph($0) }
     }
 
-    private nonisolated func hashParagraph(_ text: String) -> Int {
-        var hasher = Hasher()
-        hasher.combine(text)
-        return hasher.finalize()
+    /// Deterministic FNV-1a 64-bit hash — stable across process launches (unlike Swift's Hasher).
+    /// Critical for cross-session paragraph diffing and Time Machine delta detection.
+    private nonisolated func hashParagraph(_ text: String) -> UInt64 {
+        var hash: UInt64 = 0xcbf29ce484222325 // FNV offset basis
+        for byte in text.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 0x100000001b3 // FNV prime
+        }
+        return hash
     }
 
     private func fetchPageTitle(pageId: String) -> String? {
@@ -168,6 +205,35 @@ final class ActivityTracker {
         if events.count > Self.maxEvents {
             events.removeFirst(events.count - Self.maxEvents)
         }
+        // Also persist to EventStore if available
+        EventStore.shared?.appendEvent(sessionId: sessionId, kind: kind)
+    }
+
+    /// Flush in-memory events to disk as JSON for crash resilience.
+    func flushToDisk() {
+        guard !events.isEmpty else { return }
+        let eventsCopy = self.events
+        guard let data = try? JSONEncoder().encode(eventsCopy) else { return }
+        let url = Self.flushFileURL
+        try? data.write(to: url, options: .atomic)
+        Self.log.info("Flushed \(eventsCopy.count) events to disk")
+    }
+
+    /// Load previously flushed events on startup (crash recovery).
+    func loadFlushedEvents() {
+        let url = Self.flushFileURL
+        guard let data = try? Data(contentsOf: url),
+              let loaded = try? JSONDecoder().decode([ActivityEvent].self, from: data) else { return }
+        events = loaded
+        try? FileManager.default.removeItem(at: url)
+        Self.log.info("Recovered \(loaded.count) flushed events")
+    }
+
+    private static var flushFileURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("Epistemos")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("activity-events-cache.json")
     }
 }
 

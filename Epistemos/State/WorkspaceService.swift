@@ -7,14 +7,15 @@ import os
 // user note, and activity stats from the previous session.
 
 struct WelcomeBackInfo {
-    var summary: String
-    var userNote: String
+    var intentSummary: String   // AI narrative (serif italic)
+    var userNote: String        // User's note (pin icon)
     var noteCount: Int
     var chatCount: Int
     var graphWasOpen: Bool
     var sessionMinutes: Int
     var editedNoteTitles: [String]
 
+    /// Flat display text for the typewriter animation.
     var displayText: String {
         var lines: [String] = []
 
@@ -23,12 +24,11 @@ struct WelcomeBackInfo {
             lines.append("")
         }
 
-        if !summary.isEmpty {
-            lines.append(summary)
+        if !intentSummary.isEmpty {
+            lines.append(intentSummary)
             lines.append("")
         }
 
-        // Activity stats
         var stats: [String] = []
         if noteCount > 0 { stats.append("\(noteCount) note\(noteCount == 1 ? "" : "s")") }
         if chatCount > 0 { stats.append("\(chatCount) chat\(chatCount == 1 ? "" : "s")") }
@@ -68,6 +68,9 @@ final class WorkspaceService {
 
     /// Set after auto-restore — read by LandingView to show welcome-back overlay.
     var welcomeBack: WelcomeBackInfo?
+
+    /// Time Machine service reference (set by AppBootstrap after init).
+    var timeMachineService: TimeMachineService?
 
     private let modelContainer: ModelContainer
 
@@ -268,6 +271,21 @@ final class WorkspaceService {
             context.insert(ws)
         }
         try? context.save()
+
+        // Also save snapshot to EventStore for permanent session history
+        if let bootstrap = AppBootstrap.shared,
+           let snapshotJSON = String(data: data, encoding: .utf8) {
+            let savedWorkspace = existing ?? {
+                let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+                return try? context.fetch(FetchDescriptor(predicate: predicate)).first
+            }()
+            EventStore.shared?.saveSnapshot(
+                sessionId: bootstrap.activityTracker.sessionId,
+                snapshotJSON: snapshotJSON,
+                summary: savedWorkspace?.summary ?? "",
+                userNote: savedWorkspace?.userNote ?? ""
+            )
+        }
         Self.log.info("Workspace auto-saved")
     }
 
@@ -298,7 +316,7 @@ final class WorkspaceService {
         // Build welcome-back info from the restored workspace
         let digest = snapshot.activityDigest
         welcomeBack = WelcomeBackInfo(
-            summary: workspace.summary,
+            intentSummary: workspace.summary,
             userNote: workspace.userNote,
             noteCount: snapshot.openNoteTabs.count,
             chatCount: snapshot.openMiniChatIds.count,

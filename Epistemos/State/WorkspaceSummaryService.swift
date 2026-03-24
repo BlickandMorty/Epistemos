@@ -96,10 +96,40 @@ final class WorkspaceSummaryService {
         }
     }
 
-    // MARK: - Summary Generation
+    // MARK: - Summary Generation (Map-Reduce Pipeline)
 
     func generateSummaryNow() async {
         await generateAndStoreSummary()
+    }
+
+    /// Per-window summary for the session intelligence overlay. Returns array of (title, summary).
+    func generatePerWindowSummaries() async -> [(title: String, summary: String)] {
+        let openPageIds = NoteWindowManager.shared.orderedPageIds()
+        guard !openPageIds.isEmpty else { return [] }
+
+        var results: [(title: String, summary: String)] = []
+        for pageId in openPageIds.prefix(8) {
+            guard let title = fetchPageTitle(pageId: pageId) else { continue }
+            let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+            guard !body.isEmpty else {
+                results.append((title: title, summary: "Empty note"))
+                continue
+            }
+            let snippet = String(body.prefix(800))
+            do {
+                let summary = try await triageService.generate(
+                    prompt: "Summarize the intent and key content of this document in one sentence:\n\n\(snippet)",
+                    systemPrompt: "You are a concise document summarizer. One sentence only.",
+                    operation: .summarize,
+                    contentLength: snippet.count,
+                    query: "per-window summary"
+                )
+                results.append((title: title, summary: summary.trimmingCharacters(in: .whitespacesAndNewlines)))
+            } catch {
+                results.append((title: title, summary: "Could not summarize"))
+            }
+        }
+        return results
     }
 
     private func generateAndStoreSummary() async {
@@ -108,78 +138,93 @@ final class WorkspaceSummaryService {
         defer { isGenerating = false }
 
         let lastSummaryAt = fetchAutoSaveLastSummaryAt() ?? activityTracker.trackingStartedAt ?? Date().addingTimeInterval(-3600)
-        let prompt = buildPrompt(since: lastSummaryAt)
-        guard !prompt.isEmpty else {
+
+        // Map phase: per-window summaries
+        let windowSummaries = await generatePerWindowSummaries()
+
+        // Build reduce prompt with semantic diffs + graph topology + per-window summaries
+        let reducePrompt = buildReducePrompt(since: lastSummaryAt, windowSummaries: windowSummaries)
+        guard !reducePrompt.isEmpty else {
             Self.log.info("Summary: no activity to summarize")
             return
         }
 
+        // Reduce phase: global synthesis
         do {
             let summary = try await triageService.generate(
-                prompt: prompt,
-                systemPrompt: "You are a concise workspace summarizer. Write 2-3 sentences about what the user is working on based on their activity.",
+                prompt: reducePrompt,
+                systemPrompt: "You are a workspace intelligence engine. Synthesize the user's intent and focus in 2-3 sentences. Describe WHAT they are trying to accomplish, not just what files are open.",
                 operation: .summarize,
-                contentLength: prompt.count,
-                query: "workspace summary"
+                contentLength: reducePrompt.count,
+                query: "workspace synthesis"
             )
             let cleaned = summary.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !cleaned.isEmpty else { return }
             storeSummary(cleaned)
-            Self.log.info("Summary generated: \(cleaned.prefix(80), privacy: .public)")
+            Self.log.info("Summary generated (Map-Reduce): \(cleaned.prefix(80), privacy: .public)")
         } catch {
             Self.log.error("Summary generation failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    // MARK: - Prompt Construction
+    // MARK: - Reduce Prompt (Semantic Diffs + Graph Topology + Per-Window Summaries)
 
-    private func buildPrompt(since date: Date) -> String {
+    private func buildReducePrompt(since date: Date, windowSummaries: [(title: String, summary: String)]) -> String {
         let digest = activityTracker.buildDigest(since: date)
         let openPageIds = NoteWindowManager.shared.orderedPageIds()
 
-        // Skip if no activity
-        guard !digest.editedNotes.isEmpty || digest.chatMessageCount > 0 || !openPageIds.isEmpty else {
+        guard !windowSummaries.isEmpty || !digest.editedNotes.isEmpty || digest.chatMessageCount > 0 else {
             return ""
         }
 
         var parts: [String] = []
 
-        // Open notes
-        if !openPageIds.isEmpty {
-            let titles = openPageIds.prefix(10).compactMap { fetchPageTitle(pageId: $0) }
-            if !titles.isEmpty {
-                parts.append("Open notes: \(titles.joined(separator: ", "))")
-            }
+        // Per-window summaries (from Map phase)
+        if !windowSummaries.isEmpty {
+            let lines = windowSummaries.map { "- \($0.title): \($0.summary)" }
+            parts.append("Per-document summaries:\n\(lines.joined(separator: "\n"))")
         }
 
-        // Activity
-        var activityLines: [String] = []
-        for note in digest.editedNotes {
-            activityLines.append("- Edited \"\(note.title)\": \(note.changedParagraphCount) of \(note.totalParagraphs) paragraphs changed")
-        }
-        if digest.chatMessageCount > 0 {
-            activityLines.append("- Sent \(digest.chatMessageCount) chat message\(digest.chatMessageCount == 1 ? "" : "s")")
-        }
-        if !activityLines.isEmpty {
-            parts.append("Recent activity:\n\(activityLines.joined(separator: "\n"))")
-        }
-
-        // Note previews (first 200 chars of edited notes)
-        var previews: [String] = []
-        var totalPreviewChars = 0
+        // Semantic diffs (what changed, not raw content)
+        var diffLines: [String] = []
         for note in digest.editedNotes.prefix(5) {
             let body = NoteFileStorage.readBody(pageId: note.pageId, mapped: true)
-            guard !body.isEmpty else { continue }
-            let preview = String(body.prefix(200))
-            previews.append("\"\(note.title)\": \(preview)")
-            totalPreviewChars += preview.count
-            if totalPreviewChars > 1000 { break }
+            let paragraphs = body.components(separatedBy: "\n\n")
+            let changedSnippets = paragraphs.prefix(note.totalParagraphs)
+                .enumerated()
+                .prefix(3)  // limit to first 3 changed paragraphs for token budget
+                .map { "  Paragraph \($0.offset + 1): \(String($0.element.prefix(100)))" }
+            diffLines.append("- \"\(note.title)\": \(note.changedParagraphCount)/\(note.totalParagraphs) paragraphs modified\n\(changedSnippets.joined(separator: "\n"))")
         }
-        if !previews.isEmpty {
-            parts.append("Note previews:\n\(previews.joined(separator: "\n"))")
+        if digest.chatMessageCount > 0 {
+            diffLines.append("- \(digest.chatMessageCount) AI chat message\(digest.chatMessageCount == 1 ? "" : "s") exchanged")
+        }
+        if !diffLines.isEmpty {
+            parts.append("Recent changes:\n\(diffLines.joined(separator: "\n"))")
+        }
+
+        // Graph topology (condensed edge-list for open notes)
+        let graphEdges = buildGraphEdgeList(for: openPageIds)
+        if !graphEdges.isEmpty {
+            parts.append("Knowledge graph connections:\n\(graphEdges)")
         }
 
         return parts.joined(separator: "\n\n")
+    }
+
+    /// Build a condensed edge-list showing how open notes connect in the knowledge graph.
+    private func buildGraphEdgeList(for pageIds: [String]) -> String {
+        guard let store = AppBootstrap.shared?.graphState.store else { return "" }
+        var edges: [String] = []
+        for pageId in pageIds.prefix(6) {
+            guard let node = store.node(bySourceId: pageId, type: .note) else { continue }
+            guard let neighborIds = store.adjacency[node.id] else { continue }
+            for neighborId in neighborIds.prefix(3) {
+                guard let neighbor = store.nodes[neighborId] else { continue }
+                edges.append("[\(node.label)] -> [\(neighbor.label)]")
+            }
+        }
+        return edges.isEmpty ? "" : edges.joined(separator: "\n")
     }
 
     // MARK: - Storage

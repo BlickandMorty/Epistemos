@@ -32,6 +32,8 @@ struct RootView: View {
     @State private var showDatabaseAlert = false
     @State private var showGreetingControls = false
     @State private var showWorkspaceSwitcher = false
+    @State private var showSessionIntelligence = false
+    @State private var showTimeMachine = false
 
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
@@ -212,22 +214,16 @@ struct RootView: View {
                 .transition(.opacity)
             }
         }
-        .overlay {
-            if showWorkspaceSwitcher {
-                WorkspaceSwitcherOverlay(isPresented: $showWorkspaceSwitcher)
-                    .transition(.opacity)
-            }
-        }
-        .background {
-            Button(action: { showWorkspaceSwitcher.toggle() }) {}
-                .keyboardShortcut("w", modifiers: [.command, .control])
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .allowsHitTesting(false)
-        }
+        .overlay { workspaceOverlays }
+        .background { workspaceKeyboardShortcuts }
         .animation(Motion.smooth, value: showWorkspaceSwitcher)
+        .animation(Motion.smooth, value: showSessionIntelligence)
+        .animation(Motion.smooth, value: showTimeMachine)
         .onReceive(NotificationCenter.default.publisher(for: .toggleWorkspaceSwitcher)) { _ in
             showWorkspaceSwitcher.toggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleSessionIntelligence)) { _ in
+            showSessionIntelligence.toggle()
         }
         .animation(Motion.smooth, value: ui.needsSetup)
         .onAppear {
@@ -240,6 +236,43 @@ struct RootView: View {
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
         }
+    }
+
+    @ViewBuilder
+    private var workspaceOverlays: some View {
+        if showWorkspaceSwitcher {
+            WorkspaceSwitcherOverlay(isPresented: $showWorkspaceSwitcher)
+                .transition(.opacity)
+        }
+        if showSessionIntelligence {
+            SessionIntelligenceOverlay(isPresented: $showSessionIntelligence)
+                .transition(.opacity)
+        }
+        if showTimeMachine {
+            TimeMachineView(isPresented: $showTimeMachine)
+                .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var workspaceKeyboardShortcuts: some View {
+        Button(action: { showWorkspaceSwitcher.toggle() }) {}
+            .keyboardShortcut("w", modifiers: [.command, .control])
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .allowsHitTesting(false)
+
+        Button(action: { showSessionIntelligence.toggle() }) {}
+            .keyboardShortcut("r", modifiers: [.command, .control])
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .allowsHitTesting(false)
+
+        Button(action: { showTimeMachine.toggle() }) {}
+            .keyboardShortcut("t", modifiers: [.command, .control])
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .allowsHitTesting(false)
     }
 
     private var rootToolbarControls: some View {

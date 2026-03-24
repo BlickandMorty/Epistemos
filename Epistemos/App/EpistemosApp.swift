@@ -226,65 +226,78 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     private func showSaveOnQuitAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Save workspace before quitting?"
-        alert.informativeText = "Your open notes and chats can be saved as a workspace."
-        alert.addButton(withTitle: "Save & Quit")
-        alert.addButton(withTitle: "Quit Without Saving")
-        alert.addButton(withTitle: "Cancel")
+        // Async pattern: return .terminateLater already set, present alert non-blocking.
+        // Uses beginSheetModal to avoid blocking the main thread runloop.
+        Task { @MainActor in
+            let alert = NSAlert()
+            alert.messageText = "Save workspace before quitting?"
+            alert.informativeText = "Your open notes and chats can be saved as a workspace."
+            alert.addButton(withTitle: "Save & Quit")
+            alert.addButton(withTitle: "Quit Without Saving")
+            alert.addButton(withTitle: "Cancel")
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
+            let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
 
-        let nameField = NSTextField(frame: NSRect(x: 0, y: 32, width: 300, height: 24))
-        nameField.placeholderString = "Workspace name (optional)"
-        nameField.bezelStyle = .roundedBezel
-        container.addSubview(nameField)
+            let nameField = NSTextField(frame: NSRect(x: 0, y: 32, width: 300, height: 24))
+            nameField.placeholderString = "Workspace name (optional)"
+            nameField.bezelStyle = .roundedBezel
+            container.addSubview(nameField)
 
-        let noteField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
-        noteField.placeholderString = "What were you working on?"
-        noteField.bezelStyle = .roundedBezel
-        container.addSubview(noteField)
+            let noteField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+            noteField.placeholderString = "What were you working on?"
+            noteField.bezelStyle = .roundedBezel
+            container.addSubview(noteField)
 
-        alert.accessoryView = container
-        alert.window.initialFirstResponder = nameField
+            alert.accessoryView = container
+            alert.window.initialFirstResponder = nameField
 
-        let response = alert.runModal()
-        switch response {
-        case .alertFirstButtonReturn:
-            // Save & Quit
-            let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            let userNote = noteField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let ws = AppBootstrap.shared?.workspaceService {
-                if !name.isEmpty {
-                    ws.saveWorkspace(name: name)
-                    // Apply user note to the just-created workspace
-                    if !userNote.isEmpty, let saved = ws.listWorkspaces().first(where: { $0.name == name }) {
-                        saved.userNote = userNote
-                        try? AppBootstrap.shared?.modelContainer.mainContext.save()
-                    }
-                } else {
-                    ws.autoSave()
-                    // Apply user note to auto-save workspace
-                    if !userNote.isEmpty {
-                        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-                        if let autoSave = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
-                            FetchDescriptor(predicate: predicate)
-                        ).first {
-                            autoSave.userNote = userNote
+            // Present as sheet on main window if available, otherwise run modal as fallback
+            let response: NSApplication.ModalResponse
+            if let mainWindow = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+                response = await alert.beginSheetModal(for: mainWindow)
+            } else {
+                response = await withCheckedContinuation { continuation in
+                    // Fallback: run modal but via detached task to not block caller
+                    let result = alert.runModal()
+                    continuation.resume(returning: result)
+                }
+            }
+
+            switch response {
+            case .alertFirstButtonReturn:
+                // Save & Quit
+                let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                let userNote = noteField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let ws = AppBootstrap.shared?.workspaceService {
+                    if !name.isEmpty {
+                        ws.saveWorkspace(name: name)
+                        if !userNote.isEmpty, let saved = ws.listWorkspaces().first(where: { $0.name == name }) {
+                            saved.userNote = userNote
                             try? AppBootstrap.shared?.modelContainer.mainContext.save()
+                        }
+                    } else {
+                        ws.autoSave()
+                        if !userNote.isEmpty {
+                            let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+                            if let autoSave = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
+                                FetchDescriptor(predicate: predicate)
+                            ).first {
+                                autoSave.userNote = userNote
+                                try? AppBootstrap.shared?.modelContainer.mainContext.save()
+                            }
                         }
                     }
                 }
+                performTeardown()
+                NSApp.reply(toApplicationShouldTerminate: true)
+            case .alertSecondButtonReturn:
+                // Quit Without Saving
+                performTeardown()
+                NSApp.reply(toApplicationShouldTerminate: true)
+            default:
+                // Cancel
+                NSApp.reply(toApplicationShouldTerminate: false)
             }
-            performTeardown()
-            NSApp.reply(toApplicationShouldTerminate: true)
-        case .alertSecondButtonReturn:
-            // Quit Without Saving
-            performTeardown()
-            NSApp.reply(toApplicationShouldTerminate: true)
-        default:
-            // Cancel
-            NSApp.reply(toApplicationShouldTerminate: false)
         }
     }
 
@@ -359,6 +372,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 
 extension Notification.Name {
     static let toggleWorkspaceSwitcher = Notification.Name("epistemos.toggleWorkspaceSwitcher")
+    static let toggleSessionIntelligence = Notification.Name("epistemos.toggleSessionIntelligence")
 }
 
 struct EpistemosCommands: Commands {
@@ -375,6 +389,10 @@ struct EpistemosCommands: Commands {
 
             Button("Switch Workspace  \u{2303}\u{2318}W") {
                 NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
+            }
+
+            Button("Session Intelligence  \u{2303}\u{2318}R") {
+                NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
             }
         }
 

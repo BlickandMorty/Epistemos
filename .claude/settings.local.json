@@ -126,7 +126,13 @@
       "Bash(git rm Epistemos/Views/Notes/NoteGraphMode.swift)",
       "Bash(git log feat/logseq-graph --not main --oneline)",
       "Skill(commit-commands:commit)",
-      "Skill(commit-commands:commit:*)"
+      "Skill(commit-commands:commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git fetch:*)",
+      "Bash(git reset:*)",
+      "Bash(git config:*)",
+      "Bash(git remote:*)",
+      "Bash(ruby -e ':*)"
     ],
     "additionalDirectories": [
       "/tmp"

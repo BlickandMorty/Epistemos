@@ -60,6 +60,7 @@ final class AppBootstrap {
     private(set) var workspaceService: WorkspaceService!
     let activityTracker = ActivityTracker()
     private(set) var workspaceSummaryService: WorkspaceSummaryService!
+    private(set) var timeMachineService: TimeMachineService!
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
@@ -238,6 +239,11 @@ final class AppBootstrap {
         self.workspaceSummaryService = WorkspaceSummaryService(
             triageService: triage, activityTracker: activityTracker, modelContainer: container
         )
+
+        // Initialize the persistent event store (separate SQLite database with WAL mode).
+        EventStore.shared = EventStore()
+        self.timeMachineService = TimeMachineService(modelContainer: container)
+        self.workspaceService.timeMachineService = timeMachineService
 
         if !Self.isRunningTests {
             wireLocalRuntimeLifecycle()
