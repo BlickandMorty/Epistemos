@@ -12,10 +12,19 @@ struct OmegaPanel: View {
         VStack(spacing: 0) {
             // Header
             HStack {
+                Image(systemName: "cpu")
+                    .foregroundStyle(.blue)
                 Text("Omega")
                     .font(.title2.bold())
                 Spacer()
                 statusBadge
+                if orchestrator.isExecuting {
+                    Button("Cancel") {
+                        orchestrator.cancel()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
             }
             .padding()
 
@@ -24,7 +33,35 @@ struct OmegaPanel: View {
             // Main content area
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Execution progress (when active)
+                    // Planning indicator
+                    if orchestrator.isPlanning {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("Planning: \(orchestrator.currentTaskDescription)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.orange.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
+                    // Planning error
+                    if let error = orchestrator.planningError {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            Text(error)
+                                .font(.subheadline)
+                        }
+                        .padding()
+                        .background(.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
+                    // Execution progress (when active or has results)
                     if orchestrator.isExecuting || !orchestrator.executionLog.isEmpty {
                         ExecutionProgressView()
                     }
@@ -40,7 +77,8 @@ struct OmegaPanel: View {
                     }
 
                     // Idle state
-                    if !orchestrator.isExecuting && orchestrator.executionLog.isEmpty {
+                    if !orchestrator.isExecuting && !orchestrator.isPlanning
+                        && orchestrator.executionLog.isEmpty && orchestrator.planningError == nil {
                         idleView
                     }
                 }
@@ -88,18 +126,47 @@ struct OmegaPanel: View {
 
     @ViewBuilder
     private var idleView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Image(systemName: "cpu")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
             Text("Omega Agent System")
                 .font(.headline)
-            Text("Enter a task to begin. Omega will plan and execute it through specialist agents.")
+            Text("Enter a task below. Omega uses local AI to plan multi-step workflows and execute them through specialist agents.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            // Quick action suggestions
+            VStack(spacing: 8) {
+                Text("Try:")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+                quickActionButton("Open Safari and go to apple.com")
+                quickActionButton("List files in my vault")
+                quickActionButton("Search the web for MLX benchmarks")
+                quickActionButton("Create a new note")
+            }
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 32)
+    }
+
+    private func quickActionButton(_ text: String) -> some View {
+        Button {
+            taskInput = ""
+            Task {
+                await orchestrator.submitTask(text)
+            }
+        } label: {
+            Text(text)
+                .font(.caption)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.secondary.opacity(0.1))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }

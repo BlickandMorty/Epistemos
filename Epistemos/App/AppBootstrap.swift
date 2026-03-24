@@ -58,6 +58,7 @@ final class AppBootstrap {
     let physicsCoordinator = PhysicsCoordinator()
     let dialogueChatState = DialogueChatState()
     let orchestratorState = OrchestratorState()
+    let mcpBridge = MCPBridge()
     private(set) var workspaceService: WorkspaceService!
     let activityTracker = ActivityTracker()
     private(set) var workspaceSummaryService: WorkspaceSummaryService!
@@ -259,10 +260,11 @@ final class AppBootstrap {
         // Give VaultSyncService access to EventBus for change notifications
         vaultSync.setEventBus(eventBus)
 
-        // Register Omega specialist agents
+        // Register Omega specialist agents and wire LLM planning
         orchestratorState.registerAgents(
             vaultURL: vaultSync.vaultURL,
-            modelContainer: container
+            modelContainer: container,
+            triageService: triage
         )
 
         // Body-file migration runs off-main to avoid launch hitching.

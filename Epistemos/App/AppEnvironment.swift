@@ -29,5 +29,6 @@ extension View {
             .environment(bootstrap.physicsCoordinator)
             .environment(bootstrap.dialogueChatState)
             .environment(bootstrap.orchestratorState)
+            .environment(bootstrap.mcpBridge)
     }
 }

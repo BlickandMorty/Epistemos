@@ -391,6 +391,7 @@
 		39280CB1EC362358DA2109F6 /* OmegaODIATraceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00DF1CD6ADBCE107CB4177A0 /* OmegaODIATraceTests.swift */; };
 		0FED5B572968B0DA0DD5B645 /* OmegaTrainingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5096E7AC010151F9FDADCADB /* OmegaTrainingCoordinator.swift */; };
 		F8B141E59E68A4804C09FDD1 /* OmegaSettingsDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826E1B0B7DB27F37C56F6CFC /* OmegaSettingsDetailView.swift */; };
+		50DB112D12D967C9B4B38A1D /* MCPBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C8FAB665A73EF0273B8518 /* MCPBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -757,6 +758,7 @@
 		00DF1CD6ADBCE107CB4177A0 /* OmegaODIATraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaODIATraceTests.swift; path = EpistemosTests/OmegaODIATraceTests.swift; sourceTree = SOURCE_ROOT; };
 		5096E7AC010151F9FDADCADB /* OmegaTrainingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaTrainingCoordinator.swift; path = Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		826E1B0B7DB27F37C56F6CFC /* OmegaSettingsDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaSettingsDetailView.swift; path = Epistemos/Views/Settings/OmegaSettingsDetailView.swift; sourceTree = SOURCE_ROOT; };
+		E3C8FAB665A73EF0273B8518 /* MCPBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MCPBridge.swift; path = Epistemos/Omega/MCPBridge.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1728,6 +1730,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50DB112D12D967C9B4B38A1D /* MCPBridge.swift in Sources */,
 				F8B141E59E68A4804C09FDD1 /* OmegaSettingsDetailView.swift in Sources */,
 				0FED5B572968B0DA0DD5B645 /* OmegaTrainingCoordinator.swift in Sources */,
 				1E9C5AAF5C2893C9CBF77140 /* CSISafeguard.swift in Sources */,
