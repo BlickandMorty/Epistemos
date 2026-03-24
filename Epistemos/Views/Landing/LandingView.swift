@@ -218,7 +218,44 @@ struct LandingView: View {
 
             Spacer()
 
-                // Shortcut hints
+                // Intelligence row (workspace & session commands)
+                HStack(spacing: LandingShortcutDisplay.shortcutRowSpacing) {
+                    CommandHint(modIcon: "control", key: "\u{2318}W", label: "Workspaces", theme: theme) {
+                        NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
+                    }
+                    .springEntrance(index: 0, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
+                    CommandHint(modIcon: "control", key: "\u{2318}S", label: "Save Workspace", theme: theme) {
+                        // Trigger save workspace via menu action
+                        NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
+                    }
+                    .springEntrance(index: 1, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
+                    CommandHint(modIcon: "control", key: "\u{2318}R", label: "Session Intelligence", theme: theme) {
+                        NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
+                    }
+                    .springEntrance(index: 2, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
+                    CommandHint(modIcon: "control", key: "\u{2318}T", label: "Time Machine", theme: theme) {
+                        NotificationCenter.default.post(name: .toggleTimeMachine, object: nil)
+                    }
+                    .springEntrance(index: 3, stagger: 0.08)
+                }
+                .padding(.bottom, 12)
+
+                // Core shortcut hints
                 HStack(spacing: LandingShortcutDisplay.shortcutRowSpacing) {
                     CommandHint(icon: "magnifyingglass", label: "Click to search", theme: theme) {
                         activateLandingSearch()
@@ -240,7 +277,7 @@ struct LandingView: View {
                             createAndOpenNote()
                         }
                     )
-                    .springEntrance(index: 2, stagger: 0.08)
+                    .springEntrance(index: 1, stagger: 0.08)
 
                     Circle()
                         .fill(theme.textTertiary.opacity(0.3))
@@ -267,18 +304,7 @@ struct LandingView: View {
                     CommandHint(modIcon: "command", key: "G", label: "Graph", theme: theme) {
                         HologramController.shared.toggle()
                     }
-                    .help("Graph overlay (\u{2318}G).")
                     .springEntrance(index: 4, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "control", key: "\u{2318}W", label: "Workspaces", theme: theme) {
-                        NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
-                    }
-                    .help("Switch workspace (\u{2303}\u{2318}W).")
-                    .springEntrance(index: 5, stagger: 0.08)
                 }
                 .padding(.bottom, 28)
             }

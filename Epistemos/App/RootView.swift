@@ -225,6 +225,9 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .toggleSessionIntelligence)) { _ in
             showSessionIntelligence.toggle()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleTimeMachine)) { _ in
+            showTimeMachine.toggle()
+        }
         .animation(Motion.smooth, value: ui.needsSetup)
         .onAppear {
             if databaseError != nil { showDatabaseAlert = true }

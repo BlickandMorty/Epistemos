@@ -373,6 +373,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 extension Notification.Name {
     static let toggleWorkspaceSwitcher = Notification.Name("epistemos.toggleWorkspaceSwitcher")
     static let toggleSessionIntelligence = Notification.Name("epistemos.toggleSessionIntelligence")
+    static let toggleTimeMachine = Notification.Name("epistemos.toggleTimeMachine")
 }
 
 struct EpistemosCommands: Commands {
