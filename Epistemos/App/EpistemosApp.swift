@@ -216,18 +216,16 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             return .terminateNow
         }
 
-        // Show the SwiftUI save panel overlay instead of a modal NSAlert.
-        // Listen for the proceedWithQuit notification to complete termination.
-        quitObserver = NotificationCenter.default.addObserver(
-            forName: .proceedWithQuit, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.performTeardown()
-            NSApp.reply(toApplicationShouldTerminate: true)
-            if let obs = self?.quitObserver {
-                NotificationCenter.default.removeObserver(obs)
+        // Show a floating save panel above ALL windows (note editors, mini chats, etc.)
+        // Uses NSPanel at .floating level so the user always sees it.
+        QuitSavePanelController.shared.show(isQuitFlow: true) { [weak self] shouldQuit in
+            if shouldQuit {
+                self?.performTeardown()
+                NSApp.reply(toApplicationShouldTerminate: true)
+            } else {
+                NSApp.reply(toApplicationShouldTerminate: false)
             }
         }
-        NotificationCenter.default.post(name: .showQuitSavePanel, object: nil)
         return .terminateLater
     }
 

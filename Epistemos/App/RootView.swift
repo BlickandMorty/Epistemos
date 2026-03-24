@@ -269,19 +269,6 @@ struct RootView: View {
             WorkspaceSavePanel(isPresented: $showWorkspaceSavePanel)
                 .transition(.opacity)
         }
-        if showQuitSavePanel {
-            WorkspaceSavePanel(
-                isPresented: $showQuitSavePanel,
-                isQuitFlow: true
-            ) { shouldQuit in
-                if shouldQuit {
-                    NotificationCenter.default.post(name: .proceedWithQuit, object: nil)
-                } else {
-                    NSApp.reply(toApplicationShouldTerminate: false)
-                }
-            }
-            .transition(.opacity)
-        }
     }
 
     @ViewBuilder
