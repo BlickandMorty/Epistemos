@@ -119,9 +119,7 @@ struct ChatInputBar: View {
                     HStack(spacing: 8) {
                         ComposerContextShortcutBar(
                             noteLabel: "Chat with Note",
-                            vaultLabel: "Chat with Vault",
                             onChatWithNote: openNotePicker,
-                            onChatWithVault: attachVaultContext,
                             onChatWithChat: openChatPicker
                         )
 

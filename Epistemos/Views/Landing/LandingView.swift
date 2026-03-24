@@ -417,9 +417,7 @@ struct LandingView: View {
                         HStack(spacing: LandingSearchLayout.controlRowSpacing) {
                             ComposerContextShortcutBar(
                                 noteLabel: "Chat with Note",
-                                vaultLabel: "Chat with Vault",
                                 onChatWithNote: openLandingNotePicker,
-                                onChatWithVault: attachLandingVaultContext,
                                 onChatWithChat: openLandingChatPicker
                             )
 

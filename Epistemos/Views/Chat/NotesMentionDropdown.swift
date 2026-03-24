@@ -234,10 +234,8 @@ final class ComposerReferenceSearchState {
 
 struct ComposerContextShortcutBar: View {
     let noteLabel: String
-    let vaultLabel: String
     var chatLabel: String = "Chat with Chat"
     let onChatWithNote: () -> Void
-    let onChatWithVault: () -> Void
     var onChatWithChat: (() -> Void)? = nil
 
     @Environment(UIState.self) private var ui
@@ -249,11 +247,6 @@ struct ComposerContextShortcutBar: View {
                 title: noteLabel,
                 icon: "doc.text.magnifyingglass",
                 action: onChatWithNote
-            )
-            actionButton(
-                title: vaultLabel,
-                icon: "books.vertical",
-                action: onChatWithVault
             )
             if let onChatWithChat {
                 actionButton(

@@ -633,9 +633,7 @@ private struct MiniChatInputBar: View {
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerContextShortcutBar(
                         noteLabel: "Chat with Note",
-                        vaultLabel: "Chat with Vault",
                         onChatWithNote: openNotePicker,
-                        onChatWithVault: attachVaultContext,
                         onChatWithChat: openChatPicker
                     )
 
