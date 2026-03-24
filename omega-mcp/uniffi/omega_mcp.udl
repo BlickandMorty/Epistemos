@@ -30,6 +30,26 @@ namespace omega_mcp {
 
     /// Validate that an agent is allowed to use a tool.
     string validate_agent_tool(string agent_name, string tool_name);
+
+    // ── Tool Execution via Rust (Anchor 5 compliance) ────────────────────
+
+    /// Execute open_url via Rust osascript wrapper. Returns JSON ToolResult.
+    string tool_open_url(string url);
+
+    /// Get current Safari tab URL. Returns JSON ToolResult.
+    string tool_get_page_url();
+
+    /// Get current Safari tab title. Returns JSON ToolResult.
+    string tool_get_page_title();
+
+    /// Search the web via Safari. Returns JSON ToolResult.
+    string tool_search_web(string query);
+
+    /// Execute a shell command with allow-list. Returns JSON ToolResult.
+    string tool_run_command(string command, string allowed_commands_csv);
+
+    /// Evaluate confidence score. Returns action string.
+    string evaluate_confidence(double confidence);
 };
 
 // ── MCP Dispatcher (stateful object) ─────────────────────────────────────────

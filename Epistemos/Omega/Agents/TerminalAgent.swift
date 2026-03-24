@@ -2,18 +2,20 @@ import Foundation
 
 // MARK: - Terminal Agent
 
-/// Specialist agent for shell command execution with configurable allow-list.
+/// Specialist agent for shell command execution.
+/// All execution goes through the Rust Tool Layer (omega-mcp osascript.rs tool_run_command)
+/// per Anti-Drift Anchor 1 and Anchor 5.
 @MainActor
 final class TerminalAgent: OmegaAgent, @unchecked Sendable {
     let name = "terminal"
     let description = "Execute shell commands with allow-list restrictions"
     let toolNames = ["run_command"]
 
-    /// Commands allowed to run. Empty = all commands allowed (dangerous).
-    private let allowedCommands: Set<String>
+    /// Comma-separated allow-list passed to Rust for enforcement.
+    private let allowedCommandsCsv: String
 
     init(allowedCommands: Set<String> = ["ls", "cat", "head", "tail", "grep", "find", "wc", "echo", "date", "pwd", "which"]) {
-        self.allowedCommands = allowedCommands
+        self.allowedCommandsCsv = allowedCommands.sorted().joined(separator: ",")
     }
 
     func execute(step: AgentStep) async throws -> AgentStepResult {
@@ -24,57 +26,27 @@ final class TerminalAgent: OmegaAgent, @unchecked Sendable {
             return .fail("Missing 'command' argument", stepId: step.id, durationMs: 0)
         }
 
-        // Extract the base command name for allow-list check
-        let baseCommand = command.split(separator: " ").first.map(String.init) ?? command
-        if !allowedCommands.isEmpty && !allowedCommands.contains(baseCommand) {
-            let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
-            return .fail("Command '\(baseCommand)' not in allow-list", stepId: step.id, durationMs: elapsed)
-        }
+        // Execute via Rust Tool Layer — Rust handles allow-list, timeout, result wrapping
+        let resultJson = toolRunCommand(command: command, allowedCommandsCsv: allowedCommandsCsv)
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-c", command]
+        let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
 
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-            let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-            let outStr = String(data: outData, encoding: .utf8) ?? ""
-            let errStr = String(data: errData, encoding: .utf8) ?? ""
-
-            let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
-
-            if process.terminationStatus == 0 {
-                return .ok(
-                    "{\"exit_code\":0,\"stdout\":\(jsonEscape(outStr)),\"stderr\":\(jsonEscape(errStr))}",
-                    stepId: step.id,
-                    durationMs: elapsed
-                )
-            } else {
-                return .fail(
-                    "Exit code \(process.terminationStatus): \(errStr)",
-                    stepId: step.id,
-                    durationMs: elapsed
-                )
-            }
-        } catch {
-            let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
-            return .fail(error.localizedDescription, stepId: step.id, durationMs: elapsed)
+        // Parse the Rust ToolResult JSON
+        if let parsed = try? JSONSerialization.jsonObject(with: Data(resultJson.utf8)) as? [String: Any],
+           let success = parsed["success"] as? Bool, success {
+            return .ok(resultJson, stepId: step.id, durationMs: elapsed, confidence: 0.95)
+        } else {
+            let error = extractError(from: resultJson)
+            return .fail(error, stepId: step.id, durationMs: elapsed)
         }
     }
 
-    private func jsonEscape(_ s: String) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: s),
-           let str = String(data: data, encoding: .utf8) {
-            return str
+    private func extractError(from json: String) -> String {
+        guard let data = json.data(using: .utf8),
+              let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let error = result["error"] as? String else {
+            return "Unknown error"
         }
-        return "\"\(s)\""
+        return error
     }
 }

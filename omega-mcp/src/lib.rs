@@ -14,6 +14,7 @@ pub mod trace_logger;
 pub mod dataset_formatter;
 pub mod quality_filter;
 pub mod orchestrator;
+pub mod osascript;
 
 // Re-export types for UniFFI
 pub use types::{ToolDefinition, ToolResult, ToolCall, ExecutionRecord, SafetyInfo};

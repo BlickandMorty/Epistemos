@@ -147,6 +147,58 @@ impl TaskGraph {
     }
 }
 
+// ── Retry Logic ──────────────────────────────────────────────────────────────
+
+/// Max retries per tool call (per Anchor 6: max 3 retries).
+pub const MAX_RETRIES: u32 = 3;
+
+/// Base delay for exponential backoff (0.2s per spec).
+pub const BASE_DELAY_MS: u64 = 200;
+
+/// Check if a step should be retried.
+pub fn should_retry(step: &TaskStep) -> bool {
+    step.retry_count < MAX_RETRIES && is_retriable_error(step.error.as_deref())
+}
+
+/// Calculate backoff delay in milliseconds for the given attempt.
+pub fn backoff_delay_ms(attempt: u32) -> u64 {
+    BASE_DELAY_MS * (1u64 << attempt.min(5)) // Cap at ~6.4s
+}
+
+/// Determine if an error is retriable (transient failures only).
+fn is_retriable_error(error: Option<&str>) -> bool {
+    match error {
+        None => false,
+        Some(e) => {
+            let lower = e.to_lowercase();
+            lower.contains("timeout") || lower.contains("connection")
+                || lower.contains("temporary") || lower.contains("busy")
+                || lower.contains("try again")
+        }
+    }
+}
+
+/// Confidence-based execution decision (per Anchor 6).
+pub fn confidence_decision(confidence: f64) -> ConfidenceAction {
+    if confidence > 0.9 {
+        ConfidenceAction::AutoExecute
+    } else if confidence > 0.8 {
+        ConfidenceAction::LogAndExecute
+    } else if confidence > 0.5 {
+        ConfidenceAction::EscalateToUser
+    } else {
+        ConfidenceAction::Refuse
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ConfidenceAction {
+    AutoExecute,
+    LogAndExecute,
+    EscalateToUser,
+    Refuse,
+}
+
 // ── Confirmation Gate ────────────────────────────────────────────────────────
 
 /// Risk-based confirmation. Returns whether auto-execute is allowed.

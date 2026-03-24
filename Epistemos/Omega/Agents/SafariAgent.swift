@@ -2,7 +2,9 @@ import Foundation
 
 // MARK: - Safari Agent
 
-/// Specialist agent for web browsing via AppleScript + AX tree automation.
+/// Specialist agent for web browsing.
+/// All tool execution goes through the Rust Tool Layer (omega-mcp osascript.rs)
+/// per Anti-Drift Anchor 1 and Anchor 5.
 @MainActor
 final class SafariAgent: OmegaAgent, @unchecked Sendable {
     let name = "safari"
@@ -13,99 +15,63 @@ final class SafariAgent: OmegaAgent, @unchecked Sendable {
         let start = ContinuousClock.now
 
         guard let args = try? JSONSerialization.jsonObject(with: Data(step.argumentsJson.utf8)) as? [String: Any] else {
-            return .fail("Invalid arguments", stepId: step.id, durationMs: 0)
+            return .fail("Invalid arguments JSON", stepId: step.id, durationMs: 0)
         }
 
-        do {
-            let result = try await executeInternal(step: step, args: args)
-            let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
-            return .ok(result, stepId: step.id, durationMs: elapsed)
-        } catch {
-            let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
-            return .fail(error.localizedDescription, stepId: step.id, durationMs: elapsed)
-        }
-    }
-
-    private func executeInternal(step: AgentStep, args: [String: Any]) async throws -> String {
+        // All execution goes through Rust Tool Layer via UniFFI
+        let resultJson: String
         switch step.toolName {
         case "open_url":
             guard let url = args["url"] as? String else {
-                throw SafariAgentError.missingArgument("url")
+                return .fail("Missing 'url' argument", stepId: step.id, durationMs: 0)
             }
-            let script = "tell application \"Safari\" to open location \"\(url.replacingOccurrences(of: "\"", with: "\\\""))\""
-            let output = try await runOsascript(script)
-            return "{\"opened\":true,\"url\":\(jsonEscape(url))}"
+            resultJson = toolOpenUrl(url: url)
 
         case "get_page_url":
-            let script = "tell application \"Safari\" to get URL of current tab of front window"
-            let url = try await runOsascript(script)
-            return "{\"url\":\(jsonEscape(url))}"
+            resultJson = toolGetPageUrl()
 
         case "get_page_title":
-            let script = "tell application \"Safari\" to get name of current tab of front window"
-            let title = try await runOsascript(script)
-            return "{\"title\":\(jsonEscape(title))}"
+            resultJson = toolGetPageTitle()
 
         case "search_web":
             guard let query = args["query"] as? String else {
-                throw SafariAgentError.missingArgument("query")
+                return .fail("Missing 'query' argument", stepId: step.id, durationMs: 0)
             }
-            let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-            let url = "https://www.google.com/search?q=\(encoded)"
-            let script = "tell application \"Safari\" to open location \"\(url)\""
-            _ = try await runOsascript(script)
-            return "{\"searched\":true,\"query\":\(jsonEscape(query))}"
+            resultJson = toolSearchWeb(query: query)
 
         default:
-            throw SafariAgentError.unknownTool(step.toolName)
+            return .fail("Unknown tool: \(step.toolName)", stepId: step.id, durationMs: 0)
+        }
+
+        let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
+
+        // Parse the Rust ToolResult JSON
+        let confidence = parseToolResultConfidence(resultJson)
+        if let parsed = try? JSONSerialization.jsonObject(with: Data(resultJson.utf8)) as? [String: Any],
+           let success = parsed["success"] as? Bool, success {
+            return .ok(resultJson, stepId: step.id, durationMs: elapsed, confidence: confidence)
+        } else {
+            let errorMsg = extractError(from: resultJson)
+            return .fail(errorMsg, stepId: step.id, durationMs: elapsed)
         }
     }
 
-    /// Run an AppleScript via osascript Process.
-    private func runOsascript(_ script: String) async throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-
-        try process.run()
-        process.waitUntilExit()
-
-        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        if process.terminationStatus != 0 {
-            let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-            let errStr = String(data: errData, encoding: .utf8) ?? "osascript failed"
-            throw SafariAgentError.scriptFailed(errStr)
+    /// Parse confidence from ToolResult (1.0 for success, 0.5 for partial, 0.0 for failure).
+    private func parseToolResultConfidence(_ json: String) -> Double {
+        guard let data = json.data(using: .utf8),
+              let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let success = result["success"] as? Bool else {
+            return 0.0
         }
-
-        return output
+        return success ? 0.95 : 0.0
     }
 
-    private func jsonEscape(_ s: String) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: s),
-           let str = String(data: data, encoding: .utf8) {
-            return str
+    private func extractError(from json: String) -> String {
+        guard let data = json.data(using: .utf8),
+              let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let error = result["error"] as? String else {
+            return "Unknown error"
         }
-        return "\"\(s)\""
-    }
-}
-
-enum SafariAgentError: LocalizedError {
-    case missingArgument(String)
-    case unknownTool(String)
-    case scriptFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .missingArgument(let name): "Missing required argument: \(name)"
-        case .unknownTool(let name): "Unknown tool: \(name)"
-        case .scriptFailed(let msg): "AppleScript failed: \(msg)"
-        }
+        return error
     }
 }

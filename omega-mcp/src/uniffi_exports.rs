@@ -90,6 +90,55 @@ pub fn evaluate_risk_confirmation(risk_level: String) -> String {
     }.to_string()
 }
 
+// ── Tool Execution via Rust Layer (Anchor 5 compliance) ──────────────────────
+
+/// Execute open_url tool via Rust osascript wrapper.
+pub fn tool_open_url(url: String) -> String {
+    let result = crate::osascript::tool_open_url(&url);
+    serde_json::to_string(&result).unwrap_or_default()
+}
+
+/// Execute get_page_url tool via Rust osascript wrapper.
+pub fn tool_get_page_url() -> String {
+    let result = crate::osascript::tool_get_page_url();
+    serde_json::to_string(&result).unwrap_or_default()
+}
+
+/// Execute get_page_title tool via Rust osascript wrapper.
+pub fn tool_get_page_title() -> String {
+    let result = crate::osascript::tool_get_page_title();
+    serde_json::to_string(&result).unwrap_or_default()
+}
+
+/// Execute search_web tool via Rust osascript wrapper.
+pub fn tool_search_web(query: String) -> String {
+    let result = crate::osascript::tool_search_web(&query);
+    serde_json::to_string(&result).unwrap_or_default()
+}
+
+/// Execute run_command tool via Rust with allow-list enforcement.
+pub fn tool_run_command(command: String, allowed_commands_csv: String) -> String {
+    let allowed: Vec<&str> = if allowed_commands_csv.is_empty() {
+        vec![]
+    } else {
+        allowed_commands_csv.split(',').map(|s| s.trim()).collect()
+    };
+    let result = crate::osascript::tool_run_command(&command, &allowed);
+    serde_json::to_string(&result).unwrap_or_default()
+}
+
+/// Get confidence action for a given confidence score.
+/// Returns: "auto_execute", "log_and_execute", "escalate_to_user", "refuse"
+pub fn evaluate_confidence(confidence: f64) -> String {
+    let action = crate::orchestrator::confidence_decision(confidence);
+    match action {
+        crate::orchestrator::ConfidenceAction::AutoExecute => "auto_execute",
+        crate::orchestrator::ConfidenceAction::LogAndExecute => "log_and_execute",
+        crate::orchestrator::ConfidenceAction::EscalateToUser => "escalate_to_user",
+        crate::orchestrator::ConfidenceAction::Refuse => "refuse",
+    }.to_string()
+}
+
 /// Validate that a step's tool is within the agent's allowed toolset.
 /// Returns empty string on success, error message on failure.
 pub fn validate_agent_tool(agent_name: String, tool_name: String) -> String {
