@@ -886,13 +886,17 @@ struct MarkdownTextView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: PreviewTypography.blockSpacing) {
+        LazyVStack(alignment: .leading, spacing: PreviewTypography.blockSpacing) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 renderBlock(block)
             }
         }
         .textSelection(.enabled)
     }
+
+    /// Whether ripple overlays should be evaluated. Skips all ripple text extraction
+    /// and overlay modifier instantiation when rippleStyle is .none (preview mode).
+    private var rippleEnabled: Bool { rippleStyle != .none }
 
     // MARK: - Block Types
 
@@ -1086,11 +1090,11 @@ struct MarkdownTextView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .asciiRippleOverlay(
-                    text: MarkdownRippleTextExtractor.displayText(from: text),
+                    text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: text) : "",
                     font: .system(size: PreviewTypography.bodyFontSize),
                     color: bodyForeground,
                     lineSpacing: PreviewTypography.bodyLineSpacing,
-                    enabled: rippleStyle.includesBodyBlocks
+                    enabled: rippleEnabled && rippleStyle.includesBodyBlocks
                 )
         case .bulletItem(let text):
             HStack(alignment: .top, spacing: 10) {
@@ -1104,11 +1108,11 @@ struct MarkdownTextView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .asciiRippleOverlay(
-                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: text) : "",
                         font: .system(size: PreviewTypography.bodyFontSize),
                         color: bodyForeground,
                         lineSpacing: PreviewTypography.bodyLineSpacing,
-                        enabled: rippleStyle.includesBodyBlocks
+                        enabled: rippleEnabled && rippleStyle.includesBodyBlocks
                     )
             }
             .padding(.leading, PreviewTypography.listIndent)
@@ -1125,11 +1129,11 @@ struct MarkdownTextView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .asciiRippleOverlay(
-                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: text) : "",
                         font: .system(size: PreviewTypography.bodyFontSize),
                         color: bodyForeground,
                         lineSpacing: PreviewTypography.bodyLineSpacing,
-                        enabled: rippleStyle.includesBodyBlocks
+                        enabled: rippleEnabled && rippleStyle.includesBodyBlocks
                     )
             }
             .padding(.leading, PreviewTypography.listIndent)
@@ -1147,11 +1151,11 @@ struct MarkdownTextView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .asciiRippleOverlay(
-                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: text) : "",
                         font: .system(size: PreviewTypography.bodyFontSize),
                         color: checked ? theme.textTertiary : bodyForeground,
                         lineSpacing: PreviewTypography.bodyLineSpacing,
-                        enabled: rippleStyle.includesBodyBlocks
+                        enabled: rippleEnabled && rippleStyle.includesBodyBlocks
                     )
             }
             .padding(.leading, PreviewTypography.listIndent)
@@ -1170,11 +1174,11 @@ struct MarkdownTextView: View {
                 .padding(.trailing, metrics.contentPadding)
                 .padding(.leading, metrics.contentPadding + railWidth + 14)
                 .asciiRippleOverlay(
-                    text: MarkdownRippleTextExtractor.displayText(from: text),
+                    text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: text) : "",
                     font: .system(size: PreviewTypography.bodyFontSize),
                     color: theme.textSecondary,
                     lineSpacing: PreviewTypography.bodyLineSpacing,
-                    enabled: rippleStyle.includesBodyBlocks
+                    enabled: rippleEnabled && rippleStyle.includesBodyBlocks
                 )
             .frame(maxWidth: .infinity, alignment: .leading)
             .markdownPreviewSurface(theme: theme)
@@ -1250,14 +1254,14 @@ struct MarkdownTextView: View {
                     .lineSpacing(level == 1 ? 4 : 2)
             }
             .asciiRippleOverlay(
-                text: MarkdownRippleTextExtractor.displayText(from: displayText),
+                text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: displayText) : "",
                 font: font,
                 color: color,
                 shadowColor: MarkdownHeadingDisplay.previewSwiftUIShadowColor(for: theme, level: level),
                 shadowRadius: MarkdownHeadingDisplay.previewGlowRadius(for: level),
                 lineSpacing: level == 1 ? 4 : 2,
                 opacity: level == 1 ? 0.7 : 0.48,
-                enabled: rippleStyle.ripplesHeading(level: level)
+                enabled: rippleEnabled && rippleStyle.ripplesHeading(level: level)
             )
             .padding(.top, topPad)
             .padding(.bottom, level == 1 ? 8 : 4)

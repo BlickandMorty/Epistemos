@@ -132,7 +132,14 @@
       "Bash(git reset:*)",
       "Bash(git config:*)",
       "Bash(git remote:*)",
-      "Bash(ruby -e ':*)"
+      "Bash(ruby -e ':*)",
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/CLAUDE.md)",
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/State/ActivityTracker.swift)",
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/State/EventStore.swift)",
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/State/WorkspaceService.swift)",
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/State/WorkspaceSummaryService.swift)",
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/Views/Landing/SessionIntelligenceOverlay.swift)",
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/App/EpistemosApp.swift)"
     ],
     "additionalDirectories": [
       "/tmp"

@@ -29,11 +29,7 @@ enum NoteTitleDisplay {
 @MainActor
 enum NoteWindowChrome {
     static func apply(to window: NSWindow, toolbarIdentifier: String) {
-        if !window.styleMask.contains(.fullSizeContentView) {
-            window.styleMask.insert(.fullSizeContentView)
-        }
         window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         let toolbar = window.toolbar ?? NSToolbar(identifier: toolbarIdentifier)
         toolbar.showsBaselineSeparator = false

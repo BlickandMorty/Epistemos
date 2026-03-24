@@ -1029,9 +1029,7 @@ struct NoteDetailWorkspaceView: View {
     private var noteToolbarStrip: some View {
         noteToolbarSurface {
             HStack(spacing: NoteToolbarMetrics.spacing) {
-                if !showPreview {
-                    toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
-                }
+                toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
 
                 noteToolbarControls
             }
