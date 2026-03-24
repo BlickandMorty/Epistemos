@@ -72,7 +72,7 @@ final class OrchestratorState {
         planningError = nil
         executionLog.removeAll()
 
-        // Generate plan via LLM or heuristic fallback
+        // Generate plan via LLM or Rust heuristic fallback
         var steps: [AgentStep] = []
         var usedLLM = false
 
@@ -84,13 +84,13 @@ final class OrchestratorState {
             }
         }
 
-        // If LLM planning failed or unavailable, use heuristic
+        // If LLM planning failed or unavailable, use Rust-side heuristic planner
         if steps.isEmpty {
-            steps = heuristicPlan(for: description)
+            steps = rustHeuristicPlan(for: description)
         }
 
         isPlanning = false
-        planningMethod = usedLLM ? "AI-planned" : "Heuristic routing"
+        planningMethod = usedLLM ? "AI-planned" : "Rust heuristic"
 
         if steps.isEmpty {
             planningError = "Could not determine what to do. Try rephrasing your task, or load a local AI model in Settings > Inference for intelligent planning."
@@ -193,144 +193,64 @@ final class OrchestratorState {
         taskGraph.status = .failed
     }
 
-    // MARK: - Heuristic Fallback
+    // MARK: - Rust-Side Heuristic Planning
 
-    /// Keyword-based routing when the LLM is unavailable or returns unparseable output.
-    /// Covers common task patterns. Falls back to a helpful error for unrecognized tasks.
-    private func heuristicPlan(for task: String) -> [AgentStep] {
-        let lower = task.lowercased()
+    /// Calls the Rust orchestrator's heuristic planner via UniFFI.
+    /// Parses the JSON TaskGraph response into Swift AgentSteps.
+    private func rustHeuristicPlan(for task: String) -> [AgentStep] {
+        // Call Rust heuristic planner
+        let graphJson = generateHeuristicPlan(task: task)
 
-        // ── Writing / Summarization (use notes agent) ────────────────────
-        let writeKeywords = ["write", "summarize", "summary", "draft", "compose", "rewrite", "outline", "essay", "paragraph"]
-        if writeKeywords.contains(where: { lower.contains($0) }) {
-            return [AgentStep(
-                description: "Write/summarize: \(task)",
-                assignedAgent: "notes",
-                toolName: "create_note",
-                argumentsJson: "{\"title\":\"\(escapeJson(task))\",\"body\":\"\"}"
-            )]
+        // Parse the Rust TaskGraph JSON into Swift AgentSteps
+        guard let data = graphJson.data(using: .utf8),
+              let graph = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let steps = graph["steps"] as? [[String: Any]] else {
+            return []
         }
 
-        // ── Web browsing ─────────────────────────────────────────────────
-        if lower.contains("open") && (lower.contains("safari") || lower.contains("http") || lower.contains("url") || lower.contains("website") || lower.contains("apple.com")) {
-            let url = extractURL(from: task) ?? "https://www.apple.com"
-            return [AgentStep(
-                description: "Open URL in Safari",
-                assignedAgent: "safari",
-                toolName: "open_url",
-                argumentsJson: "{\"url\":\"\(url)\"}"
-            )]
-        }
+        return steps.compactMap { stepDict -> AgentStep? in
+            guard let description = stepDict["description"] as? String,
+                  let agent = stepDict["assigned_agent"] as? String,
+                  let tool = stepDict["tool_name"] as? String else {
+                return nil
+            }
 
-        // ── Web search ───────────────────────────────────────────────────
-        let searchKeywords = ["search", "google", "look up", "find info", "research"]
-        if searchKeywords.contains(where: { lower.contains($0) }) {
-            let query = task
-                .replacingOccurrences(of: "search for ", with: "", options: .caseInsensitive)
-                .replacingOccurrences(of: "search the web for ", with: "", options: .caseInsensitive)
-                .replacingOccurrences(of: "google ", with: "", options: .caseInsensitive)
-                .replacingOccurrences(of: "look up ", with: "", options: .caseInsensitive)
-            return [AgentStep(
-                description: "Search the web",
-                assignedAgent: "safari",
-                toolName: "search_web",
-                argumentsJson: "{\"query\":\"\(escapeJson(query))\"}"
-            )]
-        }
+            let argsJson = stepDict["arguments_json"] as? String ?? "{}"
+            let riskStr = (stepDict["risk_level"] as? String) ?? "Low"
+            let risk: RiskLevel = {
+                switch riskStr.lowercased() {
+                case "low": return .low
+                case "medium": return .medium
+                case "high": return .high
+                case "critical": return .critical
+                default: return .low
+                }
+            }()
 
-        // ── File operations ──────────────────────────────────────────────
-        if lower.contains("list") && (lower.contains("file") || lower.contains("folder") || lower.contains("directory")) {
-            return [AgentStep(
-                description: "List files",
-                assignedAgent: "file",
-                toolName: "list_files",
-                argumentsJson: "{\"path\":\".\"}"
-            )]
-        }
+            // Validate agent-tool combination via Rust
+            let validation = validateAgentTool(agentName: agent, toolName: tool)
+            if !validation.isEmpty {
+                // Agent not allowed to use this tool — skip step
+                return nil
+            }
 
-        if (lower.contains("read") || lower.contains("open") || lower.contains("show")) && lower.contains("file") {
-            return [AgentStep(
-                description: "Read file",
-                assignedAgent: "file",
-                toolName: "read_file",
-                argumentsJson: "{\"path\":\"\"}"
-            )]
-        }
+            let depsArray = stepDict["depends_on"] as? [String] ?? []
 
-        // ── Note operations ──────────────────────────────────────────────
-        if lower.contains("note") && (lower.contains("create") || lower.contains("new") || lower.contains("make")) {
-            return [AgentStep(
-                description: "Create a new note",
-                assignedAgent: "notes",
-                toolName: "create_note",
-                argumentsJson: "{\"title\":\"New Note\",\"body\":\"\"}"
-            )]
+            return AgentStep(
+                description: description,
+                assignedAgent: agent,
+                toolName: tool,
+                argumentsJson: argsJson,
+                riskLevel: risk,
+                dependsOn: depsArray.compactMap { UUID(uuidString: $0) }
+            )
         }
-
-        if lower.contains("note") && lower.contains("search") {
-            return [AgentStep(
-                description: "Search notes",
-                assignedAgent: "notes",
-                toolName: "search_notes",
-                argumentsJson: "{\"query\":\"\(escapeJson(task))\"}"
-            )]
-        }
-
-        // ── Destructive operations (high risk) ───────────────────────────
-        if lower.contains("delete") || lower.contains("remove") || lower.contains("trash") {
-            return [AgentStep(
-                description: task,
-                assignedAgent: "file",
-                toolName: "delete_file",
-                argumentsJson: "{}",
-                riskLevel: .high
-            )]
-        }
-
-        // ── Shell commands (explicit) ────────────────────────────────────
-        if lower.contains("run ") || lower.contains("execute ") || lower.hasPrefix("ls") || lower.hasPrefix("pwd") || lower.hasPrefix("echo") {
-            let cmd = task.replacingOccurrences(of: "run ", with: "", options: .caseInsensitive)
-                         .replacingOccurrences(of: "execute ", with: "", options: .caseInsensitive)
-            return [AgentStep(
-                description: "Run command: \(cmd)",
-                assignedAgent: "terminal",
-                toolName: "run_command",
-                argumentsJson: "{\"command\":\"\(escapeJson(cmd))\"}"
-            )]
-        }
-
-        // ── Shortcut operations ──────────────────────────────────────────
-        if lower.contains("shortcut") || lower.contains("workflow") {
-            return [AgentStep(
-                description: task,
-                assignedAgent: "automation",
-                toolName: "run_shortcut",
-                argumentsJson: "{\"name\":\"\"}"
-            )]
-        }
-
-        // ── Default: try to use notes agent for general questions ─────────
-        // If no specific pattern matches, treat it as a question/writing task
-        // rather than blindly running a terminal command.
-        return [AgentStep(
-            description: task,
-            assignedAgent: "notes",
-            toolName: "create_note",
-            argumentsJson: "{\"title\":\"\(escapeJson(task))\",\"body\":\"Omega could not determine the right action. Please try rephrasing or load a local AI model for intelligent planning.\"}"
-        )]
     }
 
-    private func extractURL(from text: String) -> String? {
-        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-        let range = NSRange(text.startIndex..., in: text)
-        return detector?.firstMatch(in: text, range: range)
-            .flatMap { Range($0.range, in: text) }
-            .map { String(text[$0]) }
-    }
+    // MARK: - Rust Confirmation Gate
 
-    private func escapeJson(_ s: String) -> String {
-        s.replacingOccurrences(of: "\\", with: "\\\\")
-         .replacingOccurrences(of: "\"", with: "\\\"")
-         .replacingOccurrences(of: "\n", with: "\\n")
+    /// Check confirmation decision via Rust orchestrator.
+    func rustConfirmationDecision(for riskLevel: RiskLevel) -> String {
+        evaluateRiskConfirmation(riskLevel: riskLevel.rawValue)
     }
 }

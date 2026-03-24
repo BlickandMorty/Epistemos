@@ -61,3 +61,52 @@ pub fn validate_tool_args(schema_json: String, args_json: String) -> String {
 
     String::new() // empty = valid
 }
+
+// ── Orchestrator Exports ─────────────────────────────────────────────────────
+
+/// Generate a heuristic plan (Rust-side, no LLM needed).
+/// Returns JSON-encoded TaskGraph.
+pub fn generate_heuristic_plan(task: String) -> String {
+    let graph = crate::orchestrator::heuristic_plan(&task);
+    graph.to_json()
+}
+
+/// Get the default agent definitions as JSON.
+pub fn get_default_agents_json() -> String {
+    let agents = crate::orchestrator::default_agents();
+    serde_json::to_string(&agents).unwrap_or_default()
+}
+
+/// Evaluate confirmation decision for a risk level.
+/// Returns: "auto_execute", "execute_with_logging", "require_preview", "require_explicit_confirm"
+pub fn evaluate_risk_confirmation(risk_level: String) -> String {
+    let risk = crate::orchestrator::RiskLevel::from_str(&risk_level);
+    let decision = crate::orchestrator::evaluate_confirmation(&risk);
+    match decision {
+        crate::orchestrator::ConfirmationDecision::AutoExecute => "auto_execute",
+        crate::orchestrator::ConfirmationDecision::ExecuteWithLogging => "execute_with_logging",
+        crate::orchestrator::ConfirmationDecision::RequirePreview => "require_preview",
+        crate::orchestrator::ConfirmationDecision::RequireExplicitConfirm => "require_explicit_confirm",
+    }.to_string()
+}
+
+/// Validate that a step's tool is within the agent's allowed toolset.
+/// Returns empty string on success, error message on failure.
+pub fn validate_agent_tool(agent_name: String, tool_name: String) -> String {
+    let agents = crate::orchestrator::default_agents();
+    let step = crate::orchestrator::TaskStep {
+        id: String::new(),
+        description: String::new(),
+        assigned_agent: agent_name,
+        tool_name,
+        arguments_json: "{}".to_string(),
+        depends_on: vec![],
+        risk_level: crate::orchestrator::RiskLevel::Low,
+        status: crate::orchestrator::StepStatus::Pending,
+        result_json: None, error: None, duration_ms: 0, retry_count: 0,
+    };
+    match crate::orchestrator::validate_agent_toolset(&agents, &step) {
+        Ok(()) => String::new(),
+        Err(e) => e,
+    }
+}

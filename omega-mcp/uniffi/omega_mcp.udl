@@ -16,6 +16,20 @@ namespace omega_mcp {
     /// Validate tool arguments against a schema. Returns empty string on success,
     /// error message on failure.
     string validate_tool_args(string schema_json, string args_json);
+
+    // ── Orchestrator (Layer 3 — Rust-side per Anchor 1) ──────────────────
+
+    /// Generate a heuristic plan entirely in Rust. Returns JSON TaskGraph.
+    string generate_heuristic_plan(string task);
+
+    /// Get the 5 default agent definitions as JSON.
+    string get_default_agents_json();
+
+    /// Evaluate confirmation decision for a risk level string.
+    string evaluate_risk_confirmation(string risk_level);
+
+    /// Validate that an agent is allowed to use a tool.
+    string validate_agent_tool(string agent_name, string tool_name);
 };
 
 // ── MCP Dispatcher (stateful object) ─────────────────────────────────────────
