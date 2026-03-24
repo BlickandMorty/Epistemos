@@ -129,8 +129,12 @@ final class ChatCoordinator {
                 }
 
                 // Inject workspace awareness into every query (always-on context).
-                // This lets the AI answer "what am I working on?" without manual attachments.
-                let workspaceContext = Self.buildWorkspaceAwarenessContext(bootstrap: bootstrap)
+                // Deep context activated when user asks about sessions/summaries/history.
+                let isSessionQuery = Self.queryRequestsSessionContext(effectiveQuery)
+                let workspaceContext = Self.buildWorkspaceAwarenessContext(
+                    bootstrap: bootstrap,
+                    deepContext: isSessionQuery
+                )
                 let effectiveNotesContextWithWorkspace: String?
                 if let enc = effectiveNotesContext {
                     effectiveNotesContextWithWorkspace = enc + "\n\n" + workspaceContext
@@ -1014,36 +1018,144 @@ final class ChatCoordinator {
 
     // MARK: - Workspace Awareness Context
 
-    static func buildWorkspaceAwarenessContext(bootstrap: AppBootstrap) -> String {
+    /// Determines if the user query is asking about session/chat history/summaries.
+    static func queryRequestsSessionContext(_ query: String) -> Bool {
+        let lower = query.lowercased()
+        let triggers = [
+            "what have i been", "what was i", "what did i", "what am i working",
+            "summarize my", "summary of", "session summary", "today's summary",
+            "chats today", "all my chats", "chat history", "chat summary",
+            "what happened", "recap", "catch me up", "bring me up to speed",
+            "what did we discuss", "what did we talk", "my activity", "my session",
+            "my work today", "my progress", "end of day", "daily summary",
+        ]
+        return triggers.contains(where: { lower.contains($0) })
+    }
+
+    static func buildWorkspaceAwarenessContext(bootstrap: AppBootstrap, deepContext: Bool = false) -> String {
         var parts: [String] = []
+        let context = bootstrap.modelContainer.mainContext
 
         // Latest AI workspace summary
         let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-        if let workspace = try? bootstrap.modelContainer.mainContext.fetch(
+        if let workspace = try? context.fetch(
             FetchDescriptor(predicate: predicate)
         ).first, !workspace.summary.isEmpty {
             parts.append("[Workspace Summary] \(workspace.summary)")
+            if !workspace.userNote.isEmpty {
+                parts.append("[User Session Note] \(workspace.userNote)")
+            }
         }
 
-        // Open note titles
+        // Open note titles + previews
         let openPageIds = NoteWindowManager.shared.orderedPageIds()
         if !openPageIds.isEmpty {
-            let titles = openPageIds.prefix(8).compactMap { pageId -> String? in
+            var noteLines: [String] = []
+            for pageId in openPageIds.prefix(8) {
                 let targetId = pageId
                 let desc = FetchDescriptor<SDPage>(
                     predicate: #Predicate<SDPage> { $0.id == targetId }
                 )
-                return try? bootstrap.modelContainer.mainContext.fetch(desc).first?.title
+                guard let page = try? context.fetch(desc).first else { continue }
+                let title = page.title.isEmpty ? "Untitled" : page.title
+                if deepContext {
+                    let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+                    let preview = String(body.prefix(300))
+                    noteLines.append("- \(title): \(preview)")
+                } else {
+                    noteLines.append("- \(title)")
+                }
             }
-            if !titles.isEmpty {
-                parts.append("[Currently Open Notes] \(titles.joined(separator: ", "))")
+            parts.append("[Currently Open Notes]\n\(noteLines.joined(separator: "\n"))")
+        }
+
+        // Recent activity from tracker
+        let tracker = bootstrap.activityTracker
+        let recentEvents = tracker.recentEvents(since: Date().addingTimeInterval(-3600)) // last hour
+        if !recentEvents.isEmpty {
+            var activityLines: [String] = []
+            var editedNotes: Set<String> = []
+            var chatMsgCount = 0
+            for event in recentEvents {
+                switch event.kind {
+                case .noteEdited(_, let title, let changed, let total):
+                    if editedNotes.insert(title).inserted {
+                        activityLines.append("- Edited \"\(title)\" (\(changed)/\(total) paragraphs)")
+                    }
+                case .chatMessageSent(_, let snippet):
+                    chatMsgCount += 1
+                    if deepContext && chatMsgCount <= 5 {
+                        activityLines.append("- Chat: \"\(snippet)\"")
+                    }
+                case .noteOpened(_, let title):
+                    if deepContext { activityLines.append("- Opened \"\(title)\"") }
+                case .noteClosed(_, let title):
+                    if deepContext { activityLines.append("- Closed \"\(title)\"") }
+                }
+            }
+            if chatMsgCount > 0 && !deepContext {
+                activityLines.append("- \(chatMsgCount) chat message\(chatMsgCount == 1 ? "" : "s") this hour")
+            }
+            if !activityLines.isEmpty {
+                parts.append("[Recent Activity]\n\(activityLines.joined(separator: "\n"))")
+            }
+        }
+
+        // Session duration
+        if let startedAt = tracker.trackingStartedAt {
+            let minutes = Int(Date().timeIntervalSince(startedAt) / 60)
+            if minutes > 0 {
+                parts.append("[Session Duration] \(minutes) minutes")
+            }
+        }
+
+        // Graph topology for open notes
+        if !openPageIds.isEmpty {
+            let store = bootstrap.graphState.store
+            var edges: [String] = []
+            for pageId in openPageIds.prefix(4) {
+                guard let node = store.node(bySourceId: pageId, type: .note) else { continue }
+                guard let neighborIds = store.adjacency[node.id] else { continue }
+                for neighborId in neighborIds.prefix(3) {
+                    guard let neighbor = store.nodes[neighborId] else { continue }
+                    edges.append("[\(node.label)] -> [\(neighbor.label)]")
+                }
+            }
+            if !edges.isEmpty {
+                parts.append("[Knowledge Connections]\n\(edges.joined(separator: "\n"))")
+            }
+        }
+
+        // Deep context: include today's chat messages from SwiftData
+        if deepContext {
+            let todayStart = Calendar.current.startOfDay(for: Date())
+            let chatDesc = FetchDescriptor<SDChat>(
+                predicate: #Predicate<SDChat> { $0.updatedAt >= todayStart },
+                sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+            )
+            if let chats = try? context.fetch(chatDesc) {
+                var chatSummaries: [String] = []
+                for chat in chats.prefix(10) {
+                    let msgs = chat.sortedMessages
+                    let snippets = msgs.suffix(4).map { msg in
+                        let role = msg.role == "user" ? "You" : "AI"
+                        return "\(role): \(String(msg.content.prefix(150)))"
+                    }
+                    if !snippets.isEmpty {
+                        let title = chat.title.isEmpty ? "Untitled Chat" : chat.title
+                        chatSummaries.append("Chat \"\(title)\":\n\(snippets.joined(separator: "\n"))")
+                    }
+                }
+                if !chatSummaries.isEmpty {
+                    parts.append("[Today's Conversations]\n\(chatSummaries.joined(separator: "\n\n"))")
+                }
             }
         }
 
         // Open mini chats
-        let chatCount = MiniChatWindowController.shared.openChatIds.count
-        if chatCount > 0 {
-            parts.append("[Open Mini Chats] \(chatCount)")
+        let miniChatCount = MiniChatWindowController.shared.openChatIds.count
+        if miniChatCount > 0 {
+            parts.append("[Open Mini Chats] \(miniChatCount)")
         }
 
         // Graph state
@@ -1052,7 +1164,7 @@ final class ChatCoordinator {
             parts.append("[Knowledge Graph] Open with \(nodeCount) nodes")
         }
 
-        return parts.joined(separator: "\n")
+        return parts.joined(separator: "\n\n")
     }
 
     // MARK: - Vault Action Execution
