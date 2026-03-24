@@ -103,7 +103,7 @@ struct TimeMachineView: View {
                     .frame(maxHeight: 520)
                 }
             }
-            .frame(width: 720)
+            .frame(width: 680)
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
@@ -198,10 +198,10 @@ struct TimeMachineView: View {
                         .foregroundStyle(theme.textTertiary)
 
                     HStack(spacing: 20) {
-                        diffStat(label: "Notes Added", value: diff.addedNotes.count, color: .green)
-                        diffStat(label: "Notes Removed", value: diff.removedNotes.count, color: .red)
-                        diffStat(label: "Notes Modified", value: diff.modifiedNotes.count, color: .orange)
-                        diffStat(label: "Graph Nodes", value: diff.graphNodeDelta, color: diff.graphNodeDelta >= 0 ? .green : .red, showSign: true)
+                        diffStat(label: "Notes Added", value: diff.addedNotes.count, color: theme.emerald)
+                        diffStat(label: "Notes Removed", value: diff.removedNotes.count, color: theme.coral)
+                        diffStat(label: "Notes Modified", value: diff.modifiedNotes.count, color: theme.amber)
+                        diffStat(label: "Graph Nodes", value: diff.graphNodeDelta, color: diff.graphNodeDelta >= 0 ? theme.emerald : theme.coral, showSign: true)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -223,7 +223,7 @@ struct TimeMachineView: View {
                                 Spacer()
                                 Text(note.wordCountDelta > 0 ? "+\(note.wordCountDelta) words" : "\(note.wordCountDelta) words")
                                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(note.wordCountDelta > 0 ? .green : .red)
+                                    .foregroundStyle(note.wordCountDelta > 0 ? theme.emerald : theme.coral)
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)

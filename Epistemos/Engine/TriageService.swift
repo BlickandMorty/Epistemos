@@ -843,6 +843,33 @@ final class TriageService {
         }
     }
 
+    // MARK: - Raw Local Generation (for Knowledge Fusion pipeline)
+
+    /// Generates text using the local model directly, returning raw output without
+    /// `finalVisibleText` stripping. Used by the Knowledge Fusion synthetic data
+    /// pipeline where we need the full model response including structured content.
+    func generateRawLocal(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int = 0,
+        modelID: String? = nil
+    ) async throws -> String {
+        guard let localLLMService else {
+            throw LocalInferenceRoutingError.runtimeUnavailable
+        }
+        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
+        if let configurable = localLLMService as? any LocalConfigurableLLMClient {
+            return try await configurable.generate(
+                prompt: prompt,
+                systemPrompt: effectiveSystemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: .fast,
+                modelID: modelID
+            )
+        }
+        return try await localLLMService.generate(prompt: prompt, systemPrompt: effectiveSystemPrompt)
+    }
+
     // MARK: - General Triage Logic
 
     /// Routes a general operation to Apple Intelligence or the local model path.

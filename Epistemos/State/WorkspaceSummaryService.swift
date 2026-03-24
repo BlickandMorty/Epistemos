@@ -102,6 +102,35 @@ final class WorkspaceSummaryService {
         await generateAndStoreSummary()
     }
 
+    /// Generates summary and returns it directly (avoids stale DB read race).
+    func generateSummaryNowReturning() async -> String? {
+        guard !isGenerating else { return nil }
+        isGenerating = true
+        defer { isGenerating = false }
+
+        let lastSummaryAt = fetchAutoSaveLastSummaryAt() ?? activityTracker.trackingStartedAt ?? Date().addingTimeInterval(-3600)
+        let windowSummaries = await generatePerWindowSummaries()
+        let reducePrompt = buildReducePrompt(since: lastSummaryAt, windowSummaries: windowSummaries)
+        guard !reducePrompt.isEmpty else { return nil }
+
+        do {
+            let summary = try await triageService.generate(
+                prompt: reducePrompt,
+                systemPrompt: "You are a workspace intelligence engine. Synthesize the user's intent and focus in 2-3 sentences. Describe WHAT they are trying to accomplish, not just what files are open.",
+                operation: .summarize,
+                contentLength: reducePrompt.count,
+                query: "workspace synthesis"
+            )
+            let cleaned = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else { return nil }
+            storeSummary(cleaned)
+            return cleaned
+        } catch {
+            Self.log.error("Summary generation failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
     /// Per-window summary using Apple Intelligence (fast, short context, ideal for one-sentence summaries).
     /// Falls back to TriageService if Apple Intelligence is unavailable.
     func generatePerWindowSummaries() async -> [(title: String, summary: String)] {

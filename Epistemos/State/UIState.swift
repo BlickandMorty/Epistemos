@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import SwiftData
 import SwiftUI
 import UserNotifications
 
@@ -72,51 +73,103 @@ struct LandingGreetingPhrase: Equatable, Sendable {
 
 enum LandingGreetingResolver {
     static let defaultPlaylist: [LandingGreetingPhrase] = {
-        // Title greetings — cycle through personas.
-        let titles: [LandingGreetingPhrase] = [
+        let opening: [LandingGreetingPhrase] = [
             LandingGreetingPhrase(text: LiquidGreeting.restingGreeting, durationSeconds: 2.8),
-            LandingGreetingPhrase(text: "Greetings, Researcher", durationSeconds: 2.4),
-            LandingGreetingPhrase(text: "Greetings, Student", durationSeconds: 2.4),
-            LandingGreetingPhrase(text: "Greetings, Engineer??", durationSeconds: 2.6),
+            LandingGreetingPhrase(text: "What's on your mind?", durationSeconds: 2.4),
         ]
 
-        // Instructional phrases.
         let instructions: [LandingGreetingPhrase] = [
-            LandingGreetingPhrase(text: "click anywhere to chat", durationSeconds: 2.6),
-            LandingGreetingPhrase(text: "chat with notes, maybe an old chat", durationSeconds: 3.0),
-            LandingGreetingPhrase(text: "you can literally ask me to chat about other chats...", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "click anywhere to start a conversation", durationSeconds: 2.6),
+            LandingGreetingPhrase(text: "attach a note to your chat for deeper context", durationSeconds: 3.0),
+            LandingGreetingPhrase(text: "chat with notes, or even chat about old chats...", durationSeconds: 3.2),
         ]
 
-        // Fun facts about Epistemos — things users might not know.
-        let facts: [LandingGreetingPhrase] = [
-            LandingGreetingPhrase(text: "your notes are embedded into vectors for semantic search", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "the graph runs on a Rust physics engine at 120fps", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "try attaching a note to your chat for context-aware answers", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "Cmd+G opens the knowledge graph — your ideas visualized", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "AI runs entirely on-device — your data never leaves your Mac", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "right-click a graph node to open the note directly", durationSeconds: 3.0),
-            LandingGreetingPhrase(text: "wikilinks connect your notes — type [[note name]] anywhere", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "block references let you embed paragraphs across notes", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "your vault syncs to markdown files — portable, forever yours", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "the AI can analyze connections between your notes automatically", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "try asking me to summarize, expand, or restructure your writing", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "shift-click a graph node to highlight its neighborhood", durationSeconds: 3.0),
-            LandingGreetingPhrase(text: "save your window layout as a workspace — Ctrl+\u{2318}S to save, Ctrl+\u{2318}W to switch", durationSeconds: 3.6),
-            LandingGreetingPhrase(text: "workspaces remember your open notes, chats, and even cursor positions", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "Ctrl+\u{2318}R shows what you're working on — AI reads every open window", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "Ctrl+\u{2318}T opens the time machine — go back to any past session", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "every session is permanently logged — you'll never lose your work history", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "the app tracks paragraph-level changes to understand what you're editing", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "AI summaries use Map-Reduce — each window summarized, then synthesized", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "on quit, you can name your workspace and leave yourself a note", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "the time machine diffs your entire knowledge base — notes, chats, graph", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "restore any past session as a new workspace — non-destructive time travel", durationSeconds: 3.4),
-            LandingGreetingPhrase(text: "Chat with Chat lets you reference past conversations as context", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "session history uses a dedicated SQLite database — never slows down your notes", durationSeconds: 3.4),
+        let tips: [LandingGreetingPhrase] = [
+            LandingGreetingPhrase(text: "\u{2318}G opens the knowledge graph", durationSeconds: 2.6),
+            LandingGreetingPhrase(text: "^\u{2318}R — Session Intelligence reads every open window", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "^\u{2318}T — Time Machine lets you revisit any past session", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "^\u{2318}S saves your workspace layout for later", durationSeconds: 3.0),
+            LandingGreetingPhrase(text: "wikilinks connect ideas — type [[note name]] anywhere", durationSeconds: 3.0),
+            LandingGreetingPhrase(text: "AI runs entirely on-device — your data never leaves this Mac", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "your vault syncs to plain markdown — portable, forever yours", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "right-click in the editor for AI rewriting tools", durationSeconds: 2.8),
+            LandingGreetingPhrase(text: "Knowledge Fusion trains a model on your writing style", durationSeconds: 3.2),
         ]
 
-        return titles + instructions + facts
+        return opening + instructions + tips
     }()
+
+    /// Cached note insights — computed once, stable across re-renders.
+    /// Prevents playlist signature from changing every SwiftUI evaluation cycle.
+    private static var _cachedInsights: [LandingGreetingPhrase]?
+    @MainActor
+    static var cachedNoteInsights: [LandingGreetingPhrase] {
+        if let cached = _cachedInsights { return cached }
+        let insights = noteInsights()
+        _cachedInsights = insights
+        return insights
+    }
+
+    /// Extracts short insights from note titles in the vault. Runs on cached SwiftData
+    /// titles only — never scans note bodies. Called once at launch, costs ~0ms.
+    @MainActor
+    private static func noteInsights() -> [LandingGreetingPhrase] {
+        guard let bootstrap = AppBootstrap.shared else { return [] }
+        let context = bootstrap.modelContainer.mainContext
+
+        // Fetch note titles only (no body loading — the key optimization)
+        var descriptor = FetchDescriptor<SDPage>(
+            sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 20
+        guard let pages = try? context.fetch(descriptor), !pages.isEmpty else { return [] }
+
+        var insights: [LandingGreetingPhrase] = []
+
+        // Recent work reminder
+        if let recent = pages.first {
+            let title = recent.title.isEmpty ? "Untitled" : recent.title
+            insights.append(LandingGreetingPhrase(
+                text: "you were last working on \"\(title)\"",
+                durationSeconds: 3.0
+            ))
+        }
+
+        // Note count milestone
+        let count = pages.count
+        if count >= 5 {
+            insights.append(LandingGreetingPhrase(
+                text: "your vault holds \(count) notes — a growing body of knowledge",
+                durationSeconds: 3.2
+            ))
+        }
+
+        // Pick 2-3 random note titles as "things you've explored"
+        let shuffled = pages.filter { !$0.title.isEmpty }.shuffled().prefix(3)
+        for page in shuffled {
+            let title = page.title
+            let phrases = [
+                "remember \"\(title)\"? what if you revisited it",
+                "your note \"\(title)\" might connect to something new",
+                "\"\(title)\" — still curious about this?",
+            ]
+            if let phrase = phrases.randomElement() {
+                insights.append(LandingGreetingPhrase(text: phrase, durationSeconds: 3.4))
+            }
+        }
+
+        // Workspace summary insight (already cached — zero cost)
+        if let ws = try? context.fetch(
+            FetchDescriptor<SDWorkspace>(predicate: #Predicate<SDWorkspace> { $0.isAutoSave == true })
+        ).first, !ws.summary.isEmpty, ws.summary.count < 120 {
+            insights.append(LandingGreetingPhrase(
+                text: ws.summary.lowercased(),
+                durationSeconds: 3.6
+            ))
+        }
+
+        return insights
+    }
 
     static func resolve(
         sourceMode: LandingGreetingSourceMode,
@@ -135,9 +188,9 @@ enum LandingGreetingResolver {
         let resolved: [LandingGreetingPhrase]
         switch sourceMode {
         case .defaultsOnly:
-            resolved = defaultPlaylist
+            resolved = defaultPlaylist + cachedNoteInsights
         case .mixed:
-            resolved = defaultPlaylist + customPlaylist
+            resolved = defaultPlaylist + cachedNoteInsights + customPlaylist
         case .customOnly:
             resolved = customPlaylist
         }
@@ -203,17 +256,25 @@ final class UIState {
     var preferredColorScheme: ColorScheme? { nil }
     var shouldUseThemeWorkarounds: Bool { false }
     var windowAppearance: NSAppearance? { nil }
-    var usesNativeWindowBlur: Bool { true }
+
+    // MARK: - Transparency
+
+    /// Always reduced transparency — opaque adaptive backgrounds everywhere.
+    var effectiveReduceTransparency: Bool { true }
+
+    var usesNativeWindowBlur: Bool { false }
     var wallpaperBackground: Color { Color(nsColor: .windowBackgroundColor) }
     var windowBackgroundColor: NSColor {
+        effectiveReduceTransparency ? .windowBackgroundColor : .clear
+    }
+    var contentBackground: Color {
+        effectiveReduceTransparency ? Color(nsColor: .windowBackgroundColor) : .clear
+    }
+    var notesSidebarBackgroundColor: NSColor {
         .clear
     }
-    var contentBackground: Color { Color(nsColor: .textBackgroundColor) }
-    var notesSidebarBackgroundColor: NSColor {
-        .textBackgroundColor
-    }
     var notesSidebarBackground: Color {
-        Color(nsColor: notesSidebarBackgroundColor)
+        .clear
     }
     var overlayChromeBackground: Color {
         Color(nsColor: .underPageBackgroundColor)

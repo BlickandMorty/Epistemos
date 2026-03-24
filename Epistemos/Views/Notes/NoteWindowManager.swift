@@ -52,9 +52,8 @@ enum NoteWindowThemeStyler {
     }
 
     static func apply(to window: NSWindow, uiState: UIState) {
-        window.appearance = uiState.windowAppearance
-        window.isOpaque = !uiState.usesNativeWindowBlur
-        window.backgroundColor = uiState.windowBackgroundColor
+        window.appearance = nil
+        window.backgroundColor = .windowBackgroundColor
         window.titlebarAppearsTransparent = true
         window.toolbar?.showsBaselineSeparator = false
         window.toolbarStyle = .unified
@@ -62,11 +61,6 @@ enum NoteWindowThemeStyler {
             controller.syncTheme(uiState: uiState)
         } else {
             WindowThemeStyler.removeBackdrop(in: window.contentView)
-        }
-        if uiState.shouldUseThemeWorkarounds {
-            window.applyThemedGlassToolbar(configuration: GlassToolbarConfiguration(theme: uiState.theme))
-        } else {
-            window.removeGlassToolbarTheme()
         }
         WindowThemeStyler.refreshChrome(of: window)
     }

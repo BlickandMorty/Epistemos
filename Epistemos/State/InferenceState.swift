@@ -30,7 +30,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit: 8
         case .qwen35_2B4Bit: 12
         case .qwen35_4B4Bit: 16
-        case .qwen35_9B4Bit: 24
+        case .qwen35_9B4Bit: 16  // Lowered from 24 to allow 16GB machines to attempt 9B
         case .qwen35_27B4Bit: 48
         case .qwen35_35BA3B4Bit: 64
         }

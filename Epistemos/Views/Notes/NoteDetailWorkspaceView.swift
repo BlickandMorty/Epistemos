@@ -771,8 +771,8 @@ struct NoteDetailWorkspaceView: View {
         }
         .onChange(of: ui.appearanceSyncKey) { _, _ in
             if let window = NSApp.keyWindow {
-                window.appearance = ui.windowAppearance
-                window.backgroundColor = ui.windowBackgroundColor
+                window.appearance = nil
+                window.backgroundColor = .windowBackgroundColor
             }
         }
         .onReceive(
@@ -1525,17 +1525,11 @@ struct NoteDetailWorkspaceView: View {
         transitionGreeting = message
         isTransitioning = true
 
-        // Scale hold time for larger documents — more text = more layout work.
         let bodyLength = pages.first.map(persistedBodyFor)?.count ?? persistedBody.count
         let holdTime: Double = bodyLength > 20_000 ? 1.4 : bodyLength > 5_000 ? 1.0 : 0.70
 
-        // Instantly opaque — no animation, no insertion delay.
-        // The overlay is already in the view tree, just invisible.
         transitionOpacity = 1
 
-        // Swap mode after one frame (overlay is guaranteed visible).
-        // Cache invalidation happens inside modeSwap so the old editor
-        // isn't pulled out from under itself before SwiftUI tears it down.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(50))
             modeSwap()
@@ -3242,17 +3236,6 @@ private struct NoteBookPreviewPage: View, Equatable {
         )
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(NoteDualPreviewLayout.pagePadding)
-            .background(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(MarkdownPreviewSurfaceStyle.flatBackground(for: theme))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .strokeBorder(
-                        MarkdownPreviewSurfaceStyle.borderColor(for: theme),
-                        lineWidth: 0.6
-                    )
-            )
     }
 }
 
@@ -3264,25 +3247,14 @@ private struct NoteBookPreviewPage: View, Equatable {
 private struct TransitionGreetingView: View {
     let message: String
     let theme: EpistemosTheme
-    @State private var rippleTrigger = 0
 
     var body: some View {
         ZStack {
-            MarkdownPreviewSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea()
-            ASCIIRippleText(
-                text: message,
-                font: AppDisplayTypography.font(size: 44),
-                color: theme.fontAccent,
-                shadowColor: theme.fontAccent.opacity(theme.isDark ? 0.18 : 0.10),
-                shadowRadius: 8,
-                manualTrigger: rippleTrigger,
-                interactive: false
-            )
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-        }
-        .task(id: message) {
-            rippleTrigger += 1
+            Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
+            Text(message)
+                .font(AppDisplayTypography.font(size: 44))
+                .foregroundStyle(theme.fontAccent)
         }
     }
 }

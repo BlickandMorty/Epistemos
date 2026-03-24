@@ -210,6 +210,7 @@ struct SessionIntelligenceOverlay: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(theme.foreground.opacity(0.06))
         }
+        .physicsHover(.subtle)
     }
 
     // MARK: - Data Collection
@@ -268,9 +269,10 @@ struct SessionIntelligenceOverlay: View {
             }
         }
 
-        // Reduce phase: global synthesis
-        await summaryService.generateSummaryNow()
-        if let workspace = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
+        // Reduce phase: global synthesis (use returning variant to avoid stale DB read race)
+        if let freshSummary = await summaryService.generateSummaryNowReturning() {
+            globalSynthesis = freshSummary
+        } else if let workspace = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
             FetchDescriptor<SDWorkspace>(predicate: #Predicate<SDWorkspace> { $0.isAutoSave == true })
         ).first {
             globalSynthesis = workspace.summary
@@ -310,27 +312,31 @@ struct SessionIntelligenceOverlay: View {
                     .padding(.horizontal, 4)
                     .padding(.vertical, 12)
                 } else {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
                         ForEach(Array(commandHistory.enumerated()), id: \.offset) { _, entry in
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "person.fill")
                                         .font(.system(size: 9))
-                                        .foregroundStyle(theme.accent)
-                                        .frame(width: 16, height: 16)
+                                        .foregroundStyle(.white)
+                                        .frame(width: 20, height: 20)
+                                        .background(Circle().fill(theme.accent))
                                     Text(entry.query)
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 }
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "brain.head.profile")
                                         .font(.system(size: 9))
-                                        .foregroundStyle(theme.textTertiary)
-                                        .frame(width: 16, height: 16)
+                                        .foregroundStyle(theme.textSecondary)
+                                        .frame(width: 20, height: 20)
+                                        .background(Circle().fill(theme.foreground.opacity(0.06)))
                                     Text(entry.response)
                                         .font(.system(size: 12, design: .rounded))
                                         .foregroundStyle(theme.textSecondary)
                                         .textSelection(.enabled)
                                 }
+                                .padding(10)
+                                .background(theme.foreground.opacity(0.03), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             }
                         }
                     }
@@ -357,11 +363,12 @@ struct SessionIntelligenceOverlay: View {
                         Task { await executeCommand() }
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.system(size: 18))
                             .foregroundStyle(commandInput.isEmpty ? theme.textTertiary : theme.accent)
                     }
                     .buttonStyle(.plain)
                     .disabled(commandInput.isEmpty)
+                    .physicsHover(.subtle)
                 }
             }
             .padding(.horizontal, 16)
@@ -932,11 +939,14 @@ struct SessionIntelligenceOverlay: View {
     }
 
     private func commandHintRow(_ command: String, _ desc: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Text(command)
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(theme.accent.opacity(0.7))
-                .frame(width: 180, alignment: .leading)
+                .foregroundStyle(theme.accent)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .frame(width: 200, alignment: .leading)
             Text(desc)
                 .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(theme.textTertiary)

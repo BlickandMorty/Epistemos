@@ -63,9 +63,16 @@ final class ModularZoomWindowObserverView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if let window, WindowPresentationPolicy.needsModularZoomBehavior(window) {
-            WindowPresentationPolicy.applyModularZoomBehavior(to: window)
-            return
+        if let window {
+            // Main window always uses opaque adaptive background (never transparent)
+            window.appearance = nil
+            window.isOpaque = true
+            window.backgroundColor = .windowBackgroundColor
+
+            if WindowPresentationPolicy.needsModularZoomBehavior(window) {
+                WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+                return
+            }
         }
         schedulePolicyApply()
     }

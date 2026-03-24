@@ -28,9 +28,9 @@ enum WindowThemeStyler {
     }
 
     static func apply(to window: NSWindow, uiState: UIState) {
-        window.appearance = uiState.windowAppearance
-        window.isOpaque = !uiState.usesNativeWindowBlur
-        window.backgroundColor = uiState.windowBackgroundColor
+        // Let macOS handle appearance automatically (Liquid Glass, dark/light mode)
+        window.appearance = nil
+        window.backgroundColor = .windowBackgroundColor
         applyBackdrop(in: window.contentView, uiState: uiState)
         refreshChrome(of: window)
     }
@@ -106,14 +106,21 @@ enum UtilityPanel: String, CaseIterable {
     var defaultSize: NSSize {
         switch self {
         case .notes: NSSize(width: 320, height: 600)
-        case .settings: NSSize(width: 980, height: 720)
+        case .settings: NSSize(width: 680, height: 580)
         }
     }
 
     var minimumSize: NSSize {
         switch self {
         case .notes: NSSize(width: 400, height: 300)
-        case .settings: NSSize(width: 720, height: 520)
+        case .settings: NSSize(width: 680, height: 420)
+        }
+    }
+
+    var maximumSize: NSSize? {
+        switch self {
+        case .settings: NSSize(width: 680, height: 10000) // Fixed width, flexible height
+        default: nil
         }
     }
 
@@ -148,10 +155,13 @@ enum UtilityPanelChrome {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
+        // Ensure proper rounded corners like macOS System Settings
+        panel.hasShadow = true
+        panel.backgroundColor = .windowBackgroundColor
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "SettingsToolbar")
         toolbar.showsBaselineSeparator = false
         panel.toolbar = toolbar
-        panel.toolbarStyle = .unifiedCompact
+        panel.toolbarStyle = .unified
     }
 }
 
@@ -226,6 +236,9 @@ final class UtilityWindowManager {
         panel.collectionBehavior = [.canJoinAllSpaces]
         panel.isReleasedWhenClosed = false
         panel.minSize = kind.minimumSize
+        if let maxSize = kind.maximumSize {
+            panel.maxSize = maxSize
+        }
         UtilityPanelChrome.apply(to: panel, kind: kind)
 
         panel.center()

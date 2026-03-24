@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LiquidGreeting: View {
-    nonisolated static let restingGreeting = "Greetings, Twin"
+    nonisolated static let restingGreeting = "Greetings, Learner"
 
     @Environment(UIState.self) private var ui
     var compact: Bool = false

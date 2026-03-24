@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 // MARK: - Settings View
-// Presented as a standalone macOS Settings window (LucidApp.swift registers the Settings scene).
-// Layout mirrors macOS System Settings: NavigationSplitView sidebar → Form-based detail pane.
+// Mirrors macOS System Settings: NavigationSplitView sidebar → Form-based detail pane.
+// Fixed width (680pt), only height is resizable. Sidebar sits in the toolbar area.
 
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
@@ -12,12 +12,10 @@ struct SettingsView: View {
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
         case inference = "Inference"
+        case knowledgeFusion = "Knowledge Fusion"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
-        case security = "Security"
-        case export = "Export"
-        case reset = "Reset"
 
         var id: String { rawValue }
 
@@ -25,12 +23,10 @@ struct SettingsView: View {
             switch self {
             case .general: "gearshape"
             case .inference: "cpu"
+            case .knowledgeFusion: "brain.head.profile.fill"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
-            case .security: "lock.shield"
-            case .export: "square.and.arrow.up"
-            case .reset: "trash"
             }
         }
     }
@@ -42,70 +38,33 @@ struct SettingsView: View {
                     .tag(section)
             }
             .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .safeAreaPadding(.top, 44)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .navigationSplitViewColumnWidth(min: 190, ideal: 220)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 180, max: 180)
         } detail: {
             settingsDetail
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .navigationSplitViewStyle(.balanced)
-        .ignoresSafeArea(.container, edges: .top)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                sidebarToggleButton
-            }
-        }
     }
 
     @ViewBuilder
     private var settingsDetail: some View {
-        Group {
-            switch selection {
-            case .general: GeneralDetailView()
-            case .inference: InferenceDetailView()
-            case .landing: LandingDetailView()
-            case .appearance: AppearanceDetailView()
-            case .vault: VaultDetailView()
-            case .security: SecurityDetailView()
-            case .export: ExportDetailView()
-            case .reset: ResetDetailView()
-            case nil: GeneralDetailView()
-            }
+        switch selection {
+        case .general: GeneralDetailView()
+        case .inference: InferenceDetailView()
+        case .knowledgeFusion: KnowledgeFusionDetailView()
+        case .landing: LandingDetailView()
+        case .appearance: AppearanceDetailView()
+        case .vault: VaultDetailView()
+        case nil: GeneralDetailView()
         }
-        .safeAreaPadding(.top, 16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var sidebarToggleButton: some View {
-        Button(action: toggleSidebar) {
-            Image(systemName: "sidebar.left")
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 30, height: 30)
-                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(.white.opacity(0.08))
-        }
-        .shadow(color: .black.opacity(0.10), radius: 8, y: 4)
-        .help("Toggle Sidebar")
-    }
-
-    private func toggleSidebar() {
-        guard !NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil),
-              let firstResponder = NSApp.keyWindow?.firstResponder else {
-            return
-        }
-        _ = firstResponder.tryToPerform(#selector(NSSplitViewController.toggleSidebar(_:)), with: nil)
     }
 }
 
 // MARK: - General Detail
+// Consolidated: Session + Workspace Summaries + Security info + Reset
 
 private struct GeneralDetailView: View {
+    @Environment(UIState.self) private var ui
     @State private var restoreLastSession = UserDefaults.standard.bool(
         forKey: "epistemos.restoreLastSession"
     )
@@ -121,6 +80,7 @@ private struct GeneralDetailView: View {
     @State private var workspaces: [SDWorkspace] = []
     @State private var renamingWorkspace: SDWorkspace?
     @State private var renameText = ""
+    @State private var showResetAlert = false
 
     var body: some View {
         Form {
@@ -133,9 +93,6 @@ private struct GeneralDetailView: View {
                     .onChange(of: showSaveOnQuit) { _, newValue in
                         UserDefaults.standard.set(newValue, forKey: "epistemos.showSaveOnQuitDialog")
                     }
-                Text("When enabled, Epistemos asks to save your workspace before quitting.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Section("Workspace Summaries") {
@@ -155,7 +112,7 @@ private struct GeneralDetailView: View {
 
             Section("Saved Workspaces") {
                 if workspaces.isEmpty {
-                    Text("No saved workspaces. Use Cmd+Ctrl+S to save your current workspace.")
+                    Text("No saved workspaces yet.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -173,11 +130,13 @@ private struct GeneralDetailView: View {
                                 AppBootstrap.shared?.workspaceService.loadWorkspace(workspace)
                             }
                             .buttonStyle(.bordered)
+                            .controlSize(.small)
                             Button("Rename") {
                                 renameText = workspace.name
                                 renamingWorkspace = workspace
                             }
                             .buttonStyle(.borderless)
+                            .controlSize(.small)
                             Button(role: .destructive) {
                                 AppBootstrap.shared?.workspaceService.deleteWorkspace(workspace)
                                 refreshWorkspaces()
@@ -185,13 +144,42 @@ private struct GeneralDetailView: View {
                                 Image(systemName: "trash")
                             }
                             .buttonStyle(.borderless)
+                            .controlSize(.small)
                         }
                     }
                 }
             }
+
+            Section("Data Protection") {
+                LabeledContent("Local models") {
+                    Text("Stored in Application Support")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+                LabeledContent("Apple Intelligence") {
+                    Text("On-device only")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                LabeledContent("Sandbox") {
+                    Text("Enabled")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+            }
+
+            Section("Reset") {
+                Text("Clear all saved data, conversations, local model state, and settings. Vault files on disk are preserved.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button("Reset Everything", role: .destructive) {
+                    showResetAlert = true
+                }
+                .controlSize(.small)
+            }
         }
         .formStyle(.grouped)
-        .padding()
         .onAppear { refreshWorkspaces() }
         .alert("Rename Workspace", isPresented: Binding(
             get: { renamingWorkspace != nil },
@@ -206,6 +194,14 @@ private struct GeneralDetailView: View {
                 renamingWorkspace = nil
             }
             Button("Cancel", role: .cancel) { renamingWorkspace = nil }
+        }
+        .alert("Reset Everything?", isPresented: $showResetAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset", role: .destructive) {
+                AppBootstrap.shared?.resetAllData()
+            }
+        } message: {
+            Text("This will delete all conversations, notes data, local model state, and preferences. Vault files on disk are preserved. This cannot be undone.")
         }
     }
 
@@ -233,7 +229,7 @@ private struct LandingDetailView: View {
                 }
 
                 Text(ui.landingGreetingSourceMode.detail)
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
@@ -242,9 +238,7 @@ private struct LandingDetailView: View {
                     ContentUnavailableView(
                         "No Custom Greetings",
                         systemImage: "text.badge.plus",
-                        description: Text(
-                            "Add your own phrases and per-greeting timing here. Defaults stay active unless you switch to Custom Only."
-                        )
+                        description: Text("Add your own greetings and timing.")
                     )
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -395,19 +389,19 @@ private struct InferenceDetailView: View {
                 .pickerStyle(.segmented)
 
                 Text(inference.routingMode.summary)
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if inference.appleIntelligenceAvailable {
                     Label(
-                        "Apple Intelligence is available for lightweight on-device work in Auto mode",
+                        "Apple Intelligence available for lightweight on-device work",
                         systemImage: "apple.intelligence"
                     )
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(theme.success)
                 } else if let reason = inference.appleIntelligenceUnavailableReason, !reason.isEmpty {
                     Label(reason, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundStyle(theme.warning)
                 }
             }
@@ -415,22 +409,19 @@ private struct InferenceDetailView: View {
             Section("Local AI") {
                 LabeledContent("Hardware") {
                     Text(localModelManager.hardwareSummary)
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.system(size: 12, design: .monospaced))
                 }
-
                 LabeledContent("Installed") {
                     Text(inference.localModelInstallStateSummary.displayName)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                 }
-
                 LabeledContent("Active Tier") {
                     Text(activeLocalModelDisplayName)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                 }
-
                 LabeledContent("Storage") {
                     Text(ByteCountFormatter.string(fromByteCount: localModelManager.totalInstalledStorageBytes, countStyle: .file))
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.system(size: 12, design: .monospaced))
                 }
 
                 Picker(
@@ -451,22 +442,16 @@ private struct InferenceDetailView: View {
                     }
                 }
 
-                Text("Local generation runs in-process through the MLX tier you select. Cloud models can also be enabled below and use the same chat and note context path.")
-                .font(.system(size: 11))
-                .foregroundStyle(theme.textSecondary)
-
                 if let fallback = localModelManager.missingConstrainedFallbackDescriptor {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("If you want a lighter manual fallback for constrained conditions, also install \(fallback.displayName).")
-                            .font(.system(size: 11))
-                            .foregroundStyle(theme.textSecondary)
-
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Install \(fallback.displayName) as a lighter fallback for constrained conditions.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         Button("Install Constrained Fallback") {
-                            Task {
-                                try? await localModelManager.install(modelID: fallback.id)
-                            }
+                            Task { try? await localModelManager.install(modelID: fallback.id) }
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
                 }
 
@@ -475,55 +460,31 @@ private struct InferenceDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(theme.accent)
+                .controlSize(.small)
             }
 
             Section("Cloud AI") {
-                cloudKeyRow(
-                    title: "OpenAI API Key",
-                    text: $openAIKey,
-                    provider: .openAI
-                )
-                cloudKeyRow(
-                    title: "Anthropic API Key",
-                    text: $anthropicKey,
-                    provider: .anthropic
-                )
-                cloudKeyRow(
-                    title: "Google API Key",
-                    text: $googleKey,
-                    provider: .google
-                )
+                cloudKeyRow(title: "OpenAI", text: $openAIKey, provider: .openAI)
+                cloudKeyRow(title: "Anthropic", text: $anthropicKey, provider: .anthropic)
+                cloudKeyRow(title: "Google", text: $googleKey, provider: .google)
 
-                Text("Configured providers appear under Cloud Models in the chat model picker. Cloud selections use the same note and chat context path as local models.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
-
-                Text("API keys are stored in the Apple Data Protection Keychain with device-only access, and legacy secure keys are migrated automatically.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
-
-                Text("Anthropic uses the current official lineup here: Claude Opus 4.1, Claude Sonnet 4, and Claude Haiku 3.5.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
+                Text("API keys are stored in the Apple Data Protection Keychain.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Response Tokens") {
                 LabeledContent("Cap") {
-                    HStack(spacing: 10) {
-                        Toggle("Limit output tokens", isOn: $tokenCapEnabled)
+                    HStack(spacing: 8) {
+                        Toggle("", isOn: $tokenCapEnabled)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
-                        Text(tokenCapEnabled ? "Custom: \(tokenCapDraft)" : "Unlimited")
-                            .font(.system(size: 13))
+                        Text(tokenCapEnabled ? "\(tokenCapDraft)" : "Unlimited")
+                            .font(.system(size: 12))
                             .foregroundStyle(tokenCapEnabled ? .primary : .secondary)
                         if tokenCapEnabled {
-                            Stepper(
-                                "",
-                                value: $tokenCapDraft,
-                                in: 500...32000,
-                                step: 500
-                            )
-                            .labelsHidden()
+                            Stepper("", value: $tokenCapDraft, in: 500...32000, step: 500)
+                                .labelsHidden()
                         }
                     }
                 }
@@ -533,18 +494,9 @@ private struct InferenceDetailView: View {
                 .onChange(of: tokenCapDraft) { _, value in
                     if tokenCapEnabled { inference.setChatOutputTokens(value) }
                 }
-
-                Text(
-                    tokenCapEnabled
-                        ? "Responses are capped at \(tokenCapDraft) tokens (~\(tokenCapDraft * 4 / 1000)k characters)."
-                        : "Responses use the model's full output capacity (up to ~16k tokens). No artificial cap."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
         .onAppear {
             Task { @MainActor in
                 let saved = inference.chatOutputTokens
@@ -557,7 +509,7 @@ private struct InferenceDetailView: View {
         }
         .sheet(isPresented: $showLocalModelManager) {
             LocalModelManagerSheet()
-                .frame(minWidth: 700, minHeight: 520)
+                .frame(minWidth: 620, minHeight: 480)
         }
     }
 
@@ -568,21 +520,21 @@ private struct InferenceDetailView: View {
         provider: CloudModelProvider
     ) -> some View {
         LabeledContent(title) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 SecureField("Not Set", text: text)
                     .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 280)
-
+                    .frame(minWidth: 180)
                 Button("Save") {
                     _ = inference.setAPIKey(text.wrappedValue, for: provider)
                 }
                 .buttonStyle(.bordered)
-
+                .controlSize(.small)
                 Button("Clear") {
                     text.wrappedValue = ""
                     _ = inference.setAPIKey("", for: provider)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
     }
@@ -599,7 +551,7 @@ private struct LocalModelManagerSheet: View {
                 if let error = localModelManager.lastErrorMessage, !error.isEmpty {
                     Section {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 11))
+                            .font(.caption)
                             .foregroundStyle(ui.theme.warning)
                     }
                 }
@@ -634,9 +586,9 @@ private struct LocalModelRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
                     Text(descriptor.displayName)
                         .font(.system(size: 13, weight: .semibold))
                     if descriptor.id == localModelManager.recommendedTextModelID {
@@ -655,24 +607,24 @@ private struct LocalModelRow: View {
                 }
 
                 Text(descriptor.summary)
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
 
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     Text(descriptor.familyName)
                     Text(descriptor.approximateDownloadLabel)
                     Text("Min \(descriptor.minimumRecommendedMemoryGB) GB")
                 }
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.tertiary)
 
                 if case .installing(let progress) = state {
                     ProgressView(value: progress)
                         .controlSize(.small)
-                        .frame(maxWidth: 220)
+                        .frame(maxWidth: 200)
                 } else if case .blocked(let reason) = state {
                     Text(blockedGuidance(for: reason))
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -685,6 +637,7 @@ private struct LocalModelRow: View {
                     try? localModelManager.uninstall(modelID: descriptor.id)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
             case .installing:
                 ProgressView()
                     .controlSize(.small)
@@ -692,11 +645,10 @@ private struct LocalModelRow: View {
                 blockedAction
             case .available:
                 Button("Install") {
-                    Task {
-                        try? await localModelManager.install(modelID: descriptor.id)
-                    }
+                    Task { try? await localModelManager.install(modelID: descriptor.id) }
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.small)
             }
         }
         .padding(.vertical, 4)
@@ -706,11 +658,10 @@ private struct LocalModelRow: View {
     private var blockedAction: some View {
         if localModelManager.installErrors[descriptor.id] != nil {
             Button("Retry") {
-                Task {
-                    try? await localModelManager.install(modelID: descriptor.id)
-                }
+                Task { try? await localModelManager.install(modelID: descriptor.id) }
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.small)
         } else if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
             Label("Unsupported", systemImage: "memorychip.slash")
                 .font(.system(size: 11, weight: .semibold))
@@ -785,7 +736,6 @@ private struct AppearanceDetailContainer: View {
         let base = AnyView(
             appearanceForm
             .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
             .onAppear {
                 Task { @MainActor in
                     regularModeDraft = ui.displayMode == .regular
@@ -800,18 +750,14 @@ private struct AppearanceDetailContainer: View {
                 Button("Cancel", role: .cancel, action: onCancelDisplayRestart)
                 Button("Restart Now", action: onApplyDisplayRestart)
             } message: {
-                Text(
-                    "Epistemos will relaunch to rebuild style caches and reload fonts safely. Your vault and saved data stay intact."
-                )
+                Text("Epistemos will relaunch to rebuild style caches. Your vault and saved data stay intact.")
             }
         )
     }
 
     private var appearanceForm: some View {
         Form {
-            AppearanceSystemSection(
-                theme: theme
-            )
+            AppearanceSystemSection(theme: theme)
             AppearanceDisplayModeSection(
                 regularModeDraft: $regularModeDraft,
                 currentMode: ui.displayMode,
@@ -831,12 +777,7 @@ private struct AppearanceSystemSection: View {
                     .foregroundStyle(.secondary)
                     .fontWeight(.medium)
             }
-            LabeledContent("Custom themes") {
-                Text("Removed")
-                    .foregroundStyle(.secondary)
-                    .fontWeight(.medium)
-            }
-            Button("Open System Settings → Appearance") {
+            Button("Open System Settings") {
                 NSWorkspace.shared.open(
                     URL(string: "x-apple.systempreferences:com.apple.preference.general")!
                 )
@@ -845,12 +786,11 @@ private struct AppearanceSystemSection: View {
             .controlSize(.small)
         } header: {
             Text("System")
-        } footer: {
-            Text("Epistemos now uses native system appearance everywhere. Theme switching has been removed to reduce chrome complexity and regressions.")
-                .font(.caption)
         }
     }
 }
+
+
 
 private struct AppearanceDisplayModeSection: View {
     @Binding var regularModeDraft: Bool
@@ -867,11 +807,9 @@ private struct AppearanceDisplayModeSection: View {
                     onToggle(nextMode)
                 }
 
-            Text(
-                "Uses standard system fonts for display text, simplifies the landing greeting, and reduces non-ripple ASCII animation. Restart required."
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            Text("Uses standard system fonts, simplifies the landing greeting, and reduces animations. Restart required.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         } header: {
             Text("Display Mode")
         }
@@ -893,7 +831,7 @@ private struct VaultDetailView: View {
                 if let url = vaultSync.vaultURL {
                     LabeledContent("Path") {
                         Text(url.path)
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -908,35 +846,28 @@ private struct VaultDetailView: View {
                     }
                     HStack(spacing: Spacing.md) {
                         Button("Change Vault") {
-                            VaultConnectionActions.selectVaultFolder(
-                                notesUI: notesUI,
-                                vaultSync: vaultSync
-                            )
+                            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
                         }
+                        .controlSize(.small)
                         Button("Sync from Vault") {
-                            Task {
-                                _ = await vaultSync.syncFromVault()
-                            }
+                            Task { _ = await vaultSync.syncFromVault() }
                         }
+                        .controlSize(.small)
                         Button("Disconnect", role: .destructive) {
-                            VaultConnectionActions.disconnect(
-                                notesUI: notesUI,
-                                vaultSync: vaultSync
-                            )
+                            VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
                         }
+                        .controlSize(.small)
                     }
                 } else {
                     Text("No vault connected. Select a folder to sync your markdown notes.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.textSecondary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Button("Select Vault Folder") {
-                        VaultConnectionActions.selectVaultFolder(
-                            notesUI: notesUI,
-                            vaultSync: vaultSync
-                        )
+                        VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(theme.accent)
+                    .controlSize(.small)
                 }
             }
 
@@ -947,21 +878,16 @@ private struct VaultDetailView: View {
                             vaultSync.rebuildIndex()
                         }
                         .disabled(vaultSync.isIndexing)
+                        .controlSize(.small)
 
                         if vaultSync.isIndexing {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("Rebuilding…")
-                                .font(.system(size: 12))
-                                .foregroundStyle(theme.textSecondary)
+                            Text("Rebuilding...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
-
-                    Text(
-                        "The search index is kept in sync automatically. Use Rebuild if search results seem stale."
-                    )
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
                 }
 
                 Section("Vault Sync") {
@@ -981,16 +907,13 @@ private struct VaultDetailView: View {
                     }
                     .pickerStyle(.menu)
 
-                    Text(
-                        "When enabled, unsaved note changes are automatically written to vault .md files at the chosen interval. When off, use ⌘S or the Save button."
-                    )
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
+                    Text("When enabled, unsaved note changes are automatically written to vault .md files.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 
     private func autoSaveOption(from interval: TimeInterval) -> Int {
@@ -1016,107 +939,41 @@ private struct VaultDetailView: View {
     }
 }
 
-// MARK: - Security Detail
+// MARK: - Knowledge Fusion Detail
 
-private struct SecurityDetailView: View {
-    @Environment(UIState.self) private var ui
-    private var theme: EpistemosTheme { ui.theme }
+private struct KnowledgeFusionDetailView: View {
+    private var vm: KnowledgeFusionViewModel { .shared }
 
     var body: some View {
         Form {
-            Section("Data Protection") {
-                LabeledContent("Local models") {
-                    Text("Stored in Application Support")
-                        .foregroundStyle(theme.success)
-                        .font(.system(size: 12))
+            Section("Train") {
+                TrainOnVaultView()
+            }
+
+            Section("Adapters") {
+                HStack {
+                    Text("Active Adapter")
+                    Spacer()
+                    AdapterSelectorView()
                 }
-                LabeledContent("Apple Intelligence") {
-                    Text("On-device only")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.mutedForeground)
-                }
-                LabeledContent("Sandbox") {
-                    Text("Enabled")
-                        .foregroundStyle(theme.success)
-                        .font(.system(size: 12))
+                TrainingHistoryView()
+            }
+
+            Section("Feedback") {
+                FeedbackIndicatorView()
+                if let stats = vm.feedbackStats {
+                    LabeledContent("Accepts this week", value: "\(stats.totalAccepts)")
+                    LabeledContent("Rejects this week", value: "\(stats.totalRejects)")
                 }
             }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-    }
-}
-
-// MARK: - Export Detail
-
-private struct ExportDetailView: View {
-    @Environment(UIState.self) private var ui
-    @State private var selectedFormat = "JSON"
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        Form {
-            Section("Data") {
-                LabeledContent("Signals", value: "0")
-                LabeledContent("Papers", value: "0")
-                LabeledContent("Messages", value: "0")
-                LabeledContent("Snapshots", value: "0")
+        .environment(vm)
+        .task {
+            if let bootstrap = AppBootstrap.shared {
+                vm.configure(triageService: bootstrap.triageService)
             }
-
-            Section("Format") {
-                Picker("Format", selection: $selectedFormat) {
-                    Text("JSON").tag("JSON")
-                    Text("CSV").tag("CSV")
-                    Text("Markdown").tag("Markdown")
-                    Text("BibTeX").tag("BibTeX")
-                }
-                .pickerStyle(.radioGroup)
-            }
-
-            Section {
-                Button("Export All Data") {}
-                    .buttonStyle(.borderedProminent)
-                    .tint(theme.accent)
-            }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-    }
-}
-
-// MARK: - Reset Detail
-
-private struct ResetDetailView: View {
-    @Environment(UIState.self) private var ui
-    @State private var showAlert = false
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        Form {
-            Section {
-                Text(
-                    "Clear all saved data, conversations, local model state, and settings. Your vault files on disk will not be deleted."
-                )
-                .foregroundStyle(.secondary)
-
-                Button("Reset Everything", role: .destructive) {
-                    showAlert = true
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-            }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .alert("Reset Everything?", isPresented: $showAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Reset", role: .destructive) {
-                AppBootstrap.shared?.resetAllData()
-            }
-        } message: {
-            Text(
-                "This will delete all conversations, notes data, local model state, and preferences. Your vault files on disk are preserved. This cannot be undone."
-            )
+            await vm.loadState()
         }
     }
 }

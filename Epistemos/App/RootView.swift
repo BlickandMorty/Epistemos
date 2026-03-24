@@ -60,14 +60,8 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            // Background wallpaper (theme-dependent)
-            WallpaperView()
-
             ContentRouter()
         }
-        // Drive preferred color scheme from the resolved theme.
-        // This ensures Ember/OLED/Sunset stay dark even when system is in light mode.
-        .preferredColorScheme(ui.preferredColorScheme)
         // Wire the appearance observer — fires on real OS dark/light toggle.
         .onAppear {
             appearanceObserver.onAppearanceChange = { @MainActor isDark in

@@ -128,20 +128,23 @@ final class ChatCoordinator {
                     effectiveQuery = resolvedQuery
                 }
 
-                // Inject workspace awareness into every query (always-on context).
-                // Deep context activated when user asks about sessions/summaries/history.
+                // Inject workspace awareness ONLY when user asks about sessions/workspace.
+                // Previously this was always-on, which caused the model to reference
+                // stale workspace metadata in normal note chat responses.
                 let isSessionQuery = Self.queryRequestsSessionContext(effectiveQuery)
-                let workspaceContext = Self.buildWorkspaceAwarenessContext(
-                    bootstrap: bootstrap,
-                    deepContext: isSessionQuery
-                )
                 let effectiveNotesContextWithWorkspace: String?
-                if let enc = effectiveNotesContext {
-                    effectiveNotesContextWithWorkspace = enc + "\n\n" + workspaceContext
-                } else if !workspaceContext.isEmpty {
-                    effectiveNotesContextWithWorkspace = workspaceContext
+                if isSessionQuery {
+                    let workspaceContext = Self.buildWorkspaceAwarenessContext(
+                        bootstrap: bootstrap,
+                        deepContext: true
+                    )
+                    if let enc = effectiveNotesContext {
+                        effectiveNotesContextWithWorkspace = enc + "\n\n" + workspaceContext
+                    } else {
+                        effectiveNotesContextWithWorkspace = workspaceContext.isEmpty ? nil : workspaceContext
+                    }
                 } else {
-                    effectiveNotesContextWithWorkspace = nil
+                    effectiveNotesContextWithWorkspace = effectiveNotesContext
                 }
 
                 // Build conversation history for multi-turn context.
