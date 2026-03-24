@@ -65,13 +65,22 @@ actor QLoRATrainer {
 
     // MARK: - Public API
 
+    struct TrainingConfig: Sendable {
+        var numIters: Int = 200
+        var loraRank: Int = 16
+        var loraAlpha: Int = 32
+        var batchSize: Int = 1
+        var maxSeqLen: Int = 1024
+        var learningRate: Double = 2e-5
+        var seed: Int = 42
+    }
+
     func trainKnowledgeAdapter(
         modelPath: URL,
         dataPath: URL,
         outputPath: URL,
         replayPath: URL? = nil,
-        numIters: Int = 1000,
-        seed: Int = 42,
+        config: TrainingConfig = TrainingConfig(),
         progressHandler: (@Sendable (TrainingProgress) -> Void)? = nil
     ) async throws -> AdapterMetadata {
         let script = scriptsDirectory.appendingPathComponent("train_knowledge.py")
@@ -81,8 +90,7 @@ actor QLoRATrainer {
             dataPath: dataPath,
             outputPath: outputPath,
             replayPath: replayPath,
-            numIters: numIters,
-            seed: seed,
+            config: config,
             progressHandler: progressHandler
         )
     }
@@ -92,8 +100,7 @@ actor QLoRATrainer {
         dataPath: URL,
         outputPath: URL,
         replayPath: URL? = nil,
-        numIters: Int = 1000,
-        seed: Int = 42,
+        config: TrainingConfig = TrainingConfig(),
         progressHandler: (@Sendable (TrainingProgress) -> Void)? = nil
     ) async throws -> AdapterMetadata {
         let script = scriptsDirectory.appendingPathComponent("train_style.py")
@@ -103,8 +110,7 @@ actor QLoRATrainer {
             dataPath: dataPath,
             outputPath: outputPath,
             replayPath: replayPath,
-            numIters: numIters,
-            seed: seed,
+            config: config,
             progressHandler: progressHandler
         )
     }
@@ -124,8 +130,7 @@ actor QLoRATrainer {
         dataPath: URL,
         outputPath: URL,
         replayPath: URL?,
-        numIters: Int,
-        seed: Int,
+        config: TrainingConfig,
         progressHandler: (@Sendable (TrainingProgress) -> Void)?
     ) async throws -> AdapterMetadata {
         var arguments = [
@@ -133,8 +138,13 @@ actor QLoRATrainer {
             "--model_path", modelPath.path,
             "--data_path", dataPath.path,
             "--output_path", outputPath.path,
-            "--num_iters", String(numIters),
-            "--seed", String(seed),
+            "--num_iters", String(config.numIters),
+            "--seed", String(config.seed),
+            "--lora_rank", String(config.loraRank),
+            "--lora_alpha", String(config.loraAlpha),
+            "--batch_size", String(config.batchSize),
+            "--max_seq_len", String(config.maxSeqLen),
+            "--learning_rate", String(config.learningRate),
         ]
         if let replayPath {
             arguments.append(contentsOf: ["--replay_path", replayPath.path])
@@ -153,7 +163,7 @@ actor QLoRATrainer {
 
         // Parse stdout in real-time for progress updates
         let progressParser = TrainingProgressParser(
-            totalIterations: numIters,
+            totalIterations: config.numIters,
             handler: progressHandler
         )
 

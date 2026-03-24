@@ -94,11 +94,19 @@ actor AutoresearchLoop {
         // Write a temporary training config to use the proposed params
         // For now, use the standard trainer with the proposed num_iters
         do {
+            let config = QLoRATrainer.TrainingConfig(
+                numIters: trainingBudget,
+                loraRank: proposed.loraRank,
+                loraAlpha: proposed.loraAlpha,
+                batchSize: 1,
+                maxSeqLen: 1024,
+                learningRate: proposed.learningRate
+            )
             _ = try await trainer.trainKnowledgeAdapter(
                 modelPath: modelPath,
                 dataPath: dataPath,
                 outputPath: experimentDir,
-                numIters: trainingBudget
+                config: config
             )
         } catch {
             // Training failed — record as discarded

@@ -8,7 +8,7 @@ struct TrainOnVaultView: View {
     @State private var selectedVaultURL: URL?
     @State private var pyEnv = PythonEnvironmentManager.shared
 
-    @State private var showAdvanced = false
+    @State private var showAdvanced = true
 
     var body: some View {
         VStack(spacing: 16) {
@@ -441,9 +441,24 @@ struct TrainOnVaultView: View {
                 .padding(8)
                 .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
 
-                Text("This will parse your notes, generate training data, and train a personalized adapter.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // Vault analysis results
+                if let analysis = vm.lastVaultAnalysis {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 12) {
+                            analysisChip("\(analysis.proseFiles) notes", "doc.text")
+                            if analysis.codeFiles > 0 { analysisChip("\(analysis.codeFiles) code", "chevron.left.forwardslash.chevron.right") }
+                            if analysis.docFiles > 0 { analysisChip("\(analysis.docFiles) PDFs", "doc.richtext") }
+                            analysisChip("~\(analysis.estimatedTokens / 1000)k tokens", "number")
+                        }
+
+                        Text(analysis.rationale)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .italic()
+                    }
+                    .padding(8)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
 
                 Button {
                     startTraining(vaultURL: url)
@@ -477,6 +492,24 @@ struct TrainOnVaultView: View {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         selectedVaultURL = url
+
+        // Auto-analyze vault and configure settings
+        let analyzer = VaultAnalyzer()
+        let analysis = analyzer.analyze(vaultURL: url, systemMemoryGB: vm.systemMemoryGB)
+        vm.applyVaultAnalysis(analysis)
+    }
+
+    private func analysisChip(_ text: String, _ icon: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 9))
+            Text(text)
+                .font(.caption2.weight(.medium))
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(.quaternary.opacity(0.5), in: Capsule())
     }
 
     private func startTraining(vaultURL: URL) {

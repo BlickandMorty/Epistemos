@@ -950,6 +950,10 @@ private struct KnowledgeFusionDetailView: View {
                 TrainOnVaultView()
             }
 
+            Section("Training Configuration") {
+                KFTrainingConfigSection()
+            }
+
             Section("Adapters") {
                 HStack {
                     Text("Active Adapter")
@@ -974,6 +978,103 @@ private struct KnowledgeFusionDetailView: View {
                 vm.configure(triageService: bootstrap.triageService)
             }
             await vm.loadState()
+            vm.autoConfigureForHardware()
+        }
+    }
+}
+
+// MARK: - Training Configuration Section
+
+private struct KFTrainingConfigSection: View {
+    @Environment(KnowledgeFusionViewModel.self) private var vm
+
+    var body: some View {
+        @Bindable var vm = vm
+
+        VStack(alignment: .leading, spacing: 12) {
+            // Hardware
+            HStack {
+                Image(systemName: "memorychip")
+                    .foregroundStyle(.secondary)
+                Text("Detected: \(vm.systemMemoryGB) GB unified memory")
+                    .font(.caption.weight(.medium))
+                Spacer()
+                Button("Auto Configure") { vm.autoConfigureForHardware() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+            }
+
+            // Settings grid
+            kfSettingRow(
+                title: "Training Iterations",
+                value: $vm.trainingIterations,
+                range: 20...2000, step: 20,
+                desc: "More = better quality, slower. 200 for quick test, 500-1000 for thorough training."
+            )
+            kfSettingRow(
+                title: "LoRA Rank",
+                value: $vm.loraRank,
+                range: 4...64, step: 4,
+                desc: "Adapter capacity. 8 = style only. 16 = balanced. 32+ = deep knowledge. Higher needs more memory."
+            )
+            kfSettingRow(
+                title: "LoRA Alpha",
+                value: $vm.loraAlpha,
+                range: 8...128, step: 8,
+                desc: "Learning magnitude (usually 2x rank). Controls how strongly new knowledge overrides the base model."
+            )
+            kfSettingRow(
+                title: "Batch Size",
+                value: $vm.batchSize,
+                range: 1...8, step: 1,
+                desc: "Examples per step. 1 for 16GB, 2 for 32GB, 4 for 64GB+."
+            )
+            kfSettingRow(
+                title: "Max Sequence Length",
+                value: $vm.maxSeqLength,
+                range: 256...4096, step: 256,
+                desc: "Token window per example. 1024 for 16GB, 2048 for 32GB+. Longer = more context per note."
+            )
+
+            // Hardware guide
+            Divider().opacity(0.3)
+            Text("Hardware Guide")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                kfHardwareRow("16 GB (M1/M2/M3)", "rank 8-16, batch 1, seq 1024")
+                kfHardwareRow("24 GB (M2/M3 Pro)", "rank 16-32, batch 2, seq 1024")
+                kfHardwareRow("32 GB (M1/M2/M3 Max)", "rank 32, batch 2, seq 2048")
+                kfHardwareRow("64 GB+ (M2/M3/M4 Max)", "rank 32-64, batch 4, seq 2048")
+                kfHardwareRow("128 GB (M4 Ultra)", "rank 64, batch 8, seq 4096")
+            }
+        }
+    }
+
+    private func kfSettingRow(title: String, value: Binding<Int>, range: ClosedRange<Int>, step: Int, desc: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title).font(.caption.weight(.medium))
+                Spacer()
+                Text("\(value.wrappedValue)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .frame(width: 40, alignment: .trailing)
+                Stepper("", value: value, in: range, step: step).labelsHidden()
+            }
+            Text(desc).font(.caption2).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func kfHardwareRow(_ machine: String, _ config: String) -> some View {
+        HStack(spacing: 6) {
+            Text(machine)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 160, alignment: .leading)
+            Text(config)
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
         }
     }
 }

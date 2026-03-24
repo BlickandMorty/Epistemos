@@ -21,19 +21,15 @@ import os
 import sys
 import time
 
-# DO NOT MODIFY these values without research paper justification.
-# Source: "Optimal Hyperparameters" section of research paper.
-LORA_RANK = 16
-LORA_ALPHA = 32
-TARGET_MODULES = [
-    "q_proj", "k_proj", "v_proj", "o_proj",   # attention layers (style)
-    "gate_proj", "up_proj", "down_proj",        # MLP layers (factual knowledge)
-]
-LEARNING_RATE = 2e-5
-WEIGHT_DECAY = 0.01      # L2 regularization — per ANCHOR 4, Mitigation 4
-REPLAY_RATIO = 0.10      # 10% experience replay — per ANCHOR 4, Mitigation 1
-BATCH_SIZE = 1
-MAX_SEQ_LEN = 1024
+# Defaults from research paper — overridable via CLI args.
+DEFAULT_RANK = 16
+DEFAULT_ALPHA = 32
+DEFAULT_LR = 2e-5
+DEFAULT_BATCH = 1
+DEFAULT_SEQ = 1024
+KNOWLEDGE_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+WEIGHT_DECAY = 0.01
+REPLAY_RATIO = 0.10
 
 
 def parse_args():
@@ -42,8 +38,13 @@ def parse_args():
     parser.add_argument("--data_path", required=True, help="Path to .jsonl training data")
     parser.add_argument("--output_path", required=True, help="Path to save adapter")
     parser.add_argument("--replay_path", default=None, help="Path to experience replay JSONL")
-    parser.add_argument("--num_iters", type=int, default=1000, help="Training iterations")
+    parser.add_argument("--num_iters", type=int, default=200, help="Training iterations")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--lora_rank", type=int, default=DEFAULT_RANK, help="LoRA rank (capacity)")
+    parser.add_argument("--lora_alpha", type=int, default=DEFAULT_ALPHA, help="LoRA alpha (magnitude)")
+    parser.add_argument("--batch_size", type=int, default=DEFAULT_BATCH, help="Batch size")
+    parser.add_argument("--max_seq_len", type=int, default=DEFAULT_SEQ, help="Max sequence length")
+    parser.add_argument("--learning_rate", type=float, default=DEFAULT_LR, help="Learning rate")
     return parser.parse_args()
 
 
@@ -76,6 +77,14 @@ def main():
         sys.exit(1)
 
     mx.random.seed(args.seed)
+
+    # Use CLI args (override defaults)
+    LORA_RANK = args.lora_rank
+    LORA_ALPHA = args.lora_alpha
+    BATCH_SIZE = args.batch_size
+    MAX_SEQ_LEN = args.max_seq_len
+    LEARNING_RATE = args.learning_rate
+    TARGET_MODULES = KNOWLEDGE_MODULES
 
     # Build lora config
     lora_config = {

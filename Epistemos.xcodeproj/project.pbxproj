@@ -303,6 +303,8 @@
 		70227CF95EB54C609D58C627 /* CurriculumSorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F980EFB1BBFA40779118CA3D /* CurriculumSorter.swift */; };
 		4C3C66DB9B514B5D8BFE7AD1 /* TrainingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561B80716C7046C484739938 /* TrainingProfileManager.swift */; };
 		915ED1C4A35A48C29C99D62F /* TrainingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561B80716C7046C484739938 /* TrainingProfileManager.swift */; };
+		E2F3A4B5C6D748901BCDEF12 /* VaultAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C647890ABCDEF1 /* VaultAnalyzer.swift */; };
+		F3A4B5C6D7E849012CDEF123 /* VaultAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C647890ABCDEF1 /* VaultAnalyzer.swift */; };
 		1F644742DC0A4B5684CB94F7 /* QLoRATrainingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83D9121DF61449EB19FEE44 /* QLoRATrainingTests.swift */; };
 				D5FA297B4F314657A85A1A1B /* FeedbackLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E096467F5F145DFABA1102C /* FeedbackLogger.swift */; };
 		4C862406F572453BB79361E1 /* FeedbackLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E096467F5F145DFABA1102C /* FeedbackLogger.swift */; };
@@ -326,6 +328,12 @@
 		ED97E52A8EDF4583A0C0D2CD /* ExperimentTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA6FC52C67C45908838FB13 /* ExperimentTracker.swift */; };
 		79CF6758508E416B9953A631 /* AutoresearchLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA76DD7826F648FC905E50E4 /* AutoresearchLoop.swift */; };
 		8EF33A20E7DA47C2A7A75D8A /* AutoresearchLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA76DD7826F648FC905E50E4 /* AutoresearchLoop.swift */; };
+		BB22CC33DD44EE55FF660011 /* SkillManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF66 /* SkillManifest.swift */; };
+		CC33DD44EE55FF6600112233 /* SkillManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF66 /* SkillManifest.swift */; };
+		EE55FF660011223344556677 /* RepoAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD44EE55FF66001122334455 /* RepoAnalyzer.swift */; };
+		FF66001122334455667788AA /* RepoAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD44EE55FF66001122334455 /* RepoAnalyzer.swift */; };
+		112233445566778899AABB02 /* SkillGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001122334455667788AABB01 /* SkillGenerator.swift */; };
+		223344556677889900AABB03 /* SkillGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001122334455667788AABB01 /* SkillGenerator.swift */; };
 		A54F1B16A5C44ABCBD026473 /* AutoresearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0965706DF4C7406987B11E97 /* AutoresearchTests.swift */; };
 				0C6FA28EC9C441A9BDFFB411 /* KnowledgeFusionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D3F0F9F1DC948A9B9E49F92 /* KnowledgeFusionViewModel.swift */; };
 		2B6F88B443EC456BBC3299B0 /* KnowledgeFusionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D3F0F9F1DC948A9B9E49F92 /* KnowledgeFusionViewModel.swift */; };
@@ -645,6 +653,7 @@
 		1D8E111811954524A90A07E3 /* ExperienceReplayBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperienceReplayBuffer.swift; sourceTree = "<group>"; };
 		F980EFB1BBFA40779118CA3D /* CurriculumSorter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurriculumSorter.swift; sourceTree = "<group>"; };
 		561B80716C7046C484739938 /* TrainingProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingProfileManager.swift; sourceTree = "<group>"; };
+		D1E2F3A4B5C647890ABCDEF1 /* VaultAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultAnalyzer.swift; sourceTree = "<group>"; };
 		B83D9121DF61449EB19FEE44 /* QLoRATrainingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QLoRATrainingTests.swift; sourceTree = "<group>"; };
 				5E096467F5F145DFABA1102C /* FeedbackLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackLogger.swift; sourceTree = "<group>"; };
 		2B47CC44717743BC8AA412E0 /* KTOTrainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KTOTrainer.swift; sourceTree = "<group>"; };
@@ -671,6 +680,9 @@
 		63F3AC66768E4E82A124CB2B /* PerformanceTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTest.swift; sourceTree = "<group>"; };
 				6BC8C19B6E3D4428855AFE31 /* MLXInferenceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceBridge.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F647890123ABCD /* PythonEnvironmentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PythonEnvironmentManager.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF66 /* SkillManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillManifest.swift; sourceTree = "<group>"; };
+		DD44EE55FF66001122334455 /* RepoAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoAnalyzer.swift; sourceTree = "<group>"; };
+		001122334455667788AABB01 /* SkillGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillGenerator.swift; sourceTree = "<group>"; };
 		/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1233,6 +1245,7 @@
 				E1A124A3E88E4036A205412E /* Alignment */,
 				100999ADF1DF46AEBECD99A4 /* Adapters */,
 				311C93C103A841939748FB5E /* Autoresearch */,
+				AA11BB22CC33DD44EE55FF00 /* SkillGeneration */,
 				0F342DFCC7194880A2A2A0AF /* UI */,
 				6BC8C19B6E3D4428855AFE31 /* MLXInferenceBridge.swift */,
 				A1B2C3D4E5F647890123ABCD /* PythonEnvironmentManager.swift */,
@@ -1247,6 +1260,7 @@
 				1D8E111811954524A90A07E3 /* ExperienceReplayBuffer.swift */,
 				F980EFB1BBFA40779118CA3D /* CurriculumSorter.swift */,
 				561B80716C7046C484739938 /* TrainingProfileManager.swift */,
+				D1E2F3A4B5C647890ABCDEF1 /* VaultAnalyzer.swift */,
 			);
 			path = Training;
 			sourceTree = "<group>";
@@ -1280,6 +1294,16 @@
 				BA76DD7826F648FC905E50E4 /* AutoresearchLoop.swift */,
 			);
 			path = Autoresearch;
+			sourceTree = "<group>";
+		};
+				AA11BB22CC33DD44EE55FF00 /* SkillGeneration */ = {
+			isa = PBXGroup;
+			children = (
+				AA11BB22CC33DD44EE55FF66 /* SkillManifest.swift */,
+				DD44EE55FF66001122334455 /* RepoAnalyzer.swift */,
+				001122334455667788AABB01 /* SkillGenerator.swift */,
+			);
+			path = SkillGeneration;
 			sourceTree = "<group>";
 		};
 				0F342DFCC7194880A2A2A0AF /* UI */ = {
@@ -1534,6 +1558,9 @@
 				DB6D31AC78BD4134894C23DE /* MetricEvaluator.swift in Sources */,
 				EB788BFE256C430FBDCF70AD /* ExperimentTracker.swift in Sources */,
 				79CF6758508E416B9953A631 /* AutoresearchLoop.swift in Sources */,
+				BB22CC33DD44EE55FF660011 /* SkillManifest.swift in Sources */,
+				EE55FF660011223344556677 /* RepoAnalyzer.swift in Sources */,
+				112233445566778899AABB02 /* SkillGenerator.swift in Sources */,
 				6A14F851CCCB4AE19672B9A8 /* AdapterRegistry.swift in Sources */,
 				D1BC92CF1E8A41FA9B9A2323 /* AdapterLoader.swift in Sources */,
 				9517FBF76AA247618CEAF647 /* AdapterRouter.swift in Sources */,
@@ -1545,6 +1572,7 @@
 				FA9BD7E90A1A4E8E8DC8E438 /* ExperienceReplayBuffer.swift in Sources */,
 				36A25156F7774F088737D420 /* CurriculumSorter.swift in Sources */,
 				4C3C66DB9B514B5D8BFE7AD1 /* TrainingProfileManager.swift in Sources */,
+				E2F3A4B5C6D748901BCDEF12 /* VaultAnalyzer.swift in Sources */,
 				F176AB4BE071441ABAEDCA06 /* VaultParser.swift in Sources */,
 				E01B0BD23C6142DCB62688E1 /* DocumentChunker.swift in Sources */,
 				D273082AC6794A20AA564601 /* AudioTranscriber.swift in Sources */,

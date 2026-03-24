@@ -99,6 +99,19 @@ final class KnowledgeFusionViewModel {
         return availableModels[selectedModelIndex].name
     }
 
+    /// Last vault analysis result (shown in UI).
+    var lastVaultAnalysis: VaultAnalysis?
+
+    /// Apply settings from vault analysis.
+    func applyVaultAnalysis(_ analysis: VaultAnalysis) {
+        loraRank = analysis.recommendedRank
+        loraAlpha = analysis.recommendedAlpha
+        trainingIterations = analysis.recommendedIterations
+        maxSeqLength = analysis.recommendedSeqLen
+        learningRate = analysis.recommendedProfile == .style ? 1e-5 : 2e-5
+        lastVaultAnalysis = analysis
+    }
+
     // MARK: - Dependencies
 
     private let registry: AdapterRegistry
@@ -255,6 +268,15 @@ final class KnowledgeFusionViewModel {
                 scriptsDirectory: pyEnv.scriptsDirectory
             )
 
+            let config = QLoRATrainer.TrainingConfig(
+                numIters: trainingIterations,
+                loraRank: loraRank,
+                loraAlpha: loraAlpha,
+                batchSize: batchSize,
+                maxSeqLen: maxSeqLength,
+                learningRate: learningRate
+            )
+
             let metadata: AdapterMetadata
             switch recommendation.profile {
             case .knowledge, .mixed:
@@ -262,12 +284,12 @@ final class KnowledgeFusionViewModel {
                     modelPath: modelPath,
                     dataPath: dataURL,
                     outputPath: adapterOutputDir,
-                    numIters: trainingIterations
+                    config: config
                 ) { [weak self] tp in
                     Task { @MainActor in
                         let pct = 0.55 + Double(tp.iteration) / Double(tp.totalIterations) * 0.35
                         self?.progress = KFProgress(
-                            phase: "Training... (iter \(tp.iteration)/\(tp.totalIterations))",
+                            phase: "Training... (iter \(tp.iteration)/\(tp.totalIterations), loss: \(String(format: "%.3f", tp.loss)))",
                             percentage: pct,
                             eta: tp.estimatedTimeRemaining
                         )
@@ -278,8 +300,17 @@ final class KnowledgeFusionViewModel {
                     modelPath: modelPath,
                     dataPath: dataURL,
                     outputPath: adapterOutputDir,
-                    numIters: trainingIterations
-                )
+                    config: config
+                ) { [weak self] tp in
+                    Task { @MainActor in
+                        let pct = 0.55 + Double(tp.iteration) / Double(tp.totalIterations) * 0.35
+                        self?.progress = KFProgress(
+                            phase: "Training... (iter \(tp.iteration)/\(tp.totalIterations), loss: \(String(format: "%.3f", tp.loss)))",
+                            percentage: pct,
+                            eta: tp.estimatedTimeRemaining
+                        )
+                    }
+                }
             }
 
             // Phase 4: Register
@@ -309,8 +340,28 @@ final class KnowledgeFusionViewModel {
             installedAdapters = await registry.listAdapters()
             activeAdapter = record
 
+            // Phase 5: Generate skill files
+            progress = KFProgress(phase: "Generating skill files...", percentage: 0.96, eta: nil)
+            let skillGen = SkillGenerator(inferenceProvider: inferenceProvider)
+
+            // Run repo analysis if vault had code
+            let repoAnalysis: RepoAnalysis? = (lastVaultAnalysis?.codeFiles ?? 0) > 0
+                ? RepoAnalyzer().analyze(vaultURL: vaultURL)
+                : nil
+
+            let _ = try await skillGen.generateSkills(
+                vaultAnalysis: lastVaultAnalysis ?? VaultAnalyzer().analyze(vaultURL: vaultURL, systemMemoryGB: systemMemoryGB),
+                repoAnalysis: repoAnalysis,
+                trainingPairs: dataURL,
+                sourceVault: vaultURL.lastPathComponent
+            ) { [weak self] phase in
+                Task { @MainActor in
+                    self?.progress = KFProgress(phase: phase, percentage: 0.97, eta: nil)
+                }
+            }
+
             trainingState = .complete
-            progress = KFProgress(phase: "Complete — adapter is now active", percentage: 1.0, eta: nil)
+            progress = KFProgress(phase: "Complete — adapter active, skills generated", percentage: 1.0, eta: nil)
 
         } catch {
             lastTrainingError = error.localizedDescription
