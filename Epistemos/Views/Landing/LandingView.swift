@@ -230,8 +230,7 @@ struct LandingView: View {
                         .frame(width: 3, height: 3)
 
                     CommandHint(modIcon: "control", key: "\u{2318}S", label: "Save Workspace", theme: theme) {
-                        // Trigger save workspace via menu action
-                        NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
+                        NotificationCenter.default.post(name: .showSaveWorkspacePanel, object: nil)
                     }
                     .springEntrance(index: 1, stagger: 0.08)
 
