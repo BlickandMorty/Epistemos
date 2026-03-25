@@ -164,3 +164,31 @@ runpodctl remove pod $INSTANCE_ID
 # 7. Convert to MLX locally
 mlx_lm.convert --hf-path ./epistemos-3b-hybrid --mlx-path ./epistemos-3b-mlx -q
 ```
+
+## Anti-Loop Training (Thinking Loop Prevention)
+
+Models with `<think>` chain-of-thought can enter repetitive reasoning loops.
+Mamba's SSM state decays exponentially (helping break very long loops), but the
+25% attention layers can sustain short loops via their KV cache.
+
+### Training-Side Fixes
+- **Max think tokens**: Cap `<think>` blocks at 512 tokens in all training data.
+  Prune any ODIA trace where think block exceeds this or contains >3 repeated phrases.
+- **Repetition penalty examples**: Include training examples where the model
+  correctly exits thinking after 2-3 reasoning steps (not 10+).
+- **Diverse exit patterns**: Train on examples that exit `<think>` via different
+  triggers — confidence threshold, tool call ready, answer found, max budget hit.
+
+### Inference-Side Fixes (in LogitProcessor)
+- **Sliding window detector**: Compare last 64 tokens against previous 64.
+  If >50% n-gram overlap (trigram), force-emit `</think>` token.
+- **Hard token budget**: After 512 think tokens, mask all tokens except `</think>`
+  to negative infinity in the logit processor.
+- **Exponential repetition penalty**: Track token frequency in a sliding window.
+  Apply penalty `logit -= freq * alpha` where alpha increases with window position.
+
+### Why Mamba Helps (but doesn't solve it)
+- SSM hidden state decays exponentially — early loop content naturally fades
+- But attention layers (every 4th) have perfect recall within their window
+- The hybrid architecture means loops are shorter-lived than pure transformers
+  but not eliminated — inference-side detection is still required
