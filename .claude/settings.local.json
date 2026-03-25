@@ -139,7 +139,11 @@
       "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/State/WorkspaceService.swift)",
       "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/State/WorkspaceSummaryService.swift)",
       "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/Views/Landing/SessionIntelligenceOverlay.swift)",
-      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/App/EpistemosApp.swift)"
+      "Bash(open -R /Users/jojo/Downloads/Epistemos/Epistemos/App/EpistemosApp.swift)",
+      "Bash(chmod +x /Users/jojo/Downloads/Epistemos/.claude/capture-logs.sh)",
+      "Bash(tail -30 /Users/jojo/Downloads/Epistemos/.claude/logs/test-session-*.log)",
+      "Bash(cat /Users/jojo/Downloads/Epistemos/.claude/logs/test-session-*.log)",
+      "Bash(open /Users/jojo/Downloads/Epistemos/docs/)"
     ],
     "additionalDirectories": [
       "/tmp"
