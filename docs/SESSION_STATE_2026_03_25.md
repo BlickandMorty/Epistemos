@@ -61,12 +61,31 @@ Read these files in order:
 12. Two-phase retrieval: Hamming → float32 rescore
 13. Display top-5 relevant notes in sidebar as you type
 
+## Model Migration Plan (Qwen → Custom Mamba-2)
+
+**The entire point of MOHAWK training is to replace Qwen with our own models.**
+
+| Phase | Brain 1 (Reasoning, GPU) | Brain 2 (Device Actions, ANE) |
+|-------|--------------------------|-------------------------------|
+| **Now** | Qwen 3.5 4B (~4.5 GB) | Qwen shared (no dual-brain) |
+| **After Nano trains** | Qwen 3.5 4B (unchanged) | Epistemos-Nano 1B (~1.5 GB, ANE) |
+| **After Base trains** | **Epistemos-Base 3B (~3.5 GB)** | Epistemos-Nano 1B (~1.5 GB, ANE) |
+| **Final state** | **Qwen deleted. Custom models only.** | |
+
+Why Base replaces Qwen:
+- Faster: ~60-80 tok/s vs Qwen's ~38 tok/s (no KV cache, linear-time)
+- Smaller: 3.5 GB vs 4.5 GB (more room for vector index + app)
+- Learns: ODIA nightly fine-tuning personalizes it to your vault
+- Unique: no one else has this model — it's distilled for Epistemos specifically
+
+Budget: Train Nano first ($100-150) to validate pipeline, then Base ($800-1500) is the real product.
+
 ## Research Stops Still Open
 
 | ID | Topic | Blocks | Action |
 |----|-------|--------|--------|
 | R2 | CoreML ANE path — convert 1B to .mlpackage | Ω19 | Deep Research or test after MOHAWK |
-| R3 | Dual-model memory — Qwen 4B + 1B CoreML on 18GB | Ω19 | Measure after R2 |
+| R3 | Dual-model memory — Base 3B + Nano 1B on 18GB | Ω19 | Measure after R2 |
 | R9 | Mamba-3 MIMO for MOHAWK | Ω15 | Resolved: using Mamba-2 with mamba-ssm |
 | R10 | Cartesia Metal kernels for Mamba-2 | Ω19 | Deep Research — most critical |
 | R14 | LoRA on Mamba-2 mixing layers | Ω20 | Quick check: `mlx_lm.lora` targets |

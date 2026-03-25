@@ -100,10 +100,14 @@ Setting `page.needsVaultSync = true` without `modelContext.save()` appears to wo
 ## Service Architecture
 
 ### TriageService — AI Routing
-Routes operations between the two live local tiers:
+Routes operations between local tiers. No cloud fallback.
+
+**Current (bridge):** Qwen 3.5 4B on Metal GPU via MLX.
+**Target (after MOHAWK):** Epistemos-Base 3B Mamba-2 hybrid replaces Qwen entirely.
+Epistemos-Nano 1B on ANE handles device actions. Qwen gets deleted.
+
 - Apple Intelligence for the lightest rewrite / summarize / simple ask work
-- local Qwen 3.5 for deeper local reasoning, coding, graph analysis, and long-context work
-- no cloud fallback in the live app
+- Local model (currently Qwen, future Epistemos-Base) for reasoning, coding, graph analysis
 
 Operations and their tiers:
 | Operation | Complexity | Route |
