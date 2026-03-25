@@ -37,6 +37,14 @@ pub fn run_shortcut_by_name(name: String) -> String {
     serde_json::to_string(&result).unwrap_or_default()
 }
 
+/// Simulate a key press with optional modifier flags.
+/// key_code: macOS virtual key code (e.g., 36 = Return, 0 = 'a', 49 = Space)
+/// modifiers: CGEventFlags bitmask (e.g., 0 = none, 256 = Shift, 1048576 = Cmd)
+pub fn simulate_key_press(key_code: u16, modifiers: u64) -> String {
+    let result = input::execute_input(&crate::types::InputEvent::KeyPress { key_code, modifiers });
+    serde_json::to_string(&result).unwrap_or_default()
+}
+
 /// Find an element by label/title in a running app's AX tree and click it.
 /// Walks the AX tree for the given PID, finds the first element whose
 /// title/value/description matches `element_name`, and clicks its center.

@@ -23,6 +23,7 @@ final class OrchestratorState {
     var currentTaskDescription: String = ""
     var isExecuting: Bool = false
     var isPlanning: Bool = false
+    var isModelLoading: Bool = false
     var planningError: String?
     var planningMethod: String = ""
     var executionLog: [AgentStepResult] = []
@@ -91,7 +92,9 @@ final class OrchestratorState {
         var usedLLM = false
 
         if let planner = planningService {
+            isModelLoading = true
             let llmSteps = await planner.generatePlan(for: description)
+            isModelLoading = false
             if !llmSteps.isEmpty {
                 steps = llmSteps
                 usedLLM = true

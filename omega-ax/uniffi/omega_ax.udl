@@ -17,6 +17,11 @@ namespace omega_ax {
     /// Simulate typing text. Returns JSON-encoded result.
     string simulate_type_text(string text);
 
+    /// Simulate a key press with optional modifier flags.
+    /// key_code: macOS virtual key code (36=Return, 0='a', 49=Space, etc.)
+    /// modifiers: CGEventFlags bitmask (0=none, 256=Shift, 1048576=Cmd)
+    string simulate_key_press(u16 key_code, u64 modifiers);
+
     // ── Shortcuts ──────────────────────────────────────────────────────────
 
     /// Run a macOS Shortcuts.app shortcut by name. Returns JSON-encoded result.

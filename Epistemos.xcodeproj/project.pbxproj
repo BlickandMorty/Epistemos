@@ -1579,6 +1579,7 @@
 				B919CFE16BDE19DE0CD70F2E /* MLX */,
 				C1632F27423B91A7F3261950 /* MLXLMCommon */,
 				F463DB33C39F4AB6E0BB6518 /* MLXLLM */,
+				AB12CD34EF56789012345602 /* MLXStructured */,
 			);
 			productName = Epistemos;
 			productReference = C76D402546734270F3EE1008 /* Epistemos.app */;
@@ -1612,6 +1613,7 @@
 				5DFEA6AEF5B1ED45CFAE2B30 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				2294352D89C3E7A5A15683BC /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				2E3FF4241362DDC6C79D0763 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+				AB12CD34EF56789012345601 /* XCRemoteSwiftPackageReference "mlx-swift-structured" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 21C2583A1AFD8B5552357491 /* Products */;
@@ -2365,6 +2367,14 @@
 				version = 0.9.0;
 			};
 		};
+		AB12CD34EF56789012345601 /* XCRemoteSwiftPackageReference "mlx-swift-structured" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/petrukha-ivan/mlx-swift-structured";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.0.4;
+			};
+		};
 		C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift.git";
@@ -2395,6 +2405,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2E3FF4241362DDC6C79D0763 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLLM;
+		};
+		AB12CD34EF56789012345602 /* MLXStructured */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AB12CD34EF56789012345601 /* XCRemoteSwiftPackageReference "mlx-swift-structured" */;
+			productName = MLXStructured;
 		};
 		FA1346421A48DF0E99CA1280 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -39,6 +39,25 @@ struct OmegaPanel: View {
                         permissionBanner
                     }
 
+                    // Model loading indicator (cold start ~2-5s)
+                    if orchestrator.isModelLoading {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Loading AI model…")
+                                    .font(.subheadline.bold())
+                                Text("First inference takes 2-5 seconds")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.blue.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
                     // Planning indicator
                     if orchestrator.isPlanning {
                         HStack(spacing: 8) {

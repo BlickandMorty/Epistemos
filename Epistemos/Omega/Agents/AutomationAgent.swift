@@ -42,7 +42,12 @@ final class AutomationAgent: OmegaAgent, @unchecked Sendable {
             resultJson = simulateTypeText(text: text)
 
         case "press_key":
-            return .fail("press_key requires key_code — use type_text for text input", stepId: step.id, durationMs: 0)
+            guard let keyCode = args["key_code"] as? Int else {
+                return .fail("press_key requires 'key_code' (macOS virtual key code, e.g. 36=Return, 49=Space)", stepId: step.id, durationMs: 0)
+            }
+            let modifiers = (args["modifiers"] as? UInt64) ?? 0
+            // omega-ax Rust Layer 1: CGEvent key press simulation
+            resultJson = simulateKeyPress(keyCode: UInt16(keyCode), modifiers: modifiers)
 
         case "run_shortcut":
             guard let name = args["name"] as? String, !name.isEmpty else {

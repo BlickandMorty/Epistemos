@@ -26,9 +26,15 @@ final class TrainingScheduler {
         get { UserDefaults.standard.object(forKey: "KnowledgeFusion.lastVaultTrainingDate") as? Date }
         set { UserDefaults.standard.set(newValue, forKey: "KnowledgeFusion.lastVaultTrainingDate") }
     }
+    var lastODIARunDate: Date? {
+        get { UserDefaults.standard.object(forKey: "KnowledgeFusion.lastODIARunDate") as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: "KnowledgeFusion.lastODIARunDate") }
+    }
+    var pendingODIATraces: [ODIATrace] = []
 
     private var ktoScheduler: NSBackgroundActivityScheduler?
     private var vaultScheduler: NSBackgroundActivityScheduler?
+    private var odiaScheduler: NSBackgroundActivityScheduler?
 
     // MARK: - Scheduling
 
@@ -70,13 +76,42 @@ final class TrainingScheduler {
             }
         }
         vaultScheduler = vault
+
+        // ODIA trace training: nightly (distill agent executions into LoRA)
+        let odia = NSBackgroundActivityScheduler(identifier: "com.epistemos.odia-training")
+        odia.interval = 86400  // 24 hours
+        odia.repeats = true
+        odia.qualityOfService = .background
+        odia.schedule { [weak self] completion in
+            guard let self else {
+                completion(.finished)
+                return
+            }
+            Task { @MainActor in
+                if self.shouldRunTraining() {
+                    await self.onODIASchedulerFired()
+                }
+                completion(.finished)
+            }
+        }
+        odiaScheduler = odia
     }
 
     func stopScheduling() {
         ktoScheduler?.invalidate()
         vaultScheduler?.invalidate()
+        odiaScheduler?.invalidate()
         ktoScheduler = nil
         vaultScheduler = nil
+        odiaScheduler = nil
+    }
+
+    // MARK: - ODIA Trace Ingestion
+
+    /// Queue traces from a completed Omega agent execution.
+    /// Traces accumulate until the nightly ODIA training window.
+    func ingestODIATraces(_ traces: [ODIATrace]) {
+        pendingODIATraces.append(contentsOf: traces)
     }
 
     // MARK: - Condition Checks
@@ -169,6 +204,63 @@ final class TrainingScheduler {
         // Run one autoresearch iteration to improve the active adapter
         // Uses the experiment tracker to propose, train, evaluate, keep/discard
         lastVaultTrainingDate = Date()
+    }
+
+    // MARK: - ODIA Training Callback
+
+    private func onODIASchedulerFired() async {
+        guard !pendingODIATraces.isEmpty else { return }
+        isTrainingActive = true
+        defer { isTrainingActive = false }
+
+        let tracesToTrain = pendingODIATraces
+        pendingODIATraces.removeAll()
+
+        do {
+            // Export traces to JSONL
+            let generator = ODIATraceGenerator()
+            let jsonl = generator.toJSONL(tracesToTrain)
+            guard !jsonl.isEmpty else { return }
+
+            let tempPath = FileManager.default.temporaryDirectory
+                .appendingPathComponent("odia-\(UUID().uuidString).jsonl")
+            try jsonl.write(to: tempPath, atomically: true, encoding: .utf8)
+
+            // Run QLoRA training via existing knowledge adapter pipeline
+            let vm = KnowledgeFusionViewModel.shared
+            guard let modelPath = vm.detectedModelPath else { return }
+
+            let pyEnv = PythonEnvironmentManager.shared
+            let trainer = QLoRATrainer(
+                pythonPath: pyEnv.isReady ? pyEnv.pythonPath : "/usr/bin/python3",
+                scriptsDirectory: pyEnv.scriptsDirectory
+            )
+
+            let outputDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("Epistemos/Adapters/odia-\(UUID().uuidString)")
+
+            var config = QLoRATrainer.TrainingConfig()
+            config.loraRank = 16
+            config.loraAlpha = 32
+            config.numIters = min(tracesToTrain.count * 3, 300)
+
+            let result = try await trainer.trainKnowledgeAdapter(
+                modelPath: modelPath,
+                dataPath: tempPath,
+                outputPath: outputDir,
+                config: config
+            )
+
+            if !result.adapterType.isEmpty {
+                lastODIARunDate = Date()
+            }
+
+            // Clean up temp file
+            try? FileManager.default.removeItem(at: tempPath)
+        } catch {
+            // Put traces back if training failed — retry next cycle
+            pendingODIATraces.append(contentsOf: tracesToTrain)
+        }
     }
 
     // MARK: - Power Helpers
