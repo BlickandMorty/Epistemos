@@ -56,7 +56,7 @@ final class Screen2AXFusion {
 
         // Step 2: Check if AX tree is rich enough
         if interactiveCount >= sparseThreshold {
-            let elapsed = start.duration(to: ContinuousClock.now).milliseconds
+            let elapsed = start.duration(to: ContinuousClock.now).omegaMilliseconds
             let result = PerceptionResult(
                 axTreeJson: axJson,
                 interactiveCount: interactiveCount,
@@ -78,7 +78,7 @@ final class Screen2AXFusion {
         // Merge OCR results into AX JSON
         let enrichedJson = mergeOCRIntoAXTree(axJson: axJson, ocrTexts: ocrTexts)
 
-        let elapsed = start.duration(to: ContinuousClock.now).milliseconds
+        let elapsed = start.duration(to: ContinuousClock.now).omegaMilliseconds
         let result = PerceptionResult(
             axTreeJson: enrichedJson,
             interactiveCount: interactiveCount + ocrTexts.count,
@@ -96,7 +96,7 @@ final class Screen2AXFusion {
         let start = ContinuousClock.now
         let axJson = walkAxTreeJson(pid: Int64(pid))
         let count = countInteractiveElements(axJson)
-        let elapsed = start.duration(to: ContinuousClock.now).milliseconds
+        let elapsed = start.duration(to: ContinuousClock.now).omegaMilliseconds
         return PerceptionResult(
             axTreeJson: axJson,
             interactiveCount: count,
@@ -267,11 +267,3 @@ struct NormalizedRect: Sendable {
     let height: Double
 }
 
-// MARK: - Duration Extension
-
-private extension Duration {
-    var milliseconds: Double {
-        let (seconds, attoseconds) = components
-        return Double(seconds) * 1000.0 + Double(attoseconds) / 1_000_000_000_000_000.0
-    }
-}

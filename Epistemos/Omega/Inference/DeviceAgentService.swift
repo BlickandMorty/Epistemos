@@ -60,9 +60,9 @@ final class DeviceAgentService {
             maxTokens: 256
         )
         let elapsed = start.duration(to: ContinuousClock.now)
-        lastLatencyMs = elapsed.millisecondsValue
+        lastLatencyMs = elapsed.omegaMilliseconds
 
-        log.debug("UI resolve: \(elapsed.millisecondsValue, privacy: .public)ms")
+        log.debug("UI resolve: \(elapsed.omegaMilliseconds, privacy: .public)ms")
 
         return parseActionResult(raw)
     }
@@ -240,11 +240,3 @@ enum DeviceAgentError: Error, LocalizedError {
     }
 }
 
-// MARK: - Duration Extension
-
-private extension Duration {
-    var millisecondsValue: Double {
-        let (seconds, attoseconds) = components
-        return Double(seconds) * 1000.0 + Double(attoseconds) / 1_000_000_000_000_000.0
-    }
-}

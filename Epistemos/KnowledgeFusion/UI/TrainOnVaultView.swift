@@ -493,10 +493,15 @@ struct TrainOnVaultView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         selectedVaultURL = url
 
-        // Auto-analyze vault and configure settings
-        let analyzer = VaultAnalyzer()
-        let analysis = analyzer.analyze(vaultURL: url, systemMemoryGB: vm.systemMemoryGB)
-        vm.applyVaultAnalysis(analysis)
+        // Analyze vault off main thread — synchronous file I/O can take seconds on large vaults
+        let memoryGB = vm.systemMemoryGB
+        Task.detached { [vm] in
+            let analyzer = VaultAnalyzer()
+            let analysis = analyzer.analyze(vaultURL: url, systemMemoryGB: memoryGB)
+            await MainActor.run {
+                vm.applyVaultAnalysis(analysis)
+            }
+        }
     }
 
     private func analysisChip(_ text: String, _ icon: String) -> some View {

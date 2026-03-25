@@ -311,6 +311,7 @@
 		D07544A10C871F2012C1F8ED /* BlockParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794980F4DF947ACA2B3CD474 /* BlockParser.swift */; };
 		D0991E1122BD63C787788607 /* StructuralGraphBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 476D68ABF8297A4406114952 /* StructuralGraphBuilderTests.swift */; };
 		D0F28E6F5083451BBEB95FDD /* OmegaPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 509A6272DED044EFB3B26ABA /* OmegaPermissions.swift */; };
+		A4C9E7B3D1F5082A6E3B9D02 /* OmegaExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C9E7B3D1F5082A6E3B9D01 /* OmegaExtensions.swift */; };
 		D17991946DBE54386E4B90D0 /* ToolbarGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3589BFD6400552883FBD1175 /* ToolbarGlass.swift */; };
 		D1BC92CF1E8A41FA9B9A2323 /* AdapterLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2446B11851BA4DEA95FDFED0 /* AdapterLoader.swift */; };
 		D26C0C3D1B57FE4224D1EB3B /* TransclusionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B3CF9E66CF80B97388DAE6 /* TransclusionOverlayView.swift */; };
@@ -513,6 +514,7 @@
 		50604F1EB2DF6F05D43CD51C /* InferenceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceState.swift; sourceTree = "<group>"; };
 		5096E7AC010151F9FDADCADB /* OmegaTrainingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaTrainingCoordinator.swift; path = Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		509A6272DED044EFB3B26ABA /* OmegaPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaPermissions.swift; sourceTree = "<group>"; };
+		A4C9E7B3D1F5082A6E3B9D01 /* OmegaExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaExtensions.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		5175241C97D791510EE85B37 /* GraphFloatingControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphFloatingControls.swift; sourceTree = "<group>"; };
 		535B5EEE5A4AC1A2D3C80400 /* ScrollStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollStabilityTests.swift; sourceTree = "<group>"; };
@@ -1204,6 +1206,7 @@
 		B2C3D4E5F6A7B8C9D0E1F200 /* Omega */ = {
 			isa = PBXGroup;
 			children = (
+				A4C9E7B3D1F5082A6E3B9D01 /* OmegaExtensions.swift */,
 				509A6272DED044EFB3B26ABA /* OmegaPermissions.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* Agents */,
 				A1B2C3D4E5F6A7B8C9D0E1F4 /* Orchestrator */,
@@ -1772,6 +1775,7 @@
 			files = (
 				50DB112D12D967C9B4B38A1D /* MCPBridge.swift in Sources */,
 				D0F28E6F5083451BBEB95FDD /* OmegaPermissions.swift in Sources */,
+				A4C9E7B3D1F5082A6E3B9D02 /* OmegaExtensions.swift in Sources */,
 				F8B141E59E68A4804C09FDD1 /* OmegaSettingsDetailView.swift in Sources */,
 				0FED5B572968B0DA0DD5B645 /* OmegaTrainingCoordinator.swift in Sources */,
 				1E9C5AAF5C2893C9CBF77140 /* CSISafeguard.swift in Sources */,

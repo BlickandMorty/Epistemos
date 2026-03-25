@@ -405,7 +405,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     private let log = Logger(subsystem: "com.epistemos", category: "MLXInference")
     private let snapshot: LocalHardwareCapabilitySnapshot
 
-    private var container: ModelContainer?
+    private(set) var container: ModelContainer?
     private var loadedModelID: String?
     private var scheduledUnloadTask: Task<Void, Never>?
     private var lastRunProfile: LocalMLXRunProfile?

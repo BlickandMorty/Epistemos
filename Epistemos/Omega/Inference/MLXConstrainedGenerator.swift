@@ -200,32 +200,58 @@ enum JSONParserState: Hashable {
 #if canImport(MLXLMCommon)
 extension MLXInferenceService {
     /// Generate text with a custom LogitProcessor for constrained decoding.
-    /// Uses the same model loading and caching as standard generation.
+    /// Bypasses ChatSession to inject the processor directly into TokenIterator.
+    ///
+    /// Uses: TokenIterator.init(input:model:cache:processor:sampler:prefillStepSize:maxTokens:)
+    /// which accepts a custom LogitProcessor and LogitSampler.
     func generateConstrained(
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
         logitProcessor: some LogitProcessor
     ) async throws -> String {
-        // Build request using the standard path
-        let request = LocalMLXRequest(
-            modelID: "", // Will use active model
-            modelDirectory: URL(fileURLWithPath: "/"), // Placeholder — container handles this
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            reasoningMode: .fast
-        )
+        // Ensure a model is loaded — reuse the active container
+        guard let container = self.container else {
+            throw ConstrainedGeneratorError.mlxUnavailable
+        }
 
-        // For now, delegate to standard generate with a note that
-        // full TokenIterator integration requires access to the loaded ModelContainer.
-        // This is a transitional implementation — the custom logit processor
-        // will be injected once we refactor generate() to accept external processors.
-        //
-        // The architecture is correct: LogitProcessor → TokenIterator → structured output.
-        // What remains is threading the processor through the existing MLXInferenceService
-        // lifecycle (loadContainerIfNeeded → ChatSession → TokenIterator).
-        return try await generate(request: request)
+        // Build the input and run generation with our custom processor
+        let result: String = try await container.perform { context in
+            // Prepare chat input using Chat.Message API
+            var chatMessages: [Chat.Message] = []
+            if let sys = systemPrompt {
+                chatMessages.append(.system(sys))
+            }
+            chatMessages.append(.user(prompt))
+
+            let userInput = UserInput(chat: chatMessages)
+            let input = try await context.processor.prepare(input: userInput)
+
+            // Create TokenIterator with our custom LogitProcessor
+            let sampler = TopPSampler(temperature: 0.3, topP: 0.95)
+            let cache = context.model.newCache(parameters: nil)
+            var iterator = try TokenIterator(
+                input: input,
+                model: context.model,
+                cache: cache,
+                processor: logitProcessor,
+                sampler: sampler,
+                prefillStepSize: 256,
+                maxTokens: maxTokens
+            )
+
+            // Collect tokens and detokenize
+            var tokens: [Int] = []
+            while let token = iterator.next() {
+                tokens.append(token)
+            }
+
+            // Decode tokens to string
+            let output = context.tokenizer.decode(tokens: tokens)
+            return output
+        }
+
+        return result
     }
 }
 #endif

@@ -45,7 +45,7 @@ final class VisualVerifyLoop {
         }
 
         let elapsed = start.duration(to: ContinuousClock.now)
-        log.debug("Before state captured in \(elapsed.milliseconds)ms")
+        log.debug("Before state captured in \(elapsed.omegaMilliseconds)ms")
 
         return VerifyToken(
             axStateBefore: axState,
@@ -104,7 +104,7 @@ final class VisualVerifyLoop {
         let result = VerifyResult(
             confidence: confidence,
             method: method,
-            latencyMs: elapsed.milliseconds,
+            latencyMs: elapsed.omegaMilliseconds,
             stateChanged: confidence > 0.3
         )
 
@@ -112,7 +112,7 @@ final class VisualVerifyLoop {
         recentResults.append(confidence >= 0.8)
         if recentResults.count > 20 { recentResults.removeFirst() }
 
-        log.info("Verify: \(confidence, privacy: .public) via \(method, privacy: .public) in \(elapsed.milliseconds)ms")
+        log.info("Verify: \(confidence, privacy: .public) via \(method, privacy: .public) in \(elapsed.omegaMilliseconds)ms")
 
         return result
     }
@@ -175,11 +175,3 @@ struct VerifyResult: Sendable {
     var passed: Bool { confidence >= 0.8 }
 }
 
-// MARK: - Duration Extension
-
-private extension Duration {
-    var milliseconds: Double {
-        let (seconds, attoseconds) = components
-        return Double(seconds) * 1000.0 + Double(attoseconds) / 1_000_000_000_000_000.0
-    }
-}
