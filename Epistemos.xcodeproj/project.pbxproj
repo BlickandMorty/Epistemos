@@ -381,6 +381,7 @@
 		DA22EB33FC44AD55BE66CF01 /* AgentGraphMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA11DB22EC33FD44AE55BF02 /* AgentGraphMemory.swift */; };
 		DA22EB33FC44AD55BE66CF02 /* RecipeGraphSkills.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA11DB22EC33FD44AE55BF03 /* RecipeGraphSkills.swift */; };
 		DA22EB33FC44AD55BE66CF03 /* GhostBrainCoauthor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA11DB22EC33FD44AE55BF04 /* GhostBrainCoauthor.swift */; };
+		DA11E22F33A44B55C66D7706 /* AppStoreHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA11E22F33A44B55C66D7703 /* AppStoreHelper.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -769,6 +770,7 @@
 		CA11DB22EC33FD44AE55BF02 /* AgentGraphMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentGraphMemory.swift; sourceTree = "<group>"; };
 		CA11DB22EC33FD44AE55BF03 /* RecipeGraphSkills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeGraphSkills.swift; sourceTree = "<group>"; };
 		CA11DB22EC33FD44AE55BF04 /* GhostBrainCoauthor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhostBrainCoauthor.swift; sourceTree = "<group>"; };
+		DA11E22F33A44B55C66D7703 /* AppStoreHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreHelper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1217,8 +1219,17 @@
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* Inference */,
 				A1B2C3D4E5F6A7B8C9D0E1F6 /* Vision */,
 				CA11DB22EC33FD44AE55BF01 /* Knowledge */,
+				DA11E22F33A44B55C66D7707 /* Distribution */,
 			);
 			path = Omega;
+			sourceTree = "<group>";
+		};
+		DA11E22F33A44B55C66D7707 /* Distribution */ = {
+			isa = PBXGroup;
+			children = (
+				DA11E22F33A44B55C66D7703 /* AppStoreHelper.swift */,
+			);
+			path = Distribution;
 			sourceTree = "<group>";
 		};
 		B6CB80EB4F64B84F365AB8C4 /* Drafts */ = {
@@ -2033,6 +2044,7 @@
 				DA22EB33FC44AD55BE66CF01 /* AgentGraphMemory.swift in Sources */,
 				DA22EB33FC44AD55BE66CF02 /* RecipeGraphSkills.swift in Sources */,
 				DA22EB33FC44AD55BE66CF03 /* GhostBrainCoauthor.swift in Sources */,
+				DA11E22F33A44B55C66D7706 /* AppStoreHelper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
