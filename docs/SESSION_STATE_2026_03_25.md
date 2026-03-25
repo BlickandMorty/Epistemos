@@ -3,10 +3,60 @@
 ## Start Here
 
 Read these files in order:
-1. `CLAUDE.md` — Engineering bible + Omega phase roadmap (Ω10-Ω21)
+1. `CLAUDE.md` — Engineering bible + Omega phase roadmap (Ω10-Ω24)
 2. `docs/INSTANT_RECALL_ARCHITECTURE.md` — Ω18-Ω21 plan (vector memory + state injection)
 3. `docs/TRAINING_GUIDE.md` — Model tiers, LoRA targets, training rules
 4. This file — what's done, what's next, what's blocked
+
+## Design Principles (from original research, non-negotiable)
+
+### The Model is Hybrid Mamba-Attention (NOT pure anything)
+- 75% Mamba-2 layers + 25% Attention layers (every 4th layer)
+- Pure Mamba-2 has documented "reasoning drift" and JSON formatting failures
+- Attention layers = global anchors for exact retrieval + strict JSON schema
+- Reference: NVIDIA Nemotron 3 Super "Mamba-in-Llama" (NeurIPS 2024)
+- Future: Mamba-3 MIMO when validated (4x arithmetic intensity)
+
+### ANE Engineering Rules (from M4 reverse-engineering benchmarks)
+- ANE actual: 19 TFLOPS FP16 (claimed 38 TOPS INT8 dequants to FP16)
+- Power: 6.6 TFLOPS/W (vs GPU ~1.0), idle: 0 mW (hard power gating)
+- **Deep graphs, not wide**: chain 16-64 ops per MIL program (single ops waste 70%)
+- **Conv over matmul**: 1x1 convolutions use fast datapath, matmul is 3x slower
+- **Stay under 32 MB per tensor**: keep in SRAM, DRAM spill kills throughput
+- **Avoid dispatch-limited ops**: anything <1ms dominated by 0.095ms XPC overhead
+- Prefill (large batch) → ANE; Decode (single token, latency) → GPU Metal
+
+### Device Agent Training: VLM2VLA (actions as language)
+- Per VLM2VLA paper (arXiv:2509.22195): represent GUI actions as NATURAL LANGUAGE
+  descriptions, NOT arbitrary token IDs — preserves 85%+ base VQA performance
+- Synthetic trace format: `ax_press(selector='//AXButton[@title="Submit"]')`
+- Training pipeline: UI-TARS 3-stage (Continual PT → SFT → RL with data flywheel)
+- Teacher: Claude Opus generates 50K-200K macOS action traces
+- Fine-tune: Gemma 3 1B or Phi-4 Mini via mlx_lm.lora (2000 iters, rank 16)
+- Per-app MoLoRA: Safari, Terminal, Mail, Notes, Finder (500 iters each)
+- Convert to CoreML ANE: context 512, int8 quantization
+
+### Memory Persona Files (injected into every reasoning session)
+- `~/.epistemos/MEMORY.md` — curated long-term facts
+- `~/.epistemos/SOUL.md` — persona, tone, boundaries
+- `~/.epistemos/USER.md` — who the user is, preferences, hardware
+
+### ANE vs GPU Decision Matrix
+| Workload | Target | Reason |
+|----------|--------|--------|
+| 1B Device Agent, 100ms verify | ANE CoreML | 0mW idle, 6.6 TFLOPS/W |
+| 1B Device Agent, fast decode | Metal GPU MLX | Higher DRAM bandwidth |
+| 3B+ Reasoning Brain | Metal GPU MLX | Only GPU handles large decode |
+| Text embeddings (128-dim) | ANE CoreML | Deep graph, stays in SRAM |
+| OmniParser V2 (YOLO+Florence) | Metal GPU MPS | Too large for ANE SRAM |
+| LoRA fine-tuning | Metal GPU MLX | Training needs FP16 backprop |
+| CRDT shadow embedding | ANE CoreML | 500ms debounced, fits deep graph |
+
+### Training Cost Clarification
+- **Nano pipeline test** ($100-150): Quick validation run on RunPod, partial tokens
+- **Nano full MOHAWK** ($800-1200): All 3 stages, 8B+ tokens, complete distillation
+- **Base full MOHAWK** ($1500-2500): The real product model
+- Strategy: $100-150 pipeline test first, then full Base when validated
 
 ## What Is Truly Done (Committed, Builds, Passes)
 

@@ -3,7 +3,7 @@
 ## Overview
 
 Sub-10ms contextual recall of relevant notes as you type, using binary-quantized
-embeddings in a Rust HNSW index with Mamba-3 state injection for loaded context.
+embeddings in a Rust HNSW index with Mamba-2 hybrid state injection for loaded context.
 
 ## Core Insight
 
@@ -29,7 +29,7 @@ embeddings in a Rust HNSW index with Mamba-3 state injection for loaded context.
     ├── [Float32 Rescoring]  → top-5 relevant (2ms)
     └── [Return note text + embedding to Swift]
         →
-[Mamba-3 On-Device Model]
+[Mamba-2 hybrid On-Device Model]
     ├── [Prefill with top-5 note texts] → encode to SSM state (~50ms)
     └── [Write session proceeds with loaded context state]
 ```
@@ -56,8 +56,8 @@ embeddings in a Rust HNSW index with Mamba-3 state injection for loaded context.
 - Display top-5 contextually relevant notes in sidebar as you type
 - UniFFI bridge to Swift
 
-### Phase 2: Mamba-3 State Injection (Ω19)
-- Export Mamba-3 hybrid to CoreML (from MOHAWK training)
+### Phase 2: Mamba-2 hybrid State Injection (Ω19)
+- Export Mamba-2 hybrid hybrid to CoreML (from MOHAWK training)
 - State prefill: tokenize top-3 retrieved notes → forward pass → save hidden state
 - Use loaded state as starting context for writing session
 - Benchmark recall accuracy with/without state injection
