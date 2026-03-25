@@ -483,30 +483,31 @@ struct TrainOnVaultView: View {
     // MARK: - Helpers
 
     private func selectVaultFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a vault folder to train on"
-        panel.prompt = "Train"
+        // Capture values needed before showing panel
+        let memoryGB = vm.systemMemoryGB
 
-        // Use begin() instead of runModal() — runModal() can hang inside
-        // SwiftUI Settings windows due to modal run loop conflicts.
-        panel.begin { [vm] response in
-            guard response == .OK, let url = panel.url else { return }
-            Task { @MainActor in
-                selectedVaultURL = url
-            }
-
-            // Analyze vault off main thread
-            let memoryGB = vm.systemMemoryGB
-            Task.detached {
-                let analyzer = VaultAnalyzer()
-                let analysis = analyzer.analyze(vaultURL: url, systemMemoryGB: memoryGB)
-                await MainActor.run {
-                    vm.applyVaultAnalysis(analysis)
+        Task { @MainActor in
+            // fileImporter/NSOpenPanel alternative: use continuation to avoid runModal() hang
+            let url: URL? = await withCheckedContinuation { continuation in
+                let panel = NSOpenPanel()
+                panel.canChooseFiles = false
+                panel.canChooseDirectories = true
+                panel.allowsMultipleSelection = false
+                panel.message = "Select a vault folder to train on"
+                panel.prompt = "Train"
+                panel.begin { response in
+                    continuation.resume(returning: response == .OK ? panel.url : nil)
                 }
             }
+
+            guard let url else { return }
+            selectedVaultURL = url
+
+            // Analyze vault off main thread — file I/O can take seconds on large vaults
+            let analysis = await Task.detached {
+                VaultAnalyzer().analyze(vaultURL: url, systemMemoryGB: memoryGB)
+            }.value
+            vm.applyVaultAnalysis(analysis)
         }
     }
 
