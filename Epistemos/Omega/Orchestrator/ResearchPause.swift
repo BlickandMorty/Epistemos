@@ -13,34 +13,35 @@ final class ResearchPauseHandler {
     /// Whether the system is currently paused for research.
     var isPaused: Bool { activeRequest != nil }
 
-    /// Request research from the user. Returns the user's response.
+    /// Request research from the user. Suspends until user responds or skips.
     func requestResearch(questions: [String], context: String) async -> String {
         activeRequest = ResearchRequest(
             questions: questions,
             context: context
         )
 
-        // Wait for user to provide response
-        while activeRequest != nil {
-            try? await Task.sleep(for: .milliseconds(100))
+        let response: String = await withCheckedContinuation { continuation in
+            pendingContinuation = continuation
         }
 
-        return lastResearchResponse
+        return response
     }
 
     /// Called by UI when user provides research results.
     func provideResponse(_ response: String) {
-        lastResearchResponse = response
         activeRequest = nil
+        pendingContinuation?.resume(returning: response)
+        pendingContinuation = nil
     }
 
     /// Called by UI when user skips research.
     func skip() {
-        lastResearchResponse = ""
         activeRequest = nil
+        pendingContinuation?.resume(returning: "")
+        pendingContinuation = nil
     }
 
-    private var lastResearchResponse = ""
+    private var pendingContinuation: CheckedContinuation<String, Never>?
 }
 
 // MARK: - Types

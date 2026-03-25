@@ -30,5 +30,11 @@ extension View {
             .environment(bootstrap.dialogueChatState)
             .environment(bootstrap.orchestratorState)
             .environment(bootstrap.mcpBridge)
+            .environment(bootstrap.constrainedDecoding)
+            .environment(bootstrap.hardwareTierManager)
+            .environment(bootstrap.dualBrainRouter)
+            .environment(bootstrap.screen2AXFusion)
+            .environment(bootstrap.visualVerifyLoop)
+            .environment(bootstrap.ghostBrainCoauthor)
     }
 }

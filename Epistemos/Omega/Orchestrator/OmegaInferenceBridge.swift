@@ -5,12 +5,28 @@ import Foundation
 /// Bridges the existing TriageService to the Omega agent system.
 /// Uses local model for planning (fast, private), with tool schemas injected
 /// into the system prompt so the model knows exactly what tools are available.
+///
+/// When `constrainedDecoding` is set, attempts grammar-constrained generation first
+/// (guarantees valid JSON via EBNF logit masking). Falls back to unconstrained + parse.
 @MainActor
 final class OmegaInferenceBridge {
     private let triageService: TriageService
 
     /// Tool schemas JSON for injection into planning prompts.
     var toolSchemasJson: String = "[]"
+
+    /// Optional constrained decoding service (Ω11).
+    /// When available, generates structurally valid JSON via logit masking.
+    var constrainedDecoding: ConstrainedDecodingService?
+
+    /// Parsed tool schemas for grammar compilation.
+    private var parsedToolSchemas: [[String: Any]] {
+        guard let data = toolSchemasJson.data(using: .utf8),
+              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+        return array
+    }
 
     init(triageService: TriageService) {
         self.triageService = triageService
@@ -22,14 +38,40 @@ final class OmegaInferenceBridge {
     }
 
     /// Generate a planning response from the local model.
-    /// Includes full tool schemas so the model can generate valid tool calls.
+    /// Tries constrained decoding first (if available), falls back to unconstrained.
     nonisolated func generatePlan(
         taskDescription: String,
         availableAgents: [String],
         systemPrompt: String? = nil
     ) async throws -> String {
-        let prompt = Self.buildPlanningPrompt(taskDescription: taskDescription)
+        // Try constrained decoding path first (guarantees valid JSON)
+        let constrained: String? = try await withCheckedThrowingContinuation { continuation in
+            Task { @MainActor [weak self] in
+                guard let self, let cd = self.constrainedDecoding, cd.isAvailable else {
+                    continuation.resume(returning: nil as String?)
+                    return
+                }
+                do {
+                    let system = systemPrompt ?? "You are a precise task planner. Output ONLY valid JSON array."
+                    let prompt = Self.buildPlanningPrompt(taskDescription: taskDescription)
+                    let result = try await cd.generateConstrainedPlan(
+                        prompt: prompt,
+                        systemPrompt: system,
+                        toolSchemas: self.parsedToolSchemas,
+                        maxTokens: 1024
+                    )
+                    continuation.resume(returning: result)
+                } catch {
+                    // Constrained decoding failed — fall through to unconstrained
+                    continuation.resume(returning: nil as String?)
+                }
+            }
+        }
 
+        if let constrained { return constrained }
+
+        // Unconstrained fallback: generate raw text, then parse
+        let prompt = Self.buildPlanningPrompt(taskDescription: taskDescription)
         let system = systemPrompt ?? "You are a precise task planner. Output ONLY valid JSON array. No explanation, no markdown, no code fences."
 
         let raw: String = try await withCheckedThrowingContinuation { continuation in

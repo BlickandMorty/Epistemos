@@ -38,8 +38,9 @@ final class Screen2AXService {
     }
 
     /// Check if Screen2AX fallback should be triggered based on AX tree sparsity.
-    /// Threshold: fewer than 5 interactive elements = sparse.
+    /// R5 audit (2026-03-24): 91% of macOS apps have >20 interactive elements.
+    /// Threshold raised from 5 → 10 to avoid false triggers on minimized apps.
     func shouldTriggerFallback(interactiveElementCount: Int) -> Bool {
-        interactiveElementCount < 5
+        interactiveElementCount < 10
     }
 }

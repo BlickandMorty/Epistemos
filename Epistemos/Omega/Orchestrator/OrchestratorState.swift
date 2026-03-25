@@ -30,6 +30,9 @@ final class OrchestratorState {
     // MARK: - Logging bridge
     private(set) weak var mcpBridge: MCPBridge?
 
+    // MARK: - Graph memory (Ω14)
+    weak var agentGraphMemory: AgentGraphMemory?
+
     // MARK: - Setup
 
     /// Register all specialist agents and wire the planning service.
@@ -39,9 +42,12 @@ final class OrchestratorState {
         modelContainer: ModelContainer?,
         triageService: TriageService?,
         vaultSync: VaultSyncService? = nil,
-        mcpBridge: MCPBridge? = nil
+        mcpBridge: MCPBridge? = nil,
+        constrainedDecoding: ConstrainedDecodingService? = nil,
+        agentGraphMemory: AgentGraphMemory? = nil
     ) {
         self.mcpBridge = mcpBridge
+        self.agentGraphMemory = agentGraphMemory
 
         let fileAgent = FileAgent(vaultURL: vaultURL)
         let notesAgent = NotesAgent(modelContainer: modelContainer, vaultSync: vaultSync)
@@ -60,6 +66,7 @@ final class OrchestratorState {
         // Wire planning service if TriageService is available
         if let triage = triageService {
             let bridge = OmegaInferenceBridge(triageService: triage)
+            bridge.constrainedDecoding = constrainedDecoding
             planningService = OmegaPlanningService(
                 inferenceBridge: bridge,
                 availableAgents: Array(agents.keys)
@@ -189,6 +196,12 @@ final class OrchestratorState {
         }
 
         isExecuting = false
+
+        // Record to knowledge graph (Ω14)
+        agentGraphMemory?.recordExecution(
+            taskDescription: currentTaskDescription,
+            steps: executionLog
+        )
     }
 
     /// Record a step result in the task graph, execution log, and SQLite via MCPBridge.
@@ -261,6 +274,17 @@ final class OrchestratorState {
         let task = currentTaskDescription
         guard !task.isEmpty else { return }
         await submitTask(task)
+    }
+
+    /// Return to idle with the current task description preserved so the user can re-submit.
+    func editPlan() {
+        isExecuting = false
+        isPlanning = false
+        planningError = nil
+        planningMethod = ""
+        executionLog.removeAll()
+        taskGraph.reset()
+        // currentTaskDescription is kept so the input bar shows it for editing
     }
 
     /// Reset all state to idle.

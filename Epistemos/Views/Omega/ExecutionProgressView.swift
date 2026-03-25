@@ -128,6 +128,14 @@ struct ExecutionProgressView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+
+                Button {
+                    orchestrator.editPlan()
+                } label: {
+                    Label("Edit Plan", systemImage: "pencil.and.list.clipboard")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
 
             Button {

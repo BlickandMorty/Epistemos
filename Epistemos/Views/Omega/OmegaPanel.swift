@@ -108,13 +108,21 @@ struct OmegaPanel: View {
 
             Divider()
 
-            // Task input bar
+            // Task input bar — pre-fill when returning from Edit Plan
             TaskInputBar(text: $taskInput) {
                 guard !taskInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 let task = taskInput
                 taskInput = ""
                 Task {
                     await orchestrator.submitTask(task)
+                }
+            }
+            .onChange(of: orchestrator.taskGraph.status) {
+                // Pre-fill input when user taps "Edit Plan" (idle + preserved description)
+                if orchestrator.taskGraph.status == .idle,
+                   !orchestrator.currentTaskDescription.isEmpty,
+                   taskInput.isEmpty {
+                    taskInput = orchestrator.currentTaskDescription
                 }
             }
         }

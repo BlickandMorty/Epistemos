@@ -59,6 +59,15 @@ final class AppBootstrap {
     let dialogueChatState = DialogueChatState()
     let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
+    let constrainedDecoding = ConstrainedDecodingService()
+    let hardwareTierManager = HardwareTierManager()
+    private(set) var deviceAgent: DeviceAgentService!
+    private(set) var dualBrainRouter: DualBrainRouter!
+    private(set) var screen2AXFusion: Screen2AXFusion!
+    private(set) var visualVerifyLoop: VisualVerifyLoop!
+    private(set) var agentGraphMemory: AgentGraphMemory!
+    private(set) var recipeGraphSkills: RecipeGraphSkills!
+    private(set) var ghostBrainCoauthor: GhostBrainCoauthor!
     private(set) var workspaceService: WorkspaceService!
     let activityTracker = ActivityTracker()
     private(set) var workspaceSummaryService: WorkspaceSummaryService!
@@ -242,6 +251,20 @@ final class AppBootstrap {
             triageService: triage, activityTracker: activityTracker, modelContainer: container
         )
 
+        // Initialize dual-brain infrastructure
+        self.deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
+        self.dualBrainRouter = DualBrainRouter(
+            hardwareTier: hardwareTierManager,
+            deviceAgent: deviceAgent
+        )
+        // Wire Brain 2 to shared GPU backend (until dedicated ANE model is available post-Ω15)
+        deviceAgent.setBackend(SharedGPUBackend(triageService: triage))
+
+        // Initialize computer use stack (Ω13)
+        let screenCapture = ScreenCaptureService()
+        self.screen2AXFusion = Screen2AXFusion(screenCapture: screenCapture)
+        self.visualVerifyLoop = VisualVerifyLoop(screenCapture: screenCapture, deviceAgent: deviceAgent)
+
         // Initialize the persistent event store (separate SQLite database with WAL mode).
         EventStore.shared = EventStore()
         self.timeMachineService = TimeMachineService(modelContainer: container)
@@ -266,8 +289,18 @@ final class AppBootstrap {
             modelContainer: container,
             triageService: triage,
             vaultSync: vaultSync,
-            mcpBridge: mcpBridge
+            mcpBridge: mcpBridge,
+            constrainedDecoding: constrainedDecoding
         )
+
+        // Wire constrained decoding generator (Ω11)
+        constrainedDecoding.setGenerator(MLXConstrainedGenerator(inferenceService: localInferenceService))
+
+        // Initialize knowledge graph integration (Ω14)
+        self.agentGraphMemory = AgentGraphMemory(graphStore: graphState.store)
+        self.recipeGraphSkills = RecipeGraphSkills(graphStore: graphState.store, mcpBridge: mcpBridge)
+        self.ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
+        orchestratorState.agentGraphMemory = agentGraphMemory
 
         // Body-file migration runs off-main to avoid launch hitching.
         // Orphan cleanup now waits for a confirmed healthy vault attach/import.
