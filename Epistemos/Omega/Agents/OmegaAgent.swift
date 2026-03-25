@@ -32,6 +32,7 @@ struct AgentStep: Identifiable, Sendable {
     var dependsOn: [UUID]
 
     init(
+        id: UUID = UUID(),
         description: String,
         assignedAgent: String,
         toolName: String,
@@ -39,7 +40,7 @@ struct AgentStep: Identifiable, Sendable {
         riskLevel: RiskLevel = .low,
         dependsOn: [UUID] = []
     ) {
-        self.id = UUID()
+        self.id = id
         self.description = description
         self.assignedAgent = assignedAgent
         self.toolName = toolName

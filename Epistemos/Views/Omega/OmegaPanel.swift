@@ -7,6 +7,7 @@ struct OmegaPanel: View {
     @Environment(OrchestratorState.self) private var orchestrator
 
     @State private var taskInput = ""
+    @State private var permissions = OmegaPermissions()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,6 +34,11 @@ struct OmegaPanel: View {
             // Main content area
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Permission banner (shown when permissions are missing)
+                    if !permissions.allGranted {
+                        permissionBanner
+                    }
+
                     // Planning indicator
                     if orchestrator.isPlanning {
                         HStack(spacing: 8) {
@@ -166,6 +172,67 @@ struct OmegaPanel: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
+    }
+
+    @ViewBuilder
+    private var permissionBanner: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .foregroundStyle(.orange)
+                Text("Permissions Required")
+                    .font(.subheadline.bold())
+            }
+
+            if !permissions.accessibilityGranted {
+                permissionRow(
+                    name: "Accessibility",
+                    detail: "Required for UI automation and AX tree walking",
+                    granted: false
+                ) {
+                    permissions.openAccessibilitySettings()
+                }
+            }
+
+            if !permissions.screenRecordingGranted {
+                permissionRow(
+                    name: "Screen Recording",
+                    detail: "Required for screen capture and visual analysis",
+                    granted: false
+                ) {
+                    permissions.openScreenRecordingSettings()
+                }
+            }
+
+            Button("Refresh") {
+                Task { await permissions.refresh() }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.orange.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .task { await permissions.refresh() }
+    }
+
+    private func permissionRow(name: String, detail: String, granted: Bool, action: @escaping () -> Void) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.caption.bold())
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Open Settings") {
+                action()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+        }
     }
 
     private func quickActionButton(_ text: String) -> some View {

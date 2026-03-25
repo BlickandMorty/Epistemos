@@ -7,6 +7,7 @@ import SwiftUI
 struct OmegaSettingsDetailView: View {
     @Environment(OrchestratorState.self) private var orchestrator
 
+    @State private var permissions = OmegaPermissions()
     @AppStorage("omega.autoExecuteLowRisk") private var autoExecuteLowRisk = true
     @AppStorage("omega.maxRetries") private var maxRetries = 3
     @AppStorage("omega.screen2axEnabled") private var screen2axEnabled = true
@@ -38,16 +39,40 @@ struct OmegaSettingsDetailView: View {
                 }
             }
 
-            // MARK: - Perception
-            Section("Perception") {
-                Toggle("Screen2AX VLM fallback", isOn: $screen2axEnabled)
-                    .help("When AX tree is sparse (<5 elements), use vision model to reconstruct UI.")
+            // MARK: - Permissions
+            Section("Permissions") {
+                HStack {
+                    Text("Accessibility")
+                    Spacer()
+                    PermissionStatusBadge(granted: permissions.accessibilityGranted)
+                    if !permissions.accessibilityGranted {
+                        Button("Grant") { permissions.openAccessibilitySettings() }
+                            .buttonStyle(.bordered).controlSize(.mini)
+                    }
+                }
 
                 HStack {
                     Text("Screen Recording")
                     Spacer()
-                    PermissionStatusBadge(granted: false) // Will check at runtime
+                    PermissionStatusBadge(granted: permissions.screenRecordingGranted)
+                    if !permissions.screenRecordingGranted {
+                        Button("Grant") { permissions.openScreenRecordingSettings() }
+                            .buttonStyle(.bordered).controlSize(.mini)
+                    }
                 }
+
+                Button("Refresh Permissions") {
+                    Task { await permissions.refresh() }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .task { await permissions.refresh() }
+
+            // MARK: - Perception
+            Section("Perception") {
+                Toggle("Screen2AX VLM fallback", isOn: $screen2axEnabled)
+                    .help("When AX tree is sparse (<5 elements), use vision model to reconstruct UI.")
             }
 
             // MARK: - Training

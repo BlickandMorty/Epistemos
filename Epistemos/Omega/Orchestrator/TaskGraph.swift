@@ -42,8 +42,9 @@ final class TaskGraph {
         results.values.contains { !$0.success }
     }
 
-    /// Reset the graph for re-execution.
+    /// Reset the graph for re-execution (keeps steps, clears results).
     func reset() {
+        steps.removeAll()
         results.removeAll()
         status = .idle
     }

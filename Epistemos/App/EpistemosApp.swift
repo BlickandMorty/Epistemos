@@ -115,6 +115,16 @@ struct EpistemosApp: App {
                 onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
             )
                 .withAppEnvironment(bootstrap)
+                .sheet(isPresented: Binding(
+                    get: { !UserDefaults.standard.bool(forKey: "epistemos.setupComplete") },
+                    set: { if !$0 { UserDefaults.standard.set(true, forKey: "epistemos.setupComplete") } }
+                )) {
+                    SetupAssistantView {
+                        UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
+                    }
+                    .environment(bootstrap.vaultSync)
+                    .environment(bootstrap.inferenceState)
+                }
                 .background(ModularZoomWindowObserver().allowsHitTesting(false))
                 .onAppear {
                     StatusBar.shared.setup()

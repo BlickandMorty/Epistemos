@@ -9,6 +9,7 @@
 5. **Test-first.** Write a failing test before the fix. Edge cases: empty, nil, max, unicode, concurrent, rapid toggle.
 6. **Read before writing.** Never modify a file you haven't read. Understand existing code before touching it.
 7. **macOS Opulent only.** Never touch `~/Epistemos-RETRO/`, `src-tauri/`, or `~/meta-analytical-pfc/` from this repo. Those are separate projects.
+8. **Manual integration test every feature.** For every new feature or code addition, ALWAYS run a manual integration test: (1) Build and launch the app, (2) Exercise the specific feature through the UI in multiple ways, (3) Watch macOS Console.app logs (`log stream --predicate 'process == "Epistemos"' --level debug`) for errors/warnings/crashes, (4) Map out the call chain between UI action → state → service → result, (5) Fix any issues found in logs before considering the feature complete. This applies to ALL changes, not just test-passing.
 
 ## Architecture Overview
 

@@ -4,7 +4,7 @@ import SwiftData
 // MARK: - Notes Agent
 
 /// Specialist agent for Epistemos note operations.
-/// Uses the existing VaultSyncService and GraphStore to create/edit/search notes.
+/// Uses the existing VaultSyncService and SwiftData ModelContainer to create/edit/search notes.
 @MainActor
 final class NotesAgent: OmegaAgent, @unchecked Sendable {
     let name = "notes"
@@ -12,9 +12,11 @@ final class NotesAgent: OmegaAgent, @unchecked Sendable {
     let toolNames = ["create_note", "edit_note", "search_notes", "list_notes"]
 
     private weak var modelContainer: ModelContainer?
+    private weak var vaultSync: VaultSyncService?
 
-    init(modelContainer: ModelContainer?) {
+    init(modelContainer: ModelContainer?, vaultSync: VaultSyncService?) {
         self.modelContainer = modelContainer
+        self.vaultSync = vaultSync
     }
 
     func execute(step: AgentStep) async throws -> AgentStepResult {
@@ -40,45 +42,131 @@ final class NotesAgent: OmegaAgent, @unchecked Sendable {
 
         switch step.toolName {
         case "create_note":
-            let title = args["title"] as? String ?? "Untitled"
-            let body = args["body"] as? String ?? ""
-            // TODO: Wire to VaultSyncService.createPage() for real note creation
-            return "{\"status\":\"acknowledged\",\"action\":\"create_note\",\"title\":\(jsonEscape(title)),\"note\":\"Note creation requires a local AI model for content generation. Load a model in Settings > Inference.\"}"
+            return try await createNote(args: args)
 
         case "search_notes":
-            let query = args["query"] as? String ?? ""
-            // TODO: Wire to GraphStore.search() for real search
-            return "{\"status\":\"acknowledged\",\"action\":\"search_notes\",\"query\":\(jsonEscape(query)),\"results\":[],\"note\":\"Note search requires SwiftData integration.\"}"
+            return try await searchNotes(args: args, container: container)
 
         case "list_notes":
-            // TODO: Wire to SwiftData fetch for real listing
-            return "{\"status\":\"acknowledged\",\"action\":\"list_notes\",\"results\":[],\"note\":\"Note listing requires SwiftData integration.\"}"
+            return try await listNotes(container: container)
 
         case "edit_note":
-            return "{\"status\":\"acknowledged\",\"action\":\"edit_note\",\"note\":\"Note editing requires note ID and SwiftData integration.\"}"
+            return try await editNote(args: args, container: container)
 
         default:
             throw NotesAgentError.unknownTool(step.toolName)
         }
     }
 
-    private func jsonEscape(_ s: String) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: s),
-           let str = String(data: data, encoding: .utf8) {
-            return str
+    // MARK: - Tool Implementations
+
+    private func createNote(args: [String: Any]) async throws -> String {
+        guard let sync = vaultSync else {
+            throw NotesAgentError.serviceUnavailable("VaultSyncService")
         }
-        return "\"\(s)\""
+
+        let title = args["title"] as? String ?? "Untitled"
+        let body = args["body"] as? String ?? ""
+
+        guard let pageId = await sync.createPage(title: title, body: body) else {
+            throw NotesAgentError.operationFailed("Failed to create note '\(title)'")
+        }
+
+        return "{\"success\":true,\"action\":\"create_note\",\"pageId\":\(jsonEscape(pageId)),\"title\":\(jsonEscape(title))}"
+    }
+
+    private func searchNotes(args: [String: Any], container: ModelContainer) async throws -> String {
+        let query = args["query"] as? String ?? ""
+        guard !query.isEmpty else {
+            throw NotesAgentError.invalidArguments
+        }
+
+        // Use VaultSyncService FTS5 search if available
+        if let sync = vaultSync {
+            let results = await sync.searchFullAsync(query: query, limit: 20)
+            let items = results.map { r in
+                "{\"pageId\":\(jsonEscape(r.pageId)),\"title\":\(jsonEscape(r.title)),\"snippet\":\(jsonEscape(r.snippet))}"
+            }
+            return "{\"success\":true,\"action\":\"search_notes\",\"query\":\(jsonEscape(query)),\"count\":\(items.count),\"results\":[\(items.joined(separator: ","))]}"
+        }
+
+        // Fallback: SwiftData title search
+        let context = container.mainContext
+        let predicate = #Predicate<SDPage> { page in
+            page.title.localizedStandardContains(query) && !page.isArchived
+        }
+        let descriptor = FetchDescriptor<SDPage>(predicate: predicate, sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
+        let pages = (try? context.fetch(descriptor)) ?? []
+        let items = pages.prefix(20).map { p in
+            "{\"pageId\":\(jsonEscape(p.id)),\"title\":\(jsonEscape(p.title))}"
+        }
+        return "{\"success\":true,\"action\":\"search_notes\",\"query\":\(jsonEscape(query)),\"count\":\(items.count),\"results\":[\(items.joined(separator: ","))]}"
+    }
+
+    private func listNotes(container: ModelContainer) async throws -> String {
+        let context = container.mainContext
+        let predicate = #Predicate<SDPage> { page in
+            !page.isArchived && page.templateId == nil
+        }
+        var descriptor = FetchDescriptor<SDPage>(predicate: predicate, sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
+        descriptor.fetchLimit = 50
+        let pages = (try? context.fetch(descriptor)) ?? []
+        let items = pages.map { p in
+            "{\"pageId\":\(jsonEscape(p.id)),\"title\":\(jsonEscape(p.title)),\"emoji\":\(jsonEscape(p.emoji)),\"updatedAt\":\(jsonEscape(ISO8601DateFormatter().string(from: p.updatedAt)))}"
+        }
+        return "{\"success\":true,\"action\":\"list_notes\",\"count\":\(items.count),\"results\":[\(items.joined(separator: ","))]}"
+    }
+
+    private func editNote(args: [String: Any], container: ModelContainer) async throws -> String {
+        guard let noteId = args["id"] as? String else {
+            throw NotesAgentError.invalidArguments
+        }
+        let newBody = args["body"] as? String
+
+        let context = container.mainContext
+        let predicate = #Predicate<SDPage> { page in page.id == noteId }
+        let descriptor = FetchDescriptor<SDPage>(predicate: predicate)
+        guard let page = (try? context.fetch(descriptor))?.first else {
+            throw NotesAgentError.operationFailed("Note '\(noteId)' not found")
+        }
+
+        if let body = newBody {
+            page.saveBody(body)
+            page.wordCount = body.split(separator: " ").count
+            page.updatedAt = .now
+            page.needsVaultSync = true
+            try? context.save()
+        }
+
+        return "{\"success\":true,\"action\":\"edit_note\",\"pageId\":\(jsonEscape(page.id)),\"title\":\(jsonEscape(page.title))}"
+    }
+
+    // MARK: - Helpers
+
+    private func jsonEscape(_ s: String) -> String {
+        if let data = try? JSONSerialization.data(withJSONObject: [s]),
+           let arr = String(data: data, encoding: .utf8) {
+            return String(arr.dropFirst().dropLast())
+        }
+        let escaped = s.replacingOccurrences(of: "\\", with: "\\\\")
+                       .replacingOccurrences(of: "\"", with: "\\\"")
+                       .replacingOccurrences(of: "\n", with: "\\n")
+        return "\"\(escaped)\""
     }
 }
 
 enum NotesAgentError: LocalizedError {
     case invalidArguments
     case unknownTool(String)
+    case serviceUnavailable(String)
+    case operationFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidArguments: "Invalid arguments for notes operation"
         case .unknownTool(let name): "Unknown tool: \(name)"
+        case .serviceUnavailable(let svc): "\(svc) not available"
+        case .operationFailed(let msg): msg
         }
     }
 }

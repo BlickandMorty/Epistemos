@@ -264,7 +264,9 @@ final class AppBootstrap {
         orchestratorState.registerAgents(
             vaultURL: vaultSync.vaultURL,
             modelContainer: container,
-            triageService: triage
+            triageService: triage,
+            vaultSync: vaultSync,
+            mcpBridge: mcpBridge
         )
 
         // Body-file migration runs off-main to avoid launch hitching.

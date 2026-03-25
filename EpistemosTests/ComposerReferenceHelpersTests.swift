@@ -134,6 +134,7 @@ struct ComposerReferenceHelpersTests {
 
     @Test("reference search includes indexed deep-body matches when manifest metadata misses them")
     func referenceSearchIncludesIndexedDeepBodyMatches() {
+        // Use distinct timestamps to avoid static cache collision with other tests.
         let manifest = makeManifest(entries: [
             .init(
                 pageId: "deep",
@@ -142,7 +143,7 @@ struct ComposerReferenceHelpersTests {
                 folderName: "Research",
                 wordCount: 320,
                 snippet: "Electron shell observations",
-                updatedAt: Date(timeIntervalSince1970: 200),
+                updatedAt: Date(timeIntervalSince1970: 500),
                 createdAt: .distantPast
             ),
             .init(
@@ -152,7 +153,7 @@ struct ComposerReferenceHelpersTests {
                 folderName: "Team",
                 wordCount: 210,
                 snippet: "Weekly staff sync",
-                updatedAt: Date(timeIntervalSince1970: 100),
+                updatedAt: Date(timeIntervalSince1970: 400),
                 createdAt: .distantPast
             ),
         ])

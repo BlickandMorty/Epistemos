@@ -275,9 +275,9 @@ struct NoteWindowManagerTests {
         #expect(panel.toolbarStyle == .unifiedCompact)
     }
 
-    @Test("Utility panels include a detached settings window alongside notes")
+    @Test("Utility panels include notes, omega, and a detached settings window")
     func utilityPanelsIncludeDetachedSettingsWindow() {
-        #expect(UtilityPanel.allCases == [.notes, .settings])
+        #expect(UtilityPanel.allCases == [.notes, .omega, .settings])
         #expect(UtilityPanel.notes.title == "Notes")
         #expect(UtilityPanel.settings.title == "Settings")
         #expect(UtilityPanel.settings.icon == "gearshape")

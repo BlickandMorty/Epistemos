@@ -1021,7 +1021,7 @@ struct TriageServiceIntegrationTests {
     }
 
     @Test("preferred local tier is used for simple local work")
-    func preferredTierIsUsedForSimpleLocalWork() async throws {
+    @MainActor func preferredTierIsUsedForSimpleLocalWork() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 

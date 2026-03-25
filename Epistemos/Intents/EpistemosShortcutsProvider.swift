@@ -64,6 +64,16 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Daily Brief",
             systemImageName: "newspaper"
         )
+
+        AppShortcut(
+            intent: OmegaTaskIntent(),
+            phrases: [
+                "Run Omega task in \(.applicationName)",
+                "Automate with \(.applicationName)",
+            ],
+            shortTitle: "Omega Task",
+            systemImageName: "cpu"
+        )
     }
 }
 

@@ -22,7 +22,10 @@ final class ActivityTracker {
     private var paragraphHashes: [String: [UInt64]] = [:] // pageId -> [FNV-1a hash per paragraph]
     private var scanTask: Task<Void, Never>?
     private var eventMonitor: Any?
-    private var userWasActive = false
+    /// Written from NSEvent monitor callback (AppKit thread), read from scan loop (MainActor).
+    /// Using nonisolated(unsafe) avoids a Task { @MainActor } hop in the event callback,
+    /// which crashes on app teardown when the MainActor executor is deallocated (EXC_BAD_ACCESS).
+    nonisolated(unsafe) private var userWasActive = false
     private(set) var trackingStartedAt: Date?
     let sessionId = UUID().uuidString
 
@@ -36,9 +39,7 @@ final class ActivityTracker {
         eventMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.keyDown, .scrollWheel, .leftMouseDown]
         ) { [weak self] event in
-            Task { @MainActor in
-                self?.userWasActive = true
-            }
+            self?.userWasActive = true
             return event
         }
 

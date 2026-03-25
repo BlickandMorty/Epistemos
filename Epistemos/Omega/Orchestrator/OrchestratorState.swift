@@ -27,6 +27,9 @@ final class OrchestratorState {
     var planningMethod: String = ""
     var executionLog: [AgentStepResult] = []
 
+    // MARK: - Logging bridge
+    private(set) weak var mcpBridge: MCPBridge?
+
     // MARK: - Setup
 
     /// Register all specialist agents and wire the planning service.
@@ -34,10 +37,14 @@ final class OrchestratorState {
     func registerAgents(
         vaultURL: URL?,
         modelContainer: ModelContainer?,
-        triageService: TriageService?
+        triageService: TriageService?,
+        vaultSync: VaultSyncService? = nil,
+        mcpBridge: MCPBridge? = nil
     ) {
+        self.mcpBridge = mcpBridge
+
         let fileAgent = FileAgent(vaultURL: vaultURL)
-        let notesAgent = NotesAgent(modelContainer: modelContainer)
+        let notesAgent = NotesAgent(modelContainer: modelContainer, vaultSync: vaultSync)
         let terminalAgent = TerminalAgent()
         let safariAgent = SafariAgent()
         let automationAgent = AutomationAgent()
@@ -126,8 +133,7 @@ final class OrchestratorState {
                     let approved = await confirmationGate.requestConfirmation(for: step)
                     if !approved {
                         let result = AgentStepResult.fail("User denied", stepId: step.id, durationMs: 0)
-                        taskGraph.recordResult(result)
-                        executionLog.append(result)
+                        recordAndLog(result, step: step)
                         continue
                     }
                     taskGraph.status = .executing
@@ -139,10 +145,12 @@ final class OrchestratorState {
                         "Agent '\(step.assignedAgent)' not found",
                         stepId: step.id, durationMs: 0
                     )
-                    taskGraph.recordResult(result)
-                    executionLog.append(result)
+                    recordAndLog(result, step: step)
                     continue
                 }
+
+                // Inject dependency outputs into step arguments for chaining
+                let enrichedStep = contextualizedStep(step)
 
                 // Execute with retry logic (max 3, exponential backoff 0.2s base)
                 let maxRetries = 3
@@ -150,11 +158,10 @@ final class OrchestratorState {
 
                 for attempt in 0..<maxRetries {
                     do {
-                        let result = try await agent.execute(step: step)
+                        let result = try await agent.execute(step: enrichedStep)
 
                         if result.success {
-                            taskGraph.recordResult(result)
-                            executionLog.append(result)
+                            recordAndLog(result, step: step)
                             if result.confidence < 0.8 {
                                 _ = await researchPause.requestResearch(
                                     questions: ["Agent reported low confidence (\(result.confidence)). Continue?"],
@@ -167,14 +174,12 @@ final class OrchestratorState {
                         if attempt < maxRetries - 1 {
                             try? await Task.sleep(for: .milliseconds(baseDelayMs * UInt64(1 << attempt)))
                         } else {
-                            taskGraph.recordResult(result)
-                            executionLog.append(result)
+                            recordAndLog(result, step: step)
                         }
                     } catch {
                         let result = AgentStepResult.fail(error.localizedDescription, stepId: step.id, durationMs: 0)
                         if attempt == maxRetries - 1 {
-                            taskGraph.recordResult(result)
-                            executionLog.append(result)
+                            recordAndLog(result, step: step)
                         } else {
                             try? await Task.sleep(for: .milliseconds(baseDelayMs * UInt64(1 << attempt)))
                         }
@@ -186,11 +191,87 @@ final class OrchestratorState {
         isExecuting = false
     }
 
+    /// Record a step result in the task graph, execution log, and SQLite via MCPBridge.
+    private func recordAndLog(_ result: AgentStepResult, step: AgentStep) {
+        taskGraph.recordResult(result)
+        executionLog.append(result)
+        mcpBridge?.logExecution(
+            toolName: step.toolName,
+            argumentsJson: step.argumentsJson,
+            resultJson: result.outputJson,
+            durationMs: result.durationMs,
+            success: result.success
+        )
+    }
+
+    /// Enrich a step's arguments with outputs from its completed dependencies.
+    /// Enables multi-step data flow: step 1 search results → step 2 can reference them.
+    /// Adds a `"_context"` key to the arguments JSON containing dependency outputs.
+    private func contextualizedStep(_ step: AgentStep) -> AgentStep {
+        guard !step.dependsOn.isEmpty else { return step }
+
+        // Collect outputs from completed dependencies
+        var depOutputs: [[String: Any]] = []
+        for depId in step.dependsOn {
+            if let result = taskGraph.results[depId], result.success,
+               let depStep = taskGraph.steps.first(where: { $0.id == depId }) {
+                depOutputs.append([
+                    "step_description": depStep.description,
+                    "tool": depStep.toolName,
+                    "output": result.outputJson,
+                ])
+            }
+        }
+
+        guard !depOutputs.isEmpty else { return step }
+
+        // Merge context into existing arguments
+        var args: [String: Any] = [:]
+        if let data = step.argumentsJson.data(using: .utf8),
+           let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            args = parsed
+        }
+        args["_context"] = depOutputs
+
+        guard let enrichedData = try? JSONSerialization.data(withJSONObject: args),
+              let enrichedJson = String(data: enrichedData, encoding: .utf8) else {
+            return step
+        }
+
+        return AgentStep(
+            id: step.id,
+            description: step.description,
+            assignedAgent: step.assignedAgent,
+            toolName: step.toolName,
+            argumentsJson: enrichedJson,
+            riskLevel: step.riskLevel,
+            dependsOn: step.dependsOn
+        )
+    }
+
     /// Cancel the current execution.
     func cancel() {
         isExecuting = false
         isPlanning = false
         taskGraph.status = .failed
+    }
+
+    /// Retry the last task from scratch.
+    func retryTask() async {
+        let task = currentTaskDescription
+        guard !task.isEmpty else { return }
+        await submitTask(task)
+    }
+
+    /// Reset all state to idle.
+    func reset() {
+        currentTaskDescription = ""
+        isExecuting = false
+        isPlanning = false
+        planningError = nil
+        planningMethod = ""
+        executionLog.removeAll()
+        taskGraph.reset()
     }
 
     // MARK: - Rust-Side Heuristic Planning

@@ -80,7 +80,7 @@ struct TaskGraphTests {
         #expect(graph.status == .failed)
     }
 
-    @Test("Reset clears results and status")
+    @Test("Reset clears steps, results, and status")
     func reset() {
         let graph = TaskGraph()
         let step = AgentStep(description: "X", assignedAgent: "file", toolName: "read_file")
@@ -90,9 +90,8 @@ struct TaskGraphTests {
 
         graph.reset()
         #expect(graph.results.isEmpty)
+        #expect(graph.steps.isEmpty)
         #expect(graph.status == .idle)
         #expect(!graph.isComplete)
-        // Steps are preserved
-        #expect(graph.steps.count == 1)
     }
 }

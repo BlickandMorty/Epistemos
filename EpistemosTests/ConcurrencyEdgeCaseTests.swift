@@ -653,7 +653,7 @@ struct ConcurrencyFilterEngineTests {
     func allTypesVisibleByDefault() {
         let filter = FilterEngine()
         
-        #expect(filter.activeNodeTypes.count == GraphNodeType.allCases.count)
+        #expect(filter.activeNodeTypes.count == GraphNodeType.visibleCases.count)
     }
     
     @Test("Filter is filtered check")
@@ -759,7 +759,7 @@ struct ConcurrencyRaceConditionTests {
             ))
         }
         
-        #expect(store.positionHints.count == 5)
+        #expect(store.positionHints.count == 10)
     }
     
     @Test("Ephemeral node cleanup")

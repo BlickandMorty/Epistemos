@@ -80,11 +80,14 @@ final class FileAgent: OmegaAgent, @unchecked Sendable {
     }
 
     private func jsonEscape(_ s: String) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: s),
-           let str = String(data: data, encoding: .utf8) {
-            return str
+        if let data = try? JSONSerialization.data(withJSONObject: [s]),
+           let arr = String(data: data, encoding: .utf8) {
+            return String(arr.dropFirst().dropLast())
         }
-        return "\"\(s)\""
+        let escaped = s.replacingOccurrences(of: "\\", with: "\\\\")
+                       .replacingOccurrences(of: "\"", with: "\\\"")
+                       .replacingOccurrences(of: "\n", with: "\\n")
+        return "\"\(escaped)\""
     }
 }
 

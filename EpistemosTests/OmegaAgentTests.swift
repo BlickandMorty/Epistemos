@@ -146,14 +146,14 @@ struct OmegaAgentTests {
 
     @Test("NotesAgent has correct toolset")
     func notesAgentToolset() {
-        let agent = NotesAgent(modelContainer: nil)
+        let agent = NotesAgent(modelContainer: nil, vaultSync: nil)
         #expect(agent.name == "notes")
         #expect(agent.toolNames.count == 4)
     }
 
     @Test("NotesAgent fails gracefully without model container")
     func notesAgentNoContainer() async throws {
-        let agent = NotesAgent(modelContainer: nil)
+        let agent = NotesAgent(modelContainer: nil, vaultSync: nil)
         let step = AgentStep(
             description: "Create note",
             assignedAgent: "notes",

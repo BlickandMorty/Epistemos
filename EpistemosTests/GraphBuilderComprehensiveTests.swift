@@ -1180,6 +1180,9 @@ struct GraphBuilderBlockReferenceTests {
             }
 
             sourcePage.body = blockRefs.joined(separator: "\n")
+            // Populate blockReferences explicitly since saveBody() requires disk I/O
+            // that doesn't work with in-memory model containers.
+            sourcePage.blockReferences = (0..<130).map { "block-\($0)" }
             context.insert(sourcePage)
             try context.save()
 

@@ -527,7 +527,13 @@ final class InferenceState {
         }
         if let saved = defaults.string(forKey: "epistemos.preferredChatModelSelection"),
            let selection = ChatModelSelection(rawValue: saved) {
-            self.preferredChatModelSelection = selection
+            // If the saved selection is a cloud model but there's no API key for it,
+            // fall back to local Qwen to avoid unusable cloud routing.
+            if case .cloud(let model) = selection, apiKey(for: model.provider) == nil {
+                self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
+            } else {
+                self.preferredChatModelSelection = selection
+            }
         } else if let migratedSelection = Self.migrateLegacyCloudSelection(defaults: defaults) {
             self.preferredChatModelSelection = migratedSelection
             defaults.set(

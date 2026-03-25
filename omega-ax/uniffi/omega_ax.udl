@@ -16,6 +16,17 @@ namespace omega_ax {
 
     /// Simulate typing text. Returns JSON-encoded result.
     string simulate_type_text(string text);
+
+    // ── Shortcuts ──────────────────────────────────────────────────────────
+
+    /// Run a macOS Shortcuts.app shortcut by name. Returns JSON-encoded result.
+    string run_shortcut_by_name(string name);
+
+    // ── Semantic Automation ─────────────────────────────────────────────────
+
+    /// Find an element by name in an app's AX tree and click its center.
+    /// Returns JSON with success, matched element info, or available elements on failure.
+    string click_element_by_name(i64 pid, string element_name);
 };
 
 // ── Exported Types ──────────────────────────────────────────────────────────

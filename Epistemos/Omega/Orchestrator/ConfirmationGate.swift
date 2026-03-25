@@ -10,6 +10,9 @@ final class ConfirmationGate {
     /// Pending confirmation request (shown in UI when non-nil).
     var pendingConfirmation: ConfirmationRequest?
 
+    /// Continuation awaiting the user's approve/deny decision.
+    private var pendingContinuation: CheckedContinuation<Bool, Never>?
+
     /// Evaluate a step's risk and determine whether to auto-execute or block.
     func evaluate(step: AgentStep) -> ConfirmationDecision {
         switch step.riskLevel {
@@ -24,7 +27,7 @@ final class ConfirmationGate {
         }
     }
 
-    /// Request confirmation from the user. Blocks until approved or denied.
+    /// Request confirmation from the user. Suspends until approved or denied.
     func requestConfirmation(for step: AgentStep) async -> Bool {
         pendingConfirmation = ConfirmationRequest(
             stepId: step.id,
@@ -34,27 +37,26 @@ final class ConfirmationGate {
             riskLevel: step.riskLevel
         )
 
-        // Wait for UI to set the response
-        while pendingConfirmation != nil {
-            try? await Task.sleep(for: .milliseconds(100))
+        return await withCheckedContinuation { continuation in
+            pendingContinuation = continuation
         }
-
-        return lastConfirmationApproved
     }
 
     /// Called by UI when user approves.
     func approve() {
-        lastConfirmationApproved = true
+        let continuation = pendingContinuation
+        pendingContinuation = nil
         pendingConfirmation = nil
+        continuation?.resume(returning: true)
     }
 
     /// Called by UI when user denies.
     func deny() {
-        lastConfirmationApproved = false
+        let continuation = pendingContinuation
+        pendingContinuation = nil
         pendingConfirmation = nil
+        continuation?.resume(returning: false)
     }
-
-    private var lastConfirmationApproved = false
 }
 
 // MARK: - Types
