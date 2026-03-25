@@ -237,5 +237,32 @@ Remaining deferred (architecture changes, not minimal fixes):
 | Views — Shell | `Epistemos/Views/Shell/` |
 | Theme + modifiers | `Epistemos/Theme/` |
 | Tests (Swift) | `EpistemosTests/` |
+| Omega agents | `Epistemos/Omega/Agents/` |
+| Omega orchestrator | `Epistemos/Omega/Orchestrator/` |
+| Omega inference | `Epistemos/Omega/Inference/` |
+| Omega vision | `Epistemos/Omega/Vision/` |
+| Omega distribution | `Epistemos/Omega/Distribution/` |
+| Omega knowledge | `Epistemos/Omega/Knowledge/` |
+| Omega views | `Epistemos/Views/Omega/` |
+| MOHAWK training | `Epistemos/KnowledgeFusion/MOHAWK/` |
+| ODIA traces | `Epistemos/KnowledgeFusion/SyntheticData/` |
+| Instant recall arch | `docs/INSTANT_RECALL_ARCHITECTURE.md` |
 | Audit bible | `docs/future-work-audit.md` |
 | Audit progress | `docs/audit-progress.md` |
+
+## Omega Phase Roadmap
+
+| Phase | Name | Status | Core Deliverables |
+|-------|------|--------|-------------------|
+| Ω10 | Bug Fixes + Wiring | ✅ Done | NotesAgent, FileAgent, logging, ConfirmationGate |
+| Ω11 | Constrained Decoding | ✅ Done | LogitProcessor, mlx-swift-structured SPM |
+| Ω12 | Dual-Brain Foundation | ✅ Done | DeviceAgentService, HardwareTierManager, DualBrainRouter |
+| Ω13 | Computer Use Stack | ✅ Done | AX selectors, Screen2AX fusion, visual verify |
+| Ω14 | Knowledge Graph Integration | ✅ Done | AgentGraphMemory, RecipeGraphSkills, GhostBrain |
+| Ω15 | MOHAWK Distillation | ✅ Prep | mohawk_train.py (real training loops), RunPod automation |
+| Ω16 | Training Pipeline | ✅ Prep | ODIA → TrainingScheduler wired, TraceDataMixer |
+| Ω17 | App Store Distribution | ✅ Prep | AppStoreHelper, SMAppService skeleton |
+| Ω18 | Instant Recall Index | Planned | model2vec + usearch HNSW + binary quantization |
+| Ω19 | Mamba State Injection | Planned | CoreML Mamba-3, state prefill from retrieved notes |
+| Ω20 | Personal LoRA | Planned | MambaPEFT on in/x/dt/out_proj, nightly fine-tune |
+| Ω21 | TurboQuant | Planned | PolarQuant + QJL residual in Rust, 3.5 bits/channel |
