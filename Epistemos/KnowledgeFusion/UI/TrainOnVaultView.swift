@@ -490,16 +490,22 @@ struct TrainOnVaultView: View {
         panel.message = "Select a vault folder to train on"
         panel.prompt = "Train"
 
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        selectedVaultURL = url
+        // Use begin() instead of runModal() — runModal() can hang inside
+        // SwiftUI Settings windows due to modal run loop conflicts.
+        panel.begin { [vm] response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                selectedVaultURL = url
+            }
 
-        // Analyze vault off main thread — synchronous file I/O can take seconds on large vaults
-        let memoryGB = vm.systemMemoryGB
-        Task.detached { [vm] in
-            let analyzer = VaultAnalyzer()
-            let analysis = analyzer.analyze(vaultURL: url, systemMemoryGB: memoryGB)
-            await MainActor.run {
-                vm.applyVaultAnalysis(analysis)
+            // Analyze vault off main thread
+            let memoryGB = vm.systemMemoryGB
+            Task.detached {
+                let analyzer = VaultAnalyzer()
+                let analysis = analyzer.analyze(vaultURL: url, systemMemoryGB: memoryGB)
+                await MainActor.run {
+                    vm.applyVaultAnalysis(analysis)
+                }
             }
         }
     }
