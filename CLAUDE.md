@@ -267,6 +267,18 @@ Remaining deferred (architecture changes, not minimal fixes):
 | Ω16 | Training Pipeline | ✅ Prep | ODIA → TrainingScheduler wired, TraceDataMixer |
 | Ω17 | App Store Distribution | ✅ Prep | AppStoreHelper, SMAppService skeleton |
 | Ω18 | Instant Recall Index | Planned | model2vec + usearch HNSW + binary quantization |
-| Ω19 | Mamba State Injection | Planned | CoreML Mamba-3, state prefill from retrieved notes |
-| Ω20 | Personal LoRA | Planned | MambaPEFT on in/x/dt/out_proj, nightly fine-tune |
+| Ω19 | Mamba State Injection | Planned | CoreML Mamba-2, state prefill, speculative decoding (Mirror-SD/ReDrafter 2-3x) |
+| Ω20 | Personal LoRA | Planned | MambaPEFT on in/x/dt/out_proj, LOGRA data Shapley, nightly fine-tune |
 | Ω21 | TurboQuant | Planned | PolarQuant + QJL residual in Rust, 3.5 bits/channel |
+| Ω22 | Safety Layer | Planned | Referee Model (INT4 1B on ANE), Seatbelt sandboxing, zero-trust MCP gateway |
+| Ω23 | CRDT Ghost-Brain | Planned | Dual-buffer co-authoring (user buf + shadow buf), ghost text via CRDT convergence |
+| Ω24 | Advanced Reasoning | Stretch | KG-Trie graph-constrained reasoning, R2F selective unlearning, EMMET fact editing |
+
+### Stretch Goals (from research, not scheduled)
+
+- **Voyager-style skill caching**: Hash successful DAGs as immutable recipes (partial in RecipeGraphSkills)
+- **Mirror-SD speculative decoding**: Nano drafts, Base verifies — breaks serial barrier (Ω19)
+- **LOGRA In-Run Data Shapley**: Prune negative-value training examples automatically (Ω20)
+- **HW-NAS**: Multi-objective Pareto optimization for M-series AMX/UMA alignment
+- **Neural Cloud shader**: Metal force-directed graph with pulsing nodes showing agent activity
+- **Codex 5.4 auditor workflow**: Deterministic quality anchors via Plan.md/Implement.md cycle
