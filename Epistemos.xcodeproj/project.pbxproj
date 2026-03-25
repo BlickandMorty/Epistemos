@@ -161,6 +161,8 @@
 		52D8F99A34806059B75BA3BF /* TextKit2BenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38FD7B70ADC856E3F250C889 /* TextKit2BenchmarkTests.swift */; };
 		5432FF70B02C2F7DE287CCAB /* SDPage+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBD84760F9ECD2E997B4FAAD /* SDPage+Queries.swift */; };
 		552A7BC25EAFB7B223DBC3F1 /* OmegaToolCallParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769CE4A6209D4A83FD5F2E4F /* OmegaToolCallParserTests.swift */; };
+		C4D5E6F7A8B9C0D1E2F3A4B5 /* OmegaToolSchemaGrammarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F3A4B5C6D7E8F9A0B1C2D3 /* OmegaToolSchemaGrammarTests.swift */; };
+		D3E4F5A6B7C8D9E0F1A2B3C4 /* OmegaAXSemanticSelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* OmegaAXSemanticSelectorTests.swift */; };
 		567A4F55CD1DAD0EF7363E9F /* HologramNodeInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B250D49A16B04364E4C70CC /* HologramNodeInspector.swift */; };
 		57A1910B67F7C7677027F0EC /* MetalGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ADCB840CB12BFA53D074A47 /* MetalGraphView.swift */; };
 		5A99228979EEFCB222451FBD /* ClickableTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 631B76DC8FFADF44A0EB0F6C /* ClickableTextView.swift */; };
@@ -565,6 +567,8 @@
 		754226FC01F5F8A079D73636 /* ConcurrencyStressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyStressTests.swift; sourceTree = "<group>"; };
 		7655BFE12DB860A15C57C7EF /* OmegaCSISafeguardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaCSISafeguardTests.swift; path = EpistemosTests/OmegaCSISafeguardTests.swift; sourceTree = SOURCE_ROOT; };
 		769CE4A6209D4A83FD5F2E4F /* OmegaToolCallParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaToolCallParserTests.swift; path = EpistemosTests/OmegaToolCallParserTests.swift; sourceTree = SOURCE_ROOT; };
+		E2F3A4B5C6D7E8F9A0B1C2D3 /* OmegaToolSchemaGrammarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaToolSchemaGrammarTests.swift; path = EpistemosTests/OmegaToolSchemaGrammarTests.swift; sourceTree = SOURCE_ROOT; };
+		F1A2B3C4D5E6F7A8B9C0D1E2 /* OmegaAXSemanticSelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaAXSemanticSelectorTests.swift; path = EpistemosTests/OmegaAXSemanticSelectorTests.swift; sourceTree = SOURCE_ROOT; };
 		76A7AFD1880A4D3D23374E42 /* VaultSyncServiceAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultSyncServiceAuditTests.swift; sourceTree = "<group>"; };
 		7923A133620F989762D7A9C6 /* BlockEmbeddingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEmbeddingTests.swift; sourceTree = "<group>"; };
 		794980F4DF947ACA2B3CD474 /* BlockParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockParser.swift; sourceTree = "<group>"; };
@@ -1286,7 +1290,9 @@
 		D8F909B4136260E53B042874 /* EpistemosTests */ = {
 			isa = PBXGroup;
 			children = (
+				F1A2B3C4D5E6F7A8B9C0D1E2 /* OmegaAXSemanticSelectorTests.swift */,
 				769CE4A6209D4A83FD5F2E4F /* OmegaToolCallParserTests.swift */,
+				E2F3A4B5C6D7E8F9A0B1C2D3 /* OmegaToolSchemaGrammarTests.swift */,
 				0B4F08980905EFFCBB4B3CFF /* OmegaTaskGraphTests.swift */,
 				9C85450876F1A6DA505C6F2E /* OmegaConfirmationGateTests.swift */,
 				DAC085DB9CD5C51EB54EF9F4 /* OmegaAgentTests.swift */,
@@ -1669,6 +1675,8 @@
 				A518698AA84DE7F748DD375C /* OmegaConfirmationGateTests.swift in Sources */,
 				0AD8DC91EC3B85B107C7EE05 /* OmegaTaskGraphTests.swift in Sources */,
 				552A7BC25EAFB7B223DBC3F1 /* OmegaToolCallParserTests.swift in Sources */,
+				D3E4F5A6B7C8D9E0F1A2B3C4 /* OmegaAXSemanticSelectorTests.swift in Sources */,
+				C4D5E6F7A8B9C0D1E2F3A4B5 /* OmegaToolSchemaGrammarTests.swift in Sources */,
 				44893EA9F79A4573A3ECFA17 /* EndToEndTest.swift in Sources */,
 				424EED9320C843FDBE13EF13 /* ForgettingTest.swift in Sources */,
 				45F64DCD1A9C4C1C8A94662F /* PrivacyTest.swift in Sources */,
