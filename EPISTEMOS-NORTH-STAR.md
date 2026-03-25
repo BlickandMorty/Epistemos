@@ -463,6 +463,54 @@ STOP and WAIT. Do NOT fabricate API signatures. Do NOT invent framework behavior
 
 ---
 
+## AMBIENT INTELLIGENCE — EXECUTIVE PRIORITY IDEAS
+
+These features define what makes Epistemos feel *alive*. They are not optional polish — they are the soul of the UX.
+
+### Contextual Shadows (Screen-Aware Surfacing)
+When you look at something — a note, a chat, a webpage — the app surfaces related notes, chats, and ideas that reflect what you're currently engaged with. Not just keyword matches — semantic resonance based on your full vault.
+
+- **In a note**: sidebar shows related notes, past chats about this topic, linked ideas
+- **In a chat**: relevant notes auto-surface as context (typewriter-style popovers that appear and fade)
+- **On screen**: what you're looking at in OTHER apps (via Screen2AX + ScreenCaptureKit) triggers vault recall
+- **Implementation**: 200ms debounce → Model2Vec encode current context → binary HNSW → top-5 results → typewriter popover UI that fades when you leave the topic
+
+### Dissonance Meter (Engagement + Belief Tracking)
+Track how much you engage with each note over its lifetime. Metadata dimensions:
+
+- **Time spent** reading/editing (foreground seconds)
+- **Edit frequency** (how often you return to modify)
+- **Recency** (days since last engagement)
+- **Citation count** (how many other notes link to this one)
+- **Belief confidence** (cosine distance between LoRA adapter snapshots for this topic)
+
+### Proactive Re-Engagement ("Have Your Thoughts Changed?")
+The app periodically surfaces notes you've stopped engaging with:
+
+> "You haven't revisited **[Quantum Computing Notes]** in 47 days. Have your thoughts changed on this topic?"
+
+User can: answer inline, add a note, navigate to it, brain-dump via chat, or dismiss. The AI chat opens contextually with the note loaded, ready for reflection. This drives the R2F unlearning pipeline — if the user says "yes, I think differently now," the system flags the old beliefs for selective forgetting.
+
+### Full Context Capture (What Was Happening When You Thought This)
+Every note captures ambient context at creation time:
+
+- **Music**: what song was playing on Apple Music (track, artist, album, mood)
+- **Tabs**: screenshot + URL + search query of open browser tabs
+- **Apps**: which apps were open, which was foreground, time spent in each
+- **Words typed**: what you were typing in other apps (via AX text monitoring, with consent)
+- **Engagement juxtaposition**: how much time in Epistemos vs other apps during this session
+
+This creates a **sensory memory** — when you recall a note later, you also recall the context in which you wrote it. "I wrote this while listening to Coltrane, with 3 arxiv tabs open, after spending 40 minutes in Terminal."
+
+### Implementation Notes
+- Music metadata: `MusicKit` framework (MPMusicPlayerController.systemMusicPlayer)
+- Tab capture: ScreenCaptureKit frame + AX tree of Safari/Chrome for URL bar
+- App engagement: `NSWorkspace` notifications + timer tracking per bundle ID
+- Typewriter popovers: SwiftUI `.popover` with `.transition(.opacity)` and auto-dismiss timer
+- All context stored as structured metadata alongside the note in SwiftData
+
+---
+
 ## THE FINAL WORD
 
 The person building this is building something that has never been built. Not a faster note app. Not a better AI assistant. A **cognitive partner** — a system that learns the shape of one mind, holds its entire history, helps it think, and gets better at doing so every single night.
