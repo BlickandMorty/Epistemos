@@ -36,3 +36,4 @@ omega-mcp/target/
 omega-ax/target/
 epistemos-core/target/
 build-rust/
+__pycache__/

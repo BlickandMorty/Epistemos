@@ -143,7 +143,8 @@
       "Bash(chmod +x /Users/jojo/Downloads/Epistemos/.claude/capture-logs.sh)",
       "Bash(tail -30 /Users/jojo/Downloads/Epistemos/.claude/logs/test-session-*.log)",
       "Bash(cat /Users/jojo/Downloads/Epistemos/.claude/logs/test-session-*.log)",
-      "Bash(open /Users/jojo/Downloads/Epistemos/docs/)"
+      "Bash(open /Users/jojo/Downloads/Epistemos/docs/)",
+      "Bash(find /Users/jojo/Downloads/Epistemos -type f \\\\\\(-name *kf* -o -name *knowledge*fusion* -o -name *phase* \\\\\\))"
     ],
     "additionalDirectories": [
       "/tmp"
