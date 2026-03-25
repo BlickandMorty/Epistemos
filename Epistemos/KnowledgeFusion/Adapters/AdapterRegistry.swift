@@ -137,6 +137,18 @@ actor AdapterRegistry {
     }
 
     var count: Int { records.count }
+
+    /// Returns active adapters as MoLoRA config structs for the inference service.
+    func getActiveAdapterConfigs() -> [MoLoRAAdapterConfig] {
+        getActiveAdapters().map { record in
+            MoLoRAAdapterConfig(
+                path: record.adapterPath.path,
+                type: record.type.rawValue,
+                rank: record.loraRank,
+                alpha: record.loraRank * 2  // Convention: alpha = 2 * rank
+            )
+        }
+    }
 }
 
 // MARK: - Errors

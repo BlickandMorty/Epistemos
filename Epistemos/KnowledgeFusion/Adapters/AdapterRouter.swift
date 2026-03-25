@@ -33,42 +33,19 @@ nonisolated struct AdapterRouter: Sendable {
 
     // MARK: - Mode B: Automatic
 
-    /// Classifies the prompt and returns the recommended adapter type.
-    func routeAutomatic(prompt: String) -> AdapterType? {
-        let lower = prompt.lowercased()
+    /// Classifies the prompt via Rust FFI and returns the recommended adapter type.
+    @MainActor func routeAutomatic(prompt: String) -> AdapterType? {
+        let decision = routePrompt(prompt: prompt)
 
-        // Style cues: personal writing assistance
-        let styleCues = [
-            "help me write", "in my style", "rewrite this",
-            "match my tone", "how would i say", "draft a",
-            "writing style", "personal voice", "sound like me",
-        ]
-        if styleCues.contains(where: { lower.contains($0) }) {
-            return .style
+        // Only route if confidence is sufficient
+        guard decision.confidence >= 0.6 else { return nil }
+
+        switch decision.adapterType {
+        case "style": return .style
+        case "tool": return .tool
+        case "knowledge": return .knowledge
+        default: return nil
         }
-
-        // Tool cues: API/code/function usage
-        let toolCues = [
-            "how to use", "api", "function", "endpoint",
-            "code", "command", "script", "import", "install",
-            "configure", "setup", "debug", "compile",
-        ]
-        let toolHits = toolCues.filter { lower.contains($0) }.count
-        if toolHits >= 2 { return .tool }
-
-        // Knowledge cues: factual lookup from vault
-        let knowledgeCues = [
-            "what is", "according to my notes", "from my vault",
-            "what did i write about", "my research on",
-            "remind me about", "summarize my notes on",
-            "what do i know about",
-        ]
-        if knowledgeCues.contains(where: { lower.contains($0) }) {
-            return .knowledge
-        }
-
-        // Default: no adapter (use base model)
-        return nil
     }
 
     // MARK: - Mode C: MoLoRA Scaffold
@@ -91,10 +68,11 @@ nonisolated struct AdapterRouter: Sendable {
     // Until these prerequisites are available, use Mode A (explicit) or
     // Mode B (automatic per-request) routing instead.
 
-    /// Placeholder for MoLoRA per-token routing. Returns nil (not implemented).
+    /// MoLoRA per-token routing is handled by the Python-side AdaFuse router
+    /// in MoLoRAInferenceService. This Swift-side method is not used directly —
+    /// the routing decision happens inside molora_inference.py at layer 0.
+    /// See MoLoRAInferenceService.generate() for the actual routing path.
     func routeToken(token: Int, context: [Int]) -> UUID? {
-        // MoLoRA per-token routing not yet implemented.
-        // See TODO above for prerequisites.
-        nil
+        nil  // Routing handled by Python-side AdaFuse in MoLoRAInferenceService
     }
 }

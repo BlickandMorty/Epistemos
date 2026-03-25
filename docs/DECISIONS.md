@@ -48,6 +48,13 @@
 ### D-012: osascript via Swift Process (not Rust objc crate)
 - **Reason**: Wrapping osascript via Process("/usr/bin/osascript") in Swift is simpler and safer than using the objc Rust crate for NSAppleScript. The Rust layer handles AX tree and CGEvent (low-level FFI); Swift handles higher-level system scripting.
 
-### D-005: Xcode integration deferred
+### D-005: Xcode integration — RESOLVED in Phase 2
 - **Spec said**: Modify `Epistemos.xcodeproj`
-- **Decision**: Deferred. The generated Swift bindings exist at `build-rust/swift-bindings/` but aren't wired into Xcode yet. Phase 1 will wire them when `KnowledgeFusionViewModel` needs to call Rust functions. This avoids a broken intermediate state where the Xcode project references symbols it can't link.
+- **Original decision**: Deferred in Phase 0-1 to avoid broken intermediate state.
+- **Phase 2 resolution**: Wired `epistemos_core.swift` into Xcode. Linked as **dylib** (not staticlib) because the new Apple ld (ld-1230) errors on duplicate Rust stdlib symbols when multiple Rust static libraries are linked into the same binary. Using cdylib avoids this since the dylib bundles its own stdlib privately.
+- **Build script** (`build-epistemos-core.sh`) updated to copy dylib + sync FFI header into module map directory.
+
+### D-013: epistemos-core linked as dylib (not staticlib)
+- **Problem**: Linking `libepistemos_core.a` alongside `libgraph_engine.a` produces "duplicate symbol" errors for Rust stdlib objects (core::panicking, std::io, alloc). Both static libs independently bundle the full Rust stdlib. Apple's new linker (ld-1230, Xcode 17) is strict about this — no `-multiply_defined,suppress` support.
+- **Alternatives**: (1) Cargo workspace to produce single staticlib — breaks D-003/D-009 independence; (2) Strip stdlib from one lib — breaks symbols needed by its own dependencies; (3) Use dylib — clean solution, dylib bundles its own stdlib privately.
+- **Decision**: Use `cdylib` for epistemos-core. The `build-epistemos-core.sh` script copies `libepistemos_core.dylib` to `build-rust/`. `@rpath` includes `$(PROJECT_DIR)/build-rust`. For production release, the dylib should be embedded in the app bundle's Frameworks directory.

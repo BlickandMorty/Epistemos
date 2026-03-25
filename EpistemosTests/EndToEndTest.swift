@@ -148,11 +148,11 @@ struct EndToEndTest {
         // Step 1: Parse vault
         let parser = VaultParser()
         let parseResult = await parser.parseVault(at: vaultURL)
-        #expect(parseResult.parsedFiles == 5)
+        #expect(parseResult.parsedItems == 5)
         #expect(parseResult.errors.isEmpty)
 
         // Step 2: Chunk documents
-        let chunker = DocumentChunker(maxTokens: 1500, minWords: 50)
+        let chunker = DocumentChunker()
         let chunks = chunker.chunkAll(documents: parseResult.documents)
         #expect(!chunks.isEmpty)
         #expect(chunks.count >= 5, "Should produce at least one chunk per document")

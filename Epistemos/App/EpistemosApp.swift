@@ -107,6 +107,7 @@ struct ModularZoomWindowObserver: NSViewRepresentable {
 struct EpistemosApp: App {
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
     @State private var bootstrap = AppBootstrap()
+    @AppStorage("epistemos.setupComplete") private var setupComplete = false
 
     var body: some Scene {
         Window("Epistemos", id: "main") {
@@ -116,11 +117,11 @@ struct EpistemosApp: App {
             )
                 .withAppEnvironment(bootstrap)
                 .sheet(isPresented: Binding(
-                    get: { !UserDefaults.standard.bool(forKey: "epistemos.setupComplete") },
-                    set: { if !$0 { UserDefaults.standard.set(true, forKey: "epistemos.setupComplete") } }
+                    get: { !setupComplete },
+                    set: { if !$0 { setupComplete = true } }
                 )) {
                     SetupAssistantView {
-                        UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
+                        setupComplete = true
                     }
                     .environment(bootstrap.vaultSync)
                     .environment(bootstrap.inferenceState)

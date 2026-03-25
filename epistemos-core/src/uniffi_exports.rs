@@ -5,6 +5,9 @@ use crate::vault_analyzer::mtld;
 use crate::vault_analyzer::token_estimator;
 use crate::vault_analyzer::classifier;
 use crate::vault_analyzer::boilerplate_filter;
+use crate::vault_analyzer::chunker;
+use crate::quality_filter;
+use crate::skill_engine;
 use crate::auto_tuner::hyperparams;
 use crate::auto_tuner::rank_selector;
 use crate::scheduler::tier_scheduler;
@@ -33,6 +36,28 @@ pub fn classify_document(content: String) -> classifier::DocumentClassification 
 
 pub fn filter_boilerplate(content: String) -> boilerplate_filter::BoilerplateResult {
     boilerplate_filter::filter_boilerplate(&content).into()
+}
+
+// ── Document Chunking ────────────────────────────────────────────────────────
+
+pub fn chunk_document(content: String) -> chunker::ChunkDocumentResult {
+    chunker::chunk_document(&content)
+}
+
+// ── Quality Filter ───────────────────────────────────────────────────────────
+
+pub fn dedup_texts(texts_json: String, threshold: f64) -> quality_filter::DedupResult {
+    quality_filter::dedup_texts(&texts_json, threshold)
+}
+
+pub fn score_training_pair(instruction: String, response: String, min_score: f64) -> quality_filter::QualityScore {
+    quality_filter::score_training_pair(&instruction, &response, min_score)
+}
+
+// ── Adapter Routing ─────────────────────────────────────────────────────────
+
+pub fn route_prompt(prompt: String) -> skill_engine::RoutingDecision {
+    skill_engine::route_prompt(&prompt)
 }
 
 // ── Auto-Tuning ─────────────────────────────────────────────────────────────

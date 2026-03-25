@@ -207,14 +207,14 @@ final class KnowledgeFusionViewModel {
             let chunks = chunker.chunkAll(documents: parseResult.documents)
 
             guard !chunks.isEmpty else {
-                lastTrainingError = "No text content found in vault (\(parseResult.parsedFiles) files parsed, \(parseResult.errors.count) errors)"
+                lastTrainingError = "No text content found in vault (\(parseResult.parsedItems) files parsed, \(parseResult.errors.count) errors)"
                 trainingState = .error
                 return
             }
 
             // Phase 2: Generate synthetic data
             trainingState = .generating
-            progress = KFProgress(phase: "Generating training data from \(chunks.count) chunks (\(parseResult.parsedFiles) notes)...", percentage: 0.10, eta: nil)
+            progress = KFProgress(phase: "Generating training data from \(chunks.count) chunks (\(parseResult.parsedItems) notes)...", percentage: 0.10, eta: nil)
             let outputDir = FileManager.default.temporaryDirectory
                 .appendingPathComponent("kf-training-\(UUID().uuidString)")
             let generator = SyntheticDataGenerator(
@@ -263,6 +263,15 @@ final class KnowledgeFusionViewModel {
             let pyEnv = PythonEnvironmentManager.shared
             try? pyEnv.deployScripts()
 
+            // Prepare experience replay buffer (10% general data to prevent catastrophic forgetting)
+            let replayBuffer = ExperienceReplayBuffer()
+            let replayPath = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("Epistemos/replay-buffer/general.jsonl")
+            var replayDataPath: URL? = nil
+            if FileManager.default.fileExists(atPath: replayPath.path) {
+                replayDataPath = replayPath
+            }
+
             let trainer = QLoRATrainer(
                 pythonPath: pyEnv.isReady ? pyEnv.pythonPath : "/usr/bin/python3",
                 scriptsDirectory: pyEnv.scriptsDirectory
@@ -284,6 +293,7 @@ final class KnowledgeFusionViewModel {
                     modelPath: modelPath,
                     dataPath: dataURL,
                     outputPath: adapterOutputDir,
+                    replayPath: replayDataPath,
                     config: config
                 ) { [weak self] tp in
                     Task { @MainActor in
@@ -300,6 +310,7 @@ final class KnowledgeFusionViewModel {
                     modelPath: modelPath,
                     dataPath: dataURL,
                     outputPath: adapterOutputDir,
+                    replayPath: replayDataPath,
                     config: config
                 ) { [weak self] tp in
                     Task { @MainActor in

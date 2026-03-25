@@ -22,6 +22,27 @@ namespace epistemos_core {
     /// Filter boilerplate from content. Returns cleaned text, removed byte count, and JSON array of section names removed.
     BoilerplateResult filter_boilerplate(string content);
 
+    /// Chunk a markdown document by headers. Returns JSON array of chunks with heading hierarchy.
+    /// Each chunk carries a hierarchy prefix (e.g. "# Top > ## Sub > ### Detail").
+    /// Min 50 tokens, max 2048 tokens. Orphans merged, oversized split at paragraph boundaries.
+    ChunkDocumentResult chunk_document(string content);
+
+    // ── Quality Filter ────────────────────────────────────────────────────
+
+    /// Deduplicate texts using MinHash near-duplicate detection.
+    /// texts_json: JSON array of strings. threshold: Jaccard similarity threshold (0.0-1.0).
+    DedupResult dedup_texts(string texts_json, double threshold);
+
+    /// Score a training pair's quality based on text characteristics.
+    /// Returns score (0-1) and whether it passes the minimum threshold.
+    QualityScore score_training_pair(string instruction, string response, double min_score);
+
+    // ── Adapter Routing ───────────────────────────────────────────────────
+
+    /// Classify a prompt to determine which adapter type to route to.
+    /// Returns adapter_type ("knowledge", "style", "tool", "general") and confidence.
+    RoutingDecision route_prompt(string prompt);
+
     // ── Auto-Tuning ─────────────────────────────────────────────────────────
 
     /// Data-aware LoRA rank selection from MTLD + token count.
@@ -99,4 +120,27 @@ dictionary BoilerplateResult {
     string cleaned;
     u64 removed_bytes;
     string sections_removed_json;
+};
+
+dictionary ChunkDocumentResult {
+    string chunks_json;
+    u32 chunk_count;
+    u64 total_tokens;
+};
+
+dictionary DedupResult {
+    string keep_indices_json;
+    u32 duplicate_count;
+    u32 unique_count;
+};
+
+dictionary QualityScore {
+    double score;
+    boolean passes;
+    string reason;
+};
+
+dictionary RoutingDecision {
+    string adapter_type;
+    double confidence;
 };

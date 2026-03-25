@@ -146,9 +146,38 @@ def main():
     # Prepare data directory (mlx-lm expects train.jsonl in a directory)
     from pathlib import Path
     import shutil
+    import random
     data_dir = Path(args.output_path) / "_training_data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(args.data_path, data_dir / "train.jsonl")
+
+    # Mix in experience replay data if provided (10% interleaving)
+    if args.replay_path and os.path.exists(args.replay_path):
+        with open(args.data_path, "r") as f:
+            vault_lines = [l for l in f if l.strip()]
+        with open(args.replay_path, "r") as f:
+            replay_lines = [l for l in f if l.strip()]
+        if replay_lines:
+            replay_count = max(1, int(len(vault_lines) * REPLAY_RATIO / (1.0 - REPLAY_RATIO)))
+            sampled = [random.choice(replay_lines) for _ in range(replay_count)]
+            # Interleave evenly throughout training data
+            interval = max(1, len(vault_lines) // len(sampled)) if sampled else len(vault_lines)
+            mixed = []
+            si = 0
+            for i, line in enumerate(vault_lines):
+                mixed.append(line)
+                if (i + 1) % interval == 0 and si < len(sampled):
+                    mixed.append(sampled[si])
+                    si += 1
+            while si < len(sampled):
+                mixed.append(sampled[si])
+                si += 1
+            with open(data_dir / "train.jsonl", "w") as f:
+                f.write("".join(mixed))
+            print(f"Mixed {len(vault_lines)} vault + {len(sampled)} replay examples")
+        else:
+            shutil.copy2(args.data_path, data_dir / "train.jsonl")
+    else:
+        shutil.copy2(args.data_path, data_dir / "train.jsonl")
     # Do NOT create empty valid/test files — mlx-lm returns [] for missing files
     # but crashes on empty files (IndexError: list index out of range)
 
@@ -173,13 +202,16 @@ def main():
     os.makedirs(args.output_path, exist_ok=True)
     adapter_file = os.path.join(args.output_path, "adapter_weights.safetensors")
 
+    # Checkpoint every 100 steps, keep last 3
+    CHECKPOINT_INTERVAL = 100
+
     # Training arguments
     training_args = TrainingArgs(
         batch_size=BATCH_SIZE,
         iters=args.num_iters,
         steps_per_report=10,
         steps_per_eval=0,
-        steps_per_save=args.num_iters,  # Save at the end
+        steps_per_save=CHECKPOINT_INTERVAL,
         adapter_file=adapter_file,
         max_seq_length=MAX_SEQ_LEN,
     )
@@ -202,6 +234,18 @@ def main():
 
     t_end = time.time()
     duration = t_end - t_start
+
+    # Keep only last 3 checkpoints (clean up older ones)
+    import glob
+    checkpoints = sorted(glob.glob(os.path.join(args.output_path, "*.safetensors")))
+    # The final adapter_weights.safetensors is the latest — keep it plus 2 most recent checkpoints
+    if len(checkpoints) > 3:
+        for old_ckpt in checkpoints[:-3]:
+            try:
+                os.remove(old_ckpt)
+                print(f"Removed old checkpoint: {os.path.basename(old_ckpt)}")
+            except OSError:
+                pass
 
     # Save training metadata
     metadata = {

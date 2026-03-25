@@ -49,24 +49,54 @@ nonisolated struct QualityCurator: Sendable {
 
     // MARK: - Public
 
-    func curate(pairs: [GeneratedPair]) -> CurationResult {
-        // 1. Quality filter: discard < threshold
+    @MainActor func curate(pairs: [GeneratedPair]) -> CurationResult {
+        // 1. Quality filter: discard < threshold (LLM self-score)
         let qualityFiltered = pairs.filter { $0.qualityScore >= qualityThreshold }
-        let discardedCount = pairs.count - qualityFiltered.count
+        var discardedCount = pairs.count - qualityFiltered.count
 
-        // 2. Deduplicate by SHA-256 hash of (question, answer)
+        // 1b. Rust-side quality scoring (text characteristics check)
+        let rustFiltered = qualityFiltered.filter { pair in
+            let result = scoreTrainingPair(instruction: pair.question, response: pair.answer, minScore: 0.5)
+            return result.passes
+        }
+        discardedCount += qualityFiltered.count - rustFiltered.count
+
+        // 2. Exact dedup by SHA-256 hash of (question, answer)
         var seenHashes: Set<String> = []
-        var deduplicated: [GeneratedPair] = []
-        deduplicated.reserveCapacity(qualityFiltered.count)
+        var exactDeduped: [GeneratedPair] = []
+        exactDeduped.reserveCapacity(rustFiltered.count)
         var duplicateCount = 0
 
-        for pair in qualityFiltered {
+        for pair in rustFiltered {
             let hash = hashPair(question: pair.question, answer: pair.answer)
             if seenHashes.insert(hash).inserted {
-                deduplicated.append(pair)
+                exactDeduped.append(pair)
             } else {
                 duplicateCount += 1
             }
+        }
+
+        // 2b. MinHash near-duplicate detection via Rust FFI
+        let deduplicated: [GeneratedPair]
+        if exactDeduped.count > 1 {
+            let texts = exactDeduped.map { $0.question + " ||| " + $0.answer }
+            if let textsJson = try? JSONEncoder().encode(texts),
+               let textsStr = String(data: textsJson, encoding: .utf8) {
+                let dedupResult = dedupTexts(textsJson: textsStr, threshold: 0.8)
+                if let indicesData = dedupResult.keepIndicesJson.data(using: .utf8),
+                   let keepIndices = try? JSONDecoder().decode([Int].self, from: indicesData) {
+                    deduplicated = keepIndices.compactMap { idx in
+                        idx < exactDeduped.count ? exactDeduped[idx] : nil
+                    }
+                    duplicateCount += Int(dedupResult.duplicateCount)
+                } else {
+                    deduplicated = exactDeduped
+                }
+            } else {
+                deduplicated = exactDeduped
+            }
+        } else {
+            deduplicated = exactDeduped
         }
 
         // 3. Classify each pair

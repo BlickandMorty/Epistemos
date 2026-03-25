@@ -352,7 +352,8 @@ final class PythonEnvironmentManager {
             process.executableURL = URL(fileURLWithPath: executable)
             process.arguments = arguments
             process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
+            let stderrPipe = Pipe()
+            process.standardError = stderrPipe
 
             do {
                 try process.run()
@@ -360,7 +361,12 @@ final class PythonEnvironmentManager {
                 if process.terminationStatus == 0 {
                     continuation.resume(returning: process.terminationStatus)
                 } else {
-                    continuation.resume(throwing: PythonEnvError.processExitCode(process.terminationStatus))
+                    let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    let stderrText = String(data: stderrData, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    let cmd = ([executable] + arguments).joined(separator: " ")
+                    let detail = stderrText.isEmpty ? cmd : "\(cmd)\n\(stderrText.prefix(500))"
+                    continuation.resume(throwing: PythonEnvError.processExitCode(process.terminationStatus, detail: detail))
                 }
             } catch {
                 continuation.resume(throwing: error)
@@ -385,7 +391,8 @@ final class PythonEnvironmentManager {
                 if process.terminationStatus == 0 {
                     continuation.resume(returning: output)
                 } else {
-                    continuation.resume(throwing: PythonEnvError.processExitCode(process.terminationStatus))
+                    let cmd = ([executable] + arguments).joined(separator: " ")
+                    continuation.resume(throwing: PythonEnvError.processExitCode(process.terminationStatus, detail: cmd))
                 }
             } catch {
                 continuation.resume(throwing: error)
@@ -398,14 +405,14 @@ final class PythonEnvironmentManager {
 
 enum PythonEnvError: LocalizedError {
     case noPythonFound
-    case processExitCode(Int32)
+    case processExitCode(Int32, detail: String)
 
     var errorDescription: String? {
         switch self {
         case .noPythonFound:
             return "Python 3 not found. Install Python from python.org or via Homebrew (brew install python3)."
-        case .processExitCode(let code):
-            return "Process exited with code \(code)."
+        case .processExitCode(let code, let detail):
+            return "Process exited with code \(code).\n\(detail)"
         }
     }
 }

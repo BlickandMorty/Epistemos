@@ -1,5 +1,6 @@
 import Foundation
 import PDFKit
+import SwiftData
 
 // MARK: - Types
 
@@ -16,21 +17,25 @@ struct DocumentMetadata: Sendable {
     let modifiedAt: Date?
     let wordCount: Int
     let sourceVault: String
+    let classification: String  // prose / source_code / technical_docs / mixed_media
+    let boilerplateRemoved: UInt64
 }
 
 struct ParsedDocument: Sendable, Identifiable {
     let id: UUID
-    let sourceURL: URL
+    let sourcePageId: String?  // SDPage.id for provenance tracking (nil for filesystem-only)
+    let sourceURL: URL?
     let fileType: DocumentFileType
-    let rawText: String
+    let rawText: String        // Original text
+    let cleanedText: String    // After boilerplate filtering
     let metadata: DocumentMetadata
 }
 
 struct VaultParseResult: Sendable {
     let documents: [ParsedDocument]
-    let errors: [(URL, String)]
-    let totalFiles: Int
-    let parsedFiles: Int
+    let errors: [(String, String)]  // (identifier, error message)
+    let totalItems: Int
+    let parsedItems: Int
 }
 
 // MARK: - VaultParser
@@ -41,6 +46,64 @@ actor VaultParser {
     private static let textExtensions: Set<String> = ["txt", "text"]
     private static let audioExtensions: Set<String> = ["m4a", "mp3", "wav", "ogg", "flac"]
 
+    // MARK: - SDPage-based parsing (primary path for Knowledge Fusion)
+
+    /// Parse all SDPages from SwiftData, applying Rust classifier + boilerplate filter.
+    /// This is the main entry point for Knowledge Fusion's data ingestion.
+    @MainActor
+    func parsePages(_ pages: [SDPage]) -> VaultParseResult {
+        var documents: [ParsedDocument] = []
+        var errors: [(String, String)] = []
+        documents.reserveCapacity(pages.count)
+
+        for page in pages {
+            let body = page.loadBody()
+            guard !body.isEmpty else { continue }
+
+            // Classify via Rust FFI
+            let classification = classifyDocument(content: body)
+
+            // Filter boilerplate via Rust FFI
+            let filtered = filterBoilerplate(content: body)
+
+            let cleanedText = filtered.cleaned
+            guard !cleanedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                continue
+            }
+
+            let wordCount = cleanedText.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+
+            let metadata = DocumentMetadata(
+                title: page.title,
+                createdAt: page.createdAt,
+                modifiedAt: page.updatedAt,
+                wordCount: wordCount,
+                sourceVault: "SwiftData",
+                classification: classification.docType,
+                boilerplateRemoved: filtered.removedBytes
+            )
+
+            documents.append(ParsedDocument(
+                id: UUID(),
+                sourcePageId: page.id,
+                sourceURL: page.filePath.flatMap { URL(fileURLWithPath: $0) },
+                fileType: .markdown,
+                rawText: body,
+                cleanedText: cleanedText,
+                metadata: metadata
+            ))
+        }
+
+        return VaultParseResult(
+            documents: documents,
+            errors: errors,
+            totalItems: pages.count,
+            parsedItems: documents.count
+        )
+    }
+
+    // MARK: - Filesystem-based parsing (for vault directory import)
+
     func parseVault(at directoryURL: URL, vaultName: String? = nil) async -> VaultParseResult {
         let fm = FileManager.default
         let vault = vaultName ?? directoryURL.lastPathComponent
@@ -50,7 +113,7 @@ actor VaultParser {
             includingPropertiesForKeys: [.isRegularFileKey, .creationDateKey, .contentModificationDateKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         ) else {
-            return VaultParseResult(documents: [], errors: [(directoryURL, "Cannot enumerate directory")], totalFiles: 0, parsedFiles: 0)
+            return VaultParseResult(documents: [], errors: [(directoryURL.path, "Cannot enumerate directory")], totalItems: 0, parsedItems: 0)
         }
 
         var fileURLs: [URL] = []
@@ -62,7 +125,7 @@ actor VaultParser {
         }
 
         var documents: [ParsedDocument] = []
-        var errors: [(URL, String)] = []
+        var errors: [(String, String)] = []
 
         for url in fileURLs {
             do {
@@ -70,15 +133,15 @@ actor VaultParser {
                     documents.append(doc)
                 }
             } catch {
-                errors.append((url, error.localizedDescription))
+                errors.append((url.lastPathComponent, error.localizedDescription))
             }
         }
 
         return VaultParseResult(
             documents: documents,
             errors: errors,
-            totalFiles: fileURLs.count,
-            parsedFiles: documents.count
+            totalItems: fileURLs.count,
+            parsedItems: documents.count
         )
     }
 
@@ -95,27 +158,49 @@ actor VaultParser {
         case .pdf:
             rawText = try extractPDFText(from: url)
         case .audio:
-            // Audio files are returned with empty rawText;
-            // AudioTranscriber handles transcription separately.
             rawText = ""
         }
 
+        guard !rawText.isEmpty else {
+            return ParsedDocument(
+                id: UUID(),
+                sourcePageId: nil,
+                sourceURL: url,
+                fileType: fileType,
+                rawText: "",
+                cleanedText: "",
+                metadata: DocumentMetadata(
+                    title: url.deletingPathExtension().lastPathComponent,
+                    createdAt: nil, modifiedAt: nil, wordCount: 0,
+                    sourceVault: vault, classification: "prose", boilerplateRemoved: 0
+                )
+            )
+        }
+
+        // Classify + filter via Rust FFI (must call on MainActor for UniFFI concurrency)
+        let classification = await MainActor.run { classifyDocument(content: rawText) }
+        let filtered = await MainActor.run { filterBoilerplate(content: rawText) }
+
         let resourceValues = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
-        let wordCount = rawText.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        let wordCount = filtered.cleaned.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
 
         let metadata = DocumentMetadata(
             title: url.deletingPathExtension().lastPathComponent,
             createdAt: resourceValues?.creationDate,
             modifiedAt: resourceValues?.contentModificationDate,
             wordCount: wordCount,
-            sourceVault: vault
+            sourceVault: vault,
+            classification: classification.docType,
+            boilerplateRemoved: filtered.removedBytes
         )
 
         return ParsedDocument(
             id: UUID(),
+            sourcePageId: nil,
             sourceURL: url,
             fileType: fileType,
             rawText: rawText,
+            cleanedText: filtered.cleaned,
             metadata: metadata
         )
     }

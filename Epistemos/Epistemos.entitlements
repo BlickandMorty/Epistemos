@@ -60,6 +60,15 @@
 		</array>
 	</dict>
 
+	<!-- ── Process Execution ─────────────────────────────────────── -->
+
+	<!-- Knowledge Fusion: execute Python/pip for MLX training environment setup -->
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/opt/homebrew/</string>
+		<string>/usr/local/</string>
+	</array>
+
 	<!-- ── Hardened Runtime Exceptions (for local MLX inference) ── -->
 
 	<!-- JIT compilation: Metal/MLX shader compilation -->

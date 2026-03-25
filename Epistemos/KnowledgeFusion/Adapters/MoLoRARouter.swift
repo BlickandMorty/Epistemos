@@ -16,6 +16,20 @@ final class MoLoRARouter {
     /// Current routing weights per adapter (normalized to sum to 1.0).
     private(set) var routingWeights: [String: Double] = [:]
 
+    /// Path to router centroids (computed by train_router.py).
+    /// When available, enables AdaFuse decide-once routing via MoLoRAInferenceService.
+    var centroidsPath: URL? {
+        let path = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Epistemos/MoLoRA/router_centroids.safetensors")
+        guard let path, FileManager.default.fileExists(atPath: path.path) else { return nil }
+        return path
+    }
+
+    /// Whether MoLoRA per-token routing is available (requires centroids + 2+ adapters).
+    var isMoLoRAAvailable: Bool {
+        centroidsPath != nil && activeAdapters.count >= 2
+    }
+
     /// Register an adapter as available for routing.
     func registerAdapter(_ adapter: AdapterInfo) {
         if !activeAdapters.contains(where: { $0.id == adapter.id }) {

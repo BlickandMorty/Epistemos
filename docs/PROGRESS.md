@@ -21,7 +21,11 @@
 |-------|------|--------|-------|-------|
 | 0 | Dependency Audit & Rust Workspace Setup | ✅ COMPLETE | 26/26 Rust, 2432/2432 graph-engine | No regressions |
 | 1 | Vault Content Analysis Engine | ✅ COMPLETE | 47/47 Rust | No regressions |
-| 2-10 | Remaining KF phases | Deferred | — | Omega integration takes priority |
+| 2 | Document Chunking (Data Ingestion) | ✅ COMPLETE | 61/61 Rust, Swift build passing | Rust chunker + UniFFI + Xcode wired |
+| 3 | Synthetic Data Generation | ✅ COMPLETE | 75/75 Rust, Swift build passing | MinHash dedup + quality scoring + Self-Instruct |
+| 4 | QLoRA Fine-Tuning Pipeline | ✅ COMPLETE | Swift build passing | Checkpointing + replay buffer + profile routing |
+| 5 | KTO Preference Alignment | ✅ COMPLETE | Swift build passing | Nightly scheduler wired to KTOTrainer |
+| 6 | Adapter Routing | ✅ COMPLETE | 80/80 Rust, 11/11 Python, Swift passing | Rust routing + MoLoRA Metal kernel + AdaFuse |
 
 ## Session Log
 
@@ -98,3 +102,120 @@
 - Total: omega-mcp **68/68**, omega-ax **10/10**, epistemos-core 47/47, graph-engine 2432/2432 = **2557 total**
 - Zero compiler warnings across all 4 Rust crates
 - Zero Omega-related Xcode build errors (only pre-existing SDWorkspace macro issue)
+
+### Session 5 — 2026-03-24 — Knowledge Fusion Phase 2 (Document Chunking)
+- Created `chunker.rs` in epistemos-core: markdown header-based chunking with heading hierarchy
+  - Splits on H1-H4 headers, preserving hierarchy as context prefix (e.g. "# Top > ## Sub > ### Detail")
+  - MIN_TOKENS = 50, MAX_TOKENS = 2048 (spec-compliant bounds)
+  - Orphan merging for tiny sections, paragraph-boundary splitting for oversized
+  - Uses dual-bound token estimator (max(chars/3.5, words*1.33))
+  - Code-fence awareness (no splitting inside ```blocks```)
+  - 14 new tests, all passing
+- Added `chunk_document()` to UniFFI exports (UDL + uniffi_exports.rs + lib.rs)
+- Updated VaultParser.swift:
+  - New `parsePages(_ pages: [SDPage])` entry point for SwiftData-based ingestion
+  - Integrates Rust `classifyDocument()` and `filterBoilerplate()` via UniFFI
+  - `ParsedDocument` now includes `sourcePageId`, `cleanedText`, `classification`, `boilerplateRemoved`
+- Updated DocumentChunker.swift:
+  - Markdown chunking delegated to Rust `chunkDocument()` FFI
+  - `TextChunk` now includes `sourcePageId` (provenance) and `hierarchy` (heading path)
+  - Token estimation uses Rust dual-bound estimator via UniFFI
+- **Wired epistemos-core UniFFI bindings into Xcode** (was deferred since D-005):
+  - Added `epistemos_core.swift` to PBXSourcesBuildPhase
+  - Linked as dylib to avoid duplicate Rust stdlib symbols with graph_engine staticlib
+  - Updated LD_RUNPATH_SEARCH_PATHS for dylib loading
+  - Synced FFI header into module map directory
+- Updated DataIngestionTests.swift with new type signatures + 3 new tests (boilerplate filtering, heading hierarchy, Rust token estimation)
+- Total: epistemos-core **61/61** Rust tests, graph-engine 2432/2432, Swift BUILD SUCCEEDED
+
+### Session 5 (continued) — 2026-03-24 — Knowledge Fusion Phase 3 (Synthetic Data Generation)
+- Created `quality_filter.rs` in epistemos-core: MinHash near-duplicate detection + text quality scoring
+  - 128-hash MinHash signatures with word-level 3-gram shingling
+  - Jaccard similarity threshold for fuzzy duplicate detection (default 0.8)
+  - Text quality scoring: instruction length, response length, repetition detection, failure pattern detection
+  - 14 new tests (MinHash dedup, quality scoring, FFI wrappers)
+- Added `dedup_texts()` and `score_training_pair()` to UniFFI exports
+- Updated QualityCurator.swift:
+  - Added Rust-side quality scoring as second filter pass (after LLM self-score)
+  - Added MinHash near-duplicate detection after SHA-256 exact dedup
+  - `curate()` now `@MainActor` for UniFFI call compatibility
+- Swift stubs already complete from prior sessions: SyntheticDataGenerator, InstructionBacktranslator, QualityCurator, ODIATraceGenerator, TraceDataMixer — all fully functional with 3-step Self-Instruct loop, 40/20/20/20 data mixing, mlx-lm JSONL output
+- Total: epistemos-core **75/75** Rust tests, Swift BUILD SUCCEEDED
+
+### Session 5 (continued) — 2026-03-24 — KF Phase 4 (QLoRA Training) + Phase 5 (KTO Alignment)
+
+**Phase 4 — QLoRA Training Pipeline:**
+- Updated `train_knowledge.py` + `train_style.py`:
+  - Checkpointing every 100 steps (`steps_per_save=100`), keeps last 3 checkpoints
+  - Experience replay mixing: if `--replay_path` provided, interleaves 10% general data throughout vault training data (evenly distributed, not appended)
+- Wired `ExperienceReplayBuffer` into `KnowledgeFusionViewModel.trainOnVault()`:
+  - Looks for replay buffer JSONL at `~/Library/Application Support/Epistemos/replay-buffer/general.jsonl`
+  - Passes `replayPath` to both knowledge and style training calls
+
+**Phase 5 — KTO Preference Alignment:**
+- Wired `TrainingScheduler.onKTOSchedulerFired()` to actually run KTO training:
+  - Exports feedback signals via `FeedbackLogger.exportToJSONL()`
+  - Creates `KTOTrainer` with `PythonEnvironmentManager`'s venv Python
+  - Runs `train_kto.py` with model path + active adapter + feedback data
+  - Updates `lastKTORunDate` on success
+
+**Environment Setup Fix:**
+- Improved `PythonEnvironmentManager` error reporting: captures stderr in `PythonEnvError.processExitCode`
+- Created `Epistemos-Debug.entitlements` with sandbox DISABLED for debug builds
+- Debug config now uses `Epistemos-Debug.entitlements`; Release keeps sandbox ON
+- Added temporary file access exceptions for `/opt/homebrew/` and `/usr/local/` in release entitlements
+- Root cause: App Sandbox blocked `ensurepip` from writing to the sandboxed venv container
+
+- Swift BUILD SUCCEEDED, epistemos-core 75/75 Rust tests
+
+### Session 5 (continued) — 2026-03-24 — KF Phase 6 (Adapter Routing)
+- Implemented `skill_engine/mod.rs`: prompt classification for adapter routing (5 tests)
+  - Classifies prompts as "knowledge", "style", "tool", or "general" via keyword matching
+  - `route_prompt()` returns `RoutingDecision { adapter_type, confidence }`
+  - Exported via UniFFI as `routePrompt(prompt:) → RoutingDecision`
+- Updated `AdapterRouter.swift`: `routeAutomatic()` now delegates to Rust FFI instead of duplicating heuristics
+  - Only routes when confidence >= 0.6 (avoids false positives)
+- MoLoRA per-token routing scaffold remains in place — full implementation requires custom MLX Metal kernel
+- Total: epistemos-core **80/80** Rust tests, Swift BUILD SUCCEEDED
+
+### Knowledge Fusion — COMPLETE
+All 6 phases implemented:
+- Phase 2: Document Chunking (Rust chunker + UniFFI + Swift)
+- Phase 3: Synthetic Data Generation (MinHash dedup + quality scoring + Self-Instruct)
+- Phase 4: QLoRA Training (checkpointing + experience replay + profile routing)
+- Phase 5: KTO Preference Alignment (nightly scheduler + train_kto.py)
+- Phase 6: Adapter Routing (Rust skill_engine + Swift AdapterRouter + MoLoRA Metal kernel)
+- Environment fix: sandbox-free debug builds + improved error reporting
+
+### Session 5 (continued) — 2026-03-24 — MoLoRA Per-Token Routing (Phase 6 Extended)
+
+Implemented full per-token MoLoRA routing with AdaFuse decide-once architecture and custom Metal kernel.
+
+**Architecture** (from Google Deep Research + Perplexity analysis):
+- AdaFuse decide-once pre-gating: single routing decision at layer 0 applied to ALL layers
+- SGMM Metal kernel via `mx.fast.metal_kernel()`: computes LoRA delta `(x @ A) @ B * scale`
+- KMeans centroid router: cosine similarity to domain centroids, no neural network needed
+- Data-dependent tile bounding: handles heterogeneous ranks (8, 32) without zero-padding
+
+**Files created**:
+- `Epistemos/KnowledgeFusion/MoLoRA/sgmm_kernel.py` — Metal SGMM kernel (JIT compiled, cached)
+  - Fused two-phase LoRA delta with 32x32 threadgroup tiling
+  - Fallback to pure MLX matmul if Metal kernel fails
+- `Epistemos/KnowledgeFusion/MoLoRA/train_router.py` — KMeans centroid computation
+  - Extracts layer-0 hidden states from labeled domain prompts
+  - L2-normalized mean embeddings → `router_centroids.safetensors`
+- `Epistemos/KnowledgeFusion/MoLoRA/molora_inference.py` — Long-lived inference subprocess
+  - AdaFuseRouter: cosine similarity routing
+  - MoLoRALinear: per-group kernel dispatch
+  - stdin/stdout JSON protocol (matches QLoRATrainer pattern)
+- `Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift` — Swift orchestrator
+  - Process lifecycle management (start/stop/generate/reloadAdapters)
+  - Streaming token output via JSON lines
+- Tests: 6 kernel tests + 5 router tests, all passing
+
+**Wiring**:
+- `AdapterRegistry.swift`: added `getActiveAdapterConfigs() → [MoLoRAAdapterConfig]`
+- `AdapterRouter.swift`: `routeToken()` documented as Python-side (MoLoRAInferenceService)
+- `MoLoRARouter.swift`: added `centroidsPath`, `isMoLoRAAvailable` computed properties
+
+**Totals**: 80/80 Rust, 11/11 Python, Swift BUILD SUCCEEDED

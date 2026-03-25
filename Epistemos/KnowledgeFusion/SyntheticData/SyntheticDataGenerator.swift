@@ -116,7 +116,7 @@ actor SyntheticDataGenerator {
             pairsDiscarded: 0
         ))
 
-        let curationResult = curator.curate(pairs: allPairs)
+        let curationResult = await curator.curate(pairs: allPairs)
 
         // Step 3: Write JSONL files
         progressHandler?(SyntheticDataProgress(

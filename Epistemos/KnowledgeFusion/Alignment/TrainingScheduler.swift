@@ -129,10 +129,33 @@ final class TrainingScheduler {
             guard count >= 20 else { return } // Min 20 signals per research paper
 
             let tempPath = FileManager.default.temporaryDirectory.appendingPathComponent("kto-\(UUID().uuidString).jsonl")
-            _ = try await feedbackLogger.exportToJSONL(since: since, outputPath: tempPath)
+            let exported = try await feedbackLogger.exportToJSONL(since: since, outputPath: tempPath)
+            guard exported >= 20 else { return }
 
-            // KTO training would run here when train_kto.py is fully wired
-            lastKTORunDate = Date()
+            // Run KTO training via Python script
+            let pyEnv = PythonEnvironmentManager.shared
+            let ktoTrainer = KTOTrainer(
+                pythonPath: pyEnv.isReady ? pyEnv.pythonPath : "/usr/bin/python3",
+                scriptsDirectory: pyEnv.scriptsDirectory
+            )
+
+            // Find the active adapter's model path
+            let vm = KnowledgeFusionViewModel.shared
+            guard let modelPath = vm.detectedModelPath else { return }
+
+            let ktoOutputDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("Epistemos/Adapters/kto-\(UUID().uuidString)")
+
+            let result = try await ktoTrainer.runKTOUpdate(
+                modelPath: modelPath,
+                adapterPath: vm.activeAdapter?.adapterPath,
+                feedbackPath: tempPath,
+                outputPath: ktoOutputDir
+            )
+
+            if result.success && !result.skipped {
+                lastKTORunDate = Date()
+            }
         } catch {
             // Silent failure for background task
         }

@@ -71,6 +71,7 @@ private func makeSampleChunks() -> [TextChunk] {
         TextChunk(
             id: UUID(),
             documentId: UUID(),
+            sourcePageId: nil,
             chunkIndex: 0,
             text: """
             ## Quantum Error Correction
@@ -82,6 +83,7 @@ private func makeSampleChunks() -> [TextChunk] {
             interactions on a 2D lattice. The logical error rate decreases exponentially with code distance.
             """,
             heading: "## Quantum Error Correction",
+            hierarchy: "## Quantum Error Correction",
             estimatedTokenCount: 100,
             chunkType: .markdown
         ),
@@ -89,6 +91,7 @@ private func makeSampleChunks() -> [TextChunk] {
         TextChunk(
             id: UUID(),
             documentId: UUID(),
+            sourcePageId: nil,
             chunkIndex: 1,
             text: """
             ## My Research Journal
@@ -101,6 +104,7 @@ private func makeSampleChunks() -> [TextChunk] {
             difference in knowledge absorption.
             """,
             heading: "## My Research Journal",
+            hierarchy: "## My Research Journal",
             estimatedTokenCount: 120,
             chunkType: .markdown
         ),
@@ -108,6 +112,7 @@ private func makeSampleChunks() -> [TextChunk] {
         TextChunk(
             id: UUID(),
             documentId: UUID(),
+            sourcePageId: nil,
             chunkIndex: 2,
             text: """
             ## MLX-LM API Reference
@@ -119,6 +124,7 @@ private func makeSampleChunks() -> [TextChunk] {
             The REST API interface serves the model via `mlx_lm.server --model [path] --adapter-path [path]`.
             """,
             heading: "## MLX-LM API Reference",
+            hierarchy: "## MLX-LM API Reference",
             estimatedTokenCount: 130,
             chunkType: .markdown
         ),

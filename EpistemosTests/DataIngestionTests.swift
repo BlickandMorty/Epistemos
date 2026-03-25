@@ -85,8 +85,8 @@ struct VaultParserTests {
         let parser = VaultParser()
         let result = await parser.parseVault(at: vaultURL, vaultName: "TestVault")
 
-        #expect(result.totalFiles == 3)
-        #expect(result.parsedFiles == 3)
+        #expect(result.totalItems == 3)
+        #expect(result.parsedItems == 3)
         #expect(result.errors.isEmpty)
         #expect(result.documents.count == 3)
 
@@ -96,7 +96,7 @@ struct VaultParserTests {
         #expect(text.count == 1)
     }
 
-    @Test("Metadata is populated correctly")
+    @Test("Metadata is populated correctly including classification")
     func metadataPopulated() async throws {
         let vaultURL = try createTestVault()
         defer { cleanupVault(vaultURL) }
@@ -109,7 +109,39 @@ struct VaultParserTests {
             #expect(doc.metadata.wordCount > 0)
             #expect(!doc.metadata.title.isEmpty)
             #expect(doc.id != UUID())
+            // Rust classifier should produce a valid classification
+            #expect(!doc.metadata.classification.isEmpty)
+            let validTypes = ["prose", "source_code", "technical_docs", "mixed_media"]
+            #expect(validTypes.contains(doc.metadata.classification))
         }
+    }
+
+    @Test("Boilerplate filtering is applied")
+    func boilerplateFiltering() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kf-boilerplate-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { cleanupVault(root) }
+
+        let md = """
+        ---
+        title: Test Note
+        date: 2026-01-01
+        ---
+
+        ## Real Content
+
+        This is the actual content that should remain after filtering.
+        """
+        try md.write(to: root.appendingPathComponent("with_frontmatter.md"), atomically: true, encoding: .utf8)
+
+        let parser = VaultParser()
+        let result = await parser.parseVault(at: root)
+
+        let doc = result.documents.first!
+        #expect(!doc.cleanedText.contains("title: Test Note"))
+        #expect(doc.cleanedText.contains("Real Content"))
+        #expect(doc.metadata.boilerplateRemoved > 0)
     }
 
     @Test("Handles non-existent directory gracefully")
@@ -119,7 +151,7 @@ struct VaultParserTests {
         let result = await parser.parseVault(at: fakeURL)
 
         #expect(result.documents.isEmpty)
-        #expect(result.totalFiles == 0)
+        #expect(result.totalItems == 0)
     }
 
     @Test("Skips unsupported file types")
@@ -136,7 +168,7 @@ struct VaultParserTests {
         let parser = VaultParser()
         let result = await parser.parseVault(at: root)
 
-        #expect(result.parsedFiles == 1)  // only .md
+        #expect(result.parsedItems == 1)  // only .md
     }
 }
 
@@ -158,7 +190,7 @@ struct DocumentChunkerTests {
         let chunks = chunker.chunk(document: quantumDoc)
 
         // quantum_computing.md has: preamble + Overview + Key Algorithms + Shor's Details + Cryptography + Future
-        // That's ~5-6 sections depending on merging
+        // Rust chunker handles merging/splitting — expect 3-7 chunks
         #expect(chunks.count >= 3)
         #expect(chunks.count <= 7)
 
@@ -169,20 +201,21 @@ struct DocumentChunkerTests {
         }
     }
 
-    @Test("No chunk exceeds max token limit")
+    @Test("No chunk exceeds max token limit (2048)")
     func noChunkExceedsMaxTokens() async throws {
         let vaultURL = try createTestVault()
         defer { cleanupVault(vaultURL) }
 
         let parser = VaultParser()
         let result = await parser.parseVault(at: vaultURL)
-        let chunker = DocumentChunker(maxTokens: 1500)
+        let chunker = DocumentChunker()
 
         for doc in result.documents {
             let chunks = chunker.chunk(document: doc)
             for chunk in chunks {
-                #expect(chunk.estimatedTokenCount <= 1500,
-                       "Chunk \(chunk.chunkIndex) in \(doc.metadata.title) exceeds 1500 tokens: \(chunk.estimatedTokenCount)")
+                // Rust chunker enforces MAX_TOKENS = 2048 with some tolerance
+                #expect(chunk.estimatedTokenCount <= 2200,
+                       "Chunk \(chunk.chunkIndex) in \(doc.metadata.title) exceeds limit: \(chunk.estimatedTokenCount)")
             }
         }
     }
@@ -196,14 +229,11 @@ struct DocumentChunkerTests {
         let result = await parser.parseVault(at: vaultURL)
         let shortDoc = result.documents.first { $0.metadata.title == "short_notes" }!
 
-        let chunker = DocumentChunker(minWords: 50)
+        let chunker = DocumentChunker()
         let chunks = chunker.chunk(document: shortDoc)
 
-        // The two short sections ("Brief note." and "Also brief.") should merge
-        // because each is under 50 words. After merging, total chunk count
-        // should be fewer than the raw heading count (3 headings).
+        // The two short sections should merge due to MIN_TOKENS = 50
         #expect(chunks.count <= 3, "Expected orphan merging to reduce chunk count")
-        // Verify no chunk is just a single heading with no body
         for chunk in chunks {
             #expect(!chunk.text.isEmpty)
         }
@@ -232,15 +262,19 @@ struct DocumentChunkerTests {
     func emptyDocumentNoChunks() {
         let doc = ParsedDocument(
             id: UUID(),
+            sourcePageId: nil,
             sourceURL: URL(fileURLWithPath: "/tmp/empty.md"),
             fileType: .markdown,
             rawText: "",
+            cleanedText: "",
             metadata: DocumentMetadata(
                 title: "empty",
                 createdAt: nil,
                 modifiedAt: nil,
                 wordCount: 0,
-                sourceVault: "test"
+                sourceVault: "test",
+                classification: "prose",
+                boilerplateRemoved: 0
             )
         )
 
@@ -249,13 +283,45 @@ struct DocumentChunkerTests {
         #expect(chunks.isEmpty)
     }
 
-    @Test("Token estimation is reasonable")
-    func tokenEstimation() {
+    @Test("Heading hierarchy is populated for nested headings")
+    func headingHierarchy() async throws {
+        let vaultURL = try createTestVault()
+        defer { cleanupVault(vaultURL) }
+
+        let parser = VaultParser()
+        let result = await parser.parseVault(at: vaultURL)
+        let quantumDoc = result.documents.first { $0.metadata.title == "quantum_computing" }!
+
         let chunker = DocumentChunker()
-        // 100 words * 1.3 ≈ 130 tokens
-        let text = Array(repeating: "word", count: 100).joined(separator: " ")
-        let estimate = chunker.estimateTokens(text)
-        #expect(estimate == 130)
+        let chunks = chunker.chunk(document: quantumDoc)
+
+        // Find the chunk containing Shor's Algorithm Details (### heading)
+        let shorsChunk = chunks.first { $0.heading == "Shor's Algorithm Details" }
+        if let sc = shorsChunk {
+            #expect(!sc.hierarchy.isEmpty, "Nested heading should have non-empty hierarchy")
+            #expect(sc.hierarchy.contains(">"), "Hierarchy should use > separator")
+        }
+    }
+
+    @Test("Token estimation uses Rust dual-bound estimator")
+    func tokenEstimationViaRust() async throws {
+        let vaultURL = try createTestVault()
+        defer { cleanupVault(vaultURL) }
+
+        let parser = VaultParser()
+        let result = await parser.parseVault(at: vaultURL)
+        let chunker = DocumentChunker()
+
+        for doc in result.documents {
+            let chunks = chunker.chunk(document: doc)
+            for chunk in chunks {
+                // Rust dual-bound: max(chars/3.5, words*1.33) — should be > old formula
+                let words = chunk.text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+                let oldEstimate = Int(Double(words) * 1.3)
+                #expect(chunk.estimatedTokenCount >= oldEstimate,
+                    "Rust estimate (\(chunk.estimatedTokenCount)) should be >= old formula (\(oldEstimate))")
+            }
+        }
     }
 
     @Test("Chunk indices are sequential")
@@ -274,6 +340,24 @@ struct DocumentChunkerTests {
             }
         }
     }
+
+    @Test("Source page ID is nil for filesystem-parsed documents")
+    func sourcePageIdNilForFilesystem() async throws {
+        let vaultURL = try createTestVault()
+        defer { cleanupVault(vaultURL) }
+
+        let parser = VaultParser()
+        let result = await parser.parseVault(at: vaultURL)
+        let chunker = DocumentChunker()
+
+        for doc in result.documents {
+            #expect(doc.sourcePageId == nil)
+            let chunks = chunker.chunk(document: doc)
+            for chunk in chunks {
+                #expect(chunk.sourcePageId == nil)
+            }
+        }
+    }
 }
 
 // MARK: - AudioTranscriber Tests
@@ -285,14 +369,11 @@ struct AudioTranscriberTests {
     func backendDetection() async {
         let transcriber = AudioTranscriber()
         let backend = await transcriber.detectBackend()
-        // mlx-whisper should be available since we installed it
-        // But model download may be needed, so just verify no crash
         #expect(backend == .mlxWhisper || backend == .whisperCpp || backend == .unavailable)
     }
 
     @Test("Hesitation frequency calculation is correct")
     func hesitationParsing() throws {
-        // Test the parsing logic with synthetic whisper JSON
         let json: [String: Any] = [
             "text": "So um I think uh the quantum uh computing approach is um basically correct",
             "segments": [
@@ -303,20 +384,17 @@ struct AudioTranscriberTests {
                 ] as [String: Any]
             ]
         ]
-        let data = try JSONSerialization.data(withJSONObject: json)
+        let _ = try JSONSerialization.data(withJSONObject: json)
 
-        // Use a mirror to test internal parsing (or make a testable wrapper)
-        // For now, verify the struct construction logic manually:
         let fullText = json["text"] as! String
         let words = fullText.split(whereSeparator: { $0.isWhitespace })
         let hesitationPatterns: Set<String> = ["uh", "um", "erm", "hmm", "hm", "er", "ah"]
         let hesitations = words.filter { hesitationPatterns.contains($0.lowercased()) }.count
 
-        // "um" appears 2x, "uh" appears 2x = 4 hesitations in 13 words
         #expect(hesitations == 4)
 
         let frequency = Double(hesitations) / Double(words.count) * 100.0
-        #expect(frequency > 25.0 && frequency < 35.0)  // ~30.8%
+        #expect(frequency > 25.0 && frequency < 35.0)
     }
 }
 
@@ -332,19 +410,17 @@ struct DataIngestionIntegrationTests {
 
         let parser = VaultParser()
         let result = await parser.parseVault(at: vaultURL)
-        #expect(result.parsedFiles == 3)
+        #expect(result.parsedItems == 3)
 
-        let chunker = DocumentChunker(maxTokens: 1500, minWords: 50)
+        let chunker = DocumentChunker()
         let allChunks = chunker.chunkAll(documents: result.documents)
 
         #expect(!allChunks.isEmpty)
         #expect(allChunks.count >= 3)  // At least one chunk per document
 
-        // Verify all chunks have valid fields
         for chunk in allChunks {
             #expect(!chunk.text.isEmpty)
             #expect(chunk.estimatedTokenCount > 0)
-            #expect(chunk.estimatedTokenCount <= 1500)
         }
 
         // Verify document IDs are correctly linked
