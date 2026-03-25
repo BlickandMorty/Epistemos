@@ -26,19 +26,19 @@ POD_NAME="epistemos-mohawk-${TIER}-${TIMESTAMP}"
 
 case "$TIER" in
     nano)
-        GPU_TYPE="NVIDIA A100 80GB"
+        GPU_ID="NVIDIA A100 80GB PCIe"
         GPU_COUNT=1
         DISK_SIZE=100  # GB
         VOLUME_SIZE=200 # GB for checkpoints + data
         ;;
     base)
-        GPU_TYPE="NVIDIA A100 80GB"
+        GPU_ID="NVIDIA A100 80GB PCIe"
         GPU_COUNT=1
         DISK_SIZE=200
         VOLUME_SIZE=500
         ;;
     pro)
-        GPU_TYPE="NVIDIA H100 80GB"
+        GPU_ID="NVIDIA H100 80GB HBM3"
         GPU_COUNT=2   # 70B teacher needs 2 GPUs
         DISK_SIZE=200
         VOLUME_SIZE=1000
@@ -62,19 +62,16 @@ echo ""
 # ─── Create Pod ────────────────────────────────────────────
 
 echo "Creating pod..."
-# Using PyTorch 2.3+ image with CUDA 12.1
-runpodctl create pod \
+runpodctl pod create \
     --name "$POD_NAME" \
-    --gpuType "$GPU_TYPE" \
-    --gpuCount "$GPU_COUNT" \
-    --containerDiskSize "$DISK_SIZE" \
-    --volumeSize "$VOLUME_SIZE" \
-    --volumePath "/workspace" \
-    --imageName "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
+    --gpu-id "$GPU_ID" \
+    --gpu-count "$GPU_COUNT" \
+    --container-disk-in-gb "$DISK_SIZE" \
+    --volume-in-gb "$VOLUME_SIZE" \
+    --volume-mount-path "/workspace" \
+    --image "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
     --ports "8888/http,22/tcp" \
-    --env "TIER=$TIER" \
-    --env "HF_HOME=/workspace/huggingface" \
-    --env "WANDB_PROJECT=epistemos-mohawk"
+    --env "{\"TIER\":\"$TIER\",\"HF_HOME\":\"/workspace/huggingface\",\"WANDB_PROJECT\":\"epistemos-mohawk\"}"
 
 echo ""
 echo "Pod created. Once it's running, SSH in and run:"
