@@ -3,6 +3,9 @@
 ## Paste this into Claude Code to start:
 
 ```
+STEP 0 — Read the North Star (the vision — why we're building this):
+0. EPISTEMOS-NORTH-STAR.md — The soul of the project. What Epistemos IS. Read this first, always.
+
 STEP 1 — Read in-repo docs (these are the synthesized truth):
 1. CLAUDE.md — Engineering bible, Ω10-Ω24 roadmap, all patterns
 2. docs/SESSION_STATE_2026_03_25.md — Current state, what's done/blocked/next, design principles
