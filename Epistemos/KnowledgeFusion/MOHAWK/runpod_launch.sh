@@ -4,92 +4,74 @@
 # ═══════════════════════════════════════════════════════════════
 #
 # Usage:
-#   1. Create a RunPod account at https://runpod.io
-#   2. Install runpodctl: brew install runpod/runpodctl/runpodctl
-#   3. Set API key: runpodctl config --apiKey YOUR_KEY
-#   4. Run: ./runpod_launch.sh nano    (for Nano 1B tier)
-#           ./runpod_launch.sh base    (for Base 3B tier)
-#           ./runpod_launch.sh pro     (for Pro 8B tier)
+#   1. runpodctl doctor   (set API key, verify setup)
+#   2. runpodctl ssh add-key  (if no SSH key yet)
+#   3. ./runpod_launch.sh nano [community|secure]
 #
-# Cost estimates (March 2026 RunPod pricing):
-#   Nano: ~$100-300  (8B tokens, A100 80GB, ~40-120 hours)
-#   Base: ~$800-1500 (12B tokens, A100 80GB, ~160-300 hours)
-#   Pro:  ~$2000-3500 (12B tokens, H100 80GB, ~200-350 hours)
+# For fully automated training: use runpod_train_full.sh instead.
 
 set -euo pipefail
 
 TIER="${1:-nano}"
+CLOUD="${2:-community}"
 TIMESTAMP=$(date +%Y%m%d_%H%M)
 POD_NAME="epistemos-mohawk-${TIER}-${TIMESTAMP}"
 
-# ─── GPU Selection ──────────────────────────────────────────
-
 case "$TIER" in
-    nano)
-        GPU_ID="NVIDIA A100 80GB PCIe"
-        GPU_COUNT=1
-        DISK_SIZE=100  # GB
-        VOLUME_SIZE=200 # GB for checkpoints + data
-        ;;
-    base)
-        GPU_ID="NVIDIA A100 80GB PCIe"
-        GPU_COUNT=1
-        DISK_SIZE=200
-        VOLUME_SIZE=500
-        ;;
-    pro)
-        GPU_ID="NVIDIA H100 80GB HBM3"
-        GPU_COUNT=2   # 70B teacher needs 2 GPUs
-        DISK_SIZE=200
-        VOLUME_SIZE=1000
-        ;;
-    *)
-        echo "Unknown tier: $TIER (use: nano, base, pro)"
-        exit 1
-        ;;
+    nano) GPU_ID="NVIDIA A100 80GB PCIe"; GPU_COUNT=1; DISK=50; VOL=100 ;;
+    base) GPU_ID="NVIDIA A100 80GB PCIe"; GPU_COUNT=1; DISK=100; VOL=200 ;;
+    pro)  GPU_ID="NVIDIA H100 80GB HBM3"; GPU_COUNT=2; DISK=200; VOL=500 ;;
+    *)    echo "Unknown tier: $TIER (use: nano, base, pro)"; exit 1 ;;
 esac
+
+CLOUD_FLAG="--cloud-type COMMUNITY"
+[ "$CLOUD" = "secure" ] && CLOUD_FLAG="--cloud-type SECURE"
 
 echo "═══════════════════════════════════════════════════════"
 echo "  Epistemos MOHAWK — Launching RunPod"
-echo "═══════════════════════════════════════════════════════"
-echo "  Tier:     $TIER"
+echo "  Tier:     $TIER ($CLOUD cloud)"
 echo "  GPU:      $GPU_COUNT × $GPU_ID"
-echo "  Disk:     ${DISK_SIZE}GB container + ${VOLUME_SIZE}GB volume"
+echo "  Disk:     ${DISK}GB container + ${VOL}GB volume"
 echo "  Pod name: $POD_NAME"
 echo "═══════════════════════════════════════════════════════"
-echo ""
 
-# ─── Create Pod ────────────────────────────────────────────
-
-echo "Creating pod..."
-runpodctl pod create \
+POD_JSON=$(runpodctl pod create \
     --name "$POD_NAME" \
     --gpu-id "$GPU_ID" \
     --gpu-count "$GPU_COUNT" \
-    --container-disk-in-gb "$DISK_SIZE" \
-    --volume-in-gb "$VOLUME_SIZE" \
+    --container-disk-in-gb "$DISK" \
+    --volume-in-gb "$VOL" \
     --volume-mount-path "/workspace" \
     --image "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
     --ports "8888/http,22/tcp" \
-    --env "{\"TIER\":\"$TIER\",\"HF_HOME\":\"/workspace/huggingface\",\"WANDB_PROJECT\":\"epistemos-mohawk\"}"
+    $CLOUD_FLAG \
+    -o json 2>&1)
+
+echo "$POD_JSON"
+
+POD_ID=$(echo "$POD_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
 
 echo ""
-echo "Pod created. Once it's running, SSH in and run:"
-echo ""
-echo "  # 1. Install dependencies"
-echo "  pip install torch transformers datasets wandb mamba-ssm causal-conv1d"
-echo "  pip install flash-attn --no-build-isolation"
-echo ""
-echo "  # 2. Upload training script"
-echo "  # (or git clone your repo)"
-echo ""
-echo "  # 3. Dry run to verify config"
-echo "  python mohawk_train.py --stage all --tier $TIER --dry-run"
-echo ""
-echo "  # 4. Start training"
-echo "  python mohawk_train.py --stage all --tier $TIER --output-dir /workspace/mohawk_$TIER"
-echo ""
-echo "  # 5. After training, convert for on-device"
-echo "  python mohawk_train.py --stage all --tier $TIER --convert-mlx --convert-coreml"
-echo ""
+echo "═══════════════════════════════════════════════════════"
+if [ -n "$POD_ID" ]; then
+    echo "  Pod ID: $POD_ID"
+    echo ""
+    echo "  Wait for RUNNING, then:"
+    echo "    runpodctl ssh info $POD_ID"
+    echo ""
+    echo "  Connect (use your SSH key):"
+    echo "    ssh -i ~/.runpod/ssh/RunPod-Key-Go -p <PORT> root@<IP>"
+    echo ""
+    echo "  Once connected:"
+    echo "    pip install torch transformers datasets wandb mamba-ssm causal-conv1d"
+    echo "    pip install flash-attn --no-build-isolation"
+    echo "    mkdir -p /workspace/mohawk"
+    echo "    # Upload mohawk_train.py, then:"
+    echo "    python /workspace/mohawk/mohawk_train.py --stage all --tier $TIER --dry-run"
+    echo "    python /workspace/mohawk/mohawk_train.py --stage all --tier $TIER --output-dir /workspace/mohawk_$TIER"
+    echo ""
+    echo "  Stop pod: runpodctl pod stop $POD_ID"
+else
+    echo "  Pod creation failed. Check output above."
+fi
 echo "═══════════════════════════════════════════════════════"
