@@ -88,16 +88,16 @@ final class EventStore: @unchecked Sendable {
             switch kind {
             case .noteEdited(let pageId, let title, let changed, let total):
                 kindString = "note_edited"
-                payload = "{\"pageId\":\"\(Self.escape(pageId))\",\"title\":\"\(Self.escape(title))\",\"changedParagraphs\":\(changed),\"totalParagraphs\":\(total)}"
+                payload = Self.encodeNoteEditedPayload(pageId: pageId, title: title, changed: changed, total: total)
             case .noteOpened(let pageId, let title):
                 kindString = "note_opened"
-                payload = "{\"pageId\":\"\(Self.escape(pageId))\",\"title\":\"\(Self.escape(title))\"}"
+                payload = Self.encodePayload(["pageId": pageId, "title": title])
             case .noteClosed(let pageId, let title):
                 kindString = "note_closed"
-                payload = "{\"pageId\":\"\(Self.escape(pageId))\",\"title\":\"\(Self.escape(title))\"}"
+                payload = Self.encodePayload(["pageId": pageId, "title": title])
             case .chatMessageSent(let chatId, let snippet):
                 kindString = "chat_message"
-                payload = "{\"chatId\":\"\(Self.escape(chatId))\",\"snippet\":\"\(Self.escape(snippet))\"}"
+                payload = Self.encodePayload(["chatId": chatId, "snippet": snippet])
             }
 
             var stmt: OpaquePointer?
@@ -269,10 +269,21 @@ final class EventStore: @unchecked Sendable {
         }
     }
 
-    nonisolated private static func escape(_ string: String) -> String {
-        string.replacingOccurrences(of: "\\", with: "\\\\")
-              .replacingOccurrences(of: "\"", with: "\\\"")
-              .replacingOccurrences(of: "\n", with: "\\n")
+    nonisolated private static let payloadEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return encoder
+    }()
+
+    nonisolated private static func encodePayload(_ dict: [String: String]) -> String {
+        (try? String(data: payloadEncoder.encode(dict), encoding: .utf8)) ?? "{}"
+    }
+
+    nonisolated private static func encodeNoteEditedPayload(pageId: String, title: String, changed: Int, total: Int) -> String {
+        // Build JSON with proper numeric types using JSONSerialization
+        let dict: [String: Any] = ["pageId": pageId, "title": title, "changedParagraphs": changed, "totalParagraphs": total]
+        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]) else { return "{}" }
+        return String(data: data, encoding: .utf8) ?? "{}"
     }
 
     private static var databaseURL: URL {

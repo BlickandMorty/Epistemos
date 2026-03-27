@@ -65,6 +65,7 @@ final class ProseTextView2: NSTextView {
     let markdownDelegate = MarkdownContentStorage()
     private var reparseTask: Task<Void, Never>?
     private var currentActiveLine: Int?
+    private var pendingActiveLineInvalidation = false
     private nonisolated(unsafe) var boundsObserver: (any NSObjectProtocol)?
     private let scrollVisibleLineRangeCoalescer = ScrollWorkCoalescer(
         delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
@@ -182,11 +183,17 @@ final class ProseTextView2: NSTextView {
         currentActiveLine = newLine
         markdownDelegate.activeLine = newLine
 
-        invalidateParagraphLayout(line: oldLine)
-        invalidateParagraphLayout(line: newLine)
-
-        if isFocusMode {
-            applyFocusDimming()
+        // Coalesce rapid cursor moves into a single layout invalidation pass
+        guard !pendingActiveLineInvalidation else { return }
+        pendingActiveLineInvalidation = true
+        RunLoop.main.perform { [weak self] in
+            guard let self else { return }
+            self.pendingActiveLineInvalidation = false
+            self.invalidateParagraphLayout(line: oldLine)
+            self.invalidateParagraphLayout(line: self.currentActiveLine)
+            if self.isFocusMode {
+                self.applyFocusDimming()
+            }
         }
     }
 

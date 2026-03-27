@@ -81,7 +81,13 @@ final class TimeMachineService {
             return HistoricalState(timestamp: date, snapshot: nil, summary: "", userNote: "")
         }
 
-        let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: Data(stored.snapshotJSON.utf8))
+        let snapshot: WorkspaceSnapshot?
+        do {
+            snapshot = try JSONDecoder().decode(WorkspaceSnapshot.self, from: Data(stored.snapshotJSON.utf8))
+        } catch {
+            Self.log.error("TimeMachine: failed to decode snapshot at \(stored.timestamp, privacy: .public): \(error)")
+            snapshot = nil
+        }
 
         var state = HistoricalState(
             timestamp: stored.timestamp,

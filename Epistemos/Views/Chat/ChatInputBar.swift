@@ -44,6 +44,13 @@ struct ChatInputBar: View {
     private let composerMetrics = AssistantComposerMetrics.mainChat
     private let placeholderText = "Ask anything…"
     private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
+        guard showMentionDropdown else {
+            return ChatCoordinator.ReferenceSearchResults(
+                notes: [], chats: [], vaultTitle: nil, vaultNoteCount: 0,
+                isInventoryComplete: true, query: "", indexedMatchedNoteIDs: [],
+                indexedNoteSnippetsByPageID: [:]
+            )
+        }
         let shouldSearchChats = !trimmedMentionFilter.isEmpty
         return ChatCoordinator.searchReferenceResults(
             filter: trimmedMentionFilter,

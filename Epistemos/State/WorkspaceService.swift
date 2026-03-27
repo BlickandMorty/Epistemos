@@ -305,7 +305,7 @@ final class WorkspaceService {
             ws.snapshotData = data
             context.insert(ws)
         }
-        try? context.save()
+        do { try context.save() } catch { Self.log.error("Workspace auto-save: context save failed: \(error)") }
 
         // Also save snapshot to EventStore for permanent session history
         if let bootstrap = AppBootstrap.shared,
@@ -443,13 +443,16 @@ final class WorkspaceService {
 
     func saveWorkspace(name: String) {
         let snapshot = captureSnapshot()
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            Self.log.error("Workspace save: failed to encode snapshot for '\(name, privacy: .public)'")
+            return
+        }
 
         let context = modelContainer.mainContext
         let ws = SDWorkspace(name: name, isAutoSave: false)
         ws.snapshotData = data
         context.insert(ws)
-        try? context.save()
+        do { try context.save() } catch { Self.log.error("Workspace save: context save failed: \(error)") }
         Self.log.info("Workspace saved: \(name, privacy: .public)")
     }
 
@@ -464,13 +467,13 @@ final class WorkspaceService {
     func deleteWorkspace(_ workspace: SDWorkspace) {
         let context = modelContainer.mainContext
         context.delete(workspace)
-        try? context.save()
+        do { try context.save() } catch { Self.log.error("Workspace delete: context save failed: \(error)") }
     }
 
     func renameWorkspace(_ workspace: SDWorkspace, to newName: String) {
         workspace.name = newName
         workspace.updatedAt = Date()
-        try? modelContainer.mainContext.save()
+        do { try modelContainer.mainContext.save() } catch { Self.log.error("Workspace rename: context save failed: \(error)") }
     }
 
     func listWorkspaces() -> [SDWorkspace] {

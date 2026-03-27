@@ -163,6 +163,7 @@ final class HologramOverlay {
     /// True after the overlay has been shown at least once this session.
     /// The very first open uses a longer delay to hide engine initialization.
     private var hasShownBefore = false
+    private var fadeInTask: Task<Void, Never>?
 
     init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
         self.graphState = graphState
@@ -252,16 +253,18 @@ final class HologramOverlay {
         let fadeDelay: TimeInterval = isFirstOpen ? 0.6 : 0.0
 
         let fadeDuration = isFirstOpen ? 0.5 : 0.3
-        Task { @MainActor [weak window] in
+        fadeInTask?.cancel()
+        fadeInTask = Task { @MainActor [weak self, weak window] in
             if fadeDelay > 0 {
                 try? await Task.sleep(for: .seconds(fadeDelay))
             }
-            guard let window else { return }
+            guard !Task.isCancelled, let window else { return }
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = fadeDuration
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 window.animator().alphaValue = 1.0
             }, completionHandler: {})
+            self?.fadeInTask = nil
         }
     }
 
@@ -290,6 +293,8 @@ final class HologramOverlay {
 
 
     func hide() {
+        fadeInTask?.cancel()
+        fadeInTask = nil
         if isMinimized {
             // Minimized: fade out the mini panel and do full teardown.
             guard let miniPanel else { teardown(); return }
@@ -1106,6 +1111,9 @@ final class HologramOverlay {
         if let obs = parentDeminiaturizeObserver { NotificationCenter.default.removeObserver(obs) }
         parentMiniaturizeObserver = nil
         parentDeminiaturizeObserver = nil
+        // Cancel fade-in task.
+        fadeInTask?.cancel()
+        fadeInTask = nil
         // Cancel node selection observer.
         selectionObserverTask?.cancel()
         selectionObserverTask = nil
