@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-03-27",
+  "codebase_symbols": 3393,
+  "total_examples": 4192,
+  "valid": 4190,
+  "auto_fixed": 8,
+  "rejected": 2,
+  "quarantined": 0,
+  "train_count": 3771,
+  "eval_count": 419,
+  "issues_by_type": {
+    "WRONG_RETURN": 4
+  },
+  "files_processed": 16,
+  "stale_symbols_checked": [
+    "NoteTabView"
+  ],
+  "wrong_return_types_checked": [
+    [
+      "trainKnowledgeAdapter",
+      "Void",
+      "AdapterMetadata"
+    ],
+    [
+      "trainStyleAdapter",
+      "Void)?",
+      "AdapterMetadata"
+    ],
+    [
+      "trainKnowledgeAdapter",
+      "Void)?",
+      "AdapterMetadata"
+    ],
+    [
+      "trainStyleAdapter",
+      "Void",
+      "AdapterMetadata"
+    ]
+  ]
+}
