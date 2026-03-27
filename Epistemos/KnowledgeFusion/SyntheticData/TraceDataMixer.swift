@@ -18,10 +18,11 @@ final class TraceDataMixer {
         var automationRatio: Double = 0.20
     }
 
-    /// Mix ODIA traces with existing training data categories.
+    /// Mix structured ODIA traces with existing training data categories.
     /// Returns a combined JSONL string with the target ratio.
+    /// Uses StructuredODIATrace (Codable) for JSON encoding.
     func mix(
-        odiaTraces: [ODIATrace],
+        odiaTraces: [StructuredODIATrace],
         generalData: [String],
         reasoningData: [String],
         automationData: [String],

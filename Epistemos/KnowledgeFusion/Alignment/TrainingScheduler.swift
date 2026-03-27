@@ -30,9 +30,9 @@ final class TrainingScheduler {
         get { UserDefaults.standard.object(forKey: "KnowledgeFusion.lastODIARunDate") as? Date }
         set { UserDefaults.standard.set(newValue, forKey: "KnowledgeFusion.lastODIARunDate") }
     }
-    /// Canonical chat-format ODIA traces (from Omega/Knowledge/ODIATraceGenerator).
-    /// The structured format (SyntheticData/StructuredODIATrace) is NOT used here.
-    var pendingODIATraces: [ODIATrace] = []
+    /// Structured ODIA traces from Omega execution results.
+    /// Uses StructuredODIATrace (Codable observe/decide/interact/assess format).
+    var pendingODIATraces: [StructuredODIATrace] = []
     /// Raw JSONL lines from ReasoningLoopService reasoning chains.
     /// Merged into ODIA training data during nightly runs.
     var pendingReasoningTraces: [String] = []
@@ -126,7 +126,7 @@ final class TrainingScheduler {
 
     /// Queue traces from a completed Omega agent execution.
     /// Traces accumulate until the nightly ODIA training window.
-    func ingestODIATraces(_ traces: [ODIATrace]) {
+    func ingestODIATraces(_ traces: [StructuredODIATrace]) {
         pendingODIATraces.append(contentsOf: traces)
     }
 
@@ -236,7 +236,7 @@ final class TrainingScheduler {
 
         do {
             // Export ODIA traces to JSONL
-            let generator = ODIATraceGenerator()
+            let generator = StructuredODIATraceGenerator()
             var jsonl = generator.toJSONL(tracesToTrain)
 
             // Merge reasoning traces (already JSONL-encoded)

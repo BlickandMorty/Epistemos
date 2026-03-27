@@ -11,7 +11,7 @@ import Foundation
 /// - Interact: the tool call with arguments
 /// - Assess: the result and whether it succeeded
 @MainActor
-final class ODIATraceGenerator {
+final class StructuredODIATraceGenerator {
 
     /// Generate structured ODIA training pairs from execution results.
     /// NOTE: These are raw structured traces. For the canonical chat-format

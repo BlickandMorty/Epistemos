@@ -4,32 +4,35 @@ import Foundation
 
 /// Bridges the Omega execution pipeline with KnowledgeFusion training components.
 /// When Omega generates execution traces, this coordinator:
-/// 1. Feeds successful traces to ODIATraceGenerator for training data
+/// 1. Feeds successful traces to ODIATraceGenerator for structured training data
 /// 2. Uses TrainingScheduler to schedule overnight training runs
 /// 3. Connects to ExperienceReplayBuffer for catastrophic forgetting prevention
 /// 4. Monitors via CSISafeguard during autoresearch iterations
+///
+/// NOTE: This coordinator uses StructuredODIATrace (Codable, observe/decide/interact/assess).
+/// The canonical chat-format ODIATrace (Omega/Knowledge) is used by TrainingScheduler.
 @MainActor @Observable
 final class OmegaTrainingCoordinator {
-    private let traceGenerator = ODIATraceGenerator()
+    private let traceGenerator = StructuredODIATraceGenerator()
     private let dataMixer = TraceDataMixer()
 
-    /// Generate ODIA training data from completed Omega execution results.
+    /// Generate structured ODIA training data from completed Omega execution results.
     func generateTrainingData(
         from results: [AgentStepResult],
         taskDescription: String,
         steps: [AgentStep]
-    ) -> [ODIATrace] {
-        traceGenerator.generateTraces(from: results, taskDescription: taskDescription, steps: steps)
+    ) -> [StructuredODIATrace] {
+        traceGenerator.generateStructuredTraces(from: results, taskDescription: taskDescription, steps: steps)
     }
 
     /// Export traces as JSONL for training pipeline consumption.
-    func exportTracesAsJSONL(traces: [ODIATrace]) -> String {
+    func exportTracesAsJSONL(traces: [StructuredODIATrace]) -> String {
         traceGenerator.toJSONL(traces)
     }
 
     /// Mix ODIA traces with other training data at the 40/20/20/20 ratio.
     func mixTrainingData(
-        odiaTraces: [ODIATrace],
+        odiaTraces: [StructuredODIATrace],
         generalData: [String],
         reasoningData: [String],
         automationData: [String],
