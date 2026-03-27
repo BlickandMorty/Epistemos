@@ -14,15 +14,9 @@ Uses LoRA rank 16 (per training non-negotiables) with WSD scheduler.
 Never fuses adapters into base — hot-swap via MoLoRA routing.
 
 Usage (on RunPod after MOHAWK):
-    # Generate training data first (run locally, upload to pod)
-    python generate_epistemos_training_data.py --output ./epistemos_training_data_validated
+    # Data is uploaded by runpod_full_pipeline.sh (always validated, never raw)
+    # Remote path: /workspace/epistemos_training_data (contains validated data only)
 
-    # Then SFT on the MOHAWK checkpoint
-    python sft_macos_agent.py --base-model /workspace/mohawk_output/stage3/checkpoint-final \\
-                              --data-dir /workspace/epistemos_training_data \\
-                              --output /workspace/sft_output
-
-    # Or with LoRA (recommended for nightly fine-tune):
     python sft_macos_agent.py --base-model /workspace/mohawk_output/stage3/checkpoint-final \\
                               --data-dir /workspace/epistemos_training_data \\
                               --output /workspace/sft_output --lora --lora-rank 16
