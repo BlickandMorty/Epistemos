@@ -337,9 +337,62 @@ enum ComposerReferencePopoverStyle {
     }
 }
 
+@MainActor @Observable
+final class ComposerReferencePopoverBridge {
+    var results: ChatCoordinator.ReferenceSearchResults
+    var query: String
+    var width: CGFloat
+    var maxHeight: CGFloat
+    var style: ComposerReferencePopoverStyle
+    var autofocusSearchField: Bool
+    @ObservationIgnored var selectAction: ((ComposerReferenceChoice) -> Void)?
+    @ObservationIgnored var queryChangeAction: ((String) -> Void)?
+
+    init(
+        results: ChatCoordinator.ReferenceSearchResults,
+        query: String,
+        width: CGFloat,
+        maxHeight: CGFloat,
+        style: ComposerReferencePopoverStyle,
+        autofocusSearchField: Bool
+    ) {
+        self.results = results
+        self.query = query
+        self.width = width
+        self.maxHeight = maxHeight
+        self.style = style
+        self.autofocusSearchField = autofocusSearchField
+    }
+}
+
+private struct ComposerReferencePopoverBridgeRoot: View {
+    let bridge: ComposerReferencePopoverBridge
+
+    var body: some View {
+        ComposerReferencePopoverContent(
+            results: bridge.results,
+            query: Binding(
+                get: { bridge.query },
+                set: { newValue in
+                    bridge.query = newValue
+                    bridge.queryChangeAction?(newValue)
+                }
+            ),
+            width: bridge.width,
+            maxHeight: bridge.maxHeight,
+            style: bridge.style,
+            autofocusSearchField: bridge.autofocusSearchField,
+            onSelect: { choice in
+                bridge.selectAction?(choice)
+            }
+        )
+    }
+}
+
 final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
     private let popover = NSPopover()
-    private var host: NSHostingController<AnyView>?
+    private var host: NSHostingController<ComposerReferencePopoverBridgeRoot>?
+    private var bridge: ComposerReferencePopoverBridge?
     private var onDismiss: (() -> Void)?
     private var showTask: Task<Void, Never>?
     private var suppressNextDismissCallback = false
@@ -363,20 +416,40 @@ final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
             anchorFrame: anchorFrame,
             screenFrame: screenFrame
         )
-        let content = ComposerReferencePopoverContent(
-            results: configuration.results,
-            query: configuration.$query,
-            width: width,
-            maxHeight: configuration.maxHeight,
-            style: configuration.style,
-            autofocusSearchField: configuration.autofocusSearchField,
-            onSelect: configuration.onSelect
-        )
-        let hostingController = host ?? NSHostingController(rootView: AnyView(content))
-        hostingController.rootView = AnyView(content)
-        host = hostingController
-        popover.contentViewController = hostingController
-        popover.contentSize = NSSize(width: width, height: configuration.maxHeight)
+
+        let queryBinding = configuration.$query
+        if let bridge {
+            bridge.results = configuration.results
+            if bridge.query != configuration.query { bridge.query = configuration.query }
+            if bridge.width != width { bridge.width = width }
+            if bridge.maxHeight != configuration.maxHeight { bridge.maxHeight = configuration.maxHeight }
+            if bridge.style != configuration.style { bridge.style = configuration.style }
+            if bridge.autofocusSearchField != configuration.autofocusSearchField { bridge.autofocusSearchField = configuration.autofocusSearchField }
+            bridge.selectAction = configuration.onSelect
+            bridge.queryChangeAction = { queryBinding.wrappedValue = $0 }
+        } else {
+            let newBridge = ComposerReferencePopoverBridge(
+                results: configuration.results,
+                query: configuration.query,
+                width: width,
+                maxHeight: configuration.maxHeight,
+                style: configuration.style,
+                autofocusSearchField: configuration.autofocusSearchField
+            )
+            newBridge.selectAction = configuration.onSelect
+            newBridge.queryChangeAction = { queryBinding.wrappedValue = $0 }
+            self.bridge = newBridge
+
+            let rootView = ComposerReferencePopoverBridgeRoot(bridge: newBridge)
+            let hostingController = NSHostingController(rootView: rootView)
+            host = hostingController
+            popover.contentViewController = hostingController
+        }
+
+        let newSize = NSSize(width: width, height: configuration.maxHeight)
+        if popover.contentSize != newSize {
+            popover.contentSize = newSize
+        }
 
         guard !popover.isShown else { return }
         showTask?.cancel()
@@ -534,6 +607,7 @@ private struct ComposerReferencePopoverContent: View {
                                 lineWidth: 0.65
                             )
                     }
+                    .compositingGroup()
                     .shadow(
                         color: .black.opacity(theme.isDark ? 0.18 : 0.08),
                         radius: 14,
