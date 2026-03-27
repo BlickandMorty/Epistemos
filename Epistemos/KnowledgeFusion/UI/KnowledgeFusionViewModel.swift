@@ -74,12 +74,15 @@ final class KnowledgeFusionViewModel {
     var learningRate: Double = 2e-5
 
     /// Auto-configure based on system memory.
+    /// LoRA rank is ALWAYS 16 for Nano tier (training non-negotiable).
+    /// Rank 32 is reserved for Base tier (3B) when that path is enabled.
+    /// Higher memory → larger batch/seq, NOT higher rank.
     func autoConfigureForHardware() {
         if systemMemoryGB >= 64 {
-            batchSize = 4; maxSeqLength = 2048; loraRank = 32; loraAlpha = 64
+            batchSize = 4; maxSeqLength = 2048; loraRank = 16; loraAlpha = 32
             trainingIterations = 500
         } else if systemMemoryGB >= 32 {
-            batchSize = 2; maxSeqLength = 2048; loraRank = 32; loraAlpha = 64
+            batchSize = 2; maxSeqLength = 2048; loraRank = 16; loraAlpha = 32
             trainingIterations = 300
         } else if systemMemoryGB >= 24 {
             batchSize = 2; maxSeqLength = 1024; loraRank = 16; loraAlpha = 32
@@ -438,6 +441,10 @@ final class KnowledgeFusionViewModel {
     }
 
     // MARK: - Feedback
+    // DEFERRED: No UI currently calls logFeedback(). The kto_feedback table
+    // exists but has 0 rows. To activate: wire NoteChatSidebar accept/discard
+    // buttons and AI context menu accept/discard to call this method.
+    // This is alignment infrastructure, not a training-path blocker.
 
     func logFeedback(prompt: String, completion: String, desirable: Bool, type: FeedbackType) async {
         do {

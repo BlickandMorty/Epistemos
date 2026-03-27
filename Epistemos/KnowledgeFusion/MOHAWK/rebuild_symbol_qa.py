@@ -35,6 +35,11 @@ def parse_swift_ownership(filepath: str) -> list:
     elif "Views/Shell" in rel: subsystem = "shell"
     elif "Views/Chat" in rel: subsystem = "chat"
     elif "Views/Omega" in rel: subsystem = "omega_ui"
+    elif "Views/Shared" in rel: subsystem = "shared_ui"
+    elif "Views/MiniChat" in rel: subsystem = "mini_chat"
+    elif "Views/Onboarding" in rel: subsystem = "onboarding"
+    elif "Views/" in rel: subsystem = "views"
+    elif "Intents/" in rel: subsystem = "intents"
     elif "State/" in rel: subsystem = "state"
     elif "Engine/" in rel: subsystem = "ai_pipeline"
     elif "Graph/" in rel: subsystem = "graph"
@@ -44,6 +49,8 @@ def parse_swift_ownership(filepath: str) -> list:
     elif "Theme/" in rel: subsystem = "theme"
     elif "KnowledgeFusion/" in rel: subsystem = "training"
     elif "App/" in rel: subsystem = "app_bootstrap"
+    elif "Extensions/" in rel: subsystem = "extensions"
+    elif "Helpers/" in rel: subsystem = "helpers"
 
     results = []
     lines = content.split('\n')

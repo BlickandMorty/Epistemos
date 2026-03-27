@@ -455,7 +455,7 @@ Tracing the code path for 'New Note' button:
 2. This calls `VaultSyncService.createPage()` which creates an `SDPage` model
 3. `SDPage.swift` defines the SwiftData model with title, body, timestamps
 4. The model context saves, triggering `@Query` to refresh the notes list
-5. `NoteTabView` opens with the new page, loading `ProseEditorView`
+5. `NoteDetailWorkspaceView` opens with the new page, loading `ProseEditorView`
 6. `ProseEditorRepresentable2` creates the NSTextView bridge for editing
 7. The title field gets focus automatically via `becomeFirstResponder()`
 </think>
@@ -463,7 +463,7 @@ Tracing the code path for 'New Note' button:
 When you click 'New Note':
 - **UI**: `NotesSidebar.swift` → button action
 - **State**: `VaultSyncService.createPage()` → creates `SDPage` in SwiftData
-- **Navigation**: Opens `NoteTabView` → `ProseEditorView` → `ProseEditorRepresentable2`
+- **Navigation**: Opens `NoteDetailWorkspaceView` → `ProseEditorView` → `ProseEditorRepresentable2`
 - **Focus**: Title field gets keyboard focus via `ProseTextView2.becomeFirstResponder()`
 
 The note is immediately persisted to SwiftData and marked for vault sync."""
@@ -529,7 +529,7 @@ The Binding Cascade — a critical anti-pattern:
 2. SwiftUI `onChange(of: text)` fires
 3. Handler sets `page.needsVaultSync = true`
 4. `@Query` refetches all pages matching the predicate
-5. `NoteTabView` body re-evaluates
+5. `NoteDetailWorkspaceView` body re-evaluates
 6. `loadBody()` is called — this reads from DISK on every re-evaluation
 7. `updateNSView` fires — text sync races with the next keystroke callback
 8. Infinite loop: keystroke → sync → refetch → re-evaluate → sync → ...

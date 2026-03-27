@@ -30,6 +30,8 @@ final class TrainingScheduler {
         get { UserDefaults.standard.object(forKey: "KnowledgeFusion.lastODIARunDate") as? Date }
         set { UserDefaults.standard.set(newValue, forKey: "KnowledgeFusion.lastODIARunDate") }
     }
+    /// Canonical chat-format ODIA traces (from Omega/Knowledge/ODIATraceGenerator).
+    /// The structured format (SyntheticData/StructuredODIATrace) is NOT used here.
     var pendingODIATraces: [ODIATrace] = []
     /// Raw JSONL lines from ReasoningLoopService reasoning chains.
     /// Merged into ODIA training data during nightly runs.

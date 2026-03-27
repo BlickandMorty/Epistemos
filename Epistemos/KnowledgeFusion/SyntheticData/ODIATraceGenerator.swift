@@ -13,9 +13,11 @@ import Foundation
 @MainActor
 final class ODIATraceGenerator {
 
-    /// Generate ODIA training pairs from execution results.
-    func generateTraces(from results: [AgentStepResult], taskDescription: String, steps: [AgentStep]) -> [ODIATrace] {
-        var traces: [ODIATrace] = []
+    /// Generate structured ODIA training pairs from execution results.
+    /// NOTE: These are raw structured traces. For the canonical chat-format
+    /// training data, use Omega/Knowledge/ODIATraceGenerator instead.
+    func generateStructuredTraces(from results: [AgentStepResult], taskDescription: String, steps: [AgentStep]) -> [StructuredODIATrace] {
+        var traces: [StructuredODIATrace] = []
 
         for (index, step) in steps.enumerated() {
             guard let result = results.first(where: { $0.stepId == step.id }) else { continue }
@@ -23,7 +25,7 @@ final class ODIATraceGenerator {
             // Only include successful traces for training (quality filter)
             guard result.success else { continue }
 
-            let trace = ODIATrace(
+            let trace = StructuredODIATrace(
                 observe: ODIAObservation(
                     taskDescription: taskDescription,
                     stepIndex: index,
@@ -53,8 +55,8 @@ final class ODIATraceGenerator {
         return traces
     }
 
-    /// Convert traces to JSONL format for training.
-    func toJSONL(_ traces: [ODIATrace]) -> String {
+    /// Convert structured traces to JSONL format.
+    func toJSONL(_ traces: [StructuredODIATrace]) -> String {
         traces.compactMap { trace in
             guard let data = try? JSONEncoder().encode(trace),
                   let line = String(data: data, encoding: .utf8) else { return nil }
@@ -63,9 +65,12 @@ final class ODIATraceGenerator {
     }
 }
 
-// MARK: - ODIA Types
+// MARK: - ODIA Types (Structured Format)
+// NOTE: This is the STRUCTURED ODIA format used for raw trace generation.
+// The CANONICAL training format is the chat-style ODIATrace in Omega/Knowledge/ODIATraceGenerator.swift.
+// TrainingScheduler uses the canonical (chat-format) type.
 
-struct ODIATrace: Codable, Sendable {
+struct StructuredODIATrace: Codable, Sendable {
     let observe: ODIAObservation
     let decide: ODIADecision
     let interact: ODIAInteraction

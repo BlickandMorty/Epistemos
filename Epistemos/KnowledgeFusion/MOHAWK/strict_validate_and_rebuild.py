@@ -34,11 +34,13 @@ REJECT_PATTERNS = [
     (r"Part of [`'][a-z]", "LOWERCASE_OWNERSHIP: Part of lowercase (likely wrong)"),
 ]
 
-# Known enums that should NOT appear as "Part of `EnumName`" for functions
-KNOWN_ENUMS = {
+# Known DATA-ONLY enums that should NOT own functions.
+# Many Swift enums DO have methods (e.g. MarkdownEditorCommands, QueryParser)
+# so we only reject specific small data enums that the old generator falsely
+# attributed unrelated functions to.
+KNOWN_DATA_ENUMS = {
     "KFTrainingState", "RiskLevel", "EscalationReason", "DeviceActionType",
-    "LocalModelKind", "AutoresearchProgress", "GatewayError",
-    "KFTrainingPhase", "NotesOperation",
+    "AutoresearchProgress", "GatewayError", "KFTrainingPhase",
 }
 
 # Known param/return types that should NOT appear as "Part of" owners
@@ -83,15 +85,15 @@ def validate_line(text: str, symbols: dict) -> list:
     # Check "Part of `X`" claims
     for match in re.finditer(r"Part of [`'](\w+)[`']", text):
         claimed = match.group(1)
-        if claimed in KNOWN_ENUMS:
-            issues.append(f"ENUM_AS_OWNER: 'Part of {claimed}' but {claimed} is an enum")
+        if claimed in KNOWN_DATA_ENUMS:
+            issues.append(f"DATA_ENUM_AS_OWNER: 'Part of {claimed}' but {claimed} is a data-only enum")
         if claimed in KNOWN_PARAM_TYPES:
             issues.append(f"PARAM_AS_OWNER: 'Part of {claimed}' but {claimed} is a param/return type")
         if claimed in DELETED_SYMBOLS:
             issues.append(f"DELETED_SYMBOL: 'Part of {claimed}' but {claimed} doesn't exist")
-        # Check against live source
-        if claimed in symbols and symbols[claimed] == "enum":
-            issues.append(f"LIVE_ENUM_AS_OWNER: 'Part of {claimed}' but live source shows it's an enum")
+        # NOTE: We do NOT blanket-reject all live enums as owners.
+        # Swift enums can have methods (e.g. MarkdownEditorCommands, QueryParser).
+        # The rebuild_symbol_qa.py uses brace-depth parsing for correct attribution.
 
     # Check for deleted view references in code-grounded
     for deleted in DELETED_SYMBOLS:

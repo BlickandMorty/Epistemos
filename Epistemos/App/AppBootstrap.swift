@@ -292,6 +292,14 @@ final class AppBootstrap {
         }
         self._reasoningLoopService = reasoning
 
+        // Initialize Knowledge Fusion at boot — not just in Settings.
+        // Training remains opt-in (scheduler only runs if user enables it),
+        // but state is loaded so adapters and feedback are ready.
+        KnowledgeFusionViewModel.shared.configure(triageService: triage)
+        Task { @MainActor in
+            await KnowledgeFusionViewModel.shared.loadState()
+        }
+
         // Initialize dual-brain infrastructure
         self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
         self._dualBrainRouter = DualBrainRouter(

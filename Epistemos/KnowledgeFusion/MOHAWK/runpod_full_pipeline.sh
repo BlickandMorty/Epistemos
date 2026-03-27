@@ -45,10 +45,11 @@ if [ ! -f "$RAW_DATA_DIR/train.jsonl" ]; then
 fi
 
 # Step 0b: ALWAYS validate before upload — raw data is NEVER used directly
+# Order: fix stale refs → rebuild symbol_qa with correct ownership → strict final pass
 echo "  Running validation pipeline..."
 python3 validate_training_data.py --input "$RAW_DATA_DIR" --output "$VALIDATED_DATA_DIR" --fix
-python3 strict_validate_and_rebuild.py
 python3 rebuild_symbol_qa.py --output "$VALIDATED_DATA_DIR"
+python3 strict_validate_and_rebuild.py
 
 # Step 0c: Verify validated data exists and is non-empty
 if [ ! -f "$VALIDATED_DATA_DIR/train.jsonl" ]; then
@@ -109,7 +110,23 @@ echo "  Scripts uploaded"
 # Upload ONLY validated data to the remote training dir
 $SSH_CMD "mkdir -p $REMOTE_DATA_DIR"
 $SCP_CMD -r "$VALIDATED_DATA_DIR"/*.jsonl root@$SSH_HOST:$REMOTE_DATA_DIR/
-echo "  Validated data uploaded ($(ls "$VALIDATED_DATA_DIR"/*.jsonl | wc -l) files → $REMOTE_DATA_DIR)"
+UPLOAD_FILE_COUNT=$(ls "$VALIDATED_DATA_DIR"/*.jsonl | wc -l)
+echo "  Validated data uploaded ($UPLOAD_FILE_COUNT files → $REMOTE_DATA_DIR)"
+
+# Write local sync artifact so RunPod state is locally verifiable
+cat > "$VALIDATED_DATA_DIR/last_upload_manifest.json" << MANIFEST
+{
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "pod_id": "$POD_ID",
+  "remote_path": "$REMOTE_DATA_DIR",
+  "train_examples": $(wc -l < "$VALIDATED_DATA_DIR/train.jsonl"),
+  "eval_examples": $(wc -l < "$VALIDATED_DATA_DIR/eval.jsonl"),
+  "files_uploaded": $UPLOAD_FILE_COUNT,
+  "train_sha256": "$(shasum -a 256 "$VALIDATED_DATA_DIR/train.jsonl" | cut -d' ' -f1)",
+  "eval_sha256": "$(shasum -a 256 "$VALIDATED_DATA_DIR/eval.jsonl" | cut -d' ' -f1)"
+}
+MANIFEST
+echo "  Upload manifest written to $VALIDATED_DATA_DIR/last_upload_manifest.json"
 
 # ─── Phase 3: Install deps ─────────────────────────────────
 echo ""

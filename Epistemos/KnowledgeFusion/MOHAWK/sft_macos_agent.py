@@ -468,7 +468,7 @@ def save_full(model, opt, step, loss, out_dir, tag="checkpoint"):
 def main():
     p = argparse.ArgumentParser(description="Post-MOHAWK SFT for macOS Device Agent")
     p.add_argument("--base-model", required=True, help="Path to MOHAWK Stage 3 checkpoint")
-    p.add_argument("--data-dir", required=True, help="Path to training data from generate_epistemos_training_data.py")
+    p.add_argument("--data-dir", required=True, help="Path to VALIDATED training data (epistemos_training_data_validated/ locally, /workspace/epistemos_validated on RunPod). Raw data must never be passed here.")
     p.add_argument("--output", default="./sft_output", help="Output directory")
     p.add_argument("--tier", default="nano", choices=["nano", "base", "pro"])
     p.add_argument("--tokenizer", default=None, help="Tokenizer (defaults to teacher model)")
