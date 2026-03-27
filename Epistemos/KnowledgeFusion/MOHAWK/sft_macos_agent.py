@@ -15,7 +15,7 @@ Never fuses adapters into base — hot-swap via MoLoRA routing.
 
 Usage (on RunPod after MOHAWK):
     # Generate training data first (run locally, upload to pod)
-    python generate_epistemos_training_data.py --output ./epistemos_training_data
+    python generate_epistemos_training_data.py --output ./epistemos_training_data_validated
 
     # Then SFT on the MOHAWK checkpoint
     python sft_macos_agent.py --base-model /workspace/mohawk_output/stage3/checkpoint-final \\

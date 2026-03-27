@@ -13,7 +13,7 @@
 # Usage:
 #   # Step 1: Generate data locally
 #   cd Epistemos/KnowledgeFusion/MOHAWK
-#   python generate_epistemos_training_data.py --output ./epistemos_training_data
+#   python generate_epistemos_training_data.py --output ./epistemos_training_data_validated
 #
 #   # Step 2: Run full pipeline on RunPod
 #   ./runpod_full_pipeline.sh nano
@@ -24,7 +24,7 @@ set -euo pipefail
 
 TIER="${1:-nano}"
 SSH_KEY="${SSH_KEY:-$HOME/.runpod/ssh/RunPod-Key-Go}"
-LOCAL_DATA_DIR="./epistemos_training_data"
+LOCAL_DATA_DIR="./epistemos_training_data_validated"
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  Epistemos Full Pipeline — Tier: $TIER"

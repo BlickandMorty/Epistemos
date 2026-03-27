@@ -1,40 +1,26 @@
 {
-  "timestamp": "2026-03-27",
-  "codebase_symbols": 3393,
-  "total_examples": 4192,
-  "valid": 4190,
-  "auto_fixed": 8,
-  "rejected": 2,
-  "quarantined": 0,
-  "train_count": 3771,
-  "eval_count": 419,
-  "issues_by_type": {
-    "WRONG_RETURN": 4
-  },
-  "files_processed": 16,
-  "stale_symbols_checked": [
-    "NoteTabView"
-  ],
-  "wrong_return_types_checked": [
-    [
-      "trainKnowledgeAdapter",
-      "Void",
-      "AdapterMetadata"
-    ],
-    [
-      "trainStyleAdapter",
-      "Void)?",
-      "AdapterMetadata"
-    ],
-    [
-      "trainKnowledgeAdapter",
-      "Void)?",
-      "AdapterMetadata"
-    ],
-    [
-      "trainStyleAdapter",
-      "Void",
-      "AdapterMetadata"
-    ]
-  ]
+  "timestamp": "2026-03-27T14:00:00",
+  "generator": "rebuild_symbol_qa.py + strict_validate_and_rebuild.py",
+  "total_examples": 3547,
+  "train_count": 3192,
+  "eval_count": 355,
+  "symbol_qa_rebuilt": true,
+  "ownership_method": "brace-depth parsing (not first-type-in-file)",
+  "categories": {
+    "symbol_qa": 2425,
+    "code_graph": 557,
+    "ax_atlas": 146,
+    "tool_call": 144,
+    "scroll_gesture": 66,
+    "axpress_schema": 51,
+    "trajectory": 43,
+    "code_grounded": 26,
+    "reasoning_chain": 23,
+    "negative": 20,
+    "error_recovery": 17,
+    "temporal_sequential": 10,
+    "multi_app_workflow": 10,
+    "macos_knowledge": 6,
+    "error_diagnosis": 3
+  }
 }
