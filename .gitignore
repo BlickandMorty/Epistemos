@@ -39,3 +39,9 @@ omega-ax/target/
 epistemos-core/target/
 build-rust/
 __pycache__/
+
+# MOHAWK training runtime artifacts
+Epistemos/KnowledgeFusion/MOHAWK/.last_pod_id
+Epistemos/KnowledgeFusion/MOHAWK/.runpod_status.json
+Epistemos/KnowledgeFusion/MOHAWK/last_upload_manifest.json
+Epistemos/KnowledgeFusion/MOHAWK/epistemos_training_data_validated/last_upload_manifest.json
