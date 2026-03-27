@@ -10,7 +10,7 @@ import os
 
 final class EventStore: @unchecked Sendable {
     nonisolated(unsafe) static var shared: EventStore?
-    nonisolated(unsafe) private static let queueKey = DispatchSpecificKey<UInt8>()
+    nonisolated private static let queueKey = DispatchSpecificKey<UInt8>()
     nonisolated private static let queueToken: UInt8 = 1
 
     nonisolated private static let log = Logger(subsystem: "com.epistemos", category: "EventStore")

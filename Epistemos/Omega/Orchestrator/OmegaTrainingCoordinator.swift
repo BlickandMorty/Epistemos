@@ -4,13 +4,13 @@ import Foundation
 
 /// Bridges the Omega execution pipeline with KnowledgeFusion training components.
 /// When Omega generates execution traces, this coordinator:
-/// 1. Feeds successful traces to ODIATraceGenerator for structured training data
-/// 2. Uses TrainingScheduler to schedule overnight training runs
+/// 1. Feeds successful traces to StructuredODIATraceGenerator for structured training data
+/// 2. Uses TrainingScheduler (which accepts [StructuredODIATrace]) to schedule overnight training runs
 /// 3. Connects to ExperienceReplayBuffer for catastrophic forgetting prevention
 /// 4. Monitors via CSISafeguard during autoresearch iterations
 ///
-/// NOTE: This coordinator uses StructuredODIATrace (Codable, observe/decide/interact/assess).
-/// The canonical chat-format ODIATrace (Omega/Knowledge) is used by TrainingScheduler.
+/// NOTE: This coordinator and TrainingScheduler both use StructuredODIATrace (Codable, observe/decide/interact/assess).
+/// The canonical chat-format ODIATrace (Omega/Knowledge) is used only by Omega/Knowledge/TraceDataMixer for mlx-lm format.
 @MainActor @Observable
 final class OmegaTrainingCoordinator {
     private let traceGenerator = StructuredODIATraceGenerator()
