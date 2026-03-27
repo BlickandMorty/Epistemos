@@ -26,7 +26,7 @@ SSH_KEY="${SSH_KEY:-$HOME/.runpod/ssh/RunPod-Key-Go}"
 RAW_DATA_DIR="./epistemos_training_data"
 VALIDATED_DATA_DIR="./epistemos_training_data_validated"
 # Remote path on RunPod — receives ONLY validated data
-REMOTE_DATA_DIR="/workspace/epistemos_training_data"
+REMOTE_DATA_DIR="/workspace/epistemos_validated"
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  Epistemos Full Pipeline — Tier: $TIER"

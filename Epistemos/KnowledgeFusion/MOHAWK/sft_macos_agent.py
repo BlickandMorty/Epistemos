@@ -15,10 +15,10 @@ Never fuses adapters into base — hot-swap via MoLoRA routing.
 
 Usage (on RunPod after MOHAWK):
     # Data is uploaded by runpod_full_pipeline.sh (always validated, never raw)
-    # Remote path: /workspace/epistemos_training_data (contains validated data only)
+    # Remote path: /workspace/epistemos_validated (contains validated data only)
 
     python sft_macos_agent.py --base-model /workspace/mohawk_output/stage3/checkpoint-final \\
-                              --data-dir /workspace/epistemos_training_data \\
+                              --data-dir /workspace/epistemos_validated \\
                               --output /workspace/sft_output --lora --lora-rank 16
 """
 

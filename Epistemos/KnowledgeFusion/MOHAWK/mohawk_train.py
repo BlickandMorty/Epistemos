@@ -110,7 +110,7 @@ DATASET_MAP = {
     "dolma_wiki": ("allenai/c4", "en"),
     "openorca": ("Open-Orca/OpenOrca", None),
     "tool_calls": ("NousResearch/hermes-function-calling-v1", None),
-    "epistemos_vault": ("local:/workspace/epistemos_training_data", None),
+    "epistemos_vault": ("local:/workspace/epistemos_validated", None),
 }
 
 # ─── Model Components ─────────────────────────────────────────
