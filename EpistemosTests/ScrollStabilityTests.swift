@@ -3,9 +3,15 @@ import SwiftUI
 import Testing
 @testable import Epistemos
 
+@MainActor
 @Suite("Scroll Stability")
 struct ScrollStabilityTests {
     private static let testDocumentExtent: CGFloat = 10_000
+
+    private func repoRootURL() -> URL {
+        let testsFileURL = URL(fileURLWithPath: #filePath)
+        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+    }
 
     @Test("auto-follow detaches when the user scrolls well away from bottom")
     func autoFollowDetachesAwayFromBottom() {
@@ -81,45 +87,32 @@ struct ScrollStabilityTests {
     }
 
     @MainActor
-    @Test("classic transclusion overlay refresh is coalesced during scroll")
-    func classicTransclusionRefreshIsCoalesced() async throws {
-        let textView = makeClassicTextView(text: "Intro\n\n((abc))\n")
-        let manager = TransclusionOverlayManager(textView: textView)
-        let key = NSAttributedString.Key("EpistemosBlockRef")
-        textView.textStorage?.addAttribute(key, value: "abc", range: NSRange(location: 7, length: 7))
-        manager.refreshAfterTextChange()
+    @Test("scroll work coalescer collapses rapid notifications into a single pass")
+    func scrollWorkCoalescerCollapsesRapidNotifications() async throws {
+        let coalescer = ScrollWorkCoalescer(delay: .milliseconds(20))
+        var runCount = 0
 
-        var refreshCount = 0
-        manager.onDidRefresh = { refreshCount += 1 }
-        manager.refreshForScroll()
-        manager.refreshForScroll()
-        manager.refreshForScroll()
-        try await waitUntilRefreshObserved { refreshCount == 1 }
+        coalescer.schedule { runCount += 1 }
+        coalescer.schedule { runCount += 1 }
+        coalescer.schedule { runCount += 1 }
 
-        #expect(refreshCount == 1)
+        #expect(runCount == 0)
+
+        try await Task.sleep(for: .milliseconds(60))
+
+        #expect(runCount == 1)
     }
 
-    @MainActor
-    @Test("classic rendered table overlay refresh is coalesced during scroll")
-    func classicRenderedTableRefreshIsCoalesced() async throws {
-        let textView = makeClassicTextView(
-            text: """
-            | Name | Value |
-            | --- | --- |
-            | A | B |
-            """
+    @Test("graph inspector formatted note preview uses a lazy stack for long note scrolling")
+    func graphInspectorFormattedNotePreviewUsesLazyStack() throws {
+        let source = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Graph/HologramNodeInspector.swift"
+            ),
+            encoding: .utf8
         )
-        let manager = RenderedTableOverlayManager(textView: textView, theme: .platinum)
-        manager.refreshAfterTextChange()
 
-        var refreshCount = 0
-        manager.onDidRefresh = { refreshCount += 1 }
-        manager.refreshForScroll()
-        manager.refreshForScroll()
-        manager.refreshForScroll()
-        try await waitUntilRefreshObserved { refreshCount == 1 }
-
-        #expect(refreshCount == 1)
+        #expect(source.contains("LazyVStack(alignment: .leading, spacing: 4)"))
     }
 
     @MainActor
@@ -233,41 +226,6 @@ struct ScrollStabilityTests {
             await Task.yield()
             try await Task.sleep(for: .milliseconds(5))
         }
-    }
-
-    @MainActor
-    private func makeClassicTextView(text: String) -> ClickableTextView {
-        let storage = MarkdownTextStorage()
-        let layoutManager = NSLayoutManager()
-        layoutManager.allowsNonContiguousLayout = true
-        storage.addLayoutManager(layoutManager)
-
-        let container = NSTextContainer(
-            size: NSSize(width: 320, height: Self.testDocumentExtent)
-        )
-        container.widthTracksTextView = true
-        layoutManager.addTextContainer(container)
-
-        let textView = ClickableTextView(
-            frame: NSRect(x: 0, y: 0, width: 320, height: 600),
-            textContainer: container
-        )
-        textView.textContainerInset = NSSize(width: 20, height: 20)
-        textView.isVerticallyResizable = true
-        textView.maxSize = NSSize(
-            width: Self.testDocumentExtent,
-            height: Self.testDocumentExtent
-        )
-        textView.minSize = NSSize.zero
-
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 320, height: 220))
-        scrollView.documentView = textView
-        scrollView.contentView.scroll(to: NSPoint.zero)
-        scrollView.reflectScrolledClipView(scrollView.contentView)
-
-        storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: text)
-        layoutManager.ensureLayout(for: container)
-        return textView
     }
 
     @MainActor

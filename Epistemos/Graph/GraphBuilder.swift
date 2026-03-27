@@ -137,8 +137,6 @@ final class GraphBuilder: @unchecked Sendable {
         //     Two-pass: collect referenced IDs first, then fetch only those blocks.
         // ────────────────────────────────────────────
 
-        let blockRefPattern = /\(\(([^)]+)\)\)/
-
         // Pass 1: collect block refs from pages.
         // SDPage extracts these during saveBody() to avoid O(N) disk I/O here.
         struct BlockRef { let noteNodeId: String; let refId: String }

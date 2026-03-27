@@ -6,7 +6,7 @@ import Testing
 struct CollectionRegistryTests {
     private let key = "epistemos.collectionFolderNames"
 
-    private func withIsolatedRegistryState(_ body: () throws -> Void) rethrows {
+    private func withIsolatedRegistryState(_ body: () -> Void) {
         let defaults = UserDefaults.standard
         let original = defaults.stringArray(forKey: key)
         defaults.removeObject(forKey: key)
@@ -17,12 +17,12 @@ struct CollectionRegistryTests {
                 defaults.removeObject(forKey: key)
             }
         }
-        try body()
+        body()
     }
 
     @Test("setCollection true stores folder name")
-    func setCollectionTrueStoresName() throws {
-        try withIsolatedRegistryState {
+    func setCollectionTrueStoresName() {
+        withIsolatedRegistryState {
             let registry = CollectionRegistry.shared
             let name = "Research-\(UUID().uuidString)"
 
@@ -34,8 +34,8 @@ struct CollectionRegistryTests {
     }
 
     @Test("setCollection false removes folder name")
-    func setCollectionFalseRemovesName() throws {
-        try withIsolatedRegistryState {
+    func setCollectionFalseRemovesName() {
+        withIsolatedRegistryState {
             let registry = CollectionRegistry.shared
             let name = "Essays-\(UUID().uuidString)"
 
@@ -50,8 +50,8 @@ struct CollectionRegistryTests {
     }
 
     @Test("collectionNames deduplicates repeated inserts")
-    func collectionNamesDeduplicate() throws {
-        try withIsolatedRegistryState {
+    func collectionNamesDeduplicate() {
+        withIsolatedRegistryState {
             let registry = CollectionRegistry.shared
             let name = "Projects-\(UUID().uuidString)"
 
@@ -64,8 +64,8 @@ struct CollectionRegistryTests {
     }
 
     @Test("unknown folder is not a collection")
-    func unknownFolderNotCollection() throws {
-        try withIsolatedRegistryState {
+    func unknownFolderNotCollection() {
+        withIsolatedRegistryState {
             let registry = CollectionRegistry.shared
             let unknown = "Unknown-\(UUID().uuidString)"
             #expect(!registry.isCollection(unknown))

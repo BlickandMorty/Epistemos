@@ -21,6 +21,13 @@ actor VaultIndexActor {
         let willIndex: Bool
     }
 
+    struct VaultImportComparableCounts: Sendable, Equatable {
+        let trackedVaultPageCount: Int
+        let uniqueTrackedVaultPathCount: Int
+        let duplicateTrackedPathCount: Int
+        let nonVaultPageCount: Int
+    }
+
     private let log = Logger(subsystem: "com.epistemos", category: "VaultIndex")
     nonisolated static let spotlightIndexDateKey = "epistemos.lastSpotlightIndexDate"
     nonisolated private static let excludedDirs: Set<String> = [
@@ -69,6 +76,50 @@ actor VaultIndexActor {
             count += 1
         }
         return count
+    }
+
+    nonisolated static func isModificationDate(_ lhs: Date?, newerThan rhs: Date?) -> Bool {
+        guard let lhs, let rhs else { return false }
+        return lhs > rhs
+    }
+
+    nonisolated static func comparableVaultPageCounts(
+        pages: [SDPage],
+        in vaultURL: URL
+    ) -> VaultImportComparableCounts {
+        let vaultRoot = vaultURL.standardizedFileURL.path
+        let trackedPrefix = vaultRoot.hasSuffix("/") ? vaultRoot : vaultRoot + "/"
+        var uniqueTrackedPaths = Set<String>()
+        var trackedVaultPageCount = 0
+        var duplicateTrackedPathCount = 0
+        var nonVaultPageCount = 0
+
+        for page in pages {
+            guard let filePath = page.filePath else {
+                nonVaultPageCount += 1
+                continue
+            }
+
+            let standardizedPath = URL(fileURLWithPath: filePath).standardizedFileURL.path
+            guard standardizedPath.hasPrefix(trackedPrefix),
+                  isImportableNoteFile(URL(fileURLWithPath: standardizedPath))
+            else {
+                nonVaultPageCount += 1
+                continue
+            }
+
+            trackedVaultPageCount += 1
+            if !uniqueTrackedPaths.insert(standardizedPath).inserted {
+                duplicateTrackedPathCount += 1
+            }
+        }
+
+        return VaultImportComparableCounts(
+            trackedVaultPageCount: trackedVaultPageCount,
+            uniqueTrackedVaultPathCount: uniqueTrackedPaths.count,
+            duplicateTrackedPathCount: duplicateTrackedPathCount,
+            nonVaultPageCount: nonVaultPageCount
+        )
     }
 
     // MARK: - Full Vault Import
@@ -239,14 +290,18 @@ actor VaultIndexActor {
             try repairOrphanedFolderRelationships(vaultURL: url)
         }
 
-        // Diagnostic: compare disk file count vs DB page count.
-        let dbPageCount = (try? modelContext.fetchCount(FetchDescriptor<SDPage>())) ?? 0
+        // Diagnostic: compare disk file count only against vault-backed note pages.
+        let currentPages = (try? modelContext.fetch(FetchDescriptor<SDPage>())) ?? []
+        let comparableCounts = Self.comparableVaultPageCounts(pages: currentPages, in: url)
         log.info(
-            "Vault import complete: \(diskPaths.count) files on disk, \(dbPageCount) pages in DB → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted, \(unreadableCount) unreadable"
+            "Vault import complete: \(diskPaths.count) files on disk, \(comparableCounts.uniqueTrackedVaultPathCount) tracked vault pages in DB → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted, \(unreadableCount) unreadable, \(comparableCounts.nonVaultPageCount) non-vault pages, \(comparableCounts.duplicateTrackedPathCount) duplicate tracked paths"
         )
-        if completedScan && deleteMissingFiles && diskPaths.count != dbPageCount {
+        if completedScan &&
+            deleteMissingFiles &&
+            diskPaths.count != comparableCounts.uniqueTrackedVaultPathCount
+        {
             log.warning(
-                "Vault import mismatch: \(diskPaths.count) disk files vs \(dbPageCount) DB pages (delta: \(dbPageCount - diskPaths.count))"
+                "Vault import mismatch: \(diskPaths.count) disk files vs \(comparableCounts.uniqueTrackedVaultPathCount) tracked DB paths (delta: \(comparableCounts.uniqueTrackedVaultPathCount - diskPaths.count), tracked pages: \(comparableCounts.trackedVaultPageCount), non-vault pages: \(comparableCounts.nonVaultPageCount), duplicate tracked paths: \(comparableCounts.duplicateTrackedPathCount))"
             )
         }
     }
@@ -528,6 +583,9 @@ actor VaultIndexActor {
             // Clean up orphaned SDNoteInsight
             let pageId = page.id
             SpotlightIndexer.deindex(pageId)
+            Task { @MainActor in
+                AppBootstrap.shared?.instantRecallService.removeNote(noteId: pageId)
+            }
             let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
             if let insight = try? modelContext.fetch(insightDesc).first {
                 modelContext.delete(insight)
@@ -596,7 +654,7 @@ actor VaultIndexActor {
             let noteBodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(page.id).md")
             let noteBodyModDate = (try? noteBodyURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
             let vaultModDate = (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-            let noteBodyIsNewer = noteBodyModDate != nil && vaultModDate != nil && noteBodyModDate! > vaultModDate!
+            let noteBodyIsNewer = Self.isModificationDate(noteBodyModDate, newerThan: vaultModDate)
 
             // Only preserve in-app body if it's non-empty. A zero-byte note-body
             // (from historical DB reset or write failure) should never win over vault content.
@@ -905,8 +963,8 @@ actor VaultIndexActor {
     ])
 
     /// Search the vault for notes relevant to the query and format as context.
-    /// Runs on this background actor so all `@Attribute(.externalStorage)` body reads
-    /// happen off the main thread (each .body access triggers a lazy disk read).
+    /// Runs on this background actor so disk-backed note body reads
+    /// happen off the main thread instead of inside interactive UI paths.
     ///
     /// Relevance filtering:
     /// 1. Stop words + conversational filler stripped from search terms
@@ -1013,7 +1071,7 @@ actor VaultIndexActor {
     /// Build a lightweight manifest for ambient vault awareness.
     /// Entries only — no recent bodies (those are loaded on-demand via @-mentions).
     func buildAmbientManifest(vaultTitle: String) -> VaultManifest? {
-        var descriptor = FetchDescriptor<SDPage>(
+        let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
@@ -1046,7 +1104,7 @@ actor VaultIndexActor {
     /// Build a complete vault manifest for vault briefing.
     /// Includes metadata for ALL non-archived notes + full bodies of the 20 most recent.
     func buildVaultManifest(vaultTitle: String) -> VaultManifest? {
-        var descriptor = FetchDescriptor<SDPage>(
+        let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )

@@ -5,8 +5,12 @@ import AppIntents
 // Used by OpenPanelIntent to let Siri/Shortcuts navigate the app.
 
 struct PanelEntity: AppEntity, Sendable {
-    nonisolated(unsafe) static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Panel")
-    nonisolated(unsafe) static var defaultQuery = PanelEntityQuery()
+    static var typeDisplayRepresentation: TypeDisplayRepresentation {
+        TypeDisplayRepresentation(name: "Panel")
+    }
+    static var defaultQuery: PanelEntityQuery {
+        PanelEntityQuery()
+    }
 
     var id: String
     var name: String
@@ -31,20 +35,22 @@ struct PanelEntity: AppEntity, Sendable {
 
 struct PanelEntityQuery: EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [PanelEntity] {
-        allPanels.filter { identifiers.contains($0.id) }
+        identifiers.compactMap { id in
+            NavTab(rawValue: id).map { PanelEntity(tab: $0) }
+        }
     }
 
     func entities(matching string: String) async throws -> IntentItemCollection<PanelEntity> {
-        let filtered = allPanels.filter { $0.name.localizedCaseInsensitiveContains(string) }
+        let filtered = searchablePanels.filter { $0.name.localizedCaseInsensitiveContains(string) }
         return IntentItemCollection(items: filtered)
     }
 
     func suggestedEntities() async throws -> IntentItemCollection<PanelEntity> {
-        IntentItemCollection(items: allPanels)
+        IntentItemCollection(items: searchablePanels)
     }
 
-    /// Derived from NavTab.allCases — single source of truth.
-    private var allPanels: [PanelEntity] {
-        NavTab.allCases.map { PanelEntity(tab: $0) }
+    /// Derived from the supported NavTab cases so Shortcuts stays aligned with in-scope panels.
+    private var searchablePanels: [PanelEntity] {
+        AppIntentSearchSupport.searchableTabs.map { PanelEntity(tab: $0) }
     }
 }

@@ -110,7 +110,7 @@ enum UtilityPanel: String, CaseIterable {
         switch self {
         case .notes: NSSize(width: 320, height: 600)
         case .omega: NSSize(width: 480, height: 700)
-        case .settings: NSSize(width: 680, height: 580)
+        case .settings: NSSize(width: 900, height: 680)
         }
     }
 
@@ -154,7 +154,9 @@ enum UtilityPanelChrome {
         panel.hasShadow = true
         panel.backgroundColor = .windowBackgroundColor
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "OmegaToolbar")
-        toolbar.showsBaselineSeparator = false
+        if #unavailable(macOS 15.0) {
+            toolbar.showsBaselineSeparator = false
+        }
         panel.toolbar = toolbar
         panel.toolbarStyle = .unified
     }
@@ -180,9 +182,11 @@ enum UtilityPanelChrome {
         panel.hasShadow = true
         panel.backgroundColor = .windowBackgroundColor
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "SettingsToolbar")
-        toolbar.showsBaselineSeparator = false
+        if #unavailable(macOS 15.0) {
+            toolbar.showsBaselineSeparator = false
+        }
         panel.toolbar = toolbar
-        panel.toolbarStyle = .unified
+        panel.toolbarStyle = .unifiedCompact
     }
 }
 

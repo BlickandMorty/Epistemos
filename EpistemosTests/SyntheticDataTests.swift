@@ -51,7 +51,7 @@ private struct MockInferenceProvider: KFInferenceProvider {
             several distinct phases, each building upon the previous one to \
             create a comprehensive solution.
             """
-        } else if prompt.contains("Rate the following") {
+        } else if prompt.contains("Rate the following") || prompt.contains("Rate this QA pair") {
             // Step C: Quality scoring — rotate through scorePattern
             // Use a simple deterministic approach based on prompt hash
             let hash = abs(prompt.hashValue)
@@ -131,6 +131,25 @@ private func makeSampleChunks() -> [TextChunk] {
     ]
 }
 
+private func makeCuratablePair(
+    index: Int,
+    qualityScore: Int,
+    sourceChunkId: UUID = UUID()
+) -> GeneratedPair {
+    GeneratedPair(
+        question: "What does example \(index) reveal about building a resilient knowledge system?",
+        answer: """
+        Example \(index) shows that a resilient knowledge system preserves evidence, validates retrieval quality, \
+        and keeps answers grounded in structured context even after repeated edits, sync passes, and evaluation cycles.
+        """,
+        qualityScore: qualityScore,
+        sourceChunkId: sourceChunkId,
+        sourceChunkText: """
+        Example \(index) discusses resilient knowledge systems, grounded retrieval, and stable evaluation behavior.
+        """
+    )
+}
+
 // MARK: - InstructionBacktranslator Tests
 
 @Suite("InstructionBacktranslator")
@@ -180,11 +199,11 @@ struct QualityCuratorTests {
         let curator = QualityCurator(qualityThreshold: 3)
 
         let pairs: [GeneratedPair] = [
-            GeneratedPair(question: "Q1?", answer: "A1", qualityScore: 5, sourceChunkId: UUID(), sourceChunkText: ""),
-            GeneratedPair(question: "Q2?", answer: "A2", qualityScore: 2, sourceChunkId: UUID(), sourceChunkText: ""),
-            GeneratedPair(question: "Q3?", answer: "A3", qualityScore: 1, sourceChunkId: UUID(), sourceChunkText: ""),
-            GeneratedPair(question: "Q4?", answer: "A4", qualityScore: 3, sourceChunkId: UUID(), sourceChunkText: ""),
-            GeneratedPair(question: "Q5?", answer: "A5", qualityScore: 4, sourceChunkId: UUID(), sourceChunkText: ""),
+            makeCuratablePair(index: 1, qualityScore: 5),
+            makeCuratablePair(index: 2, qualityScore: 2),
+            makeCuratablePair(index: 3, qualityScore: 1),
+            makeCuratablePair(index: 4, qualityScore: 3),
+            makeCuratablePair(index: 5, qualityScore: 4),
         ]
 
         let result = curator.curate(pairs: pairs)
@@ -198,11 +217,18 @@ struct QualityCuratorTests {
     func deduplication() {
         let curator = QualityCurator(qualityThreshold: 1)
         let chunkId = UUID()
+        let duplicate = makeCuratablePair(index: 1, qualityScore: 4, sourceChunkId: chunkId)
 
         let pairs: [GeneratedPair] = [
-            GeneratedPair(question: "Same Q?", answer: "Same A", qualityScore: 4, sourceChunkId: chunkId, sourceChunkText: ""),
-            GeneratedPair(question: "Same Q?", answer: "Same A", qualityScore: 5, sourceChunkId: chunkId, sourceChunkText: ""),
-            GeneratedPair(question: "Different Q?", answer: "Different A", qualityScore: 3, sourceChunkId: chunkId, sourceChunkText: ""),
+            duplicate,
+            GeneratedPair(
+                question: duplicate.question,
+                answer: duplicate.answer,
+                qualityScore: 5,
+                sourceChunkId: chunkId,
+                sourceChunkText: duplicate.sourceChunkText
+            ),
+            makeCuratablePair(index: 2, qualityScore: 3, sourceChunkId: chunkId),
         ]
 
         let result = curator.curate(pairs: pairs)
@@ -246,28 +272,23 @@ struct QualityCuratorTests {
 
         // Generate 50 unique pairs
         let pairs = (0..<50).map { i in
-            GeneratedPair(
-                question: "Question \(i)?",
-                answer: "Answer \(i)",
-                qualityScore: 4,
-                sourceChunkId: UUID(),
-                sourceChunkText: ""
-            )
+            makeCuratablePair(index: i, qualityScore: 4)
         }
 
         let result = curator.curate(pairs: pairs)
-        // 10% of 50 = 5
+        let curatedCount = result.accepted.count + result.evalHeldOut.count
+        // Holdout is computed from the post-filter curated set, not the raw input count.
         #expect(result.evalHeldOut.count >= 3)
         #expect(result.evalHeldOut.count <= 8)
-        #expect(result.accepted.count + result.evalHeldOut.count == 50)
+        #expect(curatedCount + result.discardedCount + result.duplicateCount == 50)
     }
 
     @Test("JSONL output is valid JSON per line")
     func jsonlValid() throws {
         let curator = QualityCurator(qualityThreshold: 1, evalHoldoutRatio: 0.0)
         let pairs: [GeneratedPair] = [
-            GeneratedPair(question: "Q1?", answer: "A1", qualityScore: 4, sourceChunkId: UUID(), sourceChunkText: ""),
-            GeneratedPair(question: "Q2?", answer: "A2", qualityScore: 5, sourceChunkId: UUID(), sourceChunkText: ""),
+            makeCuratablePair(index: 1, qualityScore: 4),
+            makeCuratablePair(index: 2, qualityScore: 5),
         ]
 
         let result = curator.curate(pairs: pairs)

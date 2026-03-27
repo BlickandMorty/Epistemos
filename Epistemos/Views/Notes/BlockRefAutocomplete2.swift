@@ -8,7 +8,7 @@ import SwiftData
 // On selection, inserts the block ID and closing `))`.
 //
 // Geometry: Uses NSTextLayoutManager.textLayoutFragment(for:) + layoutFragmentFrame
-// instead of TK1's glyphIndexForCharacter / lineFragmentRect / location(forGlyphAt:).
+// instead of the old TK1 glyph-based geometry path.
 
 final class BlockRefAutocomplete2: NSObject {
 
@@ -64,7 +64,7 @@ final class BlockRefAutocomplete2: NSObject {
         let origin = textView.textContainerOrigin
 
         // Find the correct line fragment for the cursor position.
-        // TK1 used lineFragmentRect(forGlyphAt:) which returns the specific wrapped line.
+        // The old TK1 path used lineFragmentRect(forGlyphAt:) for the specific wrapped line.
         // TK2: iterate textLineFragments to find the one whose characterRange contains
         // the cursor's offset within the paragraph.
         var glyphX: CGFloat = fragFrame.origin.x
@@ -96,7 +96,7 @@ final class BlockRefAutocomplete2: NSObject {
             height: max(lineHeight, 16)
         )
 
-        // Create popover with block list (reuses TK1's BlockRefListController)
+        // Create popover with block list using the same AppKit controller structure as before.
         let blocks = fetchBlocks(query: "")
         let listVC = BlockRefListController2(blocks: blocks) { [weak self] selectedBlock in
             self?.insertBlockRef(selectedBlock)
@@ -126,8 +126,13 @@ final class BlockRefAutocomplete2: NSObject {
         )
         blockDescriptor.fetchLimit = 200
         let blocks = (try? modelContext.fetch(blockDescriptor)) ?? []
+        let candidateBlocks = Array(
+            blocks
+                .filter { $0.content.count > 10 }
+                .prefix(50)
+        )
 
-        let pageIds = Set(blocks.map(\.pageId))
+        let pageIds = Set(candidateBlocks.map(\.pageId))
         var pageTitleMap: [String: String] = [:]
         for pageId in pageIds {
             let desc = FetchDescriptor<SDPage>(
@@ -138,9 +143,7 @@ final class BlockRefAutocomplete2: NSObject {
             }
         }
 
-        return blocks
-            .filter { $0.content.count > 10 }
-            .prefix(50)
+        return candidateBlocks
             .map { block in
                 let pageTitle = pageTitleMap[block.pageId] ?? "Unknown"
                 return (id: block.id, content: block.content, pageTitle: pageTitle)
@@ -181,7 +184,7 @@ final class BlockRefAutocomplete2: NSObject {
 }
 
 // MARK: - BlockRefListController2
-// Identical to TK1's BlockRefListController — pure AppKit, no TK dependency.
+// Pure AppKit list controller with no TextKit dependency.
 
 private final class BlockRefListController2: NSViewController, NSTableViewDelegate, NSTableViewDataSource {
 

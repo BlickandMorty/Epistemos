@@ -37,6 +37,13 @@ final class AppBootstrap {
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 
+    private static func requireInitialized<Value>(_ value: Value?, name: StaticString) -> Value {
+        guard let value else {
+            preconditionFailure("AppBootstrap.\(name.description) accessed before initialization")
+        }
+        return value
+    }
+
     // MARK: - Model Container
     let modelContainer: ModelContainer
     /// Non-nil when the on-disk database failed to load and we fell back to in-memory.
@@ -61,17 +68,30 @@ final class AppBootstrap {
     let mcpBridge = MCPBridge()
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
-    private(set) var deviceAgent: DeviceAgentService!
-    private(set) var dualBrainRouter: DualBrainRouter!
-    private(set) var screen2AXFusion: Screen2AXFusion!
-    private(set) var visualVerifyLoop: VisualVerifyLoop!
-    private(set) var agentGraphMemory: AgentGraphMemory!
-    private(set) var recipeGraphSkills: RecipeGraphSkills!
-    private(set) var ghostBrainCoauthor: GhostBrainCoauthor!
-    private(set) var workspaceService: WorkspaceService!
+    private var _deviceAgent: DeviceAgentService?
+    var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
+    private var _dualBrainRouter: DualBrainRouter?
+    var dualBrainRouter: DualBrainRouter { Self.requireInitialized(_dualBrainRouter, name: "dualBrainRouter") }
+    private var _screen2AXFusion: Screen2AXFusion?
+    var screen2AXFusion: Screen2AXFusion { Self.requireInitialized(_screen2AXFusion, name: "screen2AXFusion") }
+    private var _visualVerifyLoop: VisualVerifyLoop?
+    var visualVerifyLoop: VisualVerifyLoop { Self.requireInitialized(_visualVerifyLoop, name: "visualVerifyLoop") }
+    private var _agentGraphMemory: AgentGraphMemory?
+    var agentGraphMemory: AgentGraphMemory { Self.requireInitialized(_agentGraphMemory, name: "agentGraphMemory") }
+    private var _recipeGraphSkills: RecipeGraphSkills?
+    var recipeGraphSkills: RecipeGraphSkills { Self.requireInitialized(_recipeGraphSkills, name: "recipeGraphSkills") }
+    private var _ghostBrainCoauthor: GhostBrainCoauthor?
+    var ghostBrainCoauthor: GhostBrainCoauthor { Self.requireInitialized(_ghostBrainCoauthor, name: "ghostBrainCoauthor") }
+    private var _reasoningLoopService: ReasoningLoopService?
+    var reasoningLoopService: ReasoningLoopService { Self.requireInitialized(_reasoningLoopService, name: "reasoningLoopService") }
+    let instantRecallService = InstantRecallService()
+    private var _workspaceService: WorkspaceService?
+    var workspaceService: WorkspaceService { Self.requireInitialized(_workspaceService, name: "workspaceService") }
     let activityTracker = ActivityTracker()
-    private(set) var workspaceSummaryService: WorkspaceSummaryService!
-    private(set) var timeMachineService: TimeMachineService!
+    private var _workspaceSummaryService: WorkspaceSummaryService?
+    var workspaceSummaryService: WorkspaceSummaryService { Self.requireInitialized(_workspaceSummaryService, name: "workspaceSummaryService") }
+    private var _timeMachineService: TimeMachineService?
+    var timeMachineService: TimeMachineService { Self.requireInitialized(_timeMachineService, name: "timeMachineService") }
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
@@ -83,6 +103,12 @@ final class AppBootstrap {
     private var healthyVaultBodyCleanupTask: Task<Void, Never>?
     private var localRuntimeObserverTokens: [NSObjectProtocol] = []
     private let localModelRefreshThrottle: LocalModelRefreshThrottle
+
+    private struct InstantRecallSeed: Sendable {
+        let id: String
+        let inlineBody: String
+        let liveBody: String?
+    }
 
     // MARK: - Services
     let llmService: LLMService
@@ -97,7 +123,8 @@ final class AppBootstrap {
     let noteInsightService: NoteInsightService
 
     // MARK: - Coordinators
-    private(set) var coordinator: AppCoordinator!
+    private var _coordinator: AppCoordinator?
+    var coordinator: AppCoordinator { Self.requireInitialized(_coordinator, name: "coordinator") }
 
     init() {
         let interval = Log.appPerf.beginInterval("bootstrapInit")
@@ -120,11 +147,7 @@ final class AppBootstrap {
             dbError = nil
         } catch {
             Log.app.error("Database failed to load, falling back to in-memory: \(error.localizedDescription, privacy: .public)")
-            // swiftlint:disable:next force_try — in-memory container cannot fail
-            container = try! ModelContainer(
-                for: schema,
-                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-            )
+            container = Self.makeFallbackModelContainer(schema: schema)
             dbError = error
         }
         self.modelContainer = container
@@ -236,7 +259,7 @@ final class AppBootstrap {
             modelContainer: container,
             notesUI: notesUI
         )
-        self.coordinator = appCoordinator
+        self._coordinator = appCoordinator
 
         // Wire stop button → cancel active pipeline query
         chatState.onStopRequested = { [weak self] in
@@ -246,14 +269,23 @@ final class AppBootstrap {
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
 
-        self.workspaceService = WorkspaceService(modelContainer: container)
-        self.workspaceSummaryService = WorkspaceSummaryService(
+        self._workspaceService = WorkspaceService(modelContainer: container)
+        self._workspaceSummaryService = WorkspaceSummaryService(
             triageService: triage, activityTracker: activityTracker, modelContainer: container
         )
 
+        // Initialize reasoning loop (STaR + autoresearch flywheel)
+        // Opt-in via Settings → Omega. Do NOT force-enable at startup.
+        let reasoning = ReasoningLoopService(triageService: triage)
+        reasoning.config.enabled = UserDefaults.standard.bool(forKey: "omega.enableReasoningLoop")
+        reasoning.onTracesGenerated = { jsonlLines in
+            KnowledgeFusionViewModel.shared.ingestReasoningTraces(jsonlLines)
+        }
+        self._reasoningLoopService = reasoning
+
         // Initialize dual-brain infrastructure
-        self.deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
-        self.dualBrainRouter = DualBrainRouter(
+        self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
+        self._dualBrainRouter = DualBrainRouter(
             hardwareTier: hardwareTierManager,
             deviceAgent: deviceAgent
         )
@@ -262,12 +294,12 @@ final class AppBootstrap {
 
         // Initialize computer use stack (Ω13)
         let screenCapture = ScreenCaptureService()
-        self.screen2AXFusion = Screen2AXFusion(screenCapture: screenCapture)
-        self.visualVerifyLoop = VisualVerifyLoop(screenCapture: screenCapture, deviceAgent: deviceAgent)
+        self._screen2AXFusion = Screen2AXFusion(screenCapture: screenCapture)
+        self._visualVerifyLoop = VisualVerifyLoop(screenCapture: screenCapture, deviceAgent: deviceAgent)
 
         // Initialize the persistent event store (separate SQLite database with WAL mode).
         EventStore.shared = EventStore()
-        self.timeMachineService = TimeMachineService(modelContainer: container)
+        self._timeMachineService = TimeMachineService(modelContainer: container)
         self.workspaceService.timeMachineService = timeMachineService
 
         if !Self.isRunningTests {
@@ -294,13 +326,23 @@ final class AppBootstrap {
         )
 
         // Wire constrained decoding generator (Ω11)
+        // Note: Current JSONSchemaLogitProcessor only applies soft EOS penalties,
+        // NOT real grammar masking. ConstrainedDecodingService.isAvailable will
+        // remain false until a fully constraining generator is registered.
         constrainedDecoding.setGenerator(MLXConstrainedGenerator(inferenceService: localInferenceService))
+        if !constrainedDecoding.isAvailable {
+            Log.app.info("AppBootstrap: constrained decoding registered but not available (soft guidance only)")
+        }
 
         // Initialize knowledge graph integration (Ω14)
-        self.agentGraphMemory = AgentGraphMemory(graphStore: graphState.store)
-        self.recipeGraphSkills = RecipeGraphSkills(graphStore: graphState.store, mcpBridge: mcpBridge)
-        self.ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
+        self._agentGraphMemory = AgentGraphMemory(graphStore: graphState.store)
+        self._recipeGraphSkills = RecipeGraphSkills(graphStore: graphState.store, mcpBridge: mcpBridge)
+        self._ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
         orchestratorState.agentGraphMemory = agentGraphMemory
+
+        // Initialize instant recall vector index (Ω18)
+        instantRecallService.initialize()
+        scheduleInitialInstantRecallRebuild()
 
         // Body-file migration runs off-main to avoid launch hitching.
         // Orphan cleanup now waits for a confirmed healthy vault attach/import.
@@ -360,6 +402,19 @@ final class AppBootstrap {
     func loadChat(chatId: String) { coordinator.loadChat(chatId: chatId) }
     func requestVaultBriefing(chatState: ChatState) { coordinator.requestVaultBriefing(chatState: chatState) }
     static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade { ChatCoordinator.gradeFromConfidence(confidence) }
+
+    private static func makeFallbackModelContainer(schema: Schema) -> ModelContainer {
+        do {
+            return try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            )
+        } catch {
+            preconditionFailure(
+                "Failed to create in-memory model container fallback: \(error.localizedDescription)"
+            )
+        }
+    }
 
     private func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
         graphState.applyPreparedRetrievalRuntimeConfiguration(configuration)
@@ -432,6 +487,37 @@ final class AppBootstrap {
         relaunchApp()
     }
 
+    private func scheduleInitialInstantRecallRebuild() {
+        guard !Self.isRunningTests else { return }
+
+        let seeds = snapshotInstantRecallSeeds()
+        Task.detached(priority: .utility) {
+            let notes = seeds.map { seed -> (id: String, text: String) in
+                let diskBody = NoteFileStorage.readBody(pageId: seed.id, mapped: true)
+                let text = seed.liveBody ?? (diskBody.isEmpty ? seed.inlineBody : diskBody)
+                return (id: seed.id, text: text)
+            }
+
+            await MainActor.run {
+                AppBootstrap.shared?.instantRecallService.rebuildIndex(notes: notes)
+            }
+        }
+    }
+
+    private func snapshotInstantRecallSeeds() -> [InstantRecallSeed] {
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
+        )
+        guard let pages = try? modelContainer.mainContext.fetch(descriptor) else { return [] }
+        return pages.map {
+            InstantRecallSeed(
+                id: $0.id,
+                inlineBody: $0.body,
+                liveBody: NoteWindowManager.shared.editorBody(for: $0.id)
+            )
+        }
+    }
+
     // MARK: - Full Reset
 
     func resetAllData() {
@@ -486,7 +572,6 @@ final class AppBootstrap {
     }
 
     private func clearVisualCaches() {
-        PageStoragePool.shared.removeAll()
         DiskStyleCache.shared.clearAll()
     }
 

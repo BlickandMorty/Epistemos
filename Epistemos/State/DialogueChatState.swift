@@ -12,15 +12,36 @@ enum DialogueArchetype: String, Codable, Sendable, Equatable {
     case sentinel
 
     var title: String {
-        "Node"
+        switch self {
+        case .archivist: "Archivist"
+        case .examiner: "Examiner"
+        case .dreamer: "Dreamer"
+        case .gardener: "Gardener"
+        case .guide: "Guide"
+        case .sentinel: "Sentinel"
+        }
     }
 
     var summaryTemplate: String {
-        "contains connected context for retrieval and answer synthesis"
+        switch self {
+        case .archivist: "curates evidence, citations, and grounded context"
+        case .examiner: "surfaces open questions, tensions, and stress points"
+        case .dreamer: "collects speculative paths and unfinished possibilities"
+        case .gardener: "tends clusters of related themes and recurring threads"
+        case .guide: "orients you across branches and suggests where to look next"
+        case .sentinel: "contains connected context for retrieval and answer synthesis"
+        }
     }
 
     var openingLine: String {
-        "Ask about this node."
+        switch self {
+        case .archivist: "Ask what evidence this node holds."
+        case .examiner: "Ask what question this node is pressure-testing."
+        case .dreamer: "Ask what possibility this node is reaching toward."
+        case .gardener: "Ask how this node connects and grows with nearby threads."
+        case .guide: "Ask where this node can lead you next."
+        case .sentinel: "Ask about this node."
+        }
     }
 }
 
@@ -32,7 +53,13 @@ enum DialogueMood: String, Codable, Sendable, Equatable {
     case fragile
 
     var displayName: String {
-        "Ready"
+        switch self {
+        case .thriving: "Thriving"
+        case .curious: "Curious"
+        case .steady: "Steady"
+        case .lonely: "Lonely"
+        case .fragile: "Fragile"
+        }
     }
 }
 
@@ -388,22 +415,81 @@ struct DialogueNodeProfile: Sendable, Equatable {
     }
 
     private static func deriveArchetype(
-        nodeType _: GraphNodeType,
-        body _: String,
-        tokens _: [String],
-        linkedNodeLabels _: [String],
-        ml _: ContentPersonalitySignals = .empty
+        nodeType: GraphNodeType,
+        body: String,
+        tokens: [String],
+        linkedNodeLabels: [String],
+        ml: ContentPersonalitySignals = .empty
     ) -> DialogueArchetype {
+        let lowerBody = body.lowercased()
+        let citationSignals = citationSignalCount(in: lowerBody)
+        let questionSignals = questionSignalCount(in: lowerBody)
+        let ideaSignals = ideaSignalCount(in: lowerBody)
+        let linkedCount = linkedNodeLabels.count
+        let mlQuestionSignals = ml.questionDensity >= 0.18 ? 2 : (ml.questionDensity >= 0.08 ? 1 : 0)
+        let mlCitationSignals = (ml.formalityScore >= 0.42 ? 1 : 0) + (ml.entityKeywords.isEmpty ? 0 : 1)
+        let mlIdeaSignals = ml.vocabDiversity >= 0.56 ? 1 : 0
+
+        switch nodeType {
+        case .source, .quote:
+            return .archivist
+        case .folder:
+            return .guide
+        case .tag:
+            return linkedCount >= 4 ? .gardener : .guide
+        case .chat:
+            if questionSignals + mlQuestionSignals >= 2 {
+                return .examiner
+            }
+            return .guide
+        case .note, .idea, .block:
+            break
+        }
+
+        if citationSignals + mlCitationSignals >= 2 {
+            return .archivist
+        }
+        if questionSignals + mlQuestionSignals >= 2 {
+            return .examiner
+        }
+        if ideaSignals + mlIdeaSignals >= 2 || (nodeType == .idea && tokens.count >= 8) {
+            return .dreamer
+        }
+        if linkedCount >= 6 {
+            return .gardener
+        }
+        if linkedCount >= 3 {
+            return .guide
+        }
         return .sentinel
     }
 
     private static func deriveMood(
-        body _: String,
-        tokens _: [String],
-        richness _: Double,
-        linkedNodeLabels _: [String],
-        ml _: ContentPersonalitySignals = .empty
+        body: String,
+        tokens: [String],
+        richness: Double,
+        linkedNodeLabels: [String],
+        ml: ContentPersonalitySignals = .empty
     ) -> DialogueMood {
+        let lowerBody = body.lowercased()
+        let questionSignals = questionSignalCount(in: lowerBody)
+        let citationSignals = citationSignalCount(in: lowerBody)
+
+        if questionSignals >= 2 || ml.questionDensity >= 0.18 {
+            return .curious
+        }
+        if ml.sentiment < -0.45 && richness < 0.30 {
+            return .fragile
+        }
+        if richness < 0.12 && linkedNodeLabels.isEmpty && tokens.count < 12 {
+            return .lonely
+        }
+        if richness >= 0.58 || (citationSignals >= 2 && linkedNodeLabels.count >= 2) {
+            return .thriving
+        }
+        if richness < 0.20 && linkedNodeLabels.count <= 1 {
+            return .lonely
+        }
         return .steady
     }
 
@@ -438,8 +524,23 @@ struct DialogueNodeProfile: Sendable, Equatable {
         }
     }
 
-    private static func portraitAsset(for _: DialogueArchetype, mood _: DialogueMood) -> DialoguePortraitAsset {
-        return DialoguePortraitAsset(symbol: "square.stack.3d.up.fill", crestLabel: "Node")
+    private static func portraitAsset(for archetype: DialogueArchetype, mood: DialogueMood) -> DialoguePortraitAsset {
+        let base: (symbol: String, crestLabel: String) = switch archetype {
+        case .archivist:
+            ("books.vertical.fill", "Archivist")
+        case .examiner:
+            ("questionmark.bubble.fill", "Examiner")
+        case .dreamer:
+            ("sparkles", "Dreamer")
+        case .gardener:
+            ("leaf.fill", "Gardener")
+        case .guide:
+            ("signpost.right.fill", "Guide")
+        case .sentinel:
+            ("shield.fill", "Sentinel")
+        }
+        let crestLabel = mood == .steady ? base.crestLabel : "\(mood.displayName) \(base.crestLabel)"
+        return DialoguePortraitAsset(symbol: base.symbol, crestLabel: crestLabel)
     }
 
     private static func focusKeywords(in body: String, linkedNodeLabels: [String]) -> [String] {
@@ -533,6 +634,7 @@ final class DialogueChatState {
     // MARK: - Private
 
     @ObservationIgnored private var streamingTask: Task<Void, Never>?
+    @ObservationIgnored private var streamingTaskToken = UUID()
     @ObservationIgnored
     private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
         guard let self, !self.messages.isEmpty else { return }
@@ -553,6 +655,7 @@ final class DialogueChatState {
         insight: DialogueNodeInsight? = nil
     ) {
         if activeNodeId != nodeId {
+            streamingTaskToken = UUID()
             streamingTask?.cancel()
             streamingTask = nil
             streamBuffer.reset()
@@ -620,6 +723,7 @@ final class DialogueChatState {
     }
 
     func close() {
+        streamingTaskToken = UUID()
         streamingTask?.cancel()
         streamingTask = nil
         streamBuffer.reset()
@@ -645,6 +749,7 @@ final class DialogueChatState {
         guard !query.isEmpty else { return }
         guard !isStreaming else { return }
         inputText = ""
+        streamingTaskToken = UUID()
         streamingTask?.cancel()
         streamBuffer.reset()
 
@@ -667,19 +772,27 @@ final class DialogueChatState {
         messages.append(Message(role: .assistant, text: ""))
         revealedCharCount = 0
 
-        let prompt = buildPrompt(
-            query: query,
-            noteBody: noteBody,
-            linkedNodeLabels: linkedNodeLabels,
-            neighborContext: neighborContext
-        )
-
         isStreaming = true
         onStreamingChanged?(true)
 
+        let relatedPageId = activeNodeId
+        let taskToken = UUID()
+        streamingTaskToken = taskToken
         streamingTask = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if self.streamingTaskToken == taskToken {
+                    self.streamingTask = nil
+                }
+            }
             do {
+                let prompt = await self.buildPrompt(
+                    query: query,
+                    noteBody: noteBody,
+                    linkedNodeLabels: linkedNodeLabels,
+                    neighborContext: neighborContext,
+                    relatedPageId: relatedPageId
+                )
                 let stream = triageService.stream(
                     prompt: prompt,
                     systemPrompt: nil,
@@ -732,8 +845,9 @@ final class DialogueChatState {
         query: String,
         noteBody: String,
         linkedNodeLabels: [String],
-        neighborContext: [(label: String, relationship: String, body: String)] = []
-    ) -> String {
+        neighborContext: [(label: String, relationship: String, body: String)] = [],
+        relatedPageId: String?
+    ) async -> String {
         var neighborSection = ""
         if !neighborContext.isEmpty {
             neighborSection = "\n\n--- CONNECTED NODES ---\n"
@@ -749,8 +863,8 @@ final class DialogueChatState {
 
         // Inject related notes from NoteInsightService (cross-note intelligence)
         var relatedSection = ""
-        if let nodeId = activeNodeId {
-            relatedSection = Self.buildRelatedNotesSection(for: nodeId)
+        if let relatedPageId {
+            relatedSection = await Self.buildRelatedNotesSection(for: relatedPageId)
         }
 
         return """
@@ -770,30 +884,41 @@ final class DialogueChatState {
     }
 
     /// Build a concise section listing ML-identified related notes (max 3, 1000 chars each).
-    private static func buildRelatedNotesSection(for pageId: String) -> String {
+    private static func buildRelatedNotesSection(for pageId: String) async -> String {
         guard let bootstrap = AppBootstrap.shared else { return "" }
         let context = bootstrap.modelContainer.mainContext
         guard let insight = bootstrap.noteInsightService.fetchInsight(pageId: pageId, context: context) else { return "" }
 
-        let relatedIds = insight.relatedNoteIds
+        let relatedIds = Array(insight.relatedNoteIds.prefix(3))
         let reasons = insight.relatednessReasons
         guard !relatedIds.isEmpty else { return "" }
 
+        let noteBodies = await bootstrap.vaultSync.fetchNoteBodies(ids: relatedIds)
+        return formatRelatedNotesSection(
+            relatedIds: relatedIds,
+            reasonLists: Array(reasons.prefix(relatedIds.count)),
+            noteBodies: noteBodies
+        )
+    }
+
+    nonisolated static func formatRelatedNotesSection(
+        relatedIds: [String],
+        reasonLists: [[String]],
+        noteBodies: [VaultManifest.NoteBody]
+    ) -> String {
+        guard !relatedIds.isEmpty else { return "" }
+
+        let noteBodiesById = Dictionary(uniqueKeysWithValues: noteBodies.map { ($0.pageId, $0) })
         var section = "\n\n--- RELATED NOTES (ML-identified) ---\n"
-        let cap = min(3, relatedIds.count)
-        for i in 0..<cap {
+        for i in relatedIds.indices {
             let relId = relatedIds[i]
-            let reasonList = i < reasons.count ? reasons[i].joined(separator: ", ") : "similarity"
-
-            // Look up the note's label
-            let targetId = relId
-            let page = try? context.fetch(
-                FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
-            ).first
-            let label = page?.title ?? relId.prefix(8).description
-
-            // Read a snippet of the related note's body
-            let body = String(NoteFileStorage.readBody(pageId: relId).prefix(1_000))
+            let reasonList = i < reasonLists.count ? reasonLists[i].joined(separator: ", ") : "similarity"
+            let noteBody = noteBodiesById[relId]
+            let label = {
+                guard let noteBody else { return relId.prefix(8).description }
+                return noteBody.title.isEmpty ? relId.prefix(8).description : noteBody.title
+            }()
+            let body = noteBody.map { String($0.body.prefix(1_000)) } ?? ""
 
             section += "[\(reasonList.uppercased())] \(label)"
             if !body.isEmpty {

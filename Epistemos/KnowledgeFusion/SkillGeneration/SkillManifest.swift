@@ -54,7 +54,7 @@ nonisolated struct SkillManifest: Codable, Sendable {
     static let fileName = "manifest.json"
 
     nonisolated static var skillsDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        FoundationSafety.userApplicationSupportDirectory()
             .appendingPathComponent("Epistemos/skills")
     }
 

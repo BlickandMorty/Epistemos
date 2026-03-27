@@ -362,15 +362,98 @@ struct GraphStoreEdgeOperationTests {
         #expect(store.adjacency["n2"]?.contains("n1") != true)
     }
 
-    @Test("self-loop edge is added correctly")
-    func selfLoopEdgeAddedCorrectly() {
-        let store = GraphStore()
+@Test("self-loop edge is added correctly")
+func selfLoopEdgeAddedCorrectly() {
+    let store = GraphStore()
         
         store.addNode(makeNode(id: "n1"))
         store.addEdge(makeEdge(id: "e1", source: "n1", target: "n1"))
         
         #expect(store.edgeCount == 1)
         #expect(store.adjacency["n1"]?.contains("n1") == true)
+    }
+}
+
+@Suite("GraphStore - Compaction")
+@MainActor
+struct GraphStoreCompactionTests {
+
+    private func makeNode(id: String, label: String? = nil) -> GraphNodeRecord {
+        GraphNodeRecord(
+            id: id,
+            type: .note,
+            label: label ?? id,
+            sourceId: nil,
+            metadata: GraphNodeMetadata(),
+            weight: 1.0,
+            createdAt: .now,
+            position: .zero,
+            velocity: .zero
+        )
+    }
+
+    private func makeEdge(id: String, source: String, target: String) -> GraphEdgeRecord {
+        GraphEdgeRecord(
+            id: id,
+            sourceNodeId: source,
+            targetNodeId: target,
+            type: .reference,
+            weight: 1.0,
+            createdAt: .now
+        )
+    }
+
+    @Test("heavy node churn compacts tombstoned slots automatically")
+    func heavyNodeChurnCompactsTombstonedSlotsAutomatically() {
+        let store = GraphStore()
+
+        for i in 0..<160 {
+            store.addNode(makeNode(id: "n\(i)", label: "Graph Node \(i)"))
+        }
+        for i in 0..<159 {
+            store.addEdge(makeEdge(id: "e\(i)", source: "n\(i)", target: "n\(i + 1)"))
+        }
+
+        for i in 0..<96 {
+            store.removeNode("n\(i)")
+        }
+
+        let snapshot = store.compactStorageDebugSnapshot()
+        let matches = store.fuzzySearch(query: "Graph Node 120", limit: 5)
+
+        #expect(snapshot.nodeSlots < 160)
+        #expect(snapshot.edgeSlots < 159)
+        #expect(snapshot.nodeCompactionEligible == false)
+        #expect(snapshot.edgeCompactionEligible == false)
+        #expect(store.adjacency["n120"]?.contains("n121") == true)
+        #expect(matches.map(\.id).contains("n120"))
+    }
+
+    @Test("manual compaction preserves multi-edge adjacency and search results")
+    func manualCompactionPreservesMultiEdgeAdjacencyAndSearchResults() {
+        let store = GraphStore()
+        store.addNode(makeNode(id: "a", label: "Alpha Node"))
+        store.addNode(makeNode(id: "b", label: "Beta Node"))
+
+        for i in 0..<96 {
+            store.addEdge(makeEdge(id: "e\(i)", source: "a", target: "b"))
+        }
+        for i in 0..<80 {
+            store.removeEdge("e\(i)")
+        }
+
+        let before = store.compactStorageDebugSnapshot()
+        store.compactStorageForTesting()
+        let after = store.compactStorageDebugSnapshot()
+        let matches = store.fuzzySearch(query: "beta", limit: 5)
+
+        #expect(before.edgeSlots > store.edgeCount)
+        #expect(before.edgeTombstones > 0)
+        #expect(after.edgeSlots == store.edgeCount)
+        #expect(after.edgeTombstones == 0)
+        #expect(store.adjacency["a"]?.contains("b") == true)
+        #expect(store.edgesByNode["a"]?.count == 16)
+        #expect(matches.map(\.id) == ["b"])
     }
 }
 
@@ -1124,6 +1207,7 @@ struct GraphStoreFuzzySearchTests {
         
         let results = store.fuzzySearch(query: "Epistemology")
         
+        #expect(results.count == 1)
         // Should match as exact (full word match in contains)
         // Actually, let's test substring match
         let results2 = store.fuzzySearch(query: "sophy")

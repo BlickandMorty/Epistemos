@@ -343,7 +343,8 @@ struct HologramSearchSidebar: View {
             // Show NL results if available
             if let result = queryEngine.currentResult {
                 QueryResultsView(result: result, onSelectNode: onSelectNode)
-            } else if let _ = graphState.selectedNodeId, let node = graphState.store.nodes[graphState.selectedNodeId!] {
+            } else if let selectedNodeId = graphState.selectedNodeId,
+                      let node = graphState.store.nodes[selectedNodeId] {
                 // Context: show which node is selected
                 HStack(spacing: 6) {
                     Circle().fill(node.type.swiftUIColor).frame(width: 6, height: 6)

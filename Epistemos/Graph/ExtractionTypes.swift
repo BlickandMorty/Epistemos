@@ -5,7 +5,7 @@ import Foundation
 // Updated for 7-type model: sources (absorbs thinkers), tags (absorbs concepts).
 
 nonisolated struct ExtractionResult: Codable, Sendable {
-    var sources: [ExtractedSource]
+    var sources: [ExtractedSource]?
     var tags: [ExtractedTag]
     var crossNoteLinks: [CrossNoteLink]?
 
@@ -37,7 +37,7 @@ nonisolated struct ExtractionResult: Codable, Sendable {
 
 nonisolated struct InsightExtractionResult: Codable, Sendable {
     var ideas: [ExtractedIdea]
-    var sourcesShared: [ExtractedSource]
+    var sourcesShared: [ExtractedSource]?
 
     nonisolated struct ExtractedIdea: Codable, Sendable {
         var summary: String

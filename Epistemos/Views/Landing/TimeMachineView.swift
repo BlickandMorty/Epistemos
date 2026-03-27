@@ -116,7 +116,7 @@ struct TimeMachineView: View {
             }
             .scaleEffect(appeared ? 1 : 0.95)
             .opacity(appeared ? 1 : 0)
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(theme.resolved.foreground.color)
         }
         .background {
             Button(action: { dismiss() }) {}
@@ -169,7 +169,7 @@ struct TimeMachineView: View {
             .background {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(selectedSnapshot?.id == meta.id
-                          ? theme.accent.opacity(0.12)
+                          ? theme.resolved.accent.color.opacity(0.12)
                           : .clear)
             }
             .contentShape(Rectangle())
@@ -245,7 +245,7 @@ struct TimeMachineView: View {
                             HStack {
                                 Image(systemName: "doc.text")
                                     .font(.system(size: 10))
-                                    .foregroundStyle(theme.accent)
+                                    .foregroundStyle(theme.resolved.accent.color)
                                 Text(note.title)
                                     .font(.system(size: 12, design: .rounded))
                                     .lineLimit(1)
@@ -271,8 +271,8 @@ struct TimeMachineView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(theme.accent.opacity(0.12), in: Capsule())
-                    .foregroundStyle(theme.accent)
+                    .background(theme.resolved.accent.color.opacity(0.12), in: Capsule())
+                    .foregroundStyle(theme.resolved.accent.color)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)

@@ -7,7 +7,10 @@ MOHAWK Distillation Pipeline — Epistemos Hybrid Mamba-2
 Runs on RunPod A100/H100. NOT for local execution.
 
 Architecture: 75% Mamba-2 layers + 25% Attention layers (every 4th)
-Teacher: Llama 3.2 1B (Nano) | Llama 3.1 8B (Base) | Llama 3.1 70B (Pro)
+Teacher: Qwen 2.5 1.5B (Nano) | Llama 3.1 8B (Base) | Llama 3.1 70B (Pro)
+
+Nano uses Qwen 2.5 1.5B — no gated license needed, instant download,
+stronger at JSON/tool-calling than Llama 3.2 1B for our device-agent use case.
 
 Usage:
     python mohawk_train.py --stage all --tier nano --output-dir /workspace/mohawk_nano
@@ -63,9 +66,9 @@ class TierConfig:
 TIER_CONFIGS = {
     "nano": TierConfig(
         name="Epistemos-Nano", student_params="1B",
-        teacher_model="meta-llama/Llama-3.2-1B-Instruct", teacher_params="1B",
+        teacher_model="Qwen/Qwen2.5-1.5B-Instruct", teacher_params="1.5B",
         mamba_layers=18, attention_layers=6, hidden_dim=2048, num_heads=16,
-        state_dim=128, vocab_size=128256,
+        state_dim=128, vocab_size=151936,  # Qwen tokenizer vocab
         stage1_tokens=300_000_000, stage2_tokens=3_000_000_000,
         stage3_tokens=5_000_000_000, batch_size=32, learning_rate=3e-4,
         warmup_steps=2000, save_every_steps=1000,
@@ -294,10 +297,17 @@ class MixedStreamDataset(IterableDataset):
 
 # ─── Utilities ─────────────────────────────────────────────────
 
-def cosine_lr(step, warmup, max_lr, total):
+def wsd_lr(step, warmup, max_lr, total, decay_fraction=0.2):
+    """Warmup-Stable-Decay scheduler. Allows checkpoint reuse when new data arrives.
+    Never use cosine — WSD is a training non-negotiable (see NANO-MASTER-TRAINING-GUIDE.md)."""
     if step < warmup:
         return max_lr * step / warmup
-    return max_lr * 0.5 * (1 + math.cos(math.pi * (step - warmup) / max(1, total - warmup)))
+    decay_start = int(total * (1 - decay_fraction))
+    if step < decay_start:
+        return max_lr  # Stable plateau
+    # Exponential decay in final 20%
+    progress = (step - decay_start) / max(1, total - decay_start)
+    return max_lr * (0.1 ** progress)
 
 
 def save_ckpt(model, opt, step, loss, out_dir, tag="checkpoint"):
@@ -412,7 +422,7 @@ def stage1(config, checkpoint=None, out="stage1"):
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(mp, 1.0)
-        lr = cosine_lr(step, config.warmup_steps, config.learning_rate, total)
+        lr = wsd_lr(step, config.warmup_steps, config.learning_rate, total)
         for pg in opt.param_groups:
             pg["lr"] = lr
         opt.step()
@@ -501,7 +511,7 @@ def stage2(config, checkpoint, out="stage2"):
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(all_p, 1.0)
-        lr = cosine_lr(step, config.warmup_steps, lr_base, total)
+        lr = wsd_lr(step, config.warmup_steps, lr_base, total)
         for pg in opt.param_groups:
             pg["lr"] = lr
         opt.step()
@@ -582,7 +592,7 @@ def stage3(config, checkpoint, out="stage3"):
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
-        lr = cosine_lr(step, config.warmup_steps, lr_base, total)
+        lr = wsd_lr(step, config.warmup_steps, lr_base, total)
         for pg in opt.param_groups:
             pg["lr"] = lr
         opt.step()
@@ -652,7 +662,7 @@ def main():
         return
 
     if a.stage == "all":
-        cp1 = stage1(c, output_dir=f"{d}/stage1")
+        cp1 = stage1(c, out=f"{d}/stage1")
         cp2 = stage2(c, cp1, out=f"{d}/stage2")
         cp3 = stage3(c, cp2, out=f"{d}/stage3")
         if a.convert_mlx:

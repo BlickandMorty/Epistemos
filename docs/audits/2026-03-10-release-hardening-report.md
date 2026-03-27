@@ -1,5 +1,7 @@
 # Release Hardening Report — 2026-03-10
 
+> **Historical snapshot:** This report captures the release state and verification environment from March 10, 2026. Later pruning removed the old TK1 prose stack, and current local build health can differ because upstream package toolchains have since changed.
+
 **Verdict: ✅ READY TO RELEASE**
 
 No runtime blockers found. All baselines green. Code-level audit of all critical paths confirms correctness.

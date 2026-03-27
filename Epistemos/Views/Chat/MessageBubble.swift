@@ -117,14 +117,14 @@ struct MessageBubble: View {
                     HStack(spacing: 6) {
                         Image(systemName: "book.pages.fill")
                             .font(.epCaption)
-                            .foregroundStyle(theme.accent)
+                            .foregroundStyle(theme.resolved.accent.color)
                         Text("Vault Briefing")
                             .font(.epCaption)
-                            .foregroundStyle(theme.accent)
+                            .foregroundStyle(theme.resolved.accent.color)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(theme.accent.opacity(0.1), in: Capsule())
+                    .background(theme.resolved.accent.color.opacity(0.1), in: Capsule())
                 }
 
                 // Response heading — auto-extracted topic
@@ -356,7 +356,7 @@ private struct ContextAttachmentBadge: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var tint: Color {
-        attachment.kind == .allNotes ? theme.accent : theme.mutedForeground.opacity(0.78)
+        attachment.kind == .allNotes ? theme.resolved.accent.color : theme.mutedForeground.opacity(0.78)
     }
 
     var body: some View {
@@ -372,13 +372,13 @@ private struct ContextAttachmentBadge: View {
         .padding(.vertical, 4)
         .background(
             Capsule()
-                .fill(attachment.kind == .allNotes ? theme.accent.opacity(0.10) : theme.card)
+                .fill(attachment.kind == .allNotes ? theme.resolved.accent.color.opacity(0.10) : theme.card)
         )
         .overlay {
             Capsule()
                 .strokeBorder(
                     attachment.kind == .allNotes
-                        ? theme.accent.opacity(0.18)
+                        ? theme.resolved.accent.color.opacity(0.18)
                         : theme.border.opacity(0.55),
                     lineWidth: 0.7
                 )

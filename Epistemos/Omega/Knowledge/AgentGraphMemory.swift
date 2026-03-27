@@ -165,7 +165,7 @@ final class AgentGraphMemory {
         if let url = json["url"] as? String {
             let label = (json["title"] as? String) ?? url
             // Deduplicate: check if source already exists
-            if let existing = graphStore.node(bySourceId: url, type: .source) {
+            if graphStore.node(bySourceId: url, type: .source) != nil {
                 return nil // Already tracked
             }
             return GraphNodeRecord(

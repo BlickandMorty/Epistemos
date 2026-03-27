@@ -258,6 +258,7 @@ impl BlockTree {
                     if let Some(parent) = self.blocks.get_mut(&pid) {
                         parent.children.retain(|id| id != block_id);
                     }
+                    self.sort_children_by_order(&pid);
                 } else {
                     self.roots.retain(|id| id != block_id);
                 }
@@ -615,6 +616,64 @@ mod tests {
             position: 0,
         });
         assert_eq!(tree.get(&c).unwrap().parent_id, Some(b));
+    }
+
+    #[test]
+    fn move_subtree_resorts_old_parent_children() {
+        let mut tree = BlockTree::new();
+        let parent = BlockId::new();
+        let new_parent = BlockId::new();
+        let moved = BlockId::new();
+        let low = BlockId::new();
+        let mid = BlockId::new();
+
+        tree.apply(&Op::InsertBlock {
+            block_id: parent,
+            parent_id: None,
+            position: 0,
+            content: "Parent".into(),
+            depth: 0,
+        });
+        tree.apply(&Op::InsertBlock {
+            block_id: new_parent,
+            parent_id: None,
+            position: 1,
+            content: "New Parent".into(),
+            depth: 0,
+        });
+        tree.apply(&Op::InsertBlock {
+            block_id: moved,
+            parent_id: Some(parent),
+            position: 3,
+            content: "Moved".into(),
+            depth: 1,
+        });
+        tree.apply(&Op::InsertBlock {
+            block_id: low,
+            parent_id: Some(parent),
+            position: 1,
+            content: "Low".into(),
+            depth: 1,
+        });
+        tree.apply(&Op::InsertBlock {
+            block_id: mid,
+            parent_id: Some(parent),
+            position: 2,
+            content: "Mid".into(),
+            depth: 1,
+        });
+
+        if let Some(parent_block) = tree.blocks.get_mut(&parent) {
+            parent_block.children = vec![mid, moved, low];
+        }
+
+        tree.apply(&Op::MoveSubtree {
+            block_id: moved,
+            new_parent: Some(new_parent),
+            position: 0,
+        });
+
+        assert_eq!(tree.blocks.get(&parent).unwrap().children, vec![low, mid]);
     }
 
     #[test]

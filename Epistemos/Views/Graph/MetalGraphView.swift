@@ -1,5 +1,6 @@
 import SwiftUI
 import MetalKit
+import QuartzCore
 import os
 import Synchronization
 import SwiftData
@@ -378,7 +379,7 @@ final class MetalGraphNSView: NSView {
     ]
 
     nonisolated(unsafe) private var engine: OpaquePointer?
-    nonisolated(unsafe) private var displayLink: CVDisplayLink?
+    nonisolated(unsafe) private var activeDisplayLink: CADisplayLink?
     private var metalLayer: CAMetalLayer?
 
     /// Frame coalescing: prevents queuing multiple render dispatches.
@@ -404,7 +405,7 @@ final class MetalGraphNSView: NSView {
             renderNeeded.store(newValue, ordering: .relaxed)
             switch graphDisplayLinkTransition(
                 needsRender: newValue,
-                hasDisplayLink: displayLink != nil,
+                hasDisplayLink: activeDisplayLink != nil,
                 isPaused: isEnginePaused
             ) {
             case .none:
@@ -544,35 +545,26 @@ final class MetalGraphNSView: NSView {
     // MARK: - Display Link
 
     private func startDisplayLink() {
-        CVDisplayLinkCreateWithActiveCGDisplays(&displayLink)
-        guard let link = displayLink else { return }
-
-        // The Rust engine is NOT thread-safe — render must happen on the main thread.
-        // CVDisplayLink fires on a background thread, so dispatch to main with coalescing:
-        // if a frame is already pending dispatch, skip to avoid queuing backup at 120Hz.
-        // Also skip entirely when simulation is settled (renderNeeded = false) to save CPU.
-        let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
-            let view = Unmanaged<MetalGraphNSView>.fromOpaque(userInfo!).takeUnretainedValue()
-            guard !view.isInvalidated.load(ordering: .relaxed) else { return kCVReturnSuccess }
-            if view.renderNeeded.load(ordering: .relaxed) && !view.framePending.load(ordering: .relaxed) {
-                view.framePending.store(true, ordering: .relaxed)
-                DispatchQueue.main.async { [weak view] in
-                    guard let view, !view.isInvalidated.load(ordering: .relaxed) else { return }
-                    view.framePending.store(false, ordering: .relaxed)
-                    view.renderFrame()
-                }
-            }
-            return kCVReturnSuccess
-        }
-
-        CVDisplayLinkSetOutputCallback(link, callback, Unmanaged.passUnretained(self).toOpaque())
-        CVDisplayLinkStart(link)
+        stopDisplayLink()
+        let link = self.displayLink(target: self, selector: #selector(handleDisplayLinkTick(_:)))
+        link.add(to: .main, forMode: .common)
+        activeDisplayLink = link
     }
 
     private func stopDisplayLink() {
-        guard let link = displayLink else { return }
-        CVDisplayLinkStop(link)
-        displayLink = nil
+        guard let link = activeDisplayLink else { return }
+        link.invalidate()
+        activeDisplayLink = nil
+    }
+
+    @objc
+    private func handleDisplayLinkTick(_ link: CADisplayLink) {
+        guard !isInvalidated.load(ordering: .relaxed) else { return }
+        guard renderNeeded.load(ordering: .relaxed) else { return }
+        guard !framePending.load(ordering: .relaxed) else { return }
+        framePending.store(true, ordering: .relaxed)
+        defer { framePending.store(false, ordering: .relaxed) }
+        renderFrame()
     }
 
     /// Pause rendering and physics. Call when overlay is hidden.
@@ -850,12 +842,14 @@ final class MetalGraphNSView: NSView {
         guard !clusterMap.isEmpty else { return }
 
         let uuids = Array(clusterMap.keys)
-        let ids = uuids.map { clusterMap[$0]! }
+        let ids = uuids.compactMap { clusterMap[$0] }
+        guard ids.count == uuids.count else { return }
 
         withStableCStringArray(uuids) { uuidBuf in
             ids.withUnsafeBufferPointer { idsBuffer in
+                guard let idsBaseAddress = idsBuffer.baseAddress else { return }
                 graph_engine_set_cluster_ids(
-                    engine, uuidBuf.baseAddress, idsBuffer.baseAddress!, UInt32(uuids.count)
+                    engine, uuidBuf.baseAddress, idsBaseAddress, UInt32(uuids.count)
                 )
             }
         }
@@ -1645,10 +1639,10 @@ final class MetalGraphNSView: NSView {
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.
         isInvalidated.store(true, ordering: .relaxed)
-        // Inline CVDisplayLink stop — can't call @MainActor stopDisplayLink() from nonisolated deinit.
+        // Inline display-link stop — can't call @MainActor stopDisplayLink() from nonisolated deinit.
         // Safe: no other references exist during deallocation.
-        if let link = displayLink {
-            CVDisplayLinkStop(link)
+        if let link = activeDisplayLink {
+            link.invalidate()
         }
         // Cancel embedding task synchronously BEFORE destroying the engine.
         // cancelPendingTask() is nonisolated — safe to call from deinit.

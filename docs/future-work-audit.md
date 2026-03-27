@@ -1257,12 +1257,12 @@ These are longer-term features from the Gemini brainstorm that elevate Epistemos
   - DRY the codebase ruthlessly
 - **Status:** [ ] NOT STARTED
 
-### 19.3 TextKit 2 Migration (Future)
+### 19.3 TextKit 2 Migration (Completed)
 - **Priority:** P5
 - **Source:** Technical analysis
-- **Description:** TextKit 2 (macOS 12+) replaces NSLayoutManager with NSTextLayoutManager. Uses content-model approach where text elements can be excluded from layout — makes block folding simpler at API level. Migration cost is massive: every custom text attribute, click handler, and style application currently goes through TextKit 1's glyph pipeline.
-- **Note:** Evaluate after all Wave 4/15/16 features are stable. Could be Wave E.
-- **Status:** [ ] NOT STARTED
+- **Description:** Production note editing now runs on the TK2 stack (`ProseTextView2`, `MarkdownContentStorage`, `ProseEditorRepresentable2`). Keep this entry only as historical context for post-migration cleanup and follow-up hardening, not as pending roadmap work.
+- **Note:** Migration is complete; remaining work is pruning stale docs/tests and tightening TK2-only behavior.
+- **Status:** [x] COMPLETE
 
 ### 19.4 CI Pipeline & Automated Testing
 - **Priority:** P4
@@ -1486,13 +1486,13 @@ LLMs are "high-potential fluid" — the UI provides "rigid bone structures." Hig
 - MessageBubble.swift — user bubble text `.white` → `theme.userBubbleText`
 
 **Already correct (no changes needed):**
-- MarkdownTextStorage.swift — uses `isDark` conditionals properly
+- MarkdownContentStorage.swift — uses theme-aware styling for the active TK2 note editor
 - WriterTextStorage.swift — uses theme switch + intentional PDF export colors
 - PagedDocumentView.swift — full theme switch statements
 - LandingView.swift — `.black`/`.white` are adaptive SwiftUI colors
 - TransclusionOverlayView.swift — uses `effectiveAppearance` check
 - BlockGutterView.swift — uses `isDark` conditional
-- ProseEditorRepresentable.swift — uses `isDark` conditional
+- ProseEditorRepresentable2.swift — uses theme-aware styling in the active editor bridge
 
 **Intentionally hardcoded (correct):**
 - NotesSidebar.swift:1584 — `.white` text on red badge (needs contrast)

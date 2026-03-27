@@ -29,6 +29,12 @@ final class Screen2AXFusion {
     /// Last perception result.
     private(set) var lastPerception: PerceptionResult?
 
+    var visionOCREnrichmentEnabled: Bool {
+        UserDefaults.standard.object(forKey: "omega.screen2axEnabled") == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: "omega.screen2axEnabled")
+    }
+
     init(screenCapture: ScreenCaptureService) {
         self.screenCapture = screenCapture
     }
@@ -69,7 +75,23 @@ final class Screen2AXFusion {
             return result
         }
 
-        // Step 3: Sparse AX tree — enrich with Apple Vision OCR
+        // Step 3: Check if VLM fallback is enabled in Settings → Omega
+        guard visionOCREnrichmentEnabled else {
+            // VLM fallback disabled — return sparse AX tree as-is
+            let elapsed = start.duration(to: ContinuousClock.now).omegaMilliseconds
+            let result = PerceptionResult(
+                axTreeJson: axJson,
+                interactiveCount: interactiveCount,
+                method: .nativeAX,
+                latencyMs: elapsed,
+                ocrTexts: []
+            )
+            lastPerception = result
+            log.info("Perception: sparse AX (\(interactiveCount) interactive), VLM fallback disabled in settings")
+            return result
+        }
+
+        // Step 4: Sparse AX tree — enrich with Apple Vision OCR
         log.info("Sparse AX (\(interactiveCount) interactive), enriching with Vision OCR")
 
         let bundleID = bundleIDForPID(pid)
@@ -114,9 +136,9 @@ final class Screen2AXFusion {
         // Capture screenshot
         let image: CGImage?
         if let bundleID {
-            image = try? await screenCapture.captureApp(bundleID: bundleID)
+            image = await screenCapture.captureApp(bundleID: bundleID)
         } else {
-            image = try? await screenCapture.captureFrontmostWindow()
+            image = await screenCapture.captureFrontmostWindow()
         }
 
         guard let cgImage = image else {
@@ -170,10 +192,10 @@ final class Screen2AXFusion {
 
     // MARK: - Merging
 
-    /// Inject OCR text regions as synthetic AX elements into the tree JSON.
+        /// Inject OCR text regions as synthetic AX elements into the tree JSON.
     private func mergeOCRIntoAXTree(axJson: String, ocrTexts: [OCRTextRegion]) -> String {
         guard !ocrTexts.isEmpty,
-              var data = axJson.data(using: .utf8),
+              let data = axJson.data(using: .utf8),
               var tree = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               var elements = tree["elements"] as? [[String: Any]] else {
             return axJson
@@ -266,4 +288,3 @@ struct NormalizedRect: Sendable {
     let width: Double
     let height: Double
 }
-

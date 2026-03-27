@@ -146,4 +146,9 @@ struct GraphTypesTests {
     func edgeLegacyUnknown() {
         #expect(GraphEdgeType(legacy: "nonexistent") == .reference)
     }
+
+    @Test("all graph edge cases count is 12")
+    func edgeCaseCount() {
+        #expect(GraphEdgeType.allCases.count == 12)
+    }
 }

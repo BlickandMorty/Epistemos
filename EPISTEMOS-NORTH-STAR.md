@@ -177,7 +177,7 @@ On New Paragraph or Query:
       └── Return to Swift UI
           Surface as "Contextual Shadows" sidebar
 
-Then: Mamba-3 Prefill
+Then: Mamba-2 State Prefill (Mamba-3 when tooling lands — see CLAUDE.md)
       Tokenize top-5 note texts → encode to initial SSM state → ~50ms
       Current writing session proceeds with loaded memory context
 ```
@@ -187,7 +187,7 @@ Then: Mamba-3 Prefill
 | Phase | Implementation | Timeline |
 |-------|---------------|----------|
 | 1 | Binary HNSW (usearch), Model2Vec, float32 rescore, UniFFI bridge | Weeks 1–3 |
-| 2 | Mamba-3 CoreML export, state prefill from top-3 retrieved notes | Weeks 4–6 |
+| 2 | Mamba-2 MLX GPU state prefill from top-3 retrieved notes (Mamba-3 when validated) | Weeks 4–6 |
 | 3 | Memba PEFT (LIM neurons + LoRApX) fine-tuning on personal corpus | Weeks 7–10 |
 | 4 | PolarQuant encoder (arXiv 2502.02617) in Rust — 4.2x further compression | Weeks 11+ |
 
@@ -311,12 +311,12 @@ ConfirmationGate continuation, error recovery UI, LLM planning prompt) are commi
 1. **RunPod funds** ($150+ for Nano pipeline test, $800-1500 for Base full training)
 2. **HuggingFace Llama license** acceptance (required for MOHAWK teacher model)
 
-### Next Actionable Phase: Ω18 — Instant Recall Index
-- Add `usearch` + `model2vec-rs` to epistemos-core Cargo.toml
-- Implement binary HNSW index in Rust
-- Wire continuous encoding from Swift text editor via UniFFI
-- Two-phase retrieval: Hamming → float32 rescore
-- Display top-5 relevant notes in sidebar as you type ("Contextual Shadows")
+### Next Actionable Phase: Ω18 completion — live recall wiring
+- `graph-engine/src/retrieval_index.rs` already uses `usearch` HNSW for prepared retrieval
+- `graph-engine/Cargo.toml` already includes `usearch`
+- Keep the live ANN substrate as the canonical path and finish editor-side continuous encoding
+- Surface top-5 relevant notes in the live UI as you type ("Contextual Shadows")
+- Decide whether `epistemos-core`'s flat binary recall index remains a separate fast path or converges on the prepared-retrieval runtime
 
 See `docs/SESSION_STATE_2026_03_25.md` for full current state and blockers.
 
@@ -344,7 +344,7 @@ See `docs/SESSION_STATE_2026_03_25.md` for full current state and blockers.
 | 15 | MOHAWK Distillation | ✅ CODE READY (blocked on RunPod funds) |
 | 16 | Training Pipeline (ODIA wiring) | ✅ CODE READY |
 | 17 | App Store Distribution | ✅ SKELETON |
-| **18** | **Instant Recall Index** | **🔜 NEXT** |
+| **18** | **Instant Recall Index** | **🚧 IN PROGRESS** |
 | 19 | Mamba State Injection + Mirror-SD | 🔜 TODO |
 | 20 | Personal LoRA (MambaPEFT) | 🔜 TODO |
 | 21 | TurboQuant (PolarQuant + QJL) | 🔜 TODO |

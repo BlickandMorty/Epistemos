@@ -219,6 +219,17 @@ struct VaultIndexActorTests {
         #expect(result.allSatisfy { $0.title.lowercased().contains("quantum") })
     }
 
+    @Test("modification date comparison handles missing timestamps safely")
+    func modificationDateComparisonHandlesMissingTimestamps() {
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+
+        #expect(VaultIndexActor.isModificationDate(newer, newerThan: older))
+        #expect(!VaultIndexActor.isModificationDate(older, newerThan: newer))
+        #expect(!VaultIndexActor.isModificationDate(nil, newerThan: older))
+        #expect(!VaultIndexActor.isModificationDate(newer, newerThan: nil))
+    }
+
     @Test("allPagesForRebuild excludes archived and template pages")
     func allPagesForRebuildFilters() async throws {
         let container = try makeContainer()
@@ -450,6 +461,56 @@ struct VaultIndexActorTests {
         #expect(page.needsVaultSync == false)
         #expect(page.lastSyncedBodyHash == SDPage.bodyHash("Imported body"))
         #expect(page.lastSyncedAt != nil)
+    }
+
+    @Test("comparable vault page counts ignore non-vault records")
+    func comparableVaultPageCountsIgnoreNonVaultPages() throws {
+        let vaultURL = URL(fileURLWithPath: "/tmp/epistemos-vault", isDirectory: true)
+
+        let tracked = SDPage(title: "Tracked")
+        tracked.filePath = vaultURL.appendingPathComponent("Tracked.md").path
+
+        let journal = SDPage(title: "Journal")
+        journal.filePath = nil
+        journal.isJournal = true
+
+        let template = SDPage(title: "Template")
+        template.templateId = "tpl-1"
+
+        let external = SDPage(title: "External")
+        external.filePath = "/tmp/somewhere-else/External.md"
+
+        let counts = VaultIndexActor.comparableVaultPageCounts(
+            pages: [tracked, journal, template, external],
+            in: vaultURL
+        )
+
+        #expect(counts.trackedVaultPageCount == 1)
+        #expect(counts.uniqueTrackedVaultPathCount == 1)
+        #expect(counts.duplicateTrackedPathCount == 0)
+        #expect(counts.nonVaultPageCount == 3)
+    }
+
+    @Test("comparable vault page counts surface duplicate tracked file paths")
+    func comparableVaultPageCountsDetectDuplicateTrackedPaths() throws {
+        let vaultURL = URL(fileURLWithPath: "/tmp/epistemos-vault", isDirectory: true)
+        let sharedPath = vaultURL.appendingPathComponent("Shared.md").path
+
+        let first = SDPage(title: "First")
+        first.filePath = sharedPath
+
+        let second = SDPage(title: "Second")
+        second.filePath = sharedPath
+
+        let counts = VaultIndexActor.comparableVaultPageCounts(
+            pages: [first, second],
+            in: vaultURL
+        )
+
+        #expect(counts.trackedVaultPageCount == 2)
+        #expect(counts.uniqueTrackedVaultPathCount == 1)
+        #expect(counts.duplicateTrackedPathCount == 1)
+        #expect(counts.nonVaultPageCount == 0)
     }
 
     @Test("cancelled import does not delete tracked pages from a partial scan")

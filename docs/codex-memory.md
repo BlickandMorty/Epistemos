@@ -136,9 +136,10 @@ Saves ~46MB at 50K nodes vs previous String-keyed dictionaries.
 
 ### 4.4 Note Editor
 
-**ProseEditorRepresentable** — NSViewRepresentable wrapping ClickableTextView (NSTextView subclass).
-- **MarkdownTextStorage** — live syntax highlighting via `processEditing()`
-- **Coordinator** — 300ms debounced binding sync, 500ms table alignment, AI zone callbacks
+**ProseEditorRepresentable2** — NSViewRepresentable bridging the production TextKit 2 editor stack.
+- **ProseTextView2** — NSTextView subclass backed by `NSTextLayoutManager`
+- **MarkdownContentStorage** — delegate-backed markdown styling and paragraph classification
+- **Coordinator2** — binding sync debounce, AI callbacks, table/transclusion helpers
 - **NoteChatState** — per-note AI chat, 60ms token buffering, inline in NSTextStorage below `---` divider
 - Accept strips divider, discard removes from divider onward
 - `isFlushingTokens` flag prevents binding sync cascade during streaming
@@ -158,7 +159,7 @@ Saves ~46MB at 50K nodes vs previous String-keyed dictionaries.
 
 **DialoguePresentationTheme** — tactics (parchment) / nocturne (moonlit) palettes with 19-color DialoguePalette struct.
 
-**DialogueOverlayView** — ACTIVELY BEING DEVELOPED. Do not modify without explicit permission. Currently uses GeometryReader layout with portrait panel, mood pills, health/focus meters, keyword chips.
+**HologramOverlay + HologramNodeInspector** — current graph dialogue surfaces. The overlay hosts the floating graph chrome, and the node inspector surfaces profile, summary, relationships, chat, and note-editor modes for selected nodes.
 
 ### 4.6 SOAR (Stepping On A Rock)
 
@@ -177,7 +178,7 @@ Learning system with Student/Teacher/Detector/Reward components. 12 files total.
 - `projection.rs` — block tree → markdown (round-trip safe)
 - `translator.rs` — text edits → ops
 
-**Status:** Rust implementation exists. Swift FFI wiring NOT complete. `BlockEditTranslator.swift` exists as the Swift-side entry point. Integration into ProseEditorRepresentable pending.
+**Status:** Rust implementation exists. Swift FFI wiring is partial. `BlockEditTranslator.swift` exists as the Swift-side entry point, but full end-to-end integration into the production note editor stack is still incomplete.
 
 ### 4.8 Explorer Mode (Approved Design, Not Yet Built)
 
@@ -288,7 +289,7 @@ Standalone Bevy window (separate binary `epistemos-explorer`). Top-down RPG wher
 3. DialogueState + FFT-style box shader added
 4. Face geometry on dialogue-active node added
 5. DialogueChatState for graph chat
-6. DialogueOverlayView with RetroGaming font
+6. HologramOverlay + HologramNodeInspector now host the dialogue-style graph surfaces
 7. Integration with MetalGraphView + HologramOverlay
 8. Persona system (6 archetypes) + care state (Tamagotchi health/mood)
 9. Presentation themes (tactics/nocturne palettes)
@@ -360,9 +361,9 @@ For ANY subsystem, start with these:
 | AI Pipeline | `Engine/TriageService.swift` | `PipelineService.swift`, `LLMService.swift` |
 | Graph | `Graph/GraphState.swift` | `GraphStore.swift`, `GraphBuilder.swift` |
 | Graph Engine | `graph-engine/src/lib.rs` | `renderer.rs`, `physics.rs`, `types.rs` |
-| Note Editor | `Views/Notes/ProseEditorRepresentable.swift` | `MarkdownTextStorage.swift` |
-| Note Chat | `State/NoteChatState.swift` | `NoteChatOrb.swift`, `NoteWindowManager.swift` |
-| Dialogue | `State/DialogueChatState.swift` | `Views/Graph/DialogueOverlayView.swift` |
+| Note Editor | `Views/Notes/ProseEditorView.swift` | `Views/Notes/ProseEditorRepresentable2.swift`, `Views/Notes/ProseTextView2.swift` |
+| Note Chat | `State/NoteChatState.swift` | `Views/Notes/NoteChatSidebar.swift`, `Views/Notes/NoteWindowManager.swift` |
+| Dialogue | `State/DialogueChatState.swift` | `Views/Graph/HologramOverlay.swift`, `Views/Graph/HologramNodeInspector.swift` |
 | Environment | `App/AppEnvironment.swift` | `AppBootstrap.swift` |
 | Vault Sync | `Sync/VaultSyncService.swift` | `NoteFileStorage.swift` |
 | Models | `Models/SDPage.swift` | `SDGraphNode.swift`, `GraphTypes.swift` |
@@ -378,7 +379,7 @@ For ANY subsystem, start with these:
 4. **Never add `.environment()` manually** — use `withAppEnvironment(bootstrap)`.
 5. **Binding sync MUST be debounced 300ms** — otherwise SwiftUI re-evaluates per keystroke.
 6. **`Int(Float.nan)` traps** — always check `.isFinite` first.
-7. **DialogueOverlayView is actively being worked on** — do not modify without asking.
+7. **HologramOverlay / HologramNodeInspector dialogue surfaces are still evolving** — verify the live graph path before changing related UI assumptions.
 8. **The Rust dialogue Metal code (face geometry, shader, box geometry) looks dead but isn't** — it supports `.dialogue` mode infrastructure. Don't delete.
 9. **GraphExperienceMode doesn't exist in code yet** — it's part of the Explorer design doc, not implemented.
 10. **SOAR's SignalGenerator produces fake numbers** — don't trust its confidence/entropy/dissonance outputs.

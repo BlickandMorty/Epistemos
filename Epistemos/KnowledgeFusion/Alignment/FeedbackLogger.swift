@@ -84,7 +84,7 @@ actor FeedbackLogger {
         if let path = databasePath {
             self.databasePath = path
         } else {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let appSupport = FoundationSafety.userApplicationSupportDirectory()
             self.databasePath = appSupport
                 .appendingPathComponent("Epistemos")
                 .appendingPathComponent("knowledge_fusion.db")
@@ -238,14 +238,20 @@ actor FeedbackLogger {
         let signals = try fetchSignals(since: date)
         guard !signals.isEmpty else { return 0 }
 
-        let lines = signals.map { signal -> String in
+        let lines = try signals.map { signal -> String in
             let json: [String: Any] = [
                 "prompt": signal.prompt,
                 "completion": signal.completion,
                 "label": signal.desirable,
             ]
-            let data = try! JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])
-            return String(data: data, encoding: .utf8)!
+            guard JSONSerialization.isValidJSONObject(json) else {
+                throw FeedbackLoggerError.exportSerializationFailed
+            }
+            let data = try JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])
+            guard let line = String(data: data, encoding: .utf8) else {
+                throw FeedbackLoggerError.exportEncodingFailed
+            }
+            return line
         }
 
         try lines.joined(separator: "\n").write(to: outputPath, atomically: true, encoding: .utf8)
@@ -313,6 +319,8 @@ enum FeedbackLoggerError: Error, LocalizedError {
     case prepareFailed(String)
     case insertFailed(String)
     case executeFailed(String)
+    case exportSerializationFailed
+    case exportEncodingFailed
 
     var errorDescription: String? {
         switch self {
@@ -321,6 +329,8 @@ enum FeedbackLoggerError: Error, LocalizedError {
         case .prepareFailed(let msg): return "SQL prepare failed: \(msg)"
         case .insertFailed(let msg): return "SQL insert failed: \(msg)"
         case .executeFailed(let msg): return "SQL execute failed: \(msg)"
+        case .exportSerializationFailed: return "Failed to serialize feedback export as JSON"
+        case .exportEncodingFailed: return "Failed to encode feedback export as UTF-8"
         }
     }
 }

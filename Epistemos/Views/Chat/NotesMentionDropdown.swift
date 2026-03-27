@@ -581,7 +581,7 @@ private struct ComposerReferencePopoverContent: View {
 
                 Text("Attach exactly what this turn should know.")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("Pick one note, search your vault, or attach the full vault retrieval index for this message.")
@@ -640,17 +640,17 @@ private struct ComposerReferencePopoverContent: View {
         HStack(alignment: .center, spacing: 10) {
             Image(systemName: headerIcon)
                 .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
-                .foregroundStyle(theme.accent.opacity(0.92))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.92))
                 .frame(width: style == .notePicker ? 30 : 26, height: style == .notePicker ? 30 : 26)
                 .background(
                     Circle()
-                        .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.10))
+                        .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.10))
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(headerTitle)
                     .font(.system(size: style == .notePicker ? 13.5 : 12.5, weight: .semibold))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                 Text(popoverSubtitle)
                     .font(.system(size: style == .notePicker ? 11.5 : 10.5, weight: .medium))
                     .foregroundStyle(theme.textTertiary)
@@ -722,7 +722,7 @@ private struct ComposerReferencePopoverContent: View {
             )
             .textFieldStyle(.plain)
             .font(.system(size: style == .notePicker ? 13.5 : 12.5, weight: .medium, design: .rounded))
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(theme.resolved.foreground.color)
             .focused($isSearchFocused)
 
             if !query.isEmpty {
@@ -784,17 +784,17 @@ private struct ComposerReferencePopoverContent: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: systemName)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(theme.accent.opacity(0.92))
+                    .foregroundStyle(theme.resolved.accent.color.opacity(0.92))
                     .frame(width: 28, height: 28)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.10))
+                            .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.10))
                     )
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.resolved.foreground.color)
                         .lineLimit(1)
                     Text(subtitle)
                         .font(.system(size: 11))
@@ -872,7 +872,7 @@ struct NotesMentionDropdown: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(style == .chatPicker ? "No matching conversations" : "No matching notes or chats", systemImage: "sparkle.magnifyingglass")
                 .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(theme.resolved.foreground.color)
             Text(style == .chatPicker
                  ? "Search your past conversations by topic, question, or content."
                  : (results.vaultNoteCount > 0
@@ -891,17 +891,17 @@ struct NotesMentionDropdown: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "books.vertical.fill")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(theme.accent.opacity(0.9))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.9))
                 .frame(width: 24, height: 24)
                 .background(
                     Circle()
-                        .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.12))
+                        .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.12))
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(results.vaultTitle ?? "Vault")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                 Text(vaultSummaryText)
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(theme.textTertiary)
@@ -916,7 +916,7 @@ struct NotesMentionDropdown: View {
                     .foregroundStyle(theme.textSecondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                    .background(Capsule().fill(theme.resolved.foreground.color.opacity(0.06)))
             }
         }
             .padding(.horizontal, style == .notePicker ? 16 : 12)
@@ -953,14 +953,14 @@ struct NotesMentionDropdown: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "books.vertical.fill")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.accent.opacity(0.9))
+                        .foregroundStyle(theme.resolved.accent.color.opacity(0.9))
                         .frame(width: 22, height: 22)
-                        .background(Circle().fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.12)))
+                        .background(Circle().fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.12)))
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text("All Notes")
                             .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
-                            .foregroundStyle(theme.foreground)
+                            .foregroundStyle(theme.resolved.foreground.color)
                             .lineLimit(1)
                         Text("Use the full vault index for this message.")
                             .font(.system(size: style == .notePicker ? 11.5 : 10.5))
@@ -971,7 +971,7 @@ struct NotesMentionDropdown: View {
                                 .foregroundStyle(theme.textSecondary)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                                .background(Capsule().fill(theme.resolved.foreground.color.opacity(0.06)))
                         }
                     }
                 }
@@ -985,7 +985,7 @@ struct NotesMentionDropdown: View {
                             ? "doc.text.magnifyingglass"
                             : "doc.text.fill",
                         tint: results.indexedMatchedNoteIDs.contains(entry.pageId)
-                            ? theme.accent.opacity(0.95)
+                            ? theme.resolved.accent.color.opacity(0.95)
                             : theme.textSecondary
                     )
 
@@ -993,15 +993,15 @@ struct NotesMentionDropdown: View {
                         HStack(alignment: .center, spacing: 8) {
                             Text(entry.title)
                                 .font(.system(size: style == .notePicker ? 13.5 : 12.5, weight: .semibold))
-                                .foregroundStyle(theme.foreground)
+                                .foregroundStyle(theme.resolved.foreground.color)
                                 .lineLimit(1)
                             if results.indexedMatchedNoteIDs.contains(entry.pageId) {
                                 Text("Body Match")
                                     .font(.system(size: 9.5, weight: .semibold))
-                                    .foregroundStyle(theme.accent.opacity(0.95))
+                                    .foregroundStyle(theme.resolved.accent.color.opacity(0.95))
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 3)
-                                    .background(Capsule().fill(theme.accent.opacity(theme.isDark ? 0.16 : 0.10)))
+                                    .background(Capsule().fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.16 : 0.10)))
                             }
                         }
 
@@ -1026,7 +1026,7 @@ struct NotesMentionDropdown: View {
                                         .foregroundStyle(theme.textSecondary)
                                         .padding(.horizontal, 7)
                                         .padding(.vertical, 3)
-                                        .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                                        .background(Capsule().fill(theme.resolved.foreground.color.opacity(0.06)))
                                 }
                             }
                         }
@@ -1052,7 +1052,7 @@ struct NotesMentionDropdown: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(result.attachment.title)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.resolved.foreground.color)
                         .lineLimit(1)
                     HStack(spacing: 6) {
                         if let subtitle = result.attachment.subtitle {
@@ -1102,7 +1102,7 @@ struct NotesMentionDropdown: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(theme.foreground.opacity(theme.isDark ? 0.08 : 0.045))
+                    .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.08 : 0.045))
                     .overlay {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.32 : 0.20), lineWidth: 0.75)

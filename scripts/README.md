@@ -140,6 +140,9 @@ CI/CD optimized test runner.
 ```
 
 Produces machine-readable output and proper exit codes for CI systems.
+It uses dedicated `DerivedData` and cloned source package directories under
+`test_results/` so cold verification does not depend on Xcode's global package
+cache behavior.
 
 ## Test Generation Scripts
 
@@ -224,6 +227,18 @@ else
 fi
 ```
 
+### Deterministic Swift Verification
+
+`ci_test.sh` and `run_swift_tests.sh` both use:
+
+- `xcodebuild build-for-testing`
+- `xcodebuild test-without-building`
+- an isolated `DerivedData` path under `test_results/`
+- an isolated cloned source packages path under `test_results/`
+
+That makes rebuilt verification more reproducible on machines where Xcode's
+default global package checkout path is flaky.
+
 ### Running Specific Test Suites
 
 ```bash
@@ -282,10 +297,7 @@ open test_results/*.xcresult
 
 ### Tests not running
 ```bash
-# Clean derived data
-rm -rf ~/Library/Developer/Xcode/DerivedData
-
-# Rebuild
+# Rebuild with the isolated script-managed paths
 ./scripts/run_all_tests.sh
 ```
 

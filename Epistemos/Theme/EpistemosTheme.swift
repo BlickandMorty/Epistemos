@@ -21,6 +21,185 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case platinumViolet = "platinumViolet"
     case platinumVioletDark = "platinumVioletDark"
 
+    struct ResolvedColorToken: Equatable, Sendable {
+        private enum Storage: Equatable, Sendable {
+            case rgba(Double, Double, Double, Double)
+            case windowBackground
+            case controlBackground(Double)
+        }
+
+        private let storage: Storage
+
+        nonisolated static func hex(_ hex: UInt32, opacity: Double = 1.0) -> Self {
+            rgba(
+                Double((hex >> 16) & 0xFF) / 255.0,
+                Double((hex >> 8) & 0xFF) / 255.0,
+                Double(hex & 0xFF) / 255.0,
+                opacity
+            )
+        }
+
+        nonisolated static func rgba(_ red: Double, _ green: Double, _ blue: Double, _ opacity: Double = 1.0) -> Self {
+            Self(storage: .rgba(red, green, blue, opacity))
+        }
+
+        nonisolated static func windowBackground() -> Self {
+            Self(storage: .windowBackground)
+        }
+
+        nonisolated static func controlBackground(opacity: Double = 1.0) -> Self {
+            Self(storage: .controlBackground(opacity))
+        }
+
+        nonisolated var color: Color {
+            switch storage {
+            case let .rgba(red, green, blue, opacity):
+                let base = Color(red: red, green: green, blue: blue)
+                if opacity == 1.0 {
+                    return base
+                }
+                return base.opacity(opacity)
+            case .windowBackground:
+                return Color(nsColor: .windowBackgroundColor)
+            case let .controlBackground(opacity):
+                return Color(nsColor: .controlBackgroundColor).opacity(opacity)
+            }
+        }
+
+        nonisolated var nsColor: NSColor {
+            switch storage {
+            case let .rgba(red, green, blue, opacity):
+                return NSColor(red: red, green: green, blue: blue, alpha: opacity)
+            case .windowBackground:
+                return .windowBackgroundColor
+            case let .controlBackground(opacity):
+                return .controlBackgroundColor.withAlphaComponent(opacity)
+            }
+        }
+    }
+
+    struct ResolvedTheme: Equatable, Sendable {
+        let isDark: Bool
+        let isPlatinum: Bool
+        let usesNativeWindowBlur: Bool
+        let background: ResolvedColorToken
+        let foregroundHex: UInt32
+        let foreground: ResolvedColorToken
+        let accent: ResolvedColorToken
+        let headingAccentHex: UInt32
+        let headingAccent: ResolvedColorToken
+        let markdownHeadingAccentHex: UInt32
+        let markdownHeadingAccent: ResolvedColorToken
+        let preferredMarkdownLinkHex: UInt32?
+        let preferredMarkdownLink: ResolvedColorToken?
+        let uiAccent: ResolvedColorToken
+        let muted: ResolvedColorToken
+        let mutedForegroundHex: UInt32
+        let mutedForeground: ResolvedColorToken
+        let assistantBubbleForegroundHex: UInt32
+        let assistantBubbleForeground: ResolvedColorToken
+        let assistantBubbleBackgroundHex: UInt32?
+        let assistantBubbleBackground: ResolvedColorToken?
+        let userBubbleBackgroundHex: UInt32?
+        let border: ResolvedColorToken
+        let codeType: ResolvedColorToken
+        let glassBg: ResolvedColorToken
+        let glassBorder: ResolvedColorToken
+        let glassHover: ResolvedColorToken
+        let floatingSurfaceTint: ResolvedColorToken
+        let navPillBg: ResolvedColorToken
+        let navBubbleActiveBg: ResolvedColorToken
+        let navBubbleActiveText: ResolvedColorToken
+        let navBubbleInactiveText: ResolvedColorToken
+        let card: ResolvedColorToken
+        let chatSurface: ResolvedColorToken
+        let userBubbleBg: ResolvedColorToken
+        let userBubbleText: ResolvedColorToken
+        let nsBackground: ResolvedColorToken
+
+        nonisolated init(
+            isDark: Bool,
+            isPlatinum: Bool,
+            usesNativeWindowBlur: Bool,
+            background: ResolvedColorToken,
+            foregroundHex: UInt32,
+            accent: ResolvedColorToken,
+            headingAccentHex: UInt32,
+            markdownHeadingAccentHex: UInt32,
+            preferredMarkdownLinkHex: UInt32?,
+            uiAccent: ResolvedColorToken,
+            muted: ResolvedColorToken,
+            mutedForegroundHex: UInt32,
+            assistantBubbleForegroundHex: UInt32,
+            assistantBubbleBackgroundHex: UInt32?,
+            userBubbleBackgroundHex: UInt32?,
+            border: ResolvedColorToken,
+            codeType: ResolvedColorToken,
+            glassBg: ResolvedColorToken,
+            glassBorder: ResolvedColorToken,
+            glassHover: ResolvedColorToken,
+            floatingSurfaceTint: ResolvedColorToken,
+            navPillBg: ResolvedColorToken,
+            navBubbleActiveBg: ResolvedColorToken,
+            navBubbleActiveText: ResolvedColorToken,
+            navBubbleInactiveText: ResolvedColorToken,
+            card: ResolvedColorToken,
+            chatSurface: ResolvedColorToken,
+            userBubbleBg: ResolvedColorToken,
+            userBubbleText: ResolvedColorToken,
+            nsBackground: ResolvedColorToken
+        ) {
+            self.isDark = isDark
+            self.isPlatinum = isPlatinum
+            self.usesNativeWindowBlur = usesNativeWindowBlur
+            self.background = background
+            self.foregroundHex = foregroundHex
+            self.foreground = .hex(foregroundHex)
+            self.accent = accent
+            self.headingAccentHex = headingAccentHex
+            self.headingAccent = .hex(headingAccentHex)
+            self.markdownHeadingAccentHex = markdownHeadingAccentHex
+            self.markdownHeadingAccent = .hex(markdownHeadingAccentHex)
+            self.preferredMarkdownLinkHex = preferredMarkdownLinkHex
+            self.preferredMarkdownLink = preferredMarkdownLinkHex.map { ResolvedColorToken.hex($0) }
+            self.uiAccent = uiAccent
+            self.muted = muted
+            self.mutedForegroundHex = mutedForegroundHex
+            self.mutedForeground = .hex(mutedForegroundHex)
+            self.assistantBubbleForegroundHex = assistantBubbleForegroundHex
+            self.assistantBubbleForeground = .hex(assistantBubbleForegroundHex)
+            self.assistantBubbleBackgroundHex = assistantBubbleBackgroundHex
+            self.assistantBubbleBackground = assistantBubbleBackgroundHex.map { ResolvedColorToken.hex($0) }
+            self.userBubbleBackgroundHex = userBubbleBackgroundHex
+            self.border = border
+            self.codeType = codeType
+            self.glassBg = glassBg
+            self.glassBorder = glassBorder
+            self.glassHover = glassHover
+            self.floatingSurfaceTint = floatingSurfaceTint
+            self.navPillBg = navPillBg
+            self.navBubbleActiveBg = navBubbleActiveBg
+            self.navBubbleActiveText = navBubbleActiveText
+            self.navBubbleInactiveText = navBubbleInactiveText
+            self.card = card
+            self.chatSurface = chatSurface
+            self.userBubbleBg = userBubbleBg
+            self.userBubbleText = userBubbleText
+            self.nsBackground = nsBackground
+        }
+    }
+
+    nonisolated private static let resolvedCache: [EpistemosTheme: ResolvedTheme] = {
+        Dictionary(
+            EpistemosTheme.allCases.map { ($0, $0.buildResolved()) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }()
+
+    nonisolated var resolved: ResolvedTheme {
+        Self.resolvedCache[self]!
+    }
+
     var displayName: String {
         switch self {
         case .systemLight: "System Light"
@@ -58,269 +237,558 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     nonisolated var isDark: Bool {
-        switch self {
-        case .systemLight, .light, .sunny, .tan, .magnolia, .platinum, .platinumViolet: false
-        case .systemDark, .sunset, .oled, .ember, .nocturne, .platinumDark, .platinumVioletDark: true
-        }
+        resolved.isDark
     }
     
     /// Whether this theme uses Platinum styling (beveled buttons, racing stripes)
     var isPlatinum: Bool {
-        switch self {
-        case .platinum, .platinumDark, .platinumViolet, .platinumVioletDark: true
-        default: false
-        }
+        resolved.isPlatinum
     }
 
     var colorScheme: ColorScheme { isDark ? .dark : .light }
     var usesNativeWindowBlur: Bool {
-        self == .systemLight || self == .systemDark || self == .magnolia || self == .nocturne
+        resolved.usesNativeWindowBlur
     }
-    private var isSystemDefaultToken: Bool { self == .systemLight || self == .systemDark }
+
+    nonisolated private func buildResolved() -> ResolvedTheme {
+        typealias Token = ResolvedColorToken
+
+        switch self {
+        case .systemLight:
+            return ResolvedTheme(
+                isDark: false,
+                isPlatinum: false,
+                usesNativeWindowBlur: true,
+                background: .windowBackground(),
+                foregroundHex: 0x1C1C1E,
+                accent: .hex(0x1C1C1E),
+                headingAccentHex: 0x1A1A1A,
+                markdownHeadingAccentHex: 0x1A1A1A,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0x1C1C1E),
+                muted: .controlBackground(),
+                mutedForegroundHex: 0x6E6E73,
+                assistantBubbleForegroundHex: 0x1C1C1E,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .rgba(0, 0, 0, 0.10),
+                codeType: .hex(0x2B8A8A),
+                glassBg: .rgba(1, 1, 1, 0.88),
+                glassBorder: .rgba(0, 0, 0, 0.08),
+                glassHover: .controlBackground(opacity: 0.72),
+                floatingSurfaceTint: .hex(0xF4F4F6),
+                navPillBg: .hex(0xF2F2F5, opacity: 0.82),
+                navBubbleActiveBg: .rgba(0, 0, 0, 0.08),
+                navBubbleActiveText: .hex(0x1C1C1E, opacity: 0.90),
+                navBubbleInactiveText: .hex(0x6E6E73, opacity: 0.92),
+                card: .rgba(1, 1, 1, 0.90),
+                chatSurface: .windowBackground(),
+                userBubbleBg: .hex(0x1A1A1E),
+                userBubbleText: .hex(0xF2F2F7, opacity: 0.92),
+                nsBackground: .windowBackground()
+            )
+        case .systemDark:
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: false,
+                usesNativeWindowBlur: true,
+                background: .windowBackground(),
+                foregroundHex: 0xF2F2F7,
+                accent: .hex(0xF2F2F7),
+                headingAccentHex: 0xF2F2F7,
+                markdownHeadingAccentHex: 0xF2F2F7,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0xF2F2F7),
+                muted: .controlBackground(),
+                mutedForegroundHex: 0x98989D,
+                assistantBubbleForegroundHex: 0xF2F2F7,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .rgba(1, 1, 1, 0.12),
+                codeType: .hex(0x7DB3C4),
+                glassBg: .controlBackground(opacity: 0.86),
+                glassBorder: .rgba(1, 1, 1, 0.08),
+                glassHover: .rgba(1, 1, 1, 0.08),
+                floatingSurfaceTint: .hex(0x1E1E22),
+                navPillBg: .hex(0x1B1B1F, opacity: 0.90),
+                navBubbleActiveBg: .rgba(1, 1, 1, 0.14),
+                navBubbleActiveText: .hex(0xF2F2F7, opacity: 0.92),
+                navBubbleInactiveText: .hex(0x98989D, opacity: 0.92),
+                card: .controlBackground(opacity: 0.92),
+                chatSurface: .windowBackground(),
+                userBubbleBg: .hex(0x2A2A30),
+                userBubbleText: .hex(0xF2F2F7, opacity: 0.92),
+                nsBackground: .windowBackground()
+            )
+        case .light:
+            return ResolvedTheme(
+                isDark: false,
+                isPlatinum: false,
+                usesNativeWindowBlur: false,
+                background: .rgba(1, 1, 1),
+                foregroundHex: 0x1C1C1E,
+                accent: .hex(0x1C1C1E),
+                headingAccentHex: 0x1A1A1A,
+                markdownHeadingAccentHex: 0x1A1A1A,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0x1C1C1E),
+                muted: .hex(0xF0F0F0),
+                mutedForegroundHex: 0x4A4A4A,
+                assistantBubbleForegroundHex: 0x1C1C1E,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .rgba(0, 0, 0, 0.1),
+                codeType: .hex(0x2B8A8A),
+                glassBg: .rgba(1, 1, 1, 0.88),
+                glassBorder: .rgba(0, 0, 0, 0.08),
+                glassHover: .rgba(240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0, 0.8),
+                floatingSurfaceTint: .hex(0xF2F2F2),
+                navPillBg: .rgba(240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0, 0.7),
+                navBubbleActiveBg: .rgba(0, 0, 0, 0.08),
+                navBubbleActiveText: .hex(0x1C1C1E, opacity: 0.88),
+                navBubbleInactiveText: .hex(0x000000, opacity: 0.5),
+                card: .rgba(1, 1, 1, 0.92),
+                chatSurface: .rgba(1, 1, 1),
+                userBubbleBg: .hex(0x1A1A1A),
+                userBubbleText: .hex(0xEEEEEE, opacity: 0.92),
+                nsBackground: .rgba(1, 1, 1)
+            )
+        case .sunny:
+            return ResolvedTheme(
+                isDark: false,
+                isPlatinum: false,
+                usesNativeWindowBlur: false,
+                background: .hex(0xE8F4FB),
+                foregroundHex: 0x233040,
+                accent: .hex(0x5B8FC7),
+                headingAccentHex: 0xD4A843,
+                markdownHeadingAccentHex: 0xD4A843,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0x233040),
+                muted: Token.rgba(210.0 / 255.0, 230.0 / 255.0, 245.0 / 255.0, 0.75),
+                mutedForegroundHex: 0x5A7A94,
+                assistantBubbleForegroundHex: 0x233040,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: Token.rgba(130.0 / 255.0, 170.0 / 255.0, 210.0 / 255.0, 0.28),
+                codeType: .hex(0x287878),
+                glassBg: Token.rgba(235.0 / 255.0, 245.0 / 255.0, 252.0 / 255.0, 0.75),
+                glassBorder: Token.rgba(130.0 / 255.0, 170.0 / 255.0, 210.0 / 255.0, 0.22),
+                glassHover: Token.rgba(225.0 / 255.0, 240.0 / 255.0, 252.0 / 255.0, 0.65),
+                floatingSurfaceTint: .hex(0xF6FBFE),
+                navPillBg: Token.rgba(215.0 / 255.0, 235.0 / 255.0, 250.0 / 255.0, 0.7),
+                navBubbleActiveBg: Token.rgba(180.0 / 255.0, 215.0 / 255.0, 245.0 / 255.0, 0.45),
+                navBubbleActiveText: .hex(0x233040, opacity: 0.92),
+                navBubbleInactiveText: .hex(0x5A7A94, opacity: 0.92),
+                card: Token.rgba(235.0 / 255.0, 245.0 / 255.0, 252.0 / 255.0, 0.78),
+                chatSurface: Token.rgba(235.0 / 255.0, 245.0 / 255.0, 252.0 / 255.0, 0.72),
+                userBubbleBg: .hex(0x5B8FC7),
+                userBubbleText: .hex(0x233040),
+                nsBackground: .hex(0xE8F4FB)
+            )
+        case .tan:
+            return ResolvedTheme(
+                isDark: false,
+                isPlatinum: false,
+                usesNativeWindowBlur: false,
+                background: .hex(0xF5EFE6),
+                foregroundHex: 0x362816,
+                accent: .hex(0x8B5E3C),
+                headingAccentHex: 0x6B3E1C,
+                markdownHeadingAccentHex: 0x6B3E1C,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0x362816),
+                muted: .hex(0xEADDCC),
+                mutedForegroundHex: 0x9A7A5A,
+                assistantBubbleForegroundHex: 0x362816,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .hex(0xC4A882, opacity: 0.35),
+                codeType: .hex(0x3A8888),
+                glassBg: .hex(0xF0E4D0, opacity: 0.85),
+                glassBorder: .hex(0xC4A882, opacity: 0.28),
+                glassHover: .hex(0xDFCDB0, opacity: 0.75),
+                floatingSurfaceTint: .hex(0xFBF5EB),
+                navPillBg: .hex(0xE8D9C0, opacity: 0.78),
+                navBubbleActiveBg: .hex(0xC4A07A, opacity: 0.30),
+                navBubbleActiveText: .hex(0x362816, opacity: 0.92),
+                navBubbleInactiveText: .hex(0x9A7A5A, opacity: 0.85),
+                card: .hex(0xEDE0CA, opacity: 0.88),
+                chatSurface: .hex(0xF5EFE6),
+                userBubbleBg: .hex(0x6B3D1A),
+                userBubbleText: .hex(0xF0EBE4, opacity: 0.92),
+                nsBackground: .hex(0xF5EFE6)
+            )
+        case .magnolia:
+            return ResolvedTheme(
+                isDark: false,
+                isPlatinum: false,
+                usesNativeWindowBlur: true,
+                background: .hex(0xF7F2F5),
+                foregroundHex: 0x342E35,
+                accent: .hex(0x8E7282),
+                headingAccentHex: 0xB86F8D,
+                markdownHeadingAccentHex: 0xB86F8D,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0x342E35),
+                muted: .hex(0xECE4E9),
+                mutedForegroundHex: 0x7E737C,
+                assistantBubbleForegroundHex: 0x342E35,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .hex(0xC6BAC3, opacity: 0.42),
+                codeType: .hex(0x6D8CA8),
+                glassBg: .hex(0xFBF7F9, opacity: 0.88),
+                glassBorder: .hex(0xC6BAC3, opacity: 0.30),
+                glassHover: .hex(0xE9DEE5, opacity: 0.78),
+                floatingSurfaceTint: .hex(0xFEFBFD),
+                navPillBg: .hex(0xEFE5EA, opacity: 0.82),
+                navBubbleActiveBg: .hex(0xD8C7D1, opacity: 0.42),
+                navBubbleActiveText: .hex(0x342E35, opacity: 0.92),
+                navBubbleInactiveText: .hex(0x7E737C, opacity: 0.90),
+                card: .hex(0xFCF9FB, opacity: 0.92),
+                chatSurface: .hex(0xFBF7F9),
+                userBubbleBg: .hex(0x6A5F70),
+                userBubbleText: .hex(0xF6F0F5, opacity: 0.94),
+                nsBackground: .hex(0xF7F2F5)
+            )
+        case .sunset:
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: false,
+                usesNativeWindowBlur: false,
+                background: .hex(0x1E1220),
+                foregroundHex: 0xE8E0D8,
+                accent: .hex(0xD4862B),
+                headingAccentHex: 0xF5B84A,
+                markdownHeadingAccentHex: 0xF5B84A,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0xE8E0D8),
+                muted: .hex(0x322030),
+                mutedForegroundHex: 0xB09888,
+                assistantBubbleForegroundHex: 0xE8E0D8,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .hex(0x3D2838),
+                codeType: .hex(0x5EC4C4),
+                glassBg: .hex(0x241828, opacity: 0.85),
+                glassBorder: .hex(0x3A2434),
+                glassHover: .hex(0x342030),
+                floatingSurfaceTint: .hex(0x161018),
+                navPillBg: .hex(0x1C1022, opacity: 0.8),
+                navBubbleActiveBg: .hex(0x3C2434, opacity: 0.75),
+                navBubbleActiveText: .hex(0xE8E0D8, opacity: 0.92),
+                navBubbleInactiveText: .hex(0xB09888, opacity: 0.92),
+                card: .hex(0x241828, opacity: 0.88),
+                chatSurface: .hex(0x1E1220),
+                userBubbleBg: .hex(0x3A2040),
+                userBubbleText: .hex(0xE8E0D8, opacity: 0.90),
+                nsBackground: .hex(0x1E1220)
+            )
+        case .oled:
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: false,
+                usesNativeWindowBlur: false,
+                background: .hex(0x000000),
+                foregroundHex: 0xDADADE,
+                accent: .hex(0xDADADE),
+                headingAccentHex: 0xFFFFFF,
+                markdownHeadingAccentHex: 0xFFFFFF,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0xDADADE),
+                muted: .hex(0x141414),
+                mutedForegroundHex: 0x8A8A8A,
+                assistantBubbleForegroundHex: 0xDADADE,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: Token.rgba(48.0 / 255.0, 48.0 / 255.0, 48.0 / 255.0, 0.55),
+                codeType: .hex(0x56B6B6),
+                glassBg: Token.rgba(16.0 / 255.0, 16.0 / 255.0, 16.0 / 255.0, 0.82),
+                glassBorder: Token.rgba(48.0 / 255.0, 48.0 / 255.0, 48.0 / 255.0, 0.32),
+                glassHover: Token.rgba(28.0 / 255.0, 28.0 / 255.0, 28.0 / 255.0, 0.7),
+                floatingSurfaceTint: .hex(0x2A2A2F),
+                navPillBg: Token.rgba(8.0 / 255.0, 8.0 / 255.0, 8.0 / 255.0, 0.85),
+                navBubbleActiveBg: Token.rgba(20.0 / 255.0, 20.0 / 255.0, 20.0 / 255.0, 0.7),
+                navBubbleActiveText: .hex(0xDADADE, opacity: 0.92),
+                navBubbleInactiveText: Token.rgba(180.0 / 255.0, 180.0 / 255.0, 180.0 / 255.0, 0.92),
+                card: Token.rgba(18.0 / 255.0, 18.0 / 255.0, 18.0 / 255.0, 0.92),
+                chatSurface: .hex(0x000000),
+                userBubbleBg: .hex(0x2A2A2A),
+                userBubbleText: .hex(0xDADADE, opacity: 0.88),
+                nsBackground: .hex(0x000000)
+            )
+        case .ember:
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: false,
+                usesNativeWindowBlur: false,
+                background: .hex(0x1C1410),
+                foregroundHex: 0xE0D4C8,
+                accent: .hex(0xC8762A),
+                headingAccentHex: 0xE8A040,
+                markdownHeadingAccentHex: 0xE8A040,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0xE0D4C8),
+                muted: .hex(0x2A1E14),
+                mutedForegroundHex: 0xA08060,
+                assistantBubbleForegroundHex: 0xE0D4C8,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .hex(0x3A2818),
+                codeType: .hex(0x5AACAC),
+                glassBg: .hex(0x241A10, opacity: 0.88),
+                glassBorder: .hex(0x402C1C),
+                glassHover: .hex(0x30201A, opacity: 0.75),
+                floatingSurfaceTint: .hex(0x16100C),
+                navPillBg: .hex(0x141008, opacity: 0.88),
+                navBubbleActiveBg: .hex(0x3A2414, opacity: 0.8),
+                navBubbleActiveText: .hex(0xE0D4C8, opacity: 0.92),
+                navBubbleInactiveText: .hex(0xA08060, opacity: 0.92),
+                card: .hex(0x241A10, opacity: 0.90),
+                chatSurface: .hex(0x1C1410),
+                userBubbleBg: .hex(0x3C2010),
+                userBubbleText: .hex(0xEADED0, opacity: 0.90),
+                nsBackground: .hex(0x1C1410)
+            )
+        case .nocturne:
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: false,
+                usesNativeWindowBlur: true,
+                background: .hex(0x19141F),
+                foregroundHex: 0xE7DEE8,
+                accent: .hex(0xA8B6D9),
+                headingAccentHex: 0xD7A7B6,
+                markdownHeadingAccentHex: 0xD7A7B6,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0xE7DEE8),
+                muted: .hex(0x27212D),
+                mutedForegroundHex: 0xA89CA8,
+                assistantBubbleForegroundHex: 0xE7DEE8,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .hex(0x3B3243),
+                codeType: .hex(0x7DB3C4),
+                glassBg: .hex(0x221C2A, opacity: 0.86),
+                glassBorder: .hex(0x443A4D),
+                glassHover: .hex(0x342B3D, opacity: 0.78),
+                floatingSurfaceTint: .hex(0x141019),
+                navPillBg: .hex(0x140F18, opacity: 0.90),
+                navBubbleActiveBg: .hex(0x3A3046, opacity: 0.78),
+                navBubbleActiveText: .hex(0xEEE4EC, opacity: 0.94),
+                navBubbleInactiveText: .hex(0xA89CA8, opacity: 0.92),
+                card: .hex(0x241E2B, opacity: 0.90),
+                chatSurface: .hex(0x19141F),
+                userBubbleBg: .hex(0x313444),
+                userBubbleText: .hex(0xF2E7EE, opacity: 0.92),
+                nsBackground: .hex(0x19141F)
+            )
+        case .platinum:
+            return ResolvedTheme(
+                isDark: false,
+                isPlatinum: true,
+                usesNativeWindowBlur: false,
+                background: .hex(0xDEDEDE),
+                foregroundHex: 0x000000,
+                accent: .hex(0x111111),
+                headingAccentHex: 0x111111,
+                markdownHeadingAccentHex: 0x111111,
+                preferredMarkdownLinkHex: 0x111111,
+                uiAccent: .hex(0x111111),
+                muted: .hex(0xCCCCCC),
+                mutedForegroundHex: 0x555555,
+                assistantBubbleForegroundHex: 0x555555,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: 0x111111,
+                border: .rgba(0, 0, 0, 0.2),
+                codeType: .hex(0x111111),
+                glassBg: .hex(0xDDDDDD),
+                glassBorder: .rgba(0, 0, 0, 0.1),
+                glassHover: .hex(0xCCCCCC),
+                floatingSurfaceTint: .hex(0xF4F4F4),
+                navPillBg: .hex(0xDDDDDD),
+                navBubbleActiveBg: .hex(0x111111),
+                navBubbleActiveText: .hex(0xF2F2F2, opacity: 0.94),
+                navBubbleInactiveText: .rgba(0, 0, 0, 0.5),
+                card: .hex(0xDDDDDD),
+                chatSurface: .hex(0xEEEEEE),
+                userBubbleBg: .hex(0x111111),
+                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
+                nsBackground: .hex(0xDEDEDE)
+            )
+        case .platinumDark:
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: true,
+                usesNativeWindowBlur: false,
+                background: .hex(0x1E1E24),
+                foregroundHex: 0xFFFFFF,
+                accent: .hex(0xF2F2F2),
+                headingAccentHex: 0xF2F2F2,
+                markdownHeadingAccentHex: 0xF2F2F2,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0xF2F2F2),
+                muted: .hex(0x252530),
+                mutedForegroundHex: 0x9090A0,
+                assistantBubbleForegroundHex: 0xFFFFFF,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: 0x2A2A38,
+                border: .rgba(1, 1, 1, 0.15),
+                codeType: .hex(0xF2F2F2),
+                glassBg: .hex(0x2D2D38),
+                glassBorder: .rgba(1, 1, 1, 0.08),
+                glassHover: .hex(0x353545),
+                floatingSurfaceTint: .hex(0x17171D),
+                navPillBg: .hex(0x2D2D38),
+                navBubbleActiveBg: .hex(0xF2F2F2),
+                navBubbleActiveText: .hex(0x111111, opacity: 0.88),
+                navBubbleInactiveText: .rgba(1, 1, 1, 0.6),
+                card: .hex(0x252530),
+                chatSurface: .hex(0x2A2A38),
+                userBubbleBg: .hex(0x2A2A38),
+                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
+                nsBackground: .hex(0x1E1E24)
+            )
+        case .platinumViolet:
+            return ResolvedTheme(
+                isDark: false,
+                isPlatinum: true,
+                usesNativeWindowBlur: false,
+                background: .hex(0xDEDEDE),
+                foregroundHex: 0x000000,
+                accent: .hex(0x000080),
+                headingAccentHex: 0x000000,
+                markdownHeadingAccentHex: 0x00007B,
+                preferredMarkdownLinkHex: 0x00007B,
+                uiAccent: .hex(0x000080),
+                muted: .hex(0xCCCCCC),
+                mutedForegroundHex: 0x555555,
+                assistantBubbleForegroundHex: 0x555555,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .rgba(0, 0, 0, 0.2),
+                codeType: .hex(0x000080),
+                glassBg: .hex(0xDDDDDD),
+                glassBorder: .rgba(0, 0, 0, 0.1),
+                glassHover: .hex(0xCCCCCC),
+                floatingSurfaceTint: .hex(0xF4F4F4),
+                navPillBg: .hex(0xDDDDDD),
+                navBubbleActiveBg: .hex(0x000080),
+                navBubbleActiveText: .rgba(0, 0, 0, 0.7),
+                navBubbleInactiveText: .rgba(0, 0, 0, 0.5),
+                card: .hex(0xDDDDDD),
+                chatSurface: .hex(0xEEEEEE),
+                userBubbleBg: .hex(0x000080),
+                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
+                nsBackground: .hex(0xDEDEDE)
+            )
+        case .platinumVioletDark:
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: true,
+                usesNativeWindowBlur: false,
+                background: .hex(0x1E1E24),
+                foregroundHex: 0xFFFFFF,
+                accent: .hex(0x7B68EE),
+                headingAccentHex: 0xFFFFFF,
+                markdownHeadingAccentHex: 0x7B68EE,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0x7B68EE),
+                muted: .hex(0x252530),
+                mutedForegroundHex: 0x9090A0,
+                assistantBubbleForegroundHex: 0xFFFFFF,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: .rgba(1, 1, 1, 0.15),
+                codeType: .hex(0x7B68EE),
+                glassBg: .hex(0x2D2D38),
+                glassBorder: .rgba(1, 1, 1, 0.08),
+                glassHover: .hex(0x353545),
+                floatingSurfaceTint: .hex(0x17171D),
+                navPillBg: .hex(0x2D2D38),
+                navBubbleActiveBg: .hex(0x6B5DD6),
+                navBubbleActiveText: .rgba(1, 1, 1, 0.75),
+                navBubbleInactiveText: .rgba(1, 1, 1, 0.6),
+                card: .hex(0x252530),
+                chatSurface: .hex(0x2A2A38),
+                userBubbleBg: .hex(0x7B68EE),
+                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
+                nsBackground: .hex(0x1E1E24)
+            )
+        }
+    }
 
     // MARK: - Core Colors
 
-    var background: Color {
-        if isSystemDefaultToken {
-            return Color(nsColor: .windowBackgroundColor)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return .white
-        case .sunny:  return Color(hex: 0xE8F4FB)
-        case .tan:    return Color(hex: 0xF5EFE6)
-        case .magnolia: return Color(hex: 0xF7F2F5)
-        case .sunset: return Color(hex: 0x1E1220)
-        case .oled:   return Color(hex: 0x000000)
-        case .ember:  return Color(hex: 0x1C1410)
-        case .nocturne: return Color(hex: 0x19141F)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xDEDEDE)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x1E1E24)
-        }
-    }
-
     nonisolated var foregroundHex: UInt32 {
-        if self == .systemLight { return 0x1C1C1E }
-        if self == .systemDark { return 0xF2F2F7 }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return 0x1C1C1E
-        case .sunny:  return 0x233040
-        case .tan:    return 0x362816
-        case .magnolia: return 0x342E35
-        case .sunset: return 0xE8E0D8
-        case .oled:   return 0xDADADE
-        case .ember:  return 0xE0D4C8
-        case .nocturne: return 0xE7DEE8
-        case .platinum, .platinumViolet: return 0x000000
-        case .platinumDark, .platinumVioletDark: return 0xFFFFFF
-        }
-    }
-
-    var foreground: Color { Color(hex: foregroundHex) }
-
-    var accent: Color {
-        if self == .systemLight { return Color(hex: 0x1C1C1E) }
-        if self == .systemDark { return Color(hex: 0xF2F2F7) }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(hex: 0x1C1C1E)
-        case .sunny:  return Color(hex: 0x5B8FC7)
-        case .tan:    return Color(hex: 0x8B5E3C)
-        case .magnolia: return Color(hex: 0x8E7282)
-        case .sunset: return Color(hex: 0xD4862B)
-        case .oled:   return Color(hex: 0xDADADE)
-        case .ember:  return Color(hex: 0xC8762A)
-        case .nocturne: return Color(hex: 0xA8B6D9)
-        case .platinum: return Color(hex: 0x111111)
-        case .platinumDark: return Color(hex: 0xF2F2F2)
-        case .platinumViolet: return Color(hex: 0x000080)
-        case .platinumVioletDark: return Color(hex: 0x7B68EE)
-        }
+        resolved.foregroundHex
     }
 
     nonisolated var headingAccentHex: UInt32 {
-        if self == .systemLight { return 0x1A1A1A }
-        if self == .systemDark { return 0xF2F2F7 }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return 0x1A1A1A
-        case .sunny:  return 0xD4A843
-        case .tan:    return 0x6B3E1C
-        case .magnolia: return 0xB86F8D
-        case .sunset: return 0xF5B84A
-        case .oled:   return 0xFFFFFF
-        case .ember:  return 0xE8A040
-        case .nocturne: return 0xD7A7B6
-        case .platinum: return 0x111111
-        case .platinumDark: return 0xF2F2F2
-        case .platinumViolet: return 0x000000
-        case .platinumVioletDark: return 0xFFFFFF
-        }
+        resolved.headingAccentHex
     }
 
     nonisolated var markdownHeadingAccentHex: UInt32 {
-        switch self {
-        case .platinum:
-            0x111111
-        case .platinumDark:
-            0xF2F2F2
-        case .platinumViolet:
-            0x00007B
-        case .platinumVioletDark:
-            0x7B68EE
-        default:
-            headingAccentHex
-        }
+        resolved.markdownHeadingAccentHex
     }
 
     nonisolated var preferredMarkdownLinkHex: UInt32? {
-        switch self {
-        case .platinum, .platinumViolet:
-            markdownHeadingAccentHex
-        default:
-            nil
-        }
+        resolved.preferredMarkdownLinkHex
     }
 
     var fontAccent: Color {
-        Color(hex: headingAccentHex)
+        resolved.headingAccent.color
     }
 
     var markdownHeadingAccent: Color {
-        Color(hex: markdownHeadingAccentHex)
+        resolved.markdownHeadingAccent.color
     }
 
     var preferredMarkdownLinkColor: Color? {
-        guard let preferredMarkdownLinkHex else { return nil }
-        return Color(hex: preferredMarkdownLinkHex)
+        resolved.preferredMarkdownLink?.color
     }
 
     var preferredMarkdownLinkNSColor: NSColor? {
-        guard let preferredMarkdownLinkHex else { return nil }
-        return NSColor(Color(hex: preferredMarkdownLinkHex))
+        resolved.preferredMarkdownLink?.nsColor
     }
 
     var uiAccent: Color {
-        if self == .systemLight { return Color(hex: 0x1C1C1E) }
-        if self == .systemDark { return Color(hex: 0xF2F2F7) }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(hex: 0x1C1C1E)
-        case .sunny:  return Color(hex: 0x233040)
-        case .tan:    return Color(hex: 0x362816)
-        case .magnolia: return Color(hex: 0x342E35)
-        case .sunset: return Color(hex: 0xE8E0D8)
-        case .oled:   return Color(hex: 0xDADADE)
-        case .ember:  return Color(hex: 0xE0D4C8)
-        case .nocturne: return Color(hex: 0xE7DEE8)
-        case .platinum: return Color(hex: 0x111111)
-        case .platinumDark: return Color(hex: 0xF2F2F2)
-        case .platinumViolet: return Color(hex: 0x000080)
-        case .platinumVioletDark: return Color(hex: 0x7B68EE)
-        }
+        resolved.uiAccent.color
     }
 
     // MARK: - Surface Colors
 
     var muted: Color {
-        if isSystemDefaultToken {
-            return Color(nsColor: .controlBackgroundColor)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(hex: 0xF0F0F0)
-        case .sunny:  return Color(red: 210/255, green: 230/255, blue: 245/255).opacity(0.75)
-        case .tan:    return Color(hex: 0xEADDCC)
-        case .magnolia: return Color(hex: 0xECE4E9)
-        case .sunset: return Color(hex: 0x322030)
-        case .oled:   return Color(hex: 0x141414)
-        case .ember:  return Color(hex: 0x2A1E14)
-        case .nocturne: return Color(hex: 0x27212D)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xCCCCCC)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x252530)
-        }
+        resolved.muted.color
     }
 
     nonisolated var mutedForegroundHex: UInt32 {
-        if self == .systemLight { return 0x6E6E73 }
-        if self == .systemDark { return 0x98989D }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return 0x4A4A4A
-        case .sunny:  return 0x5A7A94
-        case .tan:    return 0x9A7A5A
-        case .magnolia: return 0x7E737C
-        case .sunset: return 0xB09888
-        case .oled:   return 0x8A8A8A
-        case .ember:  return 0xA08060
-        case .nocturne: return 0xA89CA8
-        case .platinum, .platinumViolet: return 0x555555
-        case .platinumDark, .platinumVioletDark: return 0x9090A0
-        }
+        resolved.mutedForegroundHex
     }
 
-    var mutedForeground: Color { Color(hex: mutedForegroundHex) }
+    var mutedForeground: Color { resolved.mutedForeground.color }
 
     nonisolated var assistantBubbleForegroundHex: UInt32 {
-        switch self {
-        case .platinum, .platinumViolet:
-            mutedForegroundHex
-        default:
-            foregroundHex
-        }
+        resolved.assistantBubbleForegroundHex
     }
 
-    var assistantBubbleForeground: Color { Color(hex: assistantBubbleForegroundHex) }
+    var assistantBubbleForeground: Color { resolved.assistantBubbleForeground.color }
 
     nonisolated var assistantBubbleBackgroundHex: UInt32? {
-        nil
+        resolved.assistantBubbleBackgroundHex
     }
 
     var assistantBubbleBackground: Color {
-        guard let assistantBubbleBackgroundHex else { return .clear }
-        return Color(hex: assistantBubbleBackgroundHex)
+        resolved.assistantBubbleBackground?.color ?? .clear
     }
 
     nonisolated var userBubbleBackgroundHex: UInt32? {
-        switch self {
-        case .platinum:
-            0x111111
-        case .platinumDark:
-            0x2A2A38
-        default:
-            nil
-        }
+        resolved.userBubbleBackgroundHex
     }
 
     var border: Color {
-        if self == .systemLight { return Color.black.opacity(0.10) }
-        if self == .systemDark { return Color.white.opacity(0.12) }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(red: 0, green: 0, blue: 0).opacity(0.1)
-        case .sunny:  return Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.28)
-        case .tan:    return Color(hex: 0xC4A882).opacity(0.35)
-        case .magnolia: return Color(hex: 0xC6BAC3).opacity(0.42)
-        case .sunset: return Color(hex: 0x3D2838)
-        case .oled:   return Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.55)
-        case .ember:  return Color(hex: 0x3A2818)
-        case .nocturne: return Color(hex: 0x3B3243)
-        case .platinum, .platinumViolet: return Color.black.opacity(0.2)
-        case .platinumDark, .platinumVioletDark: return Color.white.opacity(0.15)
-        }
+        resolved.border.color
     }
 
     var destructive: Color { Color(hex: 0xC75E5E) }
@@ -335,34 +803,17 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     // MARK: - Code Token Colors (syntax highlighting)
 
-    var codeKeyword: Color { accent }
+    var codeKeyword: Color { resolved.accent.color }
     var codeString: Color { emerald }
     var codeNumber: Color { amber }
     var codeComment: Color { mutedForeground }
     var codeFunction: Color { violet }
     var codeType: Color {
-        if self == .systemLight { return Color(hex: 0x2B8A8A) }
-        if self == .systemDark { return Color(hex: 0x7DB3C4) }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(hex: 0x2B8A8A)
-        case .sunny:  return Color(hex: 0x287878)
-        case .tan:    return Color(hex: 0x3A8888)
-        case .magnolia: return Color(hex: 0x6D8CA8)
-        case .sunset: return Color(hex: 0x5EC4C4)
-        case .oled:   return Color(hex: 0x56B6B6)
-        case .ember:  return Color(hex: 0x5AACAC)
-        case .nocturne: return Color(hex: 0x7DB3C4)
-        case .platinum: return Color(hex: 0x111111)
-        case .platinumDark: return Color(hex: 0xF2F2F2)
-        case .platinumViolet: return Color(hex: 0x000080)
-        case .platinumVioletDark: return Color(hex: 0x7B68EE)
-        }
+        resolved.codeType.color
     }
     var codeProperty: Color { fontAccent }
     var codeConstant: Color { amber }
-    var codeTag: Color { accent }
+    var codeTag: Color { resolved.accent.color }
     var codeAttribute: Color { emerald }
 
     /// Map a CodeToken token_type (UInt8) to an NSColor for syntax highlighting.
@@ -374,14 +825,14 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case 3:   return NSColor(codeComment)    // comment
         case 4:   return NSColor(codeFunction)   // function
         case 5:   return NSColor(codeType)       // type
-        case 6:   return NSColor(foreground).withAlphaComponent(0.6) // operator
-        case 7:   return NSColor(foreground).withAlphaComponent(0.5) // punctuation
-        case 8:   return NSColor(foreground)     // variable
+        case 6:   return resolved.foreground.nsColor.withAlphaComponent(0.6) // operator
+        case 7:   return resolved.foreground.nsColor.withAlphaComponent(0.5) // punctuation
+        case 8:   return resolved.foreground.nsColor     // variable
         case 9:   return NSColor(codeProperty)   // property
         case 10:  return NSColor(codeConstant)   // constant
         case 11:  return NSColor(codeTag)        // tag
         case 12:  return NSColor(codeAttribute)  // attribute
-        default:  return NSColor(foreground)     // plain
+        default:  return resolved.foreground.nsColor     // plain
         }
     }
 
@@ -440,252 +891,49 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     // MARK: - Glass Tokens
 
     var glassBg: Color {
-        if self == .systemLight {
-            return Color.white.opacity(0.88)
-        }
-        if self == .systemDark {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.86)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.88)
-        case .sunny:  return Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.75)
-        case .tan:    return Color(hex: 0xF0E4D0).opacity(0.85)
-        case .magnolia: return Color(hex: 0xFBF7F9).opacity(0.88)
-        case .sunset: return Color(hex: 0x241828).opacity(0.85)
-        case .oled:   return Color(red: 16/255, green: 16/255, blue: 16/255).opacity(0.82)
-        case .ember:  return Color(hex: 0x241A10).opacity(0.88)
-        case .nocturne: return Color(hex: 0x221C2A).opacity(0.86)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xDDDDDD)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x2D2D38)
-        }
+        resolved.glassBg.color
     }
 
     var glassBorder: Color {
-        if self == .systemLight { return Color.black.opacity(0.08) }
-        if self == .systemDark { return Color.white.opacity(0.08) }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(red: 0, green: 0, blue: 0).opacity(0.08)
-        case .sunny:  return Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.22)
-        case .tan:    return Color(hex: 0xC4A882).opacity(0.28)
-        case .magnolia: return Color(hex: 0xC6BAC3).opacity(0.30)
-        case .sunset: return Color(hex: 0x3A2434)
-        case .oled:   return Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.32)
-        case .ember:  return Color(hex: 0x402C1C)
-        case .nocturne: return Color(hex: 0x443A4D)
-        case .platinum, .platinumViolet: return Color.black.opacity(0.1)
-        case .platinumDark, .platinumVioletDark: return Color.white.opacity(0.08)
-        }
+        resolved.glassBorder.color
     }
 
     var glassHover: Color {
-        if self == .systemLight {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.72)
-        }
-        if self == .systemDark {
-            return Color.white.opacity(0.08)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.8)
-        case .sunny:  return Color(red: 225/255, green: 240/255, blue: 252/255).opacity(0.65)
-        case .tan:    return Color(hex: 0xDFCDB0).opacity(0.75)
-        case .magnolia: return Color(hex: 0xE9DEE5).opacity(0.78)
-        case .sunset: return Color(hex: 0x342030)
-        case .oled:   return Color(red: 28/255, green: 28/255, blue: 28/255).opacity(0.7)
-        case .ember:  return Color(hex: 0x30201A).opacity(0.75)
-        case .nocturne: return Color(hex: 0x342B3D).opacity(0.78)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xCCCCCC)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x353545)
-        }
+        resolved.glassHover.color
     }
 
     var floatingSurfaceTint: Color {
-        if self == .systemLight { return Color(hex: 0xF4F4F6) }
-        if self == .systemDark { return Color(hex: 0x1E1E22) }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:
-            return Color(hex: 0xF2F2F2)
-        case .sunny:
-            return Color(hex: 0xF6FBFE)
-        case .tan:
-            return Color(hex: 0xFBF5EB)
-        case .magnolia:
-            return Color(hex: 0xFEFBFD)
-        case .sunset:
-            return Color(hex: 0x161018)
-        case .oled:
-            return Color(hex: 0x2A2A2F)
-        case .ember:
-            return Color(hex: 0x16100C)
-        case .nocturne:
-            return Color(hex: 0x141019)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xF4F4F4)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x17171D)
-        }
+        resolved.floatingSurfaceTint.color
     }
 
     // MARK: - Nav Pill Colors
 
     var navPillBg: Color {
-        if self == .systemLight {
-            return Color(hex: 0xF2F2F5).opacity(0.82)
-        }
-        if self == .systemDark {
-            return Color(hex: 0x1B1B1F).opacity(0.90)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.7)
-        case .sunny:  return Color(red: 215/255, green: 235/255, blue: 250/255).opacity(0.7)
-        case .tan:    return Color(hex: 0xE8D9C0).opacity(0.78)
-        case .magnolia: return Color(hex: 0xEFE5EA).opacity(0.82)
-        case .sunset: return Color(hex: 0x1C1022).opacity(0.8)
-        case .oled:   return Color(red: 8/255, green: 8/255, blue: 8/255).opacity(0.85)
-        case .ember:  return Color(hex: 0x141008).opacity(0.88)
-        case .nocturne: return Color(hex: 0x140F18).opacity(0.90)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xDDDDDD)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x2D2D38)
-        }
+        resolved.navPillBg.color
     }
 
     var navPillBorder: Color { glassBorder }
 
     var navBubbleActiveBg: Color {
-        if self == .systemLight {
-            return Color.black.opacity(0.08)
-        }
-        if self == .systemDark {
-            return Color.white.opacity(0.14)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(red: 0, green: 0, blue: 0).opacity(0.08)
-        case .sunny:  return Color(red: 180/255, green: 215/255, blue: 245/255).opacity(0.45)
-        case .tan:    return Color(hex: 0xC4A07A).opacity(0.30)
-        case .magnolia: return Color(hex: 0xD8C7D1).opacity(0.42)
-        case .sunset: return Color(hex: 0x3C2434).opacity(0.75)
-        case .oled:   return Color(red: 20/255, green: 20/255, blue: 20/255).opacity(0.7)
-        case .ember:  return Color(hex: 0x3A2414).opacity(0.8)
-        case .nocturne: return Color(hex: 0x3A3046).opacity(0.78)
-        case .platinum: return Color(hex: 0x111111)
-        case .platinumDark: return Color(hex: 0xF2F2F2)
-        case .platinumViolet: return Color(hex: 0x000080)
-        case .platinumVioletDark: return Color(hex: 0x6B5DD6)
-        }
+        resolved.navBubbleActiveBg.color
     }
 
     var navBubbleActiveText: Color {
-        if self == .systemLight {
-            return Color(hex: 0x1C1C1E).opacity(0.90)
-        }
-        if self == .systemDark {
-            return Color(hex: 0xF2F2F7).opacity(0.92)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(hex: 0x1C1C1E).opacity(0.88)
-        case .sunny:  return Color(hex: 0x233040).opacity(0.92)
-        case .tan:    return Color(hex: 0x362816).opacity(0.92)
-        case .magnolia: return Color(hex: 0x342E35).opacity(0.92)
-        case .sunset: return Color(hex: 0xE8E0D8).opacity(0.92)
-        case .oled:   return Color(hex: 0xDADADE).opacity(0.92)
-        case .ember:  return Color(hex: 0xE0D4C8).opacity(0.92)
-        case .nocturne: return Color(hex: 0xEEE4EC).opacity(0.94)
-        case .platinum: return Color(hex: 0xF2F2F2).opacity(0.94)
-        case .platinumDark: return Color(hex: 0x111111).opacity(0.88)
-        case .platinumViolet: return Color.black.opacity(0.7)
-        case .platinumVioletDark: return Color.white.opacity(0.75)
-        }
+        resolved.navBubbleActiveText.color
     }
 
     var navBubbleInactiveText: Color {
-        if self == .systemLight {
-            return Color(hex: 0x6E6E73).opacity(0.92)
-        }
-        if self == .systemDark {
-            return Color(hex: 0x98989D).opacity(0.92)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(hex: 0x000000).opacity(0.5)
-        case .sunny:  return Color(hex: 0x5A7A94).opacity(0.92)
-        case .tan:    return Color(hex: 0x9A7A5A).opacity(0.85)
-        case .magnolia: return Color(hex: 0x7E737C).opacity(0.90)
-        case .sunset: return Color(hex: 0xB09888).opacity(0.92)
-        case .oled:   return Color(red: 180/255, green: 180/255, blue: 180/255).opacity(0.92)
-        case .ember:  return Color(hex: 0xA08060).opacity(0.92)
-        case .nocturne: return Color(hex: 0xA89CA8).opacity(0.92)
-        case .platinum, .platinumViolet: return Color.black.opacity(0.5)
-        case .platinumDark, .platinumVioletDark: return Color.white.opacity(0.6)
-        }
+        resolved.navBubbleInactiveText.color
     }
 
     // MARK: - Card / Surface
 
     var card: Color {
-        if self == .systemLight {
-            return Color.white.opacity(0.90)
-        }
-        if self == .systemDark {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.92)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.92)
-        case .sunny:  return Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.78)
-        case .tan:    return Color(hex: 0xEDE0CA).opacity(0.88)
-        case .magnolia: return Color(hex: 0xFCF9FB).opacity(0.92)
-        case .sunset: return Color(hex: 0x241828).opacity(0.88)
-        case .oled:   return Color(red: 18/255, green: 18/255, blue: 18/255).opacity(0.92)
-        case .ember:  return Color(hex: 0x241A10).opacity(0.90)
-        case .nocturne: return Color(hex: 0x241E2B).opacity(0.90)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xDDDDDD)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x252530)
-        }
+        resolved.card.color
     }
 
     var chatSurface: Color {
-        if isSystemDefaultToken {
-            return Color(nsColor: .windowBackgroundColor)
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return .white
-        case .sunny:  return Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.72)
-        case .tan:    return Color(hex: 0xF5EFE6)
-        case .magnolia: return Color(hex: 0xFBF7F9)
-        case .sunset: return Color(hex: 0x1E1220)
-        case .oled:   return Color(hex: 0x000000)
-        case .ember:  return Color(hex: 0x1C1410)
-        case .nocturne: return Color(hex: 0x19141F)
-        case .platinum, .platinumViolet:
-            return Color(hex: 0xEEEEEE)
-        case .platinumDark, .platinumVioletDark:
-            return Color(hex: 0x2A2A38)
-        }
+        resolved.chatSurface.color
     }
 
     // MARK: - Status Colors
@@ -697,52 +945,20 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     // MARK: - Convenience
 
-    var textPrimary: Color { foreground }
+    var textPrimary: Color { resolved.foreground.color }
     var textSecondary: Color { mutedForeground }
     var textTertiary: Color { mutedForeground.opacity(0.7) }
-    var chatStrongForeground: Color { isDark ? mutedForeground : accent }
+    var chatStrongForeground: Color { isDark ? mutedForeground : resolved.accent.color }
     var hoverOverlay: Color { isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.04) }
     var glassTint: Color { glassBg }
     var pressedOverlay: Color { isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.08) }
 
     var userBubbleBg: Color {
-        if let userBubbleBackgroundHex {
-            return Color(hex: userBubbleBackgroundHex)
-        }
-        if self == .systemLight {
-            return Color(hex: 0x1A1A1E)
-        }
-        if self == .systemDark {
-            return Color(hex: 0x2A2A30)
-        }
-        return switch self {
-        case .tan:    Color(hex: 0x6B3D1A)
-        case .sunset: Color(hex: 0x3A2040)
-        case .oled:   Color(hex: 0x2A2A2A)
-        case .ember:  Color(hex: 0x3C2010)
-        case .light:  Color(hex: 0x1A1A1A)
-        case .magnolia: Color(hex: 0x6A5F70)
-        case .nocturne: Color(hex: 0x313444)
-        default:      accent
-        }
+        resolved.userBubbleBg.color
     }
 
     var userBubbleText: Color {
-        if isSystemDefaultToken {
-            return Color(hex: 0xF2F2F7).opacity(0.92)
-        }
-        switch self {
-        case .platinum, .platinumDark, .platinumViolet, .platinumVioletDark:
-            return Color(hex: 0xF2F2F2).opacity(0.94)
-        case .tan:    return Color(hex: 0xF0EBE4).opacity(0.92)
-        case .light:  return Color(hex: 0xEEEEEE).opacity(0.92)
-        case .oled:   return Color(hex: 0xDADADE).opacity(0.88)
-        case .ember:  return Color(hex: 0xEADED0).opacity(0.90)
-        case .sunset: return Color(hex: 0xE8E0D8).opacity(0.90)
-        case .magnolia: return Color(hex: 0xF6F0F5).opacity(0.94)
-        case .nocturne: return Color(hex: 0xF2E7EE).opacity(0.92)
-        default:      return foreground
-        }
+        resolved.userBubbleText.color
     }
 
     var sidebarBackground: Color { glassBg }
@@ -750,25 +966,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     // MARK: - NSColor for Window Chrome
 
     var nsBackground: NSColor {
-        if isSystemDefaultToken {
-            return .windowBackgroundColor
-        }
-        switch self {
-        case .systemLight, .systemDark:
-            preconditionFailure("System themes are handled before switch")
-        case .light:  return .white
-        case .sunny:  return NSColor(red: 0xE8/255, green: 0xF4/255, blue: 0xFB/255, alpha: 1)
-        case .tan:    return NSColor(red: 0xF5/255, green: 0xEF/255, blue: 0xE6/255, alpha: 1)
-        case .magnolia: return NSColor(red: 0xF7/255, green: 0xF2/255, blue: 0xF5/255, alpha: 1)
-        case .sunset: return NSColor(red: 0x1E/255, green: 0x12/255, blue: 0x20/255, alpha: 1)
-        case .oled:   return .black
-        case .ember:  return NSColor(red: 0x1C/255, green: 0x14/255, blue: 0x10/255, alpha: 1)
-        case .nocturne: return NSColor(red: 0x19/255, green: 0x14/255, blue: 0x1F/255, alpha: 1)
-        case .platinum, .platinumViolet:
-            return NSColor(red: 0xDE/255, green: 0xDE/255, blue: 0xDE/255, alpha: 1)
-        case .platinumDark, .platinumVioletDark:
-            return NSColor(red: 0x1E/255, green: 0x1E/255, blue: 0x24/255, alpha: 1)
-        }
+        resolved.nsBackground.nsColor
     }
 }
 
@@ -1048,18 +1246,19 @@ enum AppDisplayTypography: Sendable {
 }
 
 enum InlineMarkdownStyler {
-    private static let orphanBracketRegex = try! NSRegularExpression(
+    private static let orphanBracketRegex = FoundationSafety.regularExpression(
         pattern: "\\[[A-Z][A-Z ]+\\](?!\\()"
     )
-    private static let markdownLinkDestinationRegex = try! NSRegularExpression(
+    private static let markdownLinkDestinationRegex = FoundationSafety.regularExpression(
         pattern: #"\[[^\]]+\]\((https?://[^\s\)]+)\)"#
     )
-    private static let urlDetector = try! NSDataDetector(
-        types: NSTextCheckingResult.CheckingType.link.rawValue
+    private static let urlDetector = FoundationSafety.dataDetector(
+        types: .link
     )
 
     static func cleanedText(_ text: String) -> String {
-        orphanBracketRegex.stringByReplacingMatches(
+        guard let orphanBracketRegex else { return text }
+        return orphanBracketRegex.stringByReplacingMatches(
             in: text,
             range: NSRange(location: 0, length: (text as NSString).length),
             withTemplate: ""
@@ -1161,14 +1360,16 @@ enum InlineMarkdownStyler {
 
     private static func linkifyRawURLs(in text: String) -> String {
         let nsText = text as NSString
-        let excludedRanges = markdownLinkDestinationRegex.matches(
+        let excludedRanges = markdownLinkDestinationRegex?.matches(
             in: text,
             range: NSRange(location: 0, length: nsText.length)
-        ).map { $0.range(at: 1) }
-        let matches = urlDetector.matches(
+        ).map { $0.range(at: 1) } ?? []
+        guard let matches = urlDetector?.matches(
             in: text,
             range: NSRange(location: 0, length: nsText.length)
-        )
+        ) else {
+            return text
+        }
         guard !matches.isEmpty else { return text }
 
         let mutable = NSMutableString(string: text)

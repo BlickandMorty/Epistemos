@@ -1,11 +1,44 @@
 import AppKit
 import UniformTypeIdentifiers
 
+@MainActor
+final class ScrollWorkCoalescer {
+    private let delay: Duration
+    private var task: Task<Void, Never>?
+
+    init(delay: Duration) {
+        self.delay = delay
+    }
+
+    deinit {
+        task?.cancel()
+    }
+
+    func schedule(_ action: @escaping @MainActor () -> Void) {
+        guard task == nil else { return }
+
+        task = Task { @MainActor [delay] in
+            defer { self.task = nil }
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            action()
+        }
+    }
+
+    func cancel() {
+        task?.cancel()
+        task = nil
+    }
+}
+
 // MARK: - ProseTextView2
 // NSTextView subclass backed by TextKit 2 (NSTextLayoutManager).
 // Plain text markdown editor — isRichText = false.
-// Phase 1: structural paragraph styling via MarkdownContentStorage delegate.
-// Replaces ClickableTextView (TextKit 1) in the new prose editor stack.
+// Structural paragraph styling is provided by MarkdownContentStorage.
 
 final class ProseTextView2: NSTextView {
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -33,6 +66,9 @@ final class ProseTextView2: NSTextView {
     private var reparseTask: Task<Void, Never>?
     private var currentActiveLine: Int?
     private nonisolated(unsafe) var boundsObserver: (any NSObjectProtocol)?
+    private let scrollVisibleLineRangeCoalescer = ScrollWorkCoalescer(
+        delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
+    )
 
     /// When true, dim all paragraphs except the one containing the insertion point.
     nonisolated(unsafe) var isFocusMode = false
@@ -42,6 +78,7 @@ final class ProseTextView2: NSTextView {
     var pageUndoManager: UndoManager?
 
     nonisolated(unsafe) var usesRenderedTableOverlays = false
+    nonisolated(unsafe) var hasProtectedInlineResponseDivider = false
 
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
@@ -52,13 +89,14 @@ final class ProseTextView2: NSTextView {
     /// Closure called when user selects "Open in Graph" from context menu.
     var onOpenInGraph: ((String) -> Void)?
 
-    // MARK: - Notifications (same names as ClickableTextView for NotePageContent compatibility)
-    static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
-    static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
-    static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
-    static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
-    static let translateNotification = Notification.Name("EpistemosTranslateText")
-    static let scrollToOffsetNotification = Notification.Name("EpistemosScrollToOffset")
+    // MARK: - Notifications
+    // Stable editor notification names used by the note workspace and tests.
+    nonisolated static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
+    nonisolated static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
+    nonisolated static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
+    nonisolated static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
+    nonisolated static let translateNotification = Notification.Name("EpistemosTranslateText")
+    nonisolated static let scrollToOffsetNotification = Notification.Name("EpistemosScrollToOffset")
 
     override var undoManager: UndoManager? {
         pageUndoManager ?? super.undoManager
@@ -92,23 +130,24 @@ final class ProseTextView2: NSTextView {
     private func refreshNativeThemeIfNeeded() {
         guard requestedTheme.followsSystemAppearance else { return }
         let theme = resolvedTheme
+        let resolved = theme.resolved
         guard markdownDelegate.theme != theme
             || backgroundColor != Self.editorBackgroundColor(for: theme)
-            || textColor != NSColor(theme.foreground)
+            || textColor != resolved.foreground.nsColor
         else { return }
         applyResolvedTheme(theme)
     }
 
     private func applyResolvedTheme(_ theme: EpistemosTheme) {
-        let foreground = NSColor(theme.foreground)
+        let foreground = theme.resolved.foreground.nsColor
         drawsBackground = !theme.followsSystemAppearance
         backgroundColor = Self.editorBackgroundColor(for: theme)
         insertionPointColor = foreground
         textColor = foreground
 
-        let bodyFont = NSFont.systemFont(ofSize: MarkdownTextStorage.noteBaseFontSize)
+        let bodyFont = NSFont.systemFont(ofSize: MarkdownEditorStyle.noteBaseFontSize)
         let paragraph =
-            (MarkdownTextStorage.bodyParagraphStyle().mutableCopy() as? NSMutableParagraphStyle)
+            (MarkdownEditorStyle.bodyParagraphStyle().mutableCopy() as? NSMutableParagraphStyle)
             ?? NSMutableParagraphStyle()
 
         defaultParagraphStyle = paragraph
@@ -173,9 +212,9 @@ final class ProseTextView2: NSTextView {
         textLayoutManager?.invalidateLayout(for: textRange)
     }
 
-    // MARK: - Live Resize Centering (match TK1 behavior)
-    // TK1 keeps widthTracksTextView = true at all times, so text reflows live.
-    // We do the same here and recalculate centering insets when resize ends.
+    // MARK: - Live Resize Centering
+    // Keep widthTracksTextView = true so text reflows live,
+    // then recalculate centering insets when resize ends.
 
     override func viewDidEndLiveResize() {
         super.viewDidEndLiveResize()
@@ -201,6 +240,10 @@ final class ProseTextView2: NSTextView {
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?)
         -> Bool
     {
+        if hasProtectedInlineResponseDivider,
+           NoteChatInlineResponse.editTouchesDivider(in: string, affectedRange: affectedCharRange) {
+            return false
+        }
         if MarkdownEditorCommands.isSelectionInsideTable(in: string, selection: affectedCharRange) {
             return false
         }
@@ -589,8 +632,14 @@ final class ProseTextView2: NSTextView {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.updateVisibleLineRange()
+                self?.scheduleVisibleLineRangeUpdate()
             }
+        }
+    }
+
+    private func scheduleVisibleLineRangeUpdate() {
+        scrollVisibleLineRangeCoalescer.schedule { [weak self] in
+            self?.updateVisibleLineRange()
         }
     }
 
@@ -686,7 +735,7 @@ final class ProseTextView2: NSTextView {
               let attributedString = contentStorage.attributedString else { return }
         let text = string as NSString
         guard text.length > 0 else { return }
-        let chromeFrame = MarkdownTextStorage.blockChromeFrame(
+        let chromeFrame = MarkdownEditorStyle.blockChromeFrame(
             textContainerOrigin: textContainerOrigin,
             containerWidth: textContainer?.containerSize.width ?? bounds.width,
             boundsWidth: bounds.width
@@ -704,7 +753,7 @@ final class ProseTextView2: NSTextView {
                 return true
             }
 
-            guard let span = MarkdownTextStorage.blockChromeSpan(
+            guard let span = MarkdownEditorStyle.blockChromeSpan(
                 in: attributedString,
                 text: text,
                 aroundLineRange: paragraphRange
@@ -727,7 +776,7 @@ final class ProseTextView2: NSTextView {
             }
 
             coveredRanges.append(span.lineRange)
-            MarkdownTextStorage.drawBlockChrome(
+            MarkdownEditorStyle.drawBlockChrome(
                 kind: span.kind,
                 fill: span.fill,
                 accent: span.accent,
@@ -744,7 +793,7 @@ final class ProseTextView2: NSTextView {
         textLayoutManager: NSTextLayoutManager,
         contentStorage: NSTextContentStorage
     ) -> NSRect? {
-        let styledRange = MarkdownTextStorage.blockChromeStyleRange(in: text, lineRange: lineRange)
+        let styledRange = MarkdownEditorStyle.blockChromeStyleRange(in: text, lineRange: lineRange)
         guard styledRange.length > 0 else { return nil }
 
         let documentStart = contentStorage.documentRange.location
@@ -812,13 +861,14 @@ final class ProseTextView2: NSTextView {
             guard isHeader else { return true }
 
             let pipeIndices = Self.pipeCharIndices(in: line)
+            guard let lastPipeIndex = pipeIndices.last else { return true }
             guard let firstLineFrag = fragment.textLineFragments.first,
                 pipeIndices.count >= 2,
-                pipeIndices.last! < firstLineFrag.characterRange.length
+                lastPipeIndex < firstLineFrag.characterRange.length
             else { return true }
 
             let firstPipeX = firstLineFrag.locationForCharacter(at: pipeIndices[0]).x
-            let lastPipeX = firstLineFrag.locationForCharacter(at: pipeIndices.last!).x
+            let lastPipeX = firstLineFrag.locationForCharacter(at: lastPipeIndex).x
             guard lastPipeX > firstPipeX else { return true }
 
             let fillRect = NSRect(
@@ -869,12 +919,13 @@ final class ProseTextView2: NSTextView {
                 current?.lastNSRange = nsRange
 
                 if isSep {
-                    if current != nil {
-                        current!.headerBottomY =
-                            current!.rowYs.last.map {
+                    if var table = current {
+                        table.headerBottomY =
+                            table.rowYs.last.map {
                                 $0 + (fragFrame.minY - $0)
                             } ?? fragFrame.minY
-                        current!.bottom = fragFrame.maxY
+                        table.bottom = fragFrame.maxY
+                        current = table
                     }
                 } else {
                     var pipeXs: [CGFloat] = []
@@ -896,17 +947,18 @@ final class ProseTextView2: NSTextView {
                             headerBottomY: nil,
                             firstNSRange: nsRange, lastNSRange: nsRange
                         )
-                    } else {
-                        current!.bottom = fragFrame.maxY
-                        if let first = pipeXs.first { current!.left = min(current!.left, first) }
-                        if let last = pipeXs.last { current!.right = max(current!.right, last) }
-                        current!.rowYs.append(fragFrame.minY)
-                        if pipeXs.count == current!.columnXs.count {
-                            for i in current!.columnXs.indices {
-                                current!.columnXs[i] =
-                                    (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
+                    } else if var table = current {
+                        table.bottom = fragFrame.maxY
+                        if let first = pipeXs.first { table.left = min(table.left, first) }
+                        if let last = pipeXs.last { table.right = max(table.right, last) }
+                        table.rowYs.append(fragFrame.minY)
+                        if pipeXs.count == table.columnXs.count {
+                            for i in table.columnXs.indices {
+                                table.columnXs[i] =
+                                    (table.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
                             }
                         }
+                        current = table
                     }
                 }
             } else {
@@ -2062,6 +2114,7 @@ final class RenderedTableOverlayManager2 {
 enum NoteEditorPerformancePolicy {
     static let renderedTableOverlayRefreshDelay: Duration = .milliseconds(120)
     static let scrollOverlayRefreshDelay: Duration = .milliseconds(40)
+    static let scrollWorkCoalescingDelay: Duration = .milliseconds(16)
     static let overlayViewportPaddingMultiplier = 1
 }
 

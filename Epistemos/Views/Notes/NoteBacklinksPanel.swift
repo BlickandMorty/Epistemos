@@ -5,11 +5,16 @@ import SwiftData
 // Native popover content showing notes that link TO the current note via [[wikilinks]].
 
 struct NoteBacklinksPopover: View {
+    private struct BacklinkItem: Identifiable, Sendable, Equatable {
+        let id: String
+        let title: String
+    }
+
     let pageTitle: String
     let onNavigate: (String) -> Void // pageId
 
     @Environment(\.modelContext) private var modelContext
-    @State private var backlinks: [(id: String, title: String)] = []
+    @State private var backlinks: [BacklinkItem] = []
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
@@ -24,7 +29,7 @@ struct NoteBacklinksPopover: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
 
-                ForEach(backlinks, id: \.id) { link in
+                ForEach(backlinks) { link in
                     Button {
                         onNavigate(link.id)
                     } label: {
@@ -65,17 +70,37 @@ struct NoteBacklinksPopover: View {
         )
         guard let allPages = try? modelContext.fetch(descriptor) else { return }
 
-        var results: [(id: String, title: String)] = []
-        for page in allPages where page.title != titleToFind {
-            let body = page.loadBody(mapped: true)
-            if body.contains(target) {
-                results.append((id: page.id, title: page.title))
-            }
+        let candidates = allPages.compactMap { page -> BacklinkItem? in
+            guard page.title != titleToFind else { return nil }
+            return BacklinkItem(id: page.id, title: page.title)
         }
-        results.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        let results = await Self.findBacklinks(candidates: candidates, target: target)
 
         if !Task.isCancelled {
             backlinks = results
         }
+    }
+
+    private nonisolated static func findBacklinks(
+        candidates: [BacklinkItem],
+        target: String
+    ) async -> [BacklinkItem] {
+        await Task.detached(priority: .utility) {
+            var results: [BacklinkItem] = []
+            results.reserveCapacity(min(candidates.count, 16))
+
+            for candidate in candidates {
+                if Task.isCancelled {
+                    return []
+                }
+                let body = NoteFileStorage.readBody(pageId: candidate.id, mapped: true)
+                if body.contains(target) {
+                    results.append(candidate)
+                }
+            }
+
+            results.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            return results
+        }.value
     }
 }

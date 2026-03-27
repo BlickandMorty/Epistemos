@@ -173,26 +173,6 @@ enum ToolSchemaGrammar {
     // MARK: - Agent Resolution (mirrors OmegaPlanningService)
 
     private static func resolveAgent(for toolName: String) -> String? {
-        let toolToAgent: [String: String] = [
-            "open_url": "safari",
-            "get_page_url": "safari",
-            "get_page_title": "safari",
-            "search_web": "safari",
-            "read_file": "file",
-            "write_file": "file",
-            "list_files": "file",
-            "move_file": "file",
-            "delete_file": "file",
-            "create_note": "notes",
-            "search_notes": "notes",
-            "list_notes": "notes",
-            "edit_note": "notes",
-            "run_command": "terminal",
-            "get_ui_tree": "automation",
-            "click_element": "automation",
-            "type_text": "automation",
-            "run_shortcut": "automation",
-        ]
-        return toolToAgent[toolName]
+        OmegaToolRegistry.agent(for: toolName)
     }
 }

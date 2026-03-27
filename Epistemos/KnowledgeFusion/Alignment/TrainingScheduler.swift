@@ -31,14 +31,28 @@ final class TrainingScheduler {
         set { UserDefaults.standard.set(newValue, forKey: "KnowledgeFusion.lastODIARunDate") }
     }
     var pendingODIATraces: [ODIATrace] = []
+    /// Raw JSONL lines from ReasoningLoopService reasoning chains.
+    /// Merged into ODIA training data during nightly runs.
+    var pendingReasoningTraces: [String] = []
 
     private var ktoScheduler: NSBackgroundActivityScheduler?
     private var vaultScheduler: NSBackgroundActivityScheduler?
     private var odiaScheduler: NSBackgroundActivityScheduler?
 
+    var hasActiveSchedulers: Bool {
+        ktoScheduler != nil || vaultScheduler != nil || odiaScheduler != nil
+    }
+
     // MARK: - Scheduling
 
     func startScheduling() {
+        guard !hasActiveSchedulers else { return }
+
+        // Check Settings → Omega: overnight training must be explicitly enabled
+        guard UserDefaults.standard.bool(forKey: "omega.overnightTraining") else {
+            return
+        }
+
         // KTO preference alignment: nightly
         let kto = NSBackgroundActivityScheduler(identifier: "com.epistemos.kto-training")
         kto.interval = 86400  // 24 hours
@@ -151,7 +165,7 @@ final class TrainingScheduler {
     // MARK: - Callbacks (override in integration)
 
     private func onKTOSchedulerFired() async {
-        guard let bootstrap = AppBootstrap.shared else { return }
+        guard AppBootstrap.shared != nil else { return }
         isTrainingActive = true
         defer { isTrainingActive = false }
 
@@ -178,7 +192,7 @@ final class TrainingScheduler {
             let vm = KnowledgeFusionViewModel.shared
             guard let modelPath = vm.detectedModelPath else { return }
 
-            let ktoOutputDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let ktoOutputDir = FoundationSafety.userApplicationSupportDirectory()
                 .appendingPathComponent("Epistemos/Adapters/kto-\(UUID().uuidString)")
 
             let result = try await ktoTrainer.runKTOUpdate(
@@ -209,17 +223,26 @@ final class TrainingScheduler {
     // MARK: - ODIA Training Callback
 
     private func onODIASchedulerFired() async {
-        guard !pendingODIATraces.isEmpty else { return }
+        guard !pendingODIATraces.isEmpty || !pendingReasoningTraces.isEmpty else { return }
         isTrainingActive = true
         defer { isTrainingActive = false }
 
         let tracesToTrain = pendingODIATraces
+        let reasoningLines = pendingReasoningTraces
         pendingODIATraces.removeAll()
+        pendingReasoningTraces.removeAll()
 
         do {
-            // Export traces to JSONL
+            // Export ODIA traces to JSONL
             let generator = ODIATraceGenerator()
-            let jsonl = generator.toJSONL(tracesToTrain)
+            var jsonl = generator.toJSONL(tracesToTrain)
+
+            // Merge reasoning traces (already JSONL-encoded)
+            if !reasoningLines.isEmpty {
+                if !jsonl.isEmpty { jsonl += "\n" }
+                jsonl += reasoningLines.joined(separator: "\n")
+            }
+
             guard !jsonl.isEmpty else { return }
 
             let tempPath = FileManager.default.temporaryDirectory
@@ -236,12 +259,10 @@ final class TrainingScheduler {
                 scriptsDirectory: pyEnv.scriptsDirectory
             )
 
-            let outputDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let outputDir = FoundationSafety.userApplicationSupportDirectory()
                 .appendingPathComponent("Epistemos/Adapters/odia-\(UUID().uuidString)")
 
-            var config = QLoRATrainer.TrainingConfig()
-            config.loraRank = 16
-            config.loraAlpha = 32
+            var config = QLoRATrainer.TrainingConfig.defaultKnowledge
             config.numIters = min(tracesToTrain.count * 3, 300)
 
             let result = try await trainer.trainKnowledgeAdapter(

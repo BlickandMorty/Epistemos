@@ -3,10 +3,10 @@ import SwiftData
 import SwiftUI
 
 // MARK: - ProseEditorRepresentable2
-// TextKit 2 replacement for ProseEditorRepresentable.
-// Uses NSTextContentStorage + NSTextLayoutManager (TK2 stack).
-// MarkdownContentStorage provides on-demand paragraph styling via delegate —
-// no PageStoragePool needed. Per-page state (scroll, selection, undo) in Coordinator2.
+// TextKit 2 note editor bridge.
+// Uses NSTextContentStorage + NSTextLayoutManager for editing.
+// MarkdownContentStorage provides on-demand paragraph styling via delegate.
+// Per-page state (scroll, selection, undo) lives in Coordinator2.
 //
 // Data flow:
 //   1. ProseEditorView passes pageBody via @State binding
@@ -59,13 +59,14 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         // Load initial content
         let body = pageBody
         tv.markdownDelegate.reparse(text: body)
-        let textStorage = tv.textStorage!
-        coord.isFlushingTokens = true
-        textStorage.beginEditing()
-        textStorage.replaceCharacters(in: NSRange(location: 0, length: textStorage.length), with: body)
-        textStorage.endEditing()
-        tv.didChangeText()
-        coord.isFlushingTokens = false
+        if let textStorage = tv.textStorage {
+            coord.isFlushingTokens = true
+            textStorage.beginEditing()
+            textStorage.replaceCharacters(in: NSRange(location: 0, length: textStorage.length), with: body)
+            textStorage.endEditing()
+            tv.didChangeText()
+            coord.isFlushingTokens = false
+        }
 
         coord.textView = tv
         coord.scrollView = scrollView
@@ -168,8 +169,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             queue: .main
         ) { [weak coord] _ in
             MainActor.assumeIsolated {
-                coord?.transclusionManager?.refreshForScroll()
-                coord?.renderedTableOverlayManager?.refreshForScroll()
+                coord?.scheduleScrollOverlayRefresh()
             }
         }
 
@@ -228,14 +228,14 @@ extension ProseEditorRepresentable2 {
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
         var lastAvailableWidth: CGFloat = 0
+        let scrollOverlayRefreshCoalescer = ScrollWorkCoalescer(
+            delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
+        )
 
         // Binding sync
         var bindingSyncTask: Task<Void, Never>?
         var hasPendingBindingSync = false
         var isFlushingTokens = false
-
-        // Direct file save
-        var directSaveTask: Task<Void, Never>?
 
         // Table alignment
         var tableAlignTask: Task<Void, Never>?
@@ -330,6 +330,8 @@ extension ProseEditorRepresentable2 {
             if parent.noteChatState != nil {
                 wireNoteChatCallbacks()
             }
+            tv.hasProtectedInlineResponseDivider = parent.noteChatState?.hasResponse == true
+                && parent.noteChatState?.useResponsePanel == false
 
             // External body sync — vault sync / restore-to-version changed pageBody
             // outside of user editing. Replace storage content to pick up the new text.
@@ -344,7 +346,7 @@ extension ProseEditorRepresentable2 {
                 let newBody = parent.pageBody
                 let sel = tv.selectedRange()
                 tv.markdownDelegate.reparse(text: newBody)
-                let textStorage = tv.textStorage!
+                guard let textStorage = tv.textStorage else { return }
                 isFlushingTokens = true
                 textStorage.beginEditing()
                 textStorage.replaceCharacters(
@@ -364,7 +366,7 @@ extension ProseEditorRepresentable2 {
 
         // MARK: - Page Swap
         // Saves old page state, flushes unsaved edits, loads new content in-place.
-        // No storage instance swap (unlike TK1) — reparse + replace is sufficient.
+        // No storage instance swap is needed here; reparse + replace is sufficient.
 
         func handlePageSwap() {
             guard let tv = textView else { return }
@@ -389,8 +391,8 @@ extension ProseEditorRepresentable2 {
             // 3. Flush unsaved edits to old page
             // Guard against lastPersistedText (disk state), NOT lastSyncedText (binding state).
             // After 300ms binding sync, lastSyncedText == currentText even though
-            // neither the 3s direct-save nor 5s ProseEditorView save has fired yet.
-            // Both get canceled below, so onPageFlush is the only persistence path.
+            // the 5s ProseEditorView save may not have fired yet. onPageFlush is the
+            // only persistence path during a page swap, so compare against disk state.
             if currentText != lastPersistedText {
                 parent.onPageFlush?(oldPageId, currentText)
                 lastPersistedText = currentText
@@ -398,7 +400,6 @@ extension ProseEditorRepresentable2 {
 
             // 3. Cancel pending tasks + clear overlays
             bindingSyncTask?.cancel()
-            directSaveTask?.cancel()
             tableAlignTask?.cancel()
             dataDetectionTask?.cancel()
             transclusionManager?.removeAll()
@@ -412,7 +413,7 @@ extension ProseEditorRepresentable2 {
 
             // 5. Replace text in-place + reparse
             tv.markdownDelegate.reparse(text: newBody)
-            let textStorage = tv.textStorage!
+            guard let textStorage = tv.textStorage else { return }
             isFlushingTokens = true
             textStorage.beginEditing()
             textStorage.replaceCharacters(
@@ -505,9 +506,8 @@ extension ProseEditorRepresentable2 {
         }
 
         // MARK: - AI Chat (v2 — inline response streaming)
-        // Same protocol as TK1: divider-based inline response with accept/discard.
+        // Divider-based inline response with accept/discard.
 
-        private static let aiDivider = "\n\n<!-- ai-response -->\n\n"
         private var wiredChatState: NoteChatState?
 
         func wireNoteChatCallbacks() {
@@ -547,10 +547,11 @@ extension ProseEditorRepresentable2 {
             tv.setProgrammaticEditLocation(insertLoc)
             ts.replaceCharacters(
                 in: NSRange(location: insertLoc, length: 0),
-                with: Self.aiDivider
+                with: NoteChatInlineResponse.divider
             )
             tv.didChangeText()
             isFlushingTokens = false
+            tv.hasProtectedInlineResponseDivider = true
             tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
         }
 
@@ -571,20 +572,21 @@ extension ProseEditorRepresentable2 {
         private func acceptNoteChatResponse() {
             guard let tv = textView, let ts = tv.textStorage else { return }
             let str = ts.string
-            guard let range = str.range(of: Self.aiDivider, options: .backwards) else { return }
+            guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
             let nsRange = NSRange(range, in: str)
             isFlushingTokens = true
             tv.setProgrammaticEditLocation(nsRange.location)
             ts.replaceCharacters(in: nsRange, with: "\n\n")
             tv.didChangeText()
             isFlushingTokens = false
+            tv.hasProtectedInlineResponseDivider = false
             flushBindingSync()
         }
 
         private func discardNoteChatResponse() {
             guard let tv = textView, let ts = tv.textStorage else { return }
             let str = ts.string
-            guard let range = str.range(of: Self.aiDivider, options: .backwards) else { return }
+            guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
             let nsRange = NSRange(range, in: str)
             let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
             isFlushingTokens = true
@@ -592,6 +594,7 @@ extension ProseEditorRepresentable2 {
             ts.replaceCharacters(in: deleteRange, with: "")
             tv.didChangeText()
             isFlushingTokens = false
+            tv.hasProtectedInlineResponseDivider = false
             flushBindingSync()
         }
 
@@ -614,7 +617,10 @@ extension ProseEditorRepresentable2 {
         private func stripUnacceptedAIResponse() {
             guard let tv = textView, let ts = tv.textStorage else { return }
             let str = ts.string
-            guard let range = str.range(of: Self.aiDivider, options: .backwards) else { return }
+            guard let range = NoteChatInlineResponse.dividerRange(in: str) else {
+                tv.hasProtectedInlineResponseDivider = false
+                return
+            }
             let nsRange = NSRange(range, in: str)
             let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
             isFlushingTokens = true
@@ -622,6 +628,7 @@ extension ProseEditorRepresentable2 {
             ts.replaceCharacters(in: deleteRange, with: "")
             tv.didChangeText()
             isFlushingTokens = false
+            tv.hasProtectedInlineResponseDivider = false
         }
 
         // MARK: - Dismantle
@@ -631,8 +638,7 @@ extension ProseEditorRepresentable2 {
             // fires mid-dismantle and writes to the binding during teardown.
             bindingSyncTask?.cancel()
             bindingSyncTask = nil
-            directSaveTask?.cancel()
-            directSaveTask = nil
+            scrollOverlayRefreshCoalescer.cancel()
 
             // Strip ephemeral content before any save reads.
             clearAllFolds()
@@ -684,6 +690,13 @@ extension ProseEditorRepresentable2 {
             }
         }
 
+        func scheduleScrollOverlayRefresh() {
+            scrollOverlayRefreshCoalescer.schedule { [weak self] in
+                self?.transclusionManager?.refreshForScroll()
+                self?.renderedTableOverlayManager?.refreshForScroll()
+            }
+        }
+
         private func persistCurrentTextIfNeeded() {
             guard !currentPageId.isEmpty, let tv = textView else { return }
             let text = tv.string
@@ -723,7 +736,6 @@ extension ProseEditorRepresentable2 {
             let newText = tv.string
             hasPendingBindingSync = true
             debouncedBindingSync(newText)
-            scheduleDirectSave(newText)
 
             // ── NON-CRITICAL ───────────────────────────────────
 
@@ -1075,12 +1087,17 @@ extension ProseEditorRepresentable2 {
             try? mc.save()
 
             if let engine = parent.graphState?.engineHandle {
-                _ = BlockEditTranslator.updateBlock(
+                let updated = BlockEditTranslator.updateBlock(
                     blockId: blockId,
                     pageId: block.pageId,
                     newContent: newContent,
                     engine: engine
                 )
+                if !updated {
+                    parent.graphState?.needsRefresh = true
+                }
+            } else {
+                parent.graphState?.needsRefresh = true
             }
         }
 
@@ -1150,7 +1167,7 @@ extension ProseEditorRepresentable2 {
 
         // MARK: - Binding Sync (300ms debounce)
         // Coalesces rapid keystrokes so SwiftUI @Binding updates at most ~3×/second.
-        // Prevents per-keystroke view tree re-evaluation (same cadence as TK1).
+        // Prevents per-keystroke view tree re-evaluation.
 
         func debouncedBindingSync(_ newText: String) {
             bindingSyncTask?.cancel()
@@ -1179,19 +1196,5 @@ extension ProseEditorRepresentable2 {
             hasPendingBindingSync = false
         }
 
-        // MARK: - Direct File Save (3s defense-in-depth)
-        // Writes to disk independently of SwiftData persist cycle.
-        // If the app crashes between binding sync and debouncedSave (in ProseEditorView),
-        // the file on disk still has recent content.
-
-        func scheduleDirectSave(_ newText: String) {
-            directSaveTask?.cancel()
-            let pageId = currentPageId
-            directSaveTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(3))
-                guard !Task.isCancelled, self != nil else { return }
-                await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newText)
-            }
-        }
     }
 }

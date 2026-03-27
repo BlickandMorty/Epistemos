@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import Epistemos
@@ -115,5 +116,44 @@ struct WorkspaceSnapshotTests {
             let decoded = try JSONDecoder().decode(GraphOverlaySnapshot.self, from: data)
             #expect(decoded.visibility == visibility)
         }
+    }
+}
+
+@Suite("EventStore")
+struct EventStoreTests {
+    @Test("reads reflect queued snapshot and event writes")
+    func readsReflectQueuedWrites() async throws {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("event-store-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("events.sqlite")
+        let store = try #require(EventStore(databaseURL: dbURL))
+
+        store.saveSnapshot(
+            sessionId: "session-1",
+            snapshotJSON: #"{"activePanel":"home"}"#,
+            summary: "Saved",
+            userNote: "Note"
+        )
+        store.appendEvent(sessionId: "session-1", kind: .chatMessageSent(chatId: "chat-1", snippet: "hello"))
+
+        for _ in 0..<20 {
+            if store.allSnapshots().count == 1, store.events(from: .distantPast, to: .now).count == 1 {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        let snapshot = try #require(store.nearestSnapshot(before: .now))
+        #expect(snapshot.summary == "Saved")
+        #expect(snapshot.userNote == "Note")
+
+        let events = store.events(from: .distantPast, to: .now)
+        #expect(events.map(\.kind) == ["chat_message"])
+
+        let snapshots = store.allSnapshots()
+        #expect(snapshots.count == 1)
+
+        let density = store.eventDensityByDay(days: 1)
+        #expect(!density.isEmpty)
     }
 }

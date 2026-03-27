@@ -14,16 +14,24 @@ import MLXLLM
 // MARK: - MLX Constrained Generator
 
 /// Implements `GrammarConstrainedGenerator` using MLXLMCommon's `LogitProcessor` hook.
-/// Creates a `TokenIterator` with a custom `JSONSchemaLogitProcessor` that masks
-/// invalid tokens at each decoding step, guaranteeing structurally valid JSON output.
+/// Creates a `TokenIterator` with a custom `JSONSchemaLogitProcessor` that applies
+/// soft guidance (EOS penalties) but does NOT perform true grammar-aware masking.
+///
+/// Status: `isFullyConstraining = false` — this generator cannot guarantee
+/// structurally valid JSON. It only penalizes premature EOS tokens.
+/// Real constrained decoding requires vocabulary access to build per-state
+/// allowed-token masks, which is not yet implemented.
 ///
 /// Integration: TokenIterator.init(input:model:cache:processor:sampler:prefillStepSize:maxTokens:)
-/// accepts a custom `LogitProcessor` — we inject our grammar-aware processor there.
+/// accepts a custom `LogitProcessor` — we inject our soft-guidance processor there.
 #if canImport(MLXLMCommon)
 @MainActor
 final class MLXConstrainedGenerator: GrammarConstrainedGenerator {
     private let log = Logger(subsystem: "com.epistemos.omega", category: "ConstrainedGen")
     private let inferenceService: MLXInferenceService
+
+    /// Current implementation only applies soft EOS penalties, not real grammar masking.
+    nonisolated let isFullyConstraining: Bool = false
 
     nonisolated init(inferenceService: MLXInferenceService) {
         self.inferenceService = inferenceService
@@ -52,6 +60,8 @@ final class MLXConstrainedGenerator: GrammarConstrainedGenerator {
 #else
 // Stub for non-MLX builds (CI, tests without GPU)
 final class MLXConstrainedGenerator: GrammarConstrainedGenerator {
+    nonisolated let isFullyConstraining: Bool = false
+
     nonisolated func generate(
         prompt: String,
         systemPrompt: String?,
@@ -79,19 +89,19 @@ enum ConstrainedGeneratorError: Error, LocalizedError {
 
 // MARK: - JSON Schema Logit Processor
 
-/// A `LogitProcessor` that enforces JSON structural validity by masking
-/// logits for tokens that would violate the current grammar state.
+/// A `LogitProcessor` that applies soft structural guidance for JSON generation.
 ///
-/// Tracks position in the JSON output using a character-level state machine.
-/// At each step, computes allowed next characters from the grammar state,
-/// then masks tokens whose first decoded character is not in the allowed set.
+/// **IMPORTANT**: This processor does NOT perform true grammar-constrained decoding.
+/// It only penalizes premature EOS/stop tokens while inside JSON structures.
+/// It does not mask invalid tokens or enforce grammar rules.
 ///
-/// This is a simplified but correct approach that handles:
-/// - JSON structural tokens: { } [ ] , : " true false null
-/// - String content: allows any non-control character inside quotes
-/// - Numeric values: digits, minus, dot, e/E
-/// - Whitespace: always allowed between structural tokens
-/// - Enum constraints: for known fields (agent, tool, risk), restricts to valid values
+/// True constrained decoding would require:
+/// 1. Access to the tokenizer vocabulary to decode each token ID
+/// 2. A grammar FSA that tracks valid next-character sets
+/// 3. Masking all token IDs whose decoded text is not in the valid set
+///
+/// Current guidance: penalizes EOS tokens by -50 logits when depth > 0.
+/// This reduces premature stopping but does not guarantee valid JSON.
 #if canImport(MLXLMCommon)
 struct JSONSchemaLogitProcessor: LogitProcessor {
     private let grammar: ToolSchemaGrammar.CompiledGrammar
@@ -125,19 +135,12 @@ struct JSONSchemaLogitProcessor: LogitProcessor {
     }
 
     func process(logits: MLXArray) -> MLXArray {
-        // For the initial implementation, we apply a lightweight structural check:
-        // - If we're at the very start, bias heavily toward '[' token
-        // - If we're inside a string, allow any printable character
-        // - If we're at a structural position, bias toward valid JSON tokens
-        //
-        // Full token-level masking requires vocabulary access (tokenizer.decode for each token ID).
-        // That's the Tier 1 enhancement — for now, we use temperature-based soft guidance
-        // combined with the EBNF grammar as a post-generation validator.
-        //
-        // The key insight from the research: even partial masking (boosting valid structural
-        // tokens by +10 logits) dramatically improves JSON validity for Qwen 3.5 4B.
+        // SOFT GUIDANCE ONLY — does not guarantee valid JSON.
+        // Penalizes premature EOS/stop tokens when inside a JSON structure.
+        // This is NOT constrained decoding — it's a heuristic that reduces
+        // premature stopping but cannot enforce grammar rules.
 
-        var modified = logits
+        let modified = logits
 
         // Boost the EOS/stop token penalty if we haven't closed the array
         if depth > 0 {

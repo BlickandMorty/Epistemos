@@ -110,7 +110,7 @@ struct ToolSchemaGrammarTests {
 
     // MARK: - Agent Resolution
 
-    @Test("All 18 tools resolve to correct agents")
+    @Test("All 19 tools resolve to correct agents")
     func allToolsResolveToAgents() {
         let expectedMappings: [String: String] = [
             "open_url": "safari",
@@ -130,6 +130,7 @@ struct ToolSchemaGrammarTests {
             "get_ui_tree": "automation",
             "click_element": "automation",
             "type_text": "automation",
+            "press_key": "automation",
             "run_shortcut": "automation",
         ]
 
@@ -149,5 +150,19 @@ struct ToolSchemaGrammarTests {
         #expect(grammar.validToolNames == ["unknown_tool"])
         // Agent enum should be empty since unknown_tool has no agent mapping
         // The grammar still compiles but the agent rule is empty
+    }
+
+    @Test("Inference bridge seeds tool schemas to match the registered MCP tools")
+    @MainActor func inferenceBridgeSeedsToolSchemas() throws {
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference)
+        let planner = OmegaInferenceBridge(triageService: triage)
+        let runtime = MCPBridge()
+
+        let data = try #require(planner.toolSchemasJson.data(using: .utf8))
+        let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+
+        #expect(!schemas.isEmpty)
+        #expect(schemas.count == runtime.toolCount)
     }
 }

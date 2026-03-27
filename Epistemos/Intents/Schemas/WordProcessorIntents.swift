@@ -47,7 +47,9 @@ struct WordProcessorDocumentEntity: AppEntity {
         }
     }
 
-    nonisolated(unsafe) static var defaultQuery = WordProcessorDocumentQuery()
+    static var defaultQuery: WordProcessorDocumentQuery {
+        WordProcessorDocumentQuery()
+    }
     var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
 
     let id: UUID
@@ -83,7 +85,9 @@ struct WordProcessorDocumentTemplateEntity: AppEntity {
         { [] }
     }
 
-    nonisolated(unsafe) static var defaultQuery = WordProcessorTemplateQuery()
+    static var defaultQuery: WordProcessorTemplateQuery {
+        WordProcessorTemplateQuery()
+    }
     var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
 
     let id: UUID

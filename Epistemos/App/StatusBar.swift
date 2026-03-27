@@ -8,6 +8,8 @@ import AppKit
 @MainActor
 final class StatusBar {
     static let shared = StatusBar()
+    private nonisolated static let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 
     private var statusItem: NSStatusItem?
     private var menu: NSMenu?
@@ -17,6 +19,7 @@ final class StatusBar {
     // MARK: - Setup
 
     func setup() {
+        guard !Self.isRunningTests else { return }
         guard statusItem == nil else { return }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -117,5 +120,9 @@ final class StatusBar {
         }
         statusItem = nil
         menu = nil
+    }
+
+    var hasInstalledStatusItemForTesting: Bool {
+        statusItem != nil
     }
 }

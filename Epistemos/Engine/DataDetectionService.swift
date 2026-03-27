@@ -83,8 +83,10 @@ enum DataDetectionService {
         switch item.kind {
         case .date:
             // Open Calendar app
-            NSWorkspace.shared.open(URL(string: "x-apple-calevent://")
-                ?? URL(string: "webcal://")!)
+            if let calendarURL = URL(string: "x-apple-calevent://")
+                ?? URL(string: "webcal://") {
+                NSWorkspace.shared.open(calendarURL)
+            }
         case .address(let address):
             // Open in Maps
             let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? address
@@ -108,7 +110,7 @@ enum DataDetectionService {
     nonisolated static let detectedDataKey = NSAttributedString.Key("EpistemosDetectedData")
 
     /// Applies subtle underline styling to detected data ranges in an NSTextStorage.
-    /// Call this after text highlighting (e.g. after MarkdownTextStorage.processEditing).
+    /// Call this after the editor's markdown styling pass completes.
     nonisolated static func styleDetectedRanges(
         in storage: NSTextStorage,
         items: [DetectedItem],

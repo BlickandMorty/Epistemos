@@ -115,12 +115,16 @@ enum QueryParser {
         let calendar = Calendar.current
 
         if query.contains("last week") || query.contains("past week") {
-            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now)!
+            guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) else {
+                return nil
+            }
             return .and([.typeFilter(types: [.note]), .dateFilter(field: .created, op: .gte, value: weekAgo)])
         }
 
         if query.contains("last month") || query.contains("past month") {
-            let monthAgo = calendar.date(byAdding: .month, value: -1, to: now)!
+            guard let monthAgo = calendar.date(byAdding: .month, value: -1, to: now) else {
+                return nil
+            }
             return .and([.typeFilter(types: [.note]), .dateFilter(field: .created, op: .gte, value: monthAgo)])
         }
 
@@ -130,7 +134,10 @@ enum QueryParser {
         }
 
         if query.contains("yesterday") {
-            let startYesterday = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -1, to: now)!)
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now) else {
+                return nil
+            }
+            let startYesterday = calendar.startOfDay(for: yesterday)
             let startToday = calendar.startOfDay(for: now)
             return .and([
                 .typeFilter(types: [.note]),

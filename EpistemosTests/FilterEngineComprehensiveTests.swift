@@ -597,8 +597,6 @@ struct FilterEngineTypeFilterSpecificTests {
     
     @Test("visibility for each specific type")
     func visibilityForEachType() {
-        let engine = FilterEngine()
-        
         // Test that each type can be individually filtered
         for typeToFilter in GraphNodeType.visibleCases {
             let engine = FilterEngine()

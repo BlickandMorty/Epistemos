@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Confirmation Gate
 
 /// Risk-based confirmation gate for agent actions.
-/// Low risk → auto-execute; Medium → log; High → preview; Critical → explicit confirm.
+/// Low risk → auto-execute (when enabled in settings); Medium → log; High → preview; Critical → explicit confirm.
 @MainActor @Observable
 final class ConfirmationGate {
 
@@ -13,11 +13,20 @@ final class ConfirmationGate {
     /// Continuation awaiting the user's approve/deny decision.
     private var pendingContinuation: CheckedContinuation<Bool, Never>?
 
+    /// Whether low-risk actions auto-execute. Reads from Settings → Omega.
+    private var autoExecuteLowRisk: Bool {
+        // Default true if key not set (preserves existing behavior)
+        let defaults = UserDefaults.standard
+        return defaults.object(forKey: "omega.autoExecuteLowRisk") == nil
+            ? true
+            : defaults.bool(forKey: "omega.autoExecuteLowRisk")
+    }
+
     /// Evaluate a step's risk and determine whether to auto-execute or block.
     func evaluate(step: AgentStep) -> ConfirmationDecision {
         switch step.riskLevel {
         case .low:
-            return .autoExecute
+            return autoExecuteLowRisk ? .autoExecute : .requirePreview(step)
         case .medium:
             return .executeWithLogging
         case .high:

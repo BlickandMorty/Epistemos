@@ -3,11 +3,12 @@ import AppKit
 import os
 @testable import Epistemos
 
-// MARK: - TK1 vs TK2 Performance Benchmarks
-// Comparative timing tests for TextKit 1 (MarkdownTextStorage) vs TextKit 2
-// (ProseTextView2 + MarkdownContentStorage). Uses ContinuousClock for high-
-// resolution wall-clock measurement. Results are informational — logged via
-// os.Logger — with no strict pass/fail thresholds.
+// MARK: - Legacy Compatibility vs TK2 Performance Benchmarks
+// Comparative timing tests for the legacy compatibility shims
+// (MarkdownTextStorage / PageStoragePool in tests only) versus the production
+// TextKit 2 stack (ProseTextView2 + MarkdownContentStorage). Uses
+// ContinuousClock for high-resolution wall-clock measurement. Results are
+// informational — logged via os.Logger — with no strict pass/fail thresholds.
 
 private let benchLog = Logger(subsystem: "com.epistemos.tests", category: "TK2Benchmark")
 
@@ -33,9 +34,10 @@ private func generateMarkdown(lines: Int) -> String {
     return parts.joined(separator: "\n")
 }
 
-// MARK: - TK1 / TK2 Load Helpers
+// MARK: - Legacy Compatibility / TK2 Load Helpers
 
-/// Load content into a TK1 MarkdownTextStorage and return the elapsed duration.
+/// Load content into the legacy compatibility MarkdownTextStorage shim.
+@MainActor
 private func tk1Load(_ content: String) -> Duration {
     let clock = ContinuousClock()
     let elapsed = clock.measure {
@@ -61,7 +63,8 @@ private func tk2Load(_ content: String) -> Duration {
 
 // MARK: - Suite: TK2 Benchmarks
 
-@Suite("TK2 Benchmark — TK1 vs TK2 Performance")
+@MainActor
+@Suite("TextKit 2 Benchmark — legacy compatibility baselines")
 struct TextKit2BenchmarkTests {
 
     // MARK: - Initial Load 1K
@@ -73,7 +76,7 @@ struct TextKit2BenchmarkTests {
         let tk2Time = tk2Load(content)
 
         benchLog.info("1K load — TK1=\(tk1Time), TK2=\(tk2Time)")
-        #expect(true, "1K load — TK1=\(tk1Time), TK2=\(tk2Time)")
+        #expect(Bool(true), "1K load — TK1=\(tk1Time), TK2=\(tk2Time)")
     }
 
     // MARK: - Initial Load 10K
@@ -85,7 +88,7 @@ struct TextKit2BenchmarkTests {
         let tk2Time = tk2Load(content)
 
         benchLog.info("10K load — TK1=\(tk1Time), TK2=\(tk2Time)")
-        #expect(true, "10K load — TK1=\(tk1Time), TK2=\(tk2Time)")
+        #expect(Bool(true), "10K load — TK1=\(tk1Time), TK2=\(tk2Time)")
     }
 
     // MARK: - Per-Keystroke Highlight
@@ -95,7 +98,7 @@ struct TextKit2BenchmarkTests {
         let content = generateMarkdown(lines: 500)
         let clock = ContinuousClock()
 
-        // TK1: load then insert 100 characters one at a time
+        // Legacy compatibility shim: load then insert 100 characters one at a time
         let tk1Storage = MarkdownTextStorage()
         tk1Storage.isDark = false
         tk1Storage.beginEditing()
@@ -126,7 +129,7 @@ struct TextKit2BenchmarkTests {
         }
 
         benchLog.info("100 keystrokes — TK1=\(tk1Time), TK2=\(tk2Time)")
-        #expect(true, "100 keystrokes — TK1=\(tk1Time), TK2=\(tk2Time)")
+        #expect(Bool(true), "100 keystrokes — TK1=\(tk1Time), TK2=\(tk2Time)")
     }
 
     // MARK: - Page Swap
@@ -137,7 +140,7 @@ struct TextKit2BenchmarkTests {
         let page2 = generateMarkdown(lines: 300)
         let clock = ContinuousClock()
 
-        // TK1: uses PageStoragePool
+        // Legacy compatibility shim: uses PageStoragePool
         let tk1Time = clock.measure {
             for _ in 0..<20 {
                 _ = PageStoragePool.shared.getOrCreate(
@@ -170,6 +173,6 @@ struct TextKit2BenchmarkTests {
         PageStoragePool.shared.remove(pageId: "bench-p2")
 
         benchLog.info("20 page swaps — TK1=\(tk1Time), TK2=\(tk2Time)")
-        #expect(true, "20 page swaps — TK1=\(tk1Time), TK2=\(tk2Time)")
+        #expect(Bool(true), "20 page swaps — TK1=\(tk1Time), TK2=\(tk2Time)")
     }
 }

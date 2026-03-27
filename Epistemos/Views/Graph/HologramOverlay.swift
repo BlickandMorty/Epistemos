@@ -368,7 +368,8 @@ final class HologramOverlay {
         }
 
         // Add frosted glass background for mini mode.
-        let miniBlur = NSVisualEffectView(frame: window.contentView!.bounds)
+        guard let contentView = window.contentView else { return }
+        let miniBlur = NSVisualEffectView(frame: contentView.bounds)
         miniBlur.material = GraphOverlayThemeStyle.blurMaterial(
             for: GraphOverlayThemeStyle.resolvedTheme()
         )
@@ -376,12 +377,12 @@ final class HologramOverlay {
         miniBlur.state = .active
         miniBlur.autoresizingMask = [.width, .height]
         miniBlur.identifier = NSUserInterfaceItemIdentifier("miniBlur") // Identifier for easy removal on restore
-        window.contentView!.addSubview(miniBlur, positioned: .below, relativeTo: metalView)
+        contentView.addSubview(miniBlur, positioned: .below, relativeTo: metalView)
 
         // Round corners for mini mode.
-        window.contentView!.wantsLayer = true
-        window.contentView!.layer?.cornerRadius = 16
-        window.contentView!.layer?.masksToBounds = true
+        contentView.wantsLayer = true
+        contentView.layer?.cornerRadius = 16
+        contentView.layer?.masksToBounds = true
 
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.3
@@ -517,9 +518,10 @@ final class HologramOverlay {
             mainWindow.addChildWindow(panel, ordered: .above)
         }
 
+        guard let panelContentView = panel.contentView else { return }
         graphView.autoresizingMask = [.width, .height]
-        graphView.frame = panel.contentView!.bounds
-        panel.contentView!.addSubview(graphView)
+        graphView.frame = panelContentView.bounds
+        panelContentView.addSubview(graphView)
 
         addExpandButton(to: panel)
 
@@ -576,7 +578,8 @@ final class HologramOverlay {
         }
 
         // Frosted glass blur box with rounded corners.
-        let content = NSView(frame: panel.contentView!.bounds)
+        guard let panelContentView = panel.contentView else { return panel }
+        let content = NSView(frame: panelContentView.bounds)
         content.wantsLayer = true
         content.layer?.cornerRadius = 16
         content.layer?.masksToBounds = true
@@ -1194,7 +1197,7 @@ final class HologramOverlay {
         )
         controlsView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(controlsView)
-        self.controlsHostView = controlsView as? NSHostingView<AnyView>
+        self.controlsHostView = controlsView
 
         let ctrlConstraints = [
             controlsView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
@@ -1217,7 +1220,7 @@ final class HologramOverlay {
         )
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(sidebarView)
-        self.sidebarHostView = sidebarView as? NSHostingView<AnyView>
+        self.sidebarHostView = sidebarView
 
         let sbConstraints = [
             sidebarView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
@@ -1343,4 +1346,3 @@ final class HologramOverlay {
     }
 
 }
-

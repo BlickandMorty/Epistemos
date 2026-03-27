@@ -108,7 +108,10 @@ final class HardwareTierManager {
         guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
         var buffer = [CChar](repeating: 0, count: size)
         guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
-        return String(cString: buffer)
+        let byteCount = buffer.firstIndex(of: 0) ?? buffer.count
+        guard byteCount > 0 else { return nil }
+        let bytes = buffer[..<byteCount].map { UInt8(bitPattern: $0) }
+        return String(decoding: bytes, as: UTF8.self)
     }
 }
 

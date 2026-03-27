@@ -101,4 +101,5 @@ enum ODIATraceType: String, Sendable {
     case planning = "planning"
     case toolCall = "tool_call"
     case verification = "verification"
+    case reasoning = "reasoning"
 }

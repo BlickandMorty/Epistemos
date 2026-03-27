@@ -29,10 +29,14 @@ enum NoteTitleDisplay {
 @MainActor
 enum NoteWindowChrome {
     static func apply(to window: NSWindow, toolbarIdentifier: String) {
+        window.styleMask.insert(.fullSizeContentView)
         window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         let toolbar = window.toolbar ?? NSToolbar(identifier: toolbarIdentifier)
-        toolbar.showsBaselineSeparator = false
+        if #unavailable(macOS 15.0) {
+            toolbar.showsBaselineSeparator = false
+        }
         window.toolbar = toolbar
         window.toolbarStyle = .unified
     }
@@ -51,7 +55,9 @@ enum NoteWindowThemeStyler {
         window.appearance = nil
         window.backgroundColor = .windowBackgroundColor
         window.titlebarAppearsTransparent = true
-        window.toolbar?.showsBaselineSeparator = false
+        if #unavailable(macOS 15.0) {
+            window.toolbar?.showsBaselineSeparator = false
+        }
         window.toolbarStyle = .unified
         if let controller = window.contentViewController as? NoteWindowBackdropController {
             controller.syncTheme(uiState: uiState)
@@ -241,6 +247,10 @@ final class NoteWindowManager {
     /// The page currently displayed in the tab (may differ from root if user navigated via wikilinks).
     func currentPageId(forTab tabPageId: String) -> String {
         navigationStates[tabPageId]?.currentPageId ?? tabPageId
+    }
+
+    var hasOpenNoteWindows: Bool {
+        !windows.isEmpty
     }
 
     // MARK: - Open Note (Single Entry Point)
@@ -434,7 +444,7 @@ final class NoteWindowManager {
         let dateStr = formatter.string(from: date)
 
         let view = ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)
-            .environment(bootstrap.uiState)
+            .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
         let hostingController = NSHostingController(rootView: view)
 
@@ -537,6 +547,17 @@ final class NoteWindowManager {
             scroll = 0
         }
         return (cursor, scroll)
+    }
+
+    /// Read the current body text from the live NSTextView when a note window is open.
+    func editorBody(for pageId: String) -> String? {
+        guard let window = windows[pageId] else { return nil }
+        return Self.findTextView(in: window.contentView)?.string
+    }
+
+    /// Prefer the live editor body for an open note window, then fall back to the persisted body file.
+    func currentBody(for pageId: String, mapped: Bool = false) -> String {
+        editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped)
     }
 
     private static func findTextView(in view: NSView?) -> NSTextView? {

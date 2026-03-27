@@ -30,13 +30,14 @@ struct FilterEngineTests {
     /// Create a minimal edge record for testing.
     private func makeEdge(
         source: String,
-        target: String
+        target: String,
+        type: GraphEdgeType = .reference
     ) -> GraphEdgeRecord {
         GraphEdgeRecord(
             id: "\(source)-\(target)",
             sourceNodeId: source,
             targetNodeId: target,
-            type: .reference,
+            type: type,
             weight: 1.0,
             createdAt: .now
         )
@@ -94,7 +95,6 @@ struct FilterEngineTests {
     @Test("clear focus restores all")
     func clearFocusRestoresAll() {
         let engine = FilterEngine()
-        let nodeA = makeNode(id: "a")
         let nodeC = makeNode(id: "c")
 
         engine.focusOn(nodeId: "center", connectedSet: ["center", "a"])
@@ -114,5 +114,19 @@ struct FilterEngineTests {
         #expect(!engine.isEdgeVisible(edge, sourceVisible: true, targetVisible: false))
         #expect(!engine.isEdgeVisible(edge, sourceVisible: false, targetVisible: true))
         #expect(!engine.isEdgeVisible(edge, sourceVisible: false, targetVisible: false))
+    }
+
+    @Test("edge type filter hides toggled-off edge types")
+    func edgeTypeFilterHidesDisabledTypes() {
+        let engine = FilterEngine()
+        let edge = makeEdge(source: "a", target: "b", type: .cites)
+
+        #expect(engine.isEdgeVisible(edge, sourceVisible: true, targetVisible: true))
+
+        engine.toggleEdgeType(.cites)
+        #expect(!engine.isEdgeVisible(edge, sourceVisible: true, targetVisible: true))
+
+        engine.showAllEdgeTypes()
+        #expect(engine.isEdgeVisible(edge, sourceVisible: true, targetVisible: true))
     }
 }

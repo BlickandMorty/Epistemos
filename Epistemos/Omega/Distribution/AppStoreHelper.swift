@@ -29,7 +29,7 @@ final class AppStoreHelper {
 
     /// The Unix Domain Socket path.
     let socketPath: String = {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let support = FoundationSafety.userApplicationSupportDirectory()
         return support.appendingPathComponent("Epistemos/gateway.sock").path
     }()
 

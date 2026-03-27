@@ -11,6 +11,31 @@ import os
 // cross-session paragraph diffing. Events persisted to ring buffer (hot cache)
 // and flushed to EventStore for permanent history.
 
+private final class ActivityFlagState: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var isMarkedActive = false
+
+    nonisolated init() {}
+
+    nonisolated func markActive() {
+        lock.lock()
+        defer { lock.unlock() }
+        isMarkedActive = true
+    }
+
+    nonisolated func isActive() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return isMarkedActive
+    }
+
+    nonisolated func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        isMarkedActive = false
+    }
+}
+
 @MainActor @Observable
 final class ActivityTracker {
     private static let log = Logger(subsystem: "com.epistemos", category: "ActivityTracker")
@@ -22,10 +47,7 @@ final class ActivityTracker {
     private var paragraphHashes: [String: [UInt64]] = [:] // pageId -> [FNV-1a hash per paragraph]
     private var scanTask: Task<Void, Never>?
     private var eventMonitor: Any?
-    /// Written from NSEvent monitor callback (AppKit thread), read from scan loop (MainActor).
-    /// Using nonisolated(unsafe) avoids a Task { @MainActor } hop in the event callback,
-    /// which crashes on app teardown when the MainActor executor is deallocated (EXC_BAD_ACCESS).
-    nonisolated(unsafe) private var userWasActive = false
+    nonisolated private let activityFlagState = ActivityFlagState()
     private(set) var trackingStartedAt: Date?
     let sessionId = UUID().uuidString
 
@@ -39,7 +61,7 @@ final class ActivityTracker {
         eventMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.keyDown, .scrollWheel, .leftMouseDown]
         ) { [weak self] event in
-            self?.userWasActive = true
+            self?.activityFlagState.markActive()
             return event
         }
 
@@ -50,13 +72,13 @@ final class ActivityTracker {
                 guard !Task.isCancelled, let self else { break }
 
                 // Only scan if user was recently active and is now idle
-                guard self.userWasActive else { continue }
+                guard self.activityFlagState.isActive() else { continue }
                 let idleSeconds = CGEventSource.secondsSinceLastEventType(
                     .combinedSessionState, eventType: .keyDown
                 )
                 guard idleSeconds >= 5 else { continue }
 
-                self.userWasActive = false
+                self.activityFlagState.clear()
                 self.scanOpenNotes()
             }
         }
@@ -138,7 +160,7 @@ final class ActivityTracker {
         guard !pageIds.isEmpty else { return }
 
         for pageId in pageIds {
-            let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+            let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
             guard !body.isEmpty else { continue }
 
             let paragraphs = body.components(separatedBy: "\n\n")
@@ -172,7 +194,7 @@ final class ActivityTracker {
     }
 
     private func snapshotParagraphs(for pageId: String) {
-        let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+        let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
         guard !body.isEmpty else { return }
         let paragraphs = body.components(separatedBy: "\n\n")
         paragraphHashes[pageId] = paragraphs.map { hashParagraph($0) }
@@ -231,7 +253,7 @@ final class ActivityTracker {
     }
 
     private static var flushFileURL: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         let dir = appSupport.appendingPathComponent("Epistemos")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("activity-events-cache.json")

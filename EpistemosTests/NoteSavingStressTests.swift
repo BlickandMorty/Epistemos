@@ -189,7 +189,7 @@ struct NoteSavingStressTests {
     func largeDocumentStress() async throws {
         // GIVEN: A large document (100K+ characters)
         let pageId = createTestPageId()
-        let largeContent = String(repeating: "This is a line of text in a very long document. ", count: 2000)
+        let largeContent = String(repeating: "This is a line of text in a very long document. ", count: 2100)
         #expect(largeContent.count > 100000)
         
         // WHEN: Large content is saved

@@ -162,8 +162,9 @@ final class OrchestratorState {
                 // Inject dependency outputs into step arguments for chaining
                 let enrichedStep = contextualizedStep(step)
 
-                // Execute with retry logic (max 3, exponential backoff 0.2s base)
-                let maxRetries = 3
+                // Execute with retry logic (reads max from Settings → Omega, exponential backoff 0.2s base)
+                let storedMaxRetries = UserDefaults.standard.integer(forKey: "omega.maxRetries")
+                let maxRetries = storedMaxRetries > 0 ? storedMaxRetries : 3
                 let baseDelayMs: UInt64 = 200
 
                 for attempt in 0..<maxRetries {

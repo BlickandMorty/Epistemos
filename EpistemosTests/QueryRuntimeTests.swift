@@ -720,13 +720,13 @@ struct QueryRuntimeTests {
             updatedAt: .now
         )
 
-        let baselineRuntime = try QueryRuntime(
+        let baselineRuntime = QueryRuntime(
             graphStore: store,
             graphState: graphState,
             searchIndex: searchIndex
         )
         let scorer = ReversingScorer()
-        let scoredRuntime = try QueryRuntime(
+        let scoredRuntime = QueryRuntime(
             graphStore: store,
             graphState: graphState,
             searchIndex: searchIndex,
@@ -875,7 +875,7 @@ struct QueryRuntimeTests {
             updatedAt: .now
         )
 
-        let runtime = try QueryRuntime(
+        let runtime = QueryRuntime(
             graphStore: store,
             graphState: graphState,
             searchIndex: searchIndex
@@ -1108,5 +1108,67 @@ struct QueryRuntimeTests {
         )
 
         #expect(result.nodes.map(\.id) == ["newest", "middle"])
+    }
+}
+
+@Suite("Query Analyzer and Compiler")
+struct QueryAnalyzerAndCompilerTests {
+    @Test("follow-up analysis extracts captured focus text")
+    func followUpAnalysisExtractsFocus() {
+        let analysis = QueryAnalyzer.analyze(
+            query: "What about executive control?",
+            context: ConversationContext(
+                previousQueries: ["How does bilingualism affect cognition?"],
+                previousEntities: ["bilingualism"],
+                rootQuestion: "How does bilingualism affect cognition?"
+            )
+        )
+
+        #expect(analysis.isFollowUp)
+        #expect(analysis.followUpFocus == "executive control")
+    }
+
+    @Test("date equality compiles to an inclusive same-day range")
+    func dateEqualityCompilesToDayRange() throws {
+        let calendar = Calendar.current
+        let value = Date(timeIntervalSince1970: 1_767_548_800) // January 1, 2026 12:00:00 UTC
+        let plan = QueryCompiler.compile(.dateFilter(field: .created, op: .eq, value: value))
+
+        let step = try #require(plan.steps.first)
+        guard case .graphStoreFilter(let filter) = step else {
+            Issue.record("Expected graphStoreFilter step")
+            return
+        }
+
+        let startOfDay = calendar.startOfDay(for: value)
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)
+
+        #expect(filter.createdAfter == startOfDay)
+        #expect(filter.createdBefore != nil)
+        #expect((filter.createdBefore ?? startOfDay) > value)
+        #expect((filter.createdBefore ?? startOfDay) < (nextDay ?? value))
+    }
+
+    @Test("date inequality compiles to the complement of the same-day range")
+    func dateInequalityCompilesToComplementRange() throws {
+        let calendar = Calendar.current
+        let value = Date(timeIntervalSince1970: 1_767_548_800) // January 1, 2026 12:00:00 UTC
+        let plan = QueryCompiler.compile(.dateFilter(field: .updated, op: .neq, value: value))
+
+        #expect(plan.combiner == .complement)
+        let subPlan = try #require(plan.subPlans.first)
+        let step = try #require(subPlan.steps.first)
+        guard case .graphStoreFilter(let filter) = step else {
+            Issue.record("Expected graphStoreFilter step")
+            return
+        }
+
+        let startOfDay = calendar.startOfDay(for: value)
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)
+
+        #expect(filter.updatedAfter == startOfDay)
+        #expect(filter.updatedBefore != nil)
+        #expect((filter.updatedBefore ?? startOfDay) > value)
+        #expect((filter.updatedBefore ?? startOfDay) < (nextDay ?? value))
     }
 }

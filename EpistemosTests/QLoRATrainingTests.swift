@@ -37,6 +37,14 @@ private func writeComplexJSONL() -> URL {
     return url
 }
 
+private func loadRepoTextFile(_ relativePath: String) throws -> String {
+    let repoRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let fileURL = repoRoot.appendingPathComponent(relativePath)
+    return try String(contentsOf: fileURL, encoding: .utf8)
+}
+
 // MARK: - ExperienceReplayBuffer Tests
 
 @Suite("ExperienceReplayBuffer")
@@ -100,7 +108,7 @@ struct ExperienceReplayBufferTests {
         let replayIndices = lines.enumerated().filter { $0.element.contains("REPLAY") }.map(\.offset)
         #expect(!replayIndices.isEmpty)
 
-        if let first = replayIndices.first, let last = replayIndices.last {
+        if let first = replayIndices.first {
             // Replay should be spread throughout, not just at the end
             #expect(first < lines.count / 2, "First replay example should appear in first half")
         }
@@ -291,6 +299,7 @@ struct HyperparameterComplianceTests {
     func knowledgeHyperparams() throws {
         let scriptURL = Bundle.main.bundleURL
             .appendingPathComponent("Contents/Resources/KnowledgeFusion/Training/scripts/train_knowledge.py")
+        let trainerSource = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
 
         // Fall back to source directory if not in bundle (test environment)
         let sourcePath = URL(fileURLWithPath: #filePath)
@@ -307,13 +316,17 @@ struct HyperparameterComplianceTests {
         let content = try String(contentsOf: url, encoding: .utf8)
 
         // ANCHOR 2 compliance checks
-        #expect(content.contains("LORA_RANK = 32"))
-        #expect(content.contains("LORA_ALPHA = 64"))
+        #expect(content.contains("DEFAULT_RANK = 32"))
+        #expect(content.contains("DEFAULT_ALPHA = 64"))
         #expect(content.contains("gate_proj"))
         #expect(content.contains("up_proj"))
         #expect(content.contains("down_proj"))
-        #expect(content.contains("LEARNING_RATE = 2e-5"))
+        #expect(content.contains("DEFAULT_LR = 2e-5"))
         #expect(content.contains("REPLAY_RATIO = 0.10"))
+        #expect(trainerSource.contains("static let defaultKnowledge = TrainingConfig("))
+        #expect(trainerSource.contains("loraRank: 32"))
+        #expect(trainerSource.contains("loraAlpha: 64"))
+        #expect(trainerSource.contains("config: TrainingConfig = .defaultKnowledge"))
 
         // ANCHOR 3, GAP 1: No fusion calls in actual code
         #expect(!content.contains("merge_weights=True"))
@@ -327,19 +340,24 @@ struct HyperparameterComplianceTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("Epistemos/KnowledgeFusion/Training/scripts/train_style.py")
+        let trainerSource = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
 
         guard FileManager.default.fileExists(atPath: sourcePath.path) else { return }
         let content = try String(contentsOf: sourcePath, encoding: .utf8)
 
         // ANCHOR 2 compliance: style profile
-        #expect(content.contains("LORA_RANK = 8"))
-        #expect(content.contains("LORA_ALPHA = 16"))
-        #expect(content.contains("LEARNING_RATE = 1e-5"))
+        #expect(content.contains("DEFAULT_RANK = 8"))
+        #expect(content.contains("DEFAULT_ALPHA = 16"))
+        #expect(content.contains("DEFAULT_LR = 1e-5"))
 
         // Style must NOT target MLP layers in the TARGET_MODULES list
         // (gate_proj may appear in comments but not in the active list)
         #expect(content.contains("q_proj"))
         #expect(content.contains("k_proj"))
+        #expect(trainerSource.contains("static let defaultStyle = TrainingConfig("))
+        #expect(trainerSource.contains("loraRank: 8"))
+        #expect(trainerSource.contains("loraAlpha: 16"))
+        #expect(trainerSource.contains("config: TrainingConfig = .defaultStyle"))
 
         // ANCHOR 3, GAP 1: No fusion calls in actual code
         #expect(!content.contains("merge_weights=True"))

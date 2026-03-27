@@ -32,27 +32,22 @@ struct JournalEntity: AppEntity {
         @MainActor
         func entities(matching string: String) async throws -> [JournalEntity] {
             guard let bootstrap = AppBootstrap.shared else { return [] }
-            let context = ModelContext(bootstrap.modelContainer)
-            let query = string.lowercased()
-            var descriptor = FetchDescriptor<SDPage>(
-                predicate: #Predicate { $0.isJournal == true },
-                sortBy: [SortDescriptor(\SDPage.createdAt, order: .reverse)]
-            )
-            descriptor.fetchLimit = 100
-            let pages = (try? context.fetch(descriptor)) ?? []
-            return
-                pages
-                .filter {
-                    $0.isJournal
-                        && ($0.title.lowercased().contains(query)
-                            || $0.loadBody().lowercased().contains(query))
-                }
-                .prefix(10)
-                .map { $0.toJournalEntity() }
+            let matches = await AppIntentSearchSupport.rankedPages(
+                query: string,
+                bootstrap: bootstrap,
+                limit: 10
+            ) { page in
+                page.isJournal && !page.isArchived
+            }
+            return matches.map { match in
+                match.page.toJournalEntity(markdownPreview: match.snippet)
+            }
         }
     }
 
-    nonisolated(unsafe) static var defaultQuery = JournalEntityQuery()
+    static var defaultQuery: JournalEntityQuery {
+        JournalEntityQuery()
+    }
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(title: "\(title ?? "Journal Entry")")
     }
@@ -144,39 +139,35 @@ struct SearchJournalIntent: AppIntent {
     @MainActor
     func perform() async throws -> some ReturnsValue<[JournalEntity]> {
         guard let bootstrap = AppBootstrap.shared else { return .result(value: []) }
-        let context = ModelContext(bootstrap.modelContainer)
-        var descriptor = FetchDescriptor<SDPage>(
-            predicate: #Predicate { $0.isJournal == true },
-            sortBy: [SortDescriptor(\SDPage.createdAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 100
-        let pages = (try? context.fetch(descriptor)) ?? []
-        let query = criteria.term.lowercased()
+        let matches = await AppIntentSearchSupport.rankedPages(
+            query: criteria.term,
+            bootstrap: bootstrap,
+            limit: 20
+        ) { page in
+            page.isJournal && !page.isArchived
+        }
 
-        let matched =
-            pages
-            .filter {
-                $0.isJournal
-                    && ($0.title.lowercased().contains(query)
-                        || $0.loadBody().lowercased().contains(query))
-            }
-            .prefix(20)
-            .map { $0.toJournalEntity() }
-
-        return .result(value: Array(matched))
+        return .result(value: matches.map { match in
+            match.page.toJournalEntity(markdownPreview: match.snippet)
+        })
     }
 }
 
 // MARK: - SDPage → JournalEntity
 
 extension SDPage {
-    func toJournalEntity() -> JournalEntity {
+    @MainActor func toJournalEntity(markdownPreview: String? = nil) -> JournalEntity {
         let entity = JournalEntity(
             id: UUID(uuidString: id) ?? UUID(),
             title: title.isEmpty ? "Journal Entry" : title
         )
         entity.entryDate = createdAt
-        entity.message = try? AttributedString(markdown: String(loadBody().prefix(500)))
+        if let markdownPreview {
+            entity.message = AttributedString(markdownPreview)
+        } else {
+            let body = NoteWindowManager.shared.currentBody(for: id)
+            entity.message = try? AttributedString(markdown: String(body.prefix(500)))
+        }
         return entity
     }
 }

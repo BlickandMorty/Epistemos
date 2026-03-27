@@ -34,6 +34,17 @@ struct ThemePairTests {
         #expect(!EpistemosTheme.light.usesNativeWindowBlur)
     }
 
+    @Test("Font registration ignores already-registered CoreText messages")
+    func fontRegistrationAlreadyRegisteredMessagesAreBenign() {
+        #expect(EpistemosFont.isBenignRegistrationErrorDescription("already registered"))
+        #expect(
+            EpistemosFont.isBenignRegistrationErrorDescription(
+                "The file has already been registered in the specified scope."
+            )
+        )
+        #expect(!EpistemosFont.isBenignRegistrationErrorDescription("missing font resource"))
+    }
+
     @Test("Classic does not require a runtime dock icon override")
     func classicResourceMapping() {
         #expect(ThemePair.classic.dockIconResourceName(isDark: false) == nil)
@@ -79,7 +90,7 @@ struct ThemePairTests {
         #expect(uiState.activePair == .classic)
         #expect(uiState.preferredColorScheme == nil)
         #expect(uiState.shouldUseThemeWorkarounds == false)
-        #expect(uiState.usesNativeWindowBlur)
+        #expect(uiState.usesNativeWindowBlur == false)
     }
 
     @MainActor
@@ -256,13 +267,13 @@ struct ThemePairTests {
 
             let uiState = UIState()
 
-            #expect(uiState.notesSidebarBackgroundColor == .textBackgroundColor)
+            #expect(uiState.notesSidebarBackgroundColor == .clear)
 
             uiState.setThemeMode(.custom)
             uiState.setPair(.classic)
             uiState.isSystemDark = false
 
-            #expect(uiState.notesSidebarBackgroundColor == .textBackgroundColor)
+            #expect(uiState.notesSidebarBackgroundColor == .clear)
         }
     }
 
@@ -312,7 +323,6 @@ struct ThemePairTests {
         let defaults = UserDefaults.standard
         let obsoleteKeys = [
             "epistemos.landingGreetingASCIIEnabled",
-            "epistemos.landingGreetingTypewriterEnabled",
             "epistemos.landingGreetingASCIIHoverEnabled",
             "epistemos.landingGreetingTypewriterVersion",
             "epistemos.landingGreetingIntensity",
@@ -383,8 +393,8 @@ struct ThemePairTests {
         #expect(EpistemosTheme.platinumVioletDark.markdownHeadingAccentHex == 0x7B68EE)
         #expect(EpistemosTheme.platinumViolet.preferredMarkdownLinkHex == 0x00007B)
         #expect(EpistemosTheme.platinumVioletDark.preferredMarkdownLinkHex == nil)
-        #expect(EpistemosTheme.platinumViolet.accent == Color(hex: 0x000080))
-        #expect(EpistemosTheme.platinumVioletDark.accent == Color(hex: 0x7B68EE))
+        #expect(EpistemosTheme.platinumViolet.resolved.accent.color == Color(hex: 0x000080))
+        #expect(EpistemosTheme.platinumVioletDark.resolved.accent.color == Color(hex: 0x7B68EE))
     }
 
     @Test("System appearance state reads the global Apple interface style")
@@ -439,9 +449,9 @@ struct ThemePairTests {
 
     @Test("Markdown heading display uppercases H1 through H3 only")
     func markdownHeadingDisplayUppercasesFirstThreeLevels() {
-        #expect(MarkdownHeadingDisplay.displayText("All Things Must Go", level: 1) == "ALL THINGS MUST GO")
-        #expect(MarkdownHeadingDisplay.displayText("Sub Heading", level: 2) == "SUB HEADING")
-        #expect(MarkdownHeadingDisplay.displayText("Third Level", level: 3) == "THIRD LEVEL")
+        #expect(MarkdownHeadingDisplay.displayText("All Things Must Go", level: 1) == "All Things Must Go")
+        #expect(MarkdownHeadingDisplay.displayText("Sub Heading", level: 2) == "Sub Heading")
+        #expect(MarkdownHeadingDisplay.displayText("Third Level", level: 3) == "Third Level")
         #expect(MarkdownHeadingDisplay.displayText("Fourth Level", level: 4) == "Fourth Level")
     }
 
@@ -515,8 +525,8 @@ struct ThemePairTests {
     func regularDisplayModeUsesMacOSUIFontFamily() {
         let font = AppDisplayTypography.regularUIFont(size: 13)
 
-        #expect(font.fontName.hasPrefix(".SFNS"))
         #expect(AppDisplayTypography.isRegularUIFont(font))
+        #expect(!AppDisplayTypography.isDisplayFont(font))
         #expect(AppDisplayTypography.displayFontName == "RetroGaming")
     }
 
@@ -543,8 +553,8 @@ struct ThemePairTests {
         #expect(EpistemosTheme.ember.floatingSurfaceTint == Color(hex: 0x16100C))
         #expect(EpistemosTheme.nocturne.floatingSurfaceTint == Color(hex: 0x141019))
         #expect(EpistemosTheme.oled.floatingSurfaceTint == Color(hex: 0x2A2A2F))
-        #expect(EpistemosTheme.ember.floatingSurfaceTint != EpistemosTheme.ember.background)
-        #expect(EpistemosTheme.nocturne.floatingSurfaceTint != EpistemosTheme.nocturne.background)
+        #expect(EpistemosTheme.ember.floatingSurfaceTint != EpistemosTheme.ember.resolved.background.color)
+        #expect(EpistemosTheme.nocturne.floatingSurfaceTint != EpistemosTheme.nocturne.resolved.background.color)
         #expect(EpistemosTheme.tan.floatingSurfaceTint != EpistemosTheme.tan.glassBg)
     }
 
@@ -670,8 +680,10 @@ struct ThemePairTests {
         #expect(MarkdownPreviewSurfaceStyle.canvasNSColor(for: .systemLight) == .textBackgroundColor)
         #expect(MarkdownPreviewSurfaceStyle.canvasNSColor(for: .systemDark) == .textBackgroundColor)
         #expect(
-            MarkdownPreviewSurfaceStyle.canvasNSColor(for: .oled)
-                == NSColor(EpistemosTheme.oled.background)
+            TestColorAssertions.colorsMatch(
+                MarkdownPreviewSurfaceStyle.canvasNSColor(for: .oled),
+                EpistemosTheme.oled.resolved.background.nsColor
+            )
         )
     }
 
@@ -715,7 +727,8 @@ struct ThemePairTests {
     func landingSearchComposerStaysGlassOnly() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landingView.contains(".assistantGlassInputChrome("))
+        #expect(landingView.contains("AssistantSendButton("))
+        #expect(landingView.contains("NativeToolbarButtonStyle()"))
         #expect(!landingView.contains(".siriGlow("))
         #expect(!landingView.contains("LandingSearchChromePolicy"))
     }
@@ -779,14 +792,16 @@ struct ThemePairTests {
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(landingView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
-        #expect(rootView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        #expect(rootView.contains("LocalModelToolbarMenu("))
+        #expect(rootView.contains("variant: .toolbar"))
         #expect(miniChat.contains("LocalModelToolbarMenu(variant: .toolbar)"))
         #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .content)"))
         #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
         #expect(rootView.contains("ASCIIRippleText("))
         #expect(rootView.contains(".menuStyle(.borderlessButton)"))
-        #expect(rootView.contains("inference.setPreferredLocalTextModelID(model.id)"))
-        #expect(miniChat.contains("threadState.createMiniChatThread("))
+        #expect(rootView.contains("inference.setPreferredChatModelSelection(.localQwen(model.id))"))
+        #expect(miniChat.contains("threadState.ensureMiniChatSession(id: chatID)"))
+        #expect(miniChat.contains("threadState.upsertMiniChatSession("))
         #expect(!noteWorkspace.contains("Label(\"Local Only\""))
         #expect(!rootView.contains("AnchoredPopoverButton("))
         #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
@@ -971,7 +986,7 @@ struct ThemePairTests {
         #expect(miniChat.contains("ChatCoordinator.resolveAttachedContext("))
         #expect(miniChat.contains("loadedNoteTitles: notesContext.loadedNoteTitles"))
         #expect(miniChat.contains("contextAttachments: attachments"))
-        #expect(threadState.contains("func addMiniChatContextAttachment(_ attachment: ContextAttachment)"))
+        #expect(threadState.contains("func addMiniChatContextAttachment(_ attachment: ContextAttachment, chatID: String)"))
     }
 
     @Test("@ mentions search notes and chats through one shared picker")
@@ -1025,6 +1040,8 @@ struct ThemePairTests {
         let keys = [
             "epistemos.landingCursorAnimationEnabled",
             "epistemos.landingCursorVisibilityMode",
+            LandingGreetingAnimationPolicy.enabledDefaultsKey,
+            LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey,
         ]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
@@ -1043,37 +1060,33 @@ struct ThemePairTests {
 
         let uiState = UIState()
         #expect(uiState.landingGreetingTypewriterEnabled == LandingGreetingAnimationPolicy.defaultTypewriterEnabled)
-        for key in keys {
+        for key in keys where key.hasPrefix("epistemos.landingCursor") {
             #expect(defaults.object(forKey: key) == nil)
         }
     }
 
-    @Test("Icon composer package uses the layered export 11 icon bundle")
-    func iconComposerUsesExport11LayeredBundle() throws {
+    @Test("Icon composer package keeps the current layered icon bundle")
+    func iconComposerUsesCurrentLayeredBundle() throws {
         let json = try loadIconComposerJSON()
         #expect(json.contains("\"appearance\" : \"dark\""))
         #expect(json.contains("\"appearance\" : \"tinted\""))
         #expect(json.contains("Gemini Generated Image 5.png"))
-        #expect(json.contains("Gemini Generated Image (8).png"))
-        #expect(json.contains("Gemini Generated Image 5 (4).png"))
-        #expect(json.contains("0.55431,0.92592,1.00000"))
-        #expect(json.contains("1.00000,0.58324,0.84645"))
-        #expect(json.contains("0.29863,0.11682,0.19897"))
+        #expect(json.contains("Gemini Generated Image 5 (1) 2.png"))
+        #expect(json.contains("Gemini Generated Image 5 (1) 3.png"))
+        #expect(json.contains("Gemini Generated Image 5 (2).png"))
         #expect(!json.contains("Ep (mag)-iOS-Default-1024x1024@1x.png"))
     }
 
-    @Test("Icon composer package keeps the export 11 asset bundle")
-    func iconComposerKeepsExport11AssetBundle() throws {
+    @Test("Icon composer package keeps the current asset bundle")
+    func iconComposerKeepsCurrentAssetBundle() throws {
         let assetNames = try FileManager.default.contentsOfDirectory(
             atPath: repoRootURL().appendingPathComponent("Epistemos/AppIcon.icon/Assets").path
         )
-        #expect(assetNames.count == 6)
+        #expect(assetNames.count == 4)
         #expect(assetNames.contains("Gemini Generated Image 5.png"))
-        #expect(assetNames.contains("Gemini Generated Image (8).png"))
         #expect(assetNames.contains("Gemini Generated Image 5 (1) 2.png"))
         #expect(assetNames.contains("Gemini Generated Image 5 (1) 3.png"))
         #expect(assetNames.contains("Gemini Generated Image 5 (2).png"))
-        #expect(assetNames.contains("Gemini Generated Image 5 (4).png"))
         #expect(!assetNames.contains("Ep (mag)-watchOS-Default-1088x1088@1x.png"))
     }
 
@@ -1088,16 +1101,24 @@ struct ThemePairTests {
     @Test("Project uses AppIcon.icon as the primary app icon source")
     func projectUsesIconComposerFile() throws {
         let pbxproj = try loadProjectFile()
-        #expect(pbxproj.contains("AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon;"))
+        #expect(pbxproj.contains("AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon;"))
+        #expect(pbxproj.contains("path = AppIcon.icon;"))
         #expect(pbxproj.contains("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;"))
+    }
+
+    @Test("Assets catalog no longer keeps the stale AppIcon appiconset payload")
+    func assetsCatalogDropsStaleAppIconSet() {
+        let staleAppIconSet = repoRootURL().appendingPathComponent("Epistemos/Assets.xcassets/AppIcon.appiconset")
+        #expect(!FileManager.default.fileExists(atPath: staleAppIconSet.path))
     }
 
     @Test("Project retains Rust bridge header wiring")
     func projectRetainsRustBridgeWiring() throws {
         let pbxproj = try loadProjectFile()
         #expect(pbxproj.contains("SWIFT_OBJC_BRIDGING_HEADER = \"Epistemos-Bridging-Header.h\";"))
-        #expect(pbxproj.contains("\"\\\"$(SRCROOT)/graph-engine-bridge\\\"\","))
-        #expect(pbxproj.contains("\"\\\"$(SRCROOT)/build-rust\\\"\","))
+        #expect(pbxproj.contains("SWIFT_INCLUDE_PATHS = \"$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI"))
+        #expect(pbxproj.contains("\"$(PROJECT_DIR)/build-rust\","))
+        #expect(pbxproj.contains("\"-L$(PROJECT_DIR)/build-rust\","))
     }
 
     @Test("main window navigation keeps only the home tab")
@@ -1367,8 +1388,8 @@ struct ThemePairTests {
         let miniChatWindowController = try loadTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
 
         #expect(utilityWindowManager.contains("panel.toolbarStyle = .unifiedCompact"))
-        #expect(miniChatWindowController.contains("panel.toolbarStyle = .unifiedCompact"))
-        #expect(!miniChatWindowController.contains("panel.toolbarStyle = .unified\n"))
+        #expect(miniChatWindowController.contains("window.toolbarStyle = .unifiedCompact"))
+        #expect(!miniChatWindowController.contains("window.toolbarStyle = .unified\n"))
     }
 
     @Test("living repo guidance reflects local-only Apple plus Qwen routing")

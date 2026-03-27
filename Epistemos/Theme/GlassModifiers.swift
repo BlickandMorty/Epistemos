@@ -380,12 +380,12 @@ struct AssistantGlassInputChrome: ViewModifier {
                 } else if theme.isDark {
                     ZStack {
                         shape.fill(.ultraThinMaterial)
-                        shape.fill(theme.background.opacity(0.48))
+                        shape.fill(theme.resolved.background.color.opacity(0.48))
                     }
                 } else {
                     ZStack {
                         shape.fill(.regularMaterial)
-                        shape.fill(theme.background.opacity(0.12))
+                        shape.fill(theme.resolved.background.color.opacity(0.12))
                     }
                 }
             }
@@ -505,10 +505,10 @@ struct AssistantSourceReference: Identifiable, Equatable, Hashable, Sendable {
         return "\(kind.rawValue):\(title.lowercased())"
     }
 
-    private nonisolated static let markdownLinkRegex = try! NSRegularExpression(
+    private nonisolated static let markdownLinkRegex = FoundationSafety.regularExpression(
         pattern: #"\[([^\]]+)\]\((https?://[^\s\)]+)\)"#
     )
-    private nonisolated static let rawURLRegex = try! NSRegularExpression(
+    private nonisolated static let rawURLRegex = FoundationSafety.regularExpression(
         pattern: #"https?://[^\s\)\]>\"']+"#
     )
 
@@ -534,35 +534,39 @@ struct AssistantSourceReference: Identifiable, Equatable, Hashable, Sendable {
 
         let nsText = text as NSString
 
-        for match in markdownLinkRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
-            guard match.numberOfRanges == 3 else { continue }
-            let title = nsText.substring(with: match.range(at: 1))
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let urlString = sanitizedURLString(nsText.substring(with: match.range(at: 2)))
-            guard let url = URL(string: urlString) else { continue }
+        if let markdownLinkRegex {
+            for match in markdownLinkRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
+                guard match.numberOfRanges == 3 else { continue }
+                let title = nsText.substring(with: match.range(at: 1))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let urlString = sanitizedURLString(nsText.substring(with: match.range(at: 2)))
+                guard let url = URL(string: urlString) else { continue }
 
-            let source = AssistantSourceReference(
-                kind: .link,
-                title: title.isEmpty ? linkTitle(for: url) : title,
-                subtitle: hostTitle(for: url),
-                url: url
-            )
-            guard seen.insert(source.id).inserted else { continue }
-            results.append(source)
+                let source = AssistantSourceReference(
+                    kind: .link,
+                    title: title.isEmpty ? linkTitle(for: url) : title,
+                    subtitle: hostTitle(for: url),
+                    url: url
+                )
+                guard seen.insert(source.id).inserted else { continue }
+                results.append(source)
+            }
         }
 
-        for match in rawURLRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
-            let urlString = sanitizedURLString(nsText.substring(with: match.range))
-            guard let url = URL(string: urlString) else { continue }
+        if let rawURLRegex {
+            for match in rawURLRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
+                let urlString = sanitizedURLString(nsText.substring(with: match.range))
+                guard let url = URL(string: urlString) else { continue }
 
-            let source = AssistantSourceReference(
-                kind: .link,
-                title: linkTitle(for: url),
-                subtitle: hostTitle(for: url),
-                url: url
-            )
-            guard seen.insert(source.id).inserted else { continue }
-            results.append(source)
+                let source = AssistantSourceReference(
+                    kind: .link,
+                    title: linkTitle(for: url),
+                    subtitle: hostTitle(for: url),
+                    url: url
+                )
+                guard seen.insert(source.id).inserted else { continue }
+                results.append(source)
+            }
         }
 
         return results
@@ -629,20 +633,20 @@ struct AssistantSendButton: View {
 
     private var fillColor: Color {
         if isProcessing {
-            return theme.foreground.opacity(theme.isDark ? 0.18 : 0.1)
+            return theme.resolved.foreground.color.opacity(theme.isDark ? 0.18 : 0.1)
         }
         if isEnabled {
-            return theme.foreground.opacity(theme.isDark ? 0.94 : 0.92)
+            return theme.resolved.foreground.color.opacity(theme.isDark ? 0.94 : 0.92)
         }
         return theme.muted.opacity(theme.isDark ? 0.74 : 0.5)
     }
 
     private var iconColor: Color {
         if isProcessing {
-            return theme.accent
+            return theme.resolved.accent.color
         }
         if isEnabled {
-            return theme.background.opacity(theme.isDark ? 0.95 : 0.98)
+            return theme.resolved.background.color.opacity(theme.isDark ? 0.95 : 0.98)
         }
         return theme.textTertiary.opacity(0.75)
     }
@@ -675,12 +679,12 @@ struct AssistantComposerChrome: ViewModifier {
                 } else if theme.isDark {
                     ZStack {
                         shape.fill(.ultraThinMaterial)
-                        shape.fill(theme.background.opacity(0.58))
+                        shape.fill(theme.resolved.background.color.opacity(0.58))
                     }
                 } else {
                     ZStack {
                         shape.fill(.regularMaterial)
-                        shape.fill(theme.background.opacity(0.16))
+                        shape.fill(theme.resolved.background.color.opacity(0.16))
                     }
                 }
             }
@@ -724,7 +728,7 @@ struct AssistantPopoverChrome: ViewModifier {
                 } else if theme.isDark {
                     ZStack {
                         shape.fill(.ultraThinMaterial)
-                        shape.fill(theme.background.opacity(0.78))
+                        shape.fill(theme.resolved.background.color.opacity(0.78))
                     }
                 } else {
                     ZStack {
@@ -831,7 +835,7 @@ struct AssistantSourcesFooter: View {
                             .padding(.vertical, 3)
                             .background(theme.muted.opacity(theme.isDark ? 0.82 : 0.68), in: Capsule())
                     }
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                     .padding(.horizontal, compact ? 10 : 12)
                     .padding(.vertical, compact ? 7 : 8)
                     .assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: showsSourcesPopover)
@@ -866,7 +870,7 @@ private struct AssistantSourcesListPanel: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Sources")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                 Text("Open web references directly from the answer.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(theme.textTertiary)
@@ -919,13 +923,13 @@ private struct AssistantSourceListRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: source.kind == .note ? "doc.text.fill" : "globe")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(source.kind == .note ? theme.accent : theme.foreground)
+                .foregroundStyle(source.kind == .note ? theme.resolved.accent.color : theme.resolved.foreground.color)
                 .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(source.title)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                     .lineLimit(2)
                 Text(source.subtitle)
                     .font(.system(size: 11, weight: .medium))
@@ -977,11 +981,11 @@ private struct AssistantSourceChip: View {
             HStack(spacing: 6) {
                 Image(systemName: source.kind == .note ? "doc.text" : "link")
                     .font(.system(size: compact ? 10 : 11, weight: .medium))
-                    .foregroundStyle(source.kind == .note ? theme.accent.opacity(0.8) : theme.textSecondary)
+                    .foregroundStyle(source.kind == .note ? theme.resolved.accent.color.opacity(0.8) : theme.textSecondary)
 
                 Text(source.title)
                     .font(.system(size: compact ? 11 : 12, weight: .medium))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                     .lineLimit(1)
             }
             .padding(.horizontal, compact ? 10 : 11)
@@ -1039,12 +1043,12 @@ private struct AssistantSourcePreviewCard: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: source.kind == .note ? "doc.text.fill" : "globe")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(source.kind == .note ? theme.accent : theme.foreground)
+                    .foregroundStyle(source.kind == .note ? theme.resolved.accent.color : theme.resolved.foreground.color)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(source.title)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.resolved.foreground.color)
                         .lineLimit(2)
                     Text(source.subtitle)
                         .font(.system(size: 11))
@@ -1064,7 +1068,7 @@ private struct AssistantSourcePreviewCard: View {
                 } label: {
                     Label("Open Source", systemImage: "arrow.up.right")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.resolved.foreground.color)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
                 }

@@ -9,7 +9,7 @@
 #
 # Prerequisites:
 #   - runpodctl configured (runpodctl config --apiKey YOUR_KEY)
-#   - HF_TOKEN env var set (for Llama gated models)
+#   - HF_TOKEN env var set (optional — Nano uses Qwen 2.5 which is ungated)
 #   - RunPod account with funds ($150+ nano, $1500+ base)
 set -euo pipefail
 

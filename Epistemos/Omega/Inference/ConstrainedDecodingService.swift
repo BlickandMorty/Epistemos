@@ -3,14 +3,21 @@ import Foundation
 // MARK: - Constrained Decoding Service
 
 /// Protocol for grammar-constrained text generation.
-/// The implementation hooks into MLX's logit processing to mask invalid tokens
-/// at each decoding step, guaranteeing structurally valid output.
+/// Implementations should hook into MLX's logit processing to mask invalid tokens
+/// at each decoding step. Only implementations that perform **real** token-level
+/// masking should report `isFullyConstraining == true`.
 ///
-/// Phase Ω11: Scaffolding. The actual MLX logit processor binding requires
-/// verifying mlx-swift-structured or implementing a custom logit mask (R1 research).
+/// Phase Ω11 status: Current `JSONSchemaLogitProcessor` only penalizes EOS tokens —
+/// it does NOT perform grammar-aware masking. Constrained decoding is disabled
+/// until a real masking implementation is available.
 protocol GrammarConstrainedGenerator: Sendable {
-    /// Generate text constrained to the given EBNF grammar.
-    /// Returns only text that is valid according to the grammar rules.
+    /// Whether this generator performs real token-level grammar masking.
+    /// When false, the generator only applies soft guidance (e.g. EOS penalties)
+    /// and cannot guarantee structurally valid output.
+    var isFullyConstraining: Bool { get }
+
+    /// Generate text guided by the given EBNF grammar.
+    /// Only truly constraining generators guarantee valid output.
     func generate(
         prompt: String,
         systemPrompt: String?,
@@ -21,13 +28,17 @@ protocol GrammarConstrainedGenerator: Sendable {
 
 /// Manages grammar compilation and constrained generation for Omega tool calls.
 /// Caches compiled grammars to avoid recompilation on every request.
+///
+/// `isAvailable` is only set to true when the registered generator reports
+/// `isFullyConstraining == true`. Soft-guidance-only generators are rejected.
 @MainActor @Observable
 final class ConstrainedDecodingService {
 
-    /// Whether constrained decoding is available (requires MLX logit processor support).
+    /// Whether constrained decoding is truly available.
+    /// Only true when the generator performs real token-level grammar masking.
     private(set) var isAvailable: Bool = false
 
-    /// The underlying generator (set when MLX constrained decoding is verified).
+    /// The underlying generator (set only when it truly constrains).
     private var generator: (any GrammarConstrainedGenerator)?
 
     /// Cached planning grammar (recompiled when tools change).
@@ -35,10 +46,12 @@ final class ConstrainedDecodingService {
     private var cachedToolSchemaHash: Int = 0
 
     /// Register a constrained generator implementation.
-    /// Called after R1 research confirms the MLX logit processor API.
+    /// Only enables the constrained path if the generator truly constrains output.
+    /// Generators that only apply soft guidance (e.g. EOS penalties) are stored
+    /// but `isAvailable` remains false — the system will use unconstrained fallback.
     func setGenerator(_ gen: any GrammarConstrainedGenerator) {
         generator = gen
-        isAvailable = true
+        isAvailable = gen.isFullyConstraining
     }
 
     /// Generate a constrained plan (JSON array of steps) for a task.

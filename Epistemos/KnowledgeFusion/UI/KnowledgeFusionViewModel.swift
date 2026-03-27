@@ -139,6 +139,11 @@ final class KnowledgeFusionViewModel {
         self.inferenceProvider = MLXInferenceBridge(triageService: triageService)
     }
 
+    /// Ingest reasoning trace JSONL lines for nightly training.
+    func ingestReasoningTraces(_ jsonlLines: [String]) {
+        scheduler.pendingReasoningTraces.append(contentsOf: jsonlLines)
+    }
+
     // MARK: - Lifecycle
 
     func loadState() async {
@@ -155,10 +160,13 @@ final class KnowledgeFusionViewModel {
 
         // Detect installed models for training
         detectInstalledModels()
+
+        // Start the overnight training scheduler if the setting is enabled (Ω16)
+        scheduler.startScheduling()
     }
 
     private func detectInstalledModels() {
-        let modelBase = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let modelBase = FoundationSafety.userApplicationSupportDirectory()
             .appendingPathComponent("Epistemos/Models/text/active")
         let fm = FileManager.default
         guard let contents = try? fm.contentsOfDirectory(at: modelBase, includingPropertiesForKeys: nil) else { return }
@@ -256,7 +264,7 @@ final class KnowledgeFusionViewModel {
                 return
             }
 
-            let adapterOutputDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let adapterOutputDir = FoundationSafety.userApplicationSupportDirectory()
                 .appendingPathComponent("Epistemos/Adapters/\(UUID().uuidString)")
 
             // Deploy scripts if needed (idempotent)
@@ -264,8 +272,7 @@ final class KnowledgeFusionViewModel {
             try? pyEnv.deployScripts()
 
             // Prepare experience replay buffer (10% general data to prevent catastrophic forgetting)
-            let replayBuffer = ExperienceReplayBuffer()
-            let replayPath = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let replayPath = FoundationSafety.userApplicationSupportDirectory()
                 .appendingPathComponent("Epistemos/replay-buffer/general.jsonl")
             var replayDataPath: URL? = nil
             if FileManager.default.fileExists(atPath: replayPath.path) {

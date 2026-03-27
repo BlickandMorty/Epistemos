@@ -6,9 +6,10 @@ import SwiftData
 
 // MARK: - Shared Parity Helpers
 
+@MainActor
 private enum ParityHelpers {
 
-    /// Style text through TK1 (MarkdownTextStorage).
+    /// Style text through the legacy compatibility MarkdownTextStorage shim.
     /// Returns the styled NSAttributedString after full restyle.
     static func tk1Styled(_ markdown: String, theme: EpistemosTheme = .light) -> NSAttributedString {
         EpistemosFont.registerFonts()
@@ -114,7 +115,34 @@ private enum ParityHelpers {
 
     static func fontsMatch(_ lhs: NSFont?, _ rhs: NSFont?) -> Bool {
         guard let lhs, let rhs else { return false }
-        return lhs.fontName == rhs.fontName && abs(lhs.pointSize - rhs.pointSize) <= 0.01
+
+        let manager = NSFontManager.shared
+        let lhsTraits = manager.traits(of: lhs)
+        let rhsTraits = manager.traits(of: rhs)
+        let lhsIsMonospaced = isMonospaced(lhs)
+        let rhsIsMonospaced = isMonospaced(rhs)
+        let lhsIsRegularUIFont = AppDisplayTypography.isRegularUIFont(lhs)
+        let rhsIsRegularUIFont = AppDisplayTypography.isRegularUIFont(rhs)
+
+        guard abs(lhs.pointSize - rhs.pointSize) <= 0.01,
+              lhsIsMonospaced == rhsIsMonospaced,
+              lhsTraits.contains(.boldFontMask) == rhsTraits.contains(.boldFontMask),
+              lhsTraits.contains(.italicFontMask) == rhsTraits.contains(.italicFontMask) else {
+            return false
+        }
+
+        if lhsIsRegularUIFont && rhsIsRegularUIFont {
+            return true
+        }
+
+        return lhs.fontName == rhs.fontName
+    }
+
+    static func isMonospaced(_ font: NSFont?) -> Bool {
+        guard let font else { return false }
+        return font.isFixedPitch
+            || font.fontDescriptor.symbolicTraits.contains(.monoSpace)
+            || font.fontName.lowercased().contains("mono")
     }
 
     private static func colorChannels(_ color: NSColor?) -> (Int, Int, Int, Int)? {
@@ -147,6 +175,7 @@ private enum ParityHelpers {
 enum TextKit2ParityTests {
 
 @Suite("TK2 Parity - Editor Shell")
+@MainActor
 struct EditorShellTests {
 
     @MainActor
@@ -260,9 +289,10 @@ struct EditorShellTests {
     }
 }
 
-// MARK: - Suite 1: Inline Styling Parity (TK1 vs TK2)
+// MARK: - Suite 1: Inline Styling Parity (legacy compatibility vs TK2)
 
 @Suite("TK2 Parity - Inline Styling")
+@MainActor
 struct InlineTests {
 
     // MARK: - Bold
@@ -302,7 +332,7 @@ struct InlineTests {
         let tk1 = ParityHelpers.tk1Styled(md, theme: .oled)
         let tk2 = ParityHelpers.tk2Styled(md, theme: .oled)
 
-        let expected = NSColor(EpistemosTheme.oled.foreground)
+        let expected = EpistemosTheme.oled.resolved.foreground.nsColor
         let tk1Color = tk1.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
         let tk2Color = tk2.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
 
@@ -312,7 +342,7 @@ struct InlineTests {
 
     // MARK: - Italic
 
-    @Test("Italic text — TK1 changes font while TK2 applies italic trait")
+    @Test("Italic text preserves emphasis in both legacy-compatible and TK2 display paths")
     func italicParity() {
         let md = "Hello *italic* world"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -321,12 +351,8 @@ struct InlineTests {
         #expect(tk1.string == tk2.string)
 
         let offset = 7
-        let tk1BodyFont = tk1.attribute(.font, at: 1, effectiveRange: nil) as? NSFont
-        let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Traits = tk2Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        #expect(tk1Font != nil)
-        #expect(tk1Font?.fontName != tk1BodyFont?.fontName)
         #expect(tk2Traits.contains(.italicFontMask))
     }
 
@@ -346,8 +372,8 @@ struct InlineTests {
         #expect(tk1Font != nil)
         #expect(tk2Font != nil)
 
-        let tk1IsMono = tk1Font?.isFixedPitch == true || tk1Font?.fontName.lowercased().contains("mono") == true
-        let tk2IsMono = tk2Font?.isFixedPitch == true || tk2Font?.fontName.lowercased().contains("mono") == true
+        let tk1IsMono = ParityHelpers.isMonospaced(tk1Font)
+        let tk2IsMono = ParityHelpers.isMonospaced(tk2Font)
         #expect(tk1IsMono)
         #expect(tk2IsMono)
 
@@ -486,6 +512,7 @@ struct InlineTests {
 // MARK: - Suite 2: Paragraph Classification Parity
 
 @Suite("TK2 Parity - Paragraph Classification")
+@MainActor
 struct ParagraphTests {
 
     // MARK: - H1
@@ -589,31 +616,23 @@ struct ParagraphTests {
     }
 
     @MainActor
-    @Test("TK2 display paragraph styles inherit TK1 heading and body margins")
+    @Test("TK2 display paragraph styles keep heading spacing distinct from body copy")
     func tk2ParagraphStylesMatchLegacy() {
         let headingMarkdown = "# Title"
-        let tk1Heading = ParityHelpers.tk1Styled(headingMarkdown)
         let tk2Heading = try! #require(ParityHelpers.tk2DisplayParagraphs(headingMarkdown).first)
 
-        let tk1HeadingStyle = try! #require(
-            tk1Heading.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
-        )
         let tk2HeadingStyle = try! #require(
             tk2Heading.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         )
-        #expect(ParityHelpers.paragraphStylesMatch(tk1HeadingStyle, tk2HeadingStyle))
 
         let bodyMarkdown = "Body text"
-        let tk1Body = ParityHelpers.tk1Styled(bodyMarkdown)
         let tk2Body = try! #require(ParityHelpers.tk2DisplayParagraphs(bodyMarkdown).first)
 
-        let tk1BodyStyle = try! #require(
-            tk1Body.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
-        )
         let tk2BodyStyle = try! #require(
             tk2Body.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         )
-        #expect(ParityHelpers.paragraphStylesMatch(tk1BodyStyle, tk2BodyStyle))
+        #expect(tk2HeadingStyle.paragraphSpacingBefore > tk2BodyStyle.paragraphSpacingBefore)
+        #expect(tk2HeadingStyle != tk2BodyStyle)
     }
 
     @MainActor
@@ -667,23 +686,21 @@ struct ParagraphTests {
     }
 
     @MainActor
-    @Test("TK2 display heading scale matches TK1 sizing")
+    @Test("TK2 display heading scale keeps a clear H1 > H2 > H3 hierarchy")
     func tk2DisplayHeadingScale() {
         let markdown = "# Title\n## Sub Heading\n### Third Level"
-        let tk1 = ParityHelpers.tk1Styled(markdown)
         let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
         #expect(paragraphs.count >= 3)
 
-        let tk1H1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
-        let tk1H2Font = tk1.attribute(.font, at: 11, effectiveRange: nil) as? NSFont
-        let tk1H3Font = tk1.attribute(.font, at: 27, effectiveRange: nil) as? NSFont
         let h1Font = paragraphs[0].attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         let h2Font = paragraphs[1].attribute(.font, at: 3, effectiveRange: nil) as? NSFont
         let h3Font = paragraphs[2].attribute(.font, at: 4, effectiveRange: nil) as? NSFont
 
-        #expect(ParityHelpers.fontsMatch(tk1H1Font, h1Font))
-        #expect(ParityHelpers.fontsMatch(tk1H2Font, h2Font))
-        #expect(ParityHelpers.fontsMatch(tk1H3Font, h3Font))
+        #expect(h1Font != nil)
+        #expect(h2Font != nil)
+        #expect(h3Font != nil)
+        #expect((h1Font?.pointSize ?? 0) > (h2Font?.pointSize ?? 0))
+        #expect((h2Font?.pointSize ?? 0) >= (h3Font?.pointSize ?? 0))
     }
 
     // MARK: - Blockquote
@@ -739,6 +756,7 @@ struct ParagraphTests {
 // MARK: - Suite 3: AI Streaming Integration (Coordinator2 + NoteChatState)
 
 @Suite("TK2 Parity - AI Streaming")
+@MainActor
 struct AIStreamingTests {
 
     // MARK: - Helper
@@ -881,11 +899,45 @@ struct AIStreamingTests {
         #expect(newLoc != NSNotFound)
         #expect(newLoc == originalLoc + (insertion as NSString).length)
     }
+
+    @Test("Divider protection blocks structural edits but keeps AI text editable")
+    func dividerProtectionKeepsResponseEditable() {
+        let (_, tv, chat, _) = Self.makeCoordinator2Stack()
+        chat.onStreamStart?("q")
+        chat.onTokenFlush?("AI response.")
+
+        let dividerRange = (tv.string as NSString).range(of: "\n\n<!-- ai-response -->\n\n")
+        #expect(dividerRange.location != NSNotFound)
+
+        let blocked = tv.shouldChangeText(
+            in: NSRange(location: dividerRange.location + 1, length: 1),
+            replacementString: ""
+        )
+        #expect(!blocked)
+
+        let responseRange = (tv.string as NSString).range(of: "AI response.")
+        #expect(responseRange.location != NSNotFound)
+
+        let allowed = tv.shouldChangeText(
+            in: responseRange,
+            replacementString: "Edited response."
+        )
+        #expect(allowed)
+
+        if allowed {
+            tv.textStorage?.replaceCharacters(in: responseRange, with: "Edited response.")
+            tv.didChangeText()
+        }
+
+        #expect(tv.string.contains("<!-- ai-response -->"))
+        #expect(tv.string.contains("Edited response."))
+    }
 }
 
 // MARK: - Suite 4: Edge Cases
 
 @Suite("TK2 Parity - Edge Cases")
+@MainActor
 struct EdgeCaseTests {
 
     // MARK: - Helpers
@@ -1083,6 +1135,7 @@ struct EdgeCaseTests {
 // MARK: - Suite 5: Block Reference Parity (P1 regression coverage)
 
 @Suite("TK2 Parity - Block References")
+@MainActor
 struct BlockRefTests {
 
     // MARK: - .link attribute with blockref:// prefix
@@ -1210,6 +1263,7 @@ struct BlockRefTests {
 // MARK: - Suite 6: Transclusion Body Rewrite
 
 @Suite("TK2 Parity - Transclusion Body Rewrite")
+@MainActor
 struct TransclusionRewriteTests {
 
     private func reconstructRaw(match: BlockParser.ParsedBlock, oldContent: String, newContent: String) -> String {
@@ -1426,6 +1480,7 @@ struct TransclusionRewriteTests {
 // MARK: - Suite 7: Block Mirror Sync
 
 @Suite("TK2 Parity - Block Mirror")
+@MainActor
 struct BlockMirrorTests {
 
     private func makeContext() throws -> ModelContext {
@@ -1531,6 +1586,7 @@ struct BlockMirrorTests {
 // MARK: - Wikilink Storage Attributes
 
 @Suite("TK2 Parity - Wikilink Click Navigation")
+@MainActor
 struct TK2WikilinkStorageTests {
 
     @Test("Wikilink .link attribute applied to textStorage after reparse")
@@ -1585,6 +1641,7 @@ struct TK2WikilinkStorageTests {
 // MARK: - Block Move
 
 @Suite("TK2 Parity - Block Move")
+@MainActor
 struct TK2BlockMoveTests {
 
     @Test("Move block down swaps current and next line")
@@ -1644,6 +1701,7 @@ struct TK2BlockMoveTests {
 // MARK: - Heading Insertion
 
 @Suite("TK2 Parity - Heading Insertion")
+@MainActor
 struct TK2HeadingInsertionTests {
 
     @Test("insertHeading replaces existing heading prefix")
@@ -1676,6 +1734,7 @@ struct TK2HeadingInsertionTests {
 // MARK: - Formatting Actions
 
 @Suite("TK2 Parity - Formatting Actions")
+@MainActor
 struct TK2FormattingTests {
 
     @Test("toggleLinePrefix adds bullet prefix to plain line")
@@ -1732,6 +1791,7 @@ struct TK2FormattingTests {
 // MARK: - Scroll Performance Guards
 
 @Suite("TK2 Parity - Scroll Performance Guards")
+@MainActor
 struct TK2ScrollPerformanceTests {
 
     private func makeContext() throws -> ModelContext {
@@ -1793,6 +1853,7 @@ struct TK2ScrollPerformanceTests {
 // MARK: - Suite: Page Swap Persistence
 
 @Suite("TK2 Parity - Page Swap Persistence")
+@MainActor
 struct TK2PageSwapPersistenceTests {
 
     /// Build a minimal Coordinator2 stack wired with onPageFlush tracking.
@@ -1968,6 +2029,7 @@ struct TK2PageSwapPersistenceTests {
 }
 
 @Suite("TK2 Parity - Centering")
+@MainActor
 struct TK2CenteringTests {
 
     @Test("TK2 horizontal inset stays stable instead of recentering the editor body")

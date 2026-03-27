@@ -170,7 +170,7 @@ struct HologramNodeInspector: View {
         .frame(minHeight: inspectorState.inspectorMode == .editor ? 500 : 300)
         .onAppear {
             Task { @MainActor in
-                let body = NoteFileStorage.readBody(pageId: pageId)
+                let body = currentBody(for: pageId)
                 editorText = body
                 lastPersistedBody = body
             }
@@ -179,7 +179,7 @@ struct HologramNodeInspector: View {
             Task { @MainActor in
                 // Flush old note BEFORE loading new one — prevents data loss
                 flushEditorIfNeeded(pageId: oldId)
-                let body = NoteFileStorage.readBody(pageId: newId)
+                let body = currentBody(for: newId)
                 editorText = body
                 lastPersistedBody = body
             }
@@ -191,6 +191,10 @@ struct HologramNodeInspector: View {
         .onDisappear {
             flushEditorIfNeeded(pageId: pageId)
         }
+    }
+
+    private func currentBody(for pageId: String) -> String {
+        NoteWindowManager.shared.currentBody(for: pageId)
     }
 
     // MARK: - Editor Save Pipeline
@@ -233,7 +237,7 @@ struct HologramNodeInspector: View {
     @ViewBuilder
     private func formattedMarkdownView(_ text: String) -> some View {
         let lines = text.components(separatedBy: "\n")
-        VStack(alignment: .leading, spacing: 4) {
+        LazyVStack(alignment: .leading, spacing: 4) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 formattedLine(line)
             }
@@ -701,7 +705,9 @@ struct HologramNodeInspector: View {
                 }
                 .onChange(of: inspectorState.chatMessages.count) { _, _ in
                     if let last = inspectorState.chatMessages.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
                     }
                 }
             }

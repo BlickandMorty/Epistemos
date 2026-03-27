@@ -1,5 +1,7 @@
 # Platinum Theme And Markdown Audit
 
+> **Historical snapshot:** This audit captured a mixed TK1/TK2 markdown-rendering phase before the later pruning pass. References to deleted TK1 prose-editor files remain useful as provenance, but they do not describe the current production editor stack.
+
 ## Scope
 
 - Platinum light/dark theme wiring

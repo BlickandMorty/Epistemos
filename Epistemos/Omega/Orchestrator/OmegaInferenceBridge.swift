@@ -6,14 +6,14 @@ import Foundation
 /// Uses local model for planning (fast, private), with tool schemas injected
 /// into the system prompt so the model knows exactly what tools are available.
 ///
-/// When `constrainedDecoding` is set, attempts grammar-constrained generation first
-/// (guarantees valid JSON via EBNF logit masking). Falls back to unconstrained + parse.
+/// When `constrainedDecoding` is available and truly constraining, attempts
+/// grammar-guided generation first. Falls back to unconstrained + parse.
 @MainActor
 final class OmegaInferenceBridge {
     private let triageService: TriageService
 
     /// Tool schemas JSON for injection into planning prompts.
-    var toolSchemasJson: String = "[]"
+    var toolSchemasJson: String = OmegaToolRegistry.planningSchemasJson
 
     /// Optional constrained decoding service (Ω11).
     /// When available, generates structurally valid JSON via logit masking.
@@ -23,7 +23,7 @@ final class OmegaInferenceBridge {
     private var parsedToolSchemas: [[String: Any]] {
         guard let data = toolSchemasJson.data(using: .utf8),
               let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
+            return OmegaToolRegistry.planningSchemas
         }
         return array
     }
@@ -44,7 +44,7 @@ final class OmegaInferenceBridge {
         availableAgents: [String],
         systemPrompt: String? = nil
     ) async throws -> String {
-        // Try constrained decoding path first (guarantees valid JSON)
+        // Try constrained decoding path first (only when truly available)
         let constrained: String? = try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor [weak self] in
                 guard let self, let cd = self.constrainedDecoding, cd.isAvailable else {
@@ -100,33 +100,7 @@ final class OmegaInferenceBridge {
 
         Available agents and their tools:
 
-        SAFARI agent:
-        - open_url: Open a URL. Args: {"url": "https://..."}
-        - search_web: Web search. Args: {"query": "search terms"}
-        - get_page_url: Get current Safari page URL. Args: {}
-        - get_page_title: Get current Safari page title. Args: {}
-
-        FILE agent (vault-scoped):
-        - list_files: List files in a directory. Args: {"path": "."}
-        - read_file: Read file contents. Args: {"path": "relative/path.md"}
-        - write_file: Write to a file. Args: {"path": "relative/path.md", "content": "..."}
-        - move_file: Move/rename a file. Args: {"path": "old.md", "destination": "new.md"}
-        - delete_file: Delete a file. Args: {"path": "relative/path.md"}
-
-        NOTES agent (Epistemos knowledge base):
-        - create_note: Create a new note. Args: {"title": "...", "body": "..."}
-        - search_notes: Full-text search notes. Args: {"query": "search terms"}
-        - list_notes: List recent notes. Args: {}
-        - edit_note: Edit an existing note. Args: {"id": "page-uuid", "body": "new content"}
-
-        TERMINAL agent:
-        - run_command: Run a shell command. Args: {"command": "ls -la"}
-
-        AUTOMATION agent (macOS UI):
-        - get_ui_tree: Read accessibility tree. Args: {"app": "AppName"}
-        - click_element: Click a UI element. Args: {"app": "AppName", "element": "Button Name"}
-        - type_text: Type text into focused field. Args: {"text": "..."}
-        - run_shortcut: Run a Shortcuts.app shortcut. Args: {"name": "shortcut-name"}
+        \(OmegaToolRegistry.planningPromptBlock())
 
         User request: \(taskDescription)
 

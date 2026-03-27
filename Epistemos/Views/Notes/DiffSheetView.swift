@@ -8,6 +8,10 @@ import SwiftUI
 // right-click context menu, open version in new tab.
 
 struct DiffSheetView: View {
+    fileprivate static let noticeAnimation = Animation.spring(response: 0.3, dampingFraction: 0.86)
+    fileprivate static let scrollAnimation = Animation.spring(response: 0.32, dampingFraction: 0.88)
+    fileprivate static let expandAnimation = Animation.spring(response: 0.28, dampingFraction: 0.84)
+
     let pageId: String
     let currentTitle: String
 
@@ -49,7 +53,7 @@ struct DiffSheetView: View {
             diffContent
         }
         .frame(minWidth: 700, idealWidth: 1000, minHeight: 500, idealHeight: 750)
-        .background(theme.background)
+        .background(theme.resolved.background.color)
         .onAppear(perform: loadVersions)
         .alert("Restore Version", isPresented: $showRestoreAlert) {
             Button("Cancel", role: .cancel) {}
@@ -96,7 +100,7 @@ struct DiffSheetView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(currentTitle.isEmpty ? "Untitled" : currentTitle)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
 
                 if let diff {
                     HStack(spacing: 8) {
@@ -309,7 +313,7 @@ struct DiffSheetView: View {
                 .foregroundStyle(theme.textSecondary)
             Text("No previous versions")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(theme.resolved.foreground.color)
             Text("Save your note to create the first version snapshot.")
                 .font(.system(size: 12))
                 .foregroundStyle(theme.textSecondary)
@@ -392,10 +396,10 @@ struct DiffSheetView: View {
         NoteFileStorage.notifyBodyChanged(pageId: pageId)
 
         // Show confirmation toast
-        withAnimation { restoredNotice = true }
+        withAnimation(Self.noticeAnimation) { restoredNotice = true }
         Task {
             try? await Task.sleep(for: .seconds(3))
-            withAnimation { restoredNotice = false }
+            withAnimation(Self.noticeAnimation) { restoredNotice = false }
         }
     }
 
@@ -554,7 +558,7 @@ private struct UnifiedDiffBody: View {
                                 }
                             } else {
                                 CollapsedSectionRow(count: items.count, theme: theme) {
-                                    let _ = withAnimation {
+                                    let _ = withAnimation(DiffSheetView.expandAnimation) {
                                         expandedSections.insert(section.id)
                                     }
                                 }
@@ -566,7 +570,7 @@ private struct UnifiedDiffBody: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 if let target {
-                    withAnimation { proxy.scrollTo(target, anchor: .center) }
+                    withAnimation(DiffSheetView.scrollAnimation) { proxy.scrollTo(target, anchor: .center) }
                     scrollTarget = nil
                 }
             }
@@ -647,7 +651,7 @@ private struct UnifiedDiffLine: View {
         switch line {
         case .unchanged(let text), .added(let text), .removed(let text):
             Text(text)
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(theme.resolved.foreground.color)
         case .modified(let old, let new):
             VStack(alignment: .leading, spacing: 2) {
                 WordHighlightedText(text: old, side: .removed, otherText: new, theme: theme)
@@ -692,7 +696,7 @@ private struct SplitDiffBody: View {
                                 }
                             } else {
                                 CollapsedSectionRow(count: items.count, theme: theme) {
-                                    let _ = withAnimation {
+                                    let _ = withAnimation(DiffSheetView.expandAnimation) {
                                         expandedSections.insert(section.id)
                                     }
                                 }
@@ -704,7 +708,7 @@ private struct SplitDiffBody: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 if let target {
-                    withAnimation { proxy.scrollTo(target, anchor: .center) }
+                    withAnimation(DiffSheetView.scrollAnimation) { proxy.scrollTo(target, anchor: .center) }
                     // Only nil out from one side to avoid double-clearing
                     if side == .old { scrollTarget = nil }
                 }
@@ -742,16 +746,16 @@ private struct SplitDiffLine: View {
     private var content: some View {
         switch line {
         case .unchanged(let text):
-            Text(text).foregroundStyle(theme.foreground)
+            Text(text).foregroundStyle(theme.resolved.foreground.color)
         case .added(let text):
             if side == .new {
-                Text(text).foregroundStyle(theme.foreground)
+                Text(text).foregroundStyle(theme.resolved.foreground.color)
             } else {
                 Text(" ").foregroundStyle(.clear)
             }
         case .removed(let text):
             if side == .old {
-                Text(text).foregroundStyle(theme.foreground)
+                Text(text).foregroundStyle(theme.resolved.foreground.color)
             } else {
                 Text(" ").foregroundStyle(.clear)
             }
@@ -793,7 +797,7 @@ private struct WordHighlightedText: View {
         let color = side == .removed ? DiffColors.removedWordBg(theme) : DiffColors.addedWordBg(theme)
 
         Text(highlighted(text: text, ranges: ranges.map(\.range), color: color))
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(theme.resolved.foreground.color)
     }
 
     private func highlighted(text: String, ranges: [Range<String.Index>], color: Color) -> AttributedString {
@@ -827,7 +831,7 @@ struct ReadOnlyVersionView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title.isEmpty ? "Untitled" : title)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.resolved.foreground.color)
                     Text("Version from \(dateLabel)")
                         .font(.system(size: 12))
                         .foregroundStyle(theme.textSecondary)
@@ -860,13 +864,13 @@ struct ReadOnlyVersionView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 Text(versionBody)
                     .font(.system(size: 13))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
                     .textSelection(.enabled)
             }
         }
-        .background(theme.background)
+        .background(theme.resolved.background.color)
         .frame(minWidth: 400, minHeight: 300)
     }
 }

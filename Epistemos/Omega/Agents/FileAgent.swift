@@ -37,11 +37,7 @@ final class FileAgent: OmegaAgent, @unchecked Sendable {
             throw FileAgentError.invalidArguments
         }
 
-        // Validate path is within vault (security boundary)
-        let targetURL = vault.appendingPathComponent(path)
-        guard targetURL.path.hasPrefix(vault.path) else {
-            throw FileAgentError.pathOutsideVault
-        }
+        let targetURL = try resolvedVaultURL(for: path, in: vault)
 
         switch step.toolName {
         case "read_file":
@@ -50,6 +46,10 @@ final class FileAgent: OmegaAgent, @unchecked Sendable {
 
         case "write_file":
             let content = args["content"] as? String ?? ""
+            try FileManager.default.createDirectory(
+                at: targetURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
             try content.write(to: targetURL, atomically: true, encoding: .utf8)
             return "{\"written\":true,\"path\":\(jsonEscape(path))}"
 
@@ -63,10 +63,11 @@ final class FileAgent: OmegaAgent, @unchecked Sendable {
             guard let dest = args["destination"] as? String else {
                 throw FileAgentError.invalidArguments
             }
-            let destURL = vault.appendingPathComponent(dest)
-            guard destURL.path.hasPrefix(vault.path) else {
-                throw FileAgentError.pathOutsideVault
-            }
+            let destURL = try resolvedVaultURL(for: dest, in: vault)
+            try FileManager.default.createDirectory(
+                at: destURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
             try FileManager.default.moveItem(at: targetURL, to: destURL)
             return "{\"moved\":true}"
 
@@ -88,6 +89,17 @@ final class FileAgent: OmegaAgent, @unchecked Sendable {
                        .replacingOccurrences(of: "\"", with: "\\\"")
                        .replacingOccurrences(of: "\n", with: "\\n")
         return "\"\(escaped)\""
+    }
+
+    private func resolvedVaultURL(for relativePath: String, in vault: URL) throws -> URL {
+        let vaultRoot = vault.standardizedFileURL
+        let target = vaultRoot.appendingPathComponent(relativePath).standardizedFileURL
+        let vaultPath = vaultRoot.path
+        let targetPath = target.path
+        guard targetPath == vaultPath || targetPath.hasPrefix(vaultPath + "/") else {
+            throw FileAgentError.pathOutsideVault
+        }
+        return target
     }
 }
 

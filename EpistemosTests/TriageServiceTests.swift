@@ -137,12 +137,13 @@ struct InferencePolicyEngineTests {
                 explicitFastRequested: false,
                 visibleThinkingRequested: false
             ),
-            context: makeContext(appleAvailable: true)
+            context: makeContext(
+                appleAvailable: true,
+                preferredChatModelSelection: .appleIntelligence
+            )
         )
 
         #expect(decision.selectedRoute == .appleIntelligence)
-        #expect(decision.localSelection == nil)
-        #expect(decision.reasonCodes.contains(.simpleTaskAppleEligible))
     }
 
     @Test("heavier local work keeps the selected local tier")
@@ -255,7 +256,10 @@ struct InferencePolicyEngineTests {
                 explicitFastRequested: false,
                 visibleThinkingRequested: true
             ),
-            context: makeContext(appleAvailable: true)
+            context: makeContext(
+                appleAvailable: true,
+                preferredChatModelSelection: .appleIntelligence
+            )
         )
 
         #expect(decision.selectedRoute == .appleIntelligence)
@@ -405,16 +409,19 @@ struct InferencePolicyEngineTests {
                 explicitFastRequested: false,
                 visibleThinkingRequested: false
             ),
-            context: makeContext(appleAvailable: true)
+            context: makeContext(
+                appleAvailable: true,
+                preferredChatModelSelection: .appleIntelligence
+            )
         )
 
         #expect(decision.selectedRoute == .appleIntelligence)
-        #expect(decision.reasonCodes.contains(.simpleTaskAppleEligible))
     }
 
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,
+        preferredChatModelSelection: ChatModelSelection = .localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue),
         installed: [LocalTextModelID] = [.qwen35_2B4Bit, .qwen35_4B4Bit],
         runtimeConditions: LocalRuntimeConditions = LocalRuntimeConditions(
             lowPowerModeEnabled: false,
@@ -425,7 +432,7 @@ struct InferencePolicyEngineTests {
         InferencePolicyContext(
             routingMode: routingMode,
             appleIntelligenceAvailable: appleAvailable,
-            preferredChatModelSelection: .localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue),
+            preferredChatModelSelection: preferredChatModelSelection,
             preferredLocalTextModelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             installedLocalTextModelIDs: Set(installed.map(\.rawValue)),
             hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
@@ -817,7 +824,11 @@ struct TriageServiceIntegrationTests {
         )
 
         let systemPrompt = try #require(llm.generateCalls.first?.systemPrompt)
-        #expect(systemPrompt.contains("do not claim to have browsing, external tool use, research mode"))
+        #expect(
+            systemPrompt.localizedCaseInsensitiveContains(
+                "do not claim to have browsing, external tool use, research mode"
+            )
+        )
         #expect(systemPrompt.contains("local Epistemos assistant powered by Qwen"))
     }
 

@@ -382,6 +382,46 @@ struct VaultSyncServiceAuditTests {
         #expect(savedPage?.lastSyncedBodyHash == SDPage.bodyHash("body after export started"))
     }
 
+    @Test("saveAllDirtyPages removes stale instant recall entries for empty exported bodies")
+    func saveAllDirtyPagesRemovesStaleInstantRecallEntriesForEmptyBodies() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        guard let recall = AppBootstrap.shared?.instantRecallService else {
+            Issue.record("Missing shared instant recall service")
+            return
+        }
+
+        recall.clearIndex()
+
+        let page = insertDirtyPage(
+            in: context,
+            title: "Cleared Recall Entry",
+            body: "",
+            lastSyncedHash: "old-empty-hash",
+            lastSyncedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        try context.save()
+
+        recall.indexNote(noteId: page.id, text: "stale indexed content")
+        #expect(recall.documentCount == 1)
+
+        service.setExportPageOverrideForTesting { pageId, _ in
+            return ("/tmp/\(pageId).md", SDPage.bodyHash(""))
+        }
+
+        let task = service.saveAllDirtyPages()
+        await task?.value
+
+        #expect(recall.documentCount == 0)
+        #expect(recall.search(queryText: "stale indexed content", topK: 5).isEmpty)
+    }
+
     @Test("savePage keeps newer edits dirty when export finishes with stale content")
     func savePageKeepsNewerEditsDirty() async throws {
         let container = try makeContainer()
@@ -695,8 +735,11 @@ struct VaultSyncServiceAuditTests {
 
         let snapshot = try #require(issue?.snapshot)
         #expect(snapshot.vaultMarkdownCount == 2)
-        #expect(snapshot.indexedPageCount == 1)
+        #expect(snapshot.indexedPageCount == 0)
         #expect(snapshot.indexedPagesWithFilePath == 0)
+        #expect(snapshot.totalIndexedPageCount == 1)
+        #expect(snapshot.nonVaultPageCount == 1)
+        #expect(snapshot.duplicateTrackedPathCount == 0)
     }
 
     @Test("launch body cleanup is skipped while the vault index is clearly disconnected")
@@ -721,6 +764,114 @@ struct VaultSyncServiceAuditTests {
 
         let shouldRun = await service.shouldRunBodyCleanup(candidateVaultURL: vaultURL)
         #expect(shouldRun == false)
+    }
+
+    @Test("detectRecoveryIssue explains severe vault index mismatches")
+    func detectRecoveryIssueExplainsSevereIndexMismatch() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        for index in 0..<6 {
+            try "Body \(index)".write(
+                to: vaultURL.appendingPathComponent("Note-\(index).md"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+
+        let tracked = SDPage(title: "Tracked")
+        tracked.filePath = vaultURL.appendingPathComponent("Note-0.md").path
+        context.insert(tracked)
+        try context.save()
+        service.setInitialImportCompletedForTesting(true)
+
+        let issue = await service.detectRecoveryIssue(
+            candidateVaultURL: vaultURL,
+            bookmarkExists: true,
+            restoreFailed: false
+        )
+
+        let snapshot = try #require(issue?.snapshot)
+        #expect(snapshot.vaultMarkdownCount == 6)
+        #expect(snapshot.indexedPageCount == 1)
+        #expect(snapshot.indexedPagesWithFilePath == 1)
+        #expect(snapshot.hasSevereIndexMismatch)
+        #expect(issue?.reason == "Epistemos indexed only a small fraction of the readable vault.")
+    }
+
+    @Test("detectRecoveryIssue explains collapsed body caches before the generic path-mapping warning")
+    func detectRecoveryIssueExplainsCollapsedBodyCache() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        for index in 0..<4 {
+            try "Body \(index)".write(
+                to: vaultURL.appendingPathComponent("Note-\(index).md"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+
+        let disconnectedA = SDPage(title: "Disconnected A")
+        disconnectedA.saveBody("cached local body")
+        disconnectedA.filePath = nil
+        context.insert(disconnectedA)
+
+        let disconnectedB = SDPage(title: "Disconnected B")
+        disconnectedB.saveBody("another cached local body")
+        disconnectedB.filePath = nil
+        context.insert(disconnectedB)
+        try context.save()
+
+        service.setInitialImportCompletedForTesting(true)
+        service.setManagedBodyCountProviderForTesting { 1 }
+
+        let issue = await service.detectRecoveryIssue(
+            candidateVaultURL: vaultURL,
+            bookmarkExists: true,
+            restoreFailed: false
+        )
+
+        let snapshot = try #require(issue?.snapshot)
+        #expect(snapshot.localBodyFileCount == 1)
+        #expect(snapshot.totalIndexedPageCount == 2)
+        #expect(snapshot.indexedPagesWithFilePath == 0)
+        #expect(snapshot.hasCollapsedBodyCache)
+        #expect(issue?.reason == "Epistemos kept only a collapsed local note-body cache after the vault stayed readable.")
+    }
+
+    @Test("detectRecoveryIssue stays nil when indexed vault pages match readable files")
+    func detectRecoveryIssueStaysNilWhenVaultIsHealthy() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        for index in 0..<3 {
+            let fileURL = vaultURL.appendingPathComponent("Healthy-\(index).md")
+            try "Body \(index)".write(to: fileURL, atomically: true, encoding: .utf8)
+
+            let tracked = SDPage(title: "Healthy \(index)")
+            tracked.filePath = fileURL.path
+            context.insert(tracked)
+        }
+        try context.save()
+        service.setInitialImportCompletedForTesting(true)
+
+        let issue = await service.detectRecoveryIssue(
+            candidateVaultURL: vaultURL,
+            bookmarkExists: true,
+            restoreFailed: false
+        )
+
+        #expect(issue == nil)
     }
 
     @Test("recovery snapshots local state and rebuilds pages, bodies, and search from the vault")
@@ -811,5 +962,91 @@ struct VaultSyncServiceAuditTests {
         let snapshottedAppSupport = latestSnapshot.appendingPathComponent(appSupportURL.lastPathComponent, isDirectory: true)
         #expect(FileManager.default.fileExists(atPath: snapshottedPrefs.path))
         #expect(FileManager.default.fileExists(atPath: snapshottedAppSupport.path))
+    }
+
+    @Test("destructive stop snapshots local state before clearing vault data")
+    func destructiveStopSnapshotsBeforeClearing() throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let noteBodiesURL = appSupportURL.appendingPathComponent("note-bodies", isDirectory: true)
+        let recoverySnapshotsURL = root.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        defer {
+            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: noteBodiesURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+
+        let page = SDPage(title: "Snapshot Me")
+        page.saveBody("local body")
+        context.insert(page)
+        try context.save()
+
+        NoteFileStorage.setStorageDirectoryOverrideForTesting(noteBodiesURL)
+        NoteFileStorage.writeBody(pageId: page.id, content: "local body")
+
+        service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+        service.setAppSupportDirectoryURLForTesting(appSupportURL)
+        service.setPreferencesFileURLForTesting(preferencesURL)
+        service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+
+        service.stopWatching(preserveData: false)
+
+        let snapshotDirs = try FileManager.default.contentsOfDirectory(
+            at: recoverySnapshotsURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        #expect(snapshotDirs.isEmpty == false)
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+    }
+
+    @MainActor
+    @Test("destructive stop aborts the clear when the recovery snapshot fails")
+    func destructiveStopAbortsClearWhenSnapshotFails() throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let noteBodiesURL = appSupportURL.appendingPathComponent("note-bodies", isDirectory: true)
+        let snapshotRootFile = root.appendingPathComponent("snapshot-root-file")
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        defer {
+            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: noteBodiesURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+        try "not-a-directory".write(to: snapshotRootFile, atomically: true, encoding: .utf8)
+
+        let page = SDPage(title: "Keep Me")
+        page.saveBody("local body")
+        context.insert(page)
+        try context.save()
+
+        NoteFileStorage.setStorageDirectoryOverrideForTesting(noteBodiesURL)
+        NoteFileStorage.writeBody(pageId: page.id, content: "local body")
+
+        service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+        service.setAppSupportDirectoryURLForTesting(appSupportURL)
+        service.setPreferencesFileURLForTesting(preferencesURL)
+        service.setRecoverySnapshotRootURLForTesting(snapshotRootFile)
+
+        service.stopWatching(preserveData: false)
+
+        let pages = try context.fetch(FetchDescriptor<SDPage>())
+        #expect(pages.count == 1)
+        #expect(NoteFileStorage.bodyExists(pageId: page.id))
+        #expect(service.recoveryIssue != nil)
+        #expect(service.recoveryIssue?.reason.contains("clear was aborted") == true)
     }
 }

@@ -3,7 +3,9 @@
 **Date:** 2026-03-10
 **Auditor:** Claude (automated code-level audit)
 **Baseline plan:** `docs/plans/2026-03-08-textkit2-tk1-parity-comparison-plan.md`
-**Conclusion:** TK2 is at feature and performance parity. TK1 retained as legacy option behind `useTK2Editor` feature flag per user decision.
+**Conclusion:** Historical snapshot. This audit captured the pre-pruning parity state before the later TK2-only production cutover. Production now runs the TK2 editor path only; the TK1 legacy path and `useTK2Editor` gating referenced below have since been removed.
+
+> **Historical note:** References below to `ClickableTextView`, `MarkdownTextStorage`, `PageStoragePool`, `ProseEditorRepresentable`, and shared legacy helper files are preserved as March 10 audit context, not current production architecture.
 
 ---
 

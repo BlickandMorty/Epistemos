@@ -10,6 +10,7 @@ pub mod retrieval;
 pub mod repo_analyzer;
 pub mod training;
 pub mod quality_filter;
+pub mod instant_recall;
 
 // ── UniFFI Exports ──────────────────────────────────────────────────────────
 // All types and functions referenced in the UDL must be in scope at crate root.

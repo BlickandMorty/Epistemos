@@ -29,9 +29,9 @@ struct NoteEditorViewFinderTests {
         generic.isEditable = true
         root.addSubview(generic)
 
-        let noteEditor = makeClickableTextView(pageId: "page-a")
+        let (editorScrollView, noteEditor) = makeProseTextView(pageId: "page-a")
         let container = NSView(frame: .zero)
-        container.addSubview(noteEditor)
+        container.addSubview(editorScrollView)
         root.addSubview(container)
 
         let found = NoteEditorViewFinder.findTextView(in: root)
@@ -43,11 +43,11 @@ struct NoteEditorViewFinderTests {
     @MainActor
     func findTextViewReturnsMatchingPageEditor() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
-        let first = makeClickableTextView(pageId: "page-a")
-        let second = makeClickableTextView(pageId: "page-b")
+        let (firstScrollView, _) = makeProseTextView(pageId: "page-a")
+        let (secondScrollView, second) = makeProseTextView(pageId: "page-b")
 
-        root.addSubview(first)
-        root.addSubview(second)
+        root.addSubview(firstScrollView)
+        root.addSubview(secondScrollView)
 
         let found = NoteEditorViewFinder.findTextView(in: root, matchingPageId: "page-b")
 
@@ -58,7 +58,8 @@ struct NoteEditorViewFinderTests {
     @MainActor
     func findTextViewReturnsNilForMissingPageMatch() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
-        root.addSubview(makeClickableTextView(pageId: "page-a"))
+        let (editorScrollView, _) = makeProseTextView(pageId: "page-a")
+        root.addSubview(editorScrollView)
 
         let found = NoteEditorViewFinder.findTextView(in: root, matchingPageId: "page-z")
 
@@ -77,7 +78,8 @@ struct NoteEditorViewFinderTests {
         window.tabbingIdentifier = "epistemos-note-tabs"
 
         let root = NSView(frame: window.frame)
-        root.addSubview(makeClickableTextView(pageId: "page-a"))
+        let (editorScrollView, _) = makeProseTextView(pageId: "page-a")
+        root.addSubview(editorScrollView)
         window.contentView = root
         window.makeKeyAndOrderFront(nil)
         defer { retainWindowFixture(window) }
@@ -88,17 +90,10 @@ struct NoteEditorViewFinderTests {
     }
 
     @MainActor
-    private func makeClickableTextView(pageId: String) -> ClickableTextView {
-        let storage = NSTextStorage(string: "")
-        let layoutManager = NSLayoutManager()
-        storage.addLayoutManager(layoutManager)
-
-        let container = NSTextContainer(size: NSSize(width: 320, height: 240))
-        layoutManager.addTextContainer(container)
-
-        let textView = ClickableTextView(frame: .zero, textContainer: container)
+    private func makeProseTextView(pageId: String) -> (NSScrollView, ProseTextView2) {
+        let (scrollView, textView) = ProseTextView2.makeTextKit2()
         textView.isEditable = true
         textView.pageId = pageId
-        return textView
+        return (scrollView, textView)
     }
 }

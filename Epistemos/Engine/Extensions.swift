@@ -1,5 +1,44 @@
 import Foundation
 
+nonisolated enum FoundationSafety {
+    static func regularExpression(
+        pattern: String,
+        options: NSRegularExpression.Options = []
+    ) -> NSRegularExpression? {
+        regularExpression(pattern, options: options)
+    }
+
+    static func regularExpression(
+        _ pattern: String,
+        options: NSRegularExpression.Options = []
+    ) -> NSRegularExpression? {
+        try? NSRegularExpression(pattern: pattern, options: options)
+    }
+
+    static func dataDetector(
+        types: NSTextCheckingResult.CheckingType
+    ) -> NSDataDetector? {
+        try? NSDataDetector(types: types.rawValue)
+    }
+
+    static func userApplicationSupportDirectory(
+        fileManager: FileManager = .default
+    ) -> URL {
+        fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory.appendingPathComponent(
+                "Application Support",
+                isDirectory: true
+            )
+    }
+
+    static func utf8String(from data: Data) throws -> String {
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding)
+        }
+        return string
+    }
+}
+
 nonisolated enum ThinkingTagSyntax {
     private static let tagPairs: [(open: String, close: String)] = [
         ("<thinking>", "</thinking>"),

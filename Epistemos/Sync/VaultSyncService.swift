@@ -27,6 +27,9 @@ struct VaultHealthSnapshot: Sendable {
     let vaultMarkdownCount: Int
     let indexedPageCount: Int
     let indexedPagesWithFilePath: Int
+    let totalIndexedPageCount: Int
+    let nonVaultPageCount: Int
+    let duplicateTrackedPathCount: Int
     let localBodyFileCount: Int
     let bookmarkExists: Bool
     let restoreFailed: Bool
@@ -47,8 +50,8 @@ struct VaultHealthSnapshot: Sendable {
     }
 
     var hasCollapsedBodyCache: Bool {
-        guard localBodyFileCount > 0, indexedPageCount > 0 else { return false }
-        return localBodyFileCount < min(indexedPageCount, 3) && indexedPagesWithFilePath == 0
+        guard localBodyFileCount > 0, totalIndexedPageCount > 0 else { return false }
+        return localBodyFileCount < min(totalIndexedPageCount, 3) && indexedPagesWithFilePath == 0
     }
 
     var requiresRecovery: Bool {
@@ -77,8 +80,11 @@ struct VaultRecoveryIssue: Identifiable, Sendable {
 
         Vault path: \(snapshot.displayPath)
         Vault notes on disk: \(snapshot.vaultMarkdownCount)
-        Indexed notes in app: \(snapshot.indexedPageCount)
-        Indexed notes with file paths: \(snapshot.indexedPagesWithFilePath)
+        Vault-backed indexed notes in app: \(snapshot.indexedPageCount)
+        Unique tracked vault paths: \(snapshot.indexedPagesWithFilePath)
+        Total indexed notes in app: \(snapshot.totalIndexedPageCount)
+        Non-vault indexed notes: \(snapshot.nonVaultPageCount)
+        Duplicate tracked vault paths: \(snapshot.duplicateTrackedPathCount)
         Local note-body files: \(snapshot.localBodyFileCount)
         """
     }
@@ -98,6 +104,12 @@ final class VaultSyncService {
         isDirectory: true
     )
 
+    private nonisolated static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
+            || Bundle.main.bundleURL.pathExtension == "xctest"
+    }
+
     nonisolated static func shouldRestoreVaultFromBookmark(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
@@ -107,7 +119,7 @@ final class VaultSyncService {
     nonisolated private static func makeDefaultUserDefaults(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> UserDefaults {
-        guard shouldRestoreVaultFromBookmark(processInfoEnvironment: processInfoEnvironment) else {
+        guard shouldRestoreVaultFromBookmark(processInfoEnvironment: processInfoEnvironment), !isRunningTests else {
             let suiteName = "\(testDefaultsSuitePrefix)\(UUID().uuidString)"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)
@@ -337,18 +349,20 @@ final class VaultSyncService {
 
         let context = modelContainer.mainContext
         let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
-        let indexedPagesWithFilePath = pages.reduce(into: 0) { partial, page in
-            if let filePath = page.filePath, !filePath.isEmpty {
-                partial += 1
-            }
-        }
+        let comparableCounts = comparableVaultCounts(
+            pages: pages,
+            resolvedVaultURL: resolvedVaultURL
+        )
 
         return VaultHealthSnapshot(
             vaultURL: resolvedVaultURL,
             isVaultReadable: isVaultReadable,
             vaultMarkdownCount: vaultMarkdownCount,
-            indexedPageCount: pages.count,
-            indexedPagesWithFilePath: indexedPagesWithFilePath,
+            indexedPageCount: comparableCounts.trackedVaultPageCount,
+            indexedPagesWithFilePath: comparableCounts.uniqueTrackedVaultPathCount,
+            totalIndexedPageCount: pages.count,
+            nonVaultPageCount: comparableCounts.nonVaultPageCount,
+            duplicateTrackedPathCount: comparableCounts.duplicateTrackedPathCount,
             localBodyFileCount: localBodyFileCount,
             bookmarkExists: bookmarkExists,
             restoreFailed: restoreFailed,
@@ -356,6 +370,51 @@ final class VaultSyncService {
             hadPriorLocalState: !pages.isEmpty
                 || localBodyFileCount > 0
                 || defaults.string(forKey: Self.lastVaultPathKey) != nil
+        )
+    }
+
+    private func currentVaultHealthSnapshot(restoreFailed: Bool) -> VaultHealthSnapshot {
+        let resolvedVaultURL = resolvedRecoveryVaultURL(from: vaultURL)
+        let isVaultReadable = resolvedVaultURL.map(isReadableVaultURL(_:)) ?? false
+        let vaultMarkdownCount =
+            if let resolvedVaultURL, isVaultReadable {
+                VaultIndexActor.countImportableNoteFiles(in: resolvedVaultURL)
+            } else {
+                0
+            }
+        let localBodyFileCount = managedBodyCountProvider?() ?? NoteFileStorage.managedBodyCount()
+        let context = modelContainer.mainContext
+        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let comparableCounts = comparableVaultCounts(
+            pages: pages,
+            resolvedVaultURL: resolvedVaultURL
+        )
+
+        return VaultHealthSnapshot(
+            vaultURL: resolvedVaultURL,
+            isVaultReadable: isVaultReadable,
+            vaultMarkdownCount: vaultMarkdownCount,
+            indexedPageCount: comparableCounts.trackedVaultPageCount,
+            indexedPagesWithFilePath: comparableCounts.uniqueTrackedVaultPathCount,
+            totalIndexedPageCount: pages.count,
+            nonVaultPageCount: comparableCounts.nonVaultPageCount,
+            duplicateTrackedPathCount: comparableCounts.duplicateTrackedPathCount,
+            localBodyFileCount: localBodyFileCount,
+            bookmarkExists: defaults.data(forKey: Self.bookmarkKey) != nil,
+            restoreFailed: restoreFailed,
+            initialImportCompleted: initialImportCompleted,
+            hadPriorLocalState: !pages.isEmpty
+                || localBodyFileCount > 0
+                || defaults.string(forKey: Self.lastVaultPathKey) != nil
+        )
+    }
+
+    private func handleSnapshotFailureBeforeDestructiveClear(_ error: Error) {
+        let snapshot = currentVaultHealthSnapshot(restoreFailed: true)
+        recoveryIssue = VaultRecoveryIssue(
+            snapshot: snapshot,
+            reason:
+                "Epistemos could not create a recovery snapshot before clearing local vault data: \(error.localizedDescription). The clear was aborted to protect your local state."
         )
     }
 
@@ -373,6 +432,21 @@ final class VaultSyncService {
         return Self.defaultRecoveryVaultURL
     }
 
+    private func comparableVaultCounts(
+        pages: [SDPage],
+        resolvedVaultURL: URL?
+    ) -> VaultIndexActor.VaultImportComparableCounts {
+        guard let resolvedVaultURL else {
+            return VaultIndexActor.VaultImportComparableCounts(
+                trackedVaultPageCount: 0,
+                uniqueTrackedVaultPathCount: 0,
+                duplicateTrackedPathCount: 0,
+                nonVaultPageCount: pages.count
+            )
+        }
+        return VaultIndexActor.comparableVaultPageCounts(pages: pages, in: resolvedVaultURL)
+    }
+
     private func isReadableVaultURL(_ url: URL) -> Bool {
         let fm = FileManager.default
         return fm.fileExists(atPath: url.path) && fm.isReadableFile(atPath: url.path)
@@ -382,14 +456,14 @@ final class VaultSyncService {
         if snapshot.restoreFailed {
             return "Epistemos could not reconnect to the vault and the local index is no longer trustworthy."
         }
+        if snapshot.hasCollapsedBodyCache {
+            return "Epistemos kept only a collapsed local note-body cache after the vault stayed readable."
+        }
         if snapshot.indexedPagesWithFilePath == 0 && snapshot.vaultMarkdownCount > 0 {
             return "Epistemos can read the vault on disk, but the local index lost every file-path mapping."
         }
         if snapshot.hasSevereIndexMismatch {
             return "Epistemos indexed only a small fraction of the readable vault."
-        }
-        if snapshot.hasCollapsedBodyCache {
-            return "Epistemos kept only a collapsed local note-body cache after the vault stayed readable."
         }
         return "Epistemos detected a vault mismatch and needs to rebuild its local state."
     }
@@ -771,6 +845,7 @@ final class VaultSyncService {
 
                 // Bulk-index all imported pages into Spotlight.
                 await actor?.spotlightReindexAll()
+                await self.rebuildInstantRecallIndex(from: actor)
             } catch {
                 log.error(
                     "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
@@ -837,9 +912,19 @@ final class VaultSyncService {
         searchService = nil
         AppBootstrap.shared?.queryEngine.invalidateRuntime()
 
+        var shouldClearLocalData = !preserveData
         if !preserveData {
-            clearVaultData()
-            SpotlightIndexer.removeAll()
+            do {
+                try snapshotLocalState()
+            } catch {
+                shouldClearLocalData = false
+                log.error("Failed to snapshot local state before clear; aborting destructive stop: \(error.localizedDescription, privacy: .public)")
+                handleSnapshotFailureBeforeDestructiveClear(error)
+            }
+            if shouldClearLocalData {
+                clearVaultData()
+                SpotlightIndexer.removeAll()
+            }
         }
 
         if isSecurityScoped, let url = vaultURL {
@@ -872,6 +957,8 @@ final class VaultSyncService {
             Log.vault.error("Failed to clear vault data: \(error.localizedDescription, privacy: .public)")
         }
 
+        AppBootstrap.shared?.instantRecallService.clearIndex()
+
         // Clear the in-memory graph store and reset graph state.
         Task { @MainActor in
             if let graphState = AppBootstrap.shared?.graphState {
@@ -885,6 +972,13 @@ final class VaultSyncService {
                 }
             }
         }
+    }
+
+    private func rebuildInstantRecallIndex(from actor: VaultIndexActor?) async {
+        guard let actor else { return }
+        let pages = await actor.allPagesForRebuild()
+        let notes = pages.map { (id: $0.id, text: $0.body) }
+        AppBootstrap.shared?.instantRecallService.rebuildIndex(notes: notes)
     }
 
     // MARK: - Vault Context (Background)
@@ -1006,6 +1100,8 @@ final class VaultSyncService {
             log.error("Sync import failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
+
+        await rebuildInstantRecallIndex(from: actor)
 
         // Signal the graph to rebuild with synced data
         AppBootstrap.shared?.graphState.needsRefresh = true
@@ -1173,6 +1269,9 @@ final class VaultSyncService {
                     page.lastSyncedAt = .now
                     page.needsVaultSync = false
                     SpotlightIndexer.index(page)
+                    // Ω18: Index synced note for instant recall
+                    let body = page.loadBody(mapped: true)
+                    AppBootstrap.shared?.instantRecallService.indexNote(noteId: page.id, text: body)
                 } else {
                     pendingDirtySaveRequest = true
                 }
@@ -1311,6 +1410,7 @@ final class VaultSyncService {
             do {
                 try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
                 log.info("File watcher: re-import complete")
+                await self.rebuildInstantRecallIndex(from: actor)
 
                 // Rebuild graph with new/changed data
                 AppBootstrap.shared?.graphState.needsRefresh = true

@@ -11,6 +11,8 @@ final class FilterEngine {
 
     /// Which node types are currently visible. Starts with all visible types active.
     private(set) var activeNodeTypes: Set<GraphNodeType> = Set(GraphNodeType.visibleCases)
+    /// Which edge types are currently visible. Starts with all relationship types active.
+    private(set) var activeEdgeTypes: Set<GraphEdgeType> = Set(GraphEdgeType.allCases)
 
     /// The node ID currently focused on, if any.
     private(set) var focusedNodeId: String?
@@ -23,6 +25,7 @@ final class FilterEngine {
     /// True if any filter is active (not all types shown, or focused).
     var isFiltered: Bool {
         activeNodeTypes.count != GraphNodeType.visibleCases.count
+            || activeEdgeTypes.count != GraphEdgeType.allCases.count
             || focusedNodeId != nil
     }
 
@@ -40,6 +43,20 @@ final class FilterEngine {
     /// Reset to showing all node types.
     func showAllTypes() {
         activeNodeTypes = Set(GraphNodeType.visibleCases)
+    }
+
+    /// Toggle an edge type on or off.
+    func toggleEdgeType(_ type: GraphEdgeType) {
+        if activeEdgeTypes.contains(type) {
+            activeEdgeTypes.remove(type)
+        } else {
+            activeEdgeTypes.insert(type)
+        }
+    }
+
+    /// Reset to showing all edge types.
+    func showAllEdgeTypes() {
+        activeEdgeTypes = Set(GraphEdgeType.allCases)
     }
 
     // MARK: - Focus Methods
@@ -77,7 +94,7 @@ final class FilterEngine {
         sourceVisible: Bool,
         targetVisible: Bool
     ) -> Bool {
-        sourceVisible && targetVisible
+        sourceVisible && targetVisible && activeEdgeTypes.contains(edge.type)
     }
 
     /// Snapshot the current filter state for background FFI payload building.

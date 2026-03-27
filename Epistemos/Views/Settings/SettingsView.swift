@@ -20,6 +20,16 @@ struct SettingsView: View {
 
         var id: String { rawValue }
 
+        static let visibleSections: [SettingsSection] = [
+            .general,
+            .inference,
+            .knowledgeFusion,
+            .omega,
+            .landing,
+            .appearance,
+            .vault,
+        ]
+
         var icon: String {
             switch self {
             case .general: "gearshape"
@@ -35,7 +45,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(SettingsSection.allCases, selection: $selection) { section in
+            List(SettingsSection.visibleSections, selection: $selection) { section in
                 Label(section.rawValue, systemImage: section.icon)
                     .tag(section)
             }
@@ -46,6 +56,14 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .navigationSplitViewStyle(.balanced)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button(action: toggleSidebar) {
+                    Image(systemName: "sidebar.left")
+                }
+                .help("Toggle Sidebar")
+            }
+        }
     }
 
     @ViewBuilder
@@ -60,6 +78,14 @@ struct SettingsView: View {
         case .vault: VaultDetailView()
         case nil: GeneralDetailView()
         }
+    }
+
+    private func toggleSidebar() {
+        NSApp.sendAction(
+            #selector(NSSplitViewController.toggleSidebar(_:)),
+            to: nil,
+            from: nil
+        )
     }
 }
 
@@ -462,7 +488,7 @@ private struct InferenceDetailView: View {
                     showLocalModelManager = true
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(theme.accent)
+                .tint(theme.resolved.accent.color)
                 .controlSize(.small)
             }
 
@@ -781,9 +807,10 @@ private struct AppearanceSystemSection: View {
                     .fontWeight(.medium)
             }
             Button("Open System Settings") {
-                NSWorkspace.shared.open(
-                    URL(string: "x-apple.systempreferences:com.apple.preference.general")!
-                )
+                guard let url = URL(
+                    string: "x-apple.systempreferences:com.apple.preference.general"
+                ) else { return }
+                NSWorkspace.shared.open(url)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -869,7 +896,7 @@ private struct VaultDetailView: View {
                         VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(theme.accent)
+                    .tint(theme.resolved.accent.color)
                     .controlSize(.small)
                 }
             }

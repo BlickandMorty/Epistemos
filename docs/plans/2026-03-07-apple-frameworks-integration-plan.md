@@ -1,5 +1,7 @@
 # Apple Frameworks Integration Plan
 
+> **Historical snapshot:** This plan reflects a pre-pruning editor architecture phase. Production now ships the TK2-only note editor path, and any TextKit 1 prose-editor references below should be read as historical context rather than current repo state.
+
 ## Goal
 Replace hand-rolled implementations with Apple-native frameworks. Ship-quality, not demo-quality.
 

@@ -34,6 +34,8 @@ final class SDMessage {
     var attachmentsData: Data?          // Encoded [FileAttachment]
     var loadedNoteTitlesData: Data?     // Encoded [String]
     var contextAttachmentsData: Data?   // Encoded [ContextAttachment]
+    var isError: Bool = false
+    var isVaultBriefing: Bool = false
 
     // MARK: - Timestamps
     var createdAt: Date = Date.now
@@ -135,7 +137,9 @@ final class SDMessage {
             evidenceGrade: evidenceGrade.flatMap(EvidenceGrade.init(rawValue:)),
             mode: inferenceMode.flatMap(InferenceMode.init(rawValue:)),
             attachments: decodedAttachments(),
+            isError: isError,
             createdAt: createdAt,
+            isVaultBriefing: isVaultBriefing,
             loadedNoteTitles: decodedLoadedNoteTitles(),
             contextAttachments: decodedContextAttachments()
         )

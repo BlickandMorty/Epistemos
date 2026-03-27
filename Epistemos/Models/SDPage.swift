@@ -25,7 +25,7 @@ final class SDPage {
     // MARK: - Content
     var title: String = ""
     var emoji: String = ""
-    var body: String = ""  // Legacy inline body — post-migration always "". Use loadBody()/saveBody().
+    var body: String = ""  // Legacy inline body — cleared after saveBody(); loadBody() still falls back for pre-migration records.
     var summary: String = ""  // AI-generated summary (TriageService)
 
     // MARK: - Metadata
@@ -182,8 +182,8 @@ final class SDPage {
 
     /// Load the note body from disk (or fall back to inline body for pre-migration data).
     ///
-    /// - Parameter mapped: When `true`, uses mmap for zero-copy reading.
-    ///   Use for bulk operations (indexing, hashing, search) that read many notes in a loop.
+    /// - Parameter mapped: When `true`, reads through a file-mapped `Data` path before decoding to `String`.
+    ///   This reduces intermediate copying for bulk operations, but the returned `String` is still materialized.
     ///   Default `false` for interactive use (editing, display) where the String is long-lived.
     func loadBody(mapped: Bool = false) -> String {
         let diskBody: String

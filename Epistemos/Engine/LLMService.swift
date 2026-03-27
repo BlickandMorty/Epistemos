@@ -386,13 +386,15 @@ nonisolated enum LLMError: LocalizedError {
             }
             switch code {
             case 401:
-                return "Authentication failed. Check the selected provider API key in Settings."
+                return "Authentication failed (401). Check the selected provider API key in Settings."
             case 403:
-                return "The selected provider rejected this request. Verify model access and API permissions."
+                return "The selected provider rejected this request (403). Verify model access and API permissions."
             case 429:
-                return "The selected AI provider is rate-limiting requests right now. Please wait a moment and try again."
-            case 503, 502:
-                return "The selected AI provider is temporarily unavailable. Please try again shortly."
+                return "The selected AI provider is rate-limiting requests right now (429). Please wait a moment and try again."
+            case 502:
+                return "The selected AI provider returned a bad gateway response (502). Please try again shortly."
+            case 503:
+                return "The selected AI provider is temporarily unavailable (503). Please try again shortly."
             default:
                 if !body.isEmpty {
                     return "AI provider error \(code): \(body)"

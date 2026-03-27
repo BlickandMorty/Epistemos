@@ -37,6 +37,25 @@ enum GraphOverlayPhysicsPolicy {
     }
 }
 
+private final class EngineHandleState: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var handle: OpaquePointer?
+
+    nonisolated init() {}
+
+    nonisolated func load() -> OpaquePointer? {
+        lock.lock()
+        defer { lock.unlock() }
+        return handle
+    }
+
+    nonisolated func store(_ handle: OpaquePointer?) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.handle = handle
+    }
+}
+
 // MARK: - Physics Presets
 
 enum PhysicsPreset: String, CaseIterable, Identifiable {
@@ -287,11 +306,14 @@ final class GraphState {
         return theme
     }
 
+    nonisolated private let engineHandleState = EngineHandleState()
     /// Rust engine handle set by MetalGraphNSView after engine creation.
     /// Used for Rust-side search and other FFI calls from Swift.
-    /// Marked nonisolated(unsafe) so MetalGraphNSView.deinit can nil it synchronously
-    /// before calling graph_engine_destroy, preventing use-after-free races.
-    nonisolated(unsafe) var engineHandle: OpaquePointer?
+    /// Backed by a tiny lock so teardown can nil it synchronously before engine destruction.
+    nonisolated var engineHandle: OpaquePointer? {
+        get { engineHandleState.load() }
+        set { engineHandleState.store(newValue) }
+    }
     private var loadedPreparedRetrievalIndexEngine: OpaquePointer?
     private var loadedPreparedRetrievalIndexManifestPath: String?
 
@@ -1072,10 +1094,11 @@ final class GraphState {
         }
 
         return queryVec.withUnsafeBufferPointer { buf in
+            guard let baseAddress = buf.baseAddress else { return [] }
             var count: UInt32 = 0
             let results = graph_engine_semantic_search(
                 engine,
-                buf.baseAddress!,
+                baseAddress,
                 UInt32(embeddingService.dimension),
                 UInt32(limit),
                 &count
@@ -1102,10 +1125,11 @@ final class GraphState {
         }
 
         return queryVec.withUnsafeBufferPointer { buf in
+            guard let baseAddress = buf.baseAddress else { return [] }
             var count: UInt32 = 0
             let results = graph_engine_prepared_retrieval_search(
                 engine,
-                buf.baseAddress!,
+                baseAddress,
                 UInt32(dimension),
                 UInt32(limit),
                 &count

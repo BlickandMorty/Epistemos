@@ -1,9 +1,10 @@
 import Foundation
 
 /// Translates NSTextStorage edits into BTK ops via FFI.
-/// One instance per open page, held by the ProseEditorRepresentable Coordinator.
+/// One instance per open page, held by the active note editor coordinator.
 @MainActor
 final class BlockEditTranslator {
+    private static var initializedPageIDsByEngine: [Int: Set<String>] = [:]
 
     private let pageId: String
     private weak var graphState: GraphState?
@@ -18,7 +19,7 @@ final class BlockEditTranslator {
     func initIfNeeded(existingBlocks: [SDBlock]) {
         guard !initialized, let engine = graphState?.engineHandle else { return }
 
-        pageId.withCString { pageIdPtr in
+        _ = pageId.withCString { pageIdPtr in
             graph_engine_btk_init(engine, pageIdPtr)
         }
 
@@ -57,7 +58,7 @@ final class BlockEditTranslator {
                 }
             }
 
-            pageId.withCString { pageIdPtr in
+            _ = pageId.withCString { pageIdPtr in
                 ffiBlocks.withUnsafeBufferPointer { buf in
                     graph_engine_btk_load_blocks(
                         engine, pageIdPtr,
@@ -70,13 +71,14 @@ final class BlockEditTranslator {
         }
 
         initialized = true
+        Self.markPageInitialized(pageId, engine: engine)
     }
 
     /// Called from textDidChange. Translates the NSTextStorage edit into block ops.
     func translateEdit(offset: Int, oldLength: Int, newText: String) {
         guard initialized, let engine = graphState?.engineHandle else { return }
 
-        pageId.withCString { pageIdPtr in
+        _ = pageId.withCString { pageIdPtr in
             newText.withCString { textPtr in
                 graph_engine_btk_translate_edit(
                     engine, pageIdPtr,
@@ -94,10 +96,11 @@ final class BlockEditTranslator {
         newContent: String,
         engine: OpaquePointer
     ) -> Bool {
+        guard isPageInitialized(pageId, engine: engine) else { return false }
         guard let uuid = UUID(uuidString: blockId) else { return false }
         let (b0, b1, b2, b3, b4, b5, b6, b7,
              b8, b9, b10, b11, b12, b13, b14, b15) = uuid.uuid
-        var bytes: [UInt8] = [b0, b1, b2, b3, b4, b5, b6, b7,
+        let bytes: [UInt8] = [b0, b1, b2, b3, b4, b5, b6, b7,
                               b8, b9, b10, b11, b12, b13, b14, b15]
 
         let result = pageId.withCString { pageIdPtr in
@@ -108,5 +111,16 @@ final class BlockEditTranslator {
             }
         }
         return result == 1
+    }
+
+    private static func markPageInitialized(_ pageId: String, engine: OpaquePointer) {
+        let key = Int(bitPattern: engine)
+        var pageIds = initializedPageIDsByEngine[key] ?? []
+        pageIds.insert(pageId)
+        initializedPageIDsByEngine[key] = pageIds
+    }
+
+    private static func isPageInitialized(_ pageId: String, engine: OpaquePointer) -> Bool {
+        initializedPageIDsByEngine[Int(bitPattern: engine)]?.contains(pageId) == true
     }
 }

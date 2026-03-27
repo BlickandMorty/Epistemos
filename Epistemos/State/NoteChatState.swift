@@ -3,13 +3,34 @@ import Observation
 import SwiftData
 import os
 
+enum NoteChatInlineResponse {
+    nonisolated static let divider = "\n\n<!-- ai-response -->\n\n"
+
+    nonisolated static func dividerRange(in text: String) -> Range<String.Index>? {
+        text.range(of: divider, options: .backwards)
+    }
+
+    nonisolated static func editTouchesDivider(in text: String, affectedRange: NSRange) -> Bool {
+        guard let range = dividerRange(in: text) else { return false }
+        let dividerRange = NSRange(range, in: text)
+
+        if affectedRange.length == 0 {
+            let insertionPoint = affectedRange.location
+            return insertionPoint > dividerRange.location
+                && insertionPoint < dividerRange.location + dividerRange.length
+        }
+
+        return NSIntersectionRange(affectedRange, dividerRange).length > 0
+    }
+}
+
 // MARK: - Note Chat State (v2 — Simplified)
 // Per-note AI chat state. One instance per open note tab.
 // Manages a single query → response cycle with display-paced token buffering.
 //
 // Architecture:
-// - AI text is appended directly to NSTextStorage below a --- divider.
-// - No zone protection, no divider offset tracking, no multi-turn headers.
+// - AI text is appended directly to NSTextStorage below a hidden divider.
+// - The streamed response body stays editable; only the divider region is protected.
 // - Accept strips the divider, keeping response text as part of the note.
 // - Discard deletes everything from the divider onward.
 
@@ -47,6 +68,10 @@ final class NoteChatState {
     var noteBodyProvider: (() -> String)?
     /// Insert text at the current cursor position (panel mode accept).
     var onInsertAtCursor: ((_ text: String) -> Void)?
+    /// Test hook for overriding instant recall indexing.
+    @ObservationIgnored var instantRecallIndexer: ((_ noteId: String, _ text: String) -> Void)?
+    /// Test hook for overriding instant recall retrieval.
+    @ObservationIgnored var instantRecallSearcher: ((_ query: String, _ topK: Int) -> [InstantRecallResult])?
 
     // MARK: - Token Buffering
 
@@ -61,6 +86,7 @@ final class NoteChatState {
     }
     @ObservationIgnored private var lastStreamingHapticAt: Date?
     @ObservationIgnored private var streamingTask: Task<Void, Never>?
+    @ObservationIgnored private var streamingTaskToken = UUID()
 
     init(pageId: String) {
         self.pageId = pageId
@@ -92,6 +118,7 @@ final class NoteChatState {
     func submitQuery(_ query: String, triageService: TriageService) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        replacePendingResponseIfNeeded()
 
         messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
@@ -107,30 +134,45 @@ final class NoteChatState {
 
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
+
+        indexCurrentNoteForInstantRecall(noteBody)
+        let recallContext = instantRecallContext(for: trimmed)
+
         // Build prompt with conversation history for follow-ups
         let history = conversationHistoryPrompt()
-        let fullPrompt: String
-        if history.isEmpty {
-            fullPrompt = noteSnippet.isEmpty
-                ? trimmed
-                : "Note content:\n\(noteSnippet)\n\nQuestion: \(trimmed)"
-        } else {
-            fullPrompt = noteSnippet.isEmpty
-                ? "\(history)\n\nUser: \(trimmed)"
-                : "Note content:\n\(noteSnippet)\n\n\(history)\n\nUser: \(trimmed)"
-        }
-
-        let stream = triageService.stream(
-            prompt: fullPrompt,
-            systemPrompt: nil,
-            operation: .ask(query: trimmed),
-            contentLength: noteBody.count,
+        let fullPrompt = buildPrompt(
+            noteSnippet: noteSnippet,
+            recallContext: recallContext,
+            history: history,
             query: trimmed
         )
-        log.info("Note chat: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
 
+        let stream: AsyncThrowingStream<String, Error>
+        if let reasoning = AppBootstrap.shared?.reasoningLoopService, reasoning.config.enabled {
+            stream = reasoning.streamWithReasoning(
+                prompt: fullPrompt, systemPrompt: nil,
+                operation: .ask(query: trimmed),
+                contentLength: noteBody.count, query: trimmed
+            )
+            log.info("Note chat: reasoning loop enabled")
+        } else {
+            stream = triageService.stream(
+                prompt: fullPrompt, systemPrompt: nil,
+                operation: .ask(query: trimmed),
+                contentLength: noteBody.count, query: trimmed
+            )
+            log.info("Note chat: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
+        }
+
+        let taskToken = UUID()
+        streamingTaskToken = taskToken
         streamingTask = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if self.streamingTaskToken == taskToken {
+                    self.streamingTask = nil
+                }
+            }
             do {
                 for try await chunk in stream {
                     self.appendStreamingText(chunk)
@@ -168,6 +210,7 @@ final class NoteChatState {
     ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        replacePendingResponseIfNeeded()
 
         messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
@@ -195,16 +238,30 @@ final class NoteChatState {
             """
         }
 
-        let stream = triageService.stream(
-            prompt: fullPrompt,
-            systemPrompt: nil,
-            operation: operation,
-            contentLength: noteBody.count,
-            query: trimmed
-        )
+        let stream: AsyncThrowingStream<String, Error>
+        if let reasoning = AppBootstrap.shared?.reasoningLoopService, reasoning.config.enabled {
+            stream = reasoning.streamWithReasoning(
+                prompt: fullPrompt, systemPrompt: nil,
+                operation: operation,
+                contentLength: noteBody.count, query: trimmed
+            )
+        } else {
+            stream = triageService.stream(
+                prompt: fullPrompt, systemPrompt: nil,
+                operation: operation,
+                contentLength: noteBody.count, query: trimmed
+            )
+        }
 
+        let taskToken = UUID()
+        streamingTaskToken = taskToken
         streamingTask = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if self.streamingTaskToken == taskToken {
+                    self.streamingTask = nil
+                }
+            }
             do {
                 for try await chunk in stream {
                     self.appendStreamingText(chunk)
@@ -244,11 +301,121 @@ final class NoteChatState {
         }.joined(separator: "\n\n")
     }
 
+    private func indexCurrentNoteForInstantRecall(_ noteBody: String) {
+        if let instantRecallIndexer {
+            instantRecallIndexer(pageId, noteBody)
+            return
+        }
+        guard let recall = AppBootstrap.shared?.instantRecallService, recall.isReady else { return }
+        recall.indexNote(noteId: pageId, text: noteBody)
+    }
+
+    private func instantRecallResults(for query: String, topK: Int = 4) -> [InstantRecallResult] {
+        guard !query.isEmpty else { return [] }
+        if let instantRecallSearcher {
+            return instantRecallSearcher(query, topK)
+        }
+        guard let recall = AppBootstrap.shared?.instantRecallService, recall.isReady else { return [] }
+        return recall.search(queryText: query, topK: topK)
+    }
+
+    private func instantRecallContext(for query: String) -> String {
+        let currentNoteSnippet = recallSnippet(from: noteBodyProvider?() ?? "")
+        let matches = curatedInstantRecallMatches(for: query, currentNoteSnippet: currentNoteSnippet)
+
+        return matches.map { result in
+            let snippet = recallSnippet(from: result.text)
+            return "- [\(result.docId)] \(snippet)"
+        }.joined(separator: "\n")
+    }
+
+    private func curatedInstantRecallMatches(
+        for query: String,
+        currentNoteSnippet: String,
+        maxItems: Int = 3
+    ) -> [InstantRecallResult] {
+        let currentSnippetKey = recallDeduplicationKey(for: currentNoteSnippet)
+        var seenSnippetKeys = Set<String>()
+        seenSnippetKeys.reserveCapacity(maxItems + 1)
+        if !currentSnippetKey.isEmpty {
+            seenSnippetKeys.insert(currentSnippetKey)
+        }
+
+        var curated: [InstantRecallResult] = []
+        curated.reserveCapacity(maxItems)
+
+        for result in instantRecallResults(for: query, topK: maxItems * 3) {
+            guard result.docId != pageId, result.score.isFinite, result.score > 0 else { continue }
+
+            let snippet = recallSnippet(from: result.text)
+            let snippetKey = recallDeduplicationKey(for: snippet)
+            guard !snippetKey.isEmpty else { continue }
+            guard seenSnippetKeys.insert(snippetKey).inserted else { continue }
+
+            curated.append(result)
+            if curated.count == maxItems {
+                break
+            }
+        }
+
+        return curated
+    }
+
+    private func buildPrompt(
+        noteSnippet: String,
+        recallContext: String,
+        history: String,
+        query: String
+    ) -> String {
+        var sections: [String] = []
+        sections.reserveCapacity(4)
+
+        if !noteSnippet.isEmpty {
+            sections.append("Note content:\n\(noteSnippet)")
+        }
+        if !recallContext.isEmpty {
+            sections.append("Related notes from instant recall:\n\(recallContext)")
+        }
+        if !history.isEmpty {
+            sections.append(history)
+        }
+
+        if sections.isEmpty {
+            return query
+        }
+
+        sections.append("User: \(query)")
+        return sections.joined(separator: "\n\n")
+    }
+
+    private func recallSnippet(from text: String, limit: Int = 220) -> String {
+        let condensed = text
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard condensed.count > limit else { return condensed }
+        let cutoff = condensed.index(condensed.startIndex, offsetBy: limit)
+        return "\(condensed[..<cutoff])..."
+    }
+
+    private func recallDeduplicationKey(for text: String) -> String {
+        recallSnippet(from: text, limit: 160).lowercased()
+    }
+
     func stopStreaming() {
+        streamingTaskToken = UUID()
         streamingTask?.cancel()
         streamingTask = nil
         flushTokens()
         isStreaming = false
+    }
+
+    private func replacePendingResponseIfNeeded() {
+        guard hasResponse else { return }
+        if isStreaming {
+            stopStreaming()
+        }
+        discardResponse()
     }
 
     func acceptResponse() {

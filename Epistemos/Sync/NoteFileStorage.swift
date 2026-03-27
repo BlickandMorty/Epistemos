@@ -117,7 +117,7 @@ enum NoteFileStorage {
     /// Read a note body from disk. Returns empty string if file doesn't exist or pageId is invalid.
     ///
     /// - Parameter mapped: When `true`, uses `mmap` via `Data(contentsOf:options:.mappedIfSafe)`.
-    ///   The file bytes stay on disk and are paged in lazily by the kernel — zero heap allocation.
+    ///   The file bytes stay on disk and are paged in lazily by the kernel until the UTF-8 decode.
     ///   Use for bulk operations (indexing, hashing, search) where many files are read in a loop.
     ///   Falls back to normal read for small files or network filesystems.
     nonisolated static func readBody(pageId: String, mapped: Bool = false) -> String {

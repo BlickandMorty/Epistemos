@@ -279,26 +279,75 @@ enum BlockMirror {
             return 1.0
         }
 
-        let left = Array(lhs.utf16)
-        let right = Array(rhs.utf16)
+        let left = normalizedSimilarityBytes(lhs)
+        let right = normalizedSimilarityBytes(rhs)
         guard !left.isEmpty, !right.isEmpty else { return 0.0 }
 
-        var previous = Array(0...right.count)
-        var current = Array(repeating: 0, count: right.count + 1)
+        let prefixRatio = sharedPrefixRatio(left, right)
+        let trigramScore = trigramJaccard(left, right)
+        let tokenScore = tokenJaccard(lhs, rhs)
+        return max(prefixRatio, min(1.0, trigramScore * 0.75 + tokenScore * 0.25))
+    }
 
-        for (leftIndex, leftValue) in left.enumerated() {
-            current[0] = leftIndex + 1
-            for (rightIndex, rightValue) in right.enumerated() {
-                let substitution = previous[rightIndex] + (leftValue == rightValue ? 0 : 1)
-                let insertion = current[rightIndex] + 1
-                let deletion = previous[rightIndex + 1] + 1
-                current[rightIndex + 1] = min(substitution, insertion, deletion)
+    nonisolated private static func normalizedSimilarityBytes(_ text: String) -> [UInt8] {
+        let normalized = text
+            .lowercased()
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        return Array(normalized.utf8)
+    }
+
+    nonisolated private static func sharedPrefixRatio(_ lhs: [UInt8], _ rhs: [UInt8]) -> Double {
+        let limit = min(lhs.count, rhs.count)
+        var shared = 0
+        while shared < limit, lhs[shared] == rhs[shared] {
+            shared += 1
+        }
+        return Double(shared) / Double(max(lhs.count, rhs.count))
+    }
+
+    nonisolated private static func trigramJaccard(_ lhs: [UInt8], _ rhs: [UInt8]) -> Double {
+        let left = trigramSet(for: lhs)
+        let right = trigramSet(for: rhs)
+        guard !left.isEmpty, !right.isEmpty else { return 0.0 }
+
+        let intersectionCount = left.intersection(right).count
+        let unionCount = left.count + right.count - intersectionCount
+        guard unionCount > 0 else { return 0.0 }
+        return Double(intersectionCount) / Double(unionCount)
+    }
+
+    nonisolated private static func trigramSet(for bytes: [UInt8]) -> Set<UInt32> {
+        guard !bytes.isEmpty else { return [] }
+        if bytes.count < 3 {
+            var packed: UInt32 = UInt32(bytes.count) << 24
+            for (index, byte) in bytes.enumerated() {
+                packed |= UInt32(byte) << UInt32(index * 8)
             }
-            swap(&previous, &current)
+            return [packed]
         }
 
-        let distance = previous[right.count]
-        return 1.0 - (Double(distance) / Double(max(left.count, right.count)))
+        var grams = Set<UInt32>()
+        grams.reserveCapacity(bytes.count - 2)
+        for index in 0..<(bytes.count - 2) {
+            let gram =
+                (UInt32(bytes[index]) << 16)
+                | (UInt32(bytes[index + 1]) << 8)
+                | UInt32(bytes[index + 2])
+            grams.insert(gram)
+        }
+        return grams
+    }
+
+    nonisolated private static func tokenJaccard(_ lhs: String, _ rhs: String) -> Double {
+        let left = Set(lhs.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init))
+        let right = Set(rhs.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init))
+        guard !left.isEmpty, !right.isEmpty else { return 0.0 }
+
+        let intersectionCount = left.intersection(right).count
+        let unionCount = left.count + right.count - intersectionCount
+        guard unionCount > 0 else { return 0.0 }
+        return Double(intersectionCount) / Double(unionCount)
     }
 
     nonisolated private static func reconstructRaw(

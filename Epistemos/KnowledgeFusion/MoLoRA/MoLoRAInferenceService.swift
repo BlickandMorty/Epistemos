@@ -15,6 +15,38 @@ struct MoLoRAGenerationResult: Sendable {
     let routeUsed: String
 }
 
+private final class MoLoRAReadBufferState: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var value = ""
+
+    nonisolated init() {}
+
+    nonisolated func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        value = ""
+    }
+
+    nonisolated func popLine() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let newlineIndex = value.firstIndex(of: "\n") else { return nil }
+        let line = String(value[value.startIndex..<newlineIndex])
+        value = String(value[value.index(after: newlineIndex)...])
+        return line
+    }
+
+    nonisolated func appendAndPopLine(_ chunk: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        value += chunk
+        guard let newlineIndex = value.firstIndex(of: "\n") else { return nil }
+        let line = String(value[value.startIndex..<newlineIndex])
+        value = String(value[value.index(after: newlineIndex)...])
+        return line
+    }
+}
+
 // MARK: - MoLoRA Inference Service
 
 /// Manages a long-lived Python subprocess running molora_inference.py.
@@ -38,7 +70,7 @@ final class MoLoRAInferenceService {
     private var stdinPipe: Pipe?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
-    private var readBuffer = ""
+    private let readBufferState = MoLoRAReadBufferState()
 
     // MARK: - Lifecycle
 
@@ -128,7 +160,7 @@ final class MoLoRAInferenceService {
         stdinPipe = nil
         stdoutPipe = nil
         stderrPipe = nil
-        readBuffer = ""
+        readBufferState.reset()
         state = .idle
     }
 
@@ -244,9 +276,7 @@ final class MoLoRAInferenceService {
                 }
 
                 // Check if we have a complete line in the buffer
-                if let newlineIdx = self.readBuffer.firstIndex(of: "\n") {
-                    let line = String(self.readBuffer[self.readBuffer.startIndex..<newlineIdx])
-                    self.readBuffer = String(self.readBuffer[self.readBuffer.index(after: newlineIdx)...])
+                if let line = self.readBufferState.popLine() {
                     continuation.resume(returning: line)
                     return
                 }
@@ -259,11 +289,7 @@ final class MoLoRAInferenceService {
                 }
 
                 let chunk = String(data: data, encoding: .utf8) ?? ""
-                self.readBuffer += chunk
-
-                if let newlineIdx = self.readBuffer.firstIndex(of: "\n") {
-                    let line = String(self.readBuffer[self.readBuffer.startIndex..<newlineIdx])
-                    self.readBuffer = String(self.readBuffer[self.readBuffer.index(after: newlineIdx)...])
+                if let line = self.readBufferState.appendAndPopLine(chunk) {
                     continuation.resume(returning: line)
                 } else {
                     continuation.resume(returning: nil)

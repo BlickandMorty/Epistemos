@@ -425,10 +425,17 @@ final class GraphEngine {
         guard let h = handle, !clusterMap.isEmpty else { return }
 
         let uuids = Array(clusterMap.keys)
-        let ids = uuids.map { clusterMap[$0]! }
+        let ids = uuids.compactMap { clusterMap[$0] }
+        guard ids.count == uuids.count else { return }
         withStableCStringArray(uuids) { uuidBuf in
             ids.withUnsafeBufferPointer { idsBuf in
-                graph_engine_set_cluster_ids(h, uuidBuf.baseAddress, idsBuf.baseAddress!, UInt32(uuids.count))
+                guard let idsBaseAddress = idsBuf.baseAddress else { return }
+                graph_engine_set_cluster_ids(
+                    h,
+                    uuidBuf.baseAddress,
+                    idsBaseAddress,
+                    UInt32(uuids.count)
+                )
             }
         }
     }

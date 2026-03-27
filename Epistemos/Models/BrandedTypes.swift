@@ -7,11 +7,13 @@ import SwiftUI
 
 nonisolated protocol BrandedId: RawRepresentable, Hashable, Codable, Sendable,
     CustomStringConvertible
-where RawValue == String {}
+where RawValue == String {
+    init(_ raw: String)
+}
 
 extension BrandedId {
     nonisolated var description: String { rawValue }
-    nonisolated static func new() -> Self { Self(rawValue: UUID().uuidString)! }
+    nonisolated static func new() -> Self { Self(UUID().uuidString) }
 }
 
 struct ChatId: BrandedId, @unchecked Sendable {

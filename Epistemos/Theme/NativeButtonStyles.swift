@@ -117,25 +117,30 @@ private enum NativeControlPalette {
         isHovered: Bool,
         isPressed: Bool
     ) -> Color {
+        let resolved = theme.resolved
+        let accent = resolved.accent.color
+        let foreground = resolved.foreground.color
+        let isDark = resolved.isDark
+
         if isActive {
             switch role {
             case .primaryAction:
-                return theme.accent.opacity(theme.isDark ? 0.24 : 0.16)
+                return accent.opacity(isDark ? 0.24 : 0.16)
             case .toolbarUtility, .mode, .secondaryGhost, .disclosure:
-                return theme.accent.opacity(theme.isDark ? 0.14 : 0.08)
+                return accent.opacity(isDark ? 0.14 : 0.08)
             }
         }
         if isPressed {
-            return theme.foreground.opacity(theme.isDark ? 0.09 : 0.06)
+            return foreground.opacity(isDark ? 0.09 : 0.06)
         }
         if isHovered {
-            return theme.foreground.opacity(theme.isDark ? 0.075 : 0.05)
+            return foreground.opacity(isDark ? 0.075 : 0.05)
         }
         switch role {
         case .primaryAction:
-            return theme.foreground.opacity(theme.isDark ? 0.08 : 0.05)
+            return foreground.opacity(isDark ? 0.08 : 0.05)
         case .toolbarUtility, .mode, .secondaryGhost, .disclosure:
-            return theme.foreground.opacity(theme.isDark ? 0.045 : 0.03)
+            return foreground.opacity(isDark ? 0.045 : 0.03)
         }
     }
 
@@ -145,17 +150,22 @@ private enum NativeControlPalette {
         isActive: Bool,
         isHovered: Bool
     ) -> Color {
+        let resolved = theme.resolved
+        let accent = resolved.accent.color
+        let foreground = resolved.foreground.color
+        let isDark = resolved.isDark
+
         if isActive {
-            return theme.accent.opacity(theme.isDark ? 0.16 : 0.10)
+            return accent.opacity(isDark ? 0.16 : 0.10)
         }
         if isHovered {
-            return theme.foreground.opacity(theme.isDark ? 0.10 : 0.07)
+            return foreground.opacity(isDark ? 0.10 : 0.07)
         }
         switch role {
         case .primaryAction:
-            return theme.foreground.opacity(theme.isDark ? 0.09 : 0.06)
+            return foreground.opacity(isDark ? 0.09 : 0.06)
         case .toolbarUtility, .mode, .secondaryGhost, .disclosure:
-            return theme.foreground.opacity(theme.isDark ? 0.075 : 0.05)
+            return foreground.opacity(isDark ? 0.075 : 0.05)
         }
     }
 
@@ -166,25 +176,31 @@ private enum NativeControlPalette {
         isHovered: Bool,
         isEnabled: Bool
     ) -> Color {
+        let resolved = theme.resolved
+        let accent = resolved.accent.color
+        let foreground = resolved.foreground.color
+        let textSecondary = resolved.mutedForeground.color
+        let textTertiary = resolved.mutedForeground.color.opacity(0.7)
+
         guard isEnabled else {
-            return theme.textTertiary.opacity(0.75)
+            return textTertiary.opacity(0.75)
         }
         if isActive {
             switch role {
             case .primaryAction:
-                return theme.foreground
+                return foreground
             case .toolbarUtility, .mode, .secondaryGhost, .disclosure:
-                return theme.accent
+                return accent
             }
         }
         if isHovered {
-            return theme.foreground
+            return foreground
         }
         switch role {
         case .primaryAction:
-            return theme.foreground.opacity(0.92)
+            return foreground.opacity(0.92)
         case .toolbarUtility, .mode, .secondaryGhost, .disclosure:
-            return theme.textSecondary
+            return textSecondary
         }
     }
 }
@@ -290,14 +306,16 @@ struct ThemedToolbarButtonStyle: ButtonStyle {
     @State private var isHovered = false
 
     func makeBody(configuration: Configuration) -> some View {
+        let accent = theme.resolved.accent.color
+
         configuration.label
             .foregroundStyle(
-                isHovered || configuration.isPressed ? theme.accent : theme.accent.opacity(0.7)
+                isHovered || configuration.isPressed ? accent : accent.opacity(0.7)
             )
             .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isHovered ? theme.accent.opacity(0.1) : .clear)
+                    .fill(isHovered ? accent.opacity(0.1) : .clear)
             )
             .animation(Motion.micro, value: configuration.isPressed)
             .animation(Motion.micro, value: isHovered)

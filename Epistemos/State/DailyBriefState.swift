@@ -70,7 +70,9 @@ final class DailyBriefState {
     ) -> [(page: SDPage, body: String)] {
         pages.compactMap { page in
             guard page.templateId == nil else { return nil }
-            let body = page.loadBody(mapped: true)
+            let pageId = page.id
+            let persistedOrLiveBody = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
+            let body = persistedOrLiveBody.isEmpty ? page.body : persistedOrLiveBody
             guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
             return (page, body)
         }

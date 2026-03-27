@@ -60,7 +60,7 @@ struct MiniChatView: View {
 
             Text(showRecentChats ? "Recent Chats" : activeTitle)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(theme.resolved.foreground.color)
                 .lineLimit(1)
 
             Spacer(minLength: 12)
@@ -282,7 +282,7 @@ private struct MiniChatRecentChatsList: View {
                             HStack {
                                 Text(chat.title)
                                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(theme.foreground)
+                                    .foregroundStyle(theme.resolved.foreground.color)
                                     .lineLimit(1)
                                 Spacer(minLength: 12)
                                 Text(chat.updatedAt.formatted(.relative(presentation: .named)))
@@ -419,18 +419,13 @@ struct MiniChatNoteSnapshot: Equatable {
         self.init(title: title, tags: tags, body: bodyProvider())
     }
 
-    init(page: SDPage) {
+    @MainActor init(page: SDPage) {
         self.init(page: page, preferredBody: nil)
     }
 
-    init(page: SDPage, preferredBody: String?) {
-        if let preferredBody {
-            self.init(title: page.title, tags: page.tags, body: preferredBody)
-        } else {
-            self.init(title: page.title, tags: page.tags) {
-                page.loadBody()
-            }
-        }
+    @MainActor init(page: SDPage, preferredBody: String?) {
+        let body = preferredBody ?? NoteWindowManager.shared.currentBody(for: page.id)
+        self.init(title: page.title, tags: page.tags, body: body)
     }
 
     var hasBody: Bool {
@@ -768,7 +763,7 @@ private struct MiniChatInputBar: View {
     private var quickActions: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                QuickActionChip(icon: "tag", label: "Auto-tag", color: theme.accent) {
+                QuickActionChip(icon: "tag", label: "Auto-tag", color: theme.resolved.accent.color) {
                     runQuickAction(.autoTag)
                 }
                 QuickActionChip(icon: "doc.text.magnifyingglass", label: "Summarize", color: .orange) {
@@ -822,7 +817,7 @@ private struct MiniChatInputBar: View {
         if let liveEditor = NoteEditorViewFinder.findEditorTextView(for: page.id)?.string {
             return liveEditor
         }
-        return PageStoragePool.shared.bodyText(for: page.id)
+        return nil
     }
 
     // MARK: - Quick Action Execution

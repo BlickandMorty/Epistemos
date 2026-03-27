@@ -108,9 +108,13 @@ final class NodeInspectorState {
 
                 let noteBody: String
                 if nodeType == .note, let sourceId {
-                    noteBody = await Task.detached {
-                        NoteFileStorage.readBody(pageId: sourceId)
-                    }.value
+                    if let liveBody = currentEditorBody(for: sourceId) {
+                        noteBody = liveBody
+                    } else {
+                        noteBody = await Task.detached {
+                            NoteFileStorage.readBody(pageId: sourceId)
+                        }.value
+                    }
                 } else {
                     noteBody = ""
                 }
@@ -436,9 +440,28 @@ final class NodeInspectorState {
         }
     }
 
+    private func currentEditorBody(for pageId: String) -> String? {
+        NoteWindowManager.shared.editorBody(for: pageId)
+    }
+
+    private func liveEditorBodies(for pageIds: [String]) -> [String: String] {
+        var bodies: [String: String] = [:]
+        bodies.reserveCapacity(pageIds.count)
+        for pageId in pageIds {
+            if let body = currentEditorBody(for: pageId) {
+                bodies[pageId] = body
+            }
+        }
+        return bodies
+    }
+
     private func fetchPageContent(_ node: GraphNodeRecord, modelContext: ModelContext) async -> String {
         guard let sourceId = node.sourceId else { return node.label }
         let label = node.label
+
+        if let liveBody = currentEditorBody(for: sourceId) {
+            return liveBody
+        }
 
         // File I/O off main actor (NoteFileStorage.readBody is nonisolated static).
         let body = await Task.detached {
@@ -491,9 +514,13 @@ final class NodeInspectorState {
         )
 
         let descendantPageIDs = descendantPages.map(\.id)
+        let liveBodies = liveEditorBodies(for: descendantPageIDs)
         let pageBodies = await Task.detached {
             descendantPageIDs.map { pageID in
-                NoteFileStorage.readBody(pageId: pageID)
+                if let liveBody = liveBodies[pageID] {
+                    return liveBody
+                }
+                return NoteFileStorage.readBody(pageId: pageID)
             }
         }.value
 
@@ -528,10 +555,14 @@ final class NodeInspectorState {
             .prefix(12)
             .map { (sourceId: $0.sourceId, label: $0.label) }
 
+        let liveBodies = liveEditorBodies(for: related.compactMap(\.sourceId))
         // Batch file reads off main actor.
         let bodies = await Task.detached {
             related.map { rel in
                 guard let sid = rel.sourceId else { return "" }
+                if let liveBody = liveBodies[sid] {
+                    return liveBody
+                }
                 return NoteFileStorage.readBody(pageId: sid)
             }
         }.value
@@ -562,10 +593,14 @@ final class NodeInspectorState {
         let relatedArray = Array(relatedNodes)
         guard !relatedArray.isEmpty else { return "" }
 
+        let liveBodies = liveEditorBodies(for: relatedArray.compactMap(\.sourceId))
         let previews = await Task.detached {
             relatedArray.map { related -> String in
                 guard let sourceId = related.sourceId else {
                     return related.metadata.abstract ?? related.metadata.quoteText ?? related.label
+                }
+                if let liveBody = liveBodies[sourceId] {
+                    return liveBody
                 }
                 let body = NoteFileStorage.readBody(pageId: sourceId).trimmingCharacters(in: .whitespacesAndNewlines)
                 if !body.isEmpty {

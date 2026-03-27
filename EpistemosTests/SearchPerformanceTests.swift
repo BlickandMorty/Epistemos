@@ -94,7 +94,6 @@ struct SearchPerformanceTests {
             totalTime = ContinuousClock().now - start
         }
         
-        let avgTime = Double(totalTime.components.attoseconds) / Double(queries.count)
         #expect(totalTime < .milliseconds(Int(queries.count) * 50),
                 "Multiple queries took \(totalTime), average per query too slow")
     }

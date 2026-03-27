@@ -105,6 +105,8 @@ struct ModularZoomWindowObserver: NSViewRepresentable {
 
 @main
 struct EpistemosApp: App {
+    private static let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
     @State private var bootstrap = AppBootstrap()
     @AppStorage("epistemos.setupComplete") private var setupComplete = false
@@ -123,11 +125,11 @@ struct EpistemosApp: App {
                     SetupAssistantView {
                         setupComplete = true
                     }
-                    .environment(bootstrap.vaultSync)
-                    .environment(bootstrap.inferenceState)
+                    .withAppEnvironment(bootstrap)
                 }
                 .background(ModularZoomWindowObserver().allowsHitTesting(false))
                 .onAppear {
+                    guard !Self.isRunningTests else { return }
                     StatusBar.shared.setup()
                     HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
                     // Restore last session after UI settles, then start tracking
@@ -187,10 +189,18 @@ struct EpistemosApp: App {
 // MARK: - App Delegate (Dock Menu + Native Hooks)
 
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    private static let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private var mainWindowObservers: [NSObjectProtocol] = []
     private var didTeardown = false
     private var quitObserver: NSObjectProtocol?
     private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
+
+    private static var canConfigureUserNotificationCenter: Bool {
+        let bundleURL = Bundle.main.bundleURL
+        return bundleURL.pathExtension == "app"
+            || bundleURL.deletingLastPathComponent().pathExtension == "app"
+    }
 
     var showSaveOnQuitDialogEnabled: Bool {
         let defaults = UserDefaults.standard
@@ -216,7 +226,9 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             }
         }
 
-        UNUserNotificationCenter.current().delegate = self
+        if Self.canConfigureUserNotificationCenter {
+            UNUserNotificationCenter.current().delegate = self
+        }
 
         Task { @MainActor in
             NSApp.windows.forEach(Self.applyMainWindowPolicyIfNeeded(to:))
@@ -259,6 +271,11 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     private func performTeardown() {
         guard !didTeardown else { return }
         didTeardown = true
+        guard !Self.isRunningTests else {
+            StatusBar.shared.remove()
+            HologramController.shared.teardown()
+            return
+        }
         guard let bootstrap = AppBootstrap.shared else { return }
         bootstrap.activityTracker.stopTracking()
         bootstrap.workspaceSummaryService.stopAutoSummaryLoop()
@@ -385,9 +402,6 @@ struct EpistemosCommands: Commands {
 
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
-
-            Button("Show Omega") { UtilityWindowManager.shared.show(.omega) }
-                .keyboardShortcut("4", modifiers: .command)
 
             Button("New Mini Chat") {
                 MiniChatWindowController.shared.openNewChat()

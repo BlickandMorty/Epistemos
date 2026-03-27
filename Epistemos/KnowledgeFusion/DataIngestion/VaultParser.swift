@@ -53,7 +53,6 @@ actor VaultParser {
     @MainActor
     func parsePages(_ pages: [SDPage]) -> VaultParseResult {
         var documents: [ParsedDocument] = []
-        var errors: [(String, String)] = []
         documents.reserveCapacity(pages.count)
 
         for page in pages {
@@ -96,7 +95,7 @@ actor VaultParser {
 
         return VaultParseResult(
             documents: documents,
-            errors: errors,
+            errors: [],
             totalItems: pages.count,
             parsedItems: documents.count
         )

@@ -28,6 +28,13 @@ enum QueryCompiler {
                 combiner: .single
             )
 
+        case .dateFilter(let field, .neq, let value):
+            let eqPlan = QueryPlan(
+                steps: [.graphStoreFilter(makeDateFilter(field: field, op: .eq, value: value))],
+                combiner: .single
+            )
+            return QueryPlan(subPlans: [eqPlan], combiner: .complement)
+
         case .dateFilter(let field, let op, let value):
             let filter = makeDateFilter(field: field, op: op, value: value)
             return QueryPlan(
@@ -92,12 +99,27 @@ enum QueryCompiler {
     private static func makeDateFilter(field: DateField, op: CompOp, value: Date) -> NodeFilter {
         var filter = NodeFilter()
         switch (field, op) {
+        case (.created, .eq):
+            let range = inclusiveDayRange(containing: value)
+            filter.createdAfter = range.start
+            filter.createdBefore = range.end
         case (.created, .gte), (.created, .gt): filter.createdAfter = value
         case (.created, .lte), (.created, .lt): filter.createdBefore = value
+        case (.updated, .eq):
+            let range = inclusiveDayRange(containing: value)
+            filter.updatedAfter = range.start
+            filter.updatedBefore = range.end
         case (.updated, .gte), (.updated, .gt): filter.updatedAfter = value
         case (.updated, .lte), (.updated, .lt): filter.updatedBefore = value
         default: break
         }
         return filter
+    }
+
+    private static func inclusiveDayRange(containing value: Date, calendar: Calendar = .current) -> (start: Date, end: Date) {
+        let start = calendar.startOfDay(for: value)
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: start) ?? value
+        let inclusiveEnd = Date(timeIntervalSinceReferenceDate: nextDay.timeIntervalSinceReferenceDate.nextDown)
+        return (start, inclusiveEnd)
     }
 }

@@ -3,7 +3,7 @@ import CryptoKit
 
 // MARK: - DiskStyleCache
 // Persists scroll position and selection per page to disk so they survive app restarts.
-// Lightweight metadata only — the in-memory styled storages live in PageStoragePool.
+// Lightweight metadata only — live editor state stays in the active TextKit 2 stack.
 //
 // Lifecycle:
 //   dismantleNSView → save scroll/selection + body hash

@@ -144,7 +144,7 @@ struct SessionIntelligenceOverlay: View {
             }
             .scaleEffect(appeared ? 1 : 0.95)
             .opacity(appeared ? 1 : 0)
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(theme.resolved.foreground.color)
         }
         .background {
             Button(action: { dismiss() }) {}
@@ -167,10 +167,10 @@ struct SessionIntelligenceOverlay: View {
             HStack(spacing: 8) {
                 Image(systemName: card.icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(theme.resolved.accent.color)
                     .frame(width: 22, height: 22)
                     .background(
-                        Circle().fill(theme.accent.opacity(0.12))
+                        Circle().fill(theme.resolved.accent.color.opacity(0.12))
                     )
 
                 Text(card.title)
@@ -184,7 +184,7 @@ struct SessionIntelligenceOverlay: View {
                     .foregroundStyle(theme.textTertiary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(theme.foreground.opacity(0.05), in: Capsule())
+                    .background(theme.resolved.foreground.color.opacity(0.05), in: Capsule())
             }
 
             if card.wordCount > 0 {
@@ -204,11 +204,11 @@ struct SessionIntelligenceOverlay: View {
         .padding(12)
         .background {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(theme.foreground.opacity(0.03))
+                .fill(theme.resolved.foreground.color.opacity(0.03))
         }
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(theme.foreground.opacity(0.06))
+                .strokeBorder(theme.resolved.foreground.color.opacity(0.06))
         }
         .physicsHover(.subtle)
     }
@@ -221,7 +221,7 @@ struct SessionIntelligenceOverlay: View {
         // Note windows
         for pageId in NoteWindowManager.shared.orderedPageIds() {
             let title = NoteWindowManager.shared.navState(forTab: pageId)?.currentPageTitle ?? "Untitled"
-            let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+            let body = currentBody(for: pageId)
             let wordCount = body.split(separator: " ").count
             cards.append(WindowCard(
                 id: "note-\(pageId)", title: title, icon: "doc.text.fill",
@@ -249,6 +249,10 @@ struct SessionIntelligenceOverlay: View {
         }
 
         windowCards = cards
+    }
+
+    private func currentBody(for pageId: String) -> String {
+        NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
     }
 
     // MARK: - AI Generation (Map-Reduce)
@@ -320,7 +324,7 @@ struct SessionIntelligenceOverlay: View {
                                         .font(.system(size: 9))
                                         .foregroundStyle(.white)
                                         .frame(width: 20, height: 20)
-                                        .background(Circle().fill(theme.accent))
+                                        .background(Circle().fill(theme.resolved.accent.color))
                                     Text(entry.query)
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 }
@@ -329,14 +333,14 @@ struct SessionIntelligenceOverlay: View {
                                         .font(.system(size: 9))
                                         .foregroundStyle(theme.textSecondary)
                                         .frame(width: 20, height: 20)
-                                        .background(Circle().fill(theme.foreground.opacity(0.06)))
+                                        .background(Circle().fill(theme.resolved.foreground.color.opacity(0.06)))
                                     Text(entry.response)
                                         .font(.system(size: 12, design: .rounded))
                                         .foregroundStyle(theme.textSecondary)
                                         .textSelection(.enabled)
                                 }
                                 .padding(10)
-                                .background(theme.foreground.opacity(0.03), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .background(theme.resolved.foreground.color.opacity(0.03), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             }
                         }
                     }
@@ -349,7 +353,7 @@ struct SessionIntelligenceOverlay: View {
             HStack(spacing: 10) {
                 Image(systemName: "terminal")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(theme.resolved.accent.color)
 
                 TextField("Ask about your session, or command: \"open note X\", \"show chat Y\"...", text: $commandInput)
                     .textFieldStyle(.plain)
@@ -364,7 +368,7 @@ struct SessionIntelligenceOverlay: View {
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 18))
-                            .foregroundStyle(commandInput.isEmpty ? theme.textTertiary : theme.accent)
+                            .foregroundStyle(commandInput.isEmpty ? theme.textTertiary : theme.resolved.accent.color)
                     }
                     .buttonStyle(.plain)
                     .disabled(commandInput.isEmpty)
@@ -373,7 +377,7 @@ struct SessionIntelligenceOverlay: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(theme.foreground.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(theme.resolved.foreground.color.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal, 20)
             .padding(.bottom, 14)
         }
@@ -470,7 +474,7 @@ struct SessionIntelligenceOverlay: View {
             let title = parts[0].trimmingCharacters(in: .whitespaces)
             let content = parts[1].trimmingCharacters(in: .whitespaces)
             if let pageId = findNoteByTitle(title) {
-                let existing = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+                let existing = currentBody(for: pageId)
                 NoteFileStorage.writeBody(pageId: pageId, content: existing + "\n\n" + content)
                 return "Appended to \"\(title)\"."
             }
@@ -499,7 +503,7 @@ struct SessionIntelligenceOverlay: View {
         if lower.hasPrefix("summarize note ") {
             let name = original.dropFirst(15).trimmingCharacters(in: .whitespaces)
             if let pageId = findNoteByTitle(name) {
-                let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+                let body = currentBody(for: pageId)
                 let snippet = String(body.prefix(600))
                 do {
                     let summary = try await AppleIntelligenceService.shared.generate(
@@ -694,7 +698,7 @@ struct SessionIntelligenceOverlay: View {
             content += "## Open Notes\n"
             for pageId in noteIds {
                 let title = NoteWindowManager.shared.navState(forTab: pageId)?.currentPageTitle ?? "Untitled"
-                let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+                let body = currentBody(for: pageId)
                 let wordCount = body.split(separator: " ").count
                 content += "- **\(title)** (\(wordCount) words)\n"
             }
@@ -864,11 +868,17 @@ struct SessionIntelligenceOverlay: View {
             return nil
         }
 
-        let actionRange = Range(match.range(at: 1), in: text)!
+        guard let actionRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
         let action = String(text[actionRange]).uppercased()
-        let argument = match.range(at: 2).location != NSNotFound
-            ? String(text[Range(match.range(at: 2), in: text)!]).trimmingCharacters(in: .whitespaces)
-            : ""
+        let argument: String
+        if match.range(at: 2).location != NSNotFound,
+           let argumentRange = Range(match.range(at: 2), in: text) {
+            argument = String(text[argumentRange]).trimmingCharacters(in: .whitespaces)
+        } else {
+            argument = ""
+        }
 
         switch action {
         case "CREATE_NOTE":
@@ -942,10 +952,10 @@ struct SessionIntelligenceOverlay: View {
         HStack(spacing: 10) {
             Text(command)
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(theme.accent)
+                .foregroundStyle(theme.resolved.accent.color)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .background(theme.resolved.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                 .frame(width: 200, alignment: .leading)
             Text(desc)
                 .font(.system(size: 11, design: .rounded))

@@ -1,194 +1,248 @@
 # Epistemos Omega — Model Training Guide
 
-## Architecture: Hybrid Mamba-Attention (NOT Pure Mamba-2)
+> **READ FIRST**: `docs/NANO-MASTER-TRAINING-GUIDE.md` is the deep-dive execution manual.
+> This file is the quick-reference. When in doubt, the Master Guide wins.
 
-The Google Deep Research paper is definitive: pure Mamba-2 has "reasoning drift" and JSON formatting failures. Epistemos uses **Hybrid Mamba-Attention** with a 3:1 ratio (75% Mamba, 25% Attention layers).
+## Architecture: Hybrid Mamba/Attention (NOT Pure SSM)
+
+75% Mamba / 25% Attention. The ratio is correct regardless of Mamba generation.
 
 - **Mamba layers**: linear-time sequence efficiency, constant memory
-- **Attention layers**: global anchors for exact token retrieval, strict JSON schema adherence
-- **Reference**: NVIDIA Nemotron 3 Super (Mamba-in-Llama pattern, NeurIPS 2024)
+- **Attention layers**: exact token retrieval, JSON schema enforcement, multi-turn anchoring
+- **Deploy on MLX/Metal GPU, NOT ANE** — Mamba selective scan cannot run on ANE
+- Expected inference: 70-95 tok/s on M4 Max (4-bit quantized)
+
+**Mamba-2 → Mamba-3 migration:** Build with Mamba-2 now (tooling validated). Swap to Mamba-3 layers in Month 2-3 when MOHAWK-3 recipe and MLX support land. The 6 attention layers never change — they do exact retrieval that no SSM can replace. See Master Guide for full migration plan.
+
+### Layer Placement (24-layer stack, non-negotiable)
+
+| Layers | Type | Role |
+|--------|------|------|
+| 1-4 | Mamba-2 | Initial sequence compression |
+| 5 | Attention | Early retrieval anchor |
+| 6-10 | Mamba-2 | Mid-level context integration |
+| 11 | Attention | Schema enforcement (JSON structure) |
+| 12-17 | Mamba-2 | Deep context distillation |
+| 18-19 | Attention | Final retrieval (current AX state + app identity) |
+| 20-24 | Mamba-2 | Output formation |
 
 ## Model Tiers
 
 | Tier | Params | Memory (4-bit) | Training | Cost |
 |------|--------|----------------|----------|------|
-| Epistemos-Nano | 1B | ~1.5 GB | Cloud + on-device QLoRA | ~$800-1,200 |
+| Epistemos-Nano | 1B | ~1.5 GB | Cloud + on-device QLoRA | ~$150-300 |
 | Epistemos-Base | 3B | ~3.5 GB | Cloud + on-device QLoRA | ~$1,500-2,500 |
-| Epistemos-Pro | 8B | ~8 GB | Cloud only (inference on M2 Pro) | ~$2,500-3,500 |
 
-## Training Data Composition (40/20/20/20)
+## The Five Pillars of Training
+
+### Pillar 1: MOHAWK Distillation (Week 1)
+
+3-stage progressive distillation from Llama 3.2 1B teacher → hybrid student.
+
+**Validated hyperparameters:**
+```
+Learning rate: ≤2e-4 (NOT 4e-4 — triggers NaN)
+Optimizer: AdamW β=(0.9, 0.98)
+Precision: BF16 training, FP32 parameter storage
+Warmup: 500 steps
+Schedule: WSD (Warmup-Stable-Decay), NOT cosine
+  - Stable phase: 80% of total steps at peak LR
+  - Decay phase: 20% — inject highest-quality traces here
+Stage 3 loss: α=1.0 KL(teacher, student) + β=0.1 CE(student, labels)
+Token budget: 8B tokens (D:N ratio = 8)
+Gradient clip: norm 1.0
+```
+
+**WSD advantage**: Pre-decay checkpoints are reusable. New data → continue from stable checkpoint.
+
+**Teacher**: Llama 3.2 1B Instruct (NOT 8B — same-scale distillation for Nano)
+
+```bash
+cd Epistemos/KnowledgeFusion/MOHAWK
+./runpod_train_full.sh nano
+```
+
+### Pillar 2: App-Specific Meta-Training (THE COMPETITIVE MOAT)
+
+A model trained on its own app's code, UI states, and workflows **recalls** mappings from weights: sub-1ms. No cloud model can replicate this.
+
+**4 Layers of App Self-Knowledge:**
+
+**Layer 0 — Code Graph Model (CGM)**
+- Parse Swift ASTs → hierarchical graph: `AppDelegate → ViewController → UIButton → @IBAction → state`
+- Node types: SwiftUI views, @Observable models, Rust structs, MCP tools, SQLite tables
+- Edge types: calls, conformsTo, memberOf, UniFFI bridge, publishes/subscribes
+- Output: `app_code_graph.json`
+
+**Layer 1 — Xcode Symbol Graph → QA Pairs**
+- Forward: "User wants to create a note" → `{ class: 'NoteCoordinator', method: 'createNote()' }`
+- Reverse: "What does OmegaPlanningService.generatePlan() do?" → description
+- Cross-file context is critical — button handler + data model + navigation coordinator
+- Output: `app_symbol_qa.jsonl`
+
+**Layer 2 — AX Atlas with Differential Snapshots**
+- Capture pre-action AX tree → execute action → wait 150ms → capture post-action AX tree
+- Compute structural diff (added/removed elements)
+- Include error states: dialogs, permissions, spinners
+- Output: `app_atlas_differential.jsonl`
+
+**Layer 3 — SFT → RLAIF Trajectories**
+- 1,000 multi-turn trajectories via Claude Sonnet (3-8 steps each)
+- Format: [OBSERVE] → [REASON] → [ACT] → [RESULT] → [DONE]
+- 464 verification pairs for RLAIF judge scoring
+- Output: `app_sft_trajectories.jsonl`
+
+### Pillar 3: General macOS Device Control
+
+**Training Data Composition (40/20/20/10/10):**
 
 | Category | % | Source |
 |----------|---|--------|
-| Synthetic Tool-Call Examples | 40% | ODIA traces from omega-mcp execution logs |
-| General Language & Code | 20% | Open datasets (SlimPajama, StarCoder) |
-| Multi-Step Reasoning Traces | 20% | Chain-of-thought with drift penalization |
-| macOS-Specific Automation | 20% | AppleScript, JXA, AX tree JSON examples |
+| Tool-calling examples (AXPress actions) | 40% | Synthetic traces + ODIA logs |
+| General instruction-following | 20% | SmolTalk, MMLU-aux (prevents forgetting) |
+| **Epistemos app-specific traces** | 20% | CGM, AX atlas, symbol QA, trajectories |
+| Negative examples (when NOT to call a tool) | 10% | Hammer-style irrelevance augmentation |
+| Error recovery examples | 10% | Intentionally injected failures |
 
-## Cloud GPU Training (MOHAWK Distillation)
+**The 20% Epistemos allocation is sacred.** Below 15% = reflexes degrade. Above 25% = general capability suffers.
 
-### Hardware Requirements
-
-| Model | GPUs | Time | Platform | Cost |
-|-------|------|------|----------|------|
-| 1B | 4x A100 80GB | ~2-3 days | RunPod | ~$800-1,200 |
-| 3B | 8x A100 80GB | ~3-4 days | RunPod | ~$1,500-2,500 |
-| 8B | 8x A100 80GB | ~5 days | RunPod | ~$2,500-3,500 |
-
-### GPU Rental Platforms
-
-- **RunPod** ($2.79/hr H100, per-second billing, API automation) — https://runpod.io
-- **Vast.ai** (~$2.25/hr H100, marketplace, cheapest) — https://vast.ai
-- **Lambda Labs** ($2.99/hr, pre-configured ML envs, simplest) — https://lambdalabs.com
-- **EzEpoch** (automates deployment to Vast.ai/RunPod) — https://ezepoch.com
-
-### MOHAWK 3-Stage Distillation
-
-1. **Matrix Orientation** (~500M tokens): Align Mamba layer matrices to teacher attention patterns
-2. **Hidden-State Alignment** (~5B tokens): Match intermediate representations
-3. **Knowledge Distillation** (~6.5B tokens): Standard KD with teacher forcing
-
-**Teacher model**: Llama 3.1 8B → distill into Hybrid Mamba-Attention student
-
-### Config Template
-
-```yaml
-model:
-  architecture: hybrid_mamba_attention
-  mamba_ratio: 0.75  # 3:1 Mamba-to-Attention
-  attention_ratio: 0.25
-  total_layers: 32  # for 3B model
-  mamba_layers: 24
-  attention_layers: 8
-
-distillation:
-  method: mohawk
-  teacher: meta-llama/Llama-3.1-8B-Instruct
-  stages:
-    - name: matrix_orientation
-      tokens: 500_000_000
-      learning_rate: 1e-4
-    - name: hidden_state_alignment
-      tokens: 5_000_000_000
-      learning_rate: 5e-5
-    - name: knowledge_distillation
-      tokens: 6_500_000_000
-      learning_rate: 2e-5
-
-quantization:
-  method: mixed_precision
-  lm_head: 6bit
-  embed_tokens: 6bit
-  default: 4bit
+**AX Tree Format** (sparse indented text, saves 40-60% tokens vs JSON):
+```
+[Safari] (focused)
+  [Window: arxiv.org] (frontmost)
+    [Toolbar]
+      [TextField: Address Bar] value="https://arxiv.org"
+      [Button: Reload]
+    [ScrollArea]
+      [StaticText] value="Subjects"
 ```
 
-### Post-Distillation Pipeline
+**Tool-calling training tricks:**
+- Function masking (Hammer, ICLR 2025): randomly mask 33% of function/param names
+- BalanceSFT SSB loss: reweight to prevent CoT tokens dominating tool-call tokens
+- Randomize tool list order in every example (prevent position memorization)
+- Constrained decoding: Outlines (`pip install "outlines[mlxlm]"`) for JSON enforcement
 
-```bash
-# 1. Convert to MLX format
-mlx_lm.convert --hf-path ./epistemos-3b-hybrid --mlx-path ./epistemos-3b-mlx
+### Pillar 4: Reinforcement Learning
 
-# 2. Mixed-precision quantization
-mlx_lm.convert --hf-path ./epistemos-3b-mlx -q \
-  --q-group-size 64 --q-bits 4 \
-  --mlx-path ./epistemos-3b-mlx-4bit
+**GRPO with 6-component decomposed reward:**
 
-# 3. Upload to HuggingFace
-huggingface-cli upload epistemos/epistemos-base-3b-4bit ./epistemos-3b-mlx-4bit
+| Component | Weight | Signal |
+|-----------|--------|--------|
+| Format correctness | 0.10 | Parseable valid JSON |
+| Element identification | 0.30 | Correct UI element targeted |
+| Action type correctness | 0.20 | Correct verb (click/type/scroll/press) |
+| Parameter correctness | 0.20 | Correct text input, coordinates, modifiers |
+| State progression | 0.10 | Environment moved toward goal |
+| Task completion | 0.10 | Final binary success |
+
+```
+Group size: 8
+Learning rate: 3e-6 to 5e-6, cosine decay, 10% warmup
+Gradient clipping: 0.1
+Clip ratio ε: 0.2
+Temperature: 0.7-1.0
+Monitor entropy — if monotonically decreasing, model is collapsing
 ```
 
-## On-Device QLoRA Training (M2 Pro 18GB)
+**KTO for nightly binary feedback** (success/fail from ODIA): `beta=0.1, lr=1e-5, epochs=1`
 
-### Hyperparameters by Adaptation Type
+### Pillar 5: Continuous Self-Improvement (Nightly Flywheel)
+
+```
+2:00 AM  COLLECT — gather today's execution traces
+2:15 AM  FILTER — Superfiltering IFD scoring (keep top 15%)
+2:30 AM  SORT — CAMPUS multi-axis difficulty ordering
+2:45 AM  COMPOSE — 40/20/20/20 data mix
+3:00 AM  TRAIN — mlx_lm.lora --iters 200 --lora-rank 16 --lr 3e-4
+3:30 AM  EVALUATE — BFCL holdout (100 tasks) + Epistemos holdout (50 tasks)
+3:45 AM  DEPLOY — if score > baseline + 0.5%, deploy; else rollback
+MONTHLY  MERGE — fuse adapter into base, retrain fresh adapters
+```
+
+**Anti-forgetting safeguards:**
+- LoRA-only nightly updates (NEVER touch base weights)
+- CSI Safeguard: loss improves >3% without benchmark improvement → Goodhart → human review
+- Version-triggered adapter regeneration on every Epistemos build
+
+## Quantization — Hybrid-Aware Mixed Precision
+
+| Component | Precision | Why |
+|-----------|-----------|-----|
+| Mamba-2 SSM (A, B, C, dt) | FP16 | Cumulative product stability |
+| Mamba-2 conv1d kernel | FP16 | Small but accuracy-critical |
+| Mamba-2 in_proj, out_proj | INT4 | High redundancy, memory savings |
+| Attention Q,K,V projections | INT4 | Standard aggressive quant |
+| MLP gate/up/down | INT4 | Standard |
+| Output logit layer | FP16 | Accuracy-critical |
+| Embedding table | FP16 | Lookup precision |
+
+## On-Device QLoRA (Apple Silicon)
 
 | Type | Target Layers | Rank | Alpha | Examples |
 |------|--------------|------|-------|----------|
 | Knowledge | attention + MLP (gate/up/down_proj) | 32 | 64 | 3,000-10,000 |
 | Style | attention only (q/k/v/o projections) | 8 | 16 | 100-500 |
 | Tool Calling | attention + mixing layers | 16 | 32 | 1,000-3,000 |
+| Nightly ODIA | all linear layers | 16 | 32 | 200-500 |
 
-### Training Performance
+**NEVER fuse adapters into base model** (throughput collapse). Hot-swap via MoLoRA routing.
 
-| Chipset | Memory BW | Time (1000 examples, r=32) | Peak Memory |
-|---------|-----------|----------------------------|-------------|
-| M2 Pro 18GB | 200 GB/s | ~45 min/epoch | ~11.5 GB |
-| M3 Max 64GB | 400 GB/s | ~22 min/epoch | 11.5 GB |
+## Training Schedule
 
-### Critical Rules
+| Week | Activity | Output |
+|------|----------|--------|
+| 1 | MOHAWK Stage 1-3 from Llama 3.2 1B | `mohawk_nano_base` |
+| 2 | Build CGM + AX atlas + symbol QA | App-specific training data |
+| 3 | 50K general traces + 1K Epistemos trajectories | `axpress_general.jsonl` |
+| 4 | Superfilter → CAMPUS sort → SFT via mlx_lm.lora | `nano_axpress_v1.lora` |
+| 5 | GRPO with decomposed reward | Policy-improved adapter |
+| 6 | RLAIF on Epistemos trajectories | App-aware adapter |
+| 7 | Constrained decoding + end-to-end eval | Production-ready model |
+| 8+ | Nightly flywheel live | Continuously improving |
 
-- **NEVER fuse adapters** into base model (throughput collapse: 21→7 tok/s)
-- **Hot-swap only** via MoLoRA per-token routing
-- **Experience replay**: interleave 10% general data to prevent catastrophic forgetting
-- **CSI safeguard**: halt if Cluster Separation Index drops below 0.3
-
-## Autoresearch Loop (Overnight)
-
-Runs ~100 experiments while sleeping:
-1. Propose variation (rank, learning rate, data mix)
-2. Train 5 minutes
-3. Evaluate val_bpb (bits per byte)
-4. If improved → keep adapter. If degraded → discard.
-
-Budget: 30 min per experiment, 35 min hard timeout.
-
-## RunPod Automation Script
+## RunPod Commands
 
 ```bash
-#!/bin/bash
-# 1. Rent GPU
-INSTANCE_ID=$(runpodctl create pod --name epistemos-train \
-  --gpuType "NVIDIA A100 80GB" --gpuCount 4 \
-  --imageName runpod/pytorch:2.1.0-py3.10-cuda12.1.0 \
-  --volumeSize 200 --ports "8888/http" | jq -r '.id')
+# Start Nano training
+cd Epistemos/KnowledgeFusion/MOHAWK
+./runpod_train_full.sh nano
 
-# 2. Upload training code + data
-runpodctl send $INSTANCE_ID ./training_code.tar.gz
+# Monitor
+POD_ID=$(cat .last_pod_id)
+runpodctl pod ssh $POD_ID --command 'tail -20 /workspace/train.log'
 
-# 3. Start distillation
-runpodctl exec $INSTANCE_ID -- bash -c "cd /workspace && tar xzf training_code.tar.gz && python train_mohawk.py"
+# Download trained model
+runpodctl pod ssh $POD_ID --command 'tar czf /workspace/model.tar.gz mlx_model/'
 
-# 4. Monitor (poll every 5 min)
-while true; do
-  STATUS=$(runpodctl exec $INSTANCE_ID -- cat /workspace/status.json | jq -r '.stage')
-  echo "Current stage: $STATUS"
-  [ "$STATUS" = "complete" ] && break
-  sleep 300
-done
-
-# 5. Download weights
-runpodctl receive $INSTANCE_ID /workspace/output ./epistemos-3b-hybrid
-
-# 6. Terminate
-runpodctl remove pod $INSTANCE_ID
-
-# 7. Convert to MLX locally
-mlx_lm.convert --hf-path ./epistemos-3b-hybrid --mlx-path ./epistemos-3b-mlx -q
+# Stop billing
+runpodctl pod stop $POD_ID
 ```
 
 ## Anti-Loop Training (Thinking Loop Prevention)
 
-Models with `<think>` chain-of-thought can enter repetitive reasoning loops.
-Mamba's SSM state decays exponentially (helping break very long loops), but the
-25% attention layers can sustain short loops via their KV cache.
+- **Max think tokens**: Cap `<think>` blocks at 512 tokens in training data
+- **Sliding window detector**: >50% trigram overlap in last 64 tokens → force `</think>`
+- **Hard budget**: After 512 think tokens, mask all except `</think>` to -inf
+- Mamba SSM state decays exponentially (helps break loops) but attention layers sustain them
 
-### Training-Side Fixes
-- **Max think tokens**: Cap `<think>` blocks at 512 tokens in all training data.
-  Prune any ODIA trace where think block exceeds this or contains >3 repeated phrases.
-- **Repetition penalty examples**: Include training examples where the model
-  correctly exits thinking after 2-3 reasoning steps (not 10+).
-- **Diverse exit patterns**: Train on examples that exit `<think>` via different
-  triggers — confidence threshold, tool call ready, answer found, max budget hit.
+## Training Anti-Patterns (validated failure modes)
 
-### Inference-Side Fixes (in LogitProcessor)
-- **Sliding window detector**: Compare last 64 tokens against previous 64.
-  If >50% n-gram overlap (trigram), force-emit `</think>` token.
-- **Hard token budget**: After 512 think tokens, mask all tokens except `</think>`
-  to negative infinity in the logit processor.
-- **Exponential repetition penalty**: Track token frequency in a sliding window.
-  Apply penalty `logit -= freq * alpha` where alpha increases with window position.
+1. Token-level imbalance → SSB loss reweighting
+2. Tool sequence position overfitting → randomize tool list order
+3. No negative examples → 10% irrelevance-augmented data
+4. Cross-file blindness → CGM code graph
+5. AX tree stale reads → 150ms sleep after navigation
+6. Hard distribution cutoffs → gradual transitions
+7. Homogeneous schemas → include 3000+ diverse APIs from xLAM
+8. Version drift without adapter updates → mandatory post-build generation
 
-### Why Mamba Helps (but doesn't solve it)
-- SSM hidden state decays exponentially — early loop content naturally fades
-- But attention layers (every 4th) have perfect recall within their window
-- The hybrid architecture means loops are shorter-lived than pure transformers
-  but not eliminated — inference-side detection is still required
+## Research References
+
+For deep-dive details, read these in order:
+1. `docs/NANO-MASTER-TRAINING-GUIDE.md` — THE execution manual (5 pillars, all scripts)
+2. `@/Users/jojo/Downloads/Legendary Nano Model...` — Niche scripts and pipelines
+3. `@/Users/jojo/Downloads/App-Specific Training...` — Multi-scale model family
+4. `@/Users/jojo/Downloads/Fine-Tuning LLMs For App UI.md` — UI-specific fine-tuning
+5. `@/Users/jojo/Downloads/On-Device Knowledge Fusion Research Roadmap.md` — Full roadmap
+6. `@/Users/jojo/Downloads/Epistemos Omega — Dual-Brain...` — Mirror-SD, ANE benchmarks

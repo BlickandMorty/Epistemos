@@ -80,7 +80,7 @@ nonisolated struct ExperienceReplayBuffer: Sendable {
                 .init(role: "assistant", content: example.response),
             ])
             let data = try encoder.encode(line)
-            return String(data: data, encoding: .utf8)!
+            return try FoundationSafety.utf8String(from: data)
         }
 
         try FileManager.default.createDirectory(

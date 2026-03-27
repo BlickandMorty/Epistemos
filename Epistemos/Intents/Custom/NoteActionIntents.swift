@@ -9,10 +9,11 @@ import SwiftData
 // MARK: Quick Capture
 
 struct QuickCaptureIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Quick Capture"
-    nonisolated(unsafe) static var description: IntentDescription =
-        "Creates a new note with the given text already filled in."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Quick Capture" }
+    static var description: IntentDescription {
+        IntentDescription("Creates a new note with the given text already filled in.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @Parameter(title: "Title")
     var noteTitle: String
@@ -37,10 +38,11 @@ struct QuickCaptureIntent: AppIntent {
 // MARK: Summarize Note
 
 struct SummarizeNoteIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Summarize Note"
-    nonisolated(unsafe) static var description: IntentDescription =
-        "Summarizes the currently open note using AI."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Summarize Note" }
+    static var description: IntentDescription {
+        IntentDescription("Summarizes the currently open note using AI.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -58,7 +60,7 @@ struct SummarizeNoteIntent: AppIntent {
             return .result(dialog: "Could not find the active note.")
         }
 
-        let content = page.loadBody()
+        let content = NoteWindowManager.shared.currentBody(for: page.id)
 
         guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .result(dialog: "The note \"\(page.title)\" is empty — nothing to summarize.")
@@ -84,10 +86,11 @@ struct SummarizeNoteIntent: AppIntent {
 // MARK: Open Vault File
 
 struct OpenVaultFileIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Open Vault File"
-    nonisolated(unsafe) static var description: IntentDescription =
-        "Opens a note from your Epistemos vault."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Open Vault File" }
+    static var description: IntentDescription {
+        IntentDescription("Opens a note from your Epistemos vault.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @Parameter(title: "Note")
     var target: NoteEntity
@@ -103,9 +106,10 @@ struct OpenVaultFileIntent: AppIntent {
 // MARK: Move Note to Folder
 
 struct MoveNoteToFolderIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Move Note to Folder"
-    nonisolated(unsafe) static var description: IntentDescription =
-        "Moves a note to a different folder in your vault."
+    static var title: LocalizedStringResource { "Move Note to Folder" }
+    static var description: IntentDescription {
+        IntentDescription("Moves a note to a different folder in your vault.")
+    }
 
     @Parameter(title: "Note")
     var target: NoteEntity
@@ -143,10 +147,11 @@ struct MoveNoteToFolderIntent: AppIntent {
 // MARK: Search Documents
 
 struct SearchDocumentsIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Search Documents"
-    nonisolated(unsafe) static var description: IntentDescription =
-        "Searches within your Epistemos documents for specific content."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Search Documents" }
+    static var description: IntentDescription {
+        IntentDescription("Searches within your Epistemos documents for specific content.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @Parameter(title: "Query")
     var query: String
@@ -154,24 +159,16 @@ struct SearchDocumentsIntent: AppIntent {
     @MainActor
     func perform() async throws -> some ReturnsValue<[NoteEntity]> {
         guard let bootstrap = AppBootstrap.shared else { return .result(value: []) }
-        let context = ModelContext(bootstrap.modelContainer)
-        var descriptor = FetchDescriptor<SDPage>(
-            sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 100
-        let pages = (try? context.fetch(descriptor)) ?? []
-        let queryLower = query.lowercased()
+        let matches = await AppIntentSearchSupport.rankedPages(
+            query: query,
+            bootstrap: bootstrap,
+            limit: 20
+        ) { page in
+            !page.isArchived && page.templateId == nil
+        }
 
-        let matched =
-            pages
-            .filter {
-                $0.title.lowercased().contains(queryLower)
-                    || $0.loadBody().lowercased().contains(queryLower)
-                    || $0.tags.contains(where: { $0.lowercased().contains(queryLower) })
-            }
-            .prefix(20)
-            .map { $0.toNoteEntity() }
-
-        return .result(value: Array(matched))
+        return .result(value: matches.map { match in
+            match.page.toNoteEntity(contentPreview: match.snippet)
+        })
     }
 }

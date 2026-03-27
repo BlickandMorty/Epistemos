@@ -99,16 +99,16 @@ actor ExperimentTracker {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .secondsSince1970
-        let lineData = try encoder.encode(result)
-        let line = String(data: lineData, encoding: .utf8)! + "\n"
+        var lineData = try encoder.encode(result)
+        lineData.append(0x0A)
 
         if fm.fileExists(atPath: logPath.path) {
             let handle = try FileHandle(forWritingTo: logPath)
             handle.seekToEndOfFile()
-            handle.write(line.data(using: .utf8)!)
+            handle.write(lineData)
             handle.closeFile()
         } else {
-            try line.write(to: logPath, atomically: true, encoding: .utf8)
+            try lineData.write(to: logPath, options: .atomic)
         }
 
         // Update best if kept

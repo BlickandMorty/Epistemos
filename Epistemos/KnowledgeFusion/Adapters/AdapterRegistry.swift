@@ -46,7 +46,7 @@ actor AdapterRegistry {
         if let path = storagePath {
             self.storagePath = path
         } else {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let appSupport = FoundationSafety.userApplicationSupportDirectory()
             self.storagePath = appSupport
                 .appendingPathComponent("Epistemos")
                 .appendingPathComponent("adapter_registry.json")

@@ -2,12 +2,12 @@ import SwiftData
 import SwiftUI
 
 // MARK: - ProseEditorView
-// The single notes editor for the entire app. ONE persistent NSTextView —
-// MarkdownTextStorage instances are swapped per page via PageStoragePool.
-// Content loads instantly from pre-styled storage (no restyling needed).
+// The single notes editor for the entire app.
+// TextKit 2 keeps editing state in the representable coordinator and restores
+// scroll/selection from DiskStyleCache on page swaps.
 //
 // Data flow:
-//   1. Disk file (NoteFileStorage) -> @State bodyText -> ProseEditorRepresentable
+//   1. Live editor body (if already open) or disk file -> @State bodyText -> ProseEditorRepresentable2
 //   2. User types -> Coordinator updates binding -> onChange debounces -> disk file
 //   3. Disk file is the sole source of truth — page.body is always "" post-migration.
 //      External changes (restore, vault sync) signal via NoteFileStorage.pageBodyDidChange.
@@ -52,8 +52,15 @@ struct ProseEditorView: View {
     }
 
     static func initialBodySnapshot(for page: SDPage, preferredBody: String? = nil) -> (bodyText: String, lastPersistedBody: String) {
-        let body = preferredBody ?? page.loadBody()
+        let body = currentBody(for: page, preferredBody: preferredBody)
         return (body, body)
+    }
+
+    private static func currentBody(for page: SDPage, preferredBody: String? = nil) -> String {
+        if let preferredBody {
+            return preferredBody
+        }
+        return NoteWindowManager.shared.currentBody(for: page.id)
     }
 
     static func syncedNoteTitle(from body: String) -> String? {
@@ -174,7 +181,7 @@ struct ProseEditorView: View {
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
             saveTask?.cancel()
-            let body = page.loadBody()
+            let body = Self.currentBody(for: page)
             bodyText = body
             lastPersistedBody = body
             syncBlocks(body: body)
@@ -192,7 +199,7 @@ struct ProseEditorView: View {
             guard let changedId = notification.userInfo?["pageId"] as? String,
                   changedId == page.id else { return }
             saveTask?.cancel()
-            let fresh = page.loadBody()
+            let fresh = Self.currentBody(for: page)
             bodyText = fresh
             lastPersistedBody = fresh
         }
@@ -245,13 +252,6 @@ struct ProseEditorView: View {
 
     private func debouncedSave(_ newValue: String) {
         saveTask?.cancel()
-        Self.syncNoteTitleIfNeeded(
-            from: newValue,
-            for: page,
-            modelContext: modelContext
-        ) { pageId, newTitle in
-            vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
-        }
         let pageId = page.id
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
@@ -260,6 +260,13 @@ struct ProseEditorView: View {
             }
             guard newValue != lastPersistedBody else {
                 return
+            }
+            Self.syncNoteTitleIfNeeded(
+                from: newValue,
+                for: page,
+                modelContext: modelContext
+            ) { pageId, newTitle in
+                vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
             }
             // File write FIRST — disk is source of truth. Must complete before
             // modelContext.save() so any @Query cascade reads correct content.

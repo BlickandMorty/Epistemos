@@ -111,6 +111,11 @@ struct SDPageQueryDescriptorTests {
         unrelated.updatedAt = Date(timeIntervalSince1970: 100)
         context.insert(unrelated)
 
+        let archived = SDPage(title: "Quantum Archive")
+        archived.isArchived = true
+        archived.updatedAt = Date(timeIntervalSince1970: 400)
+        context.insert(archived)
+
         try context.save()
 
         let result = try context.fetch(SDPage.searchDescriptor(query: "quantum"))
@@ -367,5 +372,96 @@ struct SDPageQueryDescriptorTests {
         #expect(mapped.truthAssessment?.overallTruthLikelihood == 0.82)
         #expect(mapped.evidenceGrade == .b)
         #expect(mapped.mode == .api)
+    }
+}
+
+@Suite("App Intent Search Support")
+struct AppIntentSearchSupportTests {
+    @Test("sanitizeSnippet strips FTS highlight tags and trims surrounding whitespace")
+    func sanitizeSnippetStripsHighlightMarkup() {
+        #expect(AppIntentSearchSupport.sanitizeSnippet("  <b>Quantum</b> mechanics  ") == "Quantum mechanics")
+        #expect(AppIntentSearchSupport.sanitizeSnippet("   ") == nil)
+    }
+
+    @Test("orderedMatches preserves rank order skips duplicates and respects availability")
+    func orderedMatchesPreservesRankAndDeduplicates() {
+        let results = [
+            SearchResult(pageId: "page-2", title: "Two", snippet: "two", rank: 0.2),
+            SearchResult(pageId: "page-1", title: "One", snippet: "<b>one</b>", rank: 0.3),
+            SearchResult(pageId: "page-2", title: "Two duplicate", snippet: "ignored", rank: 0.4),
+            SearchResult(pageId: "page-3", title: "Three", snippet: "three", rank: 0.5),
+        ]
+
+        let matches = AppIntentSearchSupport.orderedMatches(
+            from: results,
+            availablePageIds: ["page-1", "page-2"],
+            limit: 5
+        )
+
+        #expect(matches == [
+            IntentSearchHit(pageId: "page-2", snippet: "two"),
+            IntentSearchHit(pageId: "page-1", snippet: "one"),
+        ])
+    }
+
+    @Test("searchable tabs exclude deferred omega panel")
+    func searchableTabsExcludeOmega() {
+        #expect(AppIntentSearchSupport.searchableTabs == [.home, .notes, .settings])
+    }
+
+    @Test("panel identifier lookup still resolves omega for existing shortcuts")
+    func panelIdentifierLookupStillResolvesOmega() async throws {
+        let panels = try await PanelEntityQuery().entities(for: ["omega"])
+        #expect(panels.map(\.id) == ["omega"])
+    }
+
+    @Test("note entity preview override uses the provided preview")
+    func noteEntityUsesPreviewOverride() {
+        let page = SDPage(title: "Quantum")
+        page.body = "Full note body"
+
+        let entity = page.toNoteEntity(contentPreview: "Matched preview")
+        #expect(entity.content == "Matched preview")
+    }
+
+    @Test("journal entity preview override uses the provided snippet")
+    func journalEntityUsesPreviewOverride() {
+        let page = SDPage(title: "Journal")
+        page.body = "Full journal body"
+
+        let entity = page.toJournalEntity(markdownPreview: "Matched preview")
+        #expect(entity.message == AttributedString("Matched preview"))
+    }
+}
+
+@Suite("Extraction and Message Regressions")
+struct ExtractionAndMessageRegressionTests {
+    @Test("note extraction tolerates missing sources payload")
+    func extractionResultDecodesWithoutSources() throws {
+        let data = Data(#"{"tags":[{"name":"Quantum","description":null}]}"#.utf8)
+        let decoded = try JSONDecoder().decode(ExtractionResult.self, from: data)
+
+        #expect(decoded.sources == nil)
+        #expect(decoded.tags.map(\.name) == ["Quantum"])
+    }
+
+    @Test("chat insight extraction tolerates missing shared sources payload")
+    func insightExtractionDecodesWithoutSharedSources() throws {
+        let data = Data(#"{"ideas":[{"summary":"Key idea","evidenceGrade":"B","relatedEntities":["Bayes"]}]}"#.utf8)
+        let decoded = try JSONDecoder().decode(InsightExtractionResult.self, from: data)
+
+        #expect(decoded.sourcesShared == nil)
+        #expect(decoded.ideas.map(\.summary) == ["Key idea"])
+    }
+
+    @Test("SDMessage chat mapping preserves error and vault briefing flags")
+    @MainActor func sdMessagePreservesFlags() {
+        let message = SDMessage(role: "assistant", content: "Hello")
+        message.isError = true
+        message.isVaultBriefing = true
+
+        let mapped = message.chatMessage(chatId: "chat-1")
+        #expect(mapped.isError)
+        #expect(mapped.isVaultBriefing)
     }
 }

@@ -723,15 +723,9 @@ struct ConcurrencyRaceConditionTests {
     
     @Test("Graph builder consistency")
     func graphBuilderConsistency() {
-        let builder = GraphBuilder()
-        
         // GraphBuilder has internal state, verify it's reset properly
-        for _ in 0..<5 {
-            // Each build call should be independent
-            _ = GraphBuilder()
-        }
-        
-        #expect(true)
+        let builders = (0..<5).map { _ in GraphBuilder() }
+        #expect(builders.count == 5)
     }
     
     @Test("Position hints during load")

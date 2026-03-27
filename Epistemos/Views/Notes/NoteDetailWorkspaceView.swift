@@ -78,8 +78,6 @@ enum NoteEditorViewFinder {
         -> NSTextView?
     {
         switch object {
-        case let tv as ClickableTextView where matches(tv, pageId: pageId):
-            return tv
         case let tv as ProseTextView2 where matches(tv, pageId: pageId):
             return tv
         default:
@@ -89,15 +87,9 @@ enum NoteEditorViewFinder {
 
     private static func matches(_ textView: NSTextView, pageId: String?) -> Bool {
         guard textView.isEditable else { return false }
+        guard let tv = textView as? ProseTextView2 else { return false }
         guard let pageId else { return true }
-        switch textView {
-        case let tv as ClickableTextView:
-            return tv.pageId == pageId
-        case let tv as ProseTextView2:
-            return tv.pageId == pageId
-        default:
-            return false
-        }
+        return tv.pageId == pageId
     }
 }
 
@@ -212,16 +204,6 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
     }
 }
 
-enum NotePreviewRenderer: Equatable {
-    case textKit1
-    case textKit2
-
-    static func resolved(useTK2Editor: Bool) -> Self {
-        _ = useTK2Editor
-        return .textKit2
-    }
-}
-
 enum NotePreviewPerformancePolicy {
     static let showsOverlayBadge = false
 }
@@ -244,31 +226,8 @@ enum NotePreviewChromeMetrics {
 }
 
 enum NotePreviewDisplay {
-    static func renderedMarkdown(_ markdown: String, renderer: NotePreviewRenderer) -> String {
-        guard renderer == .textKit1 else { return markdown }
-
-        return markdown
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map(transformHeadingLine)
-            .joined(separator: "\n")
-    }
-
-    private static func transformHeadingLine<S: StringProtocol>(_ line: S) -> String {
-        let rawLine = String(line)
-        let leadingSpaces = rawLine.prefix(while: \.isWhitespace)
-        let trimmed = String(rawLine.dropFirst(leadingSpaces.count))
-
-        if trimmed.hasPrefix("### ") && !trimmed.hasPrefix("#### ") {
-            return "\(leadingSpaces)### \(MarkdownHeadingDisplay.displayText(String(trimmed.dropFirst(4)), level: 3))"
-        }
-        if trimmed.hasPrefix("## ") && !trimmed.hasPrefix("### ") {
-            return "\(leadingSpaces)## \(MarkdownHeadingDisplay.displayText(String(trimmed.dropFirst(3)), level: 2))"
-        }
-        if trimmed.hasPrefix("# ") && !trimmed.hasPrefix("## ") {
-            return "\(leadingSpaces)# \(MarkdownHeadingDisplay.displayText(String(trimmed.dropFirst(2)), level: 1))"
-        }
-
-        return rawLine
+    static func renderedMarkdown(_ markdown: String) -> String {
+        markdown
     }
 }
 
@@ -554,7 +513,7 @@ private struct NoteToolbarIcon: View {
     var isActive: Bool = false
 
     private var color: Color {
-        theme.foreground.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: isActive))
+        theme.resolved.foreground.color.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: isActive))
     }
 
     var body: some View {
@@ -642,18 +601,19 @@ struct NoteDetailWorkspaceView: View {
     @State private var isTransitioning = false
     /// Per-note AI chat state (one per open note tab).
     @State private var noteChatState: NoteChatState
+    @MainActor
     init(pageId: String) {
         self.pageId = pageId
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
         _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
-        _persistedBody = State(initialValue: NoteFileStorage.readBody(pageId: pageId))
+        _persistedBody = State(initialValue: NoteWindowManager.shared.currentBody(for: pageId))
     }
 
     static func resolvedPersistedBody(_ persistedBody: String, for page: SDPage) -> String {
         if !persistedBody.isEmpty {
             return persistedBody
         }
-        return page.loadBody()
+        return page.body
     }
 
     var body: some View {
@@ -791,7 +751,7 @@ struct NoteDetailWorkspaceView: View {
             }
         }
         .onReceive(
-            NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)
+            NotificationCenter.default.publisher(for: ProseTextView2.createIdeaNotification)
         ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
             snapshotEditorSelection()
@@ -799,7 +759,7 @@ struct NoteDetailWorkspaceView: View {
             showIdeasPopover = true
         }
         .onReceive(
-            NotificationCenter.default.publisher(for: ClickableTextView.createBrainDumpNotification)
+            NotificationCenter.default.publisher(for: ProseTextView2.createBrainDumpNotification)
         ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
             snapshotEditorSelection()
@@ -807,7 +767,7 @@ struct NoteDetailWorkspaceView: View {
             showIdeasPopover = true
         }
         .onReceive(
-            NotificationCenter.default.publisher(for: ClickableTextView.aiOperationNotification)
+            NotificationCenter.default.publisher(for: ProseTextView2.aiOperationNotification)
         ) { notif in
             guard let info = notif.userInfo as? [String: String],
                 let op = info["operation"],
@@ -818,7 +778,7 @@ struct NoteDetailWorkspaceView: View {
             handleAIContextMenuOperation(op, selectedText: selected, instruction: instruction)
         }
         .onReceive(
-            NotificationCenter.default.publisher(for: ClickableTextView.blockPropertyNotification)
+            NotificationCenter.default.publisher(for: ProseTextView2.blockPropertyNotification)
         ) { notif in
             guard let info = notif.userInfo as? [String: Any],
                 info["pageId"] as? String == pageId,
@@ -831,7 +791,7 @@ struct NoteDetailWorkspaceView: View {
             showBlockPropertySheet = true
         }
         .onReceive(
-            NotificationCenter.default.publisher(for: ClickableTextView.translateNotification)
+            NotificationCenter.default.publisher(for: ProseTextView2.translateNotification)
         ) { notif in
             guard let info = notif.userInfo as? [String: String],
                 info["pageId"] == pageId,
@@ -854,12 +814,9 @@ struct NoteDetailWorkspaceView: View {
         HStack(spacing: 0) {
             ZStack {
                 if let page = pages.first {
-                    let previewRenderer = NotePreviewRenderer.resolved(
-                        useTK2Editor: notesUI.useTK2Editor
-                    )
                     VStack(spacing: 0) {
                         if showPreview {
-                            notePreview(body: displayBody(for: page), renderer: previewRenderer)
+                            notePreview(body: displayBody(for: page))
                         } else {
                             noteEditorSurface(page: page)
                         }
@@ -877,16 +834,14 @@ struct NoteDetailWorkspaceView: View {
                 .allowsHitTesting(false)
             }
             .overlay(alignment: .trailing) {
+                let outlineMarkdown = pages.first.map(displayBody(for:)) ?? persistedBody
                 NoteOutlineOverlay(
-                    markdown: notesUI.useTK2Editor
-                        ? ""
-                        : (PageStoragePool.shared.bodyText(for: pageId)
-                            ?? persistedBody),
+                    markdown: outlineMarkdown,
                     theme: ui.theme,
                     onNavigate: { charOffset in
                         scrollEditorTo(charOffset: charOffset)
                     },
-                    externalItems: notesUI.useTK2Editor ? tocItems : nil
+                    externalItems: tocItems.isEmpty ? nil : tocItems
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -939,7 +894,7 @@ struct NoteDetailWorkspaceView: View {
             .onReceive(NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyDidChange)) { notification in
                 guard let changedId = notification.userInfo?["pageId"] as? String,
                       changedId == pageId else { return }
-                let freshBody = NoteFileStorage.readBody(pageId: pageId)
+                let freshBody = NoteWindowManager.shared.currentBody(for: pageId)
                 guard persistedBody != freshBody else { return }
                 persistedBody = freshBody
                 scheduleMetricsRefresh(body: freshBody, includeMarkdownHeadings: true)
@@ -953,7 +908,7 @@ struct NoteDetailWorkspaceView: View {
                 Text("\(wordCount) words")
                     .font(AppDisplayTypography.font(size: 13))
                     .monospacedDigit()
-                    .foregroundStyle(ui.theme.foreground.opacity(0.55))
+                    .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
             }
 
             if NoteWorkspaceFooterDisplay.showsShortcutHints {
@@ -968,7 +923,7 @@ struct NoteDetailWorkspaceView: View {
                                 .font(AppDisplayTypography.font(size: 10))
                                 .padding(.leading, 2)
                         }
-                        .foregroundStyle(ui.theme.foreground.opacity(0.35))
+                        .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.35))
                     }
                 }
             }
@@ -1406,15 +1361,6 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    // MARK: - Editor Flush & Pool Reset (Mode Switching)
-    // Flushes unsaved text from the current editor to page.body before switching modes,
-    // preventing stale data in the new editor.
-    // Also invalidates the PageStoragePool entry so the regular editor gets a fresh
-    // MarkdownTextStorage with correct formatting when switching back from Preview.
-
-    private func invalidateEditorCache() {
-    }
-
     private func persistedBodyFor(_ page: SDPage) -> String {
         Self.resolvedPersistedBody(persistedBody, for: page)
     }
@@ -1458,14 +1404,13 @@ struct NoteDetailWorkspaceView: View {
 
     private func togglePreviewMode() {
         flushCurrentEditor()
-        invalidateEditorCache()
         showPreview.toggle()
     }
 
     @ViewBuilder
-    private func notePreview(body: String, renderer: NotePreviewRenderer) -> some View {
+    private func notePreview(body: String) -> some View {
         AdaptiveNotePreviewView2(
-            content: NotePreviewDisplay.renderedMarkdown(body, renderer: renderer),
+            content: NotePreviewDisplay.renderedMarkdown(body),
             theme: ui.theme,
             hasMultipleTabs: hasMultipleTabs
         )
@@ -1537,7 +1482,7 @@ struct NoteDetailWorkspaceView: View {
             HStack {
                 Image(systemName: "sparkles")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ui.theme.accent)
+                    .foregroundStyle(ui.theme.resolved.accent.color)
                 Text("Response")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.primary)
@@ -1631,7 +1576,7 @@ struct NoteDetailWorkspaceView: View {
                                 .font(.system(size: 11, weight: .medium))
                         }
                         .buttonStyle(.bordered)
-                        .tint(ui.theme.accent)
+                        .tint(ui.theme.resolved.accent.color)
 
                         Button {
                             noteChatState.discardResponse()
@@ -1723,12 +1668,12 @@ struct NoteDetailWorkspaceView: View {
                 .font(.system(size: compact ? 10 : 11, weight: .medium))
                 .lineLimit(1)
         }
-        .foregroundStyle(ui.theme.accent)
+        .foregroundStyle(ui.theme.resolved.accent.color)
         .padding(.horizontal, compact ? 8 : 10)
         .padding(.vertical, compact ? 4 : 5)
         .background(
             Capsule()
-                .fill(ui.theme.accent.opacity(0.1))
+                .fill(ui.theme.resolved.accent.color.opacity(0.1))
         )
     }
 
@@ -2165,7 +2110,7 @@ private struct IdeasPanel: View {
                         .font(.system(size: 10))
                         .lineLimit(1)
                 }
-                .foregroundStyle(theme.accent.opacity(0.8))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.8))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 6)
             }
@@ -2243,7 +2188,7 @@ private struct IdeasPanel: View {
                     )
                     .font(.system(size: 11, weight: .medium))
                 }
-                .foregroundStyle(showNewForm ? theme.mutedForeground : theme.accent)
+                .foregroundStyle(showNewForm ? theme.mutedForeground : theme.resolved.accent.color)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
             }
@@ -2285,10 +2230,10 @@ private struct IdeasPanel: View {
                             .foregroundStyle(theme.textTertiary)
                     }
                 }
-                .foregroundStyle(theme.accent.opacity(0.8))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.8))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(theme.accent.opacity(0.08), in: Capsule())
+                .background(theme.resolved.accent.color.opacity(0.08), in: Capsule())
             }
 
             TextField(activeTab == .ideas ? "Idea title" : "Brain dump title", text: $newTitle)
@@ -2299,7 +2244,7 @@ private struct IdeasPanel: View {
 
             TextEditor(text: $newBody)
                 .font(.system(size: 11))
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(theme.resolved.foreground.color)
                 .scrollContentBackground(.hidden)
                 .frame(height: 80)
                 .padding(4)
@@ -2660,7 +2605,7 @@ private struct IdeaRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.resolved.foreground.color)
                         .lineLimit(isExpanded ? nil : 1)
 
                     if !item.body.isEmpty {
@@ -2714,10 +2659,10 @@ private struct IdeaRow: View {
                                 .foregroundStyle(theme.textTertiary)
                         }
                     }
-                    .foregroundStyle(theme.accent.opacity(0.8))
+                    .foregroundStyle(theme.resolved.accent.color.opacity(0.8))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(theme.accent.opacity(0.08), in: Capsule())
+                    .background(theme.resolved.accent.color.opacity(0.08), in: Capsule())
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -2737,10 +2682,10 @@ private struct IdeaRow: View {
                             Text("Insert")
                                 .font(.system(size: 9, weight: .medium))
                         }
-                        .foregroundStyle(theme.accent)
+                        .foregroundStyle(theme.resolved.accent.color)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(theme.accent.opacity(0.1), in: Capsule())
+                        .background(theme.resolved.accent.color.opacity(0.1), in: Capsule())
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -2821,10 +2766,10 @@ private struct IdeaRow: View {
                 if item.formattedBody != nil {
                     Text("AI formatted")
                         .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(theme.accent.opacity(0.7))
+                        .foregroundStyle(theme.resolved.accent.color.opacity(0.7))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
-                        .background(theme.accent.opacity(0.1), in: Capsule())
+                        .background(theme.resolved.accent.color.opacity(0.1), in: Capsule())
                 }
             }
         }
@@ -2834,144 +2779,6 @@ private struct IdeaRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(theme.glassBorder, lineWidth: 0.5)
         )
-    }
-}
-
-// MARK: - Note Preview View
-// Read-only rendered markdown preview using MarkdownTextStorage.
-// Reuses the same styling as the editor for visual consistency.
-
-private struct NotePreviewView: NSViewRepresentable {
-    let body: String
-    let theme: EpistemosTheme
-
-    private static let maxReadableWidth: CGFloat = 720
-    private static let minHorizontalInset: CGFloat = 60
-    private static let verticalInset: CGFloat = 54
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let storage = MarkdownTextStorage()
-        storage.isDark = theme.isDark
-        storage.theme = theme
-
-        let layoutManager = NSLayoutManager()
-        layoutManager.allowsNonContiguousLayout = true
-        layoutManager.backgroundLayoutEnabled = true
-        storage.addLayoutManager(layoutManager)
-
-        let container = NSTextContainer(
-            size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
-        container.widthTracksTextView = true
-        layoutManager.addTextContainer(container)
-
-        let tv = NSTextView(frame: .zero, textContainer: container)
-        tv.wantsLayer = true
-        tv.isEditable = false
-        tv.isSelectable = true
-        tv.isRichText = false
-        tv.usesFontPanel = false
-        tv.usesRuler = false
-        tv.drawsBackground = false
-        tv.backgroundColor = .clear
-        tv.textColor = NSColor(theme.foreground)
-        tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
-        tv.textContainer?.lineFragmentPadding = 0
-        tv.isVerticallyResizable = true
-        tv.isHorizontallyResizable = false
-        tv.autoresizingMask = [.width]
-        tv.minSize = NSSize(width: 0, height: 0)
-        tv.maxSize = NSSize(
-            width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-
-        // Set content
-        let fullRange = NSRange(location: 0, length: storage.length)
-        storage.replaceCharacters(in: fullRange, with: body)
-
-        let scrollView = NSScrollView()
-        scrollView.documentView = tv
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        scrollView.drawsBackground = false
-        scrollView.backgroundColor = .clear
-        scrollView.wantsLayer = true
-        scrollView.automaticallyAdjustsContentInsets = false
-        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-
-        // Centering observer
-        scrollView.contentView.postsFrameChangedNotifications = true
-        context.coordinator.frameObserver = NotificationCenter.default.addObserver(
-            forName: NSView.frameDidChangeNotification,
-            object: scrollView.contentView,
-            queue: .main
-        ) { [weak tv] _ in
-            guard let tv else { return }
-            MainActor.assumeIsolated {
-                Self.updateCenteringInsets(for: tv)
-            }
-        }
-        context.coordinator.storage = storage
-        context.coordinator.lastTheme = theme
-
-        DispatchQueue.main.async {
-            Self.updateCenteringInsets(for: tv)
-        }
-
-        return scrollView
-    }
-
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let storage = context.coordinator.storage else { return }
-
-        var needsRestyle = false
-        if context.coordinator.lastTheme != theme {
-            context.coordinator.lastTheme = theme
-            storage.isDark = theme.isDark
-            storage.theme = theme
-            if let tv = scrollView.documentView as? NSTextView {
-                tv.textColor = NSColor(theme.foreground)
-            }
-            needsRestyle = true
-        }
-
-        // Update content if changed
-        if storage.string != body {
-            let fullRange = NSRange(location: 0, length: storage.length)
-            storage.replaceCharacters(in: fullRange, with: body)
-        } else if needsRestyle {
-            storage.reapplyAllStyles()
-        }
-
-        // Update centering
-        if let tv = scrollView.documentView as? NSTextView {
-            Self.updateCenteringInsets(for: tv)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    final class Coordinator {
-        var storage: MarkdownTextStorage?
-        var lastTheme: EpistemosTheme?
-        nonisolated(unsafe) var frameObserver: (any NSObjectProtocol)?
-
-        deinit {
-            if let observer = frameObserver {
-                NotificationCenter.default.removeObserver(observer)
-            }
-        }
-    }
-
-    private static func updateCenteringInsets(for tv: NSTextView) {
-        guard let scrollView = tv.enclosingScrollView else { return }
-        let availableWidth = scrollView.contentSize.width
-        let horizontalInset = max(minHorizontalInset, (availableWidth - maxReadableWidth) / 2)
-        let currentInset = tv.textContainerInset
-        if abs(currentInset.width - horizontalInset) > 0.5
-            || abs(currentInset.height - verticalInset) > 0.5
-        {
-            tv.textContainerInset = NSSize(width: horizontalInset, height: verticalInset)
-        }
     }
 }
 

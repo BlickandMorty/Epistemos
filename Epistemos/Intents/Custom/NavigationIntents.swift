@@ -6,9 +6,11 @@ import AppIntents
 // MARK: Open Panel
 
 struct OpenPanelIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Open Epistemos Panel"
-    nonisolated(unsafe) static var description: IntentDescription = "Opens a specific panel in Epistemos."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Open Epistemos Panel" }
+    static var description: IntentDescription {
+        IntentDescription("Opens a specific panel in Epistemos.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @Parameter(title: "Panel")
     var panel: PanelEntity
@@ -26,9 +28,11 @@ struct OpenPanelIntent: AppIntent {
 // MARK: Open MiniChat
 
 struct OpenMiniChatIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Open MiniChat"
-    nonisolated(unsafe) static var description: IntentDescription = "Opens the Epistemos floating chat."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Open MiniChat" }
+    static var description: IntentDescription {
+        IntentDescription("Opens the Epistemos floating chat.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @MainActor
     func perform() async throws -> some IntentResult {

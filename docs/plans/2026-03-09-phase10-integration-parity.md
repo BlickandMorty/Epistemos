@@ -1,6 +1,8 @@
 # Phase 10: Integration + Parity — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Historical note:** This plan is complete and retained as an implementation record. The live app no longer uses `useTK2Editor`, `PageStoragePool`, or the TK1 production prose stack referenced below.
 
 **Goal:** Wire TK2 editor into the full app lifecycle, fix TK1-assuming plumbing, write parity tests, and add performance benchmarks.
 

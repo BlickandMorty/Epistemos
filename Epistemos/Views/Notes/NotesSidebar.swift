@@ -593,7 +593,6 @@ struct NotesSidebar: View {
         .background(sidebarBackground)
         .onAppear {
             rebuildCache()
-            preWarmRecentPages()
             // Deferred rebuild: VaultIndexActor may still be wiring folder relationships
             // when the sidebar first appears. Rebuild again after context merge settles.
             // 200ms is enough for SwiftData background→main context merge.
@@ -1164,67 +1163,6 @@ struct NotesSidebar: View {
         }
     }
 
-    // MARK: - Pre-Warming (Options A + A2)
-
-    /// On sidebar appear, pre-warm the 3 most recently updated pages.
-    /// These are the notes the user is most likely to revisit.
-    /// Body reads happen on VaultIndexActor (background) to avoid blocking MainActor.
-    private func preWarmRecentPages() {
-        let theme = ui.theme
-        Task {
-            // Step 1: fetch IDs only on main thread (no .body access = no disk I/O)
-            var desc = FetchDescriptor<SDPage>(
-                sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-            )
-            desc.fetchLimit = 3
-            guard let recentPages = try? modelContext.fetch(desc), !recentPages.isEmpty else {
-                return
-            }
-            let ids = recentPages.map(\.id).filter {
-                PageStoragePool.shared.bodyText(for: $0) == nil
-            }
-            guard !ids.isEmpty else { return }
-
-            // Step 2: read bodies on background actor (off MainActor)
-            let noteBodies = await vaultSync.fetchNoteBodies(ids: ids)
-            guard !noteBodies.isEmpty else { return }
-
-            // Step 3: feed to pool on MainActor
-            let pages = noteBodies.map { (id: $0.pageId, body: $0.body) }
-            PageStoragePool.shared.preWarmRecent(pages: pages, theme: theme)
-        }
-    }
-
-    /// When a folder is expanded, pre-warm storages for its child pages
-    /// so clicking a note opens instantly (no cold-cache styling delay).
-    /// Body reads happen on VaultIndexActor (background) to avoid blocking MainActor.
-    private func preWarmFolder(id: String) {
-        guard let folder = cachedFolderById[id] else { return }
-
-        // Gather page IDs from this folder and immediate subfolders
-        var pageIds = Set(folder.childPages.map(\.id))
-        for childFolderId in folder.childFolderIds {
-            if let child = cachedFolderById[childFolderId] {
-                pageIds.formUnion(child.childPages.map(\.id))
-            }
-        }
-        guard !pageIds.isEmpty else { return }
-
-        let theme = ui.theme
-        let idArray = Array(pageIds.prefix(6)).filter {
-            PageStoragePool.shared.bodyText(for: $0) == nil
-        }
-        guard !idArray.isEmpty else { return }
-        Task {
-            // Read bodies on background actor (off MainActor)
-            let noteBodies = await vaultSync.fetchNoteBodies(ids: idArray)
-            guard !noteBodies.isEmpty else { return }
-
-            let pages = noteBodies.map { (id: $0.pageId, body: $0.body) }
-            PageStoragePool.shared.preWarm(pages: pages, theme: theme)
-        }
-    }
-
     // MARK: - Action Handler
 
     private func handleAction(_ action: SidebarAction) {
@@ -1361,12 +1299,7 @@ struct NotesSidebar: View {
             }
 
         case .toggleFolder(let id):
-            let wasCollapsed = !notesUI.expandedFolderIds.contains(id)
             withAnimation(Motion.snap) { notesUI.toggleFolder(id) }
-            // Pre-warm storages for pages in this folder when expanding
-            if wasCollapsed {
-                preWarmFolder(id: id)
-            }
 
         case .toggleJournalFolder:
             withAnimation(Motion.snap) { notesUI.isJournalExpanded.toggle() }
@@ -1431,6 +1364,7 @@ struct NotesSidebar: View {
         clearSelectionIfNeeded(pageId: page.id)
         notesUI.closeTab(page.id)
         NoteWindowManager.shared.closeWindowDisplaying(pageId: page.id)
+        AppBootstrap.shared?.instantRecallService.removeNote(noteId: page.id)
         if removeVaultFile {
             vaultSync.deletePageFromDisk(filePath: page.filePath)
         }
@@ -1597,7 +1531,7 @@ private struct VaultHeader: View {
         HStack(spacing: 6) {
             Image(systemName: "archivebox")
                 .font(.epSmall)
-                .foregroundStyle(theme.accent.opacity(0.7))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.7))
             Text(name)
                 .font(AppHeadingRole.section.font)
                 .foregroundStyle(theme.fontAccent.opacity(0.78))
@@ -1670,7 +1604,7 @@ private struct FolderRow: View {
                     )
                     .font(.epCaption)
                     .foregroundStyle(
-                        item.isCollection ? theme.accent : theme.accent.opacity(0.75)
+                        item.isCollection ? theme.resolved.accent.color : theme.resolved.accent.color.opacity(0.75)
                     )
                     .frame(width: 14)
 
@@ -1683,7 +1617,7 @@ private struct FolderRow: View {
                     } else {
                         Text(item.name.isEmpty ? "Untitled Folder" : item.name)
                             .font(.epBody).fontWeight(.medium)
-                            .foregroundStyle(theme.foreground.opacity(0.9))
+                            .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
                             .lineLimit(1)
                     }
 
@@ -1703,13 +1637,13 @@ private struct FolderRow: View {
                 .background {
                     if isDropTarget {
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(theme.accent.opacity(0.15))
+                            .fill(theme.resolved.accent.color.opacity(0.15))
                     }
                 }
                 .overlay(
                     RoundedRectangle(cornerRadius: 5)
                         .strokeBorder(
-                            isDropTarget ? theme.accent.opacity(0.4) : Color.clear, lineWidth: 1)
+                            isDropTarget ? theme.resolved.accent.color.opacity(0.4) : Color.clear, lineWidth: 1)
                 )
                 .contentShape(Rectangle())
             }
@@ -1842,12 +1776,12 @@ private struct JournalFolderRow: View {
 
                     Image(systemName: "calendar")
                         .font(.epCaption)
-                        .foregroundStyle(theme.accent.opacity(0.65))
+                        .foregroundStyle(theme.resolved.accent.color.opacity(0.65))
                         .frame(width: 14)
 
                     Text("Daily Notes")
                         .font(.epBody).fontWeight(.medium)
-                        .foregroundStyle(theme.foreground.opacity(0.9))
+                        .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
 
                     Spacer()
 
@@ -1915,7 +1849,7 @@ private struct IdeasFolderRow: View {
 
                     Text("Ideas")
                         .font(.epBody).fontWeight(.medium)
-                        .foregroundStyle(theme.foreground.opacity(0.9))
+                        .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
 
                     Spacer()
 
@@ -1963,7 +1897,7 @@ private struct IdeaRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.title.isEmpty ? "Untitled" : item.title)
                         .font(.epBody)
-                        .foregroundStyle(theme.foreground.opacity(0.8))
+                        .foregroundStyle(theme.resolved.foreground.color.opacity(0.8))
                         .lineLimit(1)
 
                     let source =
@@ -2023,7 +1957,7 @@ private struct FileRow: View {
                         )
                         .font(.epCaption)
                         .foregroundStyle(
-                            isActive ? theme.accent : theme.mutedForeground.opacity(0.4)
+                            isActive ? theme.resolved.accent.color : theme.mutedForeground.opacity(0.4)
                         )
                         .frame(width: 14)
                     }
@@ -2039,10 +1973,10 @@ private struct FileRow: View {
                             .font(.epBody).fontWeight(isActive ? .semibold : .regular)
                             .foregroundStyle(
                                 isActive
-                                    ? theme.foreground
+                                    ? theme.resolved.foreground.color
                                     : (item.isFavorite
                                         ? favoriteHighlight
-                                        : theme.foreground.opacity(0.8))
+                                        : theme.resolved.foreground.color.opacity(0.8))
                             )
                             .lineLimit(1)
                     }
@@ -2058,12 +1992,12 @@ private struct FileRow: View {
                     if item.isPinned {
                         Image(systemName: "pin.fill")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(theme.accent.opacity(0.8))
+                            .foregroundStyle(theme.resolved.accent.color.opacity(0.8))
                     }
 
                     if isActive {
                         Circle()
-                            .fill(theme.accent)
+                            .fill(theme.resolved.accent.color)
                             .frame(width: 5, height: 5)
                     }
                 }
@@ -2073,7 +2007,7 @@ private struct FileRow: View {
                 .background {
                     if isActive {
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(theme.accent.opacity(0.1))
+                            .fill(theme.resolved.accent.color.opacity(0.1))
                     } else if item.isFavorite {
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(favoriteHighlight.opacity(theme.isDark ? 0.10 : 0.08))
@@ -2164,11 +2098,11 @@ private struct SearchResultRow: View {
                                 ? "cube.transparent" : "doc.text"
                         )
                         .font(.epSmall)
-                        .foregroundStyle(theme.accent.opacity(0.6))
+                        .foregroundStyle(theme.resolved.accent.color.opacity(0.6))
                     }
                     Text(item.title.isEmpty ? "Untitled" : item.title)
                         .font(.epBody).fontWeight(.medium)
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.resolved.foreground.color)
                         .lineLimit(1)
 
                     if let category = item.matchCategory {
@@ -2217,7 +2151,7 @@ private struct EmptyTreeState: View {
         VStack(spacing: Spacing.sm) {
             Image(systemName: "folder.badge.plus")
                 .font(.system(size: 32))
-                .foregroundStyle(theme.accent.opacity(0.4))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.4))
             Text("No notes yet")
                 .font(.epCaption)
                 .foregroundStyle(theme.mutedForeground)
@@ -2225,7 +2159,7 @@ private struct EmptyTreeState: View {
                 onAction(.createNewPage)
             }
             .font(.epCaption).fontWeight(.medium)
-            .foregroundStyle(theme.accent)
+            .foregroundStyle(theme.resolved.accent.color)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 40)

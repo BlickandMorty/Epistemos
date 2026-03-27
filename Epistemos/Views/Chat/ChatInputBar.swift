@@ -420,7 +420,8 @@ enum ChatComposerInputMetrics {
     static let maxHeight = maxHeight(for: fontSize)
 
     static func lineHeight(for fontSize: CGFloat) -> CGFloat {
-        ceil(NSLayoutManager().defaultLineHeight(for: NSFont.systemFont(ofSize: fontSize)))
+        let font = NSFont.systemFont(ofSize: fontSize)
+        return ceil(font.ascender - font.descender + font.leading)
     }
 
     static func minHeight(for fontSize: CGFloat) -> CGFloat {
@@ -580,8 +581,8 @@ struct ChatComposerTextEditor: NSViewRepresentable {
 
         func applyTheme(_ theme: EpistemosTheme, to textView: ChatComposerNativeTextView) {
             textView.font = NSFont.systemFont(ofSize: parent.fontSize)
-            textView.textColor = NSColor(theme.foreground)
-            textView.insertionPointColor = NSColor(theme.foreground)
+            textView.textColor = NSColor(theme.resolved.foreground.color)
+            textView.insertionPointColor = NSColor(theme.resolved.foreground.color)
         }
 
         func updateHeight(for textView: ChatComposerNativeTextView) {

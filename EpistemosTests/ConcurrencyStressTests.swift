@@ -73,9 +73,7 @@ struct ConcurrencyStressTests {
         }
         
         // Add edges concurrently
-        var totalTime: Duration = .zero
-        
-        totalTime = await measureAsync {
+        _ = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 for i in 0..<nodeCount {
                     group.addTask { @MainActor in
@@ -190,6 +188,7 @@ struct ConcurrencyStressTests {
         let store = GraphStore()
         let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 1000)
         store.loadDirect(nodes: nodes, edges: edges)
+        let queryPrefix = "Test Node "
         
         let searchCount = 100
         var totalResults = 0
@@ -200,7 +199,7 @@ struct ConcurrencyStressTests {
             totalResults = await withTaskGroup(of: Int.self) { group -> Int in
                 for i in 0..<searchCount {
                     group.addTask { @MainActor in
-                        let results = store.fuzzySearch(query: "Node\(i % 100)", limit: 20)
+                        let results = store.fuzzySearch(query: "\(queryPrefix)\(i % 100)", limit: 20)
                         return results.count
                     }
                 }
@@ -366,7 +365,7 @@ struct ConcurrencyStressTests {
         var totalTime: Duration = .zero
         
         totalTime = await measureAsync {
-            for i in 0..<frameCount {
+            for _ in 0..<frameCount {
                 let frameStart = ContinuousClock().now
                 
                 // Simulate frame work
@@ -383,6 +382,7 @@ struct ConcurrencyStressTests {
         }
         
         let avgFrameTime = Double(totalTime.components.attoseconds) / Double(frameCount)
+        #expect(avgFrameTime >= 0)
         #expect(totalTime < .seconds(1), "Frame dispatch took \(totalTime)")
     }
     
@@ -553,7 +553,7 @@ struct ConcurrencyStressTests {
         totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
                 // Readers
-                for i in 0..<operationCount {
+                for _ in 0..<operationCount {
                     group.addTask { @MainActor in
                         let context = ModelContext(container)
                         let descriptor = FetchDescriptor<SDGraphNode>()
@@ -681,7 +681,7 @@ struct ConcurrencyStressTests {
         
         totalTime = await measureAsync {
             await withTaskGroup(of: Void.self) { group in
-                for i in 0..<modificationCount {
+                for _ in 0..<modificationCount {
                     group.addTask { @MainActor in
                         // Different types of reads
                         let _ = store.neighbors(of: nodeId)

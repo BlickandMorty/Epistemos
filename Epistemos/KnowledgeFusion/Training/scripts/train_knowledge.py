@@ -22,8 +22,8 @@ import sys
 import time
 
 # Defaults from research paper — overridable via CLI args.
-DEFAULT_RANK = 16
-DEFAULT_ALPHA = 32
+DEFAULT_RANK = 32
+DEFAULT_ALPHA = 64
 DEFAULT_LR = 2e-5
 DEFAULT_BATCH = 1
 DEFAULT_SEQ = 1024

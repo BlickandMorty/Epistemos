@@ -41,7 +41,7 @@ struct VaultOrganizerView: View {
             footer
         }
         .frame(width: 480, height: 560)
-        .background(theme.background)
+        .background(theme.resolved.background.color)
     }
 
     // MARK: - Header
@@ -50,7 +50,7 @@ struct VaultOrganizerView: View {
         HStack {
             Image(systemName: "wand.and.stars")
                 .font(.system(size: 16))
-                .foregroundStyle(theme.accent)
+                .foregroundStyle(theme.resolved.accent.color)
             Text("Vault Organizer")
                 .font(.epHeading)
                 .foregroundStyle(theme.textPrimary)
@@ -104,7 +104,7 @@ struct VaultOrganizerView: View {
                 .frame(maxWidth: 300)
             Button("Scan Vault") { startScan() }
                 .buttonStyle(.borderedProminent)
-                .tint(theme.accent)
+                .tint(theme.resolved.accent.color)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -139,7 +139,7 @@ struct VaultOrganizerView: View {
                 if appliedCount > 0 {
                     Text("· \(appliedCount) applied")
                         .font(.epCaption)
-                        .foregroundStyle(theme.accent)
+                        .foregroundStyle(theme.resolved.accent.color)
                 }
             }
             Spacer()
@@ -149,12 +149,12 @@ struct VaultOrganizerView: View {
             } else if !suggestions.isEmpty {
                 Button("Apply All") { applyAll() }
                     .buttonStyle(.borderedProminent)
-                    .tint(theme.accent)
+                    .tint(theme.resolved.accent.color)
                     .font(.epBodyMedium)
             } else {
                 Button("Scan Vault") { startScan() }
                     .buttonStyle(.borderedProminent)
-                    .tint(theme.accent)
+                    .tint(theme.resolved.accent.color)
                     .font(.epBodyMedium)
             }
         }
@@ -501,7 +501,7 @@ private struct SuggestionCard: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(theme.accent, in: Capsule())
+                        .background(theme.resolved.accent.color, in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -516,7 +516,7 @@ private struct SuggestionCard: View {
             switch suggestion.type {
             case .addTags:
                 Image(systemName: "tag")
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(theme.resolved.accent.color)
             case .moveToFolder:
                 Image(systemName: "folder")
                     .foregroundStyle(.orange)
@@ -539,8 +539,8 @@ private struct SuggestionCard: View {
                         .font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(theme.accent.opacity(0.15), in: Capsule())
-                        .foregroundStyle(theme.accent)
+                        .background(theme.resolved.accent.color.opacity(0.15), in: Capsule())
+                        .foregroundStyle(theme.resolved.accent.color)
                 }
             }
         case .moveToFolder(_, let name):

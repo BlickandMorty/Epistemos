@@ -4,6 +4,37 @@ import Testing
 import SwiftUI
 @testable import Epistemos
 
+private final class LayoutNotificationCounts: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var frameCount = 0
+    nonisolated(unsafe) private var boundsCount = 0
+
+    nonisolated func recordFrameChange() {
+        lock.lock()
+        defer { lock.unlock() }
+        frameCount += 1
+    }
+
+    nonisolated func recordBoundsChange() {
+        lock.lock()
+        defer { lock.unlock() }
+        boundsCount += 1
+    }
+
+    nonisolated func frameChanges() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return frameCount
+    }
+
+    nonisolated func boundsChanges() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return boundsCount
+    }
+}
+
+@MainActor
 @Suite("Note Editor Layout")
 struct NoteEditorLayoutTests {
     @MainActor
@@ -29,25 +60,21 @@ struct NoteEditorLayoutTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
+    private func loadRepoTextFile(_ relativePath: String) throws -> String {
+        let testsFileURL = URL(fileURLWithPath: #filePath)
+        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+        return try String(
+            contentsOf: repoRoot.appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
+    }
+
     @MainActor
-    @Test("Notes UI state stays on the TK2 editor even when the legacy preference is false")
-    func notesUIStateStaysOnTextKit2() {
-        let defaults = UserDefaults.standard
-        let key = "epistemos.editor.useTK2.v2"
-        let previous = defaults.object(forKey: key)
-        defer {
-            if let previous {
-                defaults.set(previous, forKey: key)
-            } else {
-                defaults.removeObject(forKey: key)
-            }
-        }
-
-        defaults.set(false, forKey: key)
-
-        let notesUI = NotesUIState()
-
-        #expect(notesUI.useTK2Editor)
+    @Test("Notes UI state no longer exposes a legacy editor-engine toggle")
+    func notesUIStateNoLongerExposesLegacyEditorToggle() throws {
+        let source = try loadRepoTextFile("Epistemos/State/NotesUIState.swift")
+        #expect(!source.contains("useTK2Editor"))
+        #expect(!source.contains("tk2DefaultsKey"))
     }
 
     @Test("TK2 editor stays transparent in native system themes so the window blur can show through")
@@ -70,6 +97,17 @@ struct NoteEditorLayoutTests {
         #expect(scrollView.contentInsets.left == 0)
         #expect(scrollView.contentInsets.bottom == 0)
         #expect(scrollView.contentInsets.right == 0)
+    }
+
+    @Test("TK2 editor scroll observers coalesce viewport and overlay work")
+    func tk2EditorScrollObserversCoalesceViewportAndOverlayWork() throws {
+        let proseSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseTextView2.swift")
+        let bridgeSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
+
+        #expect(proseSource.contains("scheduleVisibleLineRangeUpdate()"))
+        #expect(proseSource.contains("scrollVisibleLineRangeCoalescer"))
+        #expect(bridgeSource.contains("scheduleScrollOverlayRefresh()"))
+        #expect(bridgeSource.contains("scrollOverlayRefreshCoalescer"))
     }
 
     @MainActor
@@ -164,7 +202,8 @@ struct NoteEditorLayoutTests {
         let previewSource = try String(
             contentsOf: repoRootURL().appendingPathComponent(
                 "Epistemos/Views/Shared/MarkdownTextView.swift"
-            )
+            ),
+            encoding: .utf8
         )
 
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) == expectedShort)
@@ -178,7 +217,8 @@ struct NoteEditorLayoutTests {
         let source = try String(
             contentsOf: repoRootURL().appendingPathComponent(
                 "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
-            )
+            ),
+            encoding: .utf8
         )
 
         #expect(!source.contains("Scan Sources"))
@@ -191,7 +231,8 @@ struct NoteEditorLayoutTests {
         let source = try String(
             contentsOf: repoRootURL().appendingPathComponent(
                 "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
-            )
+            ),
+            encoding: .utf8
         )
 
         #expect(source.contains("Menu(\"Format\")"))
@@ -293,6 +334,12 @@ struct NoteEditorLayoutTests {
         #expect(resolved == "# Inline\n\nRecovered body")
     }
 
+    @Test("note workspace no longer calls loadBody from its render-time persisted-body fallback")
+    func noteWorkspaceRenderPathAvoidsLoadBodyFallback() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        #expect(!source.contains("page.loadBody()"))
+    }
+
     @Test("preview handoff never reuses another note's captured body")
     func previewHandoffIgnoresOtherNotes() {
         let snapshot = NoteModeBodySnapshot(pageId: "note-a", body: "Body from note A")
@@ -359,7 +406,7 @@ struct NoteEditorLayoutTests {
         #expect(placeholder.frame.width < 200)
     }
 
-    @Test("classic editor uses the same readable inset for table and prose notes")
+    @Test("legacy compatibility shim uses the same readable inset for table and prose notes")
     func classicEditorUsesSameInsetForTableAndProseNotes() {
         let proseInset = ProseEditorRepresentable.horizontalInset(
             for: 1000,
@@ -377,7 +424,7 @@ struct NoteEditorLayoutTests {
         #expect(tableInset == proseInset)
     }
 
-    @Test("classic editor typing attributes reset to body style")
+    @Test("legacy compatibility shim typing attributes reset to body style")
     func classicEditorTypingAttributesResetToBodyStyle() throws {
         let attributes = ProseEditorRepresentable.typingAttributes(for: .light)
         let font = try #require(attributes[.font] as? NSFont)
@@ -388,7 +435,7 @@ struct NoteEditorLayoutTests {
         #expect(paragraphStyle.headIndent == MarkdownTextStorage.bodyParagraphStyle().headIndent)
     }
 
-    @Test("classic editor notification page matching rejects stale page ids")
+    @Test("legacy compatibility shim notification page matching rejects stale page ids")
     func classicEditorNotificationPageMatchingRejectsStalePageIds() {
         #expect(ProseEditorRepresentable.matchesNotificationPageId("page-a", coordinatorPageId: "page-a"))
         #expect(!ProseEditorRepresentable.matchesNotificationPageId("page-a", coordinatorPageId: "page-b"))
@@ -399,7 +446,7 @@ struct NoteEditorLayoutTests {
     }
 
     @MainActor
-    @Test("classic editor dismantle unregisters content-view observers before teardown")
+    @Test("legacy compatibility shim dismantle unregisters content-view observers before teardown")
     func classicEditorDismantleUnregistersContentViewObservers() {
         let editor = ProseEditorRepresentable(
             text: .constant("Body"),
@@ -417,22 +464,21 @@ struct NoteEditorLayoutTests {
         coordinator.lastPageId = "page-a"
 
         let clipView = scrollView.contentView
-        var frameNotifications = 0
-        var boundsNotifications = 0
+        let notifications = LayoutNotificationCounts()
 
         coordinator.frameObserver = NotificationCenter.default.addObserver(
             forName: NSView.frameDidChangeNotification,
             object: clipView,
             queue: nil
         ) { _ in
-            frameNotifications += 1
+            notifications.recordFrameChange()
         }
         coordinator.scrollObserver = NotificationCenter.default.addObserver(
             forName: NSView.boundsDidChangeNotification,
             object: clipView,
             queue: nil
         ) { _ in
-            boundsNotifications += 1
+            notifications.recordBoundsChange()
         }
 
         ProseEditorRepresentable.dismantleNSView(scrollView, coordinator: coordinator)
@@ -440,13 +486,13 @@ struct NoteEditorLayoutTests {
         NotificationCenter.default.post(name: NSView.frameDidChangeNotification, object: clipView)
         NotificationCenter.default.post(name: NSView.boundsDidChangeNotification, object: clipView)
 
-        #expect(frameNotifications == 0)
-        #expect(boundsNotifications == 0)
+        #expect(notifications.frameChanges() == 0)
+        #expect(notifications.boundsChanges() == 0)
         #expect(coordinator.frameObserver == nil)
         #expect(coordinator.scrollObserver == nil)
     }
 
-    @Test("overlay-backed table markdown source text is hidden in TextKit 1")
+    @Test("overlay-backed table markdown source text is hidden in the legacy compatibility storage")
     func renderedTableOverlaysHideTextKit1SourceText() throws {
         let storage = MarkdownTextStorage()
         storage.isDark = false

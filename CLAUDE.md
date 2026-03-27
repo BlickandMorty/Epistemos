@@ -28,7 +28,7 @@ User → SwiftUI Views → @Observable State → Services (Engine/) → Rust FFI
 | AI Pipeline | `Engine/TriageService.swift` | `Engine/PipelineService.swift`, `Engine/LLMService.swift` |
 | Graph | `Graph/GraphState.swift` | `Graph/GraphStore.swift`, `Graph/GraphBuilder.swift` |
 | Graph Engine (Rust) | `graph-engine/src/lib.rs` | `src/renderer.rs`, `src/physics.rs`, `src/types.rs` |
-| Note Editor | `Views/Notes/ProseEditorRepresentable.swift` | `Views/Notes/ProseEditorView.swift`, `Views/Notes/MarkdownTextStorage.swift` |
+| Note Editor | `Views/Notes/ProseEditorView.swift` | `Views/Notes/ProseEditorRepresentable2.swift`, `Views/Notes/ProseTextView2.swift` |
 | Note Chat | `State/NoteChatState.swift` | `Views/Notes/NoteChatSidebar.swift`, `Views/Notes/NoteWindowManager.swift` |
 | Note Windows | `Views/Notes/NoteWindowManager.swift` | `Views/Notes/NotesSidebar.swift` |
 | Graph Overlay | `Views/Graph/HologramController.swift` | `Views/Graph/HologramOverlay.swift`, `Views/Graph/MetalGraphView.swift` |
@@ -40,6 +40,35 @@ User → SwiftUI Views → @Observable State → Services (Engine/) → Rust FFI
 
 - `docs/future-work-audit.md` — THE BIBLE. 21 waves, 134 items. All planned work.
 - `docs/audit-progress.md` — Audit state. Read this to know what's been fixed/deferred.
+
+### Training & Model Files (READ BEFORE ANY TRAINING WORK)
+
+- `docs/NANO-MASTER-TRAINING-GUIDE.md` — **THE training execution manual.** 5 pillars, all scripts, all hyperparameters. Ground every training decision here.
+- `docs/TRAINING_GUIDE.md` — Quick-reference training guide (references Master Guide).
+- `docs/INSTANT_RECALL_ARCHITECTURE.md` — Ω18-Ω21 vector memory + state injection.
+
+### Training Research Papers (for deep context)
+
+| Topic | Path |
+|-------|------|
+| Niche scripts & pipelines | `@/Users/jojo/Downloads/Legendary Nano Model...` |
+| App-specific training | `@/Users/jojo/Downloads/App-Specific Training...` |
+| Fine-tuning for App UI | `@/Users/jojo/Downloads/Fine-Tuning LLMs For App UI.md` |
+| Knowledge fusion roadmap | `@/Users/jojo/Downloads/On-Device Knowledge Fusion Research Roadmap.md` |
+| Dual-brain deep research | `@/Users/jojo/Downloads/Epistemos Omega — Dual-Brain...` |
+| Master training manifesto | `@/Users/jojo/Downloads/EPISTEMOS-NANO-MASTER-TRAINING-GUIDE.md` |
+
+### Training Non-Negotiables (from Master Guide)
+
+1. **Deploy on MLX/Metal GPU, NOT ANE** — Mamba selective scan cannot run on ANE
+2. **WSD scheduler, never cosine** — allows checkpoint reuse when new data arrives
+3. **20% Epistemos app-specific data is sacred** — below 15% reflexes degrade, above 25% general capability suffers
+4. **LoRA rank 16 for Nano** — not 8 (too constrained), not 32 (overfits nightly data)
+5. **Never fuse adapters into base** — hot-swap via MoLoRA routing only
+6. **4 layers of app self-knowledge**: Code Graph → Symbol QA → AX Atlas → Trajectories
+7. **Version-triggered adapter regeneration** — every Epistemos build must refresh the adapter
+8. **One variable at a time** — never change LR + data mix + rank simultaneously
+9. **Mamba-2 now, Mamba-3 when tooling lands** — build with Mamba-2 (validated MOHAWK + MLX). Swap Mamba layers to Mamba-3 in Month 2-3. The 6 attention layers NEVER change — they do exact retrieval no SSM can replace. Keep layer abstraction parameterized for clean swap.
 
 ## Patterns to Follow
 
@@ -104,7 +133,8 @@ Routes operations between local tiers. No cloud fallback.
 
 **Current (bridge):** Qwen 3.5 4B on Metal GPU via MLX.
 **Target (after MOHAWK):** Epistemos-Base 3B Mamba-2 hybrid replaces Qwen entirely.
-Epistemos-Nano 1B on ANE handles device actions. Qwen gets deleted.
+Epistemos-Nano 1B on Metal GPU handles device actions. Qwen gets deleted.
+**Critical**: Nano deploys on MLX/Metal GPU (NOT ANE). Mamba-2 selective scan cannot run on ANE.
 
 - Apple Intelligence for the lightest rewrite / summarize / simple ask work
 - Local model (currently Qwen, future Epistemos-Base) for reasoning, coding, graph analysis
@@ -122,7 +152,7 @@ Operations and their tiers:
 
 ### NoteChatState — Per-Note AI Chat
 One instance per open note tab. Manages query → response cycle with 60ms token buffering.
-- Callbacks wired by ProseEditorRepresentable Coordinator: `onStreamStart`, `onTokenFlush`, `onAccept`, `onDiscard`.
+- Callbacks wired by ProseEditorRepresentable2 Coordinator2: `onStreamStart`, `onTokenFlush`, `onAccept`, `onDiscard`.
 - AI text lives in NSTextStorage below a `---` divider, not in a separate view.
 - Accept strips divider, keeps response inline. Discard removes everything from divider onward.
 - `noteBodyProvider` closure reads current body from storage (set by Coordinator).
@@ -160,25 +190,25 @@ Header: `graph-engine-bridge/graph_engine.h` (42 functions)
 
 ## Note Editor Internals
 
-### ProseEditorRepresentable (the heart of editing)
-NSViewRepresentable wrapping ClickableTextView (NSTextView subclass).
-- **Coordinator** owns: binding sync debounce (300ms), table alignment (500ms), AI zone callbacks.
-- **MarkdownTextStorage** — live syntax highlighting via `processEditing()`. Handles: headers, bold, italic, code, blockquotes, links, wikilinks, tables, AI comment markers.
-- **ClickableTextView** — NSTextView subclass with: wikilink click handling, right-click AI context menu, hover tracking areas for wikilink glow, `shouldChangeTextIn` zone protection.
+### ProseEditorRepresentable2 + ProseTextView2 (the heart of editing)
+TextKit 2 editor bridge wrapping `ProseTextView2` (`NSTextView` backed by `NSTextLayoutManager`).
+- **Coordinator2** owns: binding sync debounce (300ms), table alignment, AI callbacks, fold/indent helpers, and transclusion overlay coordination.
+- **MarkdownContentStorage** — delegate-backed structural + inline markdown styling for the TK2 stack.
+- **ProseTextView2** — NSTextView subclass with wikilink handling, AI context menu notifications, structural edit helpers, and divider protection.
 
 ### Text Flow
 ```
-User types → NSTextStorage.processEditing() → highlight
-           → textDidChange() → debounced binding sync (300ms)
-           → table alignment check (500ms)
+User types → ProseTextView2.didChangeText() → reparseAndInvalidate()
+           → Coordinator2.textDidChange() → debounced binding sync (300ms)
+           → ProseEditorView debounced disk/model save
 AI streams → NoteChatState.appendStreamingText() → 60ms buffer
            → flushTokens() → onTokenFlush callback
-           → Coordinator.flushNoteChatTokens() → insert into storage
+           → Coordinator2.flushNoteChatTokens() → insert into storage
            → isFlushingTokens flag prevents binding sync cascade
 ```
 
 ### AI Context Menu Operations
-Right-click in editor → ClickableTextView builds menu → posts notification with operation string.
+Right-click in editor → ProseTextView2 builds menu → posts notification with operation string.
 NoteTabView receives notification → `handleAIContextMenuOperation()` maps to `(NotesOperation, systemPrompt, userPrompt)` → `noteChatState.submitQuery()`.
 
 Operations: rewrite, summarize, expand, simplify, toList, toTable, continue, outline, structure, restructure.
@@ -250,7 +280,11 @@ Remaining deferred (architecture changes, not minimal fixes):
 | Omega views | `Epistemos/Views/Omega/` |
 | MOHAWK training | `Epistemos/KnowledgeFusion/MOHAWK/` |
 | ODIA traces | `Epistemos/KnowledgeFusion/SyntheticData/` |
+| Reasoning loop | `Epistemos/Omega/Inference/ReasoningLoopService.swift` |
+| Reasoning traces | `Epistemos/Omega/Inference/ReasoningTraceLogger.swift` |
 | Instant recall arch | `docs/INSTANT_RECALL_ARCHITECTURE.md` |
+| **Training master guide** | **`docs/NANO-MASTER-TRAINING-GUIDE.md`** |
+| Training quick-ref | `docs/TRAINING_GUIDE.md` |
 | Audit bible | `docs/future-work-audit.md` |
 | Audit progress | `docs/audit-progress.md` |
 
@@ -266,7 +300,7 @@ Remaining deferred (architecture changes, not minimal fixes):
 | Ω15 | MOHAWK Distillation | ✅ Prep | mohawk_train.py (real training loops), RunPod automation |
 | Ω16 | Training Pipeline | ✅ Prep | ODIA → TrainingScheduler wired, TraceDataMixer |
 | Ω17 | App Store Distribution | ✅ Prep | AppStoreHelper, SMAppService skeleton |
-| Ω18 | Instant Recall Index | Planned | model2vec + usearch HNSW + binary quantization |
+| Ω18 | Instant Recall Index | 🚧 In Progress | graph-engine `usearch` HNSW live; remaining work is continuous encoding + Contextual Shadows wiring |
 | Ω19 | Mamba State Injection | Planned | CoreML Mamba-2, state prefill, speculative decoding (Mirror-SD/ReDrafter 2-3x) |
 | Ω20 | Personal LoRA | Planned | MambaPEFT on in/x/dt/out_proj, LOGRA data Shapley, nightly fine-tune |
 | Ω21 | TurboQuant | Planned | PolarQuant + QJL residual in Rust, 3.5 bits/channel |

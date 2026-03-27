@@ -100,17 +100,24 @@ enum StructuredQueryParser {
         case "today":
             return .dateFilter(field: field, op: .gte, value: calendar.startOfDay(for: now))
         case "yesterday":
-            let startYesterday = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -1, to: now)!)
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now) else {
+                return nil
+            }
+            let startYesterday = calendar.startOfDay(for: yesterday)
             let startToday = calendar.startOfDay(for: now)
             return .and([
                 .dateFilter(field: field, op: .gte, value: startYesterday),
                 .dateFilter(field: field, op: .lt, value: startToday),
             ])
         case "last_week", "past_week":
-            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now)!
+            guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) else {
+                return nil
+            }
             return .dateFilter(field: field, op: .gte, value: weekAgo)
         case "last_month", "past_month":
-            let monthAgo = calendar.date(byAdding: .month, value: -1, to: now)!
+            guard let monthAgo = calendar.date(byAdding: .month, value: -1, to: now) else {
+                return nil
+            }
             return .dateFilter(field: field, op: .gte, value: monthAgo)
         default:
             // Try parsing as year: "2024"

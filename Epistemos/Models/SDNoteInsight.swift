@@ -4,6 +4,9 @@ import CryptoKit
 
 @Model
 final class SDNoteInsight {
+    // Derived local cache of per-note ML signals. This model is rebuilt from note bodies
+    // and currently lives in the app's local SwiftData store, so a uniqueness constraint
+    // on pageId is intentional to preserve the 1:1 cache invariant.
     @Attribute(.unique) var pageId: String
     var contentHash: String
     var lastAnalyzedAt: Date

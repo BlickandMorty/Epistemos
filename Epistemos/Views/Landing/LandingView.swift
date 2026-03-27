@@ -482,7 +482,7 @@ struct LandingView: View {
             .foregroundStyle(theme.textSecondary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .hoverGlass(flatBackground: theme.foreground.opacity(0.06), cornerRadius: 100)
+            .hoverGlass(flatBackground: theme.resolved.foreground.color.opacity(0.06), cornerRadius: 100)
         }
         .buttonStyle(.plain)
     }
@@ -634,7 +634,7 @@ struct LandingView: View {
                         .font(.system(size: 12, weight: .medium))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(theme.foreground.opacity(0.06), in: Capsule())
+                        .background(theme.resolved.foreground.color.opacity(0.06), in: Capsule())
                         .foregroundStyle(theme.fontAccent.opacity(0.7))
                 }
                 .buttonStyle(.plain)
@@ -650,8 +650,8 @@ struct LandingView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(theme.accent.opacity(0.12), in: Capsule())
-                    .foregroundStyle(theme.accent)
+                    .background(theme.resolved.accent.color.opacity(0.12), in: Capsule())
+                    .foregroundStyle(theme.resolved.accent.color)
                 }
                 .buttonStyle(.plain)
 
@@ -770,7 +770,7 @@ struct LandingView: View {
                     .foregroundStyle(theme.mutedForeground.opacity(0.5))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                    .background(Capsule().fill(theme.resolved.foreground.color.opacity(0.06)))
                 }
                 .buttonStyle(.plain)
 
@@ -848,7 +848,7 @@ struct LandingCommandRow: View {
             HStack(spacing: 14) {
                 Image(systemName: command.icon)
                     .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(isSelected ? theme.accent : theme.textSecondary)
+                    .foregroundStyle(isSelected ? theme.resolved.accent.color : theme.textSecondary)
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -891,10 +891,10 @@ struct LandingCommandRow: View {
         .background {
             if isSelected {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(theme.accent.opacity(0.13))
+                    .fill(theme.resolved.accent.color.opacity(0.13))
             } else if isHovered {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(theme.foreground.opacity(0.06))
+                    .fill(theme.resolved.foreground.color.opacity(0.06))
             }
         }
         .animation(Motion.micro, value: isSelected)
@@ -953,7 +953,7 @@ private struct CommandHintLabel: View {
                         cornerRadius: LandingShortcutDisplay.keyCornerRadius,
                         style: .continuous
                     )
-                    .fill(theme.foreground.opacity(theme.isDark ? 0.08 : 0.06))
+                    .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.08 : 0.06))
                 )
             } else if let icon = spec.icon {
                 Image(systemName: icon)

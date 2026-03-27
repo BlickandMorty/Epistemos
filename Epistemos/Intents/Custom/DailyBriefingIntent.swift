@@ -5,9 +5,11 @@ import SwiftData
 // Generates a daily brief from the user's vault.
 
 struct DailyBriefingIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Daily Brief"
-    nonisolated(unsafe) static var description: IntentDescription = "Generates a daily brief from your recent notes and chats."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Daily Brief" }
+    static var description: IntentDescription {
+        IntentDescription("Generates a daily brief from your recent notes and chats.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {

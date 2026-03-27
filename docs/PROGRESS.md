@@ -1,5 +1,26 @@
 # Epistemos Omega Integration — Implementation Progress
 
+## Current State Clarification — 2026-03-26
+
+- Ω18 is no longer "0%" or blocked on `retrieval_index.rs`.
+- `graph-engine/src/retrieval_index.rs` already uses `usearch` HNSW with persisted sidecars and latency coverage.
+- `graph-engine/Cargo.toml` already includes `usearch` and `bytemuck`.
+- Remaining Ω18 work is higher-layer wiring: continuous editor encoding, Contextual Shadows UI surfacing, and deciding how the prepared-retrieval runtime and `epistemos-core`'s flat binary recall path should coexist.
+- Theme color migration is complete on the app side: app-source reads now go through `theme.resolved`, and the legacy `theme.background` / `theme.foreground` / `theme.accent` compatibility shims have been removed.
+
+### Ω18 Decision Note — 2026-03-26
+
+- Do **not** prematurely unify `InstantRecallService.swift` with `graph-engine`'s prepared-retrieval runtime before the next model-stack pass.
+- Reason: the remaining work is no longer ANN infrastructure; it is app-facing path selection.
+- Today there are two valid retrieval substrates:
+  - `Epistemos/KnowledgeFusion/InstantRecallService.swift` → `epistemos-core` flat binary instant-recall path
+  - `graph-engine/src/retrieval_index.rs` → prepared retrieval HNSW path
+- The next model-stack phase should decide which of these is the canonical user-facing recall engine for:
+  - continuous editor encoding
+  - Contextual Shadows surfacing
+  - note-chat semantic context
+- Until that decision is made, treat the current separation as intentional and avoid wiring UI/editor loops directly to the prepared-retrieval runtime.
+
 ## Omega Phase Status
 
 | Phase | Name | Status | Tests | Notes |

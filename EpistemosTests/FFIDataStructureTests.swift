@@ -30,9 +30,6 @@ struct FFIDataStructureTests {
         let x: Float = 100.0
         let y: Float = 200.0
         let nodeType: UInt8 = 0 // note
-        let linkCount: UInt32 = 5
-        let label = "Test Node"
-        
         // Verify data types are FFI-compatible
         #expect(MemoryLayout<Float>.size == 4)
         #expect(MemoryLayout<UInt8>.size == 1)
@@ -138,8 +135,6 @@ struct FFIDataStructureTests {
     
     @Test("Single edge batch upload structure")
     func singleEdgeBatchUpload() {
-        let sourceUuid = "source-uuid"
-        let targetUuid = "target-uuid"
         let weight: Float = 1.0
         let edgeType: UInt8 = 0 // reference
         

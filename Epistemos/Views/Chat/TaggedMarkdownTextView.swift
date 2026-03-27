@@ -84,17 +84,19 @@ struct TaggedMarkdownTextView: View {
     private static var blockCacheHits = 0
     private static var blockCacheMisses = 0
 
+    private static func concatenate(_ lhs: Text, _ rhs: Text) -> Text {
+        Text("\(lhs)\(rhs)")
+    }
+
     /// Matches epistemic tags with optional qualifiers:
     /// [DATA], [DATA - Tier 2], [CONFLICT], [MODEL - Framework], [UNCERTAIN - High], etc.
-    // SAFETY: Hardcoded literal pattern — `try!` only fails on invalid regex syntax.
-    private static let primaryTagRegex = try! NSRegularExpression(
+    private static let primaryTagRegex = FoundationSafety.regularExpression(
         pattern: "\\[(DATA|CONFLICT|UNCERTAIN|MODEL)([^\\]]*)\\]"
     )
 
     /// Matches standalone tier references: [Tier 1], [Tier 2], [Tier 3], [Tier 4], [Tier 5].
     /// Also matches any remaining [Capitalized Word(s)] patterns the LLM produces as markers.
-    // SAFETY: Hardcoded literal pattern — `try!` only fails on invalid regex syntax.
-    private static let secondaryTagRegex = try! NSRegularExpression(
+    private static let secondaryTagRegex = FoundationSafety.regularExpression(
         pattern: "\\[(Tier\\s*\\d+)\\]"
     )
 
@@ -359,7 +361,7 @@ struct TaggedMarkdownTextView: View {
             HStack(alignment: .top, spacing: Self.listSpacing) {
                 Text("\u{2022}")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(theme.resolved.accent.color)
                     .frame(width: Self.listMarkerWidth, alignment: .center)
                     .padding(.top, 1)
                 taggedInlineMarkdown(
@@ -383,7 +385,7 @@ struct TaggedMarkdownTextView: View {
             HStack(alignment: .top, spacing: Self.listSpacing) {
                 Text(number)
                     .font(.system(size: Self.bodyFontSize, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(theme.resolved.accent.color)
                     .frame(minWidth: 24, alignment: .trailing)
                     .padding(.top, 1)
                 taggedInlineMarkdown(
@@ -406,7 +408,7 @@ struct TaggedMarkdownTextView: View {
         case .blockquote(let text):
             HStack(spacing: 0) {
                 RoundedRectangle(cornerRadius: 1)
-                    .fill(theme.accent.opacity(0.5))
+                    .fill(theme.resolved.accent.color.opacity(0.5))
                     .frame(width: 3)
                 taggedInlineMarkdown(
                     text,
@@ -527,30 +529,36 @@ struct TaggedMarkdownTextView: View {
         var tagMatches: [TagMatch] = []
 
         // Primary: [DATA], [DATA - Tier 2], [CONFLICT], [MODEL - Framework], etc.
-        for match in Self.primaryTagRegex.matches(in: text, range: fullRange) {
-            let baseTagName = nsText.substring(with: match.range(at: 1))
-            let qualifier = match.range(at: 2).location != NSNotFound
-                ? nsText.substring(with: match.range(at: 2)).trimmingCharacters(in: .whitespaces)
-                : ""
-            let displayText = qualifier.isEmpty ? baseTagName : "\(baseTagName) \(qualifier)"
-            if let tag = EpistemicTag.from(baseTagName) {
-                tagMatches.append(TagMatch(range: match.range, displayText: displayText, color: tag.color))
+        if let primaryTagRegex = Self.primaryTagRegex {
+            for match in primaryTagRegex.matches(in: text, range: fullRange) {
+                let baseTagName = nsText.substring(with: match.range(at: 1))
+                let qualifier = match.range(at: 2).location != NSNotFound
+                    ? nsText.substring(with: match.range(at: 2)).trimmingCharacters(in: .whitespaces)
+                    : ""
+                let displayText = qualifier.isEmpty ? baseTagName : "\(baseTagName) \(qualifier)"
+                if let tag = EpistemicTag.from(baseTagName) {
+                    tagMatches.append(
+                        TagMatch(range: match.range, displayText: displayText, color: tag.color)
+                    )
+                }
             }
         }
 
         // Secondary: [Tier 1], [Tier 2], [Tier 3], [Tier 4], [Tier 5]
-        for match in Self.secondaryTagRegex.matches(in: text, range: fullRange) {
-            let tierText = nsText.substring(with: match.range(at: 1))
-            // Skip if overlapping a primary match (e.g. [DATA - Tier 2] already claimed this range)
-            let overlaps = tagMatches.contains { existing in
-                NSIntersectionRange(existing.range, match.range).length > 0
+        if let secondaryTagRegex = Self.secondaryTagRegex {
+            for match in secondaryTagRegex.matches(in: text, range: fullRange) {
+                let tierText = nsText.substring(with: match.range(at: 1))
+                // Skip if overlapping a primary match (e.g. [DATA - Tier 2] already claimed this range)
+                let overlaps = tagMatches.contains { existing in
+                    NSIntersectionRange(existing.range, match.range).length > 0
+                }
+                guard !overlaps else { continue }
+                tagMatches.append(TagMatch(
+                    range: match.range,
+                    displayText: tierText,
+                    color: EpistemicTag.colorForTier(tierText)
+                ))
             }
-            guard !overlaps else { continue }
-            tagMatches.append(TagMatch(
-                range: match.range,
-                displayText: tierText,
-                color: EpistemicTag.colorForTier(tierText)
-            ))
         }
 
         tagMatches.sort()
@@ -573,21 +581,23 @@ struct TaggedMarkdownTextView: View {
                 let before = nsText.substring(
                     with: NSRange(location: cursor, length: tagMatch.range.location - cursor)
                 )
-                result = result + inlineMarkdown(
-                    before,
-                    baseFontSize: baseFontSize,
-                    strongForegroundColor: strongForegroundColor
+                result = Self.concatenate(
+                    result,
+                    inlineMarkdown(
+                        before,
+                        baseFontSize: baseFontSize,
+                        strongForegroundColor: strongForegroundColor
+                    )
                 )
             }
 
             // The colored tag badge
-            result = result
-                + Text(" ")
-                + Text(tagMatch.displayText)
-                    .font(.system(size: 9, weight: .heavy, design: .monospaced))
-                    .foregroundColor(tagMatch.color)
-                    .baselineOffset(1)
-                + Text(" ")
+            let styledTag = Text(tagMatch.displayText)
+                .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                .foregroundColor(tagMatch.color)
+                .baselineOffset(1)
+            let badge = Text(" \(styledTag) ")
+            result = Self.concatenate(result, badge)
 
             cursor = tagMatch.range.location + tagMatch.range.length
         }
@@ -595,10 +605,13 @@ struct TaggedMarkdownTextView: View {
         // Remaining text after the last tag
         if cursor < nsText.length {
             let remaining = nsText.substring(from: cursor)
-            result = result + inlineMarkdown(
-                remaining,
-                baseFontSize: baseFontSize,
-                strongForegroundColor: strongForegroundColor
+            result = Self.concatenate(
+                result,
+                inlineMarkdown(
+                    remaining,
+                    baseFontSize: baseFontSize,
+                    strongForegroundColor: strongForegroundColor
+                )
             )
         }
 

@@ -1,5 +1,21 @@
 # Audit Progress
-Last updated: 2026-03-02 15:00
+Last updated: 2026-03-26 22:10
+
+## Current State Clarification — 2026-03-26
+
+- The prior "recommended next actions" list is now mostly stale.
+- App-side theme migration is complete: app sources no longer read `theme.background`, `theme.foreground`, or `theme.accent` directly.
+- The deprecated compatibility shims in `EpistemosTheme` have been removed, so the resolved cache is now the only public path for those core tokens.
+- `TimeMachineService` now uses deterministic content identity and regression coverage for same-length rewrites; the remaining question is architectural purity, not observed correctness.
+- `graph-engine/src/retrieval_index.rs` already uses `usearch` HNSW, persisted sidecars, `bytemuck`, and checked query APIs. The silent-empty wrappers are now a compatibility choice, not missing infrastructure.
+- The reproducible Swift verification path is now:
+  - `xcodebuild build-for-testing`
+  - then `xcodebuild test-without-building`
+  - with isolated `-derivedDataPath` and `-clonedSourcePackagesDirPath`
+- `scripts/ci_test.sh` and `scripts/run_swift_tests.sh` encode that deterministic runner so cold package-resolution failures in global DerivedData do not keep resurfacing.
+- A true cold clean build now succeeds with isolated source package and DerivedData directories.
+- The remaining clean-build warning floor is 4 third-party `mlx-swift` C++ warnings (`constexpr if is a C++17 extension`), not first-party app warnings.
+- Core launch and note-shell loading, empty, and accessibility states now have explicit source-level validation coverage in `EpistemosTests/RuntimeValidationTests.swift`.
 
 ## Current Position
 **AUDIT COMPLETE + POST-AUDIT SCAN CLEAN.** All hardening waves (1-13) fully reviewed. All Wave 17 bugs triaged (17.7-17.15). Deferred items re-evaluated — W7.4 and W13.2 confirmed implemented. Post-audit scan of 67 changed files (note-chat system, command palette rewrite, graph store optimization, Siri integration, graph physics tuning) found zero issues — all new code follows established patterns.

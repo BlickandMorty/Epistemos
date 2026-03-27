@@ -115,6 +115,10 @@ final class WorkspaceService {
             )
         }
 
+        let context = modelContainer.mainContext
+        let allPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let wordCountsByPageId = Dictionary(uniqueKeysWithValues: allPages.map { ($0.id, $0.wordCount) })
+
         // Note tabs in tab-bar order
         let noteManager = NoteWindowManager.shared
         let orderedPageIds = noteManager.orderedPageIds()
@@ -129,8 +133,10 @@ final class WorkspaceService {
                 BreadcrumbSnapshot(pageId: $0.id, title: $0.title)
             } ?? []
 
-            let body = NoteFileStorage.readBody(pageId: rootPageId, mapped: true)
-            let wordCount = body.split(separator: " ").count
+            let wordCount = noteManager.editorBody(for: rootPageId)
+                .map(Self.wordCount(from:))
+                ?? wordCountsByPageId[rootPageId]
+                ?? 0
 
             noteTabs.append(NoteTabSnapshot(
                 rootPageId: rootPageId,
@@ -153,8 +159,6 @@ final class WorkspaceService {
         }
 
         // Vault-level note census for accurate Time Machine diffs
-        let context = modelContainer.mainContext
-        let allPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
         let allPageIds = allPages.map(\.id)
 
         return WorkspaceSnapshot(
@@ -390,6 +394,8 @@ final class WorkspaceService {
 
         let context = modelContainer.mainContext
         var diff = WorkspaceDiffSummary()
+        let currentPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let wordCountsByPageId = Dictionary(uniqueKeysWithValues: currentPages.map { ($0.id, $0.wordCount) })
 
         // Current open note IDs
         let currentOpenIds = Set(NoteWindowManager.shared.orderedPageIds())
@@ -403,8 +409,10 @@ final class WorkspaceService {
         // Word count deltas for notes that were open at save time and still open
         for tab in snapshot.openNoteTabs {
             guard currentOpenIds.contains(tab.rootPageId) else { continue }
-            let currentBody = NoteFileStorage.readBody(pageId: tab.rootPageId, mapped: true)
-            let currentWords = currentBody.split(separator: " ").count
+            let currentWords = NoteWindowManager.shared.editorBody(for: tab.rootPageId)
+                .map(Self.wordCount(from:))
+                ?? wordCountsByPageId[tab.rootPageId]
+                ?? 0
             let savedWords = tab.wordCount ?? 0
             let delta = currentWords - savedWords
             if delta != 0 {
@@ -472,5 +480,9 @@ final class WorkspaceService {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         return (try? modelContainer.mainContext.fetch(descriptor)) ?? []
+    }
+
+    private static func wordCount(from text: String) -> Int {
+        text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
     }
 }

@@ -210,6 +210,205 @@ struct NoteChatStateTests {
                 == "Treat it as a modern hegemonic label unless the source defines it more narrowly."
         )
     }
+
+    @Test("operation submit discards an existing inline response before starting a new stream")
+    @MainActor func operationSubmitDiscardsExistingInlineResponse() throws {
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference, localLLMService: CapturingStreamingLLMClient())
+
+        let state = NoteChatState(pageId: "page-inline-replace")
+        state.noteBodyProvider = { "Original note body." }
+        state.hasResponse = true
+        state.useResponsePanel = false
+        state.responseText = "stale inline response"
+
+        var events: [String] = []
+        state.onDiscard = { events.append("discard") }
+        state.onStreamStart = { _ in events.append("start") }
+
+        state.submitQuery(
+            "Rewrite this paragraph",
+            operation: .rewrite,
+            triageService: triage
+        )
+
+        #expect(Array(events.prefix(2)) == ["discard", "start"])
+    }
+
+    @Test("note chat includes related instant recall context in the streamed prompt")
+    @MainActor func noteChatInjectsInstantRecallContext() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-live")
+        state.noteBodyProvider = { "Current note body." }
+        state.instantRecallSearcher = { _, _ in
+            [
+                InstantRecallResult(id: "page-live", text: "Current note body duplicate", score: 0.99),
+                InstantRecallResult(id: "page-related", text: "Bayesian updating intersects with evidential reasoning in uncertain systems.", score: 0.88),
+            ]
+        }
+
+        state.submitQuery("How does this connect?", triageService: triage)
+
+        for _ in 0..<20 where llm.lastStreamPrompt == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let capturedPrompt = try #require(llm.lastStreamPrompt)
+        #expect(capturedPrompt.contains("Related notes from instant recall:"))
+        #expect(capturedPrompt.contains("page-related"))
+        #expect(capturedPrompt.contains("Bayesian updating intersects with evidential reasoning"))
+        #expect(!capturedPrompt.contains("Current note body duplicate"))
+    }
+
+    @Test("note chat indexes the current note body before streaming")
+    @MainActor func noteChatIndexesCurrentNoteForInstantRecall() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-index")
+        state.noteBodyProvider = { "Fresh note body for indexing." }
+
+        var indexedNoteId: String?
+        var indexedText: String?
+        state.instantRecallIndexer = { noteId, text in
+            indexedNoteId = noteId
+            indexedText = text
+        }
+
+        state.submitQuery("Summarize the note.", triageService: triage)
+
+        for _ in 0..<20 where llm.lastStreamPrompt == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(indexedNoteId == "page-index")
+        #expect(indexedText == "Fresh note body for indexing.")
+    }
+
+    @Test("note chat forwards empty current note bodies so instant recall can remove stale entries")
+    @MainActor func noteChatForwardsEmptyCurrentNoteForInstantRecall() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-empty")
+        state.noteBodyProvider = { "   \n   " }
+
+        var indexedNoteId: String?
+        var indexedText: String?
+        state.instantRecallIndexer = { noteId, text in
+            indexedNoteId = noteId
+            indexedText = text
+        }
+
+        state.submitQuery("Summarize the note.", triageService: triage)
+
+        for _ in 0..<20 where llm.lastStreamPrompt == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(indexedNoteId == "page-empty")
+        #expect(indexedText == "   \n   ")
+    }
+
+    @Test("note chat instant recall context filters duplicates and low-signal matches")
+    @MainActor func noteChatCuratesInstantRecallContext() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-live")
+        state.noteBodyProvider = { "Current note body." }
+        state.instantRecallSearcher = { _, _ in
+            [
+                InstantRecallResult(id: "page-related-a", text: "Bayesian updating connects to evidence weighting in uncertain systems.", score: 0.91),
+                InstantRecallResult(id: "page-related-b", text: "Bayesian updating connects to evidence weighting in uncertain systems.", score: 0.87),
+                InstantRecallResult(id: "page-low-signal", text: "Vague unrelated fragment", score: -0.12),
+                InstantRecallResult(id: "page-empty", text: "   \n   ", score: 0.66),
+            ]
+        }
+
+        state.submitQuery("How does this connect?", triageService: triage)
+
+        for _ in 0..<20 where llm.lastStreamPrompt == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let capturedPrompt = try #require(llm.lastStreamPrompt)
+        #expect(capturedPrompt.contains("page-related-a"))
+        #expect(!capturedPrompt.contains("page-related-b"))
+        #expect(!capturedPrompt.contains("page-low-signal"))
+        #expect(!capturedPrompt.contains("page-empty"))
+        #expect(!capturedPrompt.contains("score "))
+    }
+
+    @Test("streaming task is released after a successful completion")
+    @MainActor func streamingTaskReleasedAfterCompletion() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        llm.streamTokens = ["done"]
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-complete")
+        state.noteBodyProvider = { "" }
+        state.submitQuery("Finish this.", triageService: triage)
+
+        for _ in 0..<50 where state.isStreaming {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let mirror = Mirror(reflecting: state)
+        let streamingTaskValue = mirror.children.first(where: { $0.label == "streamingTask" })?.value
+        #expect(["nil", "Optional(nil)"].contains(String(describing: streamingTaskValue)))
+    }
+}
+
+@Suite("DialogueChatState")
+struct DialogueChatStateTests {
+    @Test("related note formatter preserves order and reasons")
+    func relatedNoteFormatterPreservesOrder() {
+        let section = DialogueChatState.formatRelatedNotesSection(
+            relatedIds: ["page-b", "page-a"],
+            reasonLists: [["supports"], ["questions", "expands"]],
+            noteBodies: [
+                VaultManifest.NoteBody(pageId: "page-a", title: "Alpha", body: "Alpha body"),
+                VaultManifest.NoteBody(pageId: "page-b", title: "Beta", body: "Beta body"),
+            ]
+        )
+
+        #expect(section.contains("[SUPPORTS] Beta"))
+        #expect(section.contains("[QUESTIONS, EXPANDS] Alpha"))
+        #expect(section.range(of: "Beta")?.lowerBound ?? section.startIndex < section.range(of: "Alpha")?.lowerBound ?? section.endIndex)
+    }
 }
 
 @Suite("DisplayPacedTextBuffer")

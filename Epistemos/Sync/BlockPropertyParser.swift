@@ -2,18 +2,19 @@ import Foundation
 
 // MARK: - BlockPropertyParser
 // Parses trailing @key=value properties from block lines.
-// Stateless — all methods are static. Used by MarkdownTextStorage (chip styling)
+// Stateless — all methods are static. Used by the editor styling pipeline
 // and BlockPropertySheet (user edits).
 
 enum BlockPropertyParser {
 
     // Pre-compiled regex: @word=non-whitespace-non-@ value
-    private static let pattern = try! NSRegularExpression(pattern: #"@(\w+)=([^\s@]+)"#)
+    private static let pattern = FoundationSafety.regularExpression(#"@(\w+)=([^\s@]+)"#)
 
     /// Parse trailing @key=value properties from the end of a line.
     /// Only captures properties at the end — ignores mid-sentence @mentions.
     static func parse(_ line: String) -> [String: PropertyValue] {
         guard !line.isEmpty else { return [:] }
+        guard let pattern = pattern else { return [:] }
 
         let nsLine = line as NSString
         let fullRange = NSRange(location: 0, length: nsLine.length)

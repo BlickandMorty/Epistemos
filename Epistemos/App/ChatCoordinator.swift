@@ -272,6 +272,7 @@ final class ChatCoordinator {
         query: String,
         manifest: VaultManifest?,
         includeAllNotesContext: Bool = false,
+        allowImplicitReferencedNoteLookup: Bool = true,
         findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
         fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody],
         searchNoteIDs: @escaping @Sendable (String) async -> [String]
@@ -343,7 +344,8 @@ final class ChatCoordinator {
             }
         }
 
-        if referencedNotes.isEmpty,
+        if allowImplicitReferencedNoteLookup,
+           referencedNotes.isEmpty,
            queryLikelyTargetsExistingNote(cleanedQuery) {
             let ids = await autoMatchedReferencedNoteIDs(
                 for: cleanedQuery,
@@ -526,7 +528,7 @@ final class ChatCoordinator {
         return boosts
     }
 
-    nonisolated(unsafe) private static let _searchCacheLock = NSLock()
+    nonisolated private static let _searchCacheLock = NSLock()
     nonisolated(unsafe) private static var _cachedSearchManifestSignature: String?
     nonisolated(unsafe) private static var _cachedSearchPreparedEntries: [PreparedManifestSearchEntry]?
 
@@ -690,11 +692,13 @@ final class ChatCoordinator {
         searchNoteIDs: @escaping @Sendable (String) async -> [String],
         fetchChatMessages: @escaping @Sendable (String) async -> [AssistantMessage]
     ) async -> AttachedContextResolution {
+        let hasAttachedNotes = attachments.contains { $0.kind == .note }
         let noteResolution = await resolveNotesContext(
             query: query,
             manifest: manifest,
             includeAllNotesContext: includeAllNotesContext
                 || attachments.contains(where: { $0.kind == .allNotes }),
+            allowImplicitReferencedNoteLookup: !hasAttachedNotes,
             findNotesByTitle: findNotesByTitle,
             fetchNoteBodies: fetchNoteBodies,
             searchNoteIDs: searchNoteIDs
@@ -1061,7 +1065,7 @@ final class ChatCoordinator {
                 guard let page = try? context.fetch(desc).first else { continue }
                 let title = page.title.isEmpty ? "Untitled" : page.title
                 if deepContext {
-                    let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+                    let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
                     let preview = String(body.prefix(300))
                     noteLines.append("- \(title): \(preview)")
                 } else {
@@ -1293,6 +1297,8 @@ final class ChatCoordinator {
         if let sourceUserMessage {
             userMsg.id = sourceUserMessage.id
             userMsg.createdAt = sourceUserMessage.createdAt
+            userMsg.isError = sourceUserMessage.isError
+            userMsg.isVaultBriefing = sourceUserMessage.isVaultBriefing
         }
         userMsg.updatePresentationSnapshot(
             attachments: sourceUserMessage?.attachments ?? [],
@@ -1306,6 +1312,8 @@ final class ChatCoordinator {
         if let assistantMessage {
             assistantMsg.id = assistantMessage.id
             assistantMsg.createdAt = assistantMessage.createdAt
+            assistantMsg.isError = assistantMessage.isError
+            assistantMsg.isVaultBriefing = assistantMessage.isVaultBriefing
         }
         assistantMsg.updatePresentationSnapshot(
             attachments: assistantMessage?.attachments ?? [],

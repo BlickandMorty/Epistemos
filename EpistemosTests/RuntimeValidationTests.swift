@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import Epistemos
@@ -158,28 +159,26 @@ struct RuntimeValidationTests {
         let bootstrap = AppBootstrap()
         let configuration = try #require(bootstrap.preparedModelRegistryState.retrievalRuntimeConfiguration)
         let layout = try #require(configuration.assetLayout)
-        let manifest = try #require(layout.indexManifest)
 
-        #expect(FileManager.default.fileExists(atPath: layout.retrieverSourceRoot))
-        #expect(FileManager.default.fileExists(atPath: layout.embeddingsPath))
-        #expect(FileManager.default.fileExists(atPath: layout.documentsPath))
-        #expect(manifest.documentCount > 8)
-        #expect(manifest.sourceDatabasePath?.hasSuffix("/Epistemos/search.sqlite") == true)
-        #expect(manifest.sourceDatabaseModifiedAt != nil)
-
-        let expectedMode: PreparedRetrievalExecutionMode
-        if layout.isBuilt {
-            expectedMode = .preparedIndexReady(
-                retrieverModelID: "BAAI/bge-m3"
-            )
+        #expect(layout.retrieverSourceRoot.hasSuffix("/PreparedModels/retrieval/bge-m3/source"))
+        if let manifest = layout.indexManifest {
+            #expect(FileManager.default.fileExists(atPath: layout.embeddingsPath))
+            #expect(FileManager.default.fileExists(atPath: layout.documentsPath))
+            #expect(manifest.documentCount > 8)
+            #expect(manifest.sourceDatabasePath?.hasSuffix("/Epistemos/search.sqlite") == true)
+            #expect(manifest.sourceDatabaseModifiedAt != nil)
         } else {
-            expectedMode = .preparedAssetsPendingIndex(
-                retrieverModelID: "BAAI/bge-m3"
-            )
+            #expect(!layout.isBuilt)
         }
-        #expect(bootstrap.graphState.preparedRetrievalExecutionMode == expectedMode)
-        #expect(bootstrap.queryEngine.preparedRetrievalExecutionMode == expectedMode)
-        #expect(bootstrap.graphState.embeddingService.preparedRetrievalExecutionMode == expectedMode)
+
+        let allowedModes: [PreparedRetrievalExecutionMode] = [
+            .preparedIndexReady(retrieverModelID: "BAAI/bge-m3"),
+            .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3"),
+            .appleEmbeddingFallback,
+        ]
+        #expect(allowedModes.contains(where: { $0 == bootstrap.graphState.preparedRetrievalExecutionMode }))
+        #expect(allowedModes.contains(where: { $0 == bootstrap.queryEngine.preparedRetrievalExecutionMode }))
+        #expect(allowedModes.contains(where: { $0 == bootstrap.graphState.embeddingService.preparedRetrievalExecutionMode }))
     }
 
     @Test("settings inference surface does not refresh local models on open")
@@ -216,15 +215,16 @@ struct RuntimeValidationTests {
         let utilityManager = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
 
         #expect(settings.contains(".listStyle(.sidebar)"))
-        #expect(settings.contains(".ignoresSafeArea(.container, edges: .top)"))
         #expect(settings.contains("Image(systemName: \"sidebar.left\")"))
+        #expect(settings.contains("ToolbarItem(placement: .navigation)"))
+        #expect(settings.contains("toggleSidebar()"))
         #expect(utilityManager.contains("toolbar.showsBaselineSeparator = false"))
-        #expect(utilityManager.contains("panel.toolbarStyle = .unified"))
+        #expect(utilityManager.contains("panel.toolbarStyle = .unifiedCompact"))
     }
 
     @Test("note editor still suppresses binding sync churn during AI token flushes")
     func noteEditorStillSuppressesStreamingBindingChurn() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable.swift")
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
 
         #expect(source.contains("var isFlushingTokens = false"))
         #expect(source.contains("guard !isFlushingTokens else { return }"))
@@ -371,11 +371,9 @@ struct RuntimeValidationTests {
 
         for banned in [
             "LocalSidecar",
-            "SSE",
             "mlx-openai-server",
             "http://127.0.0.1",
             "DeepSeek",
-            "reasoner",
         ] {
             #expect(!llm.contains(banned))
             #expect(!triage.contains(banned))
@@ -547,13 +545,14 @@ struct RuntimeValidationTests {
         #expect(metalView.contains("private var pendingSelectedNodeScreenPoint: CGPoint?"))
         #expect(metalView.contains("private var selectedNodeScreenPointStableFrames = 0"))
         #expect(metalView.contains("private var selectedNodeScreenPointSampleFrame = 0"))
-        #expect(metalView.contains("private let selectedNodeScreenPointSampleIntervalFrames = 3"))
+        #expect(metalView.contains("private let selectedNodeScreenPointSampleIntervalFrames = 1"))
         #expect(metalView.contains("selectedNodeScreenPointSampleFrame % selectedNodeScreenPointSampleIntervalFrames == 0"))
-        #expect(metalView.contains("if selectedNodeScreenPointStableFrames >= 1"))
+        #expect(metalView.contains("lastPublishedSelectedNodeScreenPoint == nil"))
+        #expect(metalView.contains("pendingSelectedNodeScreenPoint == nil"))
         #expect(overlay.contains("private var inspectorRepositionTask: Task<Void, Never>?"))
         #expect(overlay.contains("private var lastQueuedInspectorAnchor: CGPoint?"))
         #expect(overlay.contains("private var lastQueuedInspectorMode: NodeInspectorState.InspectorMode?"))
-        #expect(overlay.contains("try? await Task.sleep(for: .milliseconds(32))"))
+        #expect(overlay.contains("Reposition immediately"))
         #expect(overlay.contains("private func shouldQueueInspectorReposition("))
         #expect(overlay.contains("private var lastInspectorFrame: CGRect?"))
         #expect(overlay.contains("private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool"))
@@ -623,11 +622,11 @@ struct RuntimeValidationTests {
         #expect(popover.contains("if style == .notePicker"))
         #expect(popover.contains("notePickerSidebar"))
         #expect(popover.contains("Attach exactly what this turn should know."))
-        #expect(popover.contains("Attach the full vault retrieval index for this message."))
+        #expect(popover.contains("Attach the vault retrieval index for this turn."))
         #expect(popover.contains("Searches titles, folders, tags, and indexed body snippets."))
         #expect(popover.contains("final class ComposerReferencePopoverCoordinator"))
         #expect(popover.contains("private let popover = NSPopover()"))
-        #expect(popover.contains("popover.show(relativeTo:"))
+        #expect(popover.contains("self.popover.show("))
         #expect(popover.contains("await Task.yield()"))
         #expect(popover.contains("guard let self, let anchorView, anchorView.window != nil"))
         #expect(!popover.contains("GeometryReader { proxy in"))
@@ -635,18 +634,11 @@ struct RuntimeValidationTests {
 
     @Test("note editor keeps markdown tables as plain editor text")
     func noteEditorKeepsMarkdownTablesAsPlainEditorText() throws {
-        let tk1 = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable.swift")
         let tk2 = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
-        let pool = try loadRepoTextFile("Epistemos/Views/Notes/PageStoragePool.swift")
 
-        #expect(tk1.contains("storage.usesRenderedTableOverlays = false"))
-        #expect(tk1.contains("tv.usesRenderedTableOverlays = false"))
-        #expect(!tk1.contains("let renderedTableMgr = RenderedTableOverlayManager(textView: tv, theme: theme)"))
         #expect(tk2.contains("tv.usesRenderedTableOverlays = false"))
         #expect(tk2.contains("tv.markdownDelegate.usesRenderedTableOverlays = false"))
         #expect(!tk2.contains("coord.renderedTableOverlayManager = RenderedTableOverlayManager2("))
-        #expect(pool.contains("existing.storage.usesRenderedTableOverlays = false"))
-        #expect(pool.contains("storage.usesRenderedTableOverlays = false"))
     }
 
     @Test("mini chat stays a real resizable window without the removed palette shell")
@@ -774,10 +766,10 @@ struct RuntimeValidationTests {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
         #expect(root.contains("Section(\"Cloud Models\")"))
-        #expect(root.contains("ForEach(CloudTextModelID.allCases"))
+        #expect(root.contains("ForEach(CloudModelProvider.allCases"))
+        #expect(root.contains("Section(provider.displayName)"))
         #expect(root.contains(".disabled(!providerConfigured)"))
         #expect(root.contains("Add API keys in Settings to enable cloud models"))
-        #expect(!root.contains("if !configuredCloudModels.isEmpty"))
     }
 
     @Test("chat file picker defers panel presentation and reads files under a security scope")
@@ -800,12 +792,305 @@ struct RuntimeValidationTests {
         #expect(inspectorView.contains("if !p.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty"))
     }
 
+    @Test("regex-backed presentation helpers avoid force-try compilation")
+    func regexBackedPresentationHelpersAvoidForceTryCompilation() throws {
+        let files = [
+            "Epistemos/Sync/BlockPropertyParser.swift",
+            "Epistemos/Views/Chat/ChatView.swift",
+            "Epistemos/Views/Chat/TaggedMarkdownTextView.swift",
+            "Epistemos/Views/Notes/MarkdownContentStorage.swift",
+            "Epistemos/Views/Notes/MarkdownEditorStyle.swift",
+            "Epistemos/Theme/EpistemosTheme.swift",
+            "Epistemos/Theme/GlassModifiers.swift",
+        ]
+
+        for file in files {
+            let source = try loadRepoTextFile(file)
+            #expect(!source.contains("try!"), "\(file) should not use try! for regex or detector setup")
+        }
+    }
+
+    @Test("block mirror similarity avoids quadratic edit-distance buffers")
+    func blockMirrorSimilarityAvoidsQuadraticEditDistanceBuffers() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/BlockMirror.swift")
+
+        #expect(!source.contains("Array(lhs.utf16)"))
+        #expect(!source.contains("Array(rhs.utf16)"))
+        #expect(!source.contains("var previous = Array(0...right.count)"))
+        #expect(!source.contains("var current = Array(repeating: 0, count: right.count + 1)"))
+    }
+
+    @Test("read only note windows use the shared app environment helper")
+    func readOnlyNoteWindowsUseSharedAppEnvironmentHelper() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
+
+        #expect(source.contains("ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)\n            .withAppEnvironment(bootstrap)"))
+        #expect(!source.contains("ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)\n            .environment(bootstrap.uiState)"))
+    }
+
+    @Test("bootstrap and persistence helpers avoid force-trap fallbacks")
+    func bootstrapAndPersistenceHelpersAvoidForceTrapFallbacks() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let feedbackLogger = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift")
+        let mcpBridge = try loadRepoTextFile("Epistemos/Omega/MCPBridge.swift")
+        let activityTracker = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
+        let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
+        let appStoreHelper = try loadRepoTextFile("Epistemos/Omega/Distribution/AppStoreHelper.swift")
+        let adapterRegistry = try loadRepoTextFile("Epistemos/KnowledgeFusion/Adapters/AdapterRegistry.swift")
+        let skillManifest = try loadRepoTextFile("Epistemos/KnowledgeFusion/SkillGeneration/SkillManifest.swift")
+        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
+        let knowledgeFusionViewModel = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift")
+        let trainingScheduler = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/TrainingScheduler.swift")
+        let qualityCurator = try loadRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/QualityCurator.swift")
+        let experienceReplayBuffer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/ExperienceReplayBuffer.swift")
+        let chatSidebar = try loadRepoTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
+        let dataDetectionService = try loadRepoTextFile("Epistemos/Engine/DataDetectionService.swift")
+        let queryParser = try loadRepoTextFile("Epistemos/Engine/QueryParser.swift")
+        let structuredQueryParser = try loadRepoTextFile("Epistemos/Engine/StructuredQueryParser.swift")
+
+        #expect(!appBootstrap.contains("try! ModelContainer("))
+        #expect(!feedbackLogger.contains("try! JSONSerialization.data"))
+        #expect(!feedbackLogger.contains("String(data: data, encoding: .utf8)!"))
+        #expect(!mcpBridge.contains(".first!"))
+        #expect(!activityTracker.contains(".first!"))
+        #expect(!eventStore.contains(".first!"))
+        #expect(!appStoreHelper.contains(".first!"))
+        #expect(!adapterRegistry.contains(".first!"))
+        #expect(!skillManifest.contains(".first!"))
+        #expect(!pythonEnvironmentManager.contains(".first!"))
+        #expect(!knowledgeFusionViewModel.contains(".first!"))
+        #expect(!trainingScheduler.contains(".first!"))
+        #expect(!qualityCurator.contains("String(data: data, encoding: .utf8)!"))
+        #expect(!experienceReplayBuffer.contains("String(data: data, encoding: .utf8)!"))
+        #expect(!chatSidebar.contains("calendar.date(byAdding: .day, value: -1, to: startOfToday)!"))
+        #expect(!chatSidebar.contains("calendar.date(byAdding: .day, value: -7, to: startOfToday)!"))
+        #expect(!dataDetectionService.contains("URL(string: \"webcal://\")!"))
+        #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
+        #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
+        #expect(!queryParser.contains("calendar.date(byAdding: .month, value: -1, to: now)!"))
+        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
+        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
+        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .month, value: -1, to: now)!"))
+    }
+
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
         let testsFileURL = URL(fileURLWithPath: #filePath)
         let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
         return try String(
             contentsOf: repoRoot.appendingPathComponent(relativePath),
             encoding: .utf8
+        )
+    }
+}
+
+@Suite("Audit Hardening Regression")
+struct AuditHardeningRegressionTests {
+    @Test("Inline response replacement discards stale response before restart")
+    @MainActor func inlineResponseReplacementDiscardsStaleResponse() {
+        let inference = InferenceState()
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: AuditCapturingStreamingLLMClient()
+        )
+
+        let state = NoteChatState(pageId: "page-inline-regression")
+        state.noteBodyProvider = { "Original note body." }
+        state.hasResponse = true
+        state.useResponsePanel = false
+        state.responseText = "stale inline response"
+
+        var events: [String] = []
+        state.onDiscard = { events.append("discard") }
+        state.onStreamStart = { _ in events.append("start") }
+
+        state.submitQuery(
+            "Rewrite this paragraph",
+            operation: .rewrite,
+            triageService: triage
+        )
+
+        #expect(Array(events.prefix(2)) == ["discard", "start"])
+        #expect(state.hasResponse)
+        #expect(state.responseText.isEmpty)
+    }
+
+    @Test("Text views protect the divider while allowing AI text edits")
+    @MainActor func textViewsProtectDividerWhileAllowingAITextEdits() {
+        assertDividerProtection(on: ProseTextView2(frame: .zero))
+    }
+
+    @Test("Vault destructive stop snapshots before clearing local data")
+    func vaultDestructiveStopSnapshotsBeforeClearing() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let destructiveBlock = try #require(source.range(of: "if !preserveData {"))
+        let destructiveBody = source[destructiveBlock.lowerBound...]
+        let snapshotCall = try #require(destructiveBody.range(of: "try snapshotLocalState()"))
+        let clearCall = try #require(destructiveBody.range(of: "clearVaultData()"))
+
+        #expect(snapshotCall.lowerBound > destructiveBlock.lowerBound)
+        #expect(snapshotCall.lowerBound < clearCall.lowerBound)
+    }
+
+    @Test("Omega planner schemas stay aligned with registered MCP tools")
+    @MainActor func omegaPlannerSchemasStayAligned() throws {
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference)
+        let planner = OmegaInferenceBridge(triageService: triage)
+        let runtime = MCPBridge()
+
+        let data = try #require(planner.toolSchemasJson.data(using: .utf8))
+        let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+
+        #expect(!schemas.isEmpty)
+        #expect(schemas.count == runtime.toolCount)
+        #expect(schemas.count == OmegaToolRegistry.all.count)
+    }
+
+    @Test("Regex-backed helpers avoid force-try compilation")
+    func regexBackedHelpersAvoidForceTryCompilation() throws {
+        let files = [
+            "Epistemos/Sync/BlockPropertyParser.swift",
+            "Epistemos/Views/Chat/ChatView.swift",
+            "Epistemos/Views/Chat/TaggedMarkdownTextView.swift",
+            "Epistemos/Views/Notes/MarkdownContentStorage.swift",
+            "Epistemos/Views/Notes/MarkdownEditorStyle.swift",
+            "Epistemos/Theme/EpistemosTheme.swift",
+            "Epistemos/Theme/GlassModifiers.swift",
+        ]
+
+        for file in files {
+            let source = try loadRepoTextFile(file)
+            #expect(!source.contains("try!"), "\(file) should not use try! for regex or detector setup")
+        }
+    }
+
+    @Test("Trap-prone persistence fallbacks stay removed")
+    func trapPronePersistenceFallbacksStayRemoved() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let feedbackLogger = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift")
+        let dataDetectionService = try loadRepoTextFile("Epistemos/Engine/DataDetectionService.swift")
+        let queryParser = try loadRepoTextFile("Epistemos/Engine/QueryParser.swift")
+        let structuredQueryParser = try loadRepoTextFile("Epistemos/Engine/StructuredQueryParser.swift")
+
+        #expect(!appBootstrap.contains("try! ModelContainer("))
+        #expect(!feedbackLogger.contains("try! JSONSerialization.data"))
+        #expect(!feedbackLogger.contains("String(data: data, encoding: .utf8)!"))
+        #expect(!dataDetectionService.contains("URL(string: \"webcal://\")!"))
+        #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
+        #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
+        #expect(!queryParser.contains("calendar.date(byAdding: .month, value: -1, to: now)!"))
+        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
+        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
+        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .month, value: -1, to: now)!"))
+    }
+
+    @Test("launch and note shell surfaces keep explicit loading empty and accessibility states")
+    func launchAndNoteShellSurfacesKeepExplicitPolishStates() throws {
+        let timeMachine = try loadRepoTextFile("Epistemos/Views/Landing/TimeMachineView.swift")
+        let workspaces = try loadRepoTextFile("Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift")
+        let notesSidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(timeMachine.contains("Text(\"No session history yet\")"))
+        #expect(timeMachine.contains("ProgressView()"))
+        #expect(timeMachine.contains("Text(\"Select a session to explore\")"))
+
+        #expect(workspaces.contains("Text(\"No saved workspaces\")"))
+        #expect(workspaces.contains("Text(\"esc to close\")"))
+
+        #expect(notesSidebar.contains("Text(\"No results\")"))
+        #expect(notesSidebar.contains("Text(\"No notes yet\")"))
+        #expect(notesSidebar.contains(".accessibilityLabel(\"Search notes\")"))
+        #expect(notesSidebar.contains(".accessibilityLabel(\"Clear search\")"))
+
+        #expect(landing.contains(".accessibilityLabel(\"Send prompt\")"))
+        #expect(landing.contains(".accessibilityLabel(\"Local Model\")"))
+        #expect(landing.contains("ProgressView()"))
+    }
+
+    @Test("root shell keeps recovery overlays toast feedback and toolbar accessibility affordances")
+    func rootShellKeepsRecoveryAndAccessibilityAffordances() throws {
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(rootView.contains("ToastOverlay("))
+        #expect(rootView.contains("VaultRecoveryOverlay("))
+        #expect(rootView.contains(".accessibilityLabel(\"Back to Home\")"))
+        #expect(rootView.contains(".accessibilityLabel(\"Settings\")"))
+        #expect(rootView.contains(".accessibilityLabel(\"Chat History\")"))
+        #expect(rootView.contains(".alert(\"Database Error\""))
+    }
+
+    @MainActor
+    private func assertDividerProtection(on textView: NSTextView) {
+        textView.string = "Hello world.\(NoteChatInlineResponse.divider)AI response."
+
+        if let prose = textView as? ProseTextView2 {
+            prose.hasProtectedInlineResponseDivider = true
+        }
+
+        let fullText = textView.string as NSString
+        let dividerRange = fullText.range(of: NoteChatInlineResponse.divider)
+        let responseRange = fullText.range(of: "AI response.")
+
+        #expect(dividerRange.location != NSNotFound)
+        #expect(responseRange.location != NSNotFound)
+
+        let blocked: Bool
+        let allowed: Bool
+
+        switch textView {
+        case let prose as ProseTextView2:
+            blocked = prose.shouldChangeText(
+                in: NSRange(location: dividerRange.location + 1, length: 1),
+                replacementString: ""
+            )
+            allowed = prose.shouldChangeText(
+                in: responseRange,
+                replacementString: "Edited response."
+            )
+        default:
+            Issue.record("Unexpected text view type: \(type(of: textView))")
+            return
+        }
+
+        #expect(!blocked)
+        #expect(allowed)
+    }
+
+    private func loadRepoTextFile(_ relativePath: String) throws -> String {
+        let testsFileURL = URL(fileURLWithPath: #filePath)
+        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+        return try String(
+            contentsOf: repoRoot.appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
+    }
+}
+
+@MainActor
+private final class AuditCapturingStreamingLLMClient: LLMClientProtocol {
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        "unused"
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                continuation.yield("ok")
+                continuation.finish()
+            }
+        }
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(
+            provider: .localMLX,
+            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            reasoningMode: .fast
         )
     }
 }

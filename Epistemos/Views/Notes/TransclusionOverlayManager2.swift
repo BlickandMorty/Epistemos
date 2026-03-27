@@ -8,8 +8,7 @@ import SwiftData
 // Edits fire onBlockEdit which routes through BTK as UpdateBlock ops.
 //
 // Geometry: Uses NSTextLayoutManager.enumerateTextLayoutFragments(from:options:)
-// + fragment.layoutFragmentFrame instead of TK1's glyphRange(forBoundingRect:) +
-// boundingRect(forGlyphRange:).
+// + fragment.layoutFragmentFrame instead of the old TK1 glyph-range path.
 //
 // Lifecycle:
 //   - Created once per editor (stored on Coordinator2)
@@ -142,8 +141,8 @@ final class TransclusionOverlayManager2 {
         let docStart = contentStorage.documentRange.location
 
         // Find all ((ref)) markers via .link attribute with "blockref://" prefix.
-        // Both TK1 (MarkdownTextStorage) and TK2 (MarkdownContentStorage) set
-        // .link: "blockref://\(blockId)" on block reference content ranges.
+        // The editor styling pipeline sets .link: "blockref://\(blockId)"
+        // on block reference content ranges.
         var activeKeys = Set<String>()
         let blockrefPrefix = "blockref://"
 
@@ -171,7 +170,7 @@ final class TransclusionOverlayManager2 {
             let fragFrame = fragment.layoutFragmentFrame
 
             // Walk line fragments to find the one(s) containing this ref range,
-            // computing a precise bounding rect like TK1's boundingRect(forGlyphRange:).
+            // computing the precise bounding rect for the current TK2 layout.
             let elemStart: Int
             if let elemRange = fragment.textElement?.elementRange {
                 elemStart = contentStorage.offset(from: docStart, to: elemRange.location)

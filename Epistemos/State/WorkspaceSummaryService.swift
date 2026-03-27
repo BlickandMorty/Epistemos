@@ -140,7 +140,7 @@ final class WorkspaceSummaryService {
         var results: [(title: String, summary: String)] = []
         for pageId in openPageIds.prefix(8) {
             guard let title = fetchPageTitle(pageId: pageId) else { continue }
-            let body = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+            let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
             guard !body.isEmpty else {
                 results.append((title: title, summary: "Empty note"))
                 continue
@@ -230,7 +230,7 @@ final class WorkspaceSummaryService {
         // Semantic diffs (what changed, not raw content)
         var diffLines: [String] = []
         for note in digest.editedNotes.prefix(5) {
-            let body = NoteFileStorage.readBody(pageId: note.pageId, mapped: true)
+            let body = NoteWindowManager.shared.currentBody(for: note.pageId, mapped: true)
             let paragraphs = body.components(separatedBy: "\n\n")
             let changedSnippets = paragraphs.prefix(note.totalParagraphs)
                 .enumerated()

@@ -84,7 +84,7 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
 // MARK: - GraphEdgeType
 // 12 relationship types: 8 structural + 4 semantic.
 
-nonisolated enum GraphEdgeType: String, Codable, Sendable {
+nonisolated enum GraphEdgeType: String, Codable, Sendable, CaseIterable {
     case reference
     case contains
     case tagged
@@ -166,12 +166,14 @@ nonisolated struct GraphNodeMetadata: Codable, Sendable, Equatable {
 
 nonisolated struct GraphFilterSnapshot: Sendable {
     let activeNodeTypes: Set<GraphNodeType>
+    let activeEdgeTypes: Set<GraphEdgeType>
     let focusedNodeId: String?
     let focusedConnected: Set<String>?
 
     @MainActor
     init(filter: FilterEngine) {
         activeNodeTypes = filter.activeNodeTypes
+        activeEdgeTypes = filter.activeEdgeTypes
         focusedNodeId = filter.focusedNodeId
         focusedConnected = filter.focusedConnected
     }
@@ -193,7 +195,7 @@ nonisolated struct GraphFilterSnapshot: Sendable {
         sourceVisible: Bool,
         targetVisible: Bool
     ) -> Bool {
-        sourceVisible && targetVisible
+        sourceVisible && targetVisible && activeEdgeTypes.contains(edge.type)
     }
 }
 

@@ -93,8 +93,8 @@ struct NoteChatSidebar: View {
         .padding(.vertical, 8)
         .background(
             msg.role == .user
-                ? theme.foreground.opacity(0.04)
-                : theme.accent.opacity(0.06),
+                ? theme.resolved.foreground.color.opacity(0.04)
+                : theme.resolved.accent.color.opacity(0.06),
             in: RoundedRectangle(cornerRadius: 8, style: .continuous)
         )
     }

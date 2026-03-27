@@ -206,7 +206,7 @@ nonisolated struct QualityCurator: Sendable {
                     .init(role: $0.role, content: $0.content)
                 })
                 let data = try encoder.encode(mlxFormat)
-                return String(data: data, encoding: .utf8)!
+                return try FoundationSafety.utf8String(from: data)
             }
 
             try lines.joined(separator: "\n").write(to: fileURL, atomically: true, encoding: .utf8)
@@ -233,7 +233,7 @@ nonisolated struct QualityCurator: Sendable {
                 .init(role: $0.role, content: $0.content)
             })
             let data = try encoder.encode(mlxFormat)
-            return String(data: data, encoding: .utf8)!
+            return try FoundationSafety.utf8String(from: data)
         }
 
         try lines.joined(separator: "\n").write(to: fileURL, atomically: true, encoding: .utf8)

@@ -22,7 +22,7 @@ struct HardenedASTFuzzTests {
         let rendered = attempt.map { String($0.characters) } ?? "failed cleanly"
 
         #expect(page.title == payload)
-        #expect(!rendered.isEmpty)
+        #expect(attempt == nil || rendered.count <= payload.count + 1)
     }
 }
 

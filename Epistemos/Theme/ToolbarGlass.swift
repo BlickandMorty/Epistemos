@@ -14,7 +14,7 @@ struct GlassToolbarConfiguration {
     }
     
     var tintColor: NSColor {
-        NSColor(theme.background).withAlphaComponent(tintOpacity)
+        theme.resolved.background.nsColor.withAlphaComponent(tintOpacity)
     }
 }
 

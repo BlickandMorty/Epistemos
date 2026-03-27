@@ -277,8 +277,8 @@ private struct QuitSaveContent: View {
                                     Text(mode.rawValue).font(.system(size: 12, weight: .medium, design: .rounded))
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 8)
-                                .background(saveMode == mode ? theme.accent.opacity(0.12) : theme.foreground.opacity(0.04), in: Capsule())
-                                .foregroundStyle(saveMode == mode ? theme.accent : theme.textSecondary)
+                                .background(saveMode == mode ? theme.resolved.accent.color.opacity(0.12) : theme.resolved.foreground.color.opacity(0.04), in: Capsule())
+                                .foregroundStyle(saveMode == mode ? theme.resolved.accent.color : theme.textSecondary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -298,13 +298,13 @@ private struct QuitSaveContent: View {
                                 Button { selectedExistingId = ws.id } label: {
                                     HStack {
                                         Image(systemName: selectedExistingId == ws.id ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(selectedExistingId == ws.id ? theme.accent : theme.textTertiary)
+                                            .foregroundStyle(selectedExistingId == ws.id ? theme.resolved.accent.color : theme.textTertiary)
                                         Text(ws.name).font(.system(size: 12, weight: .medium, design: .rounded))
                                         Spacer()
                                         Text(ws.updatedAt, style: .relative).font(.system(size: 10, design: .rounded)).foregroundStyle(theme.textTertiary)
                                     }
                                     .padding(.horizontal, 10).padding(.vertical, 6)
-                                    .background(selectedExistingId == ws.id ? theme.accent.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                                    .background(selectedExistingId == ws.id ? theme.resolved.accent.color.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 8))
                                     .contentShape(Rectangle())
                                 }.buttonStyle(.plain)
                             }
@@ -333,7 +333,7 @@ private struct QuitSaveContent: View {
                                 }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundStyle(theme.accent)
+                                .foregroundStyle(theme.resolved.accent.color)
                             }
                             Text(aiSuggestion)
                                 .font(.system(size: 12, design: .rounded))
@@ -342,7 +342,7 @@ private struct QuitSaveContent: View {
                                 .lineLimit(3)
                         }
                         .padding(10)
-                        .background(theme.foreground.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
+                        .background(theme.resolved.foreground.color.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
                 .padding(.horizontal, 24).padding(.vertical, 16)
@@ -358,16 +358,16 @@ private struct QuitSaveContent: View {
                 Spacer()
                 Button("Cancel") { onComplete(false) }
                     .buttonStyle(.plain).foregroundStyle(theme.textSecondary).font(.system(size: 12, weight: .medium, design: .rounded))
-                    .padding(.horizontal, 14).padding(.vertical, 8).background(theme.foreground.opacity(0.05), in: Capsule())
+                    .padding(.horizontal, 14).padding(.vertical, 8).background(theme.resolved.foreground.color.opacity(0.05), in: Capsule())
                 Button(isQuitFlow ? "Save & Quit" : "Save") { performSave() }
                     .buttonStyle(.plain).foregroundStyle(.white).font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 18).padding(.vertical, 8).background(theme.accent, in: Capsule())
+                    .padding(.horizontal, 18).padding(.vertical, 8).background(theme.resolved.accent.color, in: Capsule())
                     .disabled(saveMode == .saveNew && workspaceName.trimmingCharacters(in: .whitespaces).isEmpty)
                     .opacity(saveMode == .saveNew && workspaceName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
             }
             .padding(.horizontal, 24).padding(.vertical, 14)
         }
-        .foregroundStyle(theme.foreground)
+        .foregroundStyle(theme.resolved.foreground.color)
         .onAppear {
             existingWorkspaces = AppBootstrap.shared?.workspaceService.listWorkspaces() ?? []
             selectedExistingId = existingWorkspaces.first?.id

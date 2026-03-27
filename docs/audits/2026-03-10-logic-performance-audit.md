@@ -1,5 +1,7 @@
 # 2026-03-10 Logic + Performance Audit
 
+> **Historical snapshot:** This audit was written before the later TK2-only editor cutover and pruning pass. References to deleted prose-editor files or then-current hot paths should be read as historical findings, not as claims about the current production tree.
+
 ## Executive Summary
 
 I audited the note/editor, sync, graph, and graph-engine paths in:

@@ -540,6 +540,12 @@ actor KnowledgeCoreBridge {
     private func decode(_ slice: GraphEngineStringSlice) -> String {
         guard let ptr = slice.ptr, slice.len > 0 else { return "" }
         let buffer = UnsafeBufferPointer(start: ptr, count: Int(slice.len))
+        if let decoded = String(bytes: buffer, encoding: .utf8) {
+            return decoded
+        }
+        Log.engine.warning(
+            "KnowledgeCoreBridge: invalid UTF-8 payload (\(slice.len) bytes); coercing with replacement characters"
+        )
         return String(decoding: buffer, as: UTF8.self)
     }
 

@@ -4,9 +4,11 @@ import SwiftData
 // MARK: - Notes Intents
 
 struct AskAboutNotesIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Ask About Notes"
-    nonisolated(unsafe) static var description: IntentDescription = "Asks the AI a question grounded in your Epistemos notes."
-    nonisolated(unsafe) static var openAppWhenRun = false  // Siri can answer without opening the app
+    static var title: LocalizedStringResource { "Ask About Notes" }
+    static var description: IntentDescription {
+        IntentDescription("Asks the AI a question grounded in your Epistemos notes.")
+    }
+    static var openAppWhenRun: Bool { false }  // Siri can answer without opening the app
 
     @Parameter(title: "Question")
     var question: String
@@ -18,30 +20,27 @@ struct AskAboutNotesIntent: AppIntent {
         // Use ambient manifest for vault-wide awareness, with keyword-matched pages for depth
         let manifestContext = bootstrap.ambientManifest?.asManifestOnly() ?? ""
 
-        let context = ModelContext(bootstrap.modelContainer)
-        let descriptor = FetchDescriptor<SDPage>(
-            sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
-        )
-        let pages = (try? context.fetch(descriptor)) ?? []
-        let pageContexts = pages.map { page in
-            (page: page, body: page.loadBody(mapped: true))
+        let matches = await AppIntentSearchSupport.rankedPages(
+            query: question,
+            bootstrap: bootstrap,
+            limit: 5
+        ) { page in
+            !page.isArchived && page.templateId == nil
         }
-
-        let queryLower = question.lowercased()
-        let keywords = queryLower.split(separator: " ").filter { $0.count > 3 }.map(String.init)
-
-        let relevantPages = pageContexts.filter { entry in
-            let titleLower = entry.page.title.lowercased()
-            let bodyLower = entry.body.lowercased()
-            return keywords.contains(where: { titleLower.contains($0) || bodyLower.contains($0) })
-        }.prefix(5)
+        let relevantBodies = await bootstrap.vaultSync.fetchNoteBodies(ids: matches.map(\.page.id))
 
         let deepContext: String
-        if relevantPages.isEmpty {
-            let recent = pageContexts.prefix(5)
-            deepContext = recent.map { "## \($0.page.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
+        if relevantBodies.isEmpty {
+            let context = ModelContext(bootstrap.modelContainer)
+            let recent = (try? context.fetch(SDPage.recentDescriptor(limit: 5))) ?? []
+            deepContext = recent.map { page in
+                let body = NoteWindowManager.shared.currentBody(for: page.id, mapped: true)
+                return "## \(page.title)\n\(String(body.prefix(500)))"
+            }.joined(separator: "\n\n")
         } else {
-            deepContext = relevantPages.map { "## \($0.page.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
+            deepContext = relevantBodies.map { note in
+                "## \(note.title)\n\(String(note.body.prefix(500)))"
+            }.joined(separator: "\n\n")
         }
 
         let fullContext = manifestContext.isEmpty ? deepContext : "\(manifestContext)\n\n## Relevant Note Bodies\n\(deepContext)"

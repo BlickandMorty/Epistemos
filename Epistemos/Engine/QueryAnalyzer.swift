@@ -214,15 +214,18 @@ enum QueryAnalyzer {
     }
 
     private static func extractFollowUpFocus(_ query: String) -> String? {
+        let fullRange = NSRange(query.startIndex..<query.endIndex, in: query)
         for pattern in focusPatterns {
-            if let range = query.range(of: pattern, options: [.regularExpression, .caseInsensitive]),
-               range.upperBound < query.endIndex {
-                let focus = String(query[range.upperBound...])
-                    .replacingOccurrences(of: "[?.!]+$", with: "", options: .regularExpression)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !focus.isEmpty {
-                    return focus
-                }
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+                  let match = regex.firstMatch(in: query, options: [], range: fullRange),
+                  match.numberOfRanges > 1,
+                  let focusRange = Range(match.range(at: 1), in: query) else { continue }
+
+            let focus = String(query[focusRange])
+                .replacingOccurrences(of: "[?.!]+$", with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !focus.isEmpty {
+                return focus
             }
         }
         return nil

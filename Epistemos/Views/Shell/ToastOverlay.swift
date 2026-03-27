@@ -39,7 +39,7 @@ struct ToastOverlay: View {
 
             Text(message)
                 .font(.epCaption)
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(theme.resolved.foreground.color)
 
             Button {
                 onDismiss()

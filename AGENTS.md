@@ -27,7 +27,7 @@ User → SwiftUI Views → @Observable State → Services (Engine/) → Rust FFI
 | AI Pipeline | `Engine/TriageService.swift` | `Engine/PipelineService.swift`, `Engine/LLMService.swift` |
 | Graph | `Graph/GraphState.swift` | `Graph/GraphStore.swift`, `Graph/GraphBuilder.swift` |
 | Graph Engine (Rust) | `graph-engine/src/lib.rs` | `src/renderer.rs`, `src/physics.rs`, `src/types.rs` |
-| Note Editor | `Views/Notes/ProseEditorRepresentable.swift` | `Views/Notes/ProseEditorView.swift`, `Views/Notes/MarkdownTextStorage.swift` |
+| Note Editor | `Views/Notes/ProseEditorView.swift` | `Views/Notes/ProseEditorRepresentable2.swift`, `Views/Notes/ProseTextView2.swift` |
 | Note Chat | `State/NoteChatState.swift` | `Views/Notes/NoteChatSidebar.swift`, `Views/Notes/NoteWindowManager.swift` |
 | Note Windows | `Views/Notes/NoteWindowManager.swift` | `Views/Notes/NotesSidebar.swift` |
 | Graph Overlay | `Views/Graph/HologramController.swift` | `Views/Graph/HologramOverlay.swift`, `Views/Graph/MetalGraphView.swift` |
@@ -155,25 +155,25 @@ Header: `graph-engine-bridge/graph_engine.h` (42 functions)
 
 ## Note Editor Internals
 
-### ProseEditorRepresentable (the heart of editing)
-NSViewRepresentable wrapping ClickableTextView (NSTextView subclass).
-- **Coordinator** owns: binding sync debounce (300ms), table alignment (500ms), AI zone callbacks.
-- **MarkdownTextStorage** — live syntax highlighting via `processEditing()`. Handles: headers, bold, italic, code, blockquotes, links, wikilinks, tables, AI comment markers.
-- **ClickableTextView** — NSTextView subclass with: wikilink click handling, right-click AI context menu, hover tracking areas for wikilink glow, `shouldChangeTextIn` zone protection.
+### ProseEditorRepresentable2 + ProseTextView2 (the heart of editing)
+TextKit 2 editor bridge wrapping `ProseTextView2` (`NSTextView` backed by `NSTextLayoutManager`).
+- **Coordinator2** owns: binding sync debounce (300ms), table alignment, AI callbacks, fold/indent helpers, and transclusion overlay coordination.
+- **MarkdownContentStorage** — delegate-backed structural + inline markdown styling for the TK2 stack.
+- **ProseTextView2** — NSTextView subclass with wikilink handling, AI context menu notifications, structural edit helpers, and divider protection.
 
 ### Text Flow
 ```
-User types → NSTextStorage.processEditing() → highlight
-           → textDidChange() → debounced binding sync (300ms)
-           → table alignment check (500ms)
+User types → ProseTextView2.didChangeText() → reparseAndInvalidate()
+           → Coordinator2.textDidChange() → debounced binding sync (300ms)
+           → ProseEditorView debounced disk/model save
 AI streams → NoteChatState.appendStreamingText() → 60ms buffer
            → flushTokens() → onTokenFlush callback
-           → Coordinator.flushNoteChatTokens() → insert into storage
+           → Coordinator2.flushNoteChatTokens() → insert into storage
            → isFlushingTokens flag prevents binding sync cascade
 ```
 
 ### AI Context Menu Operations
-Right-click in editor → ClickableTextView builds menu → posts notification with operation string.
+Right-click in editor → ProseTextView2 builds menu → posts notification with operation string.
 NoteTabView receives notification → `handleAIContextMenuOperation()` maps to `(NotesOperation, systemPrompt, userPrompt)` → `noteChatState.submitQuery()`.
 
 Operations: rewrite, summarize, expand, simplify, toList, toTable, continue, outline, structure, restructure.

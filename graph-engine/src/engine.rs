@@ -362,8 +362,12 @@ impl Engine {
                     // low alpha so physics gently nudges nodes into their
                     // force-directed equilibrium (the tight ball) without the
                     // violent "sucked in" snap that high alpha causes.
-                    for v in sim.vx.iter_mut() { *v = 0.0; }
-                    for v in sim.vy.iter_mut() { *v = 0.0; }
+                    for v in sim.vx.iter_mut() {
+                        *v = 0.0;
+                    }
+                    for v in sim.vy.iter_mut() {
+                        *v = 0.0;
+                    }
                     sim.params.alpha = 0.008;
                     sim.params.alpha_decay = 0.008;
                 }
@@ -496,17 +500,8 @@ impl Engine {
         self.spatial.build(&self.graph.nodes);
         self.search_index.build(&self.graph.nodes);
 
-        // Preserve interaction state — clear only if the target was removed.
-        if let Some(sel_id) = self.selected_id
-            && !self.graph.id_to_index.contains_key(&sel_id)
-        {
-            self.selected_id = None;
-        }
-        if let Some(hov_id) = self.hovered_id
-            && !self.graph.id_to_index.contains_key(&hov_id)
-        {
-            self.hovered_id = None;
-        }
+        // Preserve interaction state only while the target still exists and is visible.
+        self.clear_hidden_interaction_targets();
         if let Some(ref drag) = self.drag
             && !self.graph.id_to_index.contains_key(&drag.node_id)
         {
@@ -533,6 +528,28 @@ impl Engine {
         }
     }
 
+    fn clear_hidden_interaction_targets(&mut self) {
+        if let Some(sel_id) = self.selected_id
+            && !self.is_visible_graph_node(sel_id)
+        {
+            self.selected_id = None;
+        }
+        if let Some(hov_id) = self.hovered_id
+            && !self.is_visible_graph_node(hov_id)
+        {
+            self.hovered_id = None;
+        }
+    }
+
+    fn is_visible_graph_node(&self, node_id: u32) -> bool {
+        self.graph
+            .id_to_index
+            .get(&node_id)
+            .and_then(|&idx| self.graph.nodes.get(idx))
+            .map(|node| node.visible)
+            .unwrap_or(false)
+    }
+
     /// Re-upload graph to renderer and reload simulation after visibility changes.
     /// Preserves positions/velocities — only the set of active nodes changes.
     pub fn refresh_visibility(&mut self) {
@@ -557,6 +574,9 @@ impl Engine {
 
         // Re-upload ECS world to renderer (only visible nodes are drawn).
         self.renderer.upload_graph(&self.world);
+
+        self.clear_hidden_interaction_targets();
+        self.highlight_dirty = true;
 
         // Rebuild spatial index so invisible nodes aren't hittable.
         self.spatial.build(&self.graph.nodes);
@@ -1884,6 +1904,49 @@ mod tests {
             !old_neighbors.contains(&moved_entity),
             "spatial grid should drop the node from its stale position"
         );
+    }
+
+    #[test]
+    fn refresh_visibility_clears_stale_selection_and_hover() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_graph();
+        engine.commit(false);
+        engine.stop_physics();
+
+        let hidden_uuid = engine.graph.nodes[0].uuid.clone();
+        let hidden_id = engine.graph.nodes[0].id;
+        let hidden_sim_index = engine
+            .sim
+            .lock()
+            .graph_indices
+            .iter()
+            .position(|&graph_index| graph_index == 0)
+            .expect("simulation should contain the hidden node");
+
+        engine.selected_id = Some(hidden_id);
+        engine.hovered_id = Some(hidden_id);
+        engine.drag = Some(DragState {
+            node_id: hidden_id,
+            sim_index: hidden_sim_index,
+            origin: [0.0, 0.0],
+            moved: false,
+            last_world: [0.0, 0.0],
+        });
+
+        engine.set_node_visible(&hidden_uuid, false);
+        engine.refresh_visibility();
+
+        assert_eq!(engine.selected_id, None);
+        assert_eq!(engine.hovered_id, None);
+        assert!(engine.drag.is_none());
+        assert!(engine.highlight_dirty);
     }
 
     #[test]

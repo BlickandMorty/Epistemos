@@ -93,7 +93,7 @@ enum LandingGreetingResolver {
             LandingGreetingPhrase(text: "AI runs entirely on-device — your data never leaves this Mac", durationSeconds: 3.2),
             LandingGreetingPhrase(text: "your vault syncs to plain markdown — portable, forever yours", durationSeconds: 3.2),
             LandingGreetingPhrase(text: "right-click in the editor for AI rewriting tools", durationSeconds: 2.8),
-            LandingGreetingPhrase(text: "Knowledge Fusion trains a model on your writing style", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "daily briefs summarize recent notes and conversations", durationSeconds: 3.2),
         ]
 
         return opening + instructions + tips
@@ -418,7 +418,6 @@ final class UIState {
             "epistemos.landingCursorOpacity",
             "epistemos.landingCursorBlur",
             "epistemos.landingGreetingASCIIEnabled",
-            "epistemos.landingGreetingTypewriterEnabled",
             "epistemos.landingGreetingASCIIHoverEnabled",
             "epistemos.landingGreetingTypewriterVersion",
             "epistemos.landingGreetingIntensity",

@@ -14,9 +14,9 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
     private var lineStarts: [Int] = [0]
     private var documentLength: Int = 0
     private var isDirty = true
-    private let baseFontSize: CGFloat = MarkdownTextStorage.noteBaseFontSize
+    private let baseFontSize: CGFloat = MarkdownEditorStyle.noteBaseFontSize
 
-    private static let numberedListRegex = try! NSRegularExpression(pattern: #"^\d+\.\s"#)
+    private static let numberedListRegex = FoundationSafety.regularExpression(#"^\d+\.\s"#)
 
     /// Visible line range, updated by ProseTextView2 on scroll/layout.
     /// Code blocks outside this range + buffer skip tokenization.
@@ -185,7 +185,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             && leadingDocumentContentIsEmpty(before: range.location, in: attrStr.string as NSString)
         let tableLineRole =
             entry.paraType == 7
-            ? MarkdownTextStorage.tableLineRole(at: range, in: attrStr.string as NSString)
+            ? MarkdownEditorStyle.tableLineRole(at: range, in: attrStr.string as NSString)
             : nil
 
         let styled = NSMutableAttributedString(string: displayText)
@@ -231,16 +231,17 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         paraType: UInt8,
         metadata: UInt16,
         isLeadingDocumentHeading: Bool = false,
-        tableLineRole: MarkdownTextStorage.TableLineRole? = nil
+        tableLineRole: MarkdownEditorStyle.TableLineRole? = nil
     ) {
         let line = attrStr.string
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        let foreground = NSColor(theme.foreground)
+        let resolved = theme.resolved
+        let foreground = resolved.foreground.nsColor
         let bodyFont = NSFont.systemFont(ofSize: baseFontSize)
-        let accent = NSColor(theme.fontAccent)
-        let headingAccent = NSColor(theme.markdownHeadingAccent)
+        let accent = resolved.headingAccent.nsColor
+        let headingAccent = resolved.markdownHeadingAccent.nsColor
         let muted = Self.mutedColor(isDark: theme.isDark)
-        let bodyParagraph = MarkdownTextStorage.bodyParagraphStyle()
+        let bodyParagraph = MarkdownEditorStyle.bodyParagraphStyle()
 
         switch paraType {
         case 1:  // Heading
@@ -251,7 +252,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 text: line,
                 baseFontSize: baseFontSize
             )
-            let headingParagraph = MarkdownTextStorage.headingParagraphStyle(
+            let headingParagraph = MarkdownEditorStyle.headingParagraphStyle(
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading
             )
@@ -260,7 +261,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 if usesDisplayFont {
                     AppDisplayTypography.nsFont(size: fontSize, weight: weight)
                 } else {
-                    NSFont.systemFont(ofSize: fontSize, weight: weight)
+                    AppDisplayTypography.regularUIFont(size: fontSize, weight: weight)
                 }
             let headingColor = usesDisplayFont
                 ? NSColor(MarkdownHeadingDisplay.foregroundColor(for: theme, level: level))
@@ -325,10 +326,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 [
                     .font: bodyFont,
                     .foregroundColor: codeColor,
-                    .paragraphStyle: MarkdownTextStorage.codeBlockParagraphStyle(),
-                    MarkdownTextStorage.blockChromeKindAttribute: MarkdownBlockChromeKind.codeBlock.rawValue,
-                    MarkdownTextStorage.blockChromeAccentAttribute: accent,
-                    MarkdownTextStorage.blockChromeFillAttribute: codeBackground,
+                    .paragraphStyle: MarkdownEditorStyle.codeBlockParagraphStyle(),
+                    MarkdownEditorStyle.blockChromeKindAttribute: MarkdownBlockChromeKind.codeBlock.rawValue,
+                    MarkdownEditorStyle.blockChromeAccentAttribute: accent,
+                    MarkdownEditorStyle.blockChromeFillAttribute: codeBackground,
                 ], range: range)
 
         case 5:  // BlockQuote (plain or callout)
@@ -339,10 +340,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                         .font: NSFont.systemFont(ofSize: baseFontSize, weight: .semibold),
                         .foregroundColor: theme.isDark
                             ? callout.accent.withAlphaComponent(0.9) : callout.accent,
-                        .paragraphStyle: MarkdownTextStorage.calloutParagraphStyle(),
-                        MarkdownTextStorage.blockChromeKindAttribute: MarkdownBlockChromeKind.callout.rawValue,
-                        MarkdownTextStorage.blockChromeAccentAttribute: callout.accent,
-                        MarkdownTextStorage.blockChromeFillAttribute: callout.background,
+                        .paragraphStyle: MarkdownEditorStyle.calloutParagraphStyle(),
+                        MarkdownEditorStyle.blockChromeKindAttribute: MarkdownBlockChromeKind.callout.rawValue,
+                        MarkdownEditorStyle.blockChromeAccentAttribute: callout.accent,
+                        MarkdownEditorStyle.blockChromeFillAttribute: callout.background,
                     ], range: range)
                 let calloutPrefix: String
                 if let bracketEnd = trimmed.range(of: "] ") {
@@ -366,10 +367,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     [
                         .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium).italic,
                         .foregroundColor: foreground.withAlphaComponent(theme.isDark ? 0.60 : 0.72),
-                        .paragraphStyle: MarkdownTextStorage.quoteParagraphStyle(),
-                        MarkdownTextStorage.blockChromeKindAttribute: MarkdownBlockChromeKind.quote.rawValue,
-                        MarkdownTextStorage.blockChromeAccentAttribute: accent,
-                        MarkdownTextStorage.blockChromeFillAttribute: quoteBackground,
+                        .paragraphStyle: MarkdownEditorStyle.quoteParagraphStyle(),
+                        MarkdownEditorStyle.blockChromeKindAttribute: MarkdownBlockChromeKind.quote.rawValue,
+                        MarkdownEditorStyle.blockChromeAccentAttribute: accent,
+                        MarkdownEditorStyle.blockChromeFillAttribute: quoteBackground,
                     ], range: range)
                 applyPrefixColor(
                     to: attrStr,
@@ -384,7 +385,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 [
                     .font: bodyFont,
                     .foregroundColor: foreground,
-                    .paragraphStyle: MarkdownTextStorage.listParagraphStyle(),
+                    .paragraphStyle: MarkdownEditorStyle.listParagraphStyle(),
                 ], range: range)
             if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
                 applyPrefixColor(
@@ -393,7 +394,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     prefix: trimmed.hasPrefix("- ") ? "- " : "* ",
                     color: accent
                 )
-            } else if let match = Self.numberedListRegex.firstMatch(
+            } else if let match = Self.numberedListRegex?.firstMatch(
                 in: trimmed,
                 range: NSRange(trimmed.startIndex..., in: trimmed)
             ) {
@@ -439,10 +440,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 let font: NSFont
                 switch role {
                 case .first:
-                    paragraphStyle = MarkdownTextStorage.tablePlaceholderParagraphStyle()
+                    paragraphStyle = MarkdownEditorStyle.tablePlaceholderParagraphStyle()
                     font = NSFont.systemFont(ofSize: baseFontSize - 1, weight: .medium)
                 case .continuation, .separator:
-                    paragraphStyle = MarkdownTextStorage.tableCollapsedParagraphStyle()
+                    paragraphStyle = MarkdownEditorStyle.tableCollapsedParagraphStyle()
                     font = NSFont.monospacedSystemFont(ofSize: 1, weight: .regular)
                 }
                 attrStr.addAttributes(
@@ -456,7 +457,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     [
                         .font: NSFont.systemFont(ofSize: baseFontSize - 1, weight: .regular),
                         .foregroundColor: foreground,
-                        .paragraphStyle: MarkdownTextStorage.tableParagraphStyle(),
+                        .paragraphStyle: MarkdownEditorStyle.tableParagraphStyle(),
                     ], range: range)
             }
 
@@ -519,7 +520,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         let utf8ToUtf16 = Self.buildUtf8ToUtf16Map(text)
         let sourceNSString = text as NSString
         let isDark = theme.isDark
-        let accent = NSColor(theme.fontAccent)
+        let accent = theme.resolved.headingAccent.nsColor
         let linkAccent = theme.preferredMarkdownLinkNSColor ?? accent
         let muted = NSColor(theme.mutedForeground)
         let ghostMarker: [NSAttributedString.Key: Any]
@@ -586,7 +587,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             ?? NSFont.systemFont(ofSize: baseFontSize)
         let existingForeground =
             attrStr.attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? NSColor
-            ?? NSColor(theme.foreground)
+            ?? theme.resolved.foreground.nsColor
         let size = existingFont.pointSize
 
         switch style {
@@ -992,10 +993,12 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         defer { buffer.deallocate() }
 
         let utf8Data = Array(text.utf8)
+        guard !utf8Data.isEmpty else { return [] }
         let count: UInt32 = utf8Data.withUnsafeBufferPointer { utf8Buf in
-            langTag.withCString { langPtr in
+            guard let baseAddress = utf8Buf.baseAddress else { return 0 }
+            return langTag.withCString { langPtr in
                 markdown_parse_code_tokens(
-                    UnsafeRawPointer(utf8Buf.baseAddress!).assumingMemoryBound(to: CChar.self),
+                    UnsafeRawPointer(baseAddress).assumingMemoryBound(to: CChar.self),
                     UInt32(utf8Buf.count),
                     langPtr,
                     buffer,

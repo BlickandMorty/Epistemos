@@ -76,7 +76,7 @@ final class ScreenCaptureService {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
 
-            guard let app = content.applications.first(where: { $0.bundleIdentifier == bundleID }),
+            guard content.applications.contains(where: { $0.bundleIdentifier == bundleID }),
                   let window = content.windows.first(where: {
                       $0.owningApplication?.bundleIdentifier == bundleID && $0.isOnScreen
                   }) else {

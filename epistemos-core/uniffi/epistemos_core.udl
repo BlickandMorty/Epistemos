@@ -61,6 +61,29 @@ namespace epistemos_core {
         string profile
     );
 
+    // ── Instant Recall (Ω18) ──────────────────────────────────────────────
+
+    /// Create a new instant recall index with the given handle name.
+    boolean instant_recall_create(string handle);
+
+    /// Encode text and insert into the index under the given doc_id.
+    boolean instant_recall_insert(string handle, string doc_id, string text);
+
+    /// Remove a document from the index.
+    boolean instant_recall_remove(string handle, string doc_id);
+
+    /// Search for notes similar to query_text. Returns JSON array of results.
+    string instant_recall_search(string handle, string query_text, u32 top_k);
+
+    /// Get the number of documents in the index.
+    u64 instant_recall_count(string handle);
+
+    /// Clear all documents from the index.
+    boolean instant_recall_clear(string handle);
+
+    /// Encode text to a float32 embedding. Returns JSON array of floats.
+    string instant_recall_encode(string text);
+
     // ── Scheduling ──────────────────────────────────────────────────────────
 
     /// Evaluate whether training should run and at which tier.

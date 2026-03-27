@@ -73,6 +73,26 @@ actor QLoRATrainer {
         var maxSeqLen: Int = 1024
         var learningRate: Double = 2e-5
         var seed: Int = 42
+
+        static let defaultKnowledge = TrainingConfig(
+            numIters: 200,
+            loraRank: 32,
+            loraAlpha: 64,
+            batchSize: 1,
+            maxSeqLen: 1024,
+            learningRate: 2e-5,
+            seed: 42
+        )
+
+        static let defaultStyle = TrainingConfig(
+            numIters: 200,
+            loraRank: 8,
+            loraAlpha: 16,
+            batchSize: 1,
+            maxSeqLen: 1024,
+            learningRate: 1e-5,
+            seed: 42
+        )
     }
 
     func trainKnowledgeAdapter(
@@ -80,7 +100,7 @@ actor QLoRATrainer {
         dataPath: URL,
         outputPath: URL,
         replayPath: URL? = nil,
-        config: TrainingConfig = TrainingConfig(),
+        config: TrainingConfig = .defaultKnowledge,
         progressHandler: (@Sendable (TrainingProgress) -> Void)? = nil
     ) async throws -> AdapterMetadata {
         let script = scriptsDirectory.appendingPathComponent("train_knowledge.py")
@@ -100,7 +120,7 @@ actor QLoRATrainer {
         dataPath: URL,
         outputPath: URL,
         replayPath: URL? = nil,
-        config: TrainingConfig = TrainingConfig(),
+        config: TrainingConfig = .defaultStyle,
         progressHandler: (@Sendable (TrainingProgress) -> Void)? = nil
     ) async throws -> AdapterMetadata {
         let script = scriptsDirectory.appendingPathComponent("train_style.py")

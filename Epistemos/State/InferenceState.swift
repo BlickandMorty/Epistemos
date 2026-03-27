@@ -219,7 +219,10 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
         }
         if rawValue.hasPrefix("cloud:") {
             let cloudRawValue = String(rawValue.dropFirst("cloud:".count))
-            guard let model = CloudTextModelID.from(rawValueOrVendorID: cloudRawValue) else { return nil }
+            let legacyVendorModelID = cloudRawValue.split(separator: ":", maxSplits: 1).last.map(String.init)
+            guard let model = CloudTextModelID.from(rawValueOrVendorID: cloudRawValue)
+                ?? legacyVendorModelID.flatMap(CloudTextModelID.from(rawValueOrVendorID:))
+            else { return nil }
             self = .cloud(model)
             return
         }

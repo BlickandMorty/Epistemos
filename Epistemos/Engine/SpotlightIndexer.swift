@@ -64,7 +64,7 @@ enum SpotlightIndexer {
 
     /// Bulk re-index all notes (e.g. on vault load).
     /// Processes in batches to avoid loading all page bodies into memory at once
-    /// (body uses @Attribute(.externalStorage) — each access triggers a lazy disk load).
+    /// (note bodies live in sidecar markdown files, so each read is explicit disk I/O).
     static func reindexAll(_ pages: [SDPage]) {
         let batchSize = 50
         let total = pages.count

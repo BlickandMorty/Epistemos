@@ -2,7 +2,10 @@
 > Quick-read file for new Claude Code sessions. `cat` this first.
 > Last updated: 2026-03-25
 
-## Current Phase: Ω15 (MOHAWK Distillation) — TRAINING SCRIPT COMPLETE, PILOT PENDING
+## Current Phase: Ω15 (MOHAWK Distillation) — READY TO TRAIN
+**Teacher:** Qwen 2.5 1.5B (no license gate, instant download)
+**NEEDS:** RunPod funded ($150+) at https://runpod.io
+**THEN RUN:** `cd Epistemos/KnowledgeFusion/MOHAWK && ./runpod_train_full.sh nano`
 
 ### Completed Phases
 - [x] Ω0-Ω9 — Scaffolding through integration tests

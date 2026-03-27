@@ -26,7 +26,7 @@ struct VaultChangesPanel: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                    .tint(theme.accent)
+                    .tint(theme.resolved.accent.color)
                 }
             }
             .padding(.horizontal, 12)
@@ -87,7 +87,7 @@ private struct DirtyPageRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(page.title.isEmpty ? "Untitled" : page.title)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(theme.resolved.foreground.color)
                     .lineLimit(1)
 
                 if let lastSaved = page.lastSyncedAt {

@@ -24,7 +24,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ml-explore/mlx-swift",
       "state" : {
-        "revision" : "b6e128c41569be1ecc041b9dfc64c3ac602a462c"
+        "revision" : "6ba4827fb82c97d012eec9ab4b2de21f85c3b33d"
       }
     },
     {
@@ -32,7 +32,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ml-explore/mlx-swift-lm",
       "state" : {
-        "revision" : "bc3c20ef4644c86f2b347debcfe1efe4308712a6"
+        "revision" : "7e19e09027923d89ac47dd087d9627f610e5a91a"
       }
     },
     {
@@ -139,8 +139,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-transformers",
       "state" : {
-        "revision" : "eed7264ac5e4ec5dfa6165c6e5c5577364344fe4",
-        "version" : "1.2.0"
+        "revision" : "150169bfba0889c229a2ce7494cf8949f18e6906",
+        "version" : "1.1.9"
       }
     },
     {

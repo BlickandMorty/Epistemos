@@ -40,7 +40,7 @@ final class PythonEnvironmentManager {
     // MARK: - Paths
 
     private var baseDir: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        FoundationSafety.userApplicationSupportDirectory()
             .appendingPathComponent("Epistemos/python-env")
     }
 
@@ -50,7 +50,7 @@ final class PythonEnvironmentManager {
 
     /// Directory containing deployed training scripts.
     var scriptsDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        FoundationSafety.userApplicationSupportDirectory()
             .appendingPathComponent("Epistemos/training-scripts")
     }
 

@@ -3,8 +3,7 @@ import SwiftData
 import UniformTypeIdentifiers
 
 private enum ChatPresentationFormatter {
-    // SAFETY: Hardcoded literal pattern — `try!` only fails on invalid regex syntax.
-    nonisolated static let userModePrefixRegex = try! NSRegularExpression(
+    nonisolated static let userModePrefixRegex = FoundationSafety.regularExpression(
         pattern: #"^\[[A-Z ]+MODE\]\s*"#
     )
 
@@ -32,12 +31,14 @@ private enum ChatPresentationFormatter {
         }
 
         let fullRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
-        let stripped = userModePrefixRegex.stringByReplacingMatches(
+        guard let userModePrefixRegex else {
+            return trimmed
+        }
+        return userModePrefixRegex.stringByReplacingMatches(
             in: trimmed,
             range: fullRange,
             withTemplate: ""
-        )
-        return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated static func heading(forAssistantText text: String) -> String? {
@@ -84,7 +85,6 @@ nonisolated func makeChatTranscriptRows(from messages: [ChatMessage], chatTitle:
     rows.reserveCapacity(messages.count)
 
     for message in messages {
-        let displayContent = ChatPresentationFormatter.displayContent(for: message)
         if message.role == .user {
             lastUserQuery = message.content
             rows.append(
@@ -315,7 +315,7 @@ private struct StreamingIndicator: View {
                         .foregroundStyle(theme.mutedForeground.opacity(0.6))
                     ForEach(0..<3) { i in
                         Circle()
-                            .fill(theme.accent.opacity(i <= dotPhase ? 0.8 : 0.2))
+                            .fill(theme.resolved.accent.color.opacity(i <= dotPhase ? 0.8 : 0.2))
                             .frame(width: 4, height: 4)
                     }
                 }

@@ -8,7 +8,7 @@ import SwiftUI
 // for headings, lists, code blocks, blockquotes, and tables.
 //
 // Read-only — no editing. Used for AI assistant responses in chat bubbles.
-// For the editable notes editor, see MarkdownTextStorage + ProseEditorRepresentable.
+// The note editor uses the dedicated TextKit 2 editing stack.
 
 enum MarkdownHeadingDisplay {
     private static let h1FullSizeCharacterLimit = 24
@@ -17,14 +17,20 @@ enum MarkdownHeadingDisplay {
 
     nonisolated static func noteHeadingBaseSize(
         for level: Int,
-        baseFontSize: CGFloat = MarkdownTextStorage.noteBaseFontSize
+        baseFontSize: CGFloat? = nil
     ) -> CGFloat {
+        let resolvedBaseFontSize = baseFontSize ?? MarkdownEditorStyle.noteBaseFontSize
         switch level {
-        case 1: baseFontSize + 31
-        case 2: baseFontSize + 5
-        case 3: baseFontSize + 1
-        case 4: baseFontSize
-        default: max(baseFontSize - 1, 9)
+        case 1:
+            return resolvedBaseFontSize + 31
+        case 2:
+            return resolvedBaseFontSize + 5
+        case 3:
+            return resolvedBaseFontSize + 1
+        case 4:
+            return resolvedBaseFontSize
+        default:
+            return max(resolvedBaseFontSize - 1, 9)
         }
     }
 
@@ -50,13 +56,14 @@ enum MarkdownHeadingDisplay {
     nonisolated static func noteHeadingFontSize(
         for level: Int,
         text: String,
-        baseFontSize: CGFloat = MarkdownTextStorage.noteBaseFontSize
+        baseFontSize: CGFloat? = nil
     ) -> CGFloat {
-        fontSize(
+        let resolvedBaseFontSize = baseFontSize ?? MarkdownEditorStyle.noteBaseFontSize
+        return fontSize(
             for: level,
             text: text,
-            baseSize: noteHeadingBaseSize(for: level, baseFontSize: baseFontSize),
-            nextLevelSize: noteHeadingBaseSize(for: 2, baseFontSize: baseFontSize)
+            baseSize: noteHeadingBaseSize(for: level, baseFontSize: resolvedBaseFontSize),
+            nextLevelSize: noteHeadingBaseSize(for: 2, baseFontSize: resolvedBaseFontSize)
         )
     }
 
@@ -619,7 +626,7 @@ struct NoteEditorRenderedTablePopoverContent: View {
             width: Self.preferredSize(for: table).width,
             height: Self.preferredSize(for: table).height
         )
-        .background(theme.background)
+        .background(theme.resolved.background.color)
     }
 }
 
@@ -648,7 +655,7 @@ enum MarkdownPreviewSurfaceStyle {
         if theme.followsSystemAppearance {
             return .textBackgroundColor
         }
-        return NSColor(theme.background)
+        return theme.resolved.background.nsColor
     }
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
@@ -828,7 +835,7 @@ struct NoteEditorRenderedTableView: View {
     let theme: EpistemosTheme
 
     private var containerFill: Color {
-        theme.background.opacity(theme.isDark ? 0.96 : 0.98)
+        theme.resolved.background.color.opacity(theme.isDark ? 0.96 : 0.98)
     }
 
     private var contentSize: CGSize {
@@ -850,7 +857,7 @@ struct NoteEditorRenderedTableView: View {
                 linkForegroundColor: theme.preferredMarkdownLinkColor
             )
             .font(.system(size: 13))
-            .foregroundStyle(isHeader ? theme.foreground : theme.foreground.opacity(0.9))
+            .foregroundStyle(isHeader ? theme.resolved.foreground.color : theme.resolved.foreground.color.opacity(0.9))
             .fontWeight(isHeader ? .semibold : .regular)
         }
         .frame(
@@ -919,7 +926,7 @@ struct MarkdownTextView: View {
     }
 
     private var bodyForeground: Color {
-        foregroundOverride ?? theme.foreground
+        foregroundOverride ?? theme.resolved.foreground.color
     }
 
     // MARK: - Block Parsing
@@ -1105,7 +1112,7 @@ struct MarkdownTextView: View {
             HStack(alignment: .top, spacing: 10) {
                 Text("\u{2022}")
                     .padding(.top, PreviewTypography.markerTopPadding)
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(theme.resolved.accent.color)
                 inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
                     .font(.system(size: PreviewTypography.bodyFontSize))
                     .lineSpacing(PreviewTypography.bodyLineSpacing)
@@ -1126,7 +1133,7 @@ struct MarkdownTextView: View {
                 Text(number)
                     .font(.system(size: 14, weight: .semibold).monospacedDigit())
                     .padding(.top, PreviewTypography.markerTopPadding)
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(theme.resolved.accent.color)
                 inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
                     .font(.system(size: PreviewTypography.bodyFontSize))
                     .lineSpacing(PreviewTypography.bodyLineSpacing)
@@ -1147,7 +1154,7 @@ struct MarkdownTextView: View {
                 Image(systemName: checked ? "checkmark.square.fill" : "square")
                     .font(.system(size: 13))
                     .padding(.top, PreviewTypography.markerTopPadding)
-                    .foregroundStyle(checked ? theme.accent : theme.textTertiary)
+                    .foregroundStyle(checked ? theme.resolved.accent.color : theme.textTertiary)
                 inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
                     .font(.system(size: PreviewTypography.bodyFontSize))
                     .lineSpacing(PreviewTypography.bodyLineSpacing)
@@ -1189,7 +1196,7 @@ struct MarkdownTextView: View {
             .markdownPreviewSurface(theme: theme)
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: railWidth / 2, style: .continuous)
-                    .fill(theme.accent.opacity(0.5))
+                    .fill(theme.resolved.accent.color.opacity(0.5))
                     .frame(width: railWidth)
                     .padding(.vertical, 8)
                     .padding(.leading, 8)
@@ -1285,7 +1292,7 @@ struct MarkdownTextView: View {
         ) { cell, isHeader in
             inlineMarkdown(cell, baseFontSize: 13)
                 .font(.system(size: 13))
-                .foregroundStyle(theme.foreground.opacity(isHeader ? 1.0 : 0.85))
+                .foregroundStyle(theme.resolved.foreground.color.opacity(isHeader ? 1.0 : 0.85))
                 .fontWeight(isHeader ? .semibold : .regular)
         }
         .padding(.vertical, 2)

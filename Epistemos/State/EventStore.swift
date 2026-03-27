@@ -10,13 +10,22 @@ import os
 
 final class EventStore: @unchecked Sendable {
     static var shared: EventStore?
+    private static let queueKey = DispatchSpecificKey<UInt8>()
+    private static let queueToken: UInt8 = 1
 
-    private static let log = Logger(subsystem: "com.epistemos", category: "EventStore")
+    nonisolated private static let log = Logger(subsystem: "com.epistemos", category: "EventStore")
     private let queue = DispatchQueue(label: "com.epistemos.eventstore", qos: .utility)
     nonisolated(unsafe) private var db: OpaquePointer?
 
-    init?() {
-        let url = Self.databaseURL
+    convenience init?() {
+        self.init(databaseURL: Self.databaseURL)
+    }
+
+    init?(databaseURL url: URL) {
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         var dbPtr: OpaquePointer?
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         guard sqlite3_open_v2(url.path, &dbPtr, flags, nil) == SQLITE_OK else {
@@ -24,6 +33,7 @@ final class EventStore: @unchecked Sendable {
             return nil
         }
         self.db = dbPtr
+        queue.setSpecific(key: Self.queueKey, value: Self.queueToken)
 
         // WAL mode for concurrent reads/writes
         execute("PRAGMA journal_mode=WAL;")
@@ -138,46 +148,48 @@ final class EventStore: @unchecked Sendable {
 
     /// Find the nearest snapshot at or before a given date. O(log n) via B-tree index.
     func nearestSnapshot(before date: Date) -> StoredSnapshot? {
-        guard let db else { return nil }
-        let timestamp = date.timeIntervalSince1970
-        var stmt: OpaquePointer?
-        let sql = "SELECT timestamp, session_id, snapshot_json, summary, user_note FROM snapshots WHERE timestamp <= ? ORDER BY timestamp DESC LIMIT 1;"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
-        defer { sqlite3_finalize(stmt) }
+        withDatabaseRead { db in
+            let timestamp = date.timeIntervalSince1970
+            var stmt: OpaquePointer?
+            let sql = "SELECT timestamp, session_id, snapshot_json, summary, user_note FROM snapshots WHERE timestamp <= ? ORDER BY timestamp DESC LIMIT 1;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
 
-        sqlite3_bind_double(stmt, 1, timestamp)
-        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            sqlite3_bind_double(stmt, 1, timestamp)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
 
-        return StoredSnapshot(
-            timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0)),
-            sessionId: String(cString: sqlite3_column_text(stmt, 1)),
-            snapshotJSON: String(cString: sqlite3_column_text(stmt, 2)),
-            summary: String(cString: sqlite3_column_text(stmt, 3)),
-            userNote: String(cString: sqlite3_column_text(stmt, 4))
-        )
+            return StoredSnapshot(
+                timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0)),
+                sessionId: String(cString: sqlite3_column_text(stmt, 1)),
+                snapshotJSON: String(cString: sqlite3_column_text(stmt, 2)),
+                summary: String(cString: sqlite3_column_text(stmt, 3)),
+                userNote: String(cString: sqlite3_column_text(stmt, 4))
+            )
+        }
     }
 
     /// Get events between two timestamps. Used to apply deltas after loading a snapshot.
     func events(from startDate: Date, to endDate: Date) -> [StoredEvent] {
-        guard let db else { return [] }
-        var stmt: OpaquePointer?
-        let sql = "SELECT timestamp, session_id, kind, payload FROM events WHERE timestamp > ? AND timestamp <= ? ORDER BY timestamp ASC;"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
-        defer { sqlite3_finalize(stmt) }
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = "SELECT timestamp, session_id, kind, payload FROM events WHERE timestamp > ? AND timestamp <= ? ORDER BY timestamp ASC;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
 
-        sqlite3_bind_double(stmt, 1, startDate.timeIntervalSince1970)
-        sqlite3_bind_double(stmt, 2, endDate.timeIntervalSince1970)
+            sqlite3_bind_double(stmt, 1, startDate.timeIntervalSince1970)
+            sqlite3_bind_double(stmt, 2, endDate.timeIntervalSince1970)
 
-        var results: [StoredEvent] = []
-        while sqlite3_step(stmt) == SQLITE_ROW {
-            results.append(StoredEvent(
-                timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0)),
-                sessionId: String(cString: sqlite3_column_text(stmt, 1)),
-                kind: String(cString: sqlite3_column_text(stmt, 2)),
-                payload: String(cString: sqlite3_column_text(stmt, 3))
-            ))
-        }
-        return results
+            var results: [StoredEvent] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                results.append(StoredEvent(
+                    timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0)),
+                    sessionId: String(cString: sqlite3_column_text(stmt, 1)),
+                    kind: String(cString: sqlite3_column_text(stmt, 2)),
+                    payload: String(cString: sqlite3_column_text(stmt, 3))
+                ))
+            }
+            return results
+        } ?? []
     }
 
     struct StoredEvent {
@@ -189,23 +201,24 @@ final class EventStore: @unchecked Sendable {
 
     /// Get all snapshots (for timeline display). Returns lightweight metadata only.
     func allSnapshots() -> [SnapshotMeta] {
-        guard let db else { return [] }
-        var stmt: OpaquePointer?
-        let sql = "SELECT id, timestamp, session_id, summary, user_note FROM snapshots ORDER BY timestamp DESC;"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
-        defer { sqlite3_finalize(stmt) }
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = "SELECT id, timestamp, session_id, summary, user_note FROM snapshots ORDER BY timestamp DESC;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
 
-        var results: [SnapshotMeta] = []
-        while sqlite3_step(stmt) == SQLITE_ROW {
-            results.append(SnapshotMeta(
-                id: Int(sqlite3_column_int64(stmt, 0)),
-                timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
-                sessionId: String(cString: sqlite3_column_text(stmt, 2)),
-                summary: String(cString: sqlite3_column_text(stmt, 3)),
-                userNote: String(cString: sqlite3_column_text(stmt, 4))
-            ))
-        }
-        return results
+            var results: [SnapshotMeta] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                results.append(SnapshotMeta(
+                    id: Int(sqlite3_column_int64(stmt, 0)),
+                    timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
+                    sessionId: String(cString: sqlite3_column_text(stmt, 2)),
+                    summary: String(cString: sqlite3_column_text(stmt, 3)),
+                    userNote: String(cString: sqlite3_column_text(stmt, 4))
+                ))
+            }
+            return results
+        } ?? []
     }
 
     struct SnapshotMeta: Identifiable {
@@ -218,23 +231,24 @@ final class EventStore: @unchecked Sendable {
 
     /// Event density per day (for semantic scrub bar).
     func eventDensityByDay(days: Int = 90) -> [Date: Int] {
-        guard let db else { return [:] }
-        let cutoff = Date().addingTimeInterval(-Double(days) * 86400).timeIntervalSince1970
-        var stmt: OpaquePointer?
-        let sql = "SELECT CAST(timestamp / 86400 AS INTEGER) as day, COUNT(*) FROM events WHERE timestamp > ? GROUP BY day;"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [:] }
-        defer { sqlite3_finalize(stmt) }
+        withDatabaseRead { db in
+            let cutoff = Date().addingTimeInterval(-Double(days) * 86400).timeIntervalSince1970
+            var stmt: OpaquePointer?
+            let sql = "SELECT CAST(timestamp / 86400 AS INTEGER) as day, COUNT(*) FROM events WHERE timestamp > ? GROUP BY day;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [:] }
+            defer { sqlite3_finalize(stmt) }
 
-        sqlite3_bind_double(stmt, 1, cutoff)
+            sqlite3_bind_double(stmt, 1, cutoff)
 
-        var results: [Date: Int] = [:]
-        while sqlite3_step(stmt) == SQLITE_ROW {
-            let dayEpoch = sqlite3_column_int64(stmt, 0)
-            let count = Int(sqlite3_column_int(stmt, 1))
-            let date = Date(timeIntervalSince1970: Double(dayEpoch) * 86400)
-            results[date] = count
-        }
-        return results
+            var results: [Date: Int] = [:]
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let dayEpoch = sqlite3_column_int64(stmt, 0)
+                let count = Int(sqlite3_column_int(stmt, 1))
+                let date = Date(timeIntervalSince1970: Double(dayEpoch) * 86400)
+                results[date] = count
+            }
+            return results
+        } ?? [:]
     }
 
     // MARK: - Helpers
@@ -244,14 +258,25 @@ final class EventStore: @unchecked Sendable {
         sqlite3_exec(db, sql, nil, nil, nil)
     }
 
-    private static func escape(_ string: String) -> String {
+    private func withDatabaseRead<T>(_ body: (OpaquePointer) -> T?) -> T? {
+        if DispatchQueue.getSpecific(key: Self.queueKey) == Self.queueToken {
+            guard let db else { return nil }
+            return body(db)
+        }
+        return queue.sync {
+            guard let db else { return nil }
+            return body(db)
+        }
+    }
+
+    nonisolated private static func escape(_ string: String) -> String {
         string.replacingOccurrences(of: "\\", with: "\\\\")
               .replacingOccurrences(of: "\"", with: "\\\"")
               .replacingOccurrences(of: "\n", with: "\\n")
     }
 
     private static var databaseURL: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         let dir = appSupport.appendingPathComponent("Epistemos")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("event-store.sqlite")

@@ -16,7 +16,7 @@ extension SDPage {
     // MARK: - Active Pages
 
     /// Non-archived pages sorted by most recently updated.
-    /// No fetchLimit — body is @Attribute(.externalStorage) so metadata is cheap.
+    /// No fetchLimit — note bodies live in sidecar markdown files, so fetching page metadata stays cheap.
     /// A 5000-page vault loads ~5MB of metadata (titles, tags, dates, IDs).
     static var activePagesDescriptor: FetchDescriptor<SDPage> {
         var descriptor = FetchDescriptor<SDPage>(
@@ -55,6 +55,7 @@ extension SDPage {
         var descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate {
                 $0.templateId == nil
+                    && !$0.isArchived
                     && $0.title.localizedStandardContains(query)
             },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
@@ -129,4 +130,3 @@ extension SDFolder {
         )
     }
 }
-

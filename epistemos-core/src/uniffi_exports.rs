@@ -88,6 +88,97 @@ pub fn auto_tune(
     )
 }
 
+// ── Instant Recall (Ω18) ────────────────────────────────────────────────────
+
+use crate::instant_recall;
+use std::sync::Mutex;
+use std::collections::HashMap;
+
+// Global index registry: allows Swift to create/manage multiple indices via handles.
+static RECALL_INDICES: std::sync::LazyLock<Mutex<HashMap<String, instant_recall::InstantRecallIndex>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+static RECALL_EMBEDDER: std::sync::LazyLock<instant_recall::TrigramEmbedder> =
+    std::sync::LazyLock::new(|| instant_recall::TrigramEmbedder::new(1024));
+
+/// Create a new instant recall index. Returns the handle ID.
+pub fn instant_recall_create(handle: String) -> bool {
+    let config = instant_recall::InstantRecallConfig::default();
+    let index = instant_recall::InstantRecallIndex::new(config);
+    RECALL_INDICES.lock().unwrap().insert(handle, index);
+    true
+}
+
+/// Encode text to a float32 embedding and insert into the index.
+pub fn instant_recall_insert(handle: String, doc_id: String, text: String) -> bool {
+    let embedding = RECALL_EMBEDDER.encode(&text);
+    if let Some(index) = RECALL_INDICES.lock().unwrap().get_mut(&handle) {
+        index.insert(doc_id, embedding, text);
+        true
+    } else {
+        false
+    }
+}
+
+/// Remove a document from the index.
+pub fn instant_recall_remove(handle: String, doc_id: String) -> bool {
+    if let Some(index) = RECALL_INDICES.lock().unwrap().get_mut(&handle) {
+        index.remove(&doc_id);
+        true
+    } else {
+        false
+    }
+}
+
+/// Search the index for notes similar to the query text.
+/// Returns JSON array of {doc_id, text, score} objects.
+pub fn instant_recall_search(handle: String, query_text: String, top_k: u32) -> String {
+    let embedding = RECALL_EMBEDDER.encode(&query_text);
+    let indices = RECALL_INDICES.lock().unwrap();
+    if let Some(index) = indices.get(&handle) {
+        let results = index.search(&embedding, top_k as usize);
+        let json: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "doc_id": r.doc_id,
+                    "text": r.text,
+                    "score": r.score,
+                })
+            })
+            .collect();
+        serde_json::to_string(&json).unwrap_or_else(|_| "[]".to_string())
+    } else {
+        "[]".to_string()
+    }
+}
+
+/// Get the number of documents in the index.
+pub fn instant_recall_count(handle: String) -> u64 {
+    RECALL_INDICES
+        .lock()
+        .unwrap()
+        .get(&handle)
+        .map(|i| i.len() as u64)
+        .unwrap_or(0)
+}
+
+/// Clear all documents from the index.
+pub fn instant_recall_clear(handle: String) -> bool {
+    if let Some(index) = RECALL_INDICES.lock().unwrap().get_mut(&handle) {
+        index.clear();
+        true
+    } else {
+        false
+    }
+}
+
+/// Encode text to a float32 embedding. Returns JSON array of floats.
+pub fn instant_recall_encode(text: String) -> String {
+    let embedding = RECALL_EMBEDDER.encode(&text);
+    serde_json::to_string(&embedding).unwrap_or_else(|_| "[]".to_string())
+}
+
 // ── Scheduling ──────────────────────────────────────────────────────────────
 
 pub fn evaluate_schedule(

@@ -51,7 +51,7 @@ struct BlockEmbeddingTests {
 
     @Test("computeBlockVectors returns vectors for blocks with real content")
     func computeReturnsVectors() async {
-        let service = await EmbeddingService()
+        let service = EmbeddingService()
         let blocks: [(id: String, content: String)] = [
             (id: "block-1", content: "quantum physics research"),
             (id: "block-2", content: "machine learning algorithms"),
@@ -66,7 +66,7 @@ struct BlockEmbeddingTests {
 
     @Test("empty and short content blocks produce no embedding")
     func emptyContentSkipped() async {
-        let service = await EmbeddingService()
+        let service = EmbeddingService()
         let blocks: [(id: String, content: String)] = [
             (id: "empty", content: ""),
             (id: "whitespace", content: "   "),
@@ -84,7 +84,7 @@ struct BlockEmbeddingTests {
 
     @Test("all vectors have same dimension")
     func uniformDimension() async {
-        let service = await EmbeddingService()
+        let service = EmbeddingService()
         let blocks: [(id: String, content: String)] = [
             (id: "a", content: "quantum entanglement theory"),
             (id: "b", content: "neural network training"),
@@ -99,7 +99,7 @@ struct BlockEmbeddingTests {
 
     @Test("vectors have nonzero dimension")
     func nonzeroDimension() async {
-        let service = await EmbeddingService()
+        let service = EmbeddingService()
         let blocks: [(id: String, content: String)] = [
             (id: "test", content: "quantum physics research"),
         ]
@@ -116,7 +116,7 @@ struct BlockEmbeddingTests {
 
     @Test("queryEmbedding uses the configured embedding backend")
     func queryEmbeddingUsesConfiguredBackend() async {
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: [
                     "alpha": [2, 0],
@@ -133,7 +133,7 @@ struct BlockEmbeddingTests {
 
     @Test("queryEmbedding refuses dimension mismatch")
     func queryEmbeddingRejectsDimensionMismatch() async {
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: ["alpha": [1, 1]],
                 dimension: 2
@@ -147,7 +147,7 @@ struct BlockEmbeddingTests {
 
     @Test("embedding service defaults to apple fallback until prepared retrieval assets exist")
     func embeddingServiceDefaultsToAppleFallback() async {
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: ["alpha": [1, 1]],
                 dimension: 2
@@ -167,7 +167,7 @@ struct BlockEmbeddingTests {
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
 
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: [:],
                 dimension: 0
@@ -183,7 +183,7 @@ struct BlockEmbeddingTests {
             )
         )
 
-        await service.applyPreparedRetrievalRuntimeConfiguration(
+        service.applyPreparedRetrievalRuntimeConfiguration(
             PreparedRetrievalRuntimeConfiguration(
                 retriever: PreparedModelDescriptor(
                     key: "retriever_primary",
@@ -263,13 +263,13 @@ struct BlockEmbeddingTests {
         )
         try JSONEncoder().encode(manifest).write(to: URL(fileURLWithPath: layout.indexManifestPath), options: .atomic)
 
-        var values: [Float] = [1, 0]
+        let values: [Float] = [1, 0]
         let embeddingsData = values.withUnsafeBufferPointer { Data(buffer: $0) }
         try embeddingsData.write(to: URL(fileURLWithPath: layout.embeddingsPath), options: .atomic)
         try Data("{\"document_id\":\"doc-1\",\"block_id\":null,\"page_id\":\"page-1\",\"content\":\"alpha beta\",\"source_type\":\"page\"}\n".utf8)
             .write(to: URL(fileURLWithPath: layout.documentsPath), options: .atomic)
 
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(vectors: [:], dimension: 0),
             preparedRetrievalRuntimeResolver: StubPreparedRetrievalRuntimeResolver(
                 lookup: StubTextEmbeddingLookup(
@@ -282,7 +282,7 @@ struct BlockEmbeddingTests {
             )
         )
 
-        await service.applyPreparedRetrievalRuntimeConfiguration(configuration)
+        service.applyPreparedRetrievalRuntimeConfiguration(configuration)
 
         let result = service.queryEmbedding(for: "alpha beta", expectedDimension: 2)
 
@@ -299,7 +299,7 @@ struct BlockEmbeddingTests {
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
 
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: [
                     "alpha": [2, 0],
@@ -309,7 +309,7 @@ struct BlockEmbeddingTests {
             )
         )
 
-        await service.applyPreparedRetrievalRuntimeConfiguration(
+        service.applyPreparedRetrievalRuntimeConfiguration(
             PreparedRetrievalRuntimeConfiguration(
                 retriever: PreparedModelDescriptor(
                     key: "retriever_primary",
@@ -346,7 +346,7 @@ struct BlockEmbeddingTests {
         let retrieverPath = tempRoot.appendingPathComponent("retriever", isDirectory: true)
         try FileManager.default.createDirectory(at: retrieverPath, withIntermediateDirectories: true)
 
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: ["alpha": [1, 1]],
                 dimension: 2
@@ -358,10 +358,10 @@ struct BlockEmbeddingTests {
                 )
             )
         )
-        await service.replaceEmbeddingCacheForTesting(["node-1": [1, 1]])
-        await service.setDimensionForTesting(2)
+        service.replaceEmbeddingCacheForTesting(["node-1": [1, 1]])
+        service.setDimensionForTesting(2)
 
-        await service.applyPreparedRetrievalRuntimeConfiguration(
+        service.applyPreparedRetrievalRuntimeConfiguration(
             PreparedRetrievalRuntimeConfiguration(
                 retriever: PreparedModelDescriptor(
                     key: "retriever_primary",
@@ -383,16 +383,16 @@ struct BlockEmbeddingTests {
             )
         )
 
-        let snapshot = await service.embeddingCacheDebugSnapshot()
+        let snapshot = service.embeddingCacheDebugSnapshot()
 
         #expect(snapshot.entryCount == 0)
-        #expect(await service.dimension == 0)
+        #expect(service.dimension == 0)
         #expect(service.preparedRetrievalExecutionMode == .preparedAssetsPendingIndex(retrieverModelID: "BAAI/bge-m3"))
     }
 
     @Test("computeBlockVectors uses the configured embedding backend")
     func computeBlockVectorsUsesConfiguredBackend() async {
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: [
                     "alpha": [2, 0],
@@ -418,7 +418,7 @@ struct BlockEmbeddingTests {
 
     @Test("fallback semantic clustering uses the configured fallback embedding backend")
     func fallbackSemanticClusteringUsesConfiguredBackend() async {
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: [
                     "alpha": [1, 0],
@@ -435,7 +435,7 @@ struct BlockEmbeddingTests {
         store.addNode(makeNode(id: "n3", label: "gamma"))
         store.addNode(makeNode(id: "n4", label: "delta"))
 
-        let clusters = await service.computeFallbackSemanticClusters(store: store)
+        let clusters = service.computeFallbackSemanticClusters(store: store)
 
         #expect(clusters.count == 4)
         #expect(clusters["n1"] != nil)
@@ -446,9 +446,9 @@ struct BlockEmbeddingTests {
 
     @Test("embedding cache enforces a hard cap")
     func embeddingCacheEnforcesHardCap() async {
-        let service = await EmbeddingService()
-        await service.setEmbeddingCacheCapacityForTesting(3)
-        await service.replaceEmbeddingCacheForTesting([
+        let service = EmbeddingService()
+        service.setEmbeddingCacheCapacityForTesting(3)
+        service.replaceEmbeddingCacheForTesting([
             "a": [1.0],
             "b": [2.0],
             "c": [3.0],
@@ -456,51 +456,51 @@ struct BlockEmbeddingTests {
             "e": [5.0],
         ])
 
-        let snapshot = await service.embeddingCacheDebugSnapshot()
+        let snapshot = service.embeddingCacheDebugSnapshot()
 
         #expect(snapshot.capacity == 3)
         #expect(snapshot.entryCount == 3)
         #expect(snapshot.currentSize == 3)
         #expect(snapshot.evictions == 2)
-        #expect(await service.embedding(for: "a") == nil)
+        #expect(service.embedding(for: "a") == nil)
     }
 
     @Test("embedding cache retains recently accessed items across eviction")
     func embeddingCacheRetainsRecentlyAccessedItems() async {
-        let service = await EmbeddingService()
-        await service.setEmbeddingCacheCapacityForTesting(3)
-        await service.replaceEmbeddingCacheForTesting([
+        let service = EmbeddingService()
+        service.setEmbeddingCacheCapacityForTesting(3)
+        service.replaceEmbeddingCacheForTesting([
             "a": [1.0],
             "b": [2.0],
             "c": [3.0],
         ])
 
-        #expect(await service.embedding(for: "a") == [1.0])
+        #expect(service.embedding(for: "a") == [1.0])
 
-        await service.replaceEmbeddingCacheForTesting([
+        service.replaceEmbeddingCacheForTesting([
             "a": [1.0],
             "b": [2.0],
             "c": [3.0],
             "d": [4.0],
         ])
 
-        #expect(await service.embedding(for: "a") == [1.0])
-        #expect(await service.embedding(for: "b") == nil)
-        #expect(await service.embedding(for: "d") == [4.0])
+        #expect(service.embedding(for: "a") == [1.0])
+        #expect(service.embedding(for: "b") == nil)
+        #expect(service.embedding(for: "d") == [4.0])
     }
 
     @Test("embedding cache reports hit and miss metrics")
     func embeddingCacheReportsMetrics() async {
-        let service = await EmbeddingService(maxCacheEntries: 2)
-        await service.replaceEmbeddingCacheForTesting([
+        let service = EmbeddingService(maxCacheEntries: 2)
+        service.replaceEmbeddingCacheForTesting([
             "a": [1.0],
             "b": [2.0],
         ])
 
-        #expect(await service.embedding(for: "a") == [1.0])
-        #expect(await service.embedding(for: "missing") == nil)
+        #expect(service.embedding(for: "a") == [1.0])
+        #expect(service.embedding(for: "missing") == nil)
 
-        let snapshot = await service.embeddingCacheDebugSnapshot()
+        let snapshot = service.embeddingCacheDebugSnapshot()
         #expect(snapshot.capacity == 2)
         #expect(snapshot.currentSize == 2)
         #expect(snapshot.hits == 1)
@@ -509,9 +509,9 @@ struct BlockEmbeddingTests {
 
     @Test("computeAndPush clears stale cache when the graph is too small")
     func computeAndPushClearsCacheForSmallGraph() async {
-        let service = await EmbeddingService()
-        await service.setEmbeddingCacheCapacityForTesting(4)
-        await service.replaceEmbeddingCacheForTesting([
+        let service = EmbeddingService()
+        service.setEmbeddingCacheCapacityForTesting(4)
+        service.replaceEmbeddingCacheForTesting([
             "stale-a": [1.0],
             "stale-b": [2.0],
         ])
@@ -519,12 +519,12 @@ struct BlockEmbeddingTests {
         let store = GraphStore()
         store.addNode(makeNode(id: "solo", label: "Solo"))
 
-        await service.computeAndPush(store: store)
+        service.computeAndPush(store: store)
 
-        let snapshot = await service.embeddingCacheDebugSnapshot()
+        let snapshot = service.embeddingCacheDebugSnapshot()
         #expect(snapshot.entryCount == 0)
         #expect(snapshot.currentSize == 0)
-        #expect(await service.embedding(for: "stale-a") == nil)
+        #expect(service.embedding(for: "stale-a") == nil)
     }
 
     @Test("computeAndPush resets the Rust semantic store to the active fallback dimension before pushing")
@@ -543,7 +543,7 @@ struct BlockEmbeddingTests {
         let graphState = GraphState()
         graphState.engineHandle = engine.rawHandle
 
-        let service = await EmbeddingService(
+        let service = EmbeddingService(
             embeddingLookup: StubTextEmbeddingLookup(
                 vectors: [
                     "alpha": [1, 0],
@@ -560,7 +560,7 @@ struct BlockEmbeddingTests {
 
         #expect(engine.semanticEmbeddingDimension() == 512)
 
-        await service.computeAndPush(store: store)
+        service.computeAndPush(store: store)
         await service.waitForPendingComputationForTesting()
 
         #expect(engine.semanticEmbeddingDimension() == 2)
@@ -581,7 +581,7 @@ struct BlockEmbeddingTests {
 
         let graphState = GraphState()
         graphState.engineHandle = engine.rawHandle
-        await graphState.embeddingService.setDimensionForTesting(2)
+        graphState.embeddingService.setDimensionForTesting(2)
 
         #expect(graphState.canRunFallbackSemanticSearch() == false)
 

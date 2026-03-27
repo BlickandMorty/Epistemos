@@ -49,7 +49,7 @@ struct ChatSidebarView: View {
                     }
                     .font(.epSmall)
                 }
-                .buttonStyle(NativePillButtonStyle(isActive: showNotesOnly, activeColor: theme.accent))
+                .buttonStyle(NativePillButtonStyle(isActive: showNotesOnly, activeColor: theme.resolved.accent.color))
 
                 Spacer()
             }
@@ -91,7 +91,7 @@ struct ChatSidebarView: View {
 
             TextField("Search chats…", text: $searchText)
                 .font(.epBody)
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(theme.resolved.foreground.color)
                 .textFieldStyle(.plain)
 
             if !searchText.isEmpty {
@@ -163,8 +163,10 @@ struct ChatSidebarView: View {
         let calendar = Calendar.current
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
-        let startOfYesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday)!
-        let startOfWeek = calendar.date(byAdding: .day, value: -7, to: startOfToday)!
+        let startOfYesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday)
+            ?? startOfToday
+        let startOfWeek = calendar.date(byAdding: .day, value: -7, to: startOfToday)
+            ?? startOfYesterday
 
         var today: [SDChat] = []
         var yesterday: [SDChat] = []
@@ -273,12 +275,12 @@ private struct SidebarChatRow: View {
                         Image(systemName: "book.pages")
                             .font(.epSmall)
                             .fontWeight(.medium)
-                            .foregroundStyle(theme.accent.opacity(0.7))
+                            .foregroundStyle(theme.resolved.accent.color.opacity(0.7))
                     }
                     Text(sdChat.title)
                         .font(.epBody)
                         .fontWeight(isActive ? .semibold : .medium)
-                        .foregroundStyle(isActive ? theme.accent : theme.foreground)
+                        .foregroundStyle(isActive ? theme.resolved.accent.color : theme.resolved.foreground.color)
                         .lineLimit(1)
                 }
 

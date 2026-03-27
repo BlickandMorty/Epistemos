@@ -52,10 +52,20 @@ struct ProseTextView2Tests {
         let (_, textView) = ProseTextView2.makeTextKit2()
 
         textView.applyTheme(.sunny)
-        #expect(textView.backgroundColor == NSColor(EpistemosTheme.sunny.background))
+        #expect(
+            TestColorAssertions.colorsMatch(
+                textView.backgroundColor,
+                EpistemosTheme.sunny.resolved.background.nsColor
+            )
+        )
 
         textView.applyTheme(.ember)
-        #expect(textView.backgroundColor == NSColor(EpistemosTheme.ember.background))
+        #expect(
+            TestColorAssertions.colorsMatch(
+                textView.backgroundColor,
+                EpistemosTheme.ember.resolved.background.nsColor
+            )
+        )
     }
 
     @Test("Theme propagates to markdown delegate")
@@ -74,7 +84,12 @@ struct ProseTextView2Tests {
         textView.applyTheme(.systemDark)
 
         #expect(textView.markdownDelegate.theme == .systemLight)
-        #expect(textView.textColor == NSColor(EpistemosTheme.systemLight.foreground))
+        #expect(
+            TestColorAssertions.colorsMatch(
+                textView.textColor,
+                EpistemosTheme.systemLight.resolved.foreground.nsColor
+            )
+        )
         #expect(textView.backgroundColor == ProseTextView2.editorBackgroundColor(for: .systemLight))
     }
 
@@ -238,7 +253,7 @@ struct MarkdownContentStorageTests {
         textView.reparseAndInvalidate()
 
         #expect(textView.string == text)
-        #expect(textView.markdownDelegate.theme == .systemLight)
+        #expect(textView.markdownDelegate.theme == textView.resolvedTheme)
     }
 
     @Test("Delegate handles empty text without crash")
@@ -507,7 +522,12 @@ struct TextKit2ThemeRestyleTests {
         textView.applyTheme(.ember)
 
         #expect(textView.markdownDelegate.theme == .ember)
-        #expect(textView.backgroundColor == NSColor(EpistemosTheme.ember.background))
+        #expect(
+            TestColorAssertions.colorsMatch(
+                textView.backgroundColor,
+                EpistemosTheme.ember.resolved.background.nsColor
+            )
+        )
         #expect(textView.string == "# Heading\nBody text")
     }
 
@@ -534,11 +554,21 @@ struct TextKit2ThemeRestyleTests {
 
         textView.applyTheme(.oled)
         let fgColor = textView.typingAttributes[.foregroundColor] as? NSColor
-        #expect(fgColor == NSColor(EpistemosTheme.oled.foreground))
+        #expect(
+            TestColorAssertions.colorsMatch(
+                fgColor,
+                EpistemosTheme.oled.resolved.foreground.nsColor
+            )
+        )
 
         textView.applyTheme(.sunny)
         let fgColor2 = textView.typingAttributes[.foregroundColor] as? NSColor
-        #expect(fgColor2 == NSColor(EpistemosTheme.sunny.foreground))
+        #expect(
+            TestColorAssertions.colorsMatch(
+                fgColor2,
+                EpistemosTheme.sunny.resolved.foreground.nsColor
+            )
+        )
     }
 
     @Test("Theme change updates insertion point color")
@@ -546,7 +576,12 @@ struct TextKit2ThemeRestyleTests {
         let (_, textView) = ProseTextView2.makeTextKit2()
 
         textView.applyTheme(.ember)
-        #expect(textView.insertionPointColor == NSColor(EpistemosTheme.ember.foreground))
+        #expect(
+            TestColorAssertions.colorsMatch(
+                textView.insertionPointColor,
+                EpistemosTheme.ember.resolved.foreground.nsColor
+            )
+        )
     }
 }
 
@@ -768,7 +803,7 @@ struct TextKit2InlineStyleTests {
         let range = NSRange(location: 0, length: attrStr.length)
         attrStr.addAttributes([
             .font: NSFont.systemFont(ofSize: 15),
-            .foregroundColor: NSColor(EpistemosTheme.light.foreground),
+            .foregroundColor: EpistemosTheme.light.resolved.foreground.nsColor,
         ], range: range)
 
         storage.applyInlineStyles(to: attrStr, fullRange: range)
@@ -918,7 +953,7 @@ struct TextKit2InlineStyleTests {
         let text = "**bold**"
         let attrStr = NSMutableAttributedString(string: text)
         let range = NSRange(location: 0, length: attrStr.length)
-        let structuralFg = NSColor(EpistemosTheme.light.foreground)
+        let structuralFg = EpistemosTheme.light.resolved.foreground.nsColor
         attrStr.addAttributes([
             .font: NSFont.systemFont(ofSize: 15),
             .foregroundColor: structuralFg
@@ -937,7 +972,7 @@ struct TextKit2InlineStyleTests {
         let text = "*italic*"
         let attrStr = NSMutableAttributedString(string: text)
         let range = NSRange(location: 0, length: attrStr.length)
-        let structuralFg = NSColor(EpistemosTheme.light.foreground)
+        let structuralFg = EpistemosTheme.light.resolved.foreground.nsColor
         attrStr.addAttributes([
             .font: NSFont.systemFont(ofSize: 15),
             .foregroundColor: structuralFg
@@ -1041,7 +1076,7 @@ struct TextKit2MarkerCollapsingTests {
         storage.theme = theme
         let attrStr = NSMutableAttributedString(string: text)
         let range = NSRange(location: 0, length: attrStr.length)
-        let fg = NSColor(theme.foreground)
+        let fg = theme.resolved.foreground.nsColor
         attrStr.addAttributes([
             .font: NSFont.systemFont(ofSize: 15),
             .foregroundColor: fg
@@ -1155,7 +1190,7 @@ struct TextKit2MarkerCollapsingTests {
         let range = NSRange(location: 0, length: attrStr.length)
         attrStr.addAttributes([
             .font: NSFont.systemFont(ofSize: 15),
-            .foregroundColor: NSColor(EpistemosTheme.light.foreground)
+            .foregroundColor: EpistemosTheme.light.resolved.foreground.nsColor
         ], range: range)
         storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: false)
         // "**" after 🎉(2 UTF-16) + space(1) = position 3
@@ -1173,7 +1208,7 @@ struct TextKit2MarkerCollapsingTests {
         let range = NSRange(location: 0, length: attrStr.length)
         attrStr.addAttributes([
             .font: NSFont.systemFont(ofSize: 15),
-            .foregroundColor: NSColor(EpistemosTheme.light.foreground)
+            .foregroundColor: EpistemosTheme.light.resolved.foreground.nsColor
         ], range: range)
         storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: false)
         // "[" at position 0 should be hidden
@@ -1226,7 +1261,7 @@ struct TextKit2MarkerCollapsingTests {
         let range = NSRange(location: 0, length: attrStr.length)
         attrStr.addAttributes([
             .font: NSFont.systemFont(ofSize: 15),
-            .foregroundColor: NSColor(EpistemosTheme.oled.foreground)
+            .foregroundColor: EpistemosTheme.oled.resolved.foreground.nsColor
         ], range: range)
         storage.applyInlineStyles(to: attrStr, fullRange: range, isActive: false)
         let markerColor = attrStr.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
@@ -2344,17 +2379,36 @@ struct ProseTextView2MouseDownTests {
 
 @Suite("TextKit 2 - ProseTextView2 Context Menu")
 struct ProseTextView2ContextMenuTests {
+    private final class NotificationRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        nonisolated(unsafe) private var operation: String?
+
+        nonisolated func record(_ operation: String?) {
+            lock.lock()
+            defer { lock.unlock() }
+            self.operation = operation
+        }
+
+        nonisolated func recordedOperation() -> String? {
+            lock.lock()
+            defer { lock.unlock() }
+            return operation
+        }
+    }
 
     @Test("context menu posts AI operation notification")
-    func aiOperationNotification() async {
+    func aiOperationNotification() {
         let (_, tv) = ProseTextView2.makeTextKit2()
         tv.pageId = "test-page"
+        let recorder = NotificationRecorder()
 
-        var received: Notification?
         let observer = NotificationCenter.default.addObserver(
             forName: ProseTextView2.aiOperationNotification,
-            object: nil, queue: .main
-        ) { note in received = note }
+            object: nil,
+            queue: nil
+        ) { note in
+            recorder.record(note.userInfo?["operation"] as? String)
+        }
         defer { NotificationCenter.default.removeObserver(observer) }
 
         // Simulate the notification post directly (can't simulate right-click in test)
@@ -2364,9 +2418,7 @@ struct ProseTextView2ContextMenuTests {
             userInfo: ["operation": "rewrite", "pageId": "test-page"]
         )
 
-        try? await Task.sleep(for: .milliseconds(50))
-        #expect(received != nil)
-        #expect(received?.userInfo?["operation"] as? String == "rewrite")
+        #expect(recorder.recordedOperation() == "rewrite")
     }
 
     @Test("notification names match ClickableTextView for compatibility")

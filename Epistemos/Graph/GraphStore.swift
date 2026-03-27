@@ -100,9 +100,25 @@ final class GraphStore {
         let entryCount: Int
     }
 
+    struct CompactStorageDebugSnapshot {
+        let activeNodeCount: Int
+        let nodeSlots: Int
+        let nodeTombstones: Int
+        let nodeCompactionEligible: Bool
+        let activeEdgeCount: Int
+        let edgeSlots: Int
+        let edgeTombstones: Int
+        let edgeCompactionEligible: Bool
+    }
+
     private enum SearchCacheConfig {
         static let ttl: TimeInterval = 15
         static let capacity = 64
+    }
+
+    private enum CompactionConfig {
+        static let minimumTombstones = 32
+        static let minimumWasteFraction = 0.25
     }
 
     // MARK: - Primary Storage
@@ -130,17 +146,23 @@ final class GraphStore {
     // Replaces two [String: Set<String>] dicts with Int-indexed arrays.
     // Memory: 50K nodes × 5 neighbors × 8 bytes = 2MB vs. ~25MB with Set<String>.
 
-    /// Node ID → stable compact index. Never reused after removal (stable references).
+    /// Node ID → opaque compact index. Internal maintenance may repack these slots.
     private var _nodeIdx: [String: Int] = [:]
 
     /// Compact index → node ID. Gaps at removed indices contain empty string.
     private var _nodeIds: [String] = []
 
-    /// Edge ID → stable compact index.
+    /// Edge ID → opaque compact index. Internal maintenance may repack these slots.
     private var _edgeIdx: [String: Int] = [:]
 
     /// Compact index → edge ID.
     private var _edgeIds: [String] = []
+
+    /// Number of tombstoned node slots waiting for a compaction pass.
+    private var nodeTombstoneCount = 0
+
+    /// Number of tombstoned edge slots waiting for a compaction pass.
+    private var edgeTombstoneCount = 0
 
     /// Compact adjacency: _neighbors[nodeCompactIdx] = [neighborCompactIdx, ...].
     /// Undirected — each edge adds both directions.
@@ -225,24 +247,46 @@ final class GraphStore {
     var nodeCount: Int { nodes.count }
     var edgeCount: Int { edges.count }
 
-    /// Remove all nodes, edges, adjacency, and index data.
-    func clear() {
-        nodes.removeAll()
-        _sourceLookup.removeAll()
-        _typeLookup.removeAll()
-        _nodeIdsByCreatedAtDesc.removeAll()
-        edges.removeAll()
-        positionHints.removeAll()
-        _nodeIdx.removeAll()
-        _nodeIds.removeAll()
-        _edgeIdx.removeAll()
-        _edgeIds.removeAll()
-        _neighbors.removeAll()
-        _edgesOf.removeAll()
-        _trigramIdx.removeAll()
+    private func resetStorage(keepingCapacity: Bool) {
+        nodes.removeAll(keepingCapacity: keepingCapacity)
+        _sourceLookup.removeAll(keepingCapacity: keepingCapacity)
+        _typeLookup.removeAll(keepingCapacity: keepingCapacity)
+        _nodeIdsByCreatedAtDesc.removeAll(keepingCapacity: keepingCapacity)
+        edges.removeAll(keepingCapacity: keepingCapacity)
+        positionHints.removeAll(keepingCapacity: keepingCapacity)
+        _nodeIdx.removeAll(keepingCapacity: keepingCapacity)
+        _nodeIds.removeAll(keepingCapacity: keepingCapacity)
+        _edgeIdx.removeAll(keepingCapacity: keepingCapacity)
+        _edgeIds.removeAll(keepingCapacity: keepingCapacity)
+        nodeTombstoneCount = 0
+        edgeTombstoneCount = 0
+        _neighbors.removeAll(keepingCapacity: keepingCapacity)
+        _edgesOf.removeAll(keepingCapacity: keepingCapacity)
+        _trigramIdx.removeAll(keepingCapacity: keepingCapacity)
         clearSearchCache()
         neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
+    }
+
+    private func prepareForBulkLoad(estimatedNodeCount: Int, estimatedEdgeCount: Int) {
+        resetStorage(keepingCapacity: true)
+
+        nodes.reserveCapacity(estimatedNodeCount)
+        _sourceLookup.reserveCapacity(estimatedNodeCount)
+        _nodeIdsByCreatedAtDesc.reserveCapacity(estimatedNodeCount)
+        edges.reserveCapacity(estimatedEdgeCount)
+        _nodeIdx.reserveCapacity(estimatedNodeCount)
+        _nodeIds.reserveCapacity(estimatedNodeCount)
+        _edgeIdx.reserveCapacity(estimatedEdgeCount)
+        _edgeIds.reserveCapacity(estimatedEdgeCount)
+        _neighbors.reserveCapacity(estimatedNodeCount)
+        _edgesOf.reserveCapacity(estimatedNodeCount)
+        _trigramIdx.reserveCapacity(estimatedNodeCount)
+    }
+
+    /// Remove all nodes, edges, adjacency, and index data.
+    func clear() {
+        resetStorage(keepingCapacity: false)
     }
 
     // MARK: - Compact Index Helpers
@@ -267,6 +311,103 @@ final class GraphStore {
         _edgeIds.append(edgeId)
         _edgeIdx[edgeId] = idx
         return idx
+    }
+
+    private func shouldCompact(slotCount: Int, tombstoneCount: Int) -> Bool {
+        guard slotCount > 0, tombstoneCount >= CompactionConfig.minimumTombstones else { return false }
+        return Double(tombstoneCount) / Double(slotCount) >= CompactionConfig.minimumWasteFraction
+    }
+
+    private func orderedActiveIds(from slots: [String], activeKeys: Set<String>) -> [String] {
+        var ordered: [String] = []
+        ordered.reserveCapacity(activeKeys.count)
+        var seen: Set<String> = []
+        seen.reserveCapacity(activeKeys.count)
+
+        for id in slots where !id.isEmpty && activeKeys.contains(id) {
+            ordered.append(id)
+            seen.insert(id)
+        }
+
+        if seen.count < activeKeys.count {
+            for id in activeKeys.sorted() where !seen.contains(id) {
+                ordered.append(id)
+            }
+        }
+
+        return ordered
+    }
+
+    private func compactStorageIfNeeded() {
+        guard shouldCompact(slotCount: _nodeIds.count, tombstoneCount: nodeTombstoneCount)
+            || shouldCompact(slotCount: _edgeIds.count, tombstoneCount: edgeTombstoneCount)
+        else { return }
+        compactStorage()
+    }
+
+    private func compactStorage() {
+        let activeNodeIds = orderedActiveIds(from: _nodeIds, activeKeys: Set(nodes.keys))
+        let activeEdgeIds = orderedActiveIds(from: _edgeIds, activeKeys: Set(edges.keys))
+
+        var compactNodeIdx: [String: Int] = [:]
+        compactNodeIdx.reserveCapacity(activeNodeIds.count)
+        var compactNodeIds: [String] = []
+        compactNodeIds.reserveCapacity(activeNodeIds.count)
+        var compactNeighbors: [[Int]] = []
+        compactNeighbors.reserveCapacity(activeNodeIds.count)
+        var compactEdgesOf: [[Int]] = []
+        compactEdgesOf.reserveCapacity(activeNodeIds.count)
+        var compactTrigramIdx: [String: [Int]] = [:]
+
+        for nodeId in activeNodeIds {
+            let nodeIdx = compactNodeIds.count
+            compactNodeIdx[nodeId] = nodeIdx
+            compactNodeIds.append(nodeId)
+            compactNeighbors.append([])
+            compactEdgesOf.append([])
+
+            if let node = nodes[nodeId] {
+                for tri in Self.trigrams(from: node.label) {
+                    compactTrigramIdx[tri, default: []].append(nodeIdx)
+                }
+            }
+        }
+
+        var compactEdgeIdx: [String: Int] = [:]
+        compactEdgeIdx.reserveCapacity(activeEdgeIds.count)
+        var compactEdgeIds: [String] = []
+        compactEdgeIds.reserveCapacity(activeEdgeIds.count)
+
+        for edgeId in activeEdgeIds {
+            guard let edge = edges[edgeId],
+                  let srcIdx = compactNodeIdx[edge.sourceNodeId],
+                  let tgtIdx = compactNodeIdx[edge.targetNodeId]
+            else { continue }
+
+            let edgeIdx = compactEdgeIds.count
+            compactEdgeIdx[edgeId] = edgeIdx
+            compactEdgeIds.append(edgeId)
+
+            if !compactNeighbors[srcIdx].contains(tgtIdx) {
+                compactNeighbors[srcIdx].append(tgtIdx)
+            }
+            if !compactNeighbors[tgtIdx].contains(srcIdx) {
+                compactNeighbors[tgtIdx].append(srcIdx)
+            }
+
+            compactEdgesOf[srcIdx].append(edgeIdx)
+            compactEdgesOf[tgtIdx].append(edgeIdx)
+        }
+
+        _nodeIdx = compactNodeIdx
+        _nodeIds = compactNodeIds
+        _neighbors = compactNeighbors
+        _edgesOf = compactEdgesOf
+        _edgeIdx = compactEdgeIdx
+        _edgeIds = compactEdgeIds
+        _trigramIdx = compactTrigramIdx
+        nodeTombstoneCount = 0
+        edgeTombstoneCount = 0
     }
 
     // MARK: - Trigram Helpers
@@ -311,11 +452,17 @@ final class GraphStore {
     /// Fetch all SDGraphNode and SDGraphEdge from the given context,
     /// build the in-memory adjacency list, and assign phyllotaxis spiral positions.
     func load(context: ModelContext) throws {
-        clear()
-
         let nodeDescriptor = FetchDescriptor<SDGraphNode>()
         let allNodes = try context.fetch(nodeDescriptor)
         let visibleNodes = allNodes.filter { !Self.hiddenNodeTypes.contains($0.nodeType) }
+        let edgeDescriptor = FetchDescriptor<SDGraphEdge>()
+        let sdEdges = try context.fetch(edgeDescriptor)
+
+        prepareForBulkLoad(
+            estimatedNodeCount: visibleNodes.count,
+            estimatedEdgeCount: sdEdges.count
+        )
+
         let golden = Float.pi * (3.0 - sqrt(5.0))
         for (index, sdNode) in visibleNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
@@ -344,18 +491,18 @@ final class GraphStore {
             addToTrigramIndex(nodeIdx: nodeIdx, label: record.label)
         }
         rebuildCreatedOrderIndex()
-
-        let edgeDescriptor = FetchDescriptor<SDGraphEdge>()
-        let sdEdges = try context.fetch(edgeDescriptor)
         ingestEdges(sdEdges)
     }
 
     /// Populate store directly from in-memory arrays (skips SwiftData fetch).
     /// Used by buildStructuralGraph() to avoid a redundant re-fetch after persist().
     func loadDirect(nodes sdNodes: [SDGraphNode], edges sdEdges: [SDGraphEdge]) {
-        clear()
-
         let visibleNodes = sdNodes.filter { !Self.hiddenNodeTypes.contains($0.nodeType) }
+        prepareForBulkLoad(
+            estimatedNodeCount: visibleNodes.count,
+            estimatedEdgeCount: sdEdges.count
+        )
+
         let golden = Float.pi * (3.0 - sqrt(5.0))
         for (index, sdNode) in visibleNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
@@ -391,7 +538,10 @@ final class GraphStore {
     /// Populate store from pre-built Sendable records (no SwiftData fetch).
     /// Used by background graph loading to avoid main-thread SwiftData access.
     func loadFromRecords(nodeRecords: [GraphNodeRecord], edgeRecords: [GraphEdgeRecord]) {
-        clear()
+        prepareForBulkLoad(
+            estimatedNodeCount: nodeRecords.count,
+            estimatedEdgeCount: edgeRecords.count
+        )
 
         for record in nodeRecords where !Self.hiddenNodeTypes.contains(record.type) {
             nodes[record.id] = record
@@ -752,6 +902,7 @@ final class GraphStore {
             edges.removeValue(forKey: edgeId)
             _edgeIdx.removeValue(forKey: edgeId)
             _edgeIds[edgeIdx] = ""  // Tombstone
+            edgeTombstoneCount += 1
         }
 
         // Remove from trigram index
@@ -764,8 +915,10 @@ final class GraphStore {
         nodes.removeValue(forKey: nodeId)
         _nodeIdx.removeValue(forKey: nodeId)
         _nodeIds[nodeIdx] = ""  // Tombstone
+        nodeTombstoneCount += 1
         _neighbors[nodeIdx] = []
         _edgesOf[nodeIdx] = []
+        compactStorageIfNeeded()
         clearSearchCache()
         neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
@@ -803,6 +956,8 @@ final class GraphStore {
         edges.removeValue(forKey: edgeId)
         _edgeIdx.removeValue(forKey: edgeId)
         _edgeIds[edgeIdx] = ""  // Tombstone
+        edgeTombstoneCount += 1
+        compactStorageIfNeeded()
         neighborLabelsCache.removeAll(keepingCapacity: true)
         topologyVersion += 1
         notifyChange([.graphEdges])
@@ -990,6 +1145,29 @@ final class GraphStore {
             expired: searchCacheExpiredCount,
             entryCount: searchCache.count
         )
+    }
+
+    func compactStorageDebugSnapshot() -> CompactStorageDebugSnapshot {
+        CompactStorageDebugSnapshot(
+            activeNodeCount: nodes.count,
+            nodeSlots: _nodeIds.count,
+            nodeTombstones: nodeTombstoneCount,
+            nodeCompactionEligible: shouldCompact(
+                slotCount: _nodeIds.count,
+                tombstoneCount: nodeTombstoneCount
+            ),
+            activeEdgeCount: edges.count,
+            edgeSlots: _edgeIds.count,
+            edgeTombstones: edgeTombstoneCount,
+            edgeCompactionEligible: shouldCompact(
+                slotCount: _edgeIds.count,
+                tombstoneCount: edgeTombstoneCount
+            )
+        )
+    }
+
+    func compactStorageForTesting() {
+        compactStorage()
     }
 
     func setSearchCacheNowProviderForTesting(_ provider: @escaping () -> Date) {

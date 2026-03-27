@@ -20,6 +20,8 @@ Packages/
 
 # Logs
 *.log
+*.xcresult
+test_results/
 
 # Credentials
 .env

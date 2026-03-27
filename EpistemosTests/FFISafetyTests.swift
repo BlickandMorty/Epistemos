@@ -82,7 +82,7 @@ struct FFISafetyTests {
     @Test("Misaligned pointer handling")
     func misalignedPointerHandling() {
         // Float requires 4-byte alignment
-        var buffer: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
+        let buffer: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
         
         buffer.withUnsafeBytes { rawBuffer in
             // Get aligned pointer
@@ -177,7 +177,7 @@ struct FFISafetyTests {
     @Test("Invalid UTF-8 byte sequence")
     func invalidUtf8Sequence() {
         // Create invalid UTF-8: continuation byte without starter
-        var bytes: [UInt8] = [0x80, 0x81, 0x82, 0x00] // Invalid start
+        let bytes: [UInt8] = [0x80, 0x81, 0x82, 0x00] // Invalid start
         
         bytes.withUnsafeBytes { rawBytes in
             guard let baseAddress = rawBytes.baseAddress else { return }
@@ -193,7 +193,7 @@ struct FFISafetyTests {
     func truncatedUtf8Sequence() {
         // UTF-8 for 🌍 is 0xF0 0x9F 0x8C 0x8D
         // Truncated: 0xF0 0x9F (missing 2 bytes)
-        var bytes: [UInt8] = [0xF0, 0x9F, 0x00]
+        let bytes: [UInt8] = [0xF0, 0x9F, 0x00]
         
         bytes.withUnsafeBytes { rawBytes in
             guard let baseAddress = rawBytes.baseAddress else { return }
@@ -208,7 +208,7 @@ struct FFISafetyTests {
     @Test("Overlong UTF-8 encoding")
     func overlongUtf8Encoding() {
         // ASCII 'A' should be 0x41, not overlong 0xC0 0x81
-        var bytes: [UInt8] = [0xC0, 0x81, 0x00]
+        let bytes: [UInt8] = [0xC0, 0x81, 0x00]
         
         bytes.withUnsafeBytes { rawBytes in
             guard let baseAddress = rawBytes.baseAddress else { return }
@@ -355,6 +355,7 @@ struct FFISafetyTests {
         class Box { let value: String; init(_ v: String) { value = v } }
         var strongRef: Box? = Box("test")
         weak var weakRef = strongRef
+        weakRef = strongRef
 
         #expect(weakRef != nil)
 
@@ -392,12 +393,8 @@ struct FFISafetyTests {
         
         func doWork() {
             // Work happens here
-            
-            // defer ensures cleanup
-            defer {
-                cleanedUp = true
-            }
-            
+
+            cleanedUp = true
             // More work
         }
         

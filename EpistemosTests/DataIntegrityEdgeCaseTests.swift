@@ -89,7 +89,7 @@ struct DataIntegrityCorruptedJSONTests {
         let node = SDGraphNode(type: .note, label: "Test")
         
         var bytes: [UInt8] = []
-        for i in 0..<100 {
+        for _ in 0..<100 {
             bytes.append(UInt8.random(in: 0...255))
         }
         node.metadata = Data(bytes)
@@ -625,7 +625,7 @@ struct DataIntegrityStringTests {
         }
         
         // Fails gracefully if encoding fails
-        #expect(true)
+        #expect(String(bytes: invalidBytes, encoding: .utf8) == nil)
     }
     
     @Test("BMP and non-BMP characters")

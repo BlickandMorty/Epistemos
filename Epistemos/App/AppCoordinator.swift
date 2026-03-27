@@ -172,6 +172,8 @@ final class AppCoordinator {
                 page.wordCount = content.split(separator: " ").count
                 page.folder = folder
                 page.tags = ["daily-brief"]
+                page.needsVaultSync = true
+                page.updatedAt = .now
                 context.insert(page)
                 BlockMirror.sync(pageId: page.id, body: content, modelContext: context)
                 do {
@@ -261,6 +263,7 @@ actor AmbientManifestRefreshDriver {
         while true {
             let manifest = await build()
             await apply(manifest)
+            await Task.yield()
 
             if pendingRefresh {
                 pendingRefresh = false

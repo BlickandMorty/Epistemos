@@ -6,8 +6,12 @@ import SwiftData
 // and RunTriageIntent for folder-scoped operations.
 
 struct FolderEntity: AppEntity, Sendable {
-    nonisolated(unsafe) static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Folder")
-    nonisolated(unsafe) static var defaultQuery = FolderEntityQuery()
+    static var typeDisplayRepresentation: TypeDisplayRepresentation {
+        TypeDisplayRepresentation(name: "Folder")
+    }
+    static var defaultQuery: FolderEntityQuery {
+        FolderEntityQuery()
+    }
 
     var id: String
     @Property(title: "Name") var name: String

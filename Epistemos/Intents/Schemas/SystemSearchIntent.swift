@@ -8,9 +8,11 @@ import SwiftData
 
 @AppIntent(schema: .system.search)
 struct SystemSearchIntent: AppIntent {
-    nonisolated(unsafe) static var title: LocalizedStringResource = "Search Epistemos"
-    nonisolated(unsafe) static var description: IntentDescription = "Searches across all your Epistemos notes, research, and chat history."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    static var title: LocalizedStringResource { "Search Epistemos" }
+    static var description: IntentDescription {
+        IntentDescription("Searches across all your Epistemos notes, research, and chat history.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @Parameter
     var criteria: StringSearchCriteria
@@ -20,7 +22,7 @@ struct SystemSearchIntent: AppIntent {
         guard let bootstrap = AppBootstrap.shared else { return .result(value: []) }
         let context = ModelContext(bootstrap.modelContainer)
         // Use SQLite predicate via localizedStandardContains —
-        // avoids loading every @Attribute(.externalStorage) body blob.
+        // avoids reading every disk-backed note body just to answer a shortcut search.
         var descriptor = SDPage.searchDescriptor(query: criteria.term)
         descriptor.fetchLimit = 20
         let pages = (try? context.fetch(descriptor)) ?? []

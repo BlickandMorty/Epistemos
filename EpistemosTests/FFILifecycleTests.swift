@@ -160,7 +160,7 @@ struct FFILifecycleTests {
         }
         
         // Test passes if no crash
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("Nested create operations")
@@ -278,7 +278,7 @@ struct FFILifecycleTests {
         
         // 4. Nil engine handle
         step = 4
-        var engineHandle: OpaquePointer? = nil
+        let engineHandle: OpaquePointer? = nil
         #expect(engineHandle == nil)
         
         // 5. Destroy engine

@@ -12,10 +12,24 @@ final class TerminalAgent: OmegaAgent, @unchecked Sendable {
     let toolNames = ["run_command"]
 
     /// Comma-separated allow-list passed to Rust for enforcement.
-    private let allowedCommandsCsv: String
+    /// Falls back to init default if the setting is unset.
+    private let defaultAllowedCommandsCsv: String
 
     init(allowedCommands: Set<String> = ["ls", "cat", "head", "tail", "grep", "find", "wc", "echo", "date", "pwd", "which"]) {
-        self.allowedCommandsCsv = allowedCommands.sorted().joined(separator: ",")
+        self.defaultAllowedCommandsCsv = allowedCommands.sorted().joined(separator: ",")
+    }
+
+    /// Resolve the effective allow-list: Settings → Omega override, or init default.
+    private var effectiveAllowedCommandsCsv: String {
+        if let settingValue = UserDefaults.standard.string(forKey: "omega.terminalAllowList"),
+           !settingValue.isEmpty {
+            return settingValue
+        }
+        return defaultAllowedCommandsCsv
+    }
+
+    func resolvedAllowedCommandsCsv() -> String {
+        effectiveAllowedCommandsCsv
     }
 
     func execute(step: AgentStep) async throws -> AgentStepResult {
@@ -27,7 +41,7 @@ final class TerminalAgent: OmegaAgent, @unchecked Sendable {
         }
 
         // Execute via Rust Tool Layer — Rust handles allow-list, timeout, result wrapping
-        let resultJson = toolRunCommand(command: command, allowedCommandsCsv: allowedCommandsCsv)
+        let resultJson = toolRunCommand(command: command, allowedCommandsCsv: resolvedAllowedCommandsCsv())
 
         let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
 

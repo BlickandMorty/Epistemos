@@ -33,7 +33,7 @@ struct OmegaSettingsDetailView: View {
                     TextField("Comma-separated command allow-list", text: $terminalAllowList)
                         .textFieldStyle(.roundedBorder)
                         .font(.caption.monospaced())
-                    Text("Only these base commands can be executed. Empty = all allowed (dangerous).")
+                    Text("Only these base commands can be executed. Empty = default safe list.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -71,8 +71,8 @@ struct OmegaSettingsDetailView: View {
 
             // MARK: - Perception
             Section("Perception") {
-                Toggle("Screen2AX VLM fallback", isOn: $screen2axEnabled)
-                    .help("When AX tree is sparse (<5 elements), use vision model to reconstruct UI.")
+                Toggle("Screen2AX Vision OCR enrichment", isOn: $screen2axEnabled)
+                    .help("When AX tree is sparse (<10 interactive elements), enrich with Vision OCR.")
             }
 
             // MARK: - Training

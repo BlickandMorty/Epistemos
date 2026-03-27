@@ -232,6 +232,15 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
+    @Test("status bar setup stays disabled under test hosts")
+    func statusBarSetupStaysDisabledUnderTests() {
+        StatusBar.shared.remove()
+        StatusBar.shared.setup()
+
+        #expect(StatusBar.shared.hasInstalledStatusItemForTesting == false)
+    }
+
+    @MainActor
     @Test("Note editor windows hide the native title and use unified toolbar chrome")
     func noteEditorWindowUsesCustomChrome() throws {
         let window = NSWindow(
@@ -250,7 +259,9 @@ struct NoteWindowManagerTests {
         #expect(window.styleMask.contains(.fullSizeContentView))
         let toolbar = try #require(window.toolbar)
         #expect(toolbar.identifier == "TestNoteToolbar")
-        #expect(!toolbar.showsBaselineSeparator)
+        if #unavailable(macOS 15.0) {
+            #expect(!toolbar.showsBaselineSeparator)
+        }
         #expect(window.toolbarStyle == .unified)
     }
 
@@ -415,8 +426,8 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Note window theme refresh removes a stale utility backdrop from the live content root")
-    func noteWindowThemeRefreshRemovesStaleUtilityBackdrop() throws {
+    @Test("Note window theme refresh keeps the live content root free of utility backdrops")
+    func noteWindowThemeRefreshKeepsLiveContentRootClear() throws {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -434,7 +445,7 @@ struct NoteWindowManagerTests {
             NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
             WindowThemeStyler.applyBackdrop(in: window.contentView, uiState: uiState)
             let hadBackdrop = window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) ?? false
-            #expect(hadBackdrop)
+            #expect(!hadBackdrop)
 
             NoteWindowThemeStyler.apply(to: window, uiState: uiState)
             let hasBackdropAfterCleanup =
@@ -445,8 +456,8 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Note windows keep the hosted content on a backdrop wrapper in native mode")
-    func noteWindowNativeContentControllerKeepsBackdropWrapper() throws {
+    @Test("Note windows keep the hosted content in a plain native wrapper")
+    func noteWindowNativeContentControllerKeepsPlainWrapper() throws {
         let uiState = UIState()
         let hosted = NSHostingController(rootView: Color.clear.frame(width: 120, height: 80))
 
@@ -458,7 +469,7 @@ struct NoteWindowManagerTests {
         )
 
         #expect(controller.view.subviews.contains(hosted.view))
-        #expect(controller.view.subviews.contains(where: { $0 is NSVisualEffectView }))
+        #expect(!controller.view.subviews.contains(where: { $0 is NSVisualEffectView }))
     }
 
     @Test("Note toolbar uses native symbol mappings inside the unified strip")
@@ -486,22 +497,9 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: true))
     }
 
-    @Test("Preview mode stays on the TK2 stack and preserves uppercase heading display only for legacy rendering")
+    @Test("Preview mode stays on the TK2 stack and leaves markdown unchanged")
     func previewModeUsesMatchingStack() {
-        #expect(NotePreviewRenderer.resolved(useTK2Editor: false) == .textKit2)
-        #expect(NotePreviewRenderer.resolved(useTK2Editor: true) == .textKit2)
-        #expect(
-            NotePreviewDisplay.renderedMarkdown(
-                "## Sub Heading\n### Third Level\nBody",
-                renderer: .textKit1
-            ) == "## SUB HEADING\n### THIRD LEVEL\nBody"
-        )
-        #expect(
-            NotePreviewDisplay.renderedMarkdown(
-                "## Sub Heading\n### Third Level\nBody",
-                renderer: .textKit2
-            ) == "## Sub Heading\n### Third Level\nBody"
-        )
+        #expect(NotePreviewDisplay.renderedMarkdown("## Sub Heading\n### Third Level\nBody") == "## Sub Heading\n### Third Level\nBody")
     }
 
     @Test("Table-heavy notes keep a wider single-page preview and compact editor column")

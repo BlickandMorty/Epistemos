@@ -113,7 +113,7 @@ struct WorkspaceSwitcherOverlay: View {
             }
             .scaleEffect(appeared ? 1 : 0.95)
             .opacity(appeared ? 1 : 0)
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(theme.resolved.foreground.color)
         }
         .onKeyPress(.upArrow) { cycleSelection(-1); return .handled }
         .onKeyPress(.downArrow) { cycleSelection(1); return .handled }
@@ -139,7 +139,7 @@ struct WorkspaceSwitcherOverlay: View {
                 .padding(.vertical, 2)
                 .background(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(theme.foreground.opacity(0.06))
+                        .fill(theme.resolved.foreground.color.opacity(0.06))
                 )
             Text(label)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -180,9 +180,6 @@ struct WorkspaceSwitcherOverlay: View {
             for window in NoteWindowManager.shared.openPageIds.compactMap({ NoteWindowManager.shared.window(for: $0) }) {
                 window.collectionBehavior.insert(.moveToActiveSpace)
             }
-            for chatId in MiniChatWindowController.shared.openChatIds {
-                // Mini chat windows already have .moveToActiveSpace by default
-            }
             isPresented = false
         }
     }
@@ -206,13 +203,29 @@ private struct WorkspaceRow: View {
     let onOpenInSpace: () -> Void
 
     @State private var isHovered = false
+    @State private var decodedSnapshot: WorkspaceSnapshot?
+
+    init(
+        workspace: SDWorkspace,
+        isSelected: Bool,
+        theme: EpistemosTheme,
+        action: @escaping () -> Void,
+        onOpenInSpace: @escaping () -> Void
+    ) {
+        self.workspace = workspace
+        self.isSelected = isSelected
+        self.theme = theme
+        self.action = action
+        self.onOpenInSpace = onOpenInSpace
+        _decodedSnapshot = State(initialValue: Self.decodeSnapshot(from: workspace.snapshotData))
+    }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: "square.stack.3d.up.fill")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isSelected ? theme.accent : theme.textSecondary)
+                    .foregroundStyle(isSelected ? theme.resolved.accent.color : theme.textSecondary)
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -245,7 +258,7 @@ private struct WorkspaceRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "pin.fill")
                                 .font(.system(size: 8))
-                                .foregroundStyle(theme.accent.opacity(0.6))
+                                .foregroundStyle(theme.resolved.accent.color.opacity(0.6))
                             Text(workspace.userNote)
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundStyle(theme.textSecondary)
@@ -277,20 +290,21 @@ private struct WorkspaceRow: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(
                         isSelected
-                            ? theme.accent.opacity(0.12)
-                            : (isHovered ? theme.foreground.opacity(0.04) : .clear)
+                            ? theme.resolved.accent.color.opacity(0.12)
+                            : (isHovered ? theme.resolved.foreground.color.opacity(0.04) : .clear)
                     )
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .onChange(of: workspace.snapshotData) { _, newValue in
+            decodedSnapshot = Self.decodeSnapshot(from: newValue)
+        }
     }
 
     private var snapshotSummary: String {
-        guard let snapshot = try? JSONDecoder().decode(
-            WorkspaceSnapshot.self, from: workspace.snapshotData
-        ) else { return "—" }
+        guard let snapshot = decodedSnapshot else { return "—" }
         var parts: [String] = []
         if !snapshot.openNoteTabs.isEmpty {
             parts.append("\(snapshot.openNoteTabs.count) note\(snapshot.openNoteTabs.count == 1 ? "" : "s")")
@@ -313,7 +327,7 @@ private struct WorkspaceRow: View {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.triangle.branch")
                         .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(theme.accent.opacity(0.5))
+                        .foregroundStyle(theme.resolved.accent.color.opacity(0.5))
                     Text("Changes since save:")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(theme.textTertiary.opacity(0.7))
@@ -328,7 +342,7 @@ private struct WorkspaceRow: View {
                 ForEach(diff.wordCountDeltas.prefix(2), id: \.title) { entry in
                     Text("\(entry.title): \(entry.delta > 0 ? "+" : "")\(entry.delta) words")
                         .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(entry.delta > 0 ? theme.accent.opacity(0.6) : theme.textTertiary.opacity(0.6))
+                        .foregroundStyle(entry.delta > 0 ? theme.resolved.accent.color.opacity(0.6) : theme.textTertiary.opacity(0.6))
                 }
             }
         } else {
@@ -337,7 +351,7 @@ private struct WorkspaceRow: View {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.triangle.branch")
                         .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(theme.accent.opacity(0.5))
+                        .foregroundStyle(theme.resolved.accent.color.opacity(0.5))
                     Text(drift)
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(theme.textTertiary.opacity(0.7))
@@ -358,9 +372,7 @@ private struct WorkspaceRow: View {
 
     /// Compares saved workspace snapshot against current live state.
     private func computeDrift() -> String {
-        guard let snapshot = try? JSONDecoder().decode(
-            WorkspaceSnapshot.self, from: workspace.snapshotData
-        ) else { return "" }
+        guard let snapshot = decodedSnapshot else { return "" }
 
         let currentPageIds = Set(NoteWindowManager.shared.orderedPageIds())
         let savedPageIds = Set(snapshot.openNoteTabs.map(\.rootPageId))
@@ -383,5 +395,9 @@ private struct WorkspaceRow: View {
         }
 
         return parts.joined(separator: " \u{2022} ")
+    }
+
+    private static func decodeSnapshot(from data: Data) -> WorkspaceSnapshot? {
+        try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
     }
 }

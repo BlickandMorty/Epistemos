@@ -296,9 +296,10 @@ struct DialogueGameStateAuditTests {
             linkedNodeLabels: ["Method", "Evidence", "Study"]
         )
 
-        // deriveArchetype is currently a stub that always returns .sentinel
-        #expect(profile.archetype == .sentinel)
-        #expect(profile.portrait.symbol == "square.stack.3d.up.fill")
+        #expect(profile.archetype == .archivist)
+        #expect(profile.portrait.symbol == "books.vertical.fill")
+        #expect(profile.openingLine != "Ask about this node.")
+        #expect(profile.summary.localizedCaseInsensitiveContains("evidence"))
         #expect(profile.care.health > baseline.care.health)
         #expect(!profile.focusKeywords.isEmpty)
     }
@@ -316,10 +317,10 @@ struct DialogueGameStateAuditTests {
             linkedNodeLabels: ["Hypothesis", "Load Test"]
         )
 
-        // deriveArchetype is currently a stub that always returns .sentinel
-        #expect(profile.archetype == .sentinel)
-        #expect(profile.portrait.symbol == "square.stack.3d.up.fill")
-        #expect(profile.summary.contains("contains connected context"))
+        #expect(profile.archetype == .examiner)
+        #expect(profile.care.mood == .curious)
+        #expect(profile.portrait.symbol == "questionmark.bubble.fill")
+        #expect(profile.summary.localizedCaseInsensitiveContains("questions"))
     }
 
     @Test("interaction feed boosts attention and health")
@@ -370,7 +371,7 @@ struct DialogueGameStateAuditTests {
         )
 
         #expect(profile.insight == insight)
-        #expect(profile.summary.contains("layer 0"))
+        #expect(profile.summary.localizedCaseInsensitiveContains("layer 0"))
         #expect(profile.care.health > baseline.care.health)
         #expect(profile.care.attention > baseline.care.attention)
     }

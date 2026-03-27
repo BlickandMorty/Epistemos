@@ -74,7 +74,7 @@ enum GraphTestDataGenerator {
         
         // Add random cross-edges for complexity
         let extraEdges = nodeCount / 3
-        for i in 0..<extraEdges {
+        for _ in 0..<extraEdges {
             let sourceIdx = Int.random(in: 0..<nodes.count)
             let targetIdx = Int.random(in: 0..<nodes.count)
             if sourceIdx != targetIdx {
@@ -432,7 +432,7 @@ struct GraphPerformanceTests {
         builder.persist(nodes: nodes, edges: edges, context: context)
         
         // Modify 10% of nodes
-        var modifiedNodes = nodes
+        let modifiedNodes = nodes
         for i in 0..<50 {
             modifiedNodes[i].label = "Modified \(i)"
             modifiedNodes[i].updatedAt = Date()
@@ -719,6 +719,7 @@ struct GraphPerformanceTests {
         
         // Average query time should be very fast
         let avgTime = Double(totalQueryTime.components.attoseconds) / Double(queryCount)
+        #expect(avgTime >= 0)
         #expect(totalQueryTime < .milliseconds(10), "100 neighbor queries took \(totalQueryTime)")
     }
     
