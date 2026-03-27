@@ -26,6 +26,8 @@ import time
 from dataclasses import dataclass, asdict
 from typing import Dict
 
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -54,6 +56,7 @@ class TierConfig:
     warmup_steps: int = 2000
     save_every_steps: int = 1000
     seq_len: int = 2048
+    grad_accum_steps: int = 8  # effective_batch = batch_size * grad_accum_steps
 
     def __post_init__(self):
         if self.intermediate_dim == 0:
@@ -70,7 +73,7 @@ TIER_CONFIGS = {
         mamba_layers=18, attention_layers=6, hidden_dim=2048, num_heads=16,
         state_dim=128, vocab_size=151936,  # Qwen tokenizer vocab
         stage1_tokens=300_000_000, stage2_tokens=3_000_000_000,
-        stage3_tokens=5_000_000_000, batch_size=32, learning_rate=3e-4,
+        stage3_tokens=5_000_000_000, batch_size=4, learning_rate=3e-4,
         warmup_steps=2000, save_every_steps=1000,
     ),
     "base": TierConfig(
@@ -99,12 +102,15 @@ DATA_MIX = {
     "stage3": {"slimpajama": 0.25, "starcoder": 0.15, "dolma_wiki": 0.10, "openorca": 0.20, "tool_calls": 0.15, "epistemos_vault": 0.15},
 }
 
+# Each entry: (hf_repo, config_name_or_None) OR "local:<path>" for local JSONL
+# All HF datasets are ungated — no HF_TOKEN needed
 DATASET_MAP = {
-    "slimpajama": "cerebras/SlimPajama-627B",
-    "starcoder": "bigcode/starcoderdata",
-    "dolma_wiki": "allenai/dolma",
-    "openorca": "Open-Orca/OpenOrca",
-    "tool_calls": "glaiveai/glaive-function-calling-v2",
+    "slimpajama": ("DKYoon/SlimPajama-6B", None),
+    "starcoder": ("codeparrot/github-code-clean", "Python-all"),
+    "dolma_wiki": ("allenai/c4", "en"),
+    "openorca": ("Open-Orca/OpenOrca", None),
+    "tool_calls": ("NousResearch/hermes-function-calling-v1", None),
+    "epistemos_vault": ("local:/workspace/epistemos_training_data", None),
 }
 
 # ─── Model Components ─────────────────────────────────────────
@@ -251,20 +257,38 @@ class MixedStreamDataset(IterableDataset):
     def __iter__(self):
         from datasets import load_dataset
         import random
+        import glob as globmod
         rng = random.Random(self.seed)
 
         streams = {}
         for name, ratio in self.mix.items():
-            if ratio <= 0 or name == "epistemos_vault":
+            if ratio <= 0:
                 continue
-            hf = DATASET_MAP.get(name)
-            if not hf:
+            entry = DATASET_MAP.get(name)
+            if not entry:
+                print(f"  WARN: {name} not in DATASET_MAP, skipping")
                 continue
+            hf_repo, hf_config = entry
             try:
-                ds = load_dataset(hf, split="train", streaming=True, trust_remote_code=True)
-                streams[name] = (iter(ds), ratio)
+                if hf_repo.startswith("local:"):
+                    # Local JSONL dataset — load from directory
+                    local_path = hf_repo.replace("local:", "")
+                    jsonl_files = sorted(globmod.glob(os.path.join(local_path, "*.jsonl")))
+                    if not jsonl_files:
+                        print(f"  WARN: {name} — no JSONL files in {local_path}, skipping")
+                        continue
+                    ds = load_dataset("json", data_files=jsonl_files, split="train", streaming=True)
+                    streams[name] = (iter(ds), ratio, hf_repo, None)
+                    print(f"  Loaded: {name} (local: {len(jsonl_files)} files from {local_path})")
+                else:
+                    kwargs = {"split": "train", "streaming": True}
+                    if hf_config:
+                        kwargs["name"] = hf_config
+                    ds = load_dataset(hf_repo, **kwargs)
+                    streams[name] = (iter(ds), ratio, hf_repo, hf_config)
+                    print(f"  Loaded: {name} ({hf_repo})")
             except Exception as e:
-                print(f"  Warn: {name}: {e}")
+                print(f"  WARN: {name} ({hf_repo}): {e}")
 
         if not streams:
             raise RuntimeError("No datasets loaded")
@@ -277,15 +301,39 @@ class MixedStreamDataset(IterableDataset):
 
         while True:
             name = rng.choices(names, weights=weights, k=1)[0]
-            it, _ = streams[name]
+            it, ratio, hf_repo, hf_config = streams[name]
             try:
                 item = next(it)
             except StopIteration:
-                ds = load_dataset(DATASET_MAP[name], split="train", streaming=True, trust_remote_code=True)
-                streams[name] = (iter(ds), streams[name][1])
+                if hf_repo.startswith("local:"):
+                    local_path = hf_repo.replace("local:", "")
+                    jsonl_files = sorted(globmod.glob(os.path.join(local_path, "*.jsonl")))
+                    ds = load_dataset("json", data_files=jsonl_files, split="train", streaming=True)
+                else:
+                    kwargs = {"split": "train", "streaming": True}
+                    if hf_config:
+                        kwargs["name"] = hf_config
+                    ds = load_dataset(hf_repo, **kwargs)
+                streams[name] = (iter(ds), ratio, hf_repo, hf_config)
                 continue
 
-            text = item.get("text") or item.get("content") or item.get("instruction", "")
+            # Handle both plain text and chat-format JSONL
+            text = ""
+            if "messages" in item:
+                # Chat format: [{"role": "system", ...}, {"role": "user", ...}, ...]
+                parts = []
+                for msg in item["messages"]:
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                    if role == "system":
+                        parts.append(f"<|im_start|>system\n{content}<|im_end|>")
+                    elif role == "user":
+                        parts.append(f"<|im_start|>user\n{content}<|im_end|>")
+                    elif role == "assistant":
+                        parts.append(f"<|im_start|>assistant\n{content}<|im_end|>")
+                text = "\n".join(parts)
+            else:
+                text = item.get("text") or item.get("content") or item.get("instruction", "")
             if not text:
                 continue
             buf.extend(self.tokenizer.encode(text, add_special_tokens=False))
@@ -381,19 +429,30 @@ def stage1(config, checkpoint=None, out="stage1"):
     if checkpoint:
         load_ckpt(student, None, checkpoint)
 
+    t_dim = teacher.config.hidden_size
+    # Projection for teacher→student dim alignment
+    dim_proj = None
+    if t_dim != config.hidden_dim:
+        dim_proj = nn.Linear(t_dim, config.hidden_dim, bias=False).to(dev, torch.bfloat16)
+        print(f"  Dim projection: {t_dim} → {config.hidden_dim}")
+
     for p in student.parameters():
         p.requires_grad = False
     mp = student.mamba_mixing_params()
     for p in mp:
         p.requires_grad = True
-    print(f"  Trainable: {sum(p.numel() for p in mp) / 1e6:.1f}M (Mamba mixing only)")
+    trainable = list(mp)
+    if dim_proj:
+        trainable += list(dim_proj.parameters())
+    print(f"  Trainable: {sum(p.numel() for p in trainable) / 1e6:.1f}M (Mamba mixing + proj)")
 
-    opt = torch.optim.AdamW(mp, lr=config.learning_rate, weight_decay=0.01)
+    opt = torch.optim.AdamW(trainable, lr=config.learning_rate, weight_decay=0.01)
     loader = DataLoader(MixedStreamDataset(DATA_MIX["stage1"], tok, config.seq_len),
-                        batch_size=config.batch_size, num_workers=2, pin_memory=True)
+                        batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
-    total = config.stage1_tokens // (config.batch_size * config.seq_len)
-    step, rl, t0 = 0, 0.0, time.time()
+    eff_bs = config.batch_size * config.grad_accum_steps
+    total = config.stage1_tokens // (eff_bs * config.seq_len)
+    step, rl, t0, micro = 0, 0.0, time.time(), 0
     n_teacher = None
 
     for batch in loader:
@@ -413,24 +472,32 @@ def stage1(config, checkpoint=None, out="stage1"):
             if student.layers[si].use_attention:
                 continue
             ti = min(int((si / config.total_layers) * n_teacher) + 1, len(th) - 1)
-            s, t = sh[si + 1].float(), th[ti].float()
-            if s.shape[-1] != t.shape[-1]:
-                t = F.adaptive_avg_pool1d(t.transpose(1, 2), s.shape[-1]).transpose(1, 2)
+            s = sh[si + 1].float()
+            t = th[ti]
+            if dim_proj is not None:
+                t = dim_proj(t).float()
+            else:
+                t = t.float()
             loss = loss + F.mse_loss(s, t)
-        loss = loss / max(1, config.mamba_layers)
-
-        opt.zero_grad()
+        loss = loss / max(1, config.mamba_layers) / config.grad_accum_steps
         loss.backward()
+
+        rl += loss.item() * config.grad_accum_steps
+        micro += 1
+        if micro < config.grad_accum_steps:
+            continue
+        micro = 0
+
         torch.nn.utils.clip_grad_norm_(mp, 1.0)
         lr = wsd_lr(step, config.warmup_steps, config.learning_rate, total)
         for pg in opt.param_groups:
             pg["lr"] = lr
         opt.step()
+        opt.zero_grad()
 
-        rl += loss.item()
         step += 1
         if step % 100 == 0:
-            log_step(step, total, rl / 100, lr, t0, config.batch_size, config.seq_len, wb)
+            log_step(step, total, rl / 100, lr, t0, eff_bs, config.seq_len, wb)
             rl = 0.0
         if step % config.save_every_steps == 0:
             save_ckpt(student, opt, step, loss.item(), out)
@@ -483,10 +550,11 @@ def stage2(config, checkpoint, out="stage2"):
     lr_base = config.learning_rate * 0.3
     opt = torch.optim.AdamW(all_p, lr=lr_base, weight_decay=0.01)
     loader = DataLoader(MixedStreamDataset(DATA_MIX["stage2"], tok, config.seq_len),
-                        batch_size=config.batch_size, num_workers=2, pin_memory=True)
+                        batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
-    total = config.stage2_tokens // (config.batch_size * config.seq_len)
-    step, rl, t0 = 0, 0.0, time.time()
+    eff_bs = config.batch_size * config.grad_accum_steps
+    total = config.stage2_tokens // (eff_bs * config.seq_len)
+    step, rl, t0, micro = 0, 0.0, time.time(), 0
     n_teacher = None
 
     for batch in loader:
@@ -506,20 +574,25 @@ def stage2(config, checkpoint, out="stage2"):
             ti = min(int((si / config.total_layers) * n_teacher) + 1, len(th) - 1)
             s, t = sh[si + 1].float(), projs[idx](th[ti].float())
             loss = loss + (1 - F.cosine_similarity(s, t, dim=-1).mean()) + 0.1 * F.mse_loss(s, t)
-        loss = loss / max(1, len(attn_idx))
-
-        opt.zero_grad()
+        loss = loss / max(1, len(attn_idx)) / config.grad_accum_steps
         loss.backward()
+
+        rl += loss.item() * config.grad_accum_steps
+        micro += 1
+        if micro < config.grad_accum_steps:
+            continue
+        micro = 0
+
         torch.nn.utils.clip_grad_norm_(all_p, 1.0)
         lr = wsd_lr(step, config.warmup_steps, lr_base, total)
         for pg in opt.param_groups:
             pg["lr"] = lr
         opt.step()
+        opt.zero_grad()
 
-        rl += loss.item()
         step += 1
         if step % 100 == 0:
-            log_step(step, total, rl / 100, lr, t0, config.batch_size, config.seq_len, wb)
+            log_step(step, total, rl / 100, lr, t0, eff_bs, config.seq_len, wb)
             rl = 0.0
         if step % config.save_every_steps == 0:
             save_ckpt(student, opt, step, loss.item(), out)
@@ -562,11 +635,12 @@ def stage3(config, checkpoint, out="stage3"):
     lr_base = config.learning_rate * 0.1
     opt = torch.optim.AdamW(student.parameters(), lr=lr_base, weight_decay=0.01)
     loader = DataLoader(MixedStreamDataset(DATA_MIX["stage3"], tok, config.seq_len),
-                        batch_size=config.batch_size, num_workers=2, pin_memory=True)
+                        batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
-    total = config.stage3_tokens // (config.batch_size * config.seq_len)
+    eff_bs = config.batch_size * config.grad_accum_steps
+    total = config.stage3_tokens // (eff_bs * config.seq_len)
     T, alpha = 2.0, 0.7
-    step, rl, rk, rc, t0 = 0, 0.0, 0.0, 0.0, time.time()
+    step, rl, rk, rc, t0, micro = 0, 0.0, 0.0, 0.0, time.time(), 0
 
     for batch in loader:
         if step >= total:
@@ -587,22 +661,27 @@ def stage3(config, checkpoint, out="stage3"):
 
         # CE on hard targets
         ce = F.cross_entropy(sl.view(-1, sl.size(-1)), labels.view(-1), ignore_index=-100)
-        loss = alpha * kd + (1 - alpha) * ce
-
-        opt.zero_grad()
+        loss = (alpha * kd + (1 - alpha) * ce) / config.grad_accum_steps
         loss.backward()
+
+        rl += loss.item() * config.grad_accum_steps
+        rk += kd.item()
+        rc += ce.item()
+        micro += 1
+        if micro < config.grad_accum_steps:
+            continue
+        micro = 0
+
         torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
         lr = wsd_lr(step, config.warmup_steps, lr_base, total)
         for pg in opt.param_groups:
             pg["lr"] = lr
         opt.step()
+        opt.zero_grad()
 
-        rl += loss.item()
-        rk += kd.item()
-        rc += ce.item()
         step += 1
         if step % 100 == 0:
-            log_step(step, total, rl / 100, lr, t0, config.batch_size, config.seq_len, wb,
+            log_step(step, total, rl / 100, lr, t0, eff_bs, config.seq_len, wb,
                      f"kd={rk / 100:.4f} ce={rc / 100:.4f}")
             rl = rk = rc = 0.0
         if step % config.save_every_steps == 0:
@@ -649,13 +728,15 @@ def main():
             print(f"  {s}: {m}")
         tok_s = 50_000  # A100 throughput estimate
         cost_hr = 1.19
+        eff = c.batch_size * c.grad_accum_steps
         s1h = c.stage1_tokens / (tok_s * 3600)
         s2h = c.stage2_tokens / (tok_s * 3600)
         s3h = c.stage3_tokens / (tok_s * 3600)
         th = s1h + s2h + s3h
-        print(f"\n  S1: {c.stage1_tokens // (c.batch_size * c.seq_len):,} steps, ~{s1h:.1f}h, ~${s1h * cost_hr:.0f}")
-        print(f"  S2: {c.stage2_tokens // (c.batch_size * c.seq_len):,} steps, ~{s2h:.1f}h, ~${s2h * cost_hr:.0f}")
-        print(f"  S3: {c.stage3_tokens // (c.batch_size * c.seq_len):,} steps, ~{s3h:.1f}h, ~${s3h * cost_hr:.0f}")
+        print(f"\n  Batch: {c.batch_size} micro × {c.grad_accum_steps} accum = {eff} effective")
+        print(f"  S1: {c.stage1_tokens // (eff * c.seq_len):,} steps, ~{s1h:.1f}h, ~${s1h * cost_hr:.0f}")
+        print(f"  S2: {c.stage2_tokens // (eff * c.seq_len):,} steps, ~{s2h:.1f}h, ~${s2h * cost_hr:.0f}")
+        print(f"  S3: {c.stage3_tokens // (eff * c.seq_len):,} steps, ~{s3h:.1f}h, ~${s3h * cost_hr:.0f}")
         print(f"  Total: {(c.stage1_tokens + c.stage2_tokens + c.stage3_tokens) / 1e9:.1f}B tok, ~{th:.0f}h, ~${th * cost_hr:.0f}")
         print(f"\n  Arch: {c.total_layers} layers ({c.mamba_layers} Mamba + {c.attention_layers} Attn)")
         print(f"  Dim: {c.hidden_dim}, Heads: {c.num_heads}, SSM state: {c.state_dim}")
