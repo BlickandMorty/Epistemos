@@ -41,6 +41,12 @@ final class ChatCoordinator {
         let normalizedTags: [String]
     }
 
+    private struct CachedEmptyManifestSearchResults: Sendable {
+        let signature: String
+        let limit: Int
+        let notes: [NoteMentionChoice]
+    }
+
     struct AttachedContextResolution: Sendable {
         let context: String?
         let cleanedQuery: String
@@ -413,21 +419,17 @@ final class ChatCoordinator {
 
         let noteChoices: [NoteMentionChoice] = {
             guard let manifest else { return [] }
+            if normalizedFilter.isEmpty {
+                return cachedEmptyManifestResults(
+                    for: manifest,
+                    limit: noteResultLimit
+                )
+            }
+
             var results: [NoteMentionChoice] = []
             if shouldOfferAllNotesChoice(for: normalizedFilter) {
                 results.append(.allNotes)
             }
-            if normalizedFilter.isEmpty {
-                let recentEntries = manifest.entries
-                    .sorted {
-                        if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
-                        return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-                    }
-                    .prefix(noteResultLimit)
-                results.append(contentsOf: recentEntries.map(NoteMentionChoice.entry))
-                return results
-            }
-
             let terms = searchTerms(from: normalizedFilter)
             let preparedEntries = preparedManifestSearchEntries(for: manifest)
             let referenceDate = Date()
@@ -531,6 +533,7 @@ final class ChatCoordinator {
     nonisolated private static let _searchCacheLock = NSLock()
     nonisolated(unsafe) private static var _cachedSearchManifestSignature: String?
     nonisolated(unsafe) private static var _cachedSearchPreparedEntries: [PreparedManifestSearchEntry]?
+    nonisolated(unsafe) private static var _cachedEmptyManifestResults: CachedEmptyManifestSearchResults?
 
     private nonisolated static func preparedManifestSearchEntries(
         for manifest: VaultManifest
@@ -538,16 +541,13 @@ final class ChatCoordinator {
         _searchCacheLock.lock()
         defer { _searchCacheLock.unlock() }
 
-        let entries = manifest.entries
-        // Simple heuristic signature: count + first item timestamp. 
-        // This avoids equating 10,000 items on every keystroke.
-        let signature = "\(entries.count)-\(entries.first?.updatedAt.timeIntervalSince1970 ?? 0)"
+        let signature = manifestSearchSignature(for: manifest)
 
         if let cached = _cachedSearchPreparedEntries, _cachedSearchManifestSignature == signature {
             return cached
         }
 
-        let prepared = entries.map { entry in
+        let prepared = manifest.entries.map { entry in
             PreparedManifestSearchEntry(
                 entry: entry,
                 normalizedTitle: normalizedSearchField(entry.title),
@@ -560,6 +560,48 @@ final class ChatCoordinator {
         _cachedSearchManifestSignature = signature
         _cachedSearchPreparedEntries = prepared
         return prepared
+    }
+
+    private nonisolated static func cachedEmptyManifestResults(
+        for manifest: VaultManifest,
+        limit: Int
+    ) -> [NoteMentionChoice] {
+        _searchCacheLock.lock()
+        defer { _searchCacheLock.unlock() }
+
+        let signature = manifestSearchSignature(for: manifest)
+        if let cached = _cachedEmptyManifestResults,
+           cached.signature == signature,
+           cached.limit == limit {
+            return cached.notes
+        }
+
+        var results: [NoteMentionChoice] = [.allNotes]
+        results.reserveCapacity(limit + 1)
+        let recentEntries = manifest.entries
+            .sorted {
+                if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
+                return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            }
+            .prefix(limit)
+        results.append(contentsOf: recentEntries.map(NoteMentionChoice.entry))
+
+        _cachedEmptyManifestResults = CachedEmptyManifestSearchResults(
+            signature: signature,
+            limit: limit,
+            notes: results
+        )
+        return results
+    }
+
+    private nonisolated static func manifestSearchSignature(for manifest: VaultManifest) -> String {
+        let entries = manifest.entries
+        return [
+            String(entries.count),
+            String(manifest.generatedAt.timeIntervalSince1970),
+            entries.first?.pageId ?? "",
+            String(entries.first?.updatedAt.timeIntervalSince1970 ?? 0),
+        ].joined(separator: "|")
     }
 
     private nonisolated static func noteSearchScore(

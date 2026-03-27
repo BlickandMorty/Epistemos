@@ -590,6 +590,10 @@ private struct MiniChatInputBar: View {
         threadState.miniChatSession(id: chatID)
     }
 
+    private var trimmedMentionFilter: String {
+        mentionFilter.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var activeContextAttachments: [ContextAttachment] {
         miniChatThread?.contextAttachments ?? []
     }
@@ -602,11 +606,12 @@ private struct MiniChatInputBar: View {
     }
 
     private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
-        ChatCoordinator.searchReferenceResults(
-            filter: mentionFilter,
+        let shouldSearchChats = !trimmedMentionFilter.isEmpty
+        return ChatCoordinator.searchReferenceResults(
+            filter: trimmedMentionFilter,
             manifest: AppBootstrap.shared?.ambientManifest,
-            chats: recentChats(),
-            threads: threadState.chatThreads,
+            chats: shouldSearchChats ? recentChats() : [],
+            threads: shouldSearchChats ? threadState.chatThreads : [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )

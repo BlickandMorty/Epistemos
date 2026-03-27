@@ -783,6 +783,44 @@ struct RuntimeValidationTests {
         #expect(chatInput.contains("url.stopAccessingSecurityScopedResource()"))
     }
 
+    @Test("composer reference popover keeps result rendering lazy for smooth scrolling")
+    func composerReferencePopoverKeepsResultRenderingLazy() throws {
+        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+
+        #expect(popover.contains("LazyVStack(alignment: .leading, spacing: 0)"))
+    }
+
+    @Test("mini chat reference picker skips chat fetches while empty-query browsing is active")
+    func miniChatReferencePickerSkipsChatFetchesWhileBrowsing() throws {
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChat.contains("private var trimmedMentionFilter: String"))
+        #expect(miniChat.contains("let shouldSearchChats = !trimmedMentionFilter.isEmpty"))
+        #expect(miniChat.contains("filter: trimmedMentionFilter"))
+        #expect(miniChat.contains("chats: shouldSearchChats ? recentChats() : []"))
+        #expect(miniChat.contains("threads: shouldSearchChats ? threadState.chatThreads : []"))
+    }
+
+    @Test("composer reference search caches manifest page ids between query updates")
+    func composerReferenceSearchCachesManifestPageIDsBetweenQueryUpdates() throws {
+        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+
+        #expect(popover.contains("private var cachedManifestGeneratedAt: Date?"))
+        #expect(popover.contains("private var cachedManifestEntryCount = 0"))
+        #expect(popover.contains("private var cachedManifestPageIDs = Set<String>()"))
+        #expect(popover.contains("let manifestPageIDs = pageIDs(in: manifest)"))
+    }
+
+    @Test("scroll-heavy composer pickers use reduced-overdraw chrome")
+    func scrollHeavyComposerPickersUseReducedOverdrawChrome() throws {
+        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+
+        #expect(popover.contains("private var usesReducedOverdrawChrome: Bool"))
+        #expect(popover.contains("if usesReducedOverdrawChrome"))
+        #expect(popover.contains(".clipped()"))
+        #expect(popover.contains("theme.resolved.background.color.opacity(0.94)"))
+    }
+
     @Test("node inspector profile copy avoids synthetic knowledge cluster filler text")
     func nodeInspectorProfileCopyAvoidsSyntheticKnowledgeClusterFillerText() throws {
         let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")

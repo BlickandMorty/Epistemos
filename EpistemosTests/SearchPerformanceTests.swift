@@ -35,6 +35,31 @@ struct SearchPerformanceTests {
 
         return best ?? .zero
     }
+
+    private func makeVaultManifest(entryCount: Int) -> VaultManifest {
+        let now = Date()
+        let entries = (0..<entryCount).map { index in
+            VaultManifest.ManifestEntry(
+                pageId: "page-\(index)",
+                title: "Performance Note \(index)",
+                tags: ["tag\(index % 7)", "topic\(index % 13)"],
+                folderName: index.isMultiple(of: 2) ? "Folder \(index % 9)" : nil,
+                wordCount: 200 + (index % 50),
+                snippet: "Snippet \(index) with indexed body text and a small amount of metadata.",
+                updatedAt: now.addingTimeInterval(TimeInterval(-index * 60)),
+                createdAt: now.addingTimeInterval(TimeInterval(-(index + 1) * 120))
+            )
+        }
+
+        return VaultManifest(
+            vaultTitle: "Performance Vault",
+            totalNoteCount: entryCount,
+            isInventoryComplete: true,
+            entries: entries,
+            recentBodies: [],
+            generatedAt: now
+        )
+    }
     
     // MARK: - Graph Search Latency
     
@@ -96,6 +121,32 @@ struct SearchPerformanceTests {
         
         #expect(totalTime < .milliseconds(Int(queries.count) * 50),
                 "Multiple queries took \(totalTime), average per query too slow")
+    }
+
+    @Test("composer empty-query reference browsing stays within the popover budget")
+    func composerEmptyQueryReferenceBrowsingStaysWithinBudget() async throws {
+        let manifest = makeVaultManifest(entryCount: 5_000)
+
+        _ = ChatCoordinator.searchReferenceResults(
+            filter: "",
+            manifest: manifest,
+            chats: [],
+            threads: [],
+            limitPerSection: 12
+        )
+
+        let elapsed = bestDuration(measuredRuns: 5) {
+            let results = ChatCoordinator.searchReferenceResults(
+                filter: "",
+                manifest: manifest,
+                chats: [],
+                threads: [],
+                limitPerSection: 12
+            )
+            #expect(results.notes.count == 13)
+        }
+
+        #expect(elapsed < .milliseconds(6), "Empty-query reference browsing took \(elapsed)")
     }
     
     // MARK: - Hybrid Search Latency

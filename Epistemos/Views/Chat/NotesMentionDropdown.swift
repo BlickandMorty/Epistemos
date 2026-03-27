@@ -161,6 +161,12 @@ final class ComposerReferenceSearchState {
 
     @ObservationIgnored
     private var searchTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var cachedManifestGeneratedAt: Date?
+    @ObservationIgnored
+    private var cachedManifestEntryCount = 0
+    @ObservationIgnored
+    private var cachedManifestPageIDs = Set<String>()
 
     func update(
         filter: String,
@@ -173,7 +179,7 @@ final class ComposerReferenceSearchState {
             return
         }
 
-        let manifestPageIDs = Set(manifest.entries.map(\.pageId))
+        let manifestPageIDs = pageIDs(in: manifest)
         searchTask?.cancel()
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(120))
@@ -209,6 +215,19 @@ final class ComposerReferenceSearchState {
             results.append(id)
         }
         return results
+    }
+
+    private func pageIDs(in manifest: VaultManifest) -> Set<String> {
+        if cachedManifestGeneratedAt == manifest.generatedAt,
+           cachedManifestEntryCount == manifest.entries.count {
+            return cachedManifestPageIDs
+        }
+
+        let pageIDs = Set(manifest.entries.lazy.map(\.pageId))
+        cachedManifestGeneratedAt = manifest.generatedAt
+        cachedManifestEntryCount = manifest.entries.count
+        cachedManifestPageIDs = pageIDs
+        return pageIDs
     }
 
     private static func snippetsByPageID(for hits: [SearchResult]) -> [String: String] {
@@ -492,23 +511,57 @@ private struct ComposerReferencePopoverContent: View {
         self.onSelect = onSelect
     }
 
+    private var usesReducedOverdrawChrome: Bool {
+        style == .notePicker || style == .chatPicker
+    }
+
     var body: some View {
+        Group {
+            if usesReducedOverdrawChrome {
+                framedPopoverContent
+                    .background {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.985 : 0.995))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(theme.glassBg.opacity(theme.isDark ? 0.20 : 0.28))
+                            }
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(
+                                theme.glassBorder.opacity(theme.isDark ? 0.48 : 0.34),
+                                lineWidth: 0.65
+                            )
+                    }
+                    .shadow(
+                        color: .black.opacity(theme.isDark ? 0.18 : 0.08),
+                        radius: 14,
+                        y: 8
+                    )
+            } else {
+                framedPopoverContent
+                    .assistantPopoverChrome(theme: theme)
+            }
+        }
+        .overlay(alignment: .top) {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.white.opacity(theme.isDark ? 0.04 : 0.18))
+                .frame(height: 1)
+                .padding(.horizontal, 18)
+                .padding(.top, 1)
+        }
+        .task(id: autofocusSearchField) {
+            guard autofocusSearchField else { return }
+            try? await Task.sleep(for: .milliseconds(60))
+            isSearchFocused = true
+        }
+    }
+
+    private var framedPopoverContent: some View {
         popoverContent
             .frame(width: width, alignment: .topLeading)
             .frame(maxHeight: maxHeight, alignment: .topLeading)
-            .assistantPopoverChrome(theme: theme)
-            .overlay(alignment: .top) {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(.white.opacity(theme.isDark ? 0.04 : 0.18))
-                    .frame(height: 1)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 1)
-            }
-            .task(id: autofocusSearchField) {
-                guard autofocusSearchField else { return }
-                try? await Task.sleep(for: .milliseconds(60))
-                isSearchFocused = true
-            }
     }
 
     @ViewBuilder
@@ -570,6 +623,7 @@ private struct ComposerReferencePopoverContent: View {
             .padding(.vertical, 8)
         }
         .frame(maxHeight: maxHeight - style.searchSectionHeight, alignment: .topLeading)
+        .clipped()
     }
 
     private var notePickerSidebar: some View {
@@ -836,7 +890,7 @@ struct NotesMentionDropdown: View {
         if !hasResults {
             emptyState
         } else {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 if showNotes && results.vaultNoteCount > 0 {
                     vaultSummaryHeader
                 }
@@ -1100,21 +1154,18 @@ struct NotesMentionDropdown: View {
             .padding(.horizontal, style == .notePicker ? 16 : 14)
             .padding(.vertical, style == .notePicker ? 14 : 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
+            .background {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.08 : 0.045))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.32 : 0.20), lineWidth: 0.75)
-                    }
-                    .overlay(alignment: .top) {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.white.opacity(theme.isDark ? 0.04 : 0.16))
-                            .frame(height: 1)
-                            .padding(.horizontal, 12)
-                            .padding(.top, 1)
-                    }
-            )
+                    .fill(
+                        theme.isDark
+                            ? theme.resolved.background.color.opacity(0.94)
+                            : Color.white.opacity(0.94)
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.20 : 0.12), lineWidth: 0.6)
+            }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

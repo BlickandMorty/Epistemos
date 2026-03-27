@@ -38,14 +38,18 @@ struct ChatInputBar: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedMentionFilter: String {
+        mentionFilter.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     private let composerMetrics = AssistantComposerMetrics.mainChat
     private let placeholderText = "Ask anything…"
     private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
-        ChatCoordinator.searchReferenceResults(
-            filter: mentionFilter,
+        let shouldSearchChats = !trimmedMentionFilter.isEmpty
+        return ChatCoordinator.searchReferenceResults(
+            filter: trimmedMentionFilter,
             manifest: AppBootstrap.shared?.ambientManifest,
-            chats: recentChats(),
-            threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
+            chats: shouldSearchChats ? recentChats() : [],
+            threads: shouldSearchChats ? (AppBootstrap.shared?.threadState.chatThreads ?? []) : [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
