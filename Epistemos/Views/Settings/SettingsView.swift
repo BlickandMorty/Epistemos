@@ -11,6 +11,7 @@ struct SettingsView: View {
 
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
+        case cognitive = "Cognitive"
         case inference = "Inference"
         case knowledgeFusion = "Knowledge Fusion"
         case omega = "Omega"
@@ -22,6 +23,7 @@ struct SettingsView: View {
 
         static let visibleSections: [SettingsSection] = [
             .general,
+            .cognitive,
             .inference,
             .knowledgeFusion,
             .omega,
@@ -33,6 +35,7 @@ struct SettingsView: View {
         var icon: String {
             switch self {
             case .general: "gearshape"
+            case .cognitive: "brain"
             case .inference: "cpu"
             case .knowledgeFusion: "brain.head.profile.fill"
             case .omega: "cpu.fill"
@@ -70,6 +73,7 @@ struct SettingsView: View {
     private var settingsDetail: some View {
         switch selection {
         case .general: GeneralDetailView()
+        case .cognitive: CognitiveSettingsSection()
         case .inference: InferenceDetailView()
         case .knowledgeFusion: KnowledgeFusionDetailView()
         case .omega: OmegaSettingsDetailView()

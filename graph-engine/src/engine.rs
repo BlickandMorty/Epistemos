@@ -1076,6 +1076,39 @@ impl Engine {
         }
     }
 
+    /// Pin a node at its current position by UUID (called from FFI).
+    /// Uses existing d3-style fx/fy constraint — zero new physics code.
+    pub fn pin_node(&self, uuid: &str) {
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
+            if let Some(index) = self.world.index_of_node_id(node_id) {
+                let mut sim = self.sim.lock();
+                let x = sim.x[index];
+                let y = sim.y[index];
+                sim.fix_node(index, x, y);
+            }
+        }
+    }
+
+    /// Unpin a node by UUID (called from FFI).
+    pub fn unpin_node(&self, uuid: &str) {
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
+            if let Some(index) = self.world.index_of_node_id(node_id) {
+                self.sim.lock().unfix_node(index);
+            }
+        }
+    }
+
+    /// Check if a node is pinned by UUID.
+    pub fn is_node_pinned(&self, uuid: &str) -> bool {
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
+            if let Some(index) = self.world.index_of_node_id(node_id) {
+                let sim = self.sim.lock();
+                return sim.fx[index].is_some();
+            }
+        }
+        false
+    }
+
     /// Poll the current haptic event from the simulation.
     /// Returns 0=None, 1=Light snap, 2=Heavy collision.
     pub fn poll_haptic(&self) -> u8 {

@@ -93,6 +93,15 @@ final class AppBootstrap {
     private var _timeMachineService: TimeMachineService?
     var timeMachineService: TimeMachineService { Self.requireInitialized(_timeMachineService, name: "timeMachineService") }
 
+    // MARK: - Cognitive Substrates
+    let epistemosConfig = EpistemosConfig()
+    private var _ambientCapture: AmbientCaptureService?
+    var ambientCapture: AmbientCaptureService { Self.requireInitialized(_ambientCapture, name: "ambientCapture") }
+    private var _frictionMonitor: FrictionMonitorService?
+    var frictionMonitor: FrictionMonitorService { Self.requireInitialized(_frictionMonitor, name: "frictionMonitor") }
+    private var _nightBrain: NightBrainService?
+    var nightBrain: NightBrainService { Self.requireInitialized(_nightBrain, name: "nightBrain") }
+
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
     /// Nil when no vault is attached. Shared across all AI surfaces (main chat, MiniChat, graph inspector).
@@ -302,8 +311,21 @@ final class AppBootstrap {
         self._timeMachineService = TimeMachineService(modelContainer: container)
         self.workspaceService.timeMachineService = timeMachineService
 
+        // Initialize cognitive substrates (Phase 0)
+        // Services hold a reference to config and read it LIVE at each decision point.
+        self._ambientCapture = AmbientCaptureService(config: epistemosConfig, screen2AXFusion: screen2AXFusion)
+        self._frictionMonitor = FrictionMonitorService(config: epistemosConfig)
+        FrictionMonitorService.shared = frictionMonitor
+        self._nightBrain = NightBrainService(config: epistemosConfig)
+
         if !Self.isRunningTests {
             wireLocalRuntimeLifecycle()
+            // AmbientCapture uses AX/Screen APIs that trigger TCC prompts.
+            // Only start if user has explicitly opted in via Settings → Cognitive.
+            if epistemosConfig.captureEnabled {
+                Task { await ambientCapture.start() }
+            }
+            Task { await nightBrain.start() }
         }
 
         // Wire all events (pipeline, toast, vault, daily brief)

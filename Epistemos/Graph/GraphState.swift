@@ -374,6 +374,47 @@ final class GraphState {
     var selectedNodeId: String?
     /// When true, the inspector should switch to editor mode on the next selection update.
     var requestEditorMode = false
+
+    // MARK: - Node Pinning
+
+    /// Set of node IDs pinned at their current positions via d3-style fx/fy constraint.
+    var pinnedNodeIds: Set<String> = []
+
+    /// Pin a node at its current position. Uses Rust engine's fix_node.
+    func pinNode(_ nodeId: String) {
+        pinnedNodeIds.insert(nodeId)
+        guard let engine = engineHandle else { return }
+        nodeId.withCString { graph_engine_pin_node(engine, $0) }
+    }
+
+    /// Unpin a node, releasing its position constraint.
+    func unpinNode(_ nodeId: String) {
+        pinnedNodeIds.remove(nodeId)
+        guard let engine = engineHandle else { return }
+        nodeId.withCString { graph_engine_unpin_node(engine, $0) }
+    }
+
+    /// Pin all nodes in the graph at their current positions.
+    func freezeAllNodes() {
+        for nodeId in store.nodes.keys {
+            pinNode(nodeId)
+        }
+    }
+
+    /// Unpin all pinned nodes.
+    func unfreezeAllNodes() {
+        let pinned = pinnedNodeIds
+        for nodeId in pinned {
+            unpinNode(nodeId)
+        }
+    }
+
+    /// Restore pinned nodes after engine reload (e.g. workspace restore).
+    func restorePinnedNodes(_ nodeIds: Set<String>) {
+        for nodeId in nodeIds {
+            pinNode(nodeId)
+        }
+    }
     /// Screen-space position of the selected node (in points, origin top-left).
     /// Updated each render frame by MetalGraphNSView so the inspector can track the node.
     var selectedNodeScreenPoint: CGPoint?

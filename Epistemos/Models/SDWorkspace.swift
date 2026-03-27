@@ -96,4 +96,6 @@ struct GraphOverlaySnapshot: Codable {
     }
     var visibility: Visibility
     var selectedNodeId: String?
+    /// Pinned node IDs for layout persistence. Optional for backward compat.
+    var pinnedNodeIds: [String]?
 }

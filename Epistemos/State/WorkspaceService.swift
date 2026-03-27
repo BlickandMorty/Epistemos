@@ -173,7 +173,8 @@ final class WorkspaceService {
             settingsVisible: UtilityWindowManager.shared.isVisible(.settings),
             graphOverlay: GraphOverlaySnapshot(
                 visibility: graphVisibility,
-                selectedNodeId: bootstrap.graphState.selectedNodeId
+                selectedNodeId: bootstrap.graphState.selectedNodeId,
+                pinnedNodeIds: Array(bootstrap.graphState.pinnedNodeIds)
             ),
             expandedFolderIds: Array(bootstrap.notesUI.expandedFolderIds),
             isJournalExpanded: bootstrap.notesUI.isJournalExpanded,
@@ -279,6 +280,11 @@ final class WorkspaceService {
             }
         case .hidden:
             break
+        }
+
+        // 8. Restore pinned graph nodes
+        if let pinnedIds = snapshot.graphOverlay.pinnedNodeIds, !pinnedIds.isEmpty {
+            bootstrap.graphState.restorePinnedNodes(Set(pinnedIds))
         }
 
         Self.log.info("Workspace restored: \(snapshot.openNoteTabs.count) notes, \(snapshot.openMiniChatIds.count) mini chats")

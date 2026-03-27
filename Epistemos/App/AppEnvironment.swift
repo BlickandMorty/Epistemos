@@ -36,5 +36,6 @@ extension View {
             .environment(bootstrap.screen2AXFusion)
             .environment(bootstrap.visualVerifyLoop)
             .environment(bootstrap.ghostBrainCoauthor)
+            .environment(bootstrap.epistemosConfig)
     }
 }

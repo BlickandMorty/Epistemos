@@ -169,9 +169,24 @@ final class ProseTextView2: NSTextView {
         affinity: NSSelectionAffinity,
         stillSelecting: Bool
     ) {
+        let previousLocation = selectedRange().location
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
         guard !stillSelecting else { return }
         updateActiveLine()
+        notifyFrictionMonitorCursorMove(from: previousLocation)
+    }
+
+    private func notifyFrictionMonitorCursorMove(from previousLocation: Int) {
+        guard let pageId, let monitor = FrictionMonitorService.shared else { return }
+        let newLocation = selectedRange().location
+        let delta = newLocation - previousLocation
+        guard delta != 0 else { return }
+        let event = EditorTelemetryEvent(
+            noteId: pageId,
+            kind: .cursorMove(delta: delta),
+            timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        Task.detached(priority: .utility) { await monitor.record(event) }
     }
 
     private func updateActiveLine() {
@@ -186,7 +201,7 @@ final class ProseTextView2: NSTextView {
         // Coalesce rapid cursor moves into a single layout invalidation pass
         guard !pendingActiveLineInvalidation else { return }
         pendingActiveLineInvalidation = true
-        RunLoop.main.perform { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             self.pendingActiveLineInvalidation = false
             self.invalidateParagraphLayout(line: oldLine)
@@ -244,9 +259,16 @@ final class ProseTextView2: NSTextView {
     /// Set by shouldChangeText (user edits) or setProgrammaticEditLocation (AI streaming).
     var lastEditLocation: Int?
 
+    /// Track the last edit for friction monitor: positive = insertion, negative = deletion.
+    private var lastFrictionEditDelta: Int = 0
+
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?)
         -> Bool
     {
+        // Track edit delta for friction monitor before any guard returns
+        let replacementLength = (replacementString as NSString?)?.length ?? 0
+        lastFrictionEditDelta = replacementLength - affectedCharRange.length
+
         if hasProtectedInlineResponseDivider,
            NoteChatInlineResponse.editTouchesDivider(in: string, affectedRange: affectedCharRange) {
             return false
@@ -294,6 +316,23 @@ final class ProseTextView2: NSTextView {
         super.didChangeText()
         // Synchronous reparse — no debounce. Rust FFI is fast enough for per-keystroke.
         reparseAndInvalidate()
+        notifyFrictionMonitorEdit()
+    }
+
+    /// Lightweight friction telemetry hook — dispatches to actor, never blocks editor.
+    private func notifyFrictionMonitorEdit() {
+        guard let pageId, let monitor = FrictionMonitorService.shared else { return }
+        let delta = lastFrictionEditDelta
+        guard delta != 0 else { return }
+        let kind: EditorTelemetryEvent.Kind = delta > 0
+            ? .insertion(count: delta)
+            : .deletion(count: -delta)
+        let event = EditorTelemetryEvent(
+            noteId: pageId,
+            kind: kind,
+            timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        Task.detached(priority: .utility) { await monitor.record(event) }
     }
 
     /// Reparse structure, apply link attributes to storage, invalidate layout.

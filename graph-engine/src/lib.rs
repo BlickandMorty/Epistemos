@@ -979,6 +979,32 @@ pub extern "C" fn graph_engine_set_user_frozen(engine: *mut Engine, frozen: u8) 
     engine.set_user_frozen(frozen != 0);
 }
 
+// ── Node Pinning ────────────────────────────────────────────────────────────
+
+/// Pin a node at its current position. Uses d3-style fx/fy constraint.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_pin_node(engine: *mut Engine, uuid: *const c_char) {
+    ffi_engine!(engine);
+    let uuid = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
+    engine.pin_node(uuid);
+}
+
+/// Unpin a node, releasing its fx/fy constraint.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_unpin_node(engine: *mut Engine, uuid: *const c_char) {
+    ffi_engine!(engine);
+    let uuid = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
+    engine.unpin_node(uuid);
+}
+
+/// Check if a node is pinned. Returns 1 if pinned, 0 if not.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_is_node_pinned(engine: *mut Engine, uuid: *const c_char) -> u8 {
+    ffi_engine_or!(engine, 0);
+    let uuid = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
+    if engine.is_node_pinned(uuid) { 1 } else { 0 }
+}
+
 // ── Cluster Parameters ──────────────────────────────────────────────────────
 
 /// Set cluster cohesion strength (0 = off, 1 = strong bubbles).

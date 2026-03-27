@@ -203,6 +203,17 @@ void graph_engine_resume(Engine* engine);
 /// User-controlled physics freeze: 1 = freeze (stop all forces), 0 = unfreeze (reheat).
 void graph_engine_set_user_frozen(Engine* engine, uint8_t frozen);
 
+// ── Node Pinning ────────────────────────────────────────────────────────────
+
+/// Pin a node at its current position. Uses d3-style fx/fy constraint.
+void graph_engine_pin_node(Engine* engine, const char* uuid);
+
+/// Unpin a node, releasing its fx/fy constraint.
+void graph_engine_unpin_node(Engine* engine, const char* uuid);
+
+/// Check if a node is pinned. Returns 1 if pinned, 0 if not.
+uint8_t graph_engine_is_node_pinned(Engine* engine, const char* uuid);
+
 // ── Cluster Parameters ──────────────────────────────────────────────────────
 
 /// Set cluster cohesion strength (0 = off, 1 = strong bubbles).
