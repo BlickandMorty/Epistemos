@@ -280,6 +280,10 @@ final class VaultSyncService {
         initialImportCompleted = value
     }
 
+    func clearPendingStartupRestoreForTesting() {
+        clearPendingStartupRestore()
+    }
+
     func startupBookmarkValidation() -> VaultBookmarkStartupValidation {
         Self.startupBookmarkValidation(
             bookmarkData: defaults.data(forKey: Self.bookmarkKey)
@@ -313,6 +317,11 @@ final class VaultSyncService {
 
     func dismissRecoveryIssue() {
         recoveryIssue = nil
+    }
+
+    func clearPendingStartupRestore() {
+        guard !isWatching else { return }
+        isIndexing = false
     }
 
     func persistVaultSelection(_ url: URL) {
@@ -1389,14 +1398,24 @@ final class VaultSyncService {
             }
         }
 
-        // Pass scopeAlreadyAcquired=true so startWatching doesn't double-acquire
-        startWatching(vaultURL: url, scopeAlreadyAcquired: true)
+        // Pass scopeAlreadyAcquired=true so startWatching doesn't double-acquire.
+        // Skip the optimistic manifest rebuild here; post-import maintenance will
+        // refresh it once the restored vault snapshot is authoritative.
+        startWatching(
+            vaultURL: url,
+            scopeAlreadyAcquired: true,
+            refreshAmbientManifestImmediately: false
+        )
     }
 
     /// Start watching a vault directory. Performs initial import, then watches for changes.
     /// - Parameter scopeAlreadyAcquired: If true, the caller has already called
     ///   `startAccessingSecurityScopedResource()` — we track it but don't call again.
-    func startWatching(vaultURL: URL, scopeAlreadyAcquired: Bool = false) {
+    func startWatching(
+        vaultURL: URL,
+        scopeAlreadyAcquired: Bool = false,
+        refreshAmbientManifestImmediately: Bool = true
+    ) {
         let interval = Log.vaultPerf.beginInterval("startWatching")
         defer { Log.vaultPerf.endInterval("startWatching", interval) }
 
@@ -1443,42 +1462,11 @@ final class VaultSyncService {
         let svc = searchService
         isIndexing = true
         importTask = Task {
-            let importInterval = Log.vaultPerf.beginInterval("initialVaultImport")
-
-            // Inject search service into actor before import
-            if let svc { await actor?.setSearchService(svc) }
-            do {
-                try await actor?.importVault(from: url)
-                log.info("Initial vault import complete")
-
-                // Signal the graph to rebuild with newly imported data
-                await MainActor.run {
-                    AppBootstrap.shared?.graphState.needsRefresh = true
-                }
-
-                // Bulk-index all imported pages into Spotlight.
-                await actor?.spotlightReindexAll()
-                await self.rebuildInstantRecallIndex(from: actor)
-            } catch {
-                log.error(
-                    "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
-            }
-            Log.vaultPerf.endInterval("initialVaultImport", importInterval)
-
-            // Diff-sync FTS5 index with SwiftData (catches stale/missing search.sqlite)
-            if let svc, let actor {
-                let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
-                let timestamps = await actor.allPageTimestamps()
-                do {
-                    try await svc.diffSync(
-                        swiftDataPages: timestamps,
-                        fullPageProvider: { id in await actor.fullPageData(for: id) }
-                    )
-                } catch {
-                    log.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
-                }
-                Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval)
-            }
+            await Self.performInitialImport(
+                actor: actor,
+                url: url,
+                searchService: svc
+            )
             await MainActor.run {
                 self.isIndexing = false
             }
@@ -1501,8 +1489,11 @@ final class VaultSyncService {
         startManifestRefreshTimer()
         startFileWatcher()
 
-        // Build ambient manifest optimistically; a second refresh runs after import settles.
-        AppBootstrap.shared?.refreshAmbientManifest()
+        if refreshAmbientManifestImmediately {
+            // Build ambient manifest optimistically for interactive vault picks.
+            // Launch-time bookmark restore skips this to avoid duplicate startup work.
+            AppBootstrap.shared?.refreshAmbientManifest()
+        }
 
         log.info("VaultSyncService started for: \(vaultURL.lastPathComponent, privacy: .public)")
     }
@@ -1587,11 +1578,54 @@ final class VaultSyncService {
         }
     }
 
-    private func rebuildInstantRecallIndex(from actor: VaultIndexActor?) async {
+    private nonisolated static func performInitialImport(
+        actor: VaultIndexActor?,
+        url: URL,
+        searchService: SearchIndexService?
+    ) async {
+        let importInterval = Log.vaultPerf.beginInterval("initialVaultImport")
+
+        if let searchService {
+            await actor?.setSearchService(searchService)
+        }
+        do {
+            try await actor?.importVault(from: url)
+            Log.vault.info("Initial vault import complete")
+
+            await MainActor.run {
+                AppBootstrap.shared?.graphState.needsRefresh = true
+            }
+
+            await actor?.spotlightReindexAll()
+            await rebuildInstantRecallIndex(from: actor)
+        } catch {
+            Log.vault.error(
+                "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
+        }
+        Log.vaultPerf.endInterval("initialVaultImport", importInterval)
+
+        if let searchService, let actor {
+            let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
+            let timestamps = await actor.allPageTimestamps()
+            do {
+                try await searchService.diffSync(
+                    swiftDataPages: timestamps,
+                    fullPageProvider: { id in await actor.fullPageData(for: id) }
+                )
+            } catch {
+                Log.vault.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
+            }
+            Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval)
+        }
+    }
+
+    private nonisolated static func rebuildInstantRecallIndex(from actor: VaultIndexActor?) async {
         guard let actor else { return }
         let pages = await actor.allPagesForRebuild()
         let notes = pages.map { (id: $0.id, text: $0.body) }
-        AppBootstrap.shared?.instantRecallService.rebuildIndex(notes: notes)
+        await MainActor.run {
+            AppBootstrap.shared?.instantRecallService.rebuildIndex(notes: notes)
+        }
     }
 
     // MARK: - Vault Context (Background)
@@ -1714,7 +1748,7 @@ final class VaultSyncService {
             return []
         }
 
-        await rebuildInstantRecallIndex(from: actor)
+        await Self.rebuildInstantRecallIndex(from: actor)
 
         // Signal the graph to rebuild with synced data
         AppBootstrap.shared?.graphState.needsRefresh = true
@@ -2023,7 +2057,7 @@ final class VaultSyncService {
             do {
                 try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
                 log.info("File watcher: re-import complete")
-                await self.rebuildInstantRecallIndex(from: actor)
+                await Self.rebuildInstantRecallIndex(from: actor)
 
                 // Rebuild graph with new/changed data
                 AppBootstrap.shared?.graphState.needsRefresh = true

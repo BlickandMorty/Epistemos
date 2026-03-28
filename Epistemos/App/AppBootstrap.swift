@@ -126,6 +126,13 @@ final class AppBootstrap {
     private var localRuntimeObserverTokens: [NSObjectProtocol] = []
     private let localModelRefreshThrottle: LocalModelRefreshThrottle
     private var startupIntegrityReport: StartupIntegrityReport?
+    private var didStartPrimaryLaunchInitialization = false
+    private var didCompletePrimaryLaunchInitialization = false
+    private var didStartDeferredRuntimeServices = false
+
+    private nonisolated static let primaryLaunchInitializationWaitTimeout: Duration = .seconds(6)
+    private nonisolated static let primaryLaunchInitializationPollInterval: Duration = .milliseconds(50)
+    private nonisolated static let deferredRuntimeServicesDelay: Duration = .milliseconds(250)
 
     private struct InstantRecallSeed: Sendable {
         let id: String
@@ -306,13 +313,9 @@ final class AppBootstrap {
         }
         self._reasoningLoopService = reasoning
 
-        // Initialize Knowledge Fusion at boot — not just in Settings.
-        // Training remains opt-in (scheduler only runs if user enables it),
-        // but state is loaded so adapters and feedback are ready.
+        // Configure Knowledge Fusion at boot so the inference bridge is ready.
+        // State loading is deferred until after the primary launch path settles.
         KnowledgeFusionViewModel.shared.configure(triageService: triage)
-        Task { @MainActor in
-            await KnowledgeFusionViewModel.shared.loadState()
-        }
 
         // Initialize dual-brain infrastructure
         self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
@@ -347,12 +350,6 @@ final class AppBootstrap {
 
         if !Self.isRunningTests {
             wireLocalRuntimeLifecycle()
-            // AmbientCapture uses AX/Screen APIs that trigger TCC prompts.
-            // Only start if user has explicitly opted in via Settings → Cognitive.
-            if epistemosConfig.captureEnabled {
-                Task { await ambientCapture.start() }
-            }
-            Task { await nightBrain.start() }
         }
 
         // Wire all events (pipeline, toast, vault, daily brief)
@@ -389,9 +386,15 @@ final class AppBootstrap {
         self._ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
         orchestratorState.agentGraphMemory = agentGraphMemory
 
+        let startupBookmarkValidation = vaultSync.startupBookmarkValidation()
+
         // Initialize instant recall vector index (Ω18)
         instantRecallService.initialize()
-        scheduleInitialInstantRecallRebuild()
+        if Self.shouldScheduleInitialInstantRecallSeed(
+            vaultBookmarkValidation: startupBookmarkValidation
+        ) {
+            scheduleInitialInstantRecallRebuild()
+        }
 
         // Body-file migration runs off-main to avoid launch hitching.
         // Orphan cleanup now waits for a confirmed healthy vault attach/import.
@@ -404,7 +407,11 @@ final class AppBootstrap {
         // HologramController.ensureOverlay() has a sync fallback if the graph is opened
         // before this Task completes.
         graphState.modelContext = container.mainContext
-        Task(priority: .utility) { await graphState.loadGraph(container: container) }
+        if Self.shouldScheduleInitialGraphLoad(
+            vaultBookmarkValidation: startupBookmarkValidation
+        ) {
+            Task(priority: .utility) { await graphState.loadGraph(container: container) }
+        }
 
         // Pre-warm Metal shader cache.
         // The Rust engine compiles Metal shaders from source during graph_engine_create(),
@@ -482,21 +489,69 @@ final class AppBootstrap {
         )
     }
 
+    private nonisolated static func shouldDeferLaunchVaultPreloads(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) -> Bool {
+        vaultBookmarkValidation.bookmarkExists && vaultBookmarkValidation.isReadyForAutomaticRestore
+    }
+
+    private nonisolated static func shouldScheduleInitialInstantRecallSeed(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) -> Bool {
+        !shouldDeferLaunchVaultPreloads(vaultBookmarkValidation: vaultBookmarkValidation)
+    }
+
+    private nonisolated static func shouldScheduleInitialGraphLoad(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) -> Bool {
+        !shouldDeferLaunchVaultPreloads(vaultBookmarkValidation: vaultBookmarkValidation)
+    }
+
+    private nonisolated static func shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestore(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) -> Bool {
+        shouldDeferLaunchVaultPreloads(vaultBookmarkValidation: vaultBookmarkValidation)
+    }
+
+    nonisolated static func shouldScheduleInitialInstantRecallSeedForTesting(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) -> Bool {
+        shouldScheduleInitialInstantRecallSeed(vaultBookmarkValidation: vaultBookmarkValidation)
+    }
+
+    nonisolated static func shouldScheduleInitialGraphLoadForTesting(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) -> Bool {
+        shouldScheduleInitialGraphLoad(vaultBookmarkValidation: vaultBookmarkValidation)
+    }
+
+    nonisolated static func shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestoreForTesting(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) -> Bool {
+        shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestore(
+            vaultBookmarkValidation: vaultBookmarkValidation
+        )
+    }
+
     func performStartupIntegrityCheck() async -> StartupIntegrityReport {
         if let startupIntegrityReport {
             return startupIntegrityReport
         }
 
-        let report = Self.startupIntegrityReportForTesting(
-            samplePageIds: Self.startupIntegritySamplePageIdsForTesting(
-                NoteFileStorage.managedBodyPageIds()
-            ),
-            readBodyData: { pageId in
-                NoteFileStorage.readBodyData(pageId: pageId)
-            },
-            eventStoreAvailable: EventStore.shared != nil,
-            vaultBookmarkValidation: vaultSync.startupBookmarkValidation()
-        )
+        let eventStoreAvailable = EventStore.shared != nil
+        let vaultBookmarkValidation = vaultSync.startupBookmarkValidation()
+        let report = await Task.detached(priority: .utility) {
+            Self.startupIntegrityReportForTesting(
+                samplePageIds: Self.startupIntegritySamplePageIdsForTesting(
+                    NoteFileStorage.managedBodyPageIds()
+                ),
+                readBodyData: { pageId in
+                    NoteFileStorage.readBodyData(pageId: pageId)
+                },
+                eventStoreAvailable: eventStoreAvailable,
+                vaultBookmarkValidation: vaultBookmarkValidation
+            )
+        }.value
 
         startupIntegrityReport = report
 
@@ -526,6 +581,84 @@ final class AppBootstrap {
         }
 
         return report
+    }
+
+    func performPrimaryLaunchInitialization() async {
+        guard !didStartPrimaryLaunchInitialization else { return }
+        didStartPrimaryLaunchInitialization = true
+
+        workspaceService.autoRestore()
+        activityTracker.startTracking()
+        workspaceSummaryService.startAutoSummaryLoop()
+        workspaceService.startAutoSave()
+        didCompletePrimaryLaunchInitialization = true
+
+        if workspaceService.welcomeBack != nil {
+            Task { @MainActor [weak self] in
+                await self?.refreshWelcomeBackSummary()
+            }
+        }
+
+        startDeferredRuntimeServicesIfNeeded()
+    }
+
+    func runAutomaticVaultRestoreAfterLaunchIfNeeded() async {
+        let vaultBookmarkValidation = vaultSync.startupBookmarkValidation()
+        let report = await performStartupIntegrityCheck()
+        guard !report.shouldBlockAutomaticVaultRestore else {
+            if vaultBookmarkValidation.bookmarkExists {
+                vaultSync.clearPendingStartupRestore()
+            }
+            return
+        }
+
+        await waitForPrimaryLaunchInitializationIfNeeded(
+            vaultBookmarkValidation: vaultBookmarkValidation
+        )
+        vaultSync.restoreVaultFromBookmark()
+    }
+
+    private func refreshWelcomeBackSummary() async {
+        await workspaceSummaryService.generateSummaryNow()
+        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+        if let ws = try? modelContainer.mainContext.fetch(
+            FetchDescriptor(predicate: predicate)
+        ).first, !ws.summary.isEmpty {
+            workspaceService.welcomeBack?.intentSummary = ws.summary
+        }
+    }
+
+    private func waitForPrimaryLaunchInitializationIfNeeded(
+        vaultBookmarkValidation: VaultBookmarkStartupValidation
+    ) async {
+        guard Self.shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestore(
+            vaultBookmarkValidation: vaultBookmarkValidation
+        ) else { return }
+
+        let clock = ContinuousClock()
+        let deadline = clock.now + Self.primaryLaunchInitializationWaitTimeout
+
+        while !didCompletePrimaryLaunchInitialization && clock.now < deadline {
+            try? await Task.sleep(for: Self.primaryLaunchInitializationPollInterval)
+        }
+    }
+
+    private func startDeferredRuntimeServicesIfNeeded() {
+        guard !Self.isRunningTests else { return }
+        guard !didStartDeferredRuntimeServices else { return }
+        didStartDeferredRuntimeServices = true
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.deferredRuntimeServicesDelay)
+            guard let self else { return }
+
+            await self.nightBrain.start()
+            await KnowledgeFusionViewModel.shared.loadState()
+
+            if self.epistemosConfig.captureEnabled {
+                await self.ambientCapture.start()
+            }
+        }
     }
 
     // MARK: - Forwarding (for external callers that reference AppBootstrap directly)

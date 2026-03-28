@@ -241,6 +241,20 @@ struct VaultSyncServiceAuditTests {
         #expect(validation.failureReason == "Saved vault bookmark is stale and must be re-selected.")
     }
 
+    @Test("pending startup restore can be cleared when automatic restore is paused")
+    func pendingStartupRestoreCanBeClearedWhenAutomaticRestoreIsPaused() throws {
+        let container = try makeRecoveryContainer()
+        let defaults = makeIsolatedDefaults()
+        defaults.set(Data("bookmark".utf8), forKey: vaultBookmarkKey)
+        let service = VaultSyncService(modelContainer: container, userDefaults: defaults)
+
+        #expect(service.isIndexing)
+
+        service.clearPendingStartupRestoreForTesting()
+
+        #expect(service.isIndexing == false)
+    }
+
     @Test("startup bookmark validation accepts readable resolved bookmarks")
     func startupBookmarkValidationAcceptsReadableResolvedBookmarks() {
         let validation = VaultSyncService.startupBookmarkValidationForTesting(

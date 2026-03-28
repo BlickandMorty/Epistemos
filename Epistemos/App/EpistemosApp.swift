@@ -114,11 +114,7 @@ private struct LaunchIntegrityGateView<Content: View>: View {
             .task { @MainActor in
                 guard !didStartGate else { return }
                 didStartGate = true
-
-                let report = await bootstrap.performStartupIntegrityCheck()
-                if !report.shouldBlockAutomaticVaultRestore {
-                    bootstrap.vaultSync.restoreVaultFromBookmark()
-                }
+                await bootstrap.runAutomaticVaultRestoreAfterLaunchIfNeeded()
             }
     }
 }
@@ -156,23 +152,7 @@ struct EpistemosApp: App {
                         // Restore last session after UI settles, then start tracking
                         Task { @MainActor in
                             try? await Task.sleep(for: .milliseconds(500))
-                            bootstrap.workspaceService.autoRestore()
-                            bootstrap.activityTracker.startTracking()
-                            bootstrap.workspaceSummaryService.startAutoSummaryLoop()
-                            bootstrap.workspaceService.startAutoSave()
-                            // Generate a fresh welcome-back summary if workspace was restored
-                            if bootstrap.workspaceService.welcomeBack != nil {
-                                Task { @MainActor in
-                                    await bootstrap.workspaceSummaryService.generateSummaryNow()
-                                    // Update welcome-back with the fresh summary
-                                    let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-                                    if let ws = try? bootstrap.modelContainer.mainContext.fetch(
-                                        FetchDescriptor(predicate: predicate)
-                                    ).first, !ws.summary.isEmpty {
-                                        bootstrap.workspaceService.welcomeBack?.intentSummary = ws.summary
-                                    }
-                                }
-                            }
+                            await bootstrap.performPrimaryLaunchInitialization()
                         }
                     }
                     // Handle Spotlight deep-links — user tapped a note in Spotlight results

@@ -1720,6 +1720,7 @@
 			outputPaths = (
 				"$(SRCROOT)/build-rust/libgraph_engine.a",
 				"$(SRCROOT)/build-rust/libepistemos_core.dylib",
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libepistemos_core.dylib",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1747,6 +1748,8 @@
 			outputPaths = (
 				"$(SRCROOT)/build-rust/libomega_mcp.dylib",
 				"$(SRCROOT)/build-rust/libomega_ax.dylib",
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libomega_mcp.dylib",
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libomega_ax.dylib",
 				"$(SRCROOT)/build-rust/swift-bindings/omega_mcp.swift",
 				"$(SRCROOT)/build-rust/swift-bindings/omega_ax.swift",
 				"$(SRCROOT)/build-rust/swift-bindings/omega_mcpFFI/module.modulemap",

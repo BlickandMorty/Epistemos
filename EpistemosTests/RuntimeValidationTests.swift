@@ -253,6 +253,9 @@ struct RuntimeValidationTests {
         #expect(project.contains("Bundle Runtime Assets"))
         #expect(project.contains("bash \\\"${SRCROOT}/bundle-app-runtime-assets.sh\\\""))
         #expect(project.contains("$(SRCROOT)/build-rust/libepistemos_core.dylib"))
+        #expect(project.contains("$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libepistemos_core.dylib"))
+        #expect(project.contains("$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libomega_mcp.dylib"))
+        #expect(project.contains("$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libomega_ax.dylib"))
         #expect(project.contains("epistemos_coreFFI"))
         #expect(project.contains("-Xfrontend -default-isolation=nonisolated"))
         #expect(project.contains("\"@executable_path\","))
@@ -473,9 +476,11 @@ struct RuntimeValidationTests {
         #expect(bootstrap.contains("static func startupIntegritySamplePageIdsForTesting"))
         #expect(bootstrap.contains("static func startupIntegrityReportForTesting"))
         #expect(bootstrap.contains("vaultSync.startupBookmarkValidation()"))
-        #expect(app.contains("let report = await bootstrap.performStartupIntegrityCheck()"))
-        #expect(app.contains("if !report.shouldBlockAutomaticVaultRestore"))
-        #expect(app.contains("bootstrap.vaultSync.restoreVaultFromBookmark()"))
+        #expect(bootstrap.contains("func runAutomaticVaultRestoreAfterLaunchIfNeeded() async"))
+        #expect(bootstrap.contains("let report = await performStartupIntegrityCheck()"))
+        #expect(bootstrap.contains("guard !report.shouldBlockAutomaticVaultRestore else"))
+        #expect(bootstrap.contains("vaultSync.restoreVaultFromBookmark()"))
+        #expect(app.contains("await bootstrap.runAutomaticVaultRestoreAfterLaunchIfNeeded()"))
         #expect(vaultSync.contains("func startupBookmarkValidation() -> VaultBookmarkStartupValidation"))
     }
 
@@ -485,11 +490,20 @@ struct RuntimeValidationTests {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
         #expect(app.contains("private struct LaunchIntegrityGateView<Content: View>: View"))
-        #expect(app.contains("await bootstrap.performStartupIntegrityCheck()"))
-        #expect(app.contains("bootstrap.vaultSync.restoreVaultFromBookmark()"))
+        #expect(app.contains("await bootstrap.runAutomaticVaultRestoreAfterLaunchIfNeeded()"))
+        #expect(app.contains("await bootstrap.performPrimaryLaunchInitialization()"))
         #expect(app.contains("LaunchIntegrityGateView(bootstrap: bootstrap)"))
         #expect(!rootView.contains("performStartupIntegrityCheck"))
         #expect(!rootView.contains("restoreVaultFromBookmark"))
+    }
+
+    @Test("initial vault import is offloaded through a nonisolated helper")
+    func initialVaultImportIsOffloadedThroughNonisolatedHelper() throws {
+        let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(vaultSync.contains("await Self.performInitialImport("))
+        #expect(vaultSync.contains("private nonisolated static func performInitialImport("))
+        #expect(vaultSync.contains("private nonisolated static func rebuildInstantRecallIndex("))
     }
 
     @Test("prepared model manifest is bundled into app resources")

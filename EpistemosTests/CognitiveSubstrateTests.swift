@@ -271,6 +271,32 @@ struct AmbientCaptureTests {
         let hash2 = AmbientCaptureService.stableHash("hello world!")
         #expect(hash1 != hash2)
     }
+
+    @Test("Startup warmup suppresses immediate capture activations")
+    func startupWarmupSuppressesImmediateCaptureActivations() {
+        let startedAt = Date()
+        let now = startedAt.addingTimeInterval(0.25)
+
+        #expect(
+            AmbientCaptureService.shouldProcessActivationDuringStartupWarmupForTesting(
+                startedAt: startedAt,
+                now: now
+            ) == false
+        )
+    }
+
+    @Test("Startup warmup allows capture after launch settles")
+    func startupWarmupAllowsCaptureAfterLaunchSettles() {
+        let startedAt = Date()
+        let now = startedAt.addingTimeInterval(1.25)
+
+        #expect(
+            AmbientCaptureService.shouldProcessActivationDuringStartupWarmupForTesting(
+                startedAt: startedAt,
+                now: now
+            ) == true
+        )
+    }
 }
 
 // MARK: - Live Toggle Behavior Tests

@@ -15,12 +15,14 @@ import Vision
 
 actor AmbientCaptureService {
     nonisolated static let log = Logger(subsystem: "com.epistemos", category: "AmbientCapture")
+    nonisolated private static let startupWarmupInterval: TimeInterval = 1.0
 
     private let config: EpistemosConfig
     private let screen2AXFusion: Screen2AXFusion
     private var debounceTask: Task<Void, Never>?
     private var lastCaptureHash: [String: String] = [:]  // bundleId → last hash
     private nonisolated(unsafe) var observer: NSObjectProtocol?
+    private var startupWarmupStartedAt: Date?
 
     init(config: EpistemosConfig, screen2AXFusion: Screen2AXFusion) {
         self.config = config
@@ -41,6 +43,7 @@ actor AmbientCaptureService {
     /// Always registers the observer. Config is checked live at each activation.
     func start() {
         guard observer == nil else { return }
+        startupWarmupStartedAt = Date()
         let obs = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -72,6 +75,15 @@ actor AmbientCaptureService {
     private func handleActivation(pid: pid_t, bundleId: String, appName: String) {
         // Don't capture our own app
         guard bundleId != Bundle.main.bundleIdentifier else { return }
+        if let startupWarmupStartedAt {
+            guard Self.shouldProcessActivationDuringStartupWarmup(
+                startedAt: startupWarmupStartedAt,
+                now: Date()
+            ) else {
+                return
+            }
+            self.startupWarmupStartedAt = nil
+        }
 
         debounceTask?.cancel()
         debounceTask = Task {
@@ -187,5 +199,19 @@ actor AmbientCaptureService {
         let data = Data(input.utf8)
         let digest = SHA256.hash(data: data)
         return digest.prefix(16).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private nonisolated static func shouldProcessActivationDuringStartupWarmup(
+        startedAt: Date,
+        now: Date
+    ) -> Bool {
+        now.timeIntervalSince(startedAt) >= startupWarmupInterval
+    }
+
+    nonisolated static func shouldProcessActivationDuringStartupWarmupForTesting(
+        startedAt: Date,
+        now: Date
+    ) -> Bool {
+        shouldProcessActivationDuringStartupWarmup(startedAt: startedAt, now: now)
     }
 }

@@ -267,4 +267,124 @@ struct StartupIntegrityTests {
         #expect(report.vaultBookmarkFailureReason == "Saved vault bookmark is stale and must be re-selected.")
         #expect(report.shouldBlockAutomaticVaultRestore)
     }
+
+    @Test("initial instant recall seed is skipped when automatic vault restore is ready")
+    func initialInstantRecallSeedSkipsWhenAutomaticVaultRestoreIsReady() {
+        let validation = VaultBookmarkStartupValidation(
+            bookmarkExists: true,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+
+        #expect(
+            AppBootstrap.shouldScheduleInitialInstantRecallSeedForTesting(
+                vaultBookmarkValidation: validation
+            ) == false
+        )
+    }
+
+    @Test("initial instant recall seed still runs when bookmark restore is unavailable")
+    func initialInstantRecallSeedRunsWhenBookmarkRestoreIsUnavailable() {
+        let missingBookmark = VaultBookmarkStartupValidation(
+            bookmarkExists: false,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+        let staleBookmark = VaultBookmarkStartupValidation(
+            bookmarkExists: true,
+            isReadyForAutomaticRestore: false,
+            failureReason: "Saved vault bookmark is stale and must be re-selected."
+        )
+
+        #expect(
+            AppBootstrap.shouldScheduleInitialInstantRecallSeedForTesting(
+                vaultBookmarkValidation: missingBookmark
+            )
+        )
+        #expect(
+            AppBootstrap.shouldScheduleInitialInstantRecallSeedForTesting(
+                vaultBookmarkValidation: staleBookmark
+            )
+        )
+    }
+
+    @Test("initial graph preload is skipped when automatic vault restore is ready")
+    func initialGraphPreloadSkipsWhenAutomaticVaultRestoreIsReady() {
+        let validation = VaultBookmarkStartupValidation(
+            bookmarkExists: true,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+
+        #expect(
+            AppBootstrap.shouldScheduleInitialGraphLoadForTesting(
+                vaultBookmarkValidation: validation
+            ) == false
+        )
+    }
+
+    @Test("initial graph preload still runs when bookmark restore is unavailable")
+    func initialGraphPreloadRunsWhenBookmarkRestoreIsUnavailable() {
+        let missingBookmark = VaultBookmarkStartupValidation(
+            bookmarkExists: false,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+        let staleBookmark = VaultBookmarkStartupValidation(
+            bookmarkExists: true,
+            isReadyForAutomaticRestore: false,
+            failureReason: "Saved vault bookmark is stale and must be re-selected."
+        )
+
+        #expect(
+            AppBootstrap.shouldScheduleInitialGraphLoadForTesting(
+                vaultBookmarkValidation: missingBookmark
+            )
+        )
+        #expect(
+            AppBootstrap.shouldScheduleInitialGraphLoadForTesting(
+                vaultBookmarkValidation: staleBookmark
+            )
+        )
+    }
+
+    @Test("automatic vault restore waits for primary launch work when bookmark restore is ready")
+    func automaticVaultRestoreWaitsForPrimaryLaunchWorkWhenBookmarkRestoreIsReady() {
+        let validation = VaultBookmarkStartupValidation(
+            bookmarkExists: true,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+
+        #expect(
+            AppBootstrap.shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestoreForTesting(
+                vaultBookmarkValidation: validation
+            )
+        )
+    }
+
+    @Test("automatic vault restore does not wait for primary launch work when bookmark restore is unavailable")
+    func automaticVaultRestoreDoesNotWaitForPrimaryLaunchWorkWhenBookmarkRestoreIsUnavailable() {
+        let missingBookmark = VaultBookmarkStartupValidation(
+            bookmarkExists: false,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+        let staleBookmark = VaultBookmarkStartupValidation(
+            bookmarkExists: true,
+            isReadyForAutomaticRestore: false,
+            failureReason: "Saved vault bookmark is stale and must be re-selected."
+        )
+
+        #expect(
+            AppBootstrap.shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestoreForTesting(
+                vaultBookmarkValidation: missingBookmark
+            ) == false
+        )
+        #expect(
+            AppBootstrap.shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestoreForTesting(
+                vaultBookmarkValidation: staleBookmark
+            ) == false
+        )
+    }
 }
