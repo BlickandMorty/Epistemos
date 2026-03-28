@@ -10,6 +10,17 @@
 6. **Read before writing.** Never modify a file you haven't read. Understand existing code before touching it.
 7. **macOS Opulent only.** Never touch `~/Epistemos-RETRO/`, `src-tauri/`, or `~/meta-analytical-pfc/` from this repo. Those are separate projects.
 
+## Release Audit Rule
+
+For release-readiness, final regression, or "is this truly ready?" work, use the repo skill `.agents/skills/epistemos_release_audit/SKILL.md`.
+
+That workflow is mandatory for ship calls:
+- logs are first-class evidence
+- manual/runtime verification is required on ship-risk surfaces
+- unsupported model modes must disappear, not merely fail
+- App Store versus direct-distribution readiness must be evaluated explicitly
+- no release-ready claim without repeated zero-fail verification
+
 ## Architecture Overview
 
 **Opulent Edition** = Swift + Metal + Rust FFI. macOS native. Apple Design Award quality.
