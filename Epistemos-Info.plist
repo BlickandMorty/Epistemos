@@ -8,6 +8,16 @@
 	<string>com.epistemos.app</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleName</key>
+	<string>Epistemos</string>
+	<key>NSAccessibilityUsageDescription</key>
+	<string>Epistemos uses Accessibility to read screen content for Omega desktop automation when you enable it.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Epistemos uses Apple Events to automate Safari and System Events when you enable Omega desktop control.</string>
 	<key>NSUserActivityTypes</key>
