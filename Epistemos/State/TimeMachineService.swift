@@ -10,10 +10,6 @@ import os
 @MainActor @Observable
 final class TimeMachineService {
     private static let log = Logger(subsystem: "com.epistemos", category: "TimeMachine")
-    private nonisolated static let isRunningTests =
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        || NSClassFromString("XCTestCase") != nil
-        || Bundle.main.bundleURL.pathExtension == "xctest"
 
     private let modelContainer: ModelContainer
 
@@ -548,15 +544,10 @@ final class TimeMachineService {
             }
         }
 
-        #if DEBUG
         if duplicateCount > 0 {
             let message = "Duplicate \(label) IDs detected: \(values.count) values, \(byID.count) unique IDs"
             Self.log.fault("\(message, privacy: .public)")
-            if !Self.isRunningTests {
-                assertionFailure(message)
-            }
         }
-        #endif
 
         return byID
     }

@@ -26,6 +26,7 @@ final class GraphOverlayPanel: NSPanel {
         isMovableByWindowBackground = false
         level = .floating
         isReleasedWhenClosed = false
+        isRestorable = false
         hidesOnDeactivate = false
         // The Secret Sauce — this single property fixes 80% of "weirdness":
         // .moveToActiveSpace  — follows user between Spaces

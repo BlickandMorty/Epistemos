@@ -270,6 +270,14 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         mainWindowObservers.removeAll()
     }
 
+    func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool {
+        false
+    }
+
     private func performTeardown() {
         guard !didTeardown else { return }
         didTeardown = true

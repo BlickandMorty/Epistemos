@@ -262,6 +262,7 @@ final class UtilityWindowManager {
         panel.level = .normal
         panel.collectionBehavior = [.canJoinAllSpaces]
         panel.isReleasedWhenClosed = false
+        panel.isRestorable = false
         panel.minSize = kind.minimumSize
         if let maxSize = kind.maximumSize {
             panel.maxSize = maxSize

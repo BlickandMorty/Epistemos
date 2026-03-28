@@ -334,6 +334,7 @@ final class NoteWindowManager {
         window.title = pageTitle
         window.center()
         window.isReleasedWhenClosed = false
+        window.isRestorable = false
         window.minSize = Self.noteMinimumFrameSize
         window.setFrameAutosaveName("note-\(page.id)")
         normalizeNoteWindowFrame(window)
@@ -462,6 +463,7 @@ final class NoteWindowManager {
         )
         window.center()
         window.isReleasedWhenClosed = false
+        window.isRestorable = false
         window.minSize = NSSize(width: 400, height: 300)
         
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")

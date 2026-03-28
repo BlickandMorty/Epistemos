@@ -57,6 +57,7 @@ final class GlobalOverlayController {
         scrim.level = .floating
         scrim.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         scrim.isReleasedWhenClosed = false
+        scrim.isRestorable = false
         scrim.ignoresMouseEvents = false
 
         let scrimColor = isDark ? NSColor.black.withAlphaComponent(0.35) : NSColor.gray.withAlphaComponent(0.15)
@@ -89,6 +90,7 @@ final class GlobalOverlayController {
         floatingPanel.hasShadow = true
         floatingPanel.level = .modalPanel
         floatingPanel.isReleasedWhenClosed = false
+        floatingPanel.isRestorable = false
         floatingPanel.isMovableByWindowBackground = true
         floatingPanel.becomesKeyOnlyIfNeeded = false
         floatingPanel.hidesOnDeactivate = false

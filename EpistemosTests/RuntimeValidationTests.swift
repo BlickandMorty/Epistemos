@@ -1508,6 +1508,38 @@ struct RuntimeValidationTests {
         #expect(!source.contains("ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)\n            .environment(bootstrap.uiState)"))
     }
 
+    @Test("time machine duplicate page IDs log instead of asserting")
+    func timeMachineDuplicatePageIDsLogInsteadOfAsserting() throws {
+        let source = try loadRepoTextFile("Epistemos/State/TimeMachineService.swift")
+
+        #expect(source.contains("Self.log.fault"))
+        #expect(!source.contains("assertionFailure(message)"))
+    }
+
+    @Test("custom secondary windows opt out of AppKit state restoration")
+    func customSecondaryWindowsOptOutOfAppKitStateRestoration() throws {
+        let noteWindowManager = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
+        let miniChatWindowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+        let utilityWindowManager = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
+        let graphOverlayPanel = try loadRepoTextFile("Epistemos/Views/Graph/GraphOverlayPanel.swift")
+        let quitSavePanel = try loadRepoTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
+
+        #expect(noteWindowManager.contains("window.isRestorable = false"))
+        #expect(miniChatWindowController.contains("window.isRestorable = false"))
+        #expect(utilityWindowManager.contains("panel.isRestorable = false"))
+        #expect(graphOverlayPanel.contains("isRestorable = false"))
+        #expect(quitSavePanel.contains("scrim.isRestorable = false"))
+        #expect(quitSavePanel.contains("floatingPanel.isRestorable = false"))
+    }
+
+    @Test("app delegate disables AppKit state restoration in favor of workspace restore")
+    func appDelegateDisablesAppKitStateRestorationInFavorOfWorkspaceRestore() throws {
+        let source = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(source.contains("func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool {\n        false\n    }"))
+        #expect(source.contains("func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool {\n        false\n    }"))
+    }
+
     @Test("bootstrap and persistence helpers avoid force-trap fallbacks")
     func bootstrapAndPersistenceHelpersAvoidForceTrapFallbacks() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")

@@ -86,6 +86,7 @@ final class MiniChatWindowController {
         window.isMovableByWindowBackground = true
         window.collectionBehavior = [.moveToActiveSpace]
         window.isReleasedWhenClosed = false
+        window.isRestorable = false
         window.minSize = NSSize(width: 420, height: 520)
         window.maxSize = NSSize(width: 1600, height: 1400)
         window.tabbingMode = .preferred
