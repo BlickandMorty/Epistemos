@@ -1,7 +1,7 @@
 # Final Claude Release Master Handoff
 
 **Date:** 2026-03-28  
-**Current source-of-truth commit:** `b99f0337`  
+**Current source-of-truth commit:** `6994c784`  
 **Audience:** Claude Code  
 **Goal:** Re-check the exact work completed in the zero-corruption + release-hardening session, verify the current app state honestly, and decide whether the app is truly ready for public direct release.
 
@@ -69,7 +69,8 @@ This evidence was gathered in the current branch and should be rechecked, not bl
 
 ### Clean state
 
-- current commit: `b99f0337`
+- current commit: `6994c784`
+- last major code hardening commit before the handoff-only follow-up: `b99f0337`
 - repo was committed clean after the latest changes
 
 ### Rust
