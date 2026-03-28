@@ -1147,14 +1147,22 @@ extension ProseEditorRepresentable2 {
         func applyOutlineFoldMode(_ mode: OutlineFoldMode) {
             guard let tv = textView else { return }
             let delegate = tv.markdownDelegate
-            let headingCount = delegate.headingCount
 
-            let shouldFold = mode.shouldCollapse(headingCount: headingCount)
-
-            // Set fold state on all heading lines
-            for i in 0..<delegate.lineCount {
-                guard delegate.isHeading(at: i) else { continue }
-                markdown_set_fold(UInt32(i), shouldFold)
+            switch mode {
+            case .auto:
+                // H1 always expanded, H2+ always collapsed.
+                // Shows document structure at a glance.
+                for i in 0..<delegate.lineCount {
+                    guard delegate.isHeading(at: i) else { continue }
+                    let level = delegate.headingLevel(at: i) ?? 1
+                    markdown_set_fold(UInt32(i), level >= 2)
+                }
+            case .expanded:
+                // Everything open — regular document view.
+                for i in 0..<delegate.lineCount {
+                    guard delegate.isHeading(at: i) else { continue }
+                    markdown_set_fold(UInt32(i), false)
+                }
             }
 
             delegate.recomputeHiddenLines(documentText: tv.string)

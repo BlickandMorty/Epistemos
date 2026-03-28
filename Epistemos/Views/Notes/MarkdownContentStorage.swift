@@ -1095,6 +1095,13 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         return cachedTypes[lineIndex].paraType == 1
     }
 
+    /// Heading level (1-6) at the given line index, or nil if not a heading.
+    func headingLevel(at lineIndex: Int) -> Int? {
+        guard lineIndex >= 0, lineIndex < cachedTypes.count,
+              cachedTypes[lineIndex].paraType == 1 else { return nil }
+        return Int(cachedTypes[lineIndex].metadata & 0xFF)
+    }
+
     // MARK: - Theme Colors
 
     static func accentColor(isDark: Bool) -> NSColor {

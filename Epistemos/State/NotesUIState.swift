@@ -120,14 +120,15 @@ final class NotesUIState {
 // MARK: - Outline Fold Mode
 
 enum OutlineFoldMode: String, Sendable {
+    /// Auto: H1 headings always visible/expanded, H2+ collapsed.
+    /// Shows document structure at a glance — like a table of contents.
     case auto
-    case collapsed
+    /// Expanded: everything open, like a regular document.
     case expanded
 
     var next: OutlineFoldMode {
         switch self {
-        case .auto: .collapsed
-        case .collapsed: .expanded
+        case .auto: .expanded
         case .expanded: .auto
         }
     }
@@ -135,7 +136,6 @@ enum OutlineFoldMode: String, Sendable {
     var label: String {
         switch self {
         case .auto: "Auto"
-        case .collapsed: "Collapsed"
         case .expanded: "Expanded"
         }
     }
@@ -143,17 +143,7 @@ enum OutlineFoldMode: String, Sendable {
     var symbolName: String {
         switch self {
         case .auto: "list.bullet.indent"
-        case .collapsed: "list.bullet"
         case .expanded: "list.dash"
-        }
-    }
-
-    /// Returns true if headers should be folded for a document with the given heading count.
-    func shouldCollapse(headingCount: Int) -> Bool {
-        switch self {
-        case .auto: headingCount > 2
-        case .collapsed: true
-        case .expanded: false
         }
     }
 }
