@@ -104,49 +104,22 @@ struct ModularZoomWindowObserver: NSViewRepresentable {
 }
 
 private struct LaunchIntegrityGateView<Content: View>: View {
-    private enum Phase {
-        case checking
-        case ready
-    }
-
-    @State private var phase: Phase = .checking
     @State private var didStartGate = false
 
     let bootstrap: AppBootstrap
     let content: () -> Content
 
     var body: some View {
-        Group {
-            switch phase {
-            case .checking:
-                VStack(spacing: 14) {
-                    ProgressView()
-                        .controlSize(.large)
-                    Text("Verifying vault integrity...")
-                        .font(.headline)
-                    Text("Epistemos is validating local note storage before opening your workspace.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 320)
+        content()
+            .task { @MainActor in
+                guard !didStartGate else { return }
+                didStartGate = true
+
+                let report = await bootstrap.performStartupIntegrityCheck()
+                if !report.shouldBlockAutomaticVaultRestore {
+                    bootstrap.vaultSync.restoreVaultFromBookmark()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(nsColor: .windowBackgroundColor))
-            case .ready:
-                content()
             }
-        }
-        .task { @MainActor in
-            guard !didStartGate else { return }
-            didStartGate = true
-
-            let report = await bootstrap.performStartupIntegrityCheck()
-            if !report.shouldBlockAutomaticVaultRestore {
-                bootstrap.vaultSync.restoreVaultFromBookmark()
-            }
-
-            phase = .ready
-        }
     }
 }
 

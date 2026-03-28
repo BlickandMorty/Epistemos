@@ -55,11 +55,12 @@ final class EventStore: Sendable {
             return nil
         }
 
-        // Integrity check on open — catches corruption immediately (zero-corruption spec §3.2)
+        // Quick integrity check on open — O(1) B-tree check, not full-table scan.
+        // Full integrity_check is deferred to startup integrity service to avoid blocking launch.
         do {
             var stmt: OpaquePointer?
-            guard sqlite3_prepare_v2(dbPtr, "PRAGMA integrity_check;", -1, &stmt, nil) == SQLITE_OK else {
-                Self.log.error("EventStore: could not prepare integrity_check")
+            guard sqlite3_prepare_v2(dbPtr, "PRAGMA quick_check;", -1, &stmt, nil) == SQLITE_OK else {
+                Self.log.error("EventStore: could not prepare quick_check")
                 return nil
             }
             defer { sqlite3_finalize(stmt) }
@@ -69,7 +70,7 @@ final class EventStore: Sendable {
                 integrityOK = String(cString: cStr) == "ok"
             }
             if !integrityOK {
-                Self.log.error("EventStore: integrity_check failed — refusing to open corrupt database")
+                Self.log.error("EventStore: quick_check failed — refusing to open corrupt database")
                 sqlite3_close(dbPtr)
                 return nil
             }
@@ -205,7 +206,6 @@ final class EventStore: Sendable {
             sqlite3_bind_text(stmt, 3, (kindString as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 4, (payload as NSString).utf8String, -1, nil)
             sqlite3_step(stmt)
-            self.refreshFileProtections()
         }
     }
 
@@ -228,7 +228,6 @@ final class EventStore: Sendable {
             sqlite3_bind_text(stmt, 4, (summary as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 5, (userNote as NSString).utf8String, -1, nil)
             sqlite3_step(stmt)
-            self.refreshFileProtections()
 
             Self.log.info("EventStore: snapshot saved for session \(sessionId.prefix(8), privacy: .public)")
         }
@@ -382,7 +381,6 @@ final class EventStore: Sendable {
             sqlite3_bind_text(stmt, 7, (artifact.dedupeHash as NSString).utf8String, -1, nil)
             sqlite3_bind_int(stmt, 8, artifact.ocrUsed ? 1 : 0)
             sqlite3_step(stmt)
-            self.refreshFileProtections()
         }
     }
 
@@ -423,7 +421,6 @@ final class EventStore: Sendable {
             sqlite3_bind_double(stmt, 10, window.regressionFrequency)
             sqlite3_bind_double(stmt, 11, window.frictionScore)
             sqlite3_step(stmt)
-            refreshFileProtections()
         }
     }
 
@@ -482,7 +479,6 @@ final class EventStore: Sendable {
                 sqlite3_bind_null(stmt, 3)
             }
             guard sqlite3_step(stmt) == SQLITE_DONE else { return nil }
-            refreshFileProtections()
             return sqlite3_last_insert_rowid(db)
         }
     }
@@ -504,7 +500,6 @@ final class EventStore: Sendable {
             }
             sqlite3_bind_int64(stmt, 4, id)
             sqlite3_step(stmt)
-            refreshFileProtections()
         }
     }
 
@@ -522,7 +517,6 @@ final class EventStore: Sendable {
             sqlite3_bind_text(stmt, 3, (data as NSString).utf8String, -1, nil)
             sqlite3_bind_double(stmt, 4, Date().timeIntervalSince1970)
             sqlite3_step(stmt)
-            refreshFileProtections()
         }
     }
 

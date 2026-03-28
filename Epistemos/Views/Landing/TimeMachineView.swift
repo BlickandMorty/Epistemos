@@ -303,7 +303,10 @@ struct TimeMachineView: View {
     private func selectSnapshot(_ meta: EventStore.SnapshotMeta) {
         selectedSnapshot = meta
         isLoading = true
+        // Yield to let SwiftUI render the loading state before heavy work.
         Task { @MainActor in
+            // Small yield so the spinner becomes visible before the synchronous work blocks.
+            try? await Task.sleep(for: .milliseconds(10))
             guard let service = AppBootstrap.shared?.workspaceService.timeMachineService else {
                 isLoading = false
                 return

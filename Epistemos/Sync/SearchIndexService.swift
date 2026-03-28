@@ -206,7 +206,9 @@ actor SearchIndexService {
                 throw SearchIndexError.journalModeRejected(journalMode ?? "unknown")
             }
 
-            let integrity = try String.fetchOne(db, sql: "PRAGMA integrity_check")
+            // Quick check: O(1) B-tree verification, not full-table scan.
+            // Full integrity_check deferred to startup integrity service.
+            let integrity = try String.fetchOne(db, sql: "PRAGMA quick_check")
             guard integrity == "ok" else {
                 throw SearchIndexError.integrityCheckFailed(integrity ?? "unknown")
             }
@@ -451,7 +453,6 @@ actor SearchIndexService {
                 arguments: [blockId, pageId, content]
             )
         }
-        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchBlocks])
     }
 
@@ -459,7 +460,6 @@ actor SearchIndexService {
         try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
         }
-        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchBlocks])
     }
 
@@ -480,7 +480,6 @@ actor SearchIndexService {
                 arguments: [id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate]
             )
         }
-        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchPages])
     }
 
@@ -511,7 +510,6 @@ actor SearchIndexService {
                 )
             }
         }
-        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchPages])
     }
 
@@ -519,7 +517,6 @@ actor SearchIndexService {
         try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [pageId])
         }
-        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchPages])
     }
 
@@ -529,7 +526,6 @@ actor SearchIndexService {
         let stats = try dbPool.barrierWriteWithoutTransaction { db in
             try db.checkpoint(.passive)
         }
-        try refreshBackupExclusion()
         log.info(
             "SearchIndexService passive checkpoint completed walFrames=\(stats.walFrameCount) checkpointed=\(stats.checkpointedFrameCount)"
         )
@@ -573,7 +569,6 @@ actor SearchIndexService {
                 )
             }
         }
-        try refreshBackupExclusion()
         log.info("Rebuilt search index with \(pages.count) pages")
         Self.notifyIndexChanged([.searchPages])
     }
