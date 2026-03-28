@@ -442,10 +442,15 @@ final class NoteChatState {
 
     func clear() {
         stopStreaming()
+        if hasResponse {
+            discardResponse()
+        } else {
+            resetStreamBuffer()
+            responseText = ""
+            useResponsePanel = false
+        }
         inputText = ""
-        responseText = ""
         error = nil
-        hasResponse = false
     }
 
     // MARK: - Persistence

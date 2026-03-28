@@ -1084,6 +1084,17 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         hiddenLines.contains(line)
     }
 
+    /// Number of heading lines in the document.
+    var headingCount: Int {
+        cachedTypes.count(where: { $0.paraType == 1 })
+    }
+
+    /// Whether the line at the given index is a heading.
+    func isHeading(at lineIndex: Int) -> Bool {
+        guard lineIndex >= 0, lineIndex < cachedTypes.count else { return false }
+        return cachedTypes[lineIndex].paraType == 1
+    }
+
     // MARK: - Theme Colors
 
     static func accentColor(isDark: Bool) -> NSColor {

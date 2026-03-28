@@ -840,16 +840,19 @@ struct ThemePairTests {
         )
     }
 
-    @Test("Chat surfaces no longer expose the removed research mode control")
-    func chatSurfacesDropResearchModeControl() throws {
-        let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
+    @Test("Chat surfaces expose a visible research entry point without reviving the old research mode control")
+    func chatSurfacesExposeResearchEntryPoint() throws {
         let chatInputBar = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let miniChatView = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        #expect(!chatView.contains("struct ResearchModeControl"))
-        #expect(!chatInputBar.contains("Ask a research question"))
+        #expect(chatInputBar.contains("ResearchComposerButton("))
+        #expect(landingView.contains("ResearchComposerButton("))
+        #expect(miniChatView.contains("ResearchComposerButton("))
+        #expect(chatInputBar.contains("Ask a research question"))
         #expect(!chatInputBar.contains("ResearchModeControl"))
         #expect(!landingView.contains("ResearchModeControl"))
+        #expect(!miniChatView.contains("ResearchModeControl"))
     }
 
     @Test("Settings and landing metadata drop SOAR and confidence-era chat chrome")

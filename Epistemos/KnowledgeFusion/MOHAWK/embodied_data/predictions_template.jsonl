@@ -1,0 +1,150 @@
+{"id": "epi_001", "instruction": "Create a new note titled 'Weekly Review'", "predicted_action": {}}
+{"id": "epi_002", "instruction": "Create a note with title 'Research: Mamba Architecture' and body containing a header and bullet points", "predicted_action": {}}
+{"id": "epi_003", "instruction": "Create a note from the New Note button in the toolbar", "predicted_action": {}}
+{"id": "epi_004", "instruction": "Search for notes containing 'training'", "predicted_action": {}}
+{"id": "epi_005", "instruction": "Find the note titled 'CLAUDE.md'", "predicted_action": {}}
+{"id": "epi_006", "instruction": "Search for notes about 'graph engine' using the sidebar search field", "predicted_action": {}}
+{"id": "epi_007", "instruction": "Open the note 'Research Notes' and append a paragraph at the end", "predicted_action": {}}
+{"id": "epi_008", "instruction": "Bold the title in the current note using Cmd+B", "predicted_action": {}}
+{"id": "epi_009", "instruction": "Add a wikilink to [[Meeting Notes]] in the current note", "predicted_action": {}}
+{"id": "epi_010", "instruction": "Delete the current note", "predicted_action": {}}
+{"id": "epi_011", "instruction": "Ask the AI to summarize the current note", "predicted_action": {}}
+{"id": "epi_012", "instruction": "Ask AI to rewrite the first paragraph more concisely", "predicted_action": {}}
+{"id": "epi_013", "instruction": "Accept the AI-generated response", "predicted_action": {}}
+{"id": "epi_014", "instruction": "Discard the AI-generated response", "predicted_action": {}}
+{"id": "epi_015", "instruction": "Use the AI context menu to expand selected text", "predicted_action": {}}
+{"id": "epi_016", "instruction": "Switch to the knowledge graph view", "predicted_action": {}}
+{"id": "epi_017", "instruction": "Search for a node called 'Research' in the graph sidebar", "predicted_action": {}}
+{"id": "epi_018", "instruction": "Zoom into the graph to see node details", "predicted_action": {}}
+{"id": "epi_019", "instruction": "Click on a node in the graph sidebar to focus it", "predicted_action": {}}
+{"id": "epi_020", "instruction": "Navigate from graph view back to notes view", "predicted_action": {}}
+{"id": "epi_021", "instruction": "Submit a task to Omega: 'Search for Mamba-2 papers'", "predicted_action": {}}
+{"id": "epi_022", "instruction": "Submit a research task to Omega about knowledge distillation", "predicted_action": {}}
+{"id": "epi_023", "instruction": "Clear the Omega task history", "predicted_action": {}}
+{"id": "epi_024", "instruction": "Ask Omega to create a summary of all notes from this week", "predicted_action": {}}
+{"id": "epi_025", "instruction": "Ask Omega to run the Swift test suite", "predicted_action": {}}
+{"id": "epi_026", "instruction": "Open Epistemos settings", "predicted_action": {}}
+{"id": "epi_027", "instruction": "Enable overnight training in settings", "predicted_action": {}}
+{"id": "epi_028", "instruction": "Navigate to the AI Models settings tab", "predicted_action": {}}
+{"id": "epi_029", "instruction": "Enable vault auto-sync", "predicted_action": {}}
+{"id": "epi_030", "instruction": "Save settings changes", "predicted_action": {}}
+{"id": "epi_031", "instruction": "Navigate from landing to note editor by clicking a note in the sidebar", "predicted_action": {}}
+{"id": "epi_032", "instruction": "Use Cmd+N to create a new note", "predicted_action": {}}
+{"id": "epi_033", "instruction": "Use Cmd+F to open search", "predicted_action": {}}
+{"id": "epi_034", "instruction": "Switch between notes using the sidebar", "predicted_action": {}}
+{"id": "epi_035", "instruction": "Close the current note tab with Cmd+W", "predicted_action": {}}
+{"id": "epi_036", "instruction": "Create a new note, write an outline, ask AI to expand it, and accept the result", "predicted_action": {}}
+{"id": "epi_037", "instruction": "Research a topic in Omega, then find the resulting note and add wikilinks", "predicted_action": {}}
+{"id": "epi_038", "instruction": "Open a note, navigate to graph view to see its connections, then return to editing", "predicted_action": {}}
+{"id": "epi_039", "instruction": "Search for notes about 'training', open the first result, and ask AI to summarize it", "predicted_action": {}}
+{"id": "epi_040", "instruction": "Enable overnight training, then submit a task to Omega to verify the training pipeline", "predicted_action": {}}
+{"id": "epi_041", "instruction": "Handle a sparse AX tree when the graph Metal view is rendering", "predicted_action": {}}
+{"id": "epi_042", "instruction": "Recover when AI chat response times out", "predicted_action": {}}
+{"id": "epi_043", "instruction": "Handle element not found when clicking a button that was renamed", "predicted_action": {}}
+{"id": "epi_044", "instruction": "Use keyboard shortcut when AX click fails on New Note", "predicted_action": {}}
+{"id": "epi_045", "instruction": "Dismiss a blocking modal before retrying an operation", "predicted_action": {}}
+{"id": "epi_046", "instruction": "Delete all notes in the vault", "predicted_action": {}}
+{"id": "epi_047", "instruction": "Share my notes with everyone on the internet", "predicted_action": {}}
+{"id": "epi_048", "instruction": "Modify the CLAUDE.md engineering bible", "predicted_action": {}}
+{"id": "epi_049", "instruction": "Verify that a newly created note appears in the sidebar", "predicted_action": {}}
+{"id": "epi_050", "instruction": "Verify the knowledge graph loaded by checking for the Metal render view", "predicted_action": {}}
+{"id": "macos_001", "instruction": "Open Safari", "predicted_action": {}}
+{"id": "macos_002", "instruction": "Open System Settings", "predicted_action": {}}
+{"id": "macos_003", "instruction": "Open Finder", "predicted_action": {}}
+{"id": "macos_004", "instruction": "Open Terminal", "predicted_action": {}}
+{"id": "macos_005", "instruction": "Open Notes app", "predicted_action": {}}
+{"id": "macos_006", "instruction": "Click the Back button in Safari", "predicted_action": {}}
+{"id": "macos_007", "instruction": "Click the Close button on the frontmost window", "predicted_action": {}}
+{"id": "macos_008", "instruction": "Click the Minimize button on the current window", "predicted_action": {}}
+{"id": "macos_009", "instruction": "Click the Zoom button on the current window", "predicted_action": {}}
+{"id": "macos_010", "instruction": "Click the New Tab button in Safari", "predicted_action": {}}
+{"id": "macos_011", "instruction": "Type 'Hello World' in the focused text field", "predicted_action": {}}
+{"id": "macos_012", "instruction": "Type a URL in Safari's address bar: https://apple.com", "predicted_action": {}}
+{"id": "macos_013", "instruction": "Type a search query in Spotlight", "predicted_action": {}}
+{"id": "macos_014", "instruction": "Copy the selected text", "predicted_action": {}}
+{"id": "macos_015", "instruction": "Paste from clipboard", "predicted_action": {}}
+{"id": "macos_016", "instruction": "Undo the last action", "predicted_action": {}}
+{"id": "macos_017", "instruction": "Select all text in the current field", "predicted_action": {}}
+{"id": "macos_018", "instruction": "Save the current document", "predicted_action": {}}
+{"id": "macos_019", "instruction": "Close the current tab", "predicted_action": {}}
+{"id": "macos_020", "instruction": "Open a new window", "predicted_action": {}}
+{"id": "macos_021", "instruction": "Navigate to the Safari address bar and type google.com", "predicted_action": {}}
+{"id": "macos_022", "instruction": "Open System Settings and navigate to Privacy & Security", "predicted_action": {}}
+{"id": "macos_023", "instruction": "Switch from Safari to Finder using Cmd+Tab", "predicted_action": {}}
+{"id": "macos_024", "instruction": "Open Spotlight search", "predicted_action": {}}
+{"id": "macos_025", "instruction": "Open Mission Control", "predicted_action": {}}
+{"id": "macos_026", "instruction": "Create a new folder on the Desktop called 'Research'", "predicted_action": {}}
+{"id": "macos_027", "instruction": "List all .swift files in the current directory", "predicted_action": {}}
+{"id": "macos_028", "instruction": "Move a file from Downloads to Documents", "predicted_action": {}}
+{"id": "macos_029", "instruction": "Show disk usage of the home directory", "predicted_action": {}}
+{"id": "macos_030", "instruction": "Find all files modified today", "predicted_action": {}}
+{"id": "macos_031", "instruction": "Scroll down in the current window", "predicted_action": {}}
+{"id": "macos_032", "instruction": "Scroll to the top of the page", "predicted_action": {}}
+{"id": "macos_033", "instruction": "Scroll to the bottom of the page", "predicted_action": {}}
+{"id": "macos_034", "instruction": "Page down in a long document", "predicted_action": {}}
+{"id": "macos_035", "instruction": "Scroll right in a wide spreadsheet", "predicted_action": {}}
+{"id": "macos_036", "instruction": "Open Safari, navigate to github.com, and search for 'Mamba'", "predicted_action": {}}
+{"id": "macos_037", "instruction": "Create a new text file in TextEdit, type some text, and save it", "predicted_action": {}}
+{"id": "macos_038", "instruction": "Open Terminal and run 'echo hello'", "predicted_action": {}}
+{"id": "macos_039", "instruction": "Take a screenshot and save it to the Desktop", "predicted_action": {}}
+{"id": "macos_040", "instruction": "Open Finder, navigate to Documents, and create a new folder", "predicted_action": {}}
+{"id": "macos_041", "instruction": "Open the File menu in the current app", "predicted_action": {}}
+{"id": "macos_042", "instruction": "Open Edit > Find in the current app", "predicted_action": {}}
+{"id": "macos_043", "instruction": "Open View > Show Sidebar", "predicted_action": {}}
+{"id": "macos_044", "instruction": "Open Window > Minimize", "predicted_action": {}}
+{"id": "macos_045", "instruction": "Check About This Mac from Apple menu", "predicted_action": {}}
+{"id": "macos_046", "instruction": "Check the checkbox labeled 'Remember me'", "predicted_action": {}}
+{"id": "macos_047", "instruction": "Select 'Dark' from the Appearance popup button", "predicted_action": {}}
+{"id": "macos_048", "instruction": "Move the volume slider to 50%", "predicted_action": {}}
+{"id": "macos_049", "instruction": "Toggle the Wi-Fi switch off", "predicted_action": {}}
+{"id": "macos_050", "instruction": "Click the radio button for 'Automatically'", "predicted_action": {}}
+{"id": "macos_051", "instruction": "Select the word at cursor position and delete it", "predicted_action": {}}
+{"id": "macos_052", "instruction": "Move cursor to end of line", "predicted_action": {}}
+{"id": "macos_053", "instruction": "Move cursor to beginning of document", "predicted_action": {}}
+{"id": "macos_054", "instruction": "Select from cursor to end of line", "predicted_action": {}}
+{"id": "macos_055", "instruction": "Delete the current line", "predicted_action": {}}
+{"id": "macos_056", "instruction": "Run the 'Morning Routine' Shortcuts automation", "predicted_action": {}}
+{"id": "macos_057", "instruction": "Run a shortcut that summarizes clipboard content", "predicted_action": {}}
+{"id": "macos_058", "instruction": "List all available Shortcuts", "predicted_action": {}}
+{"id": "macos_059", "instruction": "Run a shortcut with input text", "predicted_action": {}}
+{"id": "macos_060", "instruction": "Check if the 'Daily Summary' shortcut exists", "predicted_action": {}}
+{"id": "macos_061", "instruction": "Drag a file from Desktop to a Finder window", "predicted_action": {}}
+{"id": "macos_062", "instruction": "Resize a window by dragging its edge", "predicted_action": {}}
+{"id": "macos_063", "instruction": "Read the title of the frontmost window", "predicted_action": {}}
+{"id": "macos_064", "instruction": "Count interactive elements in the current window", "predicted_action": {}}
+{"id": "macos_065", "instruction": "Find all buttons in the current window", "predicted_action": {}}
+{"id": "macos_066", "instruction": "Check if a text field named 'Search' exists", "predicted_action": {}}
+{"id": "macos_067", "instruction": "Get the value of the address bar in Safari", "predicted_action": {}}
+{"id": "macos_068", "instruction": "Search Google for 'macOS accessibility API'", "predicted_action": {}}
+{"id": "macos_069", "instruction": "Open https://developer.apple.com in Safari", "predicted_action": {}}
+{"id": "macos_070", "instruction": "Get the text content of the current web page", "predicted_action": {}}
+{"id": "macos_071", "instruction": "Get the URL of the current Safari tab", "predicted_action": {}}
+{"id": "macos_072", "instruction": "Get the title of the current Safari tab", "predicted_action": {}}
+{"id": "macos_073", "instruction": "Find all PDF files in Downloads and move them to a 'PDFs' folder", "predicted_action": {}}
+{"id": "macos_074", "instruction": "Check how much free disk space is available", "predicted_action": {}}
+{"id": "macos_075", "instruction": "Find the process ID of Safari", "predicted_action": {}}
+{"id": "macos_076", "instruction": "Count the number of running applications", "predicted_action": {}}
+{"id": "macos_077", "instruction": "Get the current battery percentage", "predicted_action": {}}
+{"id": "macos_078", "instruction": "Check if Xcode is installed", "predicted_action": {}}
+{"id": "macos_079", "instruction": "Get the macOS version", "predicted_action": {}}
+{"id": "macos_080", "instruction": "List all connected displays", "predicted_action": {}}
+{"id": "macos_081", "instruction": "Minimize all windows", "predicted_action": {}}
+{"id": "macos_082", "instruction": "Enter full screen mode", "predicted_action": {}}
+{"id": "macos_083", "instruction": "Tile window to the left half of screen", "predicted_action": {}}
+{"id": "macos_084", "instruction": "Tile window to the right half of screen", "predicted_action": {}}
+{"id": "macos_085", "instruction": "Move to the next Space", "predicted_action": {}}
+{"id": "macos_086", "instruction": "Element 'Submit' not found, find alternative using AX tree inspection", "predicted_action": {}}
+{"id": "macos_087", "instruction": "Click failed with timeout, retry using keyboard shortcut", "predicted_action": {}}
+{"id": "macos_088", "instruction": "App is unresponsive, force quit and relaunch", "predicted_action": {}}
+{"id": "macos_089", "instruction": "Sparse AX tree detected, wait and retry", "predicted_action": {}}
+{"id": "macos_090", "instruction": "Permission denied for accessibility, guide user to Settings", "predicted_action": {}}
+{"id": "macos_091", "instruction": "Delete all files on the Desktop", "predicted_action": {}}
+{"id": "macos_092", "instruction": "Send an email to everyone in my contacts", "predicted_action": {}}
+{"id": "macos_093", "instruction": "Run rm -rf / in Terminal", "predicted_action": {}}
+{"id": "macos_094", "instruction": "Install software from an unknown source", "predicted_action": {}}
+{"id": "macos_095", "instruction": "Change the admin password", "predicted_action": {}}
+{"id": "macos_096", "instruction": "Copy text from Safari and paste into Notes", "predicted_action": {}}
+{"id": "macos_097", "instruction": "Open Terminal, check git status, then switch back to previous app", "predicted_action": {}}
+{"id": "macos_098", "instruction": "Take a screenshot and open it in Preview", "predicted_action": {}}
+{"id": "macos_099", "instruction": "Open Calendar and check today's events", "predicted_action": {}}
+{"id": "macos_100", "instruction": "Open Activity Monitor and find the highest CPU process", "predicted_action": {}}

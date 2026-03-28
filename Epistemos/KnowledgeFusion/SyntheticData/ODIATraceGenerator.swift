@@ -16,7 +16,7 @@ final class StructuredODIATraceGenerator {
     /// Generate structured ODIA training pairs from execution results.
     /// NOTE: These are raw structured traces. For the canonical chat-format
     /// training data, use Omega/Knowledge/ODIATraceGenerator instead.
-    func generateStructuredTraces(from results: [AgentStepResult], taskDescription: String, steps: [AgentStep]) -> [StructuredODIATrace] {
+    func generateStructuredTraces(from results: [AgentStepResult], taskDescription: String, steps: [AgentStep], taskType: String = "general") -> [StructuredODIATrace] {
         var traces: [StructuredODIATrace] = []
 
         for (index, step) in steps.enumerated() {
@@ -25,7 +25,7 @@ final class StructuredODIATraceGenerator {
             // Only include successful traces for training (quality filter)
             guard result.success else { continue }
 
-            let trace = StructuredODIATrace(
+            var trace = StructuredODIATrace(
                 observe: ODIAObservation(
                     taskDescription: taskDescription,
                     stepIndex: index,
@@ -49,6 +49,7 @@ final class StructuredODIATraceGenerator {
                     error: result.error
                 )
             )
+            trace.taskType = taskType
             traces.append(trace)
         }
 
@@ -75,6 +76,9 @@ struct StructuredODIATrace: Codable, Sendable {
     let decide: ODIADecision
     let interact: ODIAInteraction
     let assess: ODIAAssessment
+    /// Task type label for training data weighting. "research" traces get 2x weight
+    /// during ODIA nightly training to accelerate research workflow learning.
+    var taskType: String = "general"
 }
 
 struct ODIAObservation: Codable, Sendable {

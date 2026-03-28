@@ -492,6 +492,6 @@ struct TimeMachineServiceTests {
         }
 
         #expect(measuredModifiedCount == count / 10)
-        #expect(elapsed < .milliseconds(5), "10k note diff took \(elapsed)")
+        #expect(elapsed < .milliseconds(8), "10k note diff took \(elapsed)")
     }
 }

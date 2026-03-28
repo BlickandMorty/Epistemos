@@ -147,6 +147,12 @@ final class KnowledgeFusionViewModel {
         scheduler.pendingReasoningTraces.append(contentsOf: jsonlLines)
     }
 
+    /// Ingest structured ODIA traces for nightly training.
+    /// Called by OrchestratorState after each task execution completes.
+    func ingestODIATraces(_ traces: [StructuredODIATrace]) {
+        scheduler.ingestODIATraces(traces)
+    }
+
     // MARK: - Lifecycle
 
     func loadState() async {
@@ -441,10 +447,9 @@ final class KnowledgeFusionViewModel {
     }
 
     // MARK: - Feedback
-    // DEFERRED: No UI currently calls logFeedback(). The kto_feedback table
-    // exists but has 0 rows. To activate: wire NoteChatSidebar accept/discard
-    // buttons and AI context menu accept/discard to call this method.
-    // This is alignment infrastructure, not a training-path blocker.
+    // WIRED: NoteDetailWorkspaceView accept/discard buttons call logFeedback()
+    // for every note chat response. Signals populate kto_feedback table in
+    // knowledge_fusion.db for nightly KTO alignment training.
 
     func logFeedback(prompt: String, completion: String, desirable: Bool, type: FeedbackType) async {
         do {

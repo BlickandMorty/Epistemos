@@ -10,20 +10,133 @@ enum MainChatComposerLayout {
     static let controlRowTopPadding: CGFloat = 6
 }
 
+struct OperatingModeSelectorView: View {
+    @Binding var mode: EpistemosOperatingMode
+    var variant: NativeControlVariant = .toolbar
+    var availableModes: [EpistemosOperatingMode] = EpistemosOperatingMode.allCases
+
+    private func sanitized(_ candidate: EpistemosOperatingMode) -> EpistemosOperatingMode {
+        guard availableModes.contains(candidate) else {
+            return availableModes.first ?? .fast
+        }
+        return candidate
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(availableModes, id: \.rawValue) { option in
+                ExpandingModeButton(
+                    title: option.displayName,
+                    systemImage: option.systemImage,
+                    isActive: mode == option,
+                    variant: variant,
+                    helpText: option.helpText,
+                    accessibilityLabel: option.displayName,
+                    stableWidth: NativeControlSystem.reservedWidth(
+                        for: option.displayName,
+                        variant: variant
+                    )
+                ) {
+                    mode = sanitized(option)
+                }
+            }
+        }
+        .onAppear {
+            let sanitizedMode = sanitized(mode)
+            if sanitizedMode != mode {
+                mode = sanitizedMode
+            }
+        }
+        .onChange(of: availableModes) { _, _ in
+            let sanitizedMode = sanitized(mode)
+            if sanitizedMode != mode {
+                mode = sanitizedMode
+            }
+        }
+    }
+}
+
+struct ResearchComposerButton: View {
+    @Binding var text: String
+    var variant: NativeControlVariant = .toolbar
+    var focusAction: (() -> Void)? = nil
+
+    private var isActive: Bool {
+        ResearchComplexityGate.hasExplicitResearchPrefix(text)
+    }
+
+    var body: some View {
+        ExpandingModeButton(
+            title: "Research",
+            systemImage: isActive ? "magnifyingglass.circle.fill" : "magnifyingglass.circle",
+            isActive: isActive,
+            variant: variant,
+            helpText: isActive
+                ? "Research draft enabled — send this through Omega research."
+                : "Ask a research question with Omega.",
+            accessibilityLabel: isActive ? "Research draft enabled" : "Ask a research question",
+            stableWidth: NativeControlSystem.reservedWidth(for: "Research", variant: variant)
+        ) {
+            text = ResearchComplexityGate.toggledComposerDraft(text)
+            focusAction?()
+        }
+    }
+}
+
+struct ComposerControlStrip<Content: View>: View {
+    let spacing: CGFloat
+    var resetKey: String = ""
+    @ViewBuilder let content: () -> Content
+
+    private let leadingAnchorID = "composer-control-strip-leading"
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing) {
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .id(leadingAnchorID)
+                    content()
+                }
+                .padding(.horizontal, 1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onAppear {
+                resetScrollPosition(using: proxy)
+            }
+            .onChange(of: resetKey) { _, _ in
+                resetScrollPosition(using: proxy)
+            }
+        }
+    }
+
+    private func resetScrollPosition(using proxy: ScrollViewProxy) {
+        Task { @MainActor in
+            proxy.scrollTo(leadingAnchorID, anchor: .leading)
+            await Task.yield()
+            proxy.scrollTo(leadingAnchorID, anchor: .leading)
+        }
+    }
+}
+
 // MARK: - Chat Input Bar
 // Bottom input bar for the conversation view.
 // Uses a stacked native-style composer: multiline text area on the first row,
 // controls on the second row, all inside a rounded-rect material surface.
 
 struct ChatInputBar: View {
-    let onSubmit: (String) -> Void
+    let onSubmit: (String, EpistemosOperatingMode) -> Void
     let onStop: () -> Void
     let isProcessing: Bool
 
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
+    @Environment(InferenceState.self) private var inference
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("epistemos.mainChatOperatingMode")
+    private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
     @State private var text = ""
     @State private var isFocused = false
@@ -43,6 +156,17 @@ struct ChatInputBar: View {
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
     private let placeholderText = "Ask anything…"
+    private var selectedOperatingMode: EpistemosOperatingMode {
+        inference.sanitizedOperatingMode(
+            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
+        )
+    }
+    private var operatingModeBinding: Binding<EpistemosOperatingMode> {
+        Binding(
+            get: { selectedOperatingMode },
+            set: { operatingModeRaw = inference.sanitizedOperatingMode($0).rawValue }
+        )
+    }
     private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
         guard showMentionDropdown else {
             return ChatCoordinator.ReferenceSearchResults(
@@ -60,6 +184,11 @@ struct ChatInputBar: View {
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
+    }
+    private var composerControlResetKey: String {
+        inference.availableOperatingModes.map(\.rawValue).joined(separator: "|")
+            + "::"
+            + inference.activeChatModelDisplayName
     }
     private var composerIsActive: Bool {
         isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty || !chat.pendingContextAttachments.isEmpty
@@ -127,17 +256,24 @@ struct ChatInputBar: View {
                 composerTextArea
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
-                    HStack(spacing: 8) {
+                    ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
+                        OperatingModeSelectorView(
+                            mode: operatingModeBinding,
+                            availableModes: inference.availableOperatingModes
+                        )
+
+                        ResearchComposerButton(text: $text) {
+                            isFocused = true
+                        }
+
+                        LocalModelToolbarMenu(variant: .toolbar)
+                            .accessibilityLabel("Chat model")
+
                         ComposerContextShortcutBar(
                             noteLabel: "Chat with Note",
                             onChatWithNote: openNotePicker,
                             onChatWithChat: openChatPicker
                         )
-
-                        LocalModelToolbarMenu(variant: .toolbar)
-                            .accessibilityLabel("Chat model")
-
-                        Spacer(minLength: 8)
 
                         attachButton
 
@@ -177,6 +313,12 @@ struct ChatInputBar: View {
         .padding(.bottom, Spacing.md)
         .frame(maxWidth: ChatLayout.mainComposerMaxWidth)
         .frame(maxWidth: .infinity)
+        .onAppear {
+            sanitizeStoredOperatingMode()
+        }
+        .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
+            sanitizeStoredOperatingMode()
+        }
     }
 
     private var composerTextArea: some View {
@@ -322,7 +464,7 @@ struct ChatInputBar: View {
 
     private func submitCurrentText() {
         guard !trimmedText.isEmpty, !isProcessing else { return }
-        onSubmit(trimmedText)
+        onSubmit(trimmedText, operatingModeBinding.wrappedValue)
         text = ""
         composerHeight = ChatComposerInputMetrics.minHeight
         showMentionDropdown = false
@@ -330,6 +472,15 @@ struct ChatInputBar: View {
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
+    }
+
+    private func sanitizeStoredOperatingMode() {
+        let sanitized = inference.sanitizedOperatingMode(
+            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
+        )
+        if sanitized.rawValue != operatingModeRaw {
+            operatingModeRaw = sanitized.rawValue
+        }
     }
 
     private func openChatPicker() {
@@ -718,7 +869,7 @@ enum FileAttachmentBuilder {
         guard let data = try? previewData(for: url) else { return nil }
         guard !data.isEmpty else { return nil }
 
-        let preview = String(decoding: data, as: UTF8.self)
+        guard let preview = FoundationSafety.decodedText(from: data) else { return nil }
         guard preview.count > maxPreviewCharacters else { return preview }
         return String(preview.prefix(maxPreviewCharacters)) + "\n...(truncated)"
     }

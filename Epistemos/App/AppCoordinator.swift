@@ -66,8 +66,13 @@ final class AppCoordinator {
         eventBus.subscribe(id: "pipeline") { [weak self] event in
             guard let self else { return }
             switch event {
-            case .querySubmitted(_, let query):
-                self.chatCoordinator.handleQuery(query, pipeline: pipeline, chatState: chat)
+            case .querySubmitted(_, let query, let operatingMode):
+                self.chatCoordinator.handleQuery(
+                    query,
+                    pipeline: pipeline,
+                    chatState: chat,
+                    operatingMode: operatingMode
+                )
             default:
                 break
             }

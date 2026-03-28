@@ -20,7 +20,7 @@ nonisolated enum PipelineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noLLMService: "No usable local Qwen model is available. Open Settings to install or select one."
+        case .noLLMService: "No usable local model is available. Open Settings to install or select one."
         case .analysisFailure(let msg): msg
         }
     }
@@ -53,7 +53,8 @@ final class PipelineService {
         query: String,
         mode: InferenceMode,
         notesContext: String? = nil,
-        conversationHistory: String? = nil
+        conversationHistory: String? = nil,
+        localReasoningMode: LocalReasoningMode = .fast
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         let _ = (mode, llmService, inference, eventBus)
         pipelineTask?.cancel()
@@ -81,7 +82,8 @@ final class PipelineService {
                     let directStream = generateDirectStream(
                         query: query,
                         notesContext: notesContext,
-                        conversationHistory: conversationHistory
+                        conversationHistory: conversationHistory,
+                        localReasoningMode: localReasoningMode
                     )
 
                     for try await token in directStream {
@@ -122,7 +124,8 @@ final class PipelineService {
     private func generateDirectStream(
         query: String,
         notesContext: String? = nil,
-        conversationHistory: String? = nil
+        conversationHistory: String? = nil,
+        localReasoningMode: LocalReasoningMode = .fast
     ) -> AsyncThrowingStream<String, Error> {
         Log.pipeline.info("🔬 generateDirectStream — chatMode=PLAIN queryLen=\(query.count)")
 
@@ -147,7 +150,7 @@ final class PipelineService {
             systemPrompt: nil,
             operation: .chatResponse(query: query),
             contentLength: finalPrompt.count,
-            localReasoningMode: .fast,
+            localReasoningMode: localReasoningMode,
             localSurface: .miniChat
         )
     }

@@ -110,6 +110,12 @@ pub fn tool_get_page_title() -> String {
     serde_json::to_string(&result).unwrap_or_default()
 }
 
+/// Execute get_page_text tool via Rust osascript wrapper.
+pub fn tool_get_page_text(max_length: u32) -> String {
+    let result = crate::osascript::tool_get_page_text(max_length);
+    serde_json::to_string(&result).unwrap_or_default()
+}
+
 /// Execute search_web tool via Rust osascript wrapper.
 pub fn tool_search_web(query: String) -> String {
     let result = crate::osascript::tool_search_web(&query);

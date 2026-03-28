@@ -120,4 +120,35 @@ struct UserFacingModelOutputTests {
         #expect(UserFacingModelOutput.streamingVisibleText(from: "Thinking Process").isEmpty)
         #expect(UserFacingModelOutput.streamingVisibleText(from: "Thought Process").isEmpty)
     }
+
+    @Test("streaming text recovers an answer marker inside an unclosed think block")
+    func streamingTextRecoversAnswerInsideUnclosedThinkBlock() {
+        let raw = """
+        <think>
+        I should inspect the framing first.
+
+        Final Answer:
+        Use the local Qwen path and answer directly.
+        """
+
+        #expect(
+            UserFacingModelOutput.streamingVisibleText(from: raw)
+                == "Use the local Qwen path and answer directly."
+        )
+    }
+
+    @Test("final text recovers an answer inside an unclosed think block")
+    func finalTextRecoversAnswerInsideUnclosedThinkBlock() {
+        let raw = """
+        <think>
+        I should compare the tradeoffs first.
+
+        The stronger recommendation is to keep Thinking enabled for deeper local analysis.
+        """
+
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "The stronger recommendation is to keep Thinking enabled for deeper local analysis."
+        )
+    }
 }

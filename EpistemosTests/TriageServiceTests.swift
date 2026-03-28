@@ -178,8 +178,8 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
-    @Test("explicit deep reasoning request no longer changes local response mode")
-    func explicitThinkingDoesNotChangeLocalMode() {
+    @Test("explicit deep reasoning request keeps the local response mode in thinking")
+    func explicitThinkingKeepsLocalThinkingMode() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -206,7 +206,7 @@ struct InferencePolicyEngineTests {
         )
 
         #expect(decision.selectedRoute == .localQwen)
-        #expect(decision.localSelection?.reasoningMode == .fast)
+        #expect(decision.localSelection?.reasoningMode == .thinking)
         #expect(!decision.reasonCodes.contains(.explicitThinkingRequested))
     }
 
@@ -714,7 +714,7 @@ struct TriageServiceIntegrationTests {
         #expect(llm.generateCalls.count == 1)
         #expect(llm.generateCalls[0].prompt == "Prompt A")
         let systemPrompt = try #require(llm.generateCalls[0].systemPrompt)
-        #expect(systemPrompt.contains("local Epistemos assistant powered by Qwen"))
+        #expect(systemPrompt.contains("local Epistemos assistant running on-device"))
         #expect(systemPrompt.contains("System A"))
         #expect(llm.generateCalls[0].maxTokens == 4096)
     }
@@ -802,7 +802,7 @@ struct TriageServiceIntegrationTests {
         )
         #expect(outcome.error == nil)
         let systemPrompt = try? #require(llm.streamCalls.first?.systemPrompt)
-        #expect(systemPrompt?.contains("local Epistemos assistant powered by Qwen") == true)
+        #expect(systemPrompt?.contains("local Epistemos assistant running on-device") == true)
     }
 
     @Test("local path injects a baseline qwen system prompt when none is provided")
@@ -829,7 +829,7 @@ struct TriageServiceIntegrationTests {
                 "do not claim to have browsing, external tool use, research mode"
             )
         )
-        #expect(systemPrompt.contains("local Epistemos assistant powered by Qwen"))
+        #expect(systemPrompt.contains("local Epistemos assistant running on-device"))
     }
 
     @Test("missing local model throws in local only mode")
@@ -1133,7 +1133,7 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("explicit reasoning request no longer opts the local runtime into thinking mode")
+    @Test("explicit reasoning phrasing alone does not force local thinking mode")
     func explicitReasoningCueStaysFast() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
@@ -1166,8 +1166,8 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("configured thinking mode no longer rewrites local prompts or runtime mode")
-    func configuredThinkingModeDoesNotRewriteLocalRequests() async throws {
+    @Test("configured thinking mode preserves the caller system prompt and runtime mode")
+    func configuredThinkingModePreservesLocalThinkingRequests() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -1191,13 +1191,14 @@ struct TriageServiceIntegrationTests {
             prompt: "Compare these two parser implementations and recommend one.",
             systemPrompt: "Be helpful.",
             operation: .chatResponse(query: "Compare these two parser implementations and recommend one."),
-            contentLength: 58
+            contentLength: 58,
+            localReasoningMode: .thinking
         )
 
         let request = try #require(await runtime.lastGenerateRequest)
-        #expect(request.reasoningMode == .fast)
+        #expect(request.reasoningMode == .thinking)
         let systemPrompt = try #require(request.systemPrompt)
-        #expect(systemPrompt.contains("local Epistemos assistant powered by Qwen"))
+        #expect(systemPrompt.contains("local Epistemos assistant running on-device"))
         #expect(systemPrompt.contains("Be helpful."))
     }
 
@@ -1237,7 +1238,7 @@ struct TriageServiceIntegrationTests {
         )
 
         let firstRequest = try #require(await runtime.lastGenerateRequest)
-        #expect(firstRequest.reasoningMode == .fast)
+        #expect(firstRequest.reasoningMode == .thinking)
 
         _ = try await triage.generateGeneral(
             prompt: "Give me the short practical takeaway.",
@@ -1407,18 +1408,32 @@ struct TriageServiceIntegrationTests {
         #expect(request.resolvedMaxTokens == 6000)
     }
 
-    @Test("local qwen requests disable template thinking mode")
-    func localQwenRequestsDisableTemplateThinkingMode() {
+    @Test("local qwen requests map template thinking mode from the request reasoning mode")
+    func localQwenRequestsMapTemplateThinkingMode() {
         let request = LocalMLXRequest(
             modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
             prompt: "Answer directly.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .fast
+            reasoningMode: .thinking
         )
 
-        #expect(request.chatTemplateContext?["enable_thinking"] == false)
+        #expect(request.chatTemplateContext?["enable_thinking"] == true)
+    }
+
+    @Test("non-qwen local requests do not inject template thinking flags")
+    func nonQwenLocalRequestsDoNotInjectTemplateThinkingFlags() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.smolLM3_3B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/smollm3"),
+            prompt: "Answer directly.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .thinking
+        )
+
+        #expect(request.chatTemplateContext == nil)
     }
 
     @Test("cancelled local stream stop keeps completed output when text was produced")
@@ -1438,6 +1453,28 @@ struct TriageServiceIntegrationTests {
                 outputCharacterCount: 0,
                 chunkCount: 0
             )
+        )
+    }
+
+    @Test("cancelled completed local runs profile as stop")
+    func cancelledCompletedLocalRunsProfileAsStop() {
+        #expect(
+            MLXInferenceService.normalizedStopReason(
+                .cancelled,
+                outputCharacterCount: 128,
+                chunkCount: 6
+            ) == .stop
+        )
+    }
+
+    @Test("empty cancelled local runs remain cancelled")
+    func emptyCancelledLocalRunsRemainCancelled() {
+        #expect(
+            MLXInferenceService.normalizedStopReason(
+                .cancelled,
+                outputCharacterCount: 0,
+                chunkCount: 0
+            ) == .cancelled
         )
     }
 
@@ -1495,8 +1532,8 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("local stream preserves the caller system prompt and keeps the runtime in fast mode")
-    func streamPreservesSystemPromptAndKeepsFastMode() async throws {
+    @Test("local stream preserves the caller system prompt and keeps the requested runtime mode")
+    func streamPreservesSystemPromptAndReasoningMode() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -1525,7 +1562,7 @@ struct TriageServiceIntegrationTests {
         let request = try #require(await runtime.lastStreamRequest)
         let systemPrompt = try #require(request.systemPrompt)
         #expect(systemPrompt == "Think first, then answer.")
-        #expect(request.reasoningMode == .fast)
+        #expect(request.reasoningMode == .thinking)
     }
 
     @MainActor

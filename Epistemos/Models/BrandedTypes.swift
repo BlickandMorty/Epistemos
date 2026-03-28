@@ -67,7 +67,7 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     nonisolated var displayName: String {
         switch self {
         case .appleIntelligence: "Apple Intelligence"
-        case .localMLX: "Qwen 3.5 Local"
+        case .localMLX: "Local Model"
         case .openAI: "OpenAI"
         case .anthropic: "Anthropic"
         case .google: "Google"

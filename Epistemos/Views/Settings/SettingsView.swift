@@ -13,7 +13,7 @@ struct SettingsView: View {
         case general = "General"
         case cognitive = "Cognitive"
         case inference = "Inference"
-        case knowledgeFusion = "Knowledge Fusion"
+        case knowledgeFusion = "Knowledge Fusion (Experimental)"
         case omega = "Omega"
         case landing = "Landing"
         case appearance = "Appearance"
@@ -93,6 +93,41 @@ struct SettingsView: View {
     }
 }
 
+struct SettingsDescriptionText: View {
+    let text: String
+    var tertiary = false
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(tertiary ? .tertiary : .secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct SettingsDescriptionCard: View {
+    let title: String
+    let systemImage: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 18, height: 18)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                SettingsDescriptionText(text: text)
+            }
+        }
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
 // MARK: - General Detail
 // Consolidated: Session + Workspace Summaries + Security info + Reset
 
@@ -118,6 +153,9 @@ private struct GeneralDetailView: View {
     var body: some View {
         Form {
             Section("Session") {
+                SettingsDescriptionText(
+                    text: "Choose how Epistemos restores workspace state and whether it asks for confirmation before quitting with unsaved UI context."
+                )
                 Toggle("Restore last session on launch", isOn: $restoreLastSession)
                     .onChange(of: restoreLastSession) { _, newValue in
                         AppBootstrap.shared?.workspaceService.restoreLastSession = newValue
@@ -129,6 +167,9 @@ private struct GeneralDetailView: View {
             }
 
             Section("Workspace Summaries") {
+                SettingsDescriptionText(
+                    text: "Workspace summaries are short on-device recaps of recent notes, chats, and work context so you can resume without reloading everything mentally."
+                )
                 Picker("Auto-summarize interval", selection: $summaryInterval) {
                     ForEach(WorkspaceSummaryService.SummaryInterval.allCases, id: \.self) { interval in
                         Text(interval.displayName).tag(interval)
@@ -144,6 +185,9 @@ private struct GeneralDetailView: View {
             }
 
             Section("Saved Workspaces") {
+                SettingsDescriptionText(
+                    text: "Saved workspaces preserve a working set of windows and context so you can reload an environment instead of rebuilding it by hand."
+                )
                 if workspaces.isEmpty {
                     Text("No saved workspaces yet.")
                         .font(.caption)
@@ -184,6 +228,9 @@ private struct GeneralDetailView: View {
             }
 
             Section("Data Protection") {
+                SettingsDescriptionText(
+                    text: "This summarizes where key app data lives so you can see what stays local, what uses system services, and what is protected by macOS."
+                )
                 LabeledContent("Local models") {
                     Text("Stored in Application Support")
                         .font(.caption)
@@ -253,6 +300,9 @@ private struct LandingDetailView: View {
 
         Form {
             Section("Greeting Behavior") {
+                SettingsDescriptionText(
+                    text: "Landing controls the welcome surface you see before diving into notes or chat. These settings shape that first-run and idle experience only."
+                )
                 Toggle("Animate typewriter", isOn: $ui.landingGreetingTypewriterEnabled)
 
                 Picker("Greeting Sources", selection: $ui.landingGreetingSourceMode) {
@@ -267,6 +317,9 @@ private struct LandingDetailView: View {
             }
 
             Section("Greeting Library") {
+                SettingsDescriptionText(
+                    text: "Add, reorder, and tune your custom landing greetings. Each entry can be enabled independently and shown for a specific duration."
+                )
                 if ui.landingCustomGreetings.isEmpty {
                     ContentUnavailableView(
                         "No Custom Greetings",
@@ -408,6 +461,9 @@ private struct InferenceDetailView: View {
     var body: some View {
         Form {
             Section("Routing") {
+                SettingsDescriptionText(
+                    text: "Routing decides which model path handles each request. Local Qwen is the main reasoning path, while lightweight Apple Intelligence work can be used when the selected routing mode allows it."
+                )
                 Picker(
                     "Routing Mode",
                     selection: Binding(
@@ -440,6 +496,9 @@ private struct InferenceDetailView: View {
             }
 
             Section("Local AI") {
+                SettingsDescriptionText(
+                    text: "Local AI manages the on-device models installed on this Mac, shows the active local tier, and lets you choose which local runtime the chat surfaces should prefer."
+                )
                 LabeledContent("Hardware") {
                     Text(localModelManager.hardwareSummary)
                         .font(.system(size: 12, design: .monospaced))
@@ -497,6 +556,9 @@ private struct InferenceDetailView: View {
             }
 
             Section("Cloud AI") {
+                SettingsDescriptionText(
+                    text: "Cloud keys are optional credentials for workflows where you explicitly choose a cloud model. They do not replace the default local model path."
+                )
                 cloudKeyRow(title: "OpenAI", text: $openAIKey, provider: .openAI)
                 cloudKeyRow(title: "Anthropic", text: $anthropicKey, provider: .anthropic)
                 cloudKeyRow(title: "Google", text: $googleKey, provider: .google)
@@ -507,6 +569,9 @@ private struct InferenceDetailView: View {
             }
 
             Section("Response Tokens") {
+                SettingsDescriptionText(
+                    text: "Use a response cap when you want shorter answers, lower token usage, or a tighter guardrail for long generations."
+                )
                 LabeledContent("Cap") {
                     HStack(spacing: 8) {
                         Toggle("", isOn: $tokenCapEnabled)
@@ -696,7 +761,7 @@ private struct LocalModelRow: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
         } else if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
-            Label("Unsupported", systemImage: "memorychip.slash")
+            Label("Unsupported", systemImage: "exclamationmark.triangle")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
@@ -862,6 +927,9 @@ private struct VaultDetailView: View {
     var body: some View {
         Form {
             Section("Connection") {
+                SettingsDescriptionText(
+                    text: "Your vault is the on-disk markdown workspace Epistemos reads from and writes to. Connecting a vault enables note sync, search indexing, and vault-backed editing."
+                )
                 if let url = vaultSync.vaultURL {
                     LabeledContent("Path") {
                         Text(url.path)
@@ -907,6 +975,9 @@ private struct VaultDetailView: View {
 
             if vaultSync.vaultURL != nil {
                 Section("Search Index") {
+                    SettingsDescriptionText(
+                        text: "The search index is the fast local lookup database built from your vault. Rebuild it if search feels stale after large external edits or imports."
+                    )
                     HStack(spacing: 8) {
                         Button("Rebuild Index") {
                             vaultSync.rebuildIndex()
@@ -925,6 +996,9 @@ private struct VaultDetailView: View {
                 }
 
                 Section("Vault Sync") {
+                    SettingsDescriptionText(
+                        text: "Auto-save controls how often in-memory note edits are flushed back to markdown files in the connected vault."
+                    )
                     Picker(
                         "Auto-save to vault",
                         selection: Binding(
@@ -981,14 +1055,25 @@ private struct KnowledgeFusionDetailView: View {
     var body: some View {
         Form {
             Section("Train") {
+                SettingsDescriptionCard(
+                    title: "Knowledge Fusion",
+                    systemImage: "brain.head.profile.fill",
+                    text: "Knowledge Fusion trains adapters on top of your local model. It does not replace the base model. Think of it as personalization for your installed local base model, not a brand new proprietary model."
+                )
                 TrainOnVaultView()
             }
 
             Section("Training Configuration") {
+                SettingsDescriptionText(
+                    text: "These controls tune adapter capacity, memory usage, and training time. Higher values can improve specialization, but they also increase runtime cost."
+                )
                 KFTrainingConfigSection()
             }
 
             Section("Adapters") {
+                SettingsDescriptionText(
+                    text: "Adapters are lightweight add-ons you can activate on top of the base local model. This section lets you inspect what is active and switch between trained variants."
+                )
                 HStack {
                     Text("Active Adapter")
                     Spacer()
@@ -998,6 +1083,9 @@ private struct KnowledgeFusionDetailView: View {
             }
 
             Section("Feedback") {
+                SettingsDescriptionText(
+                    text: "Feedback tracks accepts and rejects from adapter-assisted output. Those signals can later be used for optional overnight preference training if you enable it."
+                )
                 FeedbackIndicatorView()
                 if let stats = vm.feedbackStats {
                     LabeledContent("Accepts this week", value: "\(stats.totalAccepts)")

@@ -37,6 +37,108 @@ nonisolated enum FoundationSafety {
         }
         return string
     }
+
+    static func decodedText(from data: Data) -> String? {
+        guard !data.isEmpty else { return "" }
+
+        var encodings: [String.Encoding] = [.utf8]
+        appendDetectedUnicodeEncodings(from: data, to: &encodings)
+        let fallbackEncodings: [String.Encoding] = [
+            .utf16,
+            .utf16LittleEndian,
+            .utf16BigEndian,
+            .utf32,
+            .utf32LittleEndian,
+            .utf32BigEndian,
+        ]
+        for encoding in fallbackEncodings {
+            if !encodings.contains(encoding) {
+                encodings.append(encoding)
+            }
+        }
+
+        for encoding in encodings {
+            guard let string = String(data: data, encoding: encoding) else { continue }
+            let normalized = normalizedDecodedText(string)
+            if looksLikeReadableText(normalized) {
+                return normalized
+            }
+        }
+
+        return nil
+    }
+
+    private static func appendDetectedUnicodeEncodings(from data: Data, to encodings: inout [String.Encoding]) {
+        if data.starts(with: [0xFF, 0xFE, 0x00, 0x00]) {
+            encodings.append(.utf32LittleEndian)
+            encodings.append(.utf32)
+            return
+        }
+        if data.starts(with: [0x00, 0x00, 0xFE, 0xFF]) {
+            encodings.append(.utf32BigEndian)
+            encodings.append(.utf32)
+            return
+        }
+        if data.starts(with: [0xFF, 0xFE]) {
+            encodings.append(.utf16LittleEndian)
+            encodings.append(.utf16)
+            return
+        }
+        if data.starts(with: [0xFE, 0xFF]) {
+            encodings.append(.utf16BigEndian)
+            encodings.append(.utf16)
+            return
+        }
+
+        let sample = Array(data.prefix(128))
+        let pairCount = sample.count / 2
+        guard pairCount >= 4 else { return }
+
+        let oddNulls = stride(from: 1, to: pairCount * 2, by: 2).reduce(into: 0) { result, index in
+            if sample[index] == 0 { result += 1 }
+        }
+        let evenNulls = stride(from: 0, to: pairCount * 2, by: 2).reduce(into: 0) { result, index in
+            if sample[index] == 0 { result += 1 }
+        }
+
+        if oddNulls * 2 >= pairCount {
+            encodings.append(.utf16LittleEndian)
+        }
+        if evenNulls * 2 >= pairCount {
+            encodings.append(.utf16BigEndian)
+        }
+    }
+
+    private static func looksLikeReadableText(_ string: String) -> Bool {
+        guard !string.isEmpty else { return true }
+
+        let scalarCount = string.unicodeScalars.count
+        guard scalarCount > 0 else { return true }
+
+        let suspiciousCount = string.unicodeScalars.reduce(into: 0) { result, scalar in
+            let value = scalar.value
+            if value == 0xFFFD {
+                result += 1
+                return
+            }
+            if value == 0x09 || value == 0x0A || value == 0x0D {
+                return
+            }
+            if value < 0x20 || (0x7F...0x9F).contains(value) {
+                result += 1
+            }
+        }
+
+        return Double(suspiciousCount) / Double(scalarCount) <= 0.05
+    }
+
+    private static func normalizedDecodedText(_ string: String) -> String {
+        var text = string
+        while text.unicodeScalars.first == "\u{FEFF}" {
+            text.removeFirst()
+        }
+        return text
+    }
 }
 
 nonisolated enum ThinkingTagSyntax {
@@ -526,6 +628,11 @@ extension String {
 }
 
 nonisolated enum UserFacingModelOutput {
+    private enum IncompleteThinkingRecoveryMode {
+        case streaming
+        case final
+    }
+
     private static let reasoningParagraphPrefixes = [
         "here's a thinking process",
         "here is a thinking process",
@@ -572,11 +679,12 @@ nonisolated enum UserFacingModelOutput {
             return directAnswer
         }
 
-        guard containsReasoningArtifacts(raw: raw, cleaned: cleaned) else {
+        let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
+        guard hasReasoningArtifacts else {
             return cleaned
         }
 
-        return ""
+        return containsResidualReasoningArtifacts(in: cleaned) ? "" : cleaned
     }
 
     static func finalVisibleText(from raw: String) -> String {
@@ -601,7 +709,8 @@ nonisolated enum UserFacingModelOutput {
     ) -> String {
         strippedThinkingArtifacts(
             in: raw,
-            suppressIncompleteThinkingTail: suppressIncompleteThinkingTail
+            suppressIncompleteThinkingTail: suppressIncompleteThinkingTail,
+            recoveryMode: .final
         )
         .replacingOccurrences(of: "\r\n", with: "\n")
         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -610,7 +719,8 @@ nonisolated enum UserFacingModelOutput {
     private static func cleanedStreamingText(from raw: String) -> String {
         strippedThinkingArtifacts(
             in: raw,
-            suppressIncompleteThinkingTail: true
+            suppressIncompleteThinkingTail: true,
+            recoveryMode: .streaming
         )
         .replacingOccurrences(of: "\r\n", with: "\n")
         .trimmingLeadingWhitespaceAndNewlines()
@@ -618,7 +728,8 @@ nonisolated enum UserFacingModelOutput {
 
     private static func strippedThinkingArtifacts(
         in raw: String,
-        suppressIncompleteThinkingTail: Bool
+        suppressIncompleteThinkingTail: Bool,
+        recoveryMode: IncompleteThinkingRecoveryMode
     ) -> String {
         var cleaned = raw
         while let match = ThinkingTagSyntax.openingMatch(in: cleaned) {
@@ -631,16 +742,55 @@ nonisolated enum UserFacingModelOutput {
             }
 
             guard suppressIncompleteThinkingTail else { break }
-            cleaned.removeSubrange(match.range.lowerBound..<cleaned.endIndex)
+            let incompleteTail = String(cleaned[match.range.upperBound...])
+            if let recovered = recoveredTextFromIncompleteThinkingTail(
+                incompleteTail,
+                mode: recoveryMode
+            ) {
+                cleaned.replaceSubrange(match.range.lowerBound..<cleaned.endIndex, with: recovered)
+            } else {
+                cleaned.removeSubrange(match.range.lowerBound..<cleaned.endIndex)
+            }
             break
         }
         return cleaned
+    }
+
+    private static func recoveredTextFromIncompleteThinkingTail(
+        _ tail: String,
+        mode: IncompleteThinkingRecoveryMode
+    ) -> String? {
+        let normalized = tail
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return nil }
+
+        if let answerRange = ThinkingPreludeSyntax.answerMatch(in: normalized) {
+            let answer = String(normalized[answerRange.upperBound...]).trimmingLeadingWhitespaceAndNewlines()
+            return answer.isEmpty ? nil : answer
+        }
+
+        if let boundary = ThinkingPreludeSyntax.answerBoundary(in: normalized) {
+            let answer = String(normalized[boundary.answerStart...]).trimmingLeadingWhitespaceAndNewlines()
+            return answer.isEmpty ? nil : answer
+        }
+
+        switch mode {
+        case .streaming:
+            return nil
+        case .final:
+            return bestAnswerCandidate(in: normalized)
+        }
     }
 
     private static func containsReasoningArtifacts(raw: String, cleaned: String) -> Bool {
         if ThinkingTagSyntax.openingMatch(in: raw) != nil {
             return true
         }
+        return containsResidualReasoningArtifacts(in: cleaned)
+    }
+
+    private static func containsResidualReasoningArtifacts(in cleaned: String) -> Bool {
         if ThinkingPreludeSyntax.openingMatch(in: cleaned) != nil {
             return true
         }

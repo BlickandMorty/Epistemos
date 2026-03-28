@@ -26,17 +26,11 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     }
 
     var chatTemplateContext: [String: Bool]? {
-        switch modelID {
-        case LocalTextModelID.qwen35_0_8B4Bit.rawValue,
-             LocalTextModelID.qwen35_2B4Bit.rawValue,
-             LocalTextModelID.qwen35_4B4Bit.rawValue,
-             LocalTextModelID.qwen35_9B4Bit.rawValue,
-             LocalTextModelID.qwen35_27B4Bit.rawValue,
-             LocalTextModelID.qwen35_35BA3B4Bit.rawValue:
-            ["enable_thinking": false]
-        default:
-            nil
+        guard let model = LocalTextModelID(rawValue: modelID),
+              model.supportsThinkingMode else {
+            return nil
         }
+        return ["enable_thinking": reasoningMode == .thinking]
     }
 }
 
@@ -333,7 +327,6 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil
     ) throws -> LocalMLXRequest {
-        let normalizedReasoningMode: LocalReasoningMode = .fast
         guard let modelID = modelID ?? inference.effectiveLocalTextModelID,
               let descriptor = LocalModelCatalog.descriptor(for: modelID) else {
             throw LocalInferenceRoutingError.modelRequired
@@ -348,7 +341,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             hardware: inference.hardwareCapabilitySnapshot,
-            reasoningMode: normalizedReasoningMode,
+            reasoningMode: reasoningMode,
             conditions: inference.localRuntimeConditions
         )
 
@@ -358,7 +351,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: trimmed.prompt,
             systemPrompt: trimmed.systemPrompt,
             maxTokens: max(0, maxTokens),
-            reasoningMode: normalizedReasoningMode
+            reasoningMode: reasoningMode
         )
     }
 
@@ -459,6 +452,11 @@ actor MLXInferenceService: LocalMLXRuntime {
                 requestStart: start,
                 emit: nil
             )
+            let profiledStopReason = Self.normalizedStopReason(
+                response.stopReason,
+                outputCharacterCount: response.outputCharacterCount,
+                chunkCount: response.chunkCount
+            )
             let totalDurationMS = start.duration(to: ContinuousClock.now).millisecondsValue
             lastRunProfile = LocalMLXRunProfile(
                 modelID: request.modelID,
@@ -472,12 +470,12 @@ actor MLXInferenceService: LocalMLXRuntime {
                 outputCharacterCount: response.outputCharacterCount,
                 chunkCount: response.chunkCount,
                 continuationCount: response.continuationCount,
-                stopReason: Self.stopReasonLabel(response.stopReason),
+                stopReason: Self.stopReasonLabel(profiledStopReason),
                 memoryLimitBytes: policy.memoryPolicy.memoryLimitBytes,
                 cacheLimitBytes: policy.memoryPolicy.cacheLimitBytes
             )
             log.info(
-                "Local generate model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) stop=\(Self.stopReasonLabel(response.stopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
+                "Local generate model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) stop=\(Self.stopReasonLabel(profiledStopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
             )
             await endRequest(policy: policy)
             return response.text
@@ -509,6 +507,11 @@ actor MLXInferenceService: LocalMLXRuntime {
                     ) { chunk in
                         continuation.yield(chunk)
                     }
+                    let profiledStopReason = Self.normalizedStopReason(
+                        response.stopReason,
+                        outputCharacterCount: response.outputCharacterCount,
+                        chunkCount: response.chunkCount
+                    )
                     let totalDurationMS = start.duration(to: ContinuousClock.now).millisecondsValue
                     self.recordProfile(
                         LocalMLXRunProfile(
@@ -523,13 +526,13 @@ actor MLXInferenceService: LocalMLXRuntime {
                             outputCharacterCount: response.outputCharacterCount,
                             chunkCount: response.chunkCount,
                             continuationCount: response.continuationCount,
-                            stopReason: Self.stopReasonLabel(response.stopReason),
+                            stopReason: Self.stopReasonLabel(profiledStopReason),
                             memoryLimitBytes: policy.memoryPolicy.memoryLimitBytes,
                             cacheLimitBytes: policy.memoryPolicy.cacheLimitBytes
                         )
                     )
                     self.log.info(
-                        "Local stream model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) firstTokenMs=\(response.firstTokenLatencyMS ?? -1, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) chunks=\(response.chunkCount, privacy: .public) stop=\(Self.stopReasonLabel(response.stopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
+                        "Local stream model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) firstTokenMs=\(response.firstTokenLatencyMS ?? -1, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) chunks=\(response.chunkCount, privacy: .public) stop=\(Self.stopReasonLabel(profiledStopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
                     )
                     await self.endRequest(policy: policy)
                     if Task.isCancelled {
@@ -740,13 +743,16 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     private func generationParameters(for request: LocalMLXRequest) -> GenerateParameters {
         let maxKVSize: Int?
-        switch request.modelID {
-        case LocalTextModelID.qwen35_0_8B4Bit.rawValue,
-             LocalTextModelID.qwen35_2B4Bit.rawValue:
+        switch LocalTextModelID(rawValue: request.modelID) {
+        case .qwen35_0_8B4Bit?,
+             .qwen35_2B4Bit?,
+             .smolLM3_3B4Bit?:
             maxKVSize = 4_096
-        case LocalTextModelID.qwen35_4B4Bit.rawValue:
+        case .qwen35_4B4Bit?:
             maxKVSize = 3_072
-        case LocalTextModelID.qwen35_9B4Bit.rawValue:
+        case .qwen35_9B4Bit?,
+             .devstralSmall2505_4Bit?,
+             .mistralSmall31_24B4Bit?:
             maxKVSize = 2_048
         default:
             maxKVSize = 1_536
@@ -773,6 +779,21 @@ actor MLXInferenceService: LocalMLXRuntime {
         chunkCount: Int
     ) -> Bool {
         outputCharacterCount > 0 && chunkCount > 0
+    }
+
+    nonisolated static func normalizedStopReason(
+        _ stopReason: GenerateStopReason,
+        outputCharacterCount: Int,
+        chunkCount: Int
+    ) -> GenerateStopReason {
+        if stopReason == .cancelled,
+           shouldTreatCancelledStopAsCompletion(
+               outputCharacterCount: outputCharacterCount,
+               chunkCount: chunkCount
+           ) {
+            return .stop
+        }
+        return stopReason
     }
 
     private nonisolated static func stopReasonLabel(_ stopReason: GenerateStopReason) -> String {

@@ -15,7 +15,7 @@ enum AppEvent: Sendable {
     case custom(name: String, payload: AnySendable?)
 
     // Chat lifecycle events
-    case querySubmitted(chatId: ChatId, query: String)
+    case querySubmitted(chatId: ChatId, query: String, operatingMode: EpistemosOperatingMode)
     case queryCompleted(chatId: ChatId, messageId: MessageId)
     case chatCleared(chatId: ChatId)
 }

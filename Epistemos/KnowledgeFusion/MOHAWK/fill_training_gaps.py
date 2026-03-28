@@ -347,6 +347,73 @@ def more_reasoning_chains():
     ]
 
 
+# ─── RESEARCH WORKFLOWS (Layer 16) — Need 25+ ──────────────────
+
+def research_workflows():
+    SYS_R = """You are Epistemos-Nano, a 1B on-device AI agent for macOS.
+You plan and execute multi-step research workflows using Omega tools.
+You think step-by-step inside <think>...</think> tags before acting.
+You decompose research questions, search for evidence, score source quality,
+detect contradictions, and synthesize structured research notes."""
+
+    def rmsg(user, assistant):
+        return {"messages": [{"role": "system", "content": SYS_R}, {"role": "user", "content": user}, {"role": "assistant", "content": assistant}]}
+
+    return [
+        rmsg("research: what are the environmental impacts of large language model training",
+             '<think>\nResearch task. I need to:\n1. Search for LLM carbon footprint studies\n2. Find data center energy consumption research\n3. Score sources and collect evidence\n4. Check for contradictions between industry reports and academic studies\n5. Create a structured research note\n</think>\n\n' + json.dumps([
+                 {"agent": "safari", "tool": "searchpapers", "arguments": {"query": "large language model training carbon footprint energy consumption", "yearMin": 2023}},
+                 {"agent": "safari", "tool": "search_web", "arguments": {"query": "LLM training environmental impact data center energy 2024"}},
+                 {"agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}},
+                 {"agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Training GPT-4 scale models produces 300-500 tonnes CO2.", "sourceUrl": "https://arxiv.org/abs/2311.energy", "sourceTitle": "LLM Energy Survey"}},
+                 {"agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://arxiv.org/abs/2311.energy", "sourceType": "arxiv"}},
+                 {"agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Environmental impacts of LLM training", "findings": "Training frontier models produces 300-500 tonnes CO2 equivalent.", "evidence": ["GPT-4 class: 300-500t CO2", "Inference dominates lifecycle emissions"], "citations": ["LLM Energy Survey. https://arxiv.org/abs/2311.energy"]}},
+             ])),
+        rmsg("research: effectiveness of retrieval augmented generation vs fine-tuning for domain knowledge",
+             '<think>\nComparing RAG vs fine-tuning. I need:\n1. Academic papers comparing both approaches\n2. Industry benchmarks\n3. Check for contradictions in reported accuracy\n4. Synthesize findings\n</think>\n\n' + json.dumps([
+                 {"agent": "safari", "tool": "searchpapers", "arguments": {"query": "retrieval augmented generation vs fine-tuning domain knowledge comparison", "yearMin": 2023}},
+                 {"agent": "safari", "tool": "search_web", "arguments": {"query": "RAG vs fine-tuning benchmark accuracy comparison 2024"}},
+                 {"agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}},
+                 {"agent": "notes", "tool": "collectsnippet", "arguments": {"text": "RAG achieves 85% accuracy on domain QA with zero training cost. Fine-tuning reaches 92% but requires curated data.", "sourceUrl": "https://arxiv.org/abs/2402.rag-ft", "sourceTitle": "RAG vs FT Benchmark"}},
+                 {"agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://arxiv.org/abs/2402.rag-ft"}},
+                 {"agent": "notes", "tool": "createresearchnote", "arguments": {"question": "RAG vs fine-tuning for domain knowledge", "findings": "RAG is cost-effective (85% accuracy, zero training). Fine-tuning reaches 92% but needs curated data. Hybrid approaches are emerging.", "evidence": ["RAG: 85% accuracy, zero train cost", "Fine-tune: 92% accuracy, high data cost"]}},
+             ])),
+        rmsg("Score this source: https://www.nature.com/articles/s41586-024-07930",
+             '<think>\nThe URL contains nature.com which is a peer-reviewed journal. Tier: peer_reviewed, confidence: 0.85.\n</think>\n\n' + json.dumps({"agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://www.nature.com/articles/s41586-024-07930", "sourceType": "peer_reviewed"}})),
+        rmsg("Score this source: https://dev.to/user/my-llm-experiments",
+             '<think>\ndev.to is a developer blogging platform. Tier: blog, confidence: 0.30.\n</think>\n\n' + json.dumps({"agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://dev.to/user/my-llm-experiments", "sourceType": "blog"}})),
+        rmsg("Check if these contradict: 'Global temperatures rose 1.5C since pre-industrial' vs 'Climate models overestimate warming by 40%'",
+             '<think>\nThese are potentially contradictory. The first states warming happened, the second claims models overestimate. If models overestimate, actual warming might be less. Let me run the contradiction check.\n</think>\n\n' + json.dumps({"agent": "notes", "tool": "analyzecontradiction", "arguments": {"snippetA": "Global temperatures rose 1.5C since pre-industrial", "snippetB": "Climate models overestimate warming by 40%"}})),
+        rmsg("Extract the text from the current Safari tab, max 2000 characters",
+             '<think>\nUser wants page text with a 2000 char limit. Using readpagecontent tool.\n</think>\n\n' + json.dumps({"agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 2000}})),
+        rmsg("Search Semantic Scholar for papers on federated learning privacy guarantees published since 2024",
+             '<think>\nAcademic search with year filter. Using searchpapers tool with yearMin.\n</think>\n\n' + json.dumps({"agent": "safari", "tool": "searchpapers", "arguments": {"query": "federated learning privacy guarantees differential privacy", "yearMin": 2024, "limit": 5}})),
+        rmsg("Save this snippet to my research session: 'Transformers process all tokens in parallel, achieving O(1) depth but O(n^2) computation' from https://arxiv.org/abs/attention-survey",
+             '<think>\nCollecting a research snippet. Need text and sourceUrl.\n</think>\n\n' + json.dumps({"agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Transformers process all tokens in parallel, achieving O(1) depth but O(n^2) computation", "sourceUrl": "https://arxiv.org/abs/attention-survey", "sourceTitle": "Attention Survey"}})),
+        rmsg("Save citation: 'Scaling Laws for Neural Language Models' by Kaplan et al., 2020, https://arxiv.org/abs/2001.08361",
+             '<think>\nFormal citation save with all metadata.\n</think>\n\n' + json.dumps({"agent": "notes", "tool": "savecitation", "arguments": {"title": "Scaling Laws for Neural Language Models", "authors": "Kaplan et al.", "url": "https://arxiv.org/abs/2001.08361", "date": "2020"}})),
+        rmsg("Create a research note about quantum error correction",
+             '<think>\nCreating a structured research note. Need question and findings at minimum.\n</think>\n\n' + json.dumps({"agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Quantum error correction: current state and challenges", "findings": "Surface codes are the leading approach. Logical error rates below physical threshold achieved in 2024. Hardware requirements: ~1000 physical qubits per logical qubit.", "evidence": ["Surface codes: leading approach", "Logical < physical threshold achieved 2024", "~1000:1 physical:logical qubit ratio"], "citations": ["Google Quantum AI (2024). Below threshold. https://doi.org/quantum-2024"]}})),
+        rmsg("investigate whether microplastics affect human fertility",
+             '<think>\nResearch task about health effects. Decomposing:\n1. Search for peer-reviewed studies on microplastics and fertility\n2. Check for contradictions between animal and human studies\n3. Score evidence quality\n4. Synthesize\n</think>\n\n' + json.dumps([
+                 {"agent": "safari", "tool": "searchpapers", "arguments": {"query": "microplastics human fertility reproductive health", "yearMin": 2023}},
+                 {"agent": "safari", "tool": "search_web", "arguments": {"query": "microplastics fertility human studies evidence 2024"}},
+                 {"agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}},
+                 {"agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Microplastics detected in human placenta and testes. Animal studies show reduced sperm count at high doses.", "sourceUrl": "https://doi.org/10.1016/j.envint.2024", "sourceTitle": "Microplastics Reproductive Review"}},
+                 {"agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://doi.org/10.1016/j.envint.2024", "sourceType": "peer_reviewed"}},
+                 {"agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Do microplastics affect human fertility?", "findings": "Microplastics found in human reproductive organs. Animal studies suggest dose-dependent fertility effects. Human epidemiological evidence is still emerging.", "evidence": ["Detected in human placenta and testes", "Animal studies: reduced sperm at high doses", "Human epidemiological data limited"]}},
+             ])),
+        rmsg("find evidence for the claim that code review catches more bugs than testing",
+             '<think>\nResearch task comparing code review vs testing effectiveness. Need academic studies.\n</think>\n\n' + json.dumps([
+                 {"agent": "safari", "tool": "searchpapers", "arguments": {"query": "code review vs testing bug detection effectiveness software engineering"}},
+                 {"agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}},
+                 {"agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Code review detects 60-65% of defects vs 30-35% for unit testing alone (Capers Jones meta-analysis).", "sourceUrl": "https://doi.org/software-defects-2023", "sourceTitle": "Defect Detection Meta-Analysis"}},
+                 {"agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://doi.org/software-defects-2023", "sourceType": "peer_reviewed"}},
+                 {"agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Does code review catch more bugs than testing?", "findings": "Meta-analyses consistently show code review catches 60-65% of defects vs 30-35% for unit testing. Combined approaches catch 80%+.", "evidence": ["Code review: 60-65% defect detection", "Unit testing: 30-35% defect detection", "Combined: 80%+ detection"]}},
+             ])),
+    ]
+
+
 # ─── WRITE OUTPUT ───────────────────────────────────────────────
 
 def write_jsonl(examples, output_dir, filename, category, layer):
@@ -400,6 +467,9 @@ def main():
     total += n; all_new.extend(ex)
 
     n, ex = write_jsonl(more_reasoning_chains(), args.output, "08_reasoning_chains_extra.jsonl", "reasoning_chain", 8)
+    total += n; all_new.extend(ex)
+
+    n, ex = write_jsonl(research_workflows(), args.output, "16_research_workflows.jsonl", "research", 16)
     total += n; all_new.extend(ex)
 
     # Rebuild train.jsonl and eval.jsonl from ALL layer files

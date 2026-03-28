@@ -250,6 +250,76 @@ enum LocalModelCatalog {
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
             ]
         ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.smolLM3_3B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.smolLM3_3B4Bit.displayName,
+            familyName: LocalTextModelID.smolLM3_3B4Bit.familyName,
+            summary: "Compact fallback for smaller Macs and secondary devices. Good when you want a lightweight non-Qwen local tier.",
+            approximateDownloadBytes: 1_747_380_812,
+            minimumRecommendedMemoryGB: LocalTextModelID.smolLM3_3B4Bit.minimumRecommendedMemoryGB,
+            revision: "d3a7e0594d6642dbcfb7d149bed8b0bdf49f95ce",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.devstralSmall2505_4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.devstralSmall2505_4Bit.displayName,
+            familyName: LocalTextModelID.devstralSmall2505_4Bit.familyName,
+            summary: "Mid-size coding-oriented local tier for Macs with more headroom. Best for heavier edit and tool-heavy workflows.",
+            approximateDownloadBytes: 13_277_563_657,
+            minimumRecommendedMemoryGB: LocalTextModelID.devstralSmall2505_4Bit.minimumRecommendedMemoryGB,
+            revision: "91ab74727385430dac575c8b0a27235367870cb6",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.mistralSmall31_24B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.mistralSmall31_24B4Bit.displayName,
+            familyName: LocalTextModelID.mistralSmall31_24B4Bit.familyName,
+            summary: "Large general-purpose Mistral tier with a roomy local context window for high-memory Macs.",
+            approximateDownloadBytes: 14_119_058_051,
+            minimumRecommendedMemoryGB: LocalTextModelID.mistralSmall31_24B4Bit.minimumRecommendedMemoryGB,
+            revision: "46135ef3c556bfed61013d8789bd26af02e416c4",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.gemma3_27BQAT4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.gemma3_27BQAT4Bit.displayName,
+            familyName: LocalTextModelID.gemma3_27BQAT4Bit.familyName,
+            summary: "High-capacity Gemma tier for larger Macs that want a strong non-Qwen local model without leaving the MLX path.",
+            approximateDownloadBytes: 16_873_390_675,
+            minimumRecommendedMemoryGB: LocalTextModelID.gemma3_27BQAT4Bit.minimumRecommendedMemoryGB,
+            revision: "fc4e000f32af1b7b6779294e490a7d2a80bac611",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.llama4Scout17B16E4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.llama4Scout17B16E4Bit.displayName,
+            familyName: LocalTextModelID.llama4Scout17B16E4Bit.familyName,
+            summary: "Very large MoE local tier for Mac Studio and high-memory MacBook Pro configurations only.",
+            approximateDownloadBytes: 60_649_882_470,
+            minimumRecommendedMemoryGB: LocalTextModelID.llama4Scout17B16E4Bit.minimumRecommendedMemoryGB,
+            revision: "d7ee1ac4f3820a99409d987e38cc63349454dfbe",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
     ]
 
     nonisolated static var allDescriptors: [LocalModelDescriptor] {
@@ -987,7 +1057,7 @@ final class LocalModelManager {
         guard inference.effectiveLocalTextModelID == nil else { return }
         guard let modelID = LocalModelCatalog.textDescriptors
             .map(\.id)
-            .first(where: { installRecords[$0] != nil && inference.hardwareCapabilitySnapshot.supports(textModelID: $0) }) else {
+            .last(where: { installRecords[$0] != nil && inference.hardwareCapabilitySnapshot.supports(textModelID: $0) }) else {
             return
         }
         inference.setPreferredLocalTextModelID(modelID)

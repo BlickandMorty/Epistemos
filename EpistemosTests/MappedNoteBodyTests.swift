@@ -93,4 +93,18 @@ struct MappedNoteBodyTests {
         let mapped = try MappedNoteBody(url: url)
         #expect(mapped.toString().isEmpty)
     }
+
+    @Test("toString decodes UTF-16 text bodies")
+    func toStringDecodesUtf16() throws {
+        let content = "Kimi line\ncafé 🚀"
+        let url = tempURL()
+        guard let data = content.data(using: .utf16) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding)
+        }
+        try data.write(to: url, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let mapped = try MappedNoteBody(url: url)
+        #expect(mapped.toString() == content)
+    }
 }

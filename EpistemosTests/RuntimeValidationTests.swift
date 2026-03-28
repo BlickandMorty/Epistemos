@@ -97,6 +97,121 @@ struct RuntimeValidationTests {
         #expect(AppBootstrap.shared === second)
     }
 
+    @MainActor
+    @Test("thinking operating mode sanitizes unsupported chat model selections")
+    func thinkingOperatingModeSanitizesUnsupportedSelections() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+
+            inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue))
+            #expect(inference.supportsThinkingOperatingMode)
+            #expect(inference.sanitizedOperatingMode(.thinking) == .thinking)
+
+            inference.setPreferredChatModelSelection(.appleIntelligence)
+            #expect(!inference.supportsThinkingOperatingMode)
+            #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
+
+            inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
+            #expect(!inference.supportsThinkingOperatingMode)
+            #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
+        }
+    }
+
+    @MainActor
+    @Test("thinking operating mode stays off for local models without verified responsive thinking support")
+    func thinkingOperatingModeStaysOffForUnverifiedThinkingLocalModels() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setInstalledLocalTextModelIDs([
+                LocalTextModelID.qwen35_0_8B4Bit.rawValue,
+                LocalTextModelID.qwen35_2B4Bit.rawValue,
+                LocalTextModelID.qwen35_9B4Bit.rawValue,
+            ])
+
+            inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_0_8B4Bit.rawValue))
+            #expect(!inference.supportsThinkingOperatingMode)
+            #expect(inference.availableOperatingModes == [.fast, .agent])
+
+            inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_2B4Bit.rawValue))
+            #expect(!inference.supportsThinkingOperatingMode)
+            #expect(inference.availableOperatingModes == [.fast, .agent])
+
+            inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_9B4Bit.rawValue))
+            #expect(!inference.supportsThinkingOperatingMode)
+            #expect(inference.availableOperatingModes == [.fast, .agent])
+        }
+    }
+
+    @MainActor
+    @Test("thinking operating mode stays off for installed local models without verified think support")
+    func thinkingOperatingModeStaysOffForInstalledNonThinkingLocalModels() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setInstalledLocalTextModelIDs([LocalTextModelID.smolLM3_3B4Bit.rawValue])
+            inference.setPreferredLocalTextModelID(LocalTextModelID.smolLM3_3B4Bit.rawValue)
+            inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.smolLM3_3B4Bit.rawValue))
+
+            #expect(!inference.supportsThinkingOperatingMode)
+            #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
+        }
+    }
+
+    @MainActor
+    @Test("available operating modes match the active chat selection")
+    func availableOperatingModesMatchTheActiveSelection() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setInstalledLocalTextModelIDs([
+                LocalTextModelID.qwen35_4B4Bit.rawValue,
+                LocalTextModelID.smolLM3_3B4Bit.rawValue,
+            ])
+
+            inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue))
+            #expect(inference.availableOperatingModes == [.fast, .thinking, .agent])
+
+            inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.smolLM3_3B4Bit.rawValue))
+            #expect(inference.availableOperatingModes == [.fast, .agent])
+
+            inference.setPreferredChatModelSelection(.appleIntelligence)
+            #expect(inference.availableOperatingModes == [.fast, .agent])
+
+            inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
+            #expect(inference.availableOperatingModes == [.fast, .agent])
+        }
+    }
+
+    @Test("9B local Qwen stays hidden on 18 GB hardware while 4B remains supported")
+    func hardwareSupportKeeps9BOff18GBMachines() {
+        let snapshot = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 18_000_000_000,
+            roundedMemoryGB: 18,
+            maxRecommendedLocalContentLength: 10_000
+        )
+
+        #expect(snapshot.supports(textModelID: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        #expect(!snapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue))
+    }
+
+    @Test("composer surfaces use tailored operating mode availability")
+    func composerSurfacesUseTailoredOperatingModeAvailability() throws {
+        let chatInputBar = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(chatInputBar.contains("availableModes: inference.availableOperatingModes"))
+        #expect(landing.contains("availableModes: inference.availableOperatingModes"))
+        #expect(miniChat.contains("availableModes: inference.availableOperatingModes"))
+    }
+
+    @Test("installed local fallback prefers the strongest supported model on the current hardware")
+    func installedLocalFallbackPrefersTheStrongestSupportedModel() throws {
+        let manager = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+
+        #expect(manager.contains(".last(where: { installRecords[$0] != nil && inference.hardwareCapabilitySnapshot.supports(textModelID: $0) })"))
+        #expect(!manager.contains(".first(where: { installRecords[$0] != nil && inference.hardwareCapabilitySnapshot.supports(textModelID: $0) })"))
+    }
+
     @Test("bootstrap throttles local model refreshes and the local runtime serializes request turns")
     func bootstrapThrottlesRefreshAndRuntimeSerializesTurns() throws {
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
@@ -190,6 +305,20 @@ struct RuntimeValidationTests {
         #expect(!settings.contains(".task {\n            localModelManager.refreshFromDisk()"))
     }
 
+    @Test("settings and omega surfaces avoid invalid runtime symbols and progress scaling")
+    func settingsAndOmegaSurfacesAvoidInvalidRuntimeSymbolsAndProgressScaling() throws {
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let omega = try loadRepoTextFile("Epistemos/Views/Omega/OmegaPanel.swift")
+
+        #expect(!settings.contains("memorychip.slash"))
+        #expect(settings.contains("exclamationmark.triangle"))
+
+        #expect(omega.contains("ProgressView()"))
+        #expect(omega.contains(".controlSize(.small)"))
+        #expect(omega.contains(".frame(width: 14, height: 14)"))
+        #expect(!omega.contains(".scaleEffect(0.7)"))
+    }
+
     @Test("chat, note, graph, and settings surfaces defer on-appear state mutations off the active view update")
     func statefulSurfacesDeferOnAppearMutations() throws {
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
@@ -220,6 +349,76 @@ struct RuntimeValidationTests {
         #expect(settings.contains("toggleSidebar()"))
         #expect(utilityManager.contains("toolbar.showsBaselineSeparator = false"))
         #expect(utilityManager.contains("panel.toolbarStyle = .unifiedCompact"))
+    }
+
+    @Test("utility panels activate and order front when shown")
+    func utilityPanelsActivateAndOrderFrontWhenShown() throws {
+        let utilityManager = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
+
+        #expect(utilityManager.contains("NSApp.activate(ignoringOtherApps: true)"))
+        #expect(utilityManager.contains("window.orderFrontRegardless()"))
+        #expect(utilityManager.contains("window.makeKeyAndOrderFront(nil)"))
+    }
+
+    @Test("omega settings training copy stays experimental and trace-focused")
+    func omegaSettingsTrainingCopyStaysExperimentalAndTraceFocused() throws {
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/OmegaSettingsDetailView.swift")
+
+        #expect(settings.contains("Overnight adapter training (Experimental)"))
+        #expect(settings.contains("Embodied data capture (Experimental)"))
+        #expect(settings.contains("experimental trace collection"))
+        #expect(!settings.contains("Generates embodied training data for your trained adapter."))
+    }
+
+    @Test("omega surfaces expose explicit automation permission and Apple Events intent")
+    func omegaSurfacesExposeAutomationPermission() throws {
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/OmegaSettingsDetailView.swift")
+        let panel = try loadRepoTextFile("Epistemos/Views/Omega/OmegaPanel.swift")
+        let permissions = try loadRepoTextFile("Epistemos/Omega/OmegaPermissions.swift")
+        let infoPlist = try loadRepoTextFile("Epistemos-Info.plist")
+
+        #expect(settings.contains("Text(\"Automation\")"))
+        #expect(settings.contains("permissions.automationGranted"))
+        #expect(settings.contains("permissions.requestAutomationAccess()"))
+        #expect(settings.contains("openAutomationSettings()"))
+
+        #expect(panel.contains("name: \"Automation\""))
+        #expect(panel.contains("Apple Events control of System Events for desktop automation"))
+        #expect(panel.contains("Safari browser automation may ask separately"))
+        #expect(panel.contains("permissions.requestAutomationAccess()"))
+
+        #expect(permissions.contains("func requestAutomationAccess() async"))
+        #expect(permissions.contains("func automationPermissionState(promptIfNeeded: Bool) async -> Bool"))
+        #expect(permissions.contains("ensureAutomationTargetIsRunning()"))
+        #expect(permissions.contains("com.apple.systemevents"))
+
+        #expect(infoPlist.contains("NSAppleEventsUsageDescription"))
+    }
+
+    @Test("advanced settings surfaces explain what the feature actually does")
+    func advancedSettingsSurfacesExplainWhatTheFeatureActuallyDoes() throws {
+        let omega = try loadRepoTextFile("Epistemos/Views/Settings/OmegaSettingsDetailView.swift")
+        let cognitive = try loadRepoTextFile("Epistemos/Views/Settings/CognitiveSettingsSection.swift")
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(omega.contains("Omega is the app's tool-using layer"))
+        #expect(omega.contains("It does not run hidden background research by itself"))
+        #expect(cognitive.contains("Stores compact activity artifacts"))
+        #expect(cognitive.contains("No keystroke logging"))
+        #expect(settings.contains("Routing decides which model path handles each request"))
+        #expect(settings.contains("Your vault is the on-disk markdown workspace"))
+    }
+
+    @Test("knowledge fusion copy explains adapters without claiming a new base model")
+    func knowledgeFusionCopyExplainsAdaptersWithoutClaimingANewBaseModel() throws {
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let trainOnVault = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/TrainOnVaultView.swift")
+        let feedback = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/FeedbackIndicatorView.swift")
+
+        #expect(settings.contains("Knowledge Fusion trains adapters on top of your local model"))
+        #expect(settings.contains("It does not replace the base model"))
+        #expect(trainOnVault.contains("This is personalization for your installed local model"))
+        #expect(feedback.contains("Accepts and rejects are lightweight preference signals"))
     }
 
     @Test("note editor still suppresses binding sync churn during AI token flushes")
@@ -733,6 +932,82 @@ struct RuntimeValidationTests {
         #expect(!pipeline.contains("finalVisibleAnswer.count >= 10"))
         #expect(triage.contains("if prefersDedicatedLocalChatRouting("))
         #expect(triage.contains("case .mainChat, .miniChat:"))
+    }
+
+    @Test("chat surfaces expose operating mode selection and route agent mode through Omega")
+    func chatSurfacesExposeOperatingModeSelectionAndRouteAgentModeThroughOmega() throws {
+        let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
+
+        #expect(inference.contains("enum EpistemosOperatingMode"))
+        #expect(chatInput.contains("OperatingModeSelectorView("))
+        #expect(landing.contains("OperatingModeSelectorView("))
+        #expect(miniChat.contains("OperatingModeSelectorView("))
+        #expect(chatState.contains("enum MainChatSubmissionRouter"))
+        #expect(chatState.contains("case .agent"))
+        #expect(miniChat.contains("case .agent"))
+        #expect(chatView.contains("MainChatSubmissionRouter.submit("))
+        #expect(landing.contains("MainChatSubmissionRouter.submit("))
+        #expect(chatState.contains("ResearchComplexityGate.handoffMessage("))
+        #expect(chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
+        #expect(miniChat.contains("await orchestrator.submitTask(trimmed)"))
+        #expect(pipeline.contains("localReasoningMode: LocalReasoningMode = .fast"))
+        #expect(pipeline.contains("localReasoningMode: localReasoningMode"))
+    }
+
+    @Test("compact chat surfaces keep operating mode controls reachable with a horizontal control strip")
+    func compactChatSurfacesKeepModeControlsReachable() throws {
+        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(chatInput.contains("ComposerControlStrip"))
+        #expect(landing.contains("ComposerControlStrip"))
+        #expect(miniChat.contains("ComposerControlStrip"))
+        #expect(chatInput.contains("ScrollViewReader"))
+        #expect(chatInput.contains("composer-control-strip-leading"))
+        #expect(chatInput.contains("resetScrollPosition(using: proxy)"))
+        #expect(chatInput.contains(".onChange(of: resetKey)"))
+        #expect(chatInput.contains("ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey)"))
+        #expect(landing.contains("resetKey: composerControlResetKey"))
+        #expect(miniChat.contains("ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey)"))
+
+        if let chatModeRange = chatInput.range(of: "OperatingModeSelectorView("),
+           let chatShortcutRange = chatInput.range(of: "ComposerContextShortcutBar(") {
+            #expect(chatModeRange.lowerBound < chatShortcutRange.lowerBound)
+        } else {
+            Issue.record("Chat input should contain both operating mode and context shortcut controls")
+        }
+
+        if let landingModeRange = landing.range(of: "OperatingModeSelectorView("),
+           let landingShortcutRange = landing.range(of: "ComposerContextShortcutBar(") {
+            #expect(landingModeRange.lowerBound < landingShortcutRange.lowerBound)
+        } else {
+            Issue.record("Landing should contain both operating mode and context shortcut controls")
+        }
+
+        if let miniModeRange = miniChat.range(of: "OperatingModeSelectorView("),
+           let miniShortcutRange = miniChat.range(of: "ComposerContextShortcutBar(") {
+            #expect(miniModeRange.lowerBound < miniShortcutRange.lowerBound)
+        } else {
+            Issue.record("Mini chat should contain both operating mode and context shortcut controls")
+        }
+    }
+
+    @Test("main chat transcript resubmits reuse sanitized operating mode state")
+    func mainChatTranscriptResubmitsReuseSanitizedOperatingModeState() throws {
+        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
+
+        #expect(chatView.contains("inference.sanitizedOperatingMode("))
+        #expect(chatView.contains(".onAppear {"))
+        #expect(chatView.contains("sanitizeStoredOperatingMode()"))
+        #expect(chatView.contains(".onChange(of: inference.supportsThinkingOperatingMode)"))
+        #expect(chatView.contains("private func sanitizeStoredOperatingMode()"))
     }
 
     @Test("apple fallback preserves the available response when local qwen is unavailable")

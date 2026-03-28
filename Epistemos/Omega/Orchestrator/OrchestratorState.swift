@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftData
 
@@ -31,8 +32,18 @@ final class OrchestratorState {
     // MARK: - Logging bridge
     private(set) weak var mcpBridge: MCPBridge?
 
+    // MARK: - Research orchestration (Ω18.5)
+    let researchOrchestrator = ResearchOrchestrator()
+
+    // MARK: - Training coordination
+    private let trainingCoordinator = OmegaTrainingCoordinator()
+
     // MARK: - Graph memory (Ω14)
     weak var agentGraphMemory: AgentGraphMemory?
+
+    // MARK: - Embodied data capture
+    private let embodiedCapture = EmbodiedCaptureService()
+    private var pendingTrajectorySteps: [EmbodiedTrajectoryStep] = []
 
     // MARK: - Setup
 
@@ -51,7 +62,7 @@ final class OrchestratorState {
         self.agentGraphMemory = agentGraphMemory
 
         let fileAgent = FileAgent(vaultURL: vaultURL)
-        let notesAgent = NotesAgent(modelContainer: modelContainer, vaultSync: vaultSync)
+        let notesAgent = NotesAgent(modelContainer: modelContainer, vaultSync: vaultSync, triageService: triageService)
         let terminalAgent = TerminalAgent()
         let safariAgent = SafariAgent()
         let automationAgent = AutomationAgent()
@@ -86,6 +97,9 @@ final class OrchestratorState {
         isPlanning = true
         planningError = nil
         executionLog.removeAll()
+
+        // Notify research orchestrator (tracks whether this is a research task)
+        researchOrchestrator.beginTask(description)
 
         // Generate plan via LLM or Rust heuristic fallback
         var steps: [AgentStep] = []
@@ -132,7 +146,11 @@ final class OrchestratorState {
             let ready = taskGraph.readySteps()
             if ready.isEmpty { break }
 
+            var escalated = false
             for step in ready {
+                // If escalation just injected new steps and re-wired dependencies,
+                // break out so the while loop re-evaluates readySteps().
+                if escalated { break }
                 // Check confirmation gate
                 let decision = confirmationGate.evaluate(step: step)
                 switch decision {
@@ -167,14 +185,66 @@ final class OrchestratorState {
                 let maxRetries = storedMaxRetries > 0 ? storedMaxRetries : 3
                 let baseDelayMs: UInt64 = 200
 
+                // Capture pre-action AX snapshot for embodied training data.
+                // Resolve the target app's PID so we capture the correct AX tree
+                // (e.g. Safari's tree when SafariAgent is executing, not Epistemos's).
+                let captureEnabled = UserDefaults.standard.bool(forKey: "omega.embodiedCapture")
+                let targetPID = resolveTargetPID(for: step.assignedAgent)
+                let preCaptureSnapshot: EmbodiedSnapshot? = captureEnabled
+                    ? await embodiedCapture.captureSnapshot(
+                        pid: Int64(targetPID),
+                        label: "pre_\(step.toolName)")
+                    : nil
+
                 for attempt in 0..<maxRetries {
                     do {
                         let result = try await agent.execute(step: enrichedStep)
 
                         if result.success {
+                            // Capture post-action AX snapshot (150ms settle per training guide)
+                            if let preSnap = preCaptureSnapshot {
+                                try? await Task.sleep(for: .milliseconds(150))
+                                let postSnap = await embodiedCapture.captureSnapshot(
+                                    pid: Int64(targetPID),
+                                    label: "post_\(step.toolName)")
+                                let action = EmbodiedAction(
+                                    toolName: step.toolName,
+                                    argumentsJson: step.argumentsJson,
+                                    agentName: step.assignedAgent
+                                )
+                                let trajectoryStep = embodiedCapture.buildTrajectoryStep(
+                                    instruction: currentTaskDescription,
+                                    reasoning: "<think>Selected \(step.assignedAgent) agent. Using \(step.toolName) to \(step.description). Confidence: \(result.confidence).</think>",
+                                    action: action,
+                                    preSnapshot: preSnap,
+                                    postSnapshot: postSnap
+                                )
+                                pendingTrajectorySteps.append(trajectoryStep)
+                            }
+
                             recordAndLog(result, step: step)
-                            if result.confidence < 0.8 {
-                                _ = await researchPause.requestResearch(
+
+                            // Update research confidence tracking
+                            researchOrchestrator.processResult(
+                                toolName: step.toolName,
+                                resultJson: result.outputJson
+                            )
+
+                            // Check for research-specific pause or generic low confidence
+                            if let questions = researchOrchestrator.evaluatePauseNeeded() {
+                                let userResponse = await researchPause.requestResearch(
+                                    questions: questions,
+                                    context: step.description
+                                )
+                                // If user wants deeper search and escalation budget remains,
+                                // generate additional search steps and inject them into the
+                                // live TaskGraph before the final createresearchnote step.
+                                if !userResponse.isEmpty && researchOrchestrator.shouldEscalate() {
+                                    await escalateResearch(userGuidance: userResponse)
+                                    escalated = true
+                                }
+                            } else if result.confidence < 0.8 {
+                                let _ = await researchPause.requestResearch(
                                     questions: ["Agent reported low confidence (\(result.confidence)). Continue?"],
                                     context: step.description
                                 )
@@ -206,6 +276,30 @@ final class OrchestratorState {
             taskDescription: currentTaskDescription,
             steps: executionLog
         )
+
+        // Generate ODIA training traces and feed to TrainingScheduler for nightly training.
+        // Research tasks get taskType "research" for 2x weighting.
+        let taskType = researchOrchestrator.isResearchTask ? "research" : "general"
+        let traces = trainingCoordinator.generateTrainingData(
+            from: executionLog,
+            taskDescription: currentTaskDescription,
+            steps: taskGraph.steps,
+            taskType: taskType
+        )
+        if !traces.isEmpty {
+            KnowledgeFusionViewModel.shared.ingestODIATraces(traces)
+        }
+
+        // Persist embodied trajectory if any steps were captured.
+        if !pendingTrajectorySteps.isEmpty {
+            let trajectory = embodiedCapture.buildTrajectory(
+                taskDescription: currentTaskDescription,
+                steps: pendingTrajectorySteps,
+                taskType: taskType
+            )
+            try? embodiedCapture.persistTrajectory(trajectory)
+            pendingTrajectorySteps.removeAll()
+        }
     }
 
     /// Record a step result in the task graph, execution log, and SQLite via MCPBridge.
@@ -219,6 +313,51 @@ final class OrchestratorState {
             durationMs: result.durationMs,
             success: result.success
         )
+    }
+
+    // MARK: - Research Depth Escalation
+
+    /// Generate additional search steps via the planner and inject them into the
+    /// live TaskGraph. Called when research confidence is low and the user requests
+    /// deeper investigation. Steps are inserted before any pending createresearchnote.
+    private func escalateResearch(userGuidance: String) async {
+        let escalationPrompt = "research: \(currentTaskDescription) — additional search requested by user: \(userGuidance)"
+
+        // Generate escalation steps via LLM planner
+        var newSteps: [AgentStep] = []
+        if let planner = planningService {
+            newSteps = await planner.generatePlan(for: escalationPrompt)
+        }
+        if newSteps.isEmpty {
+            newSteps = rustHeuristicPlan(for: escalationPrompt)
+        }
+
+        // Filter out createresearchnote from escalation (we already have a final one)
+        // and only keep search/read/collect/score/citation steps
+        let researchToolNames: Set<String> = [
+            "search_web", "readpagecontent", "searchpapers",
+            "collectsnippet", "savecitation", "scoreevidence", "analyzecontradiction"
+        ]
+        let filtered = newSteps.filter { researchToolNames.contains($0.toolName) }
+
+        guard !filtered.isEmpty else { return }
+
+        // Inject the new steps into the live TaskGraph.
+        let newStepIds = filtered.map(\.id)
+        for step in filtered {
+            taskGraph.addStep(step)
+        }
+
+        // Gate any not-yet-executed createresearchnote step on the new steps.
+        // Without this, a createresearchnote step that was already "ready" in the
+        // current batch would execute before the escalation steps complete.
+        let completedIds = Set(taskGraph.results.keys)
+        for i in taskGraph.steps.indices {
+            if taskGraph.steps[i].toolName == "createresearchnote"
+                && !completedIds.contains(taskGraph.steps[i].id) {
+                taskGraph.steps[i].dependsOn.append(contentsOf: newStepIds)
+            }
+        }
     }
 
     /// Enrich a step's arguments with outputs from its completed dependencies.
@@ -271,6 +410,7 @@ final class OrchestratorState {
         isExecuting = false
         isPlanning = false
         taskGraph.status = .failed
+        pendingTrajectorySteps.removeAll()
     }
 
     /// Retry the last task from scratch.
@@ -300,6 +440,29 @@ final class OrchestratorState {
         planningMethod = ""
         executionLog.removeAll()
         taskGraph.reset()
+        pendingTrajectorySteps.removeAll()
+    }
+
+    // MARK: - Target PID Resolution
+
+    /// Map agent names to the bundle identifier of the app they control.
+    private static let agentBundleIDs: [String: String] = [
+        "safari": "com.apple.Safari",
+        "terminal": "com.apple.Terminal",
+        "file": "com.apple.finder",
+    ]
+
+    /// Resolve the PID of the app targeted by the given agent.
+    /// Falls back to Epistemos's own PID when the target app isn't running
+    /// or the agent operates within Epistemos itself (e.g. notes, automation).
+    private func resolveTargetPID(for agentName: String) -> pid_t {
+        let selfPID = ProcessInfo.processInfo.processIdentifier
+        guard let bundleID = Self.agentBundleIDs[agentName.lowercased()] else {
+            return selfPID
+        }
+        return NSWorkspace.shared.runningApplications
+            .first { $0.bundleIdentifier == bundleID }?
+            .processIdentifier ?? selfPID
     }
 
     // MARK: - Rust-Side Heuristic Planning

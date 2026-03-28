@@ -45,6 +45,6 @@ struct MappedNoteBody: ~Copyable {
 
     /// Consume the mapped data and produce a String. Allocates once.
     consuming func toString() -> String {
-        String(data: data, encoding: .utf8) ?? ""
+        FoundationSafety.decodedText(from: data) ?? ""
     }
 }

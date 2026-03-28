@@ -29,6 +29,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var noteChatState: NoteChatState?
     var onPageFlush: ((String, String) -> Void)?
     var graphState: GraphState?
+    var outlineFoldMode: OutlineFoldMode = .auto
 
     static let maxReadableWidth: CGFloat = 720
     static let minHorizontalInset: CGFloat = 60
@@ -76,8 +77,12 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastTheme = theme
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
+        coord.lastOutlineFoldMode = outlineFoldMode
         // Wire AI chat callbacks
         coord.wireNoteChatCallbacks()
+
+        // Apply outline fold mode to initial content
+        coord.applyOutlineFoldMode(outlineFoldMode)
 
         // Wire page ID + interaction closures
         tv.pageId = pageId
@@ -227,6 +232,7 @@ extension ProseEditorRepresentable2 {
         var lastTheme: EpistemosTheme = .nativeDefault
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
+        var lastOutlineFoldMode: OutlineFoldMode = .auto
         var lastAvailableWidth: CGFloat = 0
         let scrollOverlayRefreshCoalescer = ScrollWorkCoalescer(
             delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
@@ -310,6 +316,12 @@ extension ProseEditorRepresentable2 {
             if parent.isEditable != lastIsEditable {
                 lastIsEditable = parent.isEditable
                 tv.isEditable = parent.isEditable
+            }
+
+            // Outline fold mode changed
+            if parent.outlineFoldMode != lastOutlineFoldMode {
+                lastOutlineFoldMode = parent.outlineFoldMode
+                applyOutlineFoldMode(parent.outlineFoldMode)
             }
 
             if parent.isFocused != lastIsFocused {
@@ -452,8 +464,12 @@ extension ProseEditorRepresentable2 {
             lastTheme = parent.theme
             lastIsFocusMode = parent.isFocusMode
             lastIsEditable = parent.isEditable
+            lastOutlineFoldMode = parent.outlineFoldMode
             tv.isEditable = parent.isEditable
             updateCentering()
+
+            // 9. Apply outline fold mode to new page
+            applyOutlineFoldMode(parent.outlineFoldMode)
             renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
             renderedTableOverlayManager?.refreshAfterTextChange()
             focusEditorIfNeeded()
@@ -1125,6 +1141,23 @@ extension ProseEditorRepresentable2 {
             }
             markdown_clear_all_folds()
             tv.markdownDelegate.recomputeHiddenLines(documentText: tv.string)
+            forceContentReEnumeration(tv)
+        }
+
+        func applyOutlineFoldMode(_ mode: OutlineFoldMode) {
+            guard let tv = textView else { return }
+            let delegate = tv.markdownDelegate
+            let headingCount = delegate.headingCount
+
+            let shouldFold = mode.shouldCollapse(headingCount: headingCount)
+
+            // Set fold state on all heading lines
+            for i in 0..<delegate.lineCount {
+                guard delegate.isHeading(at: i) else { continue }
+                markdown_set_fold(UInt32(i), shouldFold)
+            }
+
+            delegate.recomputeHiddenLines(documentText: tv.string)
             forceContentReEnumeration(tv)
         }
 

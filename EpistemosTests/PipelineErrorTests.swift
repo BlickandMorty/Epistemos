@@ -9,7 +9,8 @@ struct PipelineErrorTests {
         let err = Epistemos.PipelineError.noLLMService
         #expect(err.errorDescription != nil)
         #expect(err.errorDescription!.contains("local"))
-        #expect(err.errorDescription!.contains("Qwen"))
+        #expect(err.errorDescription!.contains("Qwen") == false)
+        #expect(err.errorDescription!.contains("install or select one"))
     }
 
     @Test("analysisFailure includes the message")

@@ -101,7 +101,10 @@ final class ChatState {
     /// but sending excessively long input wastes tokens and can hit local context limits.
     private static let maxQueryLength = 50_000
 
-    func submitQuery(_ query: String) {
+    func submitQuery(
+        _ query: String,
+        operatingMode: EpistemosOperatingMode = .fast
+    ) {
         // Guard against excessively long input — truncate silently rather than crash.
         let safeQuery = query.count > Self.maxQueryLength
             ? String(query.prefix(Self.maxQueryLength))
@@ -132,7 +135,45 @@ final class ChatState {
         streamingText = ""
         isStreaming = false
 
-        eventBus?.emit(.querySubmitted(chatId: ChatId(chatId), query: safeQuery))
+        eventBus?.emit(
+            .querySubmitted(
+                chatId: ChatId(chatId),
+                query: safeQuery,
+                operatingMode: operatingMode
+            )
+        )
+    }
+
+    func appendLocalMessage(
+        role: MessageRole,
+        content: String,
+        isError: Bool = false,
+        loadedNoteTitles: [String]? = nil,
+        contextAttachments: [ContextAttachment]? = nil
+    ) {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        showLanding = false
+
+        let chatId = activeChatId ?? {
+            let id = UUID().uuidString
+            activeChatId = id
+            return id
+        }()
+
+        messages.append(
+            ChatMessage(
+                chatId: chatId,
+                role: role,
+                content: trimmed,
+                isError: isError,
+                loadedNoteTitles: loadedNoteTitles,
+                contextAttachments: contextAttachments
+            )
+        )
+        markTranscriptChanged()
+        hasMessages = true
     }
 
     func completeProcessing(
@@ -304,6 +345,66 @@ final class ChatState {
             restoredTitles.append(attachment.title)
         }
         loadedNoteTitles = restoredTitles
+    }
+}
+
+@MainActor
+enum MainChatSubmissionRouter {
+    static func submit(
+        _ query: String,
+        operatingMode: EpistemosOperatingMode,
+        chat: ChatState,
+        orchestrator: OrchestratorState,
+        showOmegaPanel: () -> Void = { UtilityWindowManager.shared.show(.omega) }
+    ) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let contextAttachments = chat.pendingContextAttachments.isEmpty
+            ? nil
+            : chat.pendingContextAttachments
+
+        let shouldRouteResearch =
+            ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)
+            || ResearchComplexityGate.requiresResearch(trimmed)
+
+        if shouldRouteResearch {
+            let cleaned = ResearchComplexityGate.stripPrefix(trimmed)
+            chat.appendLocalMessage(
+                role: .user,
+                content: trimmed,
+                contextAttachments: contextAttachments
+            )
+            chat.appendLocalMessage(
+                role: .assistant,
+                content: ResearchComplexityGate.handoffMessage(for: trimmed)
+            )
+            guard !cleaned.isEmpty else { return }
+            showOmegaPanel()
+            Task {
+                await orchestrator.submitTask("research: \(cleaned)")
+            }
+            return
+        }
+
+        switch operatingMode {
+        case .agent:
+            chat.appendLocalMessage(
+                role: .user,
+                content: trimmed,
+                contextAttachments: contextAttachments
+            )
+            if let handoffMessage = operatingMode.handoffMessage {
+                chat.appendLocalMessage(role: .assistant, content: handoffMessage)
+            }
+            showOmegaPanel()
+            Task {
+                await orchestrator.submitTask(trimmed)
+            }
+
+        case .fast, .thinking:
+            chat.submitQuery(trimmed, operatingMode: operatingMode)
+        }
     }
 }
 

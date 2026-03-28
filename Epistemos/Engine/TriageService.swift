@@ -353,9 +353,14 @@ nonisolated struct InferencePolicyEngine {
         contextTier: InferenceContextTier,
         reasonCodes: inout Set<InferenceDecisionReasonCode>
     ) -> (selection: LocalModelSelection?, reuseWarmModel: Bool) {
+        let selectedReasoningMode = reasoningMode(
+            for: profile,
+            complexityTier: complexityTier,
+            contextTier: contextTier
+        )
         let preferred = resolvedPreferredLocalSelection(
             in: context,
-            reasoningMode: .fast
+            reasoningMode: selectedReasoningMode
         )
         if preferred != nil {
             reasonCodes.insert(.preferredLocalModelUsed)
@@ -375,17 +380,13 @@ nonisolated struct InferencePolicyEngine {
         if profile.explicitFastRequested {
             return .fast
         }
-        guard profile.requestedReasoningMode == .thinking,
-              profile.explicitThinkingRequested,
-              contextTier != .tiny else {
-            return .fast
-        }
-        switch complexityTier {
-        case .heavy, .extreme:
+        if profile.requestedReasoningMode == .thinking,
+           profile.explicitThinkingRequested {
             return .thinking
-        case .trivial, .light, .moderate:
-            return .fast
         }
+        _ = complexityTier
+        _ = contextTier
+        return .fast
     }
 
     private func localRouteKind(
@@ -564,9 +565,9 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .modelRequired:
-            "No usable local Qwen model is available. Open Settings and install or select a supported Qwen model."
+            "No usable local model is available. Open Settings and install or select a supported local model."
         case .runtimeUnavailable:
-            "The local Qwen runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
+            "The local model runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
         }
     }
 }
@@ -578,11 +579,11 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
 @MainActor @Observable
 final class TriageService {
     private static let localQwenBaselineSystemPrompt = """
-    You are Epistemos' local Qwen assistant.
+    You are Epistemos' local on-device assistant.
     Answer directly and concisely.
     Do not claim to have browsing, external tool use, research mode, or hidden capabilities you do not actually have.
     Do not claim to be a different model.
-    If asked about your identity, say you are the local Epistemos assistant powered by Qwen.
+    If asked about your identity, say you are the local Epistemos assistant running on-device.
     If the answer is uncertain, say so plainly instead of fabricating confidence.
     """
 

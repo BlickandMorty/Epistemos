@@ -1,10 +1,23 @@
 // UniFFI-exported free functions for Swift interop.
 
-use crate::types::PermissionStatus;
+use crate::types::{AXTreeSnapshot, PermissionStatus};
 use crate::ax_tree;
 use crate::permissions;
 use crate::input;
 use crate::shortcuts;
+
+fn sparse_snapshot(pid: i64) -> AXTreeSnapshot {
+    AXTreeSnapshot {
+        elements: vec![],
+        app_name: String::new(),
+        app_pid: pid,
+        is_sparse: true,
+    }
+}
+
+fn safe_walk_ax_tree(pid: i64) -> AXTreeSnapshot {
+    std::panic::catch_unwind(|| ax_tree::walk_ax_tree(pid)).unwrap_or_else(|_| sparse_snapshot(pid))
+}
 
 /// Check all macOS permissions needed for automation.
 pub fn check_permissions() -> PermissionStatus {
@@ -14,7 +27,7 @@ pub fn check_permissions() -> PermissionStatus {
 /// Walk the accessibility tree for the app with given PID.
 /// Returns a JSON-encoded AXTreeSnapshot.
 pub fn walk_ax_tree_json(pid: i64) -> String {
-    let snapshot = ax_tree::walk_ax_tree(pid);
+    let snapshot = safe_walk_ax_tree(pid);
     serde_json::to_string(&snapshot).unwrap_or_default()
 }
 
@@ -50,7 +63,7 @@ pub fn simulate_key_press(key_code: u16, modifiers: u64) -> String {
 /// title/value/description matches `element_name`, and clicks its center.
 /// Returns JSON with success/error status.
 pub fn click_element_by_name(pid: i64, element_name: String) -> String {
-    let snapshot = ax_tree::walk_ax_tree(pid);
+    let snapshot = safe_walk_ax_tree(pid);
 
     // Search for matching element
     let target = snapshot.elements.iter().find(|el| {

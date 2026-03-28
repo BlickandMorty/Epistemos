@@ -56,6 +56,12 @@
 		1F16F3A097EC8620B4239D9C /* QueryCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA096E37AEA6F5C0EA2C709D /* QueryCompiler.swift */; };
 		1F644742DC0A4B5684CB94F7 /* QLoRATrainingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83D9121DF61449EB19FEE44 /* QLoRATrainingTests.swift */; };
 		1FB696F6645BD4DBA1CE11B8 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D836C7BFBECF11189EF9520 /* AppEnvironment.swift */; };
+		A91F0C1D2E3F4A5B6C7D8E01 /* ResearchOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91F0C1D2E3F4A5B6C7D8E01 /* ResearchOrchestrator.swift */; };
+		A91F0C1D2E3F4A5B6C7D8E02 /* ResearchEvidenceScorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91F0C1D2E3F4A5B6C7D8E02 /* ResearchEvidenceScorer.swift */; };
+		A91F0C1D2E3F4A5B6C7D8E03 /* ResearchComplexityGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91F0C1D2E3F4A5B6C7D8E03 /* ResearchComplexityGate.swift */; };
+		A91F0C1D2E3F4A5B6C7D8E04 /* ResearchConfidenceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91F0C1D2E3F4A5B6C7D8E04 /* ResearchConfidenceState.swift */; };
+		A91F0C1D2E3F4A5B6C7D8E05 /* EmbodiedCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91F0C1D2E3F4A5B6C7D8E05 /* EmbodiedCaptureService.swift */; };
+		A91F0C1D2E3F4A5B6C7D8E06 /* ResearchModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91F0C1D2E3F4A5B6C7D8E06 /* ResearchModeTests.swift */; };
 		20670B398A301015B92217C0 /* TaggedMarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB24375B0C39C436B8F01641 /* TaggedMarkdownTextView.swift */; };
 		2113BC60F2C9BFF0DE09DB15 /* VaultSyncServiceAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A7AFD1880A4D3D23374E42 /* VaultSyncServiceAuditTests.swift */; };
 		214A81E7262ACD9E8C1173A2 /* ChatCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2856F346A23929DE7BABFB /* ChatCoordinator.swift */; };
@@ -529,6 +535,12 @@
 		50604F1EB2DF6F05D43CD51C /* InferenceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceState.swift; sourceTree = "<group>"; };
 		5096E7AC010151F9FDADCADB /* OmegaTrainingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OmegaTrainingCoordinator.swift; path = Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		509A6272DED044EFB3B26ABA /* OmegaPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaPermissions.swift; sourceTree = "<group>"; };
+		B91F0C1D2E3F4A5B6C7D8E01 /* ResearchOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchOrchestrator.swift; sourceTree = "<group>"; };
+		B91F0C1D2E3F4A5B6C7D8E02 /* ResearchEvidenceScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchEvidenceScorer.swift; sourceTree = "<group>"; };
+		B91F0C1D2E3F4A5B6C7D8E03 /* ResearchComplexityGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchComplexityGate.swift; sourceTree = "<group>"; };
+		B91F0C1D2E3F4A5B6C7D8E04 /* ResearchConfidenceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchConfidenceState.swift; sourceTree = "<group>"; };
+		B91F0C1D2E3F4A5B6C7D8E05 /* EmbodiedCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbodiedCaptureService.swift; sourceTree = "<group>"; };
+		B91F0C1D2E3F4A5B6C7D8E06 /* ResearchModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchModeTests.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		5175241C97D791510EE85B37 /* GraphFloatingControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphFloatingControls.swift; sourceTree = "<group>"; };
 		535B5EEE5A4AC1A2D3C80400 /* ScrollStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollStabilityTests.swift; sourceTree = "<group>"; };
@@ -1237,6 +1249,10 @@
 			children = (
 				A4C9E7B3D1F5082A6E3B9D01 /* OmegaExtensions.swift */,
 				509A6272DED044EFB3B26ABA /* OmegaPermissions.swift */,
+				B91F0C1D2E3F4A5B6C7D8E03 /* ResearchComplexityGate.swift */,
+				B91F0C1D2E3F4A5B6C7D8E04 /* ResearchConfidenceState.swift */,
+				B91F0C1D2E3F4A5B6C7D8E02 /* ResearchEvidenceScorer.swift */,
+				B91F0C1D2E3F4A5B6C7D8E01 /* ResearchOrchestrator.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* Agents */,
 				A1B2C3D4E5F6A7B8C9D0E1F4 /* Orchestrator */,
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* Inference */,
@@ -1332,6 +1348,7 @@
 				0B4F08980905EFFCBB4B3CFF /* OmegaTaskGraphTests.swift */,
 				9C85450876F1A6DA505C6F2E /* OmegaConfirmationGateTests.swift */,
 				DAC085DB9CD5C51EB54EF9F4 /* OmegaAgentTests.swift */,
+				B91F0C1D2E3F4A5B6C7D8E06 /* ResearchModeTests.swift */,
 				7655BFE12DB860A15C57C7EF /* OmegaCSISafeguardTests.swift */,
 				5DC7BC55A9FE241DBBFC96D4 /* OmegaMoLoRARouterTests.swift */,
 				00DF1CD6ADBCE107CB4177A0 /* OmegaODIATraceTests.swift */,
@@ -1472,6 +1489,7 @@
 		E2DFA9C656874C6280F34F36 /* SyntheticData */ = {
 			isa = PBXGroup;
 			children = (
+				B91F0C1D2E3F4A5B6C7D8E05 /* EmbodiedCaptureService.swift */,
 				5602415E88034032970CAD68 /* InstructionBacktranslator.swift */,
 				9283C2B40AED4419B3356309 /* QualityCurator.swift */,
 				CCBD45B184A64886BC5D2F1C /* SyntheticDataGenerator.swift */,
@@ -1743,6 +1761,7 @@
 				5ADE74A001C5E582EC747624 /* OmegaMoLoRARouterTests.swift in Sources */,
 				C261CC3C63BA90652B98DBC5 /* OmegaCSISafeguardTests.swift in Sources */,
 				F87128B8F0072AA8EA121B71 /* OmegaAgentTests.swift in Sources */,
+				A91F0C1D2E3F4A5B6C7D8E06 /* ResearchModeTests.swift in Sources */,
 				A518698AA84DE7F748DD375C /* OmegaConfirmationGateTests.swift in Sources */,
 				0AD8DC91EC3B85B107C7EE05 /* OmegaTaskGraphTests.swift in Sources */,
 				552A7BC25EAFB7B223DBC3F1 /* OmegaToolCallParserTests.swift in Sources */,
@@ -1864,6 +1883,10 @@
 				50DB112D12D967C9B4B38A1D /* MCPBridge.swift in Sources */,
 				D0F28E6F5083451BBEB95FDD /* OmegaPermissions.swift in Sources */,
 				A4C9E7B3D1F5082A6E3B9D02 /* OmegaExtensions.swift in Sources */,
+				A91F0C1D2E3F4A5B6C7D8E03 /* ResearchComplexityGate.swift in Sources */,
+				A91F0C1D2E3F4A5B6C7D8E04 /* ResearchConfidenceState.swift in Sources */,
+				A91F0C1D2E3F4A5B6C7D8E02 /* ResearchEvidenceScorer.swift in Sources */,
+				A91F0C1D2E3F4A5B6C7D8E01 /* ResearchOrchestrator.swift in Sources */,
 				F8B141E59E68A4804C09FDD1 /* OmegaSettingsDetailView.swift in Sources */,
 				0FED5B572968B0DA0DD5B645 /* OmegaTrainingCoordinator.swift in Sources */,
 				1E9C5AAF5C2893C9CBF77140 /* CSISafeguard.swift in Sources */,
@@ -1913,6 +1936,7 @@
 				7BEE6F70F6FF4EB7BD4FF9B1 /* AdapterSelectorView.swift in Sources */,
 				1E75AB48114742878C27C975 /* TrainingHistoryView.swift in Sources */,
 				0C4368C3B2F843ABA22302B9 /* FeedbackIndicatorView.swift in Sources */,
+				A91F0C1D2E3F4A5B6C7D8E05 /* EmbodiedCaptureService.swift in Sources */,
 				DB6D31AC78BD4134894C23DE /* MetricEvaluator.swift in Sources */,
 				EB788BFE256C430FBDCF70AD /* ExperimentTracker.swift in Sources */,
 				79CF6758508E416B9953A631 /* AutoresearchLoop.swift in Sources */,
@@ -2444,7 +2468,7 @@
 			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm";
 			requirement = {
 				kind = revision;
-				revision = 7e19e09027923d89ac47dd087d9627f610e5a91a;
+				revision = bc3c20ef4644c86f2b347debcfe1efe4308712a6;
 			};
 		};
 		5DFEA6AEF5B1ED45CFAE2B30 /* XCRemoteSwiftPackageReference "swift-huggingface" */ = {

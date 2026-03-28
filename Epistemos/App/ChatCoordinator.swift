@@ -88,7 +88,12 @@ final class ChatCoordinator {
     // MARK: - Query Lifecycle
 
     /// Process a user query through the direct local answer path, streaming tokens back to ChatState.
-    func handleQuery(_ query: String, pipeline: PipelineService, chatState: ChatState) {
+    func handleQuery(
+        _ query: String,
+        pipeline: PipelineService,
+        chatState: ChatState,
+        operatingMode: EpistemosOperatingMode
+    ) {
         bootstrap.queryTask?.cancel()
 
         let aiFresh = AppleIntelligenceService.shared.checkAvailability()
@@ -177,7 +182,8 @@ final class ChatCoordinator {
                     query: effectiveQuery,
                     mode: mode,
                     notesContext: effectiveNotesContextWithWorkspace,
-                    conversationHistory: conversationHistory
+                    conversationHistory: conversationHistory,
+                    localReasoningMode: operatingMode.localReasoningMode ?? .fast
                 )
 
                 for try await event in stream {

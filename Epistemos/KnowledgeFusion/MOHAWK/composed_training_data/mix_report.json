@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-03-27T20:23:43.667259+00:00",
+  "source_total": 4743,
+  "composed_total": 2000,
+  "train_count": 1800,
+  "eval_count": 200,
+  "target_ratios": {
+    "tool_calling": "40%",
+    "general": "20%",
+    "app_specific": "20%",
+    "negative": "10%",
+    "error_recovery": "10%"
+  },
+  "actual_ratios": {
+    "tool_calling": "40.0%",
+    "general": "20.0%",
+    "app_specific": "20.0%",
+    "error_recovery": "10.0%",
+    "negative": "10.0%"
+  },
+  "bucket_stats": {
+    "tool_calling": {
+      "available": 1470,
+      "target": 800,
+      "selected": 800,
+      "action": "downsampled"
+    },
+    "general": {
+      "available": 153,
+      "target": 400,
+      "selected": 400,
+      "action": "upsampled_3x"
+    },
+    "app_specific": {
+      "available": 3008,
+      "target": 400,
+      "selected": 400,
+      "action": "downsampled"
+    },
+    "negative": {
+      "available": 44,
+      "target": 200,
+      "selected": 200,
+      "action": "upsampled_5x"
+    },
+    "error_recovery": {
+      "available": 68,
+      "target": 200,
+      "selected": 200,
+      "action": "upsampled_3x"
+    }
+  }
+}

@@ -51,6 +51,22 @@ struct FileAttachmentBuilderTests {
         #expect(attachment.preview == csv)
     }
 
+    @Test("text attachments decode UTF-16 previews instead of showing gibberish")
+    func textAttachmentPreviewDecodesUtf16() async throws {
+        let url = try temporaryFileURL(named: "kimi.txt")
+        let content = "Kimi text\ncafé 🚀"
+        guard let data = content.data(using: .utf16) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding)
+        }
+        try data.write(to: url, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let attachment = await FileAttachmentBuilder.build(from: url)
+
+        #expect(attachment.type == .text)
+        #expect(attachment.preview == content)
+    }
+
     private func temporaryFileURL(named name: String) throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "file-attachment-builder-\(UUID().uuidString)",

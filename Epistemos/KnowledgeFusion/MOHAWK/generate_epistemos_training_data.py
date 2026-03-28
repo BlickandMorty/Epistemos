@@ -1273,6 +1273,138 @@ def generate_error_recovery_examples() -> List[TrainingExample]:
     return examples
 
 
+# ─── LAYER 16: RESEARCH WORKFLOWS ────────────────────────────────
+
+SYSTEM_PROMPT_RESEARCH = """You are Epistemos-Nano, a 1B on-device AI agent for macOS.
+You plan and execute multi-step research workflows using Omega tools.
+You decompose research questions into sub-questions, search for evidence,
+score source quality, detect contradictions, and synthesize structured research notes.
+You output JSON tool call plans. You verify evidence quality before synthesis."""
+
+def generate_research_workflow_examples() -> List[TrainingExample]:
+    """Generate Layer 16: Research workflow training examples.
+    Each example is a complete research task → multi-step tool call plan."""
+    examples = []
+
+    # Research queries paired with gold-standard multi-step plans
+    research_tasks = [
+        {
+            "query": "research: transformer attention mechanisms vs Mamba-2 selective scan",
+            "plan": [
+                {"description": "Search for transformer attention papers", "agent": "safari", "tool": "search_web", "arguments": {"query": "transformer attention mechanisms 2024 2025"}, "risk": "low"},
+                {"description": "Extract page content from search results", "agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}, "risk": "low"},
+                {"description": "Collect key findings on attention", "agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Attention mechanisms compute weighted sums over all input positions, enabling O(1) random access but requiring O(n^2) compute.", "sourceUrl": "https://arxiv.org/abs/2405.21060", "sourceTitle": "Attention Survey 2024"}, "risk": "low"},
+                {"description": "Search for Mamba-2 papers on Semantic Scholar", "agent": "safari", "tool": "searchpapers", "arguments": {"query": "Mamba-2 selective state space model", "yearMin": 2024}, "risk": "low"},
+                {"description": "Score attention survey evidence", "agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://arxiv.org/abs/2405.21060", "sourceType": "arxiv"}, "risk": "low"},
+                {"description": "Save citation for attention survey", "agent": "notes", "tool": "savecitation", "arguments": {"title": "Attention Mechanisms Survey", "authors": "Vaswani et al.", "url": "https://arxiv.org/abs/2405.21060", "date": "2024"}, "risk": "low"},
+                {"description": "Create research note with findings", "agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Transformer attention vs Mamba-2 selective scan", "findings": "Attention provides O(1) random access but O(n^2) compute. Mamba-2 achieves linear scaling via selective scan but trades random access for sequential processing.", "evidence": ["Attention: O(n^2) compute, O(1) access", "Mamba-2: O(n) compute, sequential access"], "citations": ["Vaswani et al. (2024). Attention Mechanisms Survey. https://arxiv.org/abs/2405.21060"]}, "risk": "low"},
+            ],
+        },
+        {
+            "query": "research: current evidence on intermittent fasting for longevity",
+            "plan": [
+                {"description": "Search for intermittent fasting longevity studies", "agent": "safari", "tool": "searchpapers", "arguments": {"query": "intermittent fasting longevity human trials", "yearMin": 2022}, "risk": "low"},
+                {"description": "Search for contradicting evidence", "agent": "safari", "tool": "search_web", "arguments": {"query": "intermittent fasting longevity risks criticism 2024"}, "risk": "low"},
+                {"description": "Read criticism page", "agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}, "risk": "low"},
+                {"description": "Collect pro-fasting evidence", "agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Caloric restriction and IF extend lifespan in model organisms by 15-30%.", "sourceUrl": "https://doi.org/10.1038/s41591-024", "sourceTitle": "IF Meta-Analysis 2024"}, "risk": "low"},
+                {"description": "Collect critical evidence", "agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Human RCTs show metabolic benefits but no significant lifespan extension after 2 years.", "sourceUrl": "https://www.nytimes.com/2024/fasting-longevity", "sourceTitle": "NYT Fasting Review"}, "risk": "low"},
+                {"description": "Score the meta-analysis", "agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://doi.org/10.1038/s41591-024", "sourceType": "peer_reviewed"}, "risk": "low"},
+                {"description": "Score the news article", "agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://www.nytimes.com/2024/fasting-longevity", "sourceType": "news"}, "risk": "low"},
+                {"description": "Analyze contradiction between sources", "agent": "notes", "tool": "analyzecontradiction", "arguments": {"snippetA": "Caloric restriction extends lifespan by 15-30%", "snippetB": "No significant lifespan extension in human RCTs after 2 years"}, "risk": "low"},
+                {"description": "Create structured research note", "agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Current evidence on intermittent fasting for longevity", "findings": "Strong animal model evidence (15-30% lifespan extension). Human trials show metabolic benefits but no lifespan extension yet. Key contradiction: model organisms vs human RCTs.", "evidence": ["Animal models: 15-30% lifespan extension", "Human RCTs: metabolic benefits, no lifespan effect"], "contradictions": ["Animal model results do not translate to human lifespan extension in 2-year trials"], "citations": ["IF Meta-Analysis (2024). Nature Medicine. https://doi.org/10.1038/s41591-024"]}, "risk": "low"},
+            ],
+        },
+        {
+            "query": "research: CRDT algorithms for real-time collaborative editing",
+            "plan": [
+                {"description": "Search for CRDT collaborative editing papers", "agent": "safari", "tool": "searchpapers", "arguments": {"query": "CRDT collaborative text editing convergence", "yearMin": 2023}, "risk": "low"},
+                {"description": "Search web for practical implementations", "agent": "safari", "tool": "search_web", "arguments": {"query": "CRDT text editor implementation comparison Yjs Automerge 2024"}, "risk": "low"},
+                {"description": "Read implementation comparison", "agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}, "risk": "low"},
+                {"description": "Collect academic findings", "agent": "notes", "tool": "collectsnippet", "arguments": {"text": "RGA and LSEQ provide character-level CRDTs with O(log n) insert. Yjs uses a list CRDT with relative positioning.", "sourceUrl": "https://arxiv.org/abs/2310.12345", "sourceTitle": "CRDT Survey 2023"}, "risk": "low"},
+                {"description": "Collect practical findings", "agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Yjs benchmarks at 100k ops/sec, Automerge at 50k ops/sec. Both handle 1000+ concurrent users.", "sourceUrl": "https://blog.kevinjahns.de/crdt-benchmarks", "sourceTitle": "CRDT Benchmarks"}, "risk": "low"},
+                {"description": "Score academic source", "agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://arxiv.org/abs/2310.12345"}, "risk": "low"},
+                {"description": "Score blog source", "agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://blog.kevinjahns.de/crdt-benchmarks"}, "risk": "low"},
+                {"description": "Create research note", "agent": "notes", "tool": "createresearchnote", "arguments": {"question": "CRDT algorithms for real-time collaborative editing", "findings": "RGA and LSEQ provide character-level CRDTs. Yjs leads in performance (100k ops/sec). Automerge offers richer data model. Both scale to 1000+ users.", "evidence": ["RGA/LSEQ: O(log n) insert", "Yjs: 100k ops/sec", "Automerge: richer data model, 50k ops/sec"], "citations": ["CRDT Survey (2023). https://arxiv.org/abs/2310.12345", "Jahns. CRDT Benchmarks. https://blog.kevinjahns.de/crdt-benchmarks"]}, "risk": "low"},
+            ],
+        },
+        {
+            "query": "investigate supply chain attacks on open source package registries",
+            "plan": [
+                {"description": "Search for supply chain attack research", "agent": "safari", "tool": "searchpapers", "arguments": {"query": "supply chain attacks npm PyPI package registry security", "yearMin": 2023}, "risk": "low"},
+                {"description": "Search for recent incidents", "agent": "safari", "tool": "search_web", "arguments": {"query": "supply chain attack npm PyPI 2024 2025 incident report"}, "risk": "low"},
+                {"description": "Read incident reports", "agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}, "risk": "low"},
+                {"description": "Collect academic evidence", "agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Typosquatting accounts for 37% of malicious packages. Dependency confusion attacks rose 150% in 2024.", "sourceUrl": "https://doi.org/10.1145/supply-chain-2024", "sourceTitle": "Supply Chain Security Survey"}, "risk": "low"},
+                {"description": "Score academic source", "agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://doi.org/10.1145/supply-chain-2024", "sourceType": "peer_reviewed"}, "risk": "low"},
+                {"description": "Save citation", "agent": "notes", "tool": "savecitation", "arguments": {"title": "Supply Chain Security Survey", "authors": "Chen et al.", "url": "https://doi.org/10.1145/supply-chain-2024", "date": "2024"}, "risk": "low"},
+                {"description": "Create research note", "agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Supply chain attacks on open source package registries", "findings": "Typosquatting (37%), dependency confusion (150% increase), and maintainer account compromise are the three primary vectors. Sigstore and provenance attestation are the leading defenses.", "evidence": ["Typosquatting: 37% of malicious packages", "Dependency confusion: 150% YoY increase", "Sigstore adoption growing as defense"], "citations": ["Chen et al. (2024). Supply Chain Security Survey. https://doi.org/10.1145/supply-chain-2024"]}, "risk": "low"},
+            ],
+        },
+        {
+            "query": "find evidence for benefits of spaced repetition in language learning",
+            "plan": [
+                {"description": "Search academic papers on spaced repetition", "agent": "safari", "tool": "searchpapers", "arguments": {"query": "spaced repetition language learning effectiveness meta-analysis"}, "risk": "low"},
+                {"description": "Search web for practical evidence", "agent": "safari", "tool": "search_web", "arguments": {"query": "spaced repetition language learning evidence Anki research 2024"}, "risk": "low"},
+                {"description": "Read practical evidence page", "agent": "safari", "tool": "readpagecontent", "arguments": {"maxLength": 4000}, "risk": "low"},
+                {"description": "Collect meta-analysis findings", "agent": "notes", "tool": "collectsnippet", "arguments": {"text": "Meta-analysis of 29 studies shows spaced repetition yields 25-50% better long-term retention vs massed practice for vocabulary acquisition.", "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/spaced-rep-meta", "sourceTitle": "SR Meta-Analysis"}, "risk": "low"},
+                {"description": "Score the meta-analysis", "agent": "notes", "tool": "scoreevidence", "arguments": {"url": "https://pubmed.ncbi.nlm.nih.gov/spaced-rep-meta", "sourceType": "peer_reviewed"}, "risk": "low"},
+                {"description": "Create research note", "agent": "notes", "tool": "createresearchnote", "arguments": {"question": "Benefits of spaced repetition in language learning", "findings": "Strong evidence: 25-50% better long-term retention vs massed practice. Effect strongest for vocabulary acquisition. Optimal spacing interval: expanding (1d, 3d, 7d, 14d, 30d).", "evidence": ["Meta-analysis: 25-50% retention improvement", "29 studies analyzed", "Expanding interval schedule optimal"], "citations": ["SR Meta-Analysis. PubMed. https://pubmed.ncbi.nlm.nih.gov/spaced-rep-meta"]}, "risk": "low"},
+            ],
+        },
+    ]
+
+    for task in research_tasks:
+        plan_json = json.dumps(task["plan"], ensure_ascii=False)
+        examples.append(TrainingExample(
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT_RESEARCH},
+                {"role": "user", "content": task["query"]},
+                {"role": "assistant", "content": f"<think>\nResearch task detected. Decomposing into sub-questions and planning tool call sequence.\n</think>\n{plan_json}"},
+            ],
+            category="research", layer=16
+        ))
+
+        # Also generate per-step examples (model learns individual tool usage)
+        for i, step in enumerate(task["plan"]):
+            step_context = f"Research task: {task['query']}\nStep {i+1}/{len(task['plan'])}: {step['description']}"
+            step_json = json.dumps(step, ensure_ascii=False)
+            examples.append(TrainingExample(
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT_RESEARCH},
+                    {"role": "user", "content": step_context},
+                    {"role": "assistant", "content": step_json},
+                ],
+                category="research", layer=16
+            ))
+
+    # Additional standalone research tool usage examples
+    standalone = [
+        ("Score this source: https://arxiv.org/abs/2405.21060",
+         '{"agent":"notes","tool":"scoreevidence","arguments":{"url":"https://arxiv.org/abs/2405.21060","sourceType":"arxiv"}}'),
+        ("Score this source: https://medium.com/@user/my-take-on-ai",
+         '{"agent":"notes","tool":"scoreevidence","arguments":{"url":"https://medium.com/@user/my-take-on-ai","sourceType":"blog"}}'),
+        ("Check if these two findings contradict: 'GDP grew 3.2%' vs 'Economy contracted by 1.5%'",
+         '{"agent":"notes","tool":"analyzecontradiction","arguments":{"snippetA":"GDP grew 3.2%","snippetB":"Economy contracted by 1.5%"}}'),
+        ("Save this citation: 'Attention Is All You Need' by Vaswani et al., 2017, https://arxiv.org/abs/1706.03762",
+         '{"agent":"notes","tool":"savecitation","arguments":{"title":"Attention Is All You Need","authors":"Vaswani et al.","url":"https://arxiv.org/abs/1706.03762","date":"2017"}}'),
+        ("Extract the text from the current Safari page",
+         '{"agent":"safari","tool":"readpagecontent","arguments":{"maxLength":4000}}'),
+        ("Search Semantic Scholar for papers on reinforcement learning from human feedback",
+         '{"agent":"safari","tool":"searchpapers","arguments":{"query":"reinforcement learning human feedback RLHF","yearMin":2023}}'),
+    ]
+    for user_msg, assistant_msg in standalone:
+        examples.append(TrainingExample(
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT_RESEARCH},
+                {"role": "user", "content": user_msg},
+                {"role": "assistant", "content": assistant_msg},
+            ],
+            category="research", layer=16
+        ))
+
+    print(f"  Layer 16 (Research Workflows): {len(examples)} examples")
+    return examples
+
+
 # ─── OUTPUT ─────────────────────────────────────────────────────
 
 def write_jsonl(examples: List[TrainingExample], output_dir: str, filename: str):
@@ -1298,7 +1430,7 @@ def write_jsonl(examples: List[TrainingExample], output_dir: str, filename: str)
 def main():
     parser = argparse.ArgumentParser(description="Epistemos Training Data Generator")
     parser.add_argument("--output", default="./epistemos_training_data", help="Output directory")
-    parser.add_argument("--layer", default="all", help="Which layer(s): all, code_graph, symbol_qa, ax_atlas, trajectories, tools, negative, error_recovery")
+    parser.add_argument("--layer", default="all", help="Which layer(s): all, code_graph, symbol_qa, ax_atlas, trajectories, tools, negative, error_recovery, research")
     parser.add_argument("--capture-live", action="store_true", help="Capture live AX trees from running apps (macOS only)")
     args = parser.parse_args()
 
@@ -1362,6 +1494,13 @@ def main():
         print("Layer 7: Error Recovery...")
         examples = generate_error_recovery_examples()
         total += write_jsonl(examples, args.output, "07_error_recovery.jsonl")
+        all_examples.extend(examples)
+
+    # Layer 16: Research Workflows
+    if args.layer in ("all", "research"):
+        print("Layer 16: Research Workflows...")
+        examples = generate_research_workflow_examples()
+        total += write_jsonl(examples, args.output, "16_research_workflows.jsonl")
         all_examples.extend(examples)
 
     # Combined file (all layers mixed and shuffled)

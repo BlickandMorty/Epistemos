@@ -13,14 +13,19 @@ struct LocalModelInfrastructureTests {
         #expect(revisions.allSatisfy { $0.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil })
     }
 
-    @Test("catalog exposes only qwen3.5 text models")
-    func catalogIsQwen35Only() {
+    @Test("catalog exposes qwen plus expanded mlx text models")
+    func catalogIncludesExpandedMLXModels() {
         let descriptors = LocalModelCatalog.allDescriptors
 
         #expect(!descriptors.isEmpty)
         #expect(descriptors.allSatisfy { $0.kind == .text })
-        #expect(descriptors.allSatisfy { $0.id.contains("Qwen3.5") })
-        #expect(descriptors.allSatisfy { !$0.familyName.localizedCaseInsensitiveContains("Gemma") })
+        #expect(descriptors.allSatisfy { $0.id.hasPrefix("mlx-community/") })
+        #expect(descriptors.contains { $0.id == LocalTextModelID.qwen35_4B4Bit.rawValue })
+        #expect(descriptors.contains { $0.id == LocalTextModelID.smolLM3_3B4Bit.rawValue })
+        #expect(descriptors.contains { $0.id == LocalTextModelID.devstralSmall2505_4Bit.rawValue })
+        #expect(descriptors.contains { $0.id == LocalTextModelID.mistralSmall31_24B4Bit.rawValue })
+        #expect(descriptors.contains { $0.id == LocalTextModelID.gemma3_27BQAT4Bit.rawValue })
+        #expect(descriptors.contains { $0.id == LocalTextModelID.llama4Scout17B16E4Bit.rawValue })
     }
 
     @Test("18GB hardware recommends 4B default with 2B constrained fallback")
@@ -123,8 +128,8 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
-    @Test("refresh drops legacy gemma and voice installs from disk and manifest")
-    func refreshPurgesLegacyNonQwenInstalls() throws {
+    @Test("refresh drops unsupported legacy installs from disk and manifest")
+    func refreshPurgesLegacyUnsupportedInstalls() throws {
         let root = makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
 

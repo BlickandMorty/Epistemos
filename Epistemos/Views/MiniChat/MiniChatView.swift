@@ -558,7 +558,11 @@ private struct MiniChatInputBar: View {
     @Environment(ThreadState.self) private var threadState
     @Environment(TriageService.self) private var triage
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(OrchestratorState.self) private var orchestrator
+    @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("epistemos.miniChatOperatingMode")
+    private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var text = ""
     @State private var isProcessing = false
     @State private var streamTask: Task<Void, Never>?
@@ -577,6 +581,22 @@ private struct MiniChatInputBar: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private let composerMetrics = AssistantComposerMetrics.compactChat
+    private var selectedOperatingMode: EpistemosOperatingMode {
+        get {
+            inference.sanitizedOperatingMode(
+                EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
+            )
+        }
+        nonmutating set {
+            operatingModeRaw = inference.sanitizedOperatingMode(newValue).rawValue
+        }
+    }
+    private var operatingModeBinding: Binding<EpistemosOperatingMode> {
+        Binding(
+            get: { selectedOperatingMode },
+            set: { selectedOperatingMode = $0 }
+        )
+    }
 
     private var canSend: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing
@@ -624,6 +644,12 @@ private struct MiniChatInputBar: View {
         )
     }
 
+    private var composerControlResetKey: String {
+        inference.availableOperatingModes.map(\.rawValue).joined(separator: "|")
+            + "::"
+            + inference.activeChatModelDisplayName
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             if explicitScopedPageID != nil, activePage() != nil, !isProcessing {
@@ -638,16 +664,25 @@ private struct MiniChatInputBar: View {
                 composerTextArea
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
-                    ComposerContextShortcutBar(
-                        noteLabel: "Chat with Note",
-                        onChatWithNote: openNotePicker,
-                        onChatWithChat: openChatPicker
-                    )
+                    ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
+                        OperatingModeSelectorView(
+                            mode: operatingModeBinding,
+                            availableModes: inference.availableOperatingModes
+                        )
 
-                    LocalModelToolbarMenu(variant: .toolbar)
-                        .accessibilityLabel("Chat model")
+                        ResearchComposerButton(text: $text) {
+                            isFocused = true
+                        }
 
-                    Spacer(minLength: 8)
+                        LocalModelToolbarMenu(variant: .toolbar)
+                            .accessibilityLabel("Chat model")
+
+                        ComposerContextShortcutBar(
+                            noteLabel: "Chat with Note",
+                            onChatWithNote: openNotePicker,
+                            onChatWithChat: openChatPicker
+                        )
+                    }
 
                     AssistantSendButton(
                         theme: theme,
@@ -677,6 +712,12 @@ private struct MiniChatInputBar: View {
         }
         .frame(maxWidth: MiniChatLayout.composerMaxWidth)
         .frame(maxWidth: .infinity)
+        .onAppear {
+            sanitizeStoredOperatingMode()
+        }
+        .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
+            sanitizeStoredOperatingMode()
+        }
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
                 ComposerReferencePopover(
@@ -736,6 +777,15 @@ private struct MiniChatInputBar: View {
         }
         .onChange(of: mentionFilter) { _, newValue in
             updateMentionReferenceSearch(filter: newValue)
+        }
+    }
+
+    private func sanitizeStoredOperatingMode() {
+        let sanitized = inference.sanitizedOperatingMode(
+            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
+        )
+        if sanitized.rawValue != operatingModeRaw {
+            operatingModeRaw = sanitized.rawValue
         }
     }
 
@@ -926,6 +976,7 @@ private struct MiniChatInputBar: View {
                     prompt: prompt, systemPrompt: nil,
                     operation: .brainstorm,
                     contentLength: contentLength,
+                    localReasoningMode: selectedOperatingMode.localReasoningMode ?? .thinking,
                     localSurface: .miniChat
                 ) {
                     guard !Task.isCancelled else { break }
@@ -1005,6 +1056,46 @@ private struct MiniChatInputBar: View {
     private func send() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isProcessing else { return }
+
+        // Route research-intent queries to Omega instead of streaming locally.
+        let shouldRouteResearch =
+            ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)
+            || ResearchComplexityGate.requiresResearch(trimmed)
+
+        if shouldRouteResearch {
+            let cleaned = ResearchComplexityGate.stripPrefix(trimmed)
+            let handoffMessage = ResearchComplexityGate.handoffMessage(for: trimmed)
+            threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
+            threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: handoffMessage), chatID: chatID)
+            refreshMiniChatLabel(using: cleaned.isEmpty ? trimmed : cleaned)
+            persistMiniChatSession()
+            text = ""
+            composerHeight = ChatComposerInputMetrics.minHeight
+            guard !cleaned.isEmpty else { return }
+            UtilityWindowManager.shared.show(.omega)
+            Task { await orchestrator.submitTask("research: \(cleaned)") }
+            return
+        }
+
+        switch selectedOperatingMode {
+        case .agent:
+            threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
+            if let handoffMessage = selectedOperatingMode.handoffMessage {
+                threadState.addMiniChatMessage(
+                    AssistantMessage(role: .assistant, content: handoffMessage),
+                    chatID: chatID
+                )
+            }
+            refreshMiniChatLabel(using: trimmed)
+            persistMiniChatSession()
+            text = ""
+            composerHeight = ChatComposerInputMetrics.minHeight
+            UtilityWindowManager.shared.show(.omega)
+            Task { await orchestrator.submitTask(trimmed) }
+            return
+        case .fast, .thinking:
+            break
+        }
 
         threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
         refreshMiniChatLabel(using: trimmed)
@@ -1099,7 +1190,7 @@ private struct MiniChatInputBar: View {
                     systemPrompt: nil,
                     operation: .chatResponse(query: trimmed),
                     contentLength: contentLength,
-                    localReasoningMode: .fast,
+                    localReasoningMode: selectedOperatingMode.localReasoningMode ?? .fast,
                     localSurface: .miniChat
                 ) {
                     guard !Task.isCancelled else { break }

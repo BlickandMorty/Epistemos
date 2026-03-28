@@ -45,6 +45,9 @@ namespace omega_mcp {
     /// Search the web via Safari. Returns JSON ToolResult.
     string tool_search_web(string query);
 
+    /// Get visible text from Safari's current tab. Returns JSON ToolResult.
+    string tool_get_page_text(u32 max_length);
+
     /// Execute a shell command with allow-list. Returns JSON ToolResult.
     string tool_run_command(string command, string allowed_commands_csv);
 

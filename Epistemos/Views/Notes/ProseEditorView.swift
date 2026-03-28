@@ -173,7 +173,8 @@ struct ProseEditorView: View {
             onBlockRefClick: handleBlockRefClick,
             noteChatState: noteChatState,
             onPageFlush: flush,
-            graphState: graphState
+            graphState: graphState,
+            outlineFoldMode: notesUI.outlineFoldMode
         )
         .onAppear {
             syncBlocks(body: bodyText)

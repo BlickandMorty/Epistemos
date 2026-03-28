@@ -38,12 +38,16 @@ struct TrainOnVaultView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(.secondary)
 
-            Text("Knowledge Fusion")
+            Text("Knowledge Fusion (Experimental)")
                 .font(.title2.weight(.semibold))
 
             Text("Train a personal adapter from your vault notes")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            SettingsDescriptionText(
+                text: "This is personalization for your installed local model. Training produces an adapter layered on top of the base model rather than replacing the base model itself."
+            )
 
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { showDetails.toggle() }
@@ -67,35 +71,35 @@ struct TrainOnVaultView: View {
     @ViewBuilder
     private var featureDescription: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Knowledge Fusion fine-tunes your local AI model directly on your MacBook using Apple Silicon. It creates a lightweight adapter — a small patch (~50-200 MB) that sits on top of your base model. Your base model never changes; the adapter teaches it new things.")
+            Text("Knowledge Fusion creates a personal adapter for your local model, running entirely on your MacBook using Apple Silicon. The adapter is a small patch (~50-200 MB) that sits on top of your base model. Your base model never changes; the adapter adjusts its responses based on your data.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 8) {
                 descriptionRow(
                     icon: "pencil.and.outline",
-                    title: "Voice Cloning",
-                    detail: "Point it at your writing and the model learns your sentence structure, word choices, tone, and rhythm. Generated text sounds like you, not generic AI."
+                    title: "Style Adaptation",
+                    detail: "Point it at your writing and the adapter picks up on your sentence structure, word choices, and tone. Generated text should better reflect your style."
                 )
                 descriptionRow(
                     icon: "book.closed",
-                    title: "Knowledge Absorption",
-                    detail: "The model memorizes facts, concepts, and definitions from your notes. Ask it questions about your vault without needing to search — it just knows."
+                    title: "Knowledge Exposure",
+                    detail: "The adapter is trained on facts, concepts, and definitions from your notes. This can help the model answer questions about your vault content, though results vary with data quality."
                 )
                 descriptionRow(
                     icon: "wrench.and.screwdriver",
-                    title: "Tool Learning",
-                    detail: "Document your APIs, workflows, and tool usage patterns. The model learns to recommend the right tool with correct parameters for any situation."
+                    title: "Tool Familiarity",
+                    detail: "Document your APIs, workflows, and tool usage patterns. The adapter can help the model suggest relevant tools and parameters based on your documented patterns."
                 )
                 descriptionRow(
                     icon: "arrow.triangle.2.circlepath",
-                    title: "Autoresearch",
-                    detail: "An autonomous loop experiments with training configurations overnight and keeps only the best-performing ones. Your model improves while you sleep."
+                    title: "Background Training",
+                    detail: "When enabled, adapter training can run in the background and try different configurations, keeping the best-performing result."
                 )
                 descriptionRow(
                     icon: "lock.shield",
                     title: "Completely Private",
-                    detail: "Everything runs on-device. Your notes never leave your Mac. Training happens during idle time and never interrupts your work."
+                    detail: "Everything runs on-device. Your notes never leave your Mac. Training is designed to run during idle time with minimal impact on your work."
                 )
             }
 
@@ -137,6 +141,10 @@ struct TrainOnVaultView: View {
                 Label("Training environment not set up yet", systemImage: "shippingbox")
                     .font(.caption)
                     .foregroundStyle(.orange)
+
+                SettingsDescriptionText(
+                    text: "This one-time setup installs the local Python and ML pieces used only for adapter training."
+                )
 
                 Button {
                     Task { await pyEnv.ensureReady() }
@@ -184,7 +192,9 @@ struct TrainOnVaultView: View {
             }
 
         case .ready:
-            EmptyView()
+            SettingsDescriptionText(
+                text: "Training dependencies are ready. The adapter pipeline can now analyze a vault and launch a local training run."
+            )
         }
     }
 
@@ -202,13 +212,18 @@ struct TrainOnVaultView: View {
                     .foregroundStyle(.orange)
             }
         } else if vm.availableModels.count == 1 {
-            HStack(spacing: 6) {
-                Image(systemName: "cpu")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Model: \(vm.availableModels[0].name)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "cpu")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Model: \(vm.availableModels[0].name)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                SettingsDescriptionText(
+                    text: "Training uses the currently installed local model as the base and learns a lightweight adapter that can be activated later."
+                )
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -463,13 +478,17 @@ struct TrainOnVaultView: View {
                 Button {
                     startTraining(vaultURL: url)
                 } label: {
-                    Label("Start Training", systemImage: "play.fill")
+                    Label("Start Training (Experimental)", systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
                 .tint(.blue)
                 .disabled(!canTrain)
+
+                SettingsDescriptionText(
+                    text: "Starting training analyzes the selected vault, prepares local examples, and launches adapter training against the selected base model. The output is an adapter you can activate later."
+                )
 
                 if !pyEnv.isReady {
                     Text("Set up the training environment first.")

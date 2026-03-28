@@ -415,6 +415,9 @@ struct FrictionDetectionTests {
             kind: .insertion(count: 1),
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
         ))
+
+        // Restore so @AppStorage doesn't poison other tests
+        disabledConfig.frictionEnabled = true
     }
 
     @Test("Note switch rotates session ID and flushes buffer")
@@ -460,7 +463,9 @@ struct FrictionPersistenceTests {
             return
         }
 
-        let monitor = FrictionMonitorService(config: EpistemosConfig(), storeProvider: { store })
+        let config = EpistemosConfig()
+        config.frictionEnabled = true
+        let monitor = FrictionMonitorService(config: config, storeProvider: { store })
         let baseTime: Int64 = 1_000_000
 
         for i in 0..<20 {
@@ -589,6 +594,10 @@ struct EpistemosConfigTests {
 
     @Test("Default values are sensible")
     func defaultValues() {
+        // Remove any polluted keys so @AppStorage falls back to init defaults
+        let keys = ["capture.enabled", "friction.enabled", "nightbrain.enabled", "nightbrain.requiresAC"]
+        for key in keys { UserDefaults.standard.removeObject(forKey: key) }
+
         let config = EpistemosConfig()
         #expect(config.captureEnabled == false)
         #expect(config.frictionEnabled == true)
@@ -599,6 +608,7 @@ struct EpistemosConfigTests {
     @Test("Blocklist rejects blocked bundle IDs")
     func blocklistRejects() {
         let config = EpistemosConfig()
+        config.allowlistJSON = "[]"
         config.blocklistJSON = "[\"com.blocked.app\"]"
         #expect(config.isBlocked("com.blocked.app"))
         #expect(!config.isBlocked("com.allowed.app"))

@@ -37,6 +37,10 @@ struct FeedbackIndicatorView: View {
             Text("Feedback Collection")
                 .font(.callout.weight(.medium))
 
+            Text("Accepts and rejects are lightweight preference signals collected from adapter-assisted output. They help you see whether personalization is improving and can feed optional overnight training if you enable it.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
             if let stats = vm.feedbackStats {
                 HStack(spacing: 16) {
                     statItem(
@@ -64,7 +68,7 @@ struct FeedbackIndicatorView: View {
 
             Divider()
 
-            Text("Preference training runs overnight when idle.")
+            Text("Preference training is optional and only runs overnight if you enable it in Omega settings.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

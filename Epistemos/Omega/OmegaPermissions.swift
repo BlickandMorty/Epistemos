@@ -1,4 +1,5 @@
 import AppKit
+import CoreServices
 import Foundation
 import ScreenCaptureKit
 
@@ -9,12 +10,14 @@ import ScreenCaptureKit
 /// Screen Recording: required for ScreenCaptureKit-based screen capture.
 @MainActor @Observable
 final class OmegaPermissions {
+    private let automationTargetBundleIdentifier = "com.apple.systemevents"
 
     var accessibilityGranted: Bool = false
     var screenRecordingGranted: Bool = false
+    var automationGranted: Bool = false
 
     /// Combined: all permissions needed for full Omega functionality.
-    var allGranted: Bool { accessibilityGranted && screenRecordingGranted }
+    var allGranted: Bool { accessibilityGranted && screenRecordingGranted && automationGranted }
 
     /// Refresh permission status from the OS.
     func refresh() async {
@@ -24,6 +27,18 @@ final class OmegaPermissions {
 
         // Screen Recording: check via ScreenCaptureKit
         screenRecordingGranted = await checkScreenRecording()
+
+        // Automation: check System Events Apple Events permission without prompting.
+        await ensureAutomationTargetIsRunning()
+        automationGranted = await automationPermissionState(promptIfNeeded: false)
+    }
+
+    /// Trigger the macOS Automation consent prompt for System Events if needed.
+    func requestAutomationAccess() async {
+        await ensureAutomationTargetIsRunning()
+        _ = await automationPermissionState(promptIfNeeded: true)
+        try? await Task.sleep(for: .milliseconds(250))
+        automationGranted = await automationPermissionState(promptIfNeeded: false)
     }
 
     /// Open System Settings to the Accessibility pane.
@@ -63,6 +78,41 @@ final class OmegaPermissions {
             return true
         } catch {
             return false
+        }
+    }
+
+    func automationPermissionState(promptIfNeeded: Bool) async -> Bool {
+        let descriptor = NSAppleEventDescriptor(bundleIdentifier: automationTargetBundleIdentifier)
+        guard let target = descriptor.aeDesc else {
+            return false
+        }
+
+        let status = AEDeterminePermissionToAutomateTarget(
+            target,
+            AEEventClass(typeWildCard),
+            AEEventID(typeWildCard),
+            promptIfNeeded
+        )
+        return status == noErr
+    }
+
+    private func ensureAutomationTargetIsRunning() async {
+        if !NSRunningApplication.runningApplications(withBundleIdentifier: automationTargetBundleIdentifier).isEmpty {
+            return
+        }
+
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: automationTargetBundleIdentifier) else {
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.hides = true
+
+        do {
+            _ = try await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
+        } catch {
+            // Leave automation as not granted if the target cannot be launched.
         }
     }
 }

@@ -131,12 +131,20 @@ struct ChatView: View {
     @Environment(ChatState.self) private var chat
     @Environment(PipelineState.self) private var pipeline
     @Environment(InferenceState.self) private var inference
+    @Environment(OrchestratorState.self) private var orchestrator
+    @AppStorage("epistemos.mainChatOperatingMode")
+    private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
     @State private var transcriptRows: [ChatTranscriptRow] = []
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
 
     private var theme: EpistemosTheme { ui.theme }
+    private var selectedOperatingMode: EpistemosOperatingMode {
+        inference.sanitizedOperatingMode(
+            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
+        )
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -155,7 +163,7 @@ struct ChatView: View {
                                     sourceReferences: row.sourceReferences,
                                     allowsResubmit: !pipeline.isProcessing,
                                     onResubmit: { query in
-                                        chat.submitQuery(query)
+                                        submitMainChatQuery(query, operatingMode: selectedOperatingMode)
                                     }
                                 )
                                 .id(row.id)
@@ -218,8 +226,8 @@ struct ChatView: View {
 
             // Input bar
             ChatInputBar(
-                onSubmit: { query in
-                    chat.submitQuery(query)
+                onSubmit: { query, operatingMode in
+                    submitMainChatQuery(query, operatingMode: operatingMode)
                 },
                 onStop: {
                     chat.stopStreaming()
@@ -229,6 +237,12 @@ struct ChatView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("")
+        .onAppear {
+            sanitizeStoredOperatingMode()
+        }
+        .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
+            sanitizeStoredOperatingMode()
+        }
         .toolbar {
             // Right: chat controls (title + nav handled by toolbar)
             ToolbarItemGroup(placement: .primaryAction) {
@@ -274,6 +288,24 @@ struct ChatView: View {
             ChatSidebarView()
                 .frame(width: 300, height: 500)
                 .preferredColorScheme(ui.preferredColorScheme)
+        }
+    }
+
+    private func submitMainChatQuery(_ query: String, operatingMode: EpistemosOperatingMode) {
+        MainChatSubmissionRouter.submit(
+            query,
+            operatingMode: operatingMode,
+            chat: chat,
+            orchestrator: orchestrator
+        )
+    }
+
+    private func sanitizeStoredOperatingMode() {
+        let sanitized = inference.sanitizedOperatingMode(
+            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
+        )
+        if sanitized.rawValue != operatingModeRaw {
+            operatingModeRaw = sanitized.rawValue
         }
     }
 }

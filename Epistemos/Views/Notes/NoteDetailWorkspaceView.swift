@@ -471,6 +471,7 @@ enum NoteToolbarGlyph: Sendable {
     case history
     case saveToDisk
     case notesSidebar
+    case outlineFold(OutlineFoldMode)
 
     var symbolName: String? {
         switch self {
@@ -494,6 +495,8 @@ enum NoteToolbarGlyph: Sendable {
             "square.and.arrow.down"
         case .notesSidebar:
             "sidebar.leading"
+        case .outlineFold(let mode):
+            mode.symbolName
         }
     }
 
@@ -1026,6 +1029,8 @@ struct NoteDetailWorkspaceView: View {
                 togglePreviewMode()
             }
 
+            outlineFoldButton
+
             moreMenu
 
             toolbarIconButton(
@@ -1067,6 +1072,21 @@ struct NoteDetailWorkspaceView: View {
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+
+    // MARK: - Outline Fold Toggle
+
+    private var outlineFoldButton: some View {
+        Button {
+            notesUI.cycleOutlineFoldMode()
+        } label: {
+            NoteToolbarIcon(
+                glyph: .outlineFold(notesUI.outlineFoldMode),
+                theme: ui.theme
+            )
+        }
+        .buttonStyle(.plain)
+        .help("Outline: \(notesUI.outlineFoldMode.label)")
     }
 
     // MARK: - Wikilink Navigation
@@ -1570,6 +1590,7 @@ struct NoteDetailWorkspaceView: View {
                         .buttonStyle(.plain)
                     } else if !noteChatState.responseText.isEmpty {
                         Button {
+                            logNoteChatFeedback(desirable: true)
                             noteChatState.acceptResponse()
                         } label: {
                             Label("Insert", systemImage: "text.insert")
@@ -1579,6 +1600,7 @@ struct NoteDetailWorkspaceView: View {
                         .tint(ui.theme.resolved.accent.color)
 
                         Button {
+                            logNoteChatFeedback(desirable: false)
                             noteChatState.discardResponse()
                         } label: {
                             Image(systemName: "xmark")
@@ -1593,6 +1615,23 @@ struct NoteDetailWorkspaceView: View {
             .padding(.vertical, 8)
         }
         .frame(width: 420)
+    }
+
+    /// Log a KTO feedback signal from note chat accept/discard to the training pipeline.
+    /// Captures prompt+completion before the response state is cleared.
+    private func logNoteChatFeedback(desirable: Bool) {
+        let completion = noteChatState.responseText
+        guard !completion.isEmpty else { return }
+        let prompt = noteChatState.messages.last(where: { $0.role == .user })?.content ?? ""
+        let feedbackType: FeedbackType = desirable ? .acceptGhost : .rejectEdit
+        Task {
+            await KnowledgeFusionViewModel.shared.logFeedback(
+                prompt: prompt,
+                completion: completion,
+                desirable: desirable,
+                type: feedbackType
+            )
+        }
     }
 
     private func showAppleWritingTools() {

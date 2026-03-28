@@ -615,21 +615,22 @@ actor VaultIndexActor {
 
         let content: String
         do {
-            content = try String(contentsOf: fileURL, encoding: .utf8)
-        } catch {
-            // UTF-8 failed — try Latin-1 (Windows-1252 superset) before giving up.
-            // Common from older editors, Obsidian on Windows, PDF-to-markdown tools.
-            if let latin1 = try? String(contentsOf: fileURL, encoding: .isoLatin1) {
+            let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+            if let decoded = FoundationSafety.decodedText(from: data) {
+                content = decoded
+            } else if let latin1 = String(data: data, encoding: .isoLatin1) {
                 log.info(
-                    "Read \(fileURL.lastPathComponent, privacy: .public) with Latin-1 fallback (UTF-8 failed)"
+                    "Read \(fileURL.lastPathComponent, privacy: .public) with Latin-1 fallback (Unicode decode failed)"
                 )
                 content = latin1
             } else {
-                log.error(
-                    "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
-                )
-                return false  // Skip this file instead of crashing the entire import
+                throw CocoaError(.fileReadInapplicableStringEncoding)
             }
+        } catch {
+            log.error(
+                "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
+            )
+            return false  // Skip this file instead of crashing the entire import
         }
 
         let (frontMatter, body) = parseFrontMatter(content)

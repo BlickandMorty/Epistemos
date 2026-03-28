@@ -9,30 +9,42 @@ struct CognitiveSettingsSection: View {
     var body: some View {
         @Bindable var config = config
         Form {
+            SettingsDescriptionCard(
+                title: "Cognitive Substrate",
+                systemImage: "brain",
+                text: "These settings control the background context systems that help Epistemos remember recent work. Stores compact activity artifacts so the app can recover context and patterns later. No keystroke logging and no hidden cloud sync are involved here."
+            )
+
             Section("Cross-App Capture") {
+                SettingsDescriptionText(
+                    text: "Cross-app capture stores compact activity artifacts when you switch between apps so recall, timelines, and note context can reflect what you were doing."
+                )
                 Toggle("Enable Cross-App Capture", isOn: $config.captureEnabled)
                 if config.captureEnabled {
                     Toggle("OCR Fallback (when AX tree is sparse)", isOn: $config.ocrFallbackEnabled)
-                    Text("Captures selective text artifacts when switching apps.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    SettingsDescriptionText(
+                        text: "OCR fallback only runs when macOS accessibility data is too sparse to recover enough readable structure from the active app."
+                    )
                 }
             }
 
             Section("Writing Friction Insights") {
+                SettingsDescriptionText(
+                    text: "Friction detection watches editing patterns like hesitation, rewrites, and bursts so Epistemos can estimate where writing felt smooth or effortful. No keystroke logging is stored."
+                )
                 Toggle("Enable Friction Detection", isOn: $config.frictionEnabled)
-                Text("Measures writing fluency from edit patterns. No keystrokes are logged.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Section("Night Brain") {
+                SettingsDescriptionText(
+                    text: "Night Brain runs low-priority maintenance jobs while the app is idle so databases, artifacts, and background context stores stay compact and healthy."
+                )
                 Toggle("Enable Night Brain", isOn: $config.nightBrainEnabled)
                 if config.nightBrainEnabled {
                     Toggle("Require AC Power", isOn: $config.nightBrainRequiresAC)
-                    Text("Runs maintenance jobs when idle: WAL checkpoint, artifact dedup, snapshot compaction.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    SettingsDescriptionText(
+                        text: "Current jobs include WAL checkpointing, artifact deduplication, and snapshot compaction. Requiring AC power keeps those jobs from draining the battery."
+                    )
                 }
             }
         }

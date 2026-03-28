@@ -9,6 +9,11 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case qwen35_9B4Bit = "mlx-community/Qwen3.5-9B-4bit"
     case qwen35_27B4Bit = "mlx-community/Qwen3.5-27B-4bit"
     case qwen35_35BA3B4Bit = "mlx-community/Qwen3.5-35B-A3B-4bit"
+    case smolLM3_3B4Bit = "mlx-community/SmolLM3-3B-4bit"
+    case devstralSmall2505_4Bit = "mlx-community/Devstral-Small-2505-4bit"
+    case mistralSmall31_24B4Bit = "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-4bit"
+    case gemma3_27BQAT4Bit = "mlx-community/gemma-3-27b-it-qat-4bit"
+    case llama4Scout17B16E4Bit = "mlx-community/meta-llama-Llama-4-Scout-17B-16E-4bit"
 
     var displayName: String {
         switch self {
@@ -18,11 +23,34 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_9B4Bit: "Qwen 3.5 9B 4-bit"
         case .qwen35_27B4Bit: "Qwen 3.5 27B 4-bit"
         case .qwen35_35BA3B4Bit: "Qwen 3.5 35B-A3B 4-bit"
+        case .smolLM3_3B4Bit: "SmolLM3 3B 4-bit"
+        case .devstralSmall2505_4Bit: "Devstral Small 2505 4-bit"
+        case .mistralSmall31_24B4Bit: "Mistral Small 3.1 24B 4-bit"
+        case .gemma3_27BQAT4Bit: "Gemma 3 27B QAT 4-bit"
+        case .llama4Scout17B16E4Bit: "Llama 4 Scout 17B-16E 4-bit"
         }
     }
 
     var familyName: String {
-        "Qwen 3.5"
+        switch self {
+        case .qwen35_0_8B4Bit,
+             .qwen35_2B4Bit,
+             .qwen35_4B4Bit,
+             .qwen35_9B4Bit,
+             .qwen35_27B4Bit,
+             .qwen35_35BA3B4Bit:
+            "Qwen 3.5"
+        case .smolLM3_3B4Bit:
+            "SmolLM3"
+        case .devstralSmall2505_4Bit:
+            "Devstral"
+        case .mistralSmall31_24B4Bit:
+            "Mistral"
+        case .gemma3_27BQAT4Bit:
+            "Gemma 3"
+        case .llama4Scout17B16E4Bit:
+            "Llama 4"
+        }
     }
 
     var minimumRecommendedMemoryGB: Int {
@@ -30,15 +58,41 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit: 8
         case .qwen35_2B4Bit: 12
         case .qwen35_4B4Bit: 16
-        case .qwen35_9B4Bit: 16  // Lowered from 24 to allow 16GB machines to attempt 9B
+        case .qwen35_9B4Bit: 24
         case .qwen35_27B4Bit: 48
         case .qwen35_35BA3B4Bit: 64
+        case .smolLM3_3B4Bit: 8
+        case .devstralSmall2505_4Bit: 24
+        case .mistralSmall31_24B4Bit: 24
+        case .gemma3_27BQAT4Bit: 24
+        case .llama4Scout17B16E4Bit: 64
         }
     }
 
     nonisolated static var ascendingBySize: [LocalTextModelID] {
         allCases.sorted { lhs, rhs in
-            lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
+            if lhs.minimumRecommendedMemoryGB == rhs.minimumRecommendedMemoryGB {
+                return lhs.rawValue < rhs.rawValue
+            }
+            return lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
+        }
+    }
+
+    var supportsThinkingMode: Bool {
+        switch self {
+        case .qwen35_4B4Bit,
+             .qwen35_27B4Bit,
+             .qwen35_35BA3B4Bit:
+            true
+        case .qwen35_0_8B4Bit,
+             .qwen35_2B4Bit,
+             .qwen35_9B4Bit,
+             .smolLM3_3B4Bit,
+             .devstralSmall2505_4Bit,
+             .mistralSmall31_24B4Bit,
+             .gemma3_27BQAT4Bit,
+             .llama4Scout17B16E4Bit:
+            false
         }
     }
 }
@@ -267,9 +321,9 @@ nonisolated enum LocalRoutingMode: String, Codable, Sendable, CaseIterable {
     var summary: String {
         switch self {
         case .auto:
-            "Apple Intelligence handles the lightest local work. Installed local Qwen models handle deeper tasks."
+            "Apple Intelligence handles the lightest local work. Installed local models handle deeper tasks."
         case .localOnly:
-            "Always use a local model. Apple Intelligence is bypassed."
+            "Always use an installed local model. Apple Intelligence is bypassed."
         }
     }
 }
@@ -283,6 +337,64 @@ nonisolated enum LocalReasoningMode: String, Codable, Sendable, CaseIterable {
         case .fast: "Fast"
         case .thinking: "Thinking"
         }
+    }
+}
+
+nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable {
+    case fast
+    case thinking
+    case agent
+
+    var displayName: String {
+        switch self {
+        case .fast: "Fast"
+        case .thinking: "Thinking"
+        case .agent: "Agent"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .fast: "bolt.fill"
+        case .thinking: "brain.head.profile"
+        case .agent: "cpu.fill"
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .fast:
+            "Quick local replies with the lightest reasoning overhead."
+        case .thinking:
+            "Spend more local reasoning budget before answering."
+        case .agent:
+            "Hand off the task to Omega for visible multi-step execution."
+        }
+    }
+
+    var localReasoningMode: LocalReasoningMode? {
+        switch self {
+        case .fast: .fast
+        case .thinking: .thinking
+        case .agent: nil
+        }
+    }
+
+    var handoffMessage: String? {
+        switch self {
+        case .agent:
+            "Handing this off to Omega Agent for multi-step execution. Follow progress in the Omega panel."
+        case .fast, .thinking:
+            nil
+        }
+    }
+}
+
+nonisolated struct OperatingModeCapabilities: Sendable, Equatable {
+    let availableModes: [EpistemosOperatingMode]
+
+    var supportsThinking: Bool {
+        availableModes.contains(.thinking)
     }
 }
 
@@ -628,7 +740,10 @@ final class InferenceState {
             .compactMap(LocalTextModelID.init(rawValue:))
             .filter { hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue) }
             .sorted { lhs, rhs in
-                lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
+                if lhs.minimumRecommendedMemoryGB == rhs.minimumRecommendedMemoryGB {
+                    return lhs.rawValue < rhs.rawValue
+                }
+                return lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
             }
     }
 
@@ -640,13 +755,45 @@ final class InferenceState {
         effectiveLocalTextModelID != nil
     }
 
+    var operatingModeCapabilities: OperatingModeCapabilities {
+        switch preferredChatModelSelection {
+        case .appleIntelligence, .cloud:
+            return OperatingModeCapabilities(availableModes: [.fast, .agent])
+        case .localQwen(let modelID):
+            let activeModelID = LocalTextModelID(rawValue: modelID) != nil ? modelID : activeLocalTextModelID
+            guard let activeModelID,
+                  let model = LocalTextModelID(rawValue: activeModelID) else {
+                return OperatingModeCapabilities(availableModes: [.fast, .agent])
+            }
+            if model.supportsThinkingMode {
+                return OperatingModeCapabilities(availableModes: [.fast, .thinking, .agent])
+            }
+            return OperatingModeCapabilities(availableModes: [.fast, .agent])
+        }
+    }
+
+    var availableOperatingModes: [EpistemosOperatingMode] {
+        operatingModeCapabilities.availableModes
+    }
+
+    var supportsThinkingOperatingMode: Bool {
+        operatingModeCapabilities.supportsThinking
+    }
+
+    func sanitizedOperatingMode(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
+        guard availableOperatingModes.contains(mode) else {
+            return availableOperatingModes.first ?? .fast
+        }
+        return mode
+    }
+
     var activeLocalTextModelID: String? {
         return effectiveLocalTextModelID
     }
 
     var activeLocalTextModelDisplayName: String {
         guard let modelID = activeLocalTextModelID else {
-            return "Qwen 3.5"
+            return "Local Model"
         }
         if let model = LocalTextModelID(rawValue: modelID) {
             return model.displayName

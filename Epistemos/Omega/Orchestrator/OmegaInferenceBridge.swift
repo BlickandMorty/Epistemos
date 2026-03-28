@@ -95,7 +95,11 @@ final class OmegaInferenceBridge {
     // MARK: - Prompt Construction
 
     private nonisolated static func buildPlanningPrompt(taskDescription: String) -> String {
-        """
+        let researchBlock = ResearchOrchestrator.isResearchTask(taskDescription)
+            ? Self.researchPlanningBlock
+            : ""
+
+        return """
         You are a task planner for Epistemos Omega, a macOS automation system.
 
         Available agents and their tools:
@@ -113,6 +117,7 @@ final class OmegaInferenceBridge {
         - Mark file deletion as "high" risk, system changes as "critical". Everything else "low".
         - For note creation, always include both "title" and "body" in arguments.
         - For search, extract the actual search query from the user's request.
+        \(researchBlock)
 
         Examples:
 
@@ -137,6 +142,25 @@ final class OmegaInferenceBridge {
         Now plan for: \(taskDescription)
         """
     }
+
+    /// Additional planning instructions injected when the task is a research task.
+    private nonisolated static let researchPlanningBlock = """
+
+    RESEARCH TASK RULES:
+    1. Decompose the research question into 2-5 sub-questions that together answer the main question.
+    2. For each sub-question, plan this sequence: search_web -> readpagecontent -> collectsnippet.
+    3. For academic topics, use searchpapers instead of search_web for at least one sub-question.
+    4. After collecting snippets from 2+ sources, use scoreevidence for each source URL.
+    5. If two snippets appear to conflict, use analyzecontradiction to compare them.
+    6. End with createresearchnote to synthesize all findings.
+    7. Total steps: minimum 6, maximum 20. Never plan more than 3 consecutive web reads without a collectsnippet.
+    8. Use savecitation for any source that contributes to the final note.
+    9. Use "dependsOn" array to chain steps (e.g. readpagecontent depends on search_web step index).
+
+    Research example:
+    Request: "research: transformer attention vs Mamba-2"
+    [{"description":"Search for transformer attention papers","agent":"safari","tool":"search_web","arguments":{"query":"transformer attention mechanisms 2024 2025"},"risk":"low"},{"description":"Extract page content","agent":"safari","tool":"readpagecontent","arguments":{"maxLength":4000},"risk":"low","dependsOn":[0]},{"description":"Collect key findings on attention","agent":"notes","tool":"collectsnippet","arguments":{"text":"[extracted text]","sourceUrl":"[url]","sourceTitle":"[title]"},"risk":"low","dependsOn":[1]},{"description":"Search for Mamba-2 papers","agent":"safari","tool":"searchpapers","arguments":{"query":"Mamba-2 selective scan state space model","yearMin":2024},"risk":"low"},{"description":"Score evidence quality","agent":"notes","tool":"scoreevidence","arguments":{"url":"https://arxiv.org/abs/2405.21060"},"risk":"low","dependsOn":[3]},{"description":"Create research note","agent":"notes","tool":"createresearchnote","arguments":{"question":"Transformer attention vs Mamba-2","findings":"Summary of comparison...","evidence":["Finding 1","Finding 2"],"citations":["Author et al. (2024). Paper Title. https://..."]},"risk":"low","dependsOn":[2,4]}]
+    """
 
     /// Remove `<think>...</think>` blocks from reasoning model output.
     private nonisolated static func stripThinkTags(_ text: String) -> String {

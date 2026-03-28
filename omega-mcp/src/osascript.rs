@@ -113,6 +113,15 @@ pub fn tool_get_page_title() -> ToolResult {
     )
 }
 
+/// Tool: get_page_text — extracts visible text from Safari's current tab via JavaScript.
+pub fn tool_get_page_text(max_length: u32) -> ToolResult {
+    let limit = if max_length == 0 { 4000 } else { max_length };
+    let script = format!(
+        "tell application \"Safari\" to return (do JavaScript \"document.body.innerText.substring(0, {limit})\" in current tab of front window)"
+    );
+    run_applescript(&script, Some(15_000))
+}
+
 /// Tool: search_web — searches Google via Safari.
 pub fn tool_search_web(query: &str) -> ToolResult {
     let encoded = query.replace(' ', "+").replace('"', "%22");

@@ -1178,7 +1178,7 @@ struct ChatCoordinatorPersistenceTests {
 
         #expect(mock.streamCalls.count == 1)
         let firstSystemPrompt = try #require(mock.streamCalls[0].systemPrompt)
-        #expect(firstSystemPrompt.contains("local Epistemos assistant powered by Qwen"))
+        #expect(firstSystemPrompt.contains("local Epistemos assistant running on-device"))
         #expect(mock.streamCalls[0].prompt == "What is truth?")
         #expect(!mock.streamCalls[0].prompt.contains("You are Epistemos"))
         #expect(!mock.streamCalls[0].prompt.contains("User's Knowledge Vault"))
@@ -1193,7 +1193,7 @@ struct ChatCoordinatorPersistenceTests {
 
         #expect(mock.streamCalls.count == 1)
         let secondSystemPrompt = try #require(mock.streamCalls[0].systemPrompt)
-        #expect(secondSystemPrompt.contains("local Epistemos assistant powered by Qwen"))
+        #expect(secondSystemPrompt.contains("local Epistemos assistant running on-device"))
         #expect(mock.streamCalls[0].prompt.contains("### Referenced Note: Alpha"))
         #expect(mock.streamCalls[0].prompt.contains("Compare this with today"))
     }
@@ -1385,7 +1385,12 @@ struct ChatCoordinatorPersistenceTests {
         )
 
         chatState.submitQuery("[VAULT_BRIEFING]")
-        coordinator.handleQuery("[VAULT_BRIEFING]", pipeline: pipeline, chatState: chatState)
+        coordinator.handleQuery(
+            "[VAULT_BRIEFING]",
+            pipeline: pipeline,
+            chatState: chatState,
+            operatingMode: .fast
+        )
         await bootstrap.queryTask?.value
 
         let assistant = try #require(chatState.messages.last)
@@ -1498,6 +1503,106 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.pendingContextAttachments.isEmpty)
         #expect(chatState.loadedNoteIds.isEmpty)
         #expect(chatState.loadedNoteTitles.isEmpty)
+    }
+}
+
+@Suite("ChatState Local Messages")
+@MainActor
+struct ChatStateLocalMessageTests {
+    @Test("append local message creates an in-memory chat turn without streaming")
+    func appendLocalMessageCreatesSessionAndMessage() {
+        let chatState = ChatState()
+
+        chatState.appendLocalMessage(role: .user, content: "/research test the handoff")
+
+        #expect(chatState.activeChatId != nil)
+        #expect(chatState.hasMessages)
+        #expect(!chatState.showLanding)
+        #expect(chatState.messages.count == 1)
+        #expect(chatState.messages.last?.role == .user)
+        #expect(chatState.messages.last?.content == "/research test the handoff")
+    }
+
+    @Test("submit query emits the selected operating mode on the event bus")
+    func submitQueryEmitsSelectedOperatingMode() {
+        let chatState = ChatState()
+        let eventBus = EventBus()
+        chatState.eventBus = eventBus
+
+        var capturedMode: EpistemosOperatingMode?
+        var capturedQuery: String?
+
+        eventBus.subscribe(id: "chat-state-operating-mode-test") { event in
+            if case .querySubmitted(_, let query, let operatingMode) = event {
+                capturedQuery = query
+                capturedMode = operatingMode
+            }
+        }
+
+        chatState.submitQuery("Use deep reasoning here", operatingMode: .thinking)
+
+        #expect(capturedQuery == "Use deep reasoning here")
+        #expect(capturedMode == .thinking)
+    }
+
+    @Test("main chat router hands research queries off to Omega and keeps a visible transcript")
+    func mainChatRouterHandsResearchQueriesOffToOmega() async {
+        let chatState = ChatState()
+        let orchestrator = OrchestratorState()
+        let attachment = ContextAttachment(
+            kind: .note,
+            targetId: "note-1",
+            title: "Transformer Notes"
+        )
+        chatState.addContextAttachment(attachment)
+
+        var omegaPanelShown = false
+        MainChatSubmissionRouter.submit(
+            "/research transformer attention",
+            operatingMode: .fast,
+            chat: chatState,
+            orchestrator: orchestrator,
+            showOmegaPanel: { omegaPanelShown = true }
+        )
+
+        await Task.yield()
+
+        #expect(omegaPanelShown)
+        #expect(chatState.messages.count == 2)
+        #expect(chatState.messages.first?.role == .user)
+        #expect(chatState.messages.first?.content == "/research transformer attention")
+        #expect(chatState.messages.first?.contextAttachments == [attachment])
+        #expect(chatState.messages.last?.role == .assistant)
+        #expect(
+            chatState.messages.last?.content
+                == ResearchComplexityGate.handoffMessage(for: "/research transformer attention")
+        )
+        #expect(orchestrator.currentTaskDescription == "research: transformer attention")
+    }
+
+    @Test("main chat router hands agent mode off to Omega and keeps a visible transcript")
+    func mainChatRouterHandsAgentModeOffToOmega() async {
+        let chatState = ChatState()
+        let orchestrator = OrchestratorState()
+
+        var omegaPanelShown = false
+        MainChatSubmissionRouter.submit(
+            "Plan a multi-step refactor",
+            operatingMode: .agent,
+            chat: chatState,
+            orchestrator: orchestrator,
+            showOmegaPanel: { omegaPanelShown = true }
+        )
+
+        await Task.yield()
+
+        #expect(omegaPanelShown)
+        #expect(chatState.messages.count == 2)
+        #expect(chatState.messages.first?.role == .user)
+        #expect(chatState.messages.first?.content == "Plan a multi-step refactor")
+        #expect(chatState.messages.last?.role == .assistant)
+        #expect(chatState.messages.last?.content == EpistemosOperatingMode.agent.handoffMessage)
+        #expect(orchestrator.currentTaskDescription == "Plan a multi-step refactor")
     }
 }
 

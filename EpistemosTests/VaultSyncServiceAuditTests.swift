@@ -154,6 +154,25 @@ struct VaultSyncServiceAuditTests {
         )
     }
 
+    @Test("restoreVaultFromBookmark respects explicit skip override")
+    func restoreVaultFromBookmarkRespectsSkipOverride() {
+        #expect(
+            VaultSyncService.shouldRestoreVaultFromBookmark(
+                processInfoEnvironment: ["EPISTEMOS_SKIP_VAULT_RESTORE": "1"]
+            ) == false
+        )
+        #expect(
+            VaultSyncService.shouldRestoreVaultFromBookmark(
+                processInfoEnvironment: ["EPISTEMOS_SKIP_VAULT_RESTORE": "true"]
+            ) == false
+        )
+        #expect(
+            VaultSyncService.shouldRestoreVaultFromBookmark(
+                processInfoEnvironment: ["EPISTEMOS_SKIP_VAULT_RESTORE": "0"]
+            )
+        )
+    }
+
     @Test("vault sync test hooks do not overwrite live vault defaults")
     func testHooksDoNotOverwriteLiveVaultDefaults() throws {
         let container = try makeRecoveryContainer()

@@ -8,6 +8,8 @@
 	<string>com.epistemos.app</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Epistemos uses Apple Events to automate Safari and System Events when you enable Omega desktop control.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>com.epistemos.openNote</string>

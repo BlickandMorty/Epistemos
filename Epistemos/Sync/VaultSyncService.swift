@@ -99,6 +99,7 @@ final class VaultSyncService {
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
     fileprivate nonisolated static let testDefaultsSuitePrefix = "com.epistemos.tests.VaultSyncService."
+    fileprivate nonisolated static let skipRestoreEnvironmentKey = "EPISTEMOS_SKIP_VAULT_RESTORE"
     private nonisolated static let defaultRecoveryVaultURL = URL(
         fileURLWithPath: "/Users/jojo/My mind",
         isDirectory: true
@@ -114,6 +115,25 @@ final class VaultSyncService {
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
         processInfoEnvironment["XCTestConfigurationFilePath"] == nil
+            && !shouldSkipVaultRestore(processInfoEnvironment: processInfoEnvironment)
+    }
+
+    private nonisolated static func shouldSkipVaultRestore(
+        processInfoEnvironment: [String: String]
+    ) -> Bool {
+        guard let raw = processInfoEnvironment[skipRestoreEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        else {
+            return false
+        }
+
+        switch raw {
+        case "1", "true", "yes", "y":
+            return true
+        default:
+            return false
+        }
     }
 
     nonisolated private static func makeDefaultUserDefaults(
@@ -637,7 +657,11 @@ final class VaultSyncService {
     func restoreVaultFromBookmark() {
         guard Self.shouldRestoreVaultFromBookmark() else {
             isIndexing = false
-            log.info("Skipping vault bookmark restore under tests")
+            if Self.isRunningTests || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+                log.info("Skipping vault bookmark restore under tests")
+            } else {
+                log.info("Skipping vault bookmark restore via environment override")
+            }
             return
         }
 

@@ -117,6 +117,26 @@ struct NoteChatStateTests {
         #expect(!state.isStreaming)
     }
 
+    @Test("clear discards a pending inline response")
+    @MainActor func clearDiscardsPendingInlineResponse() {
+        let state = NoteChatState(pageId: "page-7-inline")
+        state.inputText = "query"
+        state.responseText = "response"
+        state.hasResponse = true
+        state.useResponsePanel = false
+
+        var discardCalled = false
+        state.onDiscard = { discardCalled = true }
+
+        state.clear()
+
+        #expect(discardCalled)
+        #expect(state.inputText.isEmpty)
+        #expect(state.responseText.isEmpty)
+        #expect(!state.hasResponse)
+        #expect(!state.isStreaming)
+    }
+
     @Test("stopStreaming does not append a partial assistant message after cancellation")
     @MainActor func stopStreamingDoesNotAppendPartialAssistantMessage() async throws {
         let inference = InferenceState()

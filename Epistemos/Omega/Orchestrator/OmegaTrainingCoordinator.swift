@@ -17,12 +17,14 @@ final class OmegaTrainingCoordinator {
     private let dataMixer = TraceDataMixer()
 
     /// Generate structured ODIA training data from completed Omega execution results.
+    /// Pass taskType "research" for research tasks to get 2x weight in nightly training.
     func generateTrainingData(
         from results: [AgentStepResult],
         taskDescription: String,
-        steps: [AgentStep]
+        steps: [AgentStep],
+        taskType: String = "general"
     ) -> [StructuredODIATrace] {
-        traceGenerator.generateStructuredTraces(from: results, taskDescription: taskDescription, steps: steps)
+        traceGenerator.generateStructuredTraces(from: results, taskDescription: taskDescription, steps: steps, taskType: taskType)
     }
 
     /// Export traces as JSONL for training pipeline consumption.

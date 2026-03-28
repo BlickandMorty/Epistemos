@@ -463,6 +463,39 @@ struct VaultIndexActorTests {
         #expect(page.lastSyncedAt != nil)
     }
 
+    @Test("importVault decodes UTF-16 markdown files without corrupting body text")
+    func importVaultDecodesUtf16Markdown() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let fileURL = vaultURL.appendingPathComponent("Kimi.md")
+        let content = """
+        ---
+        title: Kimi Import
+        ---
+
+        UTF16 café 🚀 body
+        """
+        guard let data = content.data(using: .utf16) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding)
+        }
+        try data.write(to: fileURL, options: .atomic)
+
+        try await actor.importVault(from: vaultURL)
+
+        let verifyContext = ModelContext(container)
+        guard let page = try verifyContext.fetch(FetchDescriptor<SDPage>()).first else {
+            Issue.record("Expected imported UTF-16 page")
+            return
+        }
+
+        #expect(page.title == "Kimi Import")
+        #expect(page.loadBody() == "UTF16 café 🚀 body")
+        #expect(page.needsVaultSync == false)
+    }
+
     @Test("comparable vault page counts ignore non-vault records")
     func comparableVaultPageCountsIgnoreNonVaultPages() throws {
         let vaultURL = URL(fileURLWithPath: "/tmp/epistemos-vault", isDirectory: true)

@@ -3,7 +3,10 @@
 
 use crate::types::{AXElement, AXTreeSnapshot};
 use crate::ax_ffi::*;
-use core_foundation::base::{CFRelease, CFTypeRef, TCFType};
+use core_foundation::attributed_string::{CFAttributedString, CFAttributedStringGetString};
+use core_foundation::base::{CFRelease, CFType, CFTypeRef, TCFType};
+use core_foundation::boolean::CFBoolean;
+use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
 use std::ffi::c_void;
 
@@ -116,14 +119,64 @@ fn get_string_attr(element: AXUIElementRef, attr_name: &str) -> Option<String> {
         return None;
     }
 
-    // Try to interpret as CFString
-    let cf_str = unsafe { CFString::wrap_under_create_rule(value as *const _) };
-    let result = cf_str.to_string();
+    string_from_cf_type_ref(value)
+}
 
-    if result.is_empty() {
+fn string_from_cf_type_ref(value: CFTypeRef) -> Option<String> {
+    let cf_value = unsafe { CFType::wrap_under_create_rule(value) };
+    string_from_cf_type(&cf_value)
+}
+
+fn string_from_cf_type(value: &CFType) -> Option<String> {
+    if let Some(cf_str) = value.downcast::<CFString>() {
+        return non_empty_string(cf_str.to_string());
+    }
+
+    if let Some(attr_str) = value.downcast::<CFAttributedString>() {
+        let plain_ref = unsafe { CFAttributedStringGetString(attr_str.as_concrete_TypeRef()) };
+        if !plain_ref.is_null() {
+            let plain = unsafe { CFString::wrap_under_get_rule(plain_ref) };
+            return non_empty_string(plain.to_string());
+        }
+    }
+
+    if let Some(number) = value.downcast::<CFNumber>() {
+        return string_from_cf_number(&number);
+    }
+
+    if let Some(boolean) = value.downcast::<CFBoolean>() {
+        return Some(bool::from(boolean).to_string());
+    }
+
+    None
+}
+
+fn string_from_cf_number(number: &CFNumber) -> Option<String> {
+    if let Some(int_value) = number.to_i64() {
+        return Some(int_value.to_string());
+    }
+
+    let float_value = number.to_f64()?;
+    if !float_value.is_finite() {
+        return None;
+    }
+
+    if float_value.fract() == 0.0
+        && float_value >= i64::MIN as f64
+        && float_value <= i64::MAX as f64
+    {
+        return Some((float_value as i64).to_string());
+    }
+
+    Some(float_value.to_string())
+}
+
+fn non_empty_string(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
         None
     } else {
-        Some(result)
+        Some(trimmed.to_string())
     }
 }
 
@@ -241,6 +294,8 @@ fn get_children(element: AXUIElementRef) -> Vec<AXUIElementRef> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core_foundation::boolean::CFBoolean;
+    use core_foundation::number::CFNumber;
 
     #[test]
     fn test_walk_returns_snapshot() {
@@ -257,6 +312,27 @@ mod tests {
         // With invalid PID, the AX API may return empty or minimal results.
         // The key guarantee: it doesn't panic.
         assert_eq!(snapshot.app_pid, -1);
+    }
+
+    #[test]
+    fn test_string_from_cf_type_handles_multiple_cf_kinds() {
+        let plain = CFString::new("hello").into_CFType();
+        assert_eq!(string_from_cf_type(&plain).as_deref(), Some("hello"));
+
+        let number = CFNumber::from(42_i64).into_CFType();
+        assert_eq!(string_from_cf_type(&number).as_deref(), Some("42"));
+
+        let boolean = CFBoolean::from(true).into_CFType();
+        assert_eq!(string_from_cf_type(&boolean).as_deref(), Some("true"));
+
+        let rich = CFAttributedString::new(&CFString::new("rich text")).into_CFType();
+        assert_eq!(string_from_cf_type(&rich).as_deref(), Some("rich text"));
+    }
+
+    #[test]
+    fn test_string_from_cf_type_drops_blank_strings() {
+        let blank = CFString::new("   ").into_CFType();
+        assert!(string_from_cf_type(&blank).is_none());
     }
 
     #[test]

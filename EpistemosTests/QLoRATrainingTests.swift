@@ -316,16 +316,16 @@ struct HyperparameterComplianceTests {
         let content = try String(contentsOf: url, encoding: .utf8)
 
         // ANCHOR 2 compliance checks
-        #expect(content.contains("DEFAULT_RANK = 32"))
-        #expect(content.contains("DEFAULT_ALPHA = 64"))
+        #expect(content.contains("DEFAULT_RANK = 16"))
+        #expect(content.contains("DEFAULT_ALPHA = 32"))
         #expect(content.contains("gate_proj"))
         #expect(content.contains("up_proj"))
         #expect(content.contains("down_proj"))
         #expect(content.contains("DEFAULT_LR = 2e-5"))
         #expect(content.contains("REPLAY_RATIO = 0.10"))
         #expect(trainerSource.contains("static let defaultKnowledge = TrainingConfig("))
-        #expect(trainerSource.contains("loraRank: 32"))
-        #expect(trainerSource.contains("loraAlpha: 64"))
+        #expect(trainerSource.contains("loraRank: 16"))
+        #expect(trainerSource.contains("loraAlpha: 32"))
         #expect(trainerSource.contains("config: TrainingConfig = .defaultKnowledge"))
 
         // ANCHOR 3, GAP 1: No fusion calls in actual code

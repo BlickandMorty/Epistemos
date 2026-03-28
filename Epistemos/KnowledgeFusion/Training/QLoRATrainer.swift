@@ -76,8 +76,8 @@ actor QLoRATrainer {
 
         static let defaultKnowledge = TrainingConfig(
             numIters: 200,
-            loraRank: 32,
-            loraAlpha: 64,
+            loraRank: 16,
+            loraAlpha: 32,
             batchSize: 1,
             maxSeqLen: 1024,
             learningRate: 2e-5,

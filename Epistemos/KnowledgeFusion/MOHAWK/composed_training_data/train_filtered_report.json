@@ -1,0 +1,19 @@
+{
+  "input_count": 1800,
+  "kept_count": 1530,
+  "dropped_count": 270,
+  "top_pct": 85,
+  "score_mean": 0.6881,
+  "score_min": 0.2175,
+  "score_max": 0.94,
+  "kept_mean": 0.7483,
+  "dropped_mean": 0.3469,
+  "unique_fingerprints": 1311,
+  "duplicate_count": 260,
+  "distribution": {
+    "0.2-0.4": 394,
+    "0.4-0.6": 277,
+    "0.6-0.8": 348,
+    "0.8-1.0": 781
+  }
+}

@@ -43,7 +43,8 @@ struct OmegaPanel: View {
                     if orchestrator.isModelLoading {
                         HStack(spacing: 8) {
                             ProgressView()
-                                .scaleEffect(0.7)
+                                .controlSize(.small)
+                                .frame(width: 14, height: 14)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Loading AI model…")
                                     .font(.subheadline.bold())
@@ -62,7 +63,8 @@ struct OmegaPanel: View {
                     if orchestrator.isPlanning {
                         HStack(spacing: 8) {
                             ProgressView()
-                                .scaleEffect(0.7)
+                                .controlSize(.small)
+                                .frame(width: 14, height: 14)
                             Text("Planning: \(orchestrator.currentTaskDescription)")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -194,6 +196,7 @@ struct OmegaPanel: View {
                 quickActionButton("List files in my vault")
                 quickActionButton("Search the web for MLX benchmarks")
                 quickActionButton("Create a new note")
+                quickActionButton("research: transformer attention vs Mamba-2")
             }
             .padding(.top, 8)
         }
@@ -231,6 +234,29 @@ struct OmegaPanel: View {
                 }
             }
 
+            if !permissions.automationGranted {
+                VStack(alignment: .leading, spacing: 6) {
+                    permissionRow(
+                        name: "Automation",
+                        detail: "Apple Events control of System Events for desktop automation",
+                        granted: false,
+                        buttonTitle: "Request Access"
+                    ) {
+                        Task { await permissions.requestAutomationAccess() }
+                    }
+
+                    Text("Safari browser automation may ask separately on first use.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                    Button("Open Automation Settings") {
+                        permissions.openAutomationSettings()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+            }
+
             Button("Refresh") {
                 Task { await permissions.refresh() }
             }
@@ -244,7 +270,13 @@ struct OmegaPanel: View {
         .task { await permissions.refresh() }
     }
 
-    private func permissionRow(name: String, detail: String, granted: Bool, action: @escaping () -> Void) -> some View {
+    private func permissionRow(
+        name: String,
+        detail: String,
+        granted: Bool,
+        buttonTitle: String = "Open Settings",
+        action: @escaping () -> Void
+    ) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
@@ -254,7 +286,7 @@ struct OmegaPanel: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("Open Settings") {
+            Button(buttonTitle) {
                 action()
             }
             .buttonStyle(.bordered)

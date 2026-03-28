@@ -125,7 +125,7 @@ enum NoteFileStorage {
         let url = bodyURL(pageId: pageId)
         let options: Data.ReadingOptions = mapped ? .mappedIfSafe : []
         guard let data = try? Data(contentsOf: url, options: options),
-              let text = String(data: data, encoding: .utf8) else {
+              let text = FoundationSafety.decodedText(from: data) else {
             return migrateLegacyRichTextBody(pageId: pageId)
         }
         return text

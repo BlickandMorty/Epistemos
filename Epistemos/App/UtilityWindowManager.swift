@@ -205,6 +205,8 @@ final class UtilityWindowManager {
         if let uiState = AppBootstrap.shared?.uiState {
             WindowThemeStyler.apply(to: window, uiState: uiState)
         }
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
         window.makeKeyAndOrderFront(nil)
     }
 

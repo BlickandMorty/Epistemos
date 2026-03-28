@@ -92,6 +92,22 @@ struct NoteFileStorageTests {
         #expect(mapped == content)
     }
 
+    @Test("readBody decodes UTF-16 note bodies without showing gibberish")
+    func readBodyDecodesUtf16Bodies() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let content = "Kimi note line 1\nUnicode café 🚀"
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        guard let data = content.data(using: .utf16) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding)
+        }
+        try data.write(to: bodyURL, options: .atomic)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId, mapped: false) == content)
+        #expect(NoteFileStorage.readBody(pageId: pageId, mapped: true) == content)
+    }
+
     @Test("readBody returns empty string for missing file")
     func missingFileReadReturnsEmpty() {
         let pageId = makePageId()
