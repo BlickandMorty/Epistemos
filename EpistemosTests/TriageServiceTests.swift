@@ -1610,7 +1610,11 @@ struct TriageServiceIntegrationTests {
             inference.setPreferredLocalTextModelID(firstInstalled)
         }
         if let selectedChatModel {
-            inference.setPreferredChatModelSelection(selectedChatModel)
+            if case .cloud = selectedChatModel {
+                inference.preferredChatModelSelection = selectedChatModel
+            } else {
+                inference.setPreferredChatModelSelection(selectedChatModel)
+            }
         }
 
         return TriageService(

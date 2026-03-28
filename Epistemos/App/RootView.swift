@@ -78,8 +78,8 @@ struct RootView: View {
         }
         .toolbar {
             // Back button — only during active chat on Home tab
-            ToolbarItem(placement: .navigation) {
-                if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding {
+            if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding {
+                ToolbarItem(placement: .navigation) {
                     Button {
                         chat.goHome()
                     } label: {
@@ -89,13 +89,15 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            ToolbarItem(placement: .principal) {
-                rootToolbarControls
+            if showLandingToolbarControls || activeHomeChat {
+                ToolbarItem(placement: .principal) {
+                    rootToolbarControls
+                }
+                .sharedBackgroundVisibility(
+                    (ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding)
+                        ? .hidden : .automatic
+                )
             }
-            .sharedBackgroundVisibility(
-                (ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding)
-                    ? .hidden : .automatic
-            )
         }
         .navigationTitle("")
         // Toolbar glass: hidden on home landing, visible for active home chat.
@@ -285,6 +287,7 @@ struct RootView: View {
                 modelToolbarButton(title: chat.chatTitle)
             }
         }
+        .frame(minWidth: 160, minHeight: 28)
         .fixedSize()
     }
 

@@ -122,6 +122,19 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("ForEach(CloudTextModelID.models(for: provider)"))
     }
 
+    @Test("root toolbar only mounts a principal item when there is visible content")
+    func rootToolbarOnlyMountsPrincipalItemWhenVisible() throws {
+        let rootView = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/RootView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(rootView.contains("if showLandingToolbarControls || activeHomeChat"))
+        #expect(rootView.contains("ToolbarItem(placement: .principal)"))
+        #expect(rootView.contains("if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding"))
+        #expect(rootView.contains("ToolbarItem(placement: .navigation)"))
+    }
+
     @MainActor
     @Test("warm relaunch bootstrap also starts without an eager local model load")
     func warmBootstrapAlsoStartsCold() async {
@@ -138,7 +151,10 @@ struct RuntimeValidationTests {
     func thinkingOperatingModeSanitizesUnsupportedSelections() async {
         await withResetInferenceDefaults {
             let inference = InferenceState()
-            inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+            inference.setInstalledLocalTextModelIDs([
+                LocalTextModelID.qwen35_4B4Bit.rawValue,
+                LocalTextModelID.smolLM3_3B4Bit.rawValue,
+            ])
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue))
             #expect(inference.supportsThinkingOperatingMode)
@@ -148,6 +164,7 @@ struct RuntimeValidationTests {
             #expect(!inference.supportsThinkingOperatingMode)
             #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
 
+            inference.setPreferredLocalTextModelID(LocalTextModelID.smolLM3_3B4Bit.rawValue)
             inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
             #expect(!inference.supportsThinkingOperatingMode)
             #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
@@ -1402,6 +1419,30 @@ struct RuntimeValidationTests {
         #expect(miniChat.contains("threads: shouldSearchChats ? threadState.chatThreads : []"))
     }
 
+    @Test("composer note pickers observe vault sync manifest updates instead of relying on bootstrap singleton state")
+    func composerNotePickersObserveVaultSyncManifestUpdates() throws {
+        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let coordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
+        let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(chatInput.contains("vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest"))
+        #expect(chatInput.contains("manifest: ambientManifest"))
+        #expect(!chatInput.contains("manifest: AppBootstrap.shared?.ambientManifest"))
+
+        #expect(miniChat.contains("vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest"))
+        #expect(miniChat.contains("manifest: ambientManifest"))
+        #expect(!miniChat.contains("manifest: AppBootstrap.shared?.ambientManifest"))
+
+        #expect(landing.contains("vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest"))
+        #expect(landing.contains("manifest: ambientManifest"))
+        #expect(!landing.contains("manifest: AppBootstrap.shared?.ambientManifest"))
+
+        #expect(vaultSync.contains("var ambientManifest: VaultManifest?"))
+        #expect(coordinator.contains("vaultSync.ambientManifest = manifest"))
+    }
+
     @Test("composer reference search caches manifest page ids between query updates")
     func composerReferenceSearchCachesManifestPageIDsBetweenQueryUpdates() throws {
         let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
@@ -1514,6 +1555,82 @@ struct RuntimeValidationTests {
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
         try loadRepoTextFileWithRetry(relativePath: relativePath, testsFilePath: #filePath)
+    }
+}
+
+@Suite("Inference Cloud Selection", .serialized)
+struct InferenceCloudSelectionTests {
+    private let inferenceDefaultsKeys = [
+        "epistemos.localRoutingMode",
+        "epistemos.preferredLocalTextModelID",
+        "epistemos.preferredChatModelSelection",
+    ]
+
+    @MainActor
+    private func withResetInferenceDefaults(
+        _ body: () async throws -> Void
+    ) async rethrows {
+        let defaults = UserDefaults.standard
+        let savedValues = inferenceDefaultsKeys.reduce(into: [String: Any?]()) { partialResult, key in
+            partialResult[key] = defaults.object(forKey: key)
+            defaults.removeObject(forKey: key)
+        }
+        defer {
+            for key in inferenceDefaultsKeys {
+                if let value = savedValues[key] ?? nil {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+        try await body()
+    }
+
+    @MainActor
+    private func withSavedAPIKey(
+        for provider: CloudModelProvider,
+        _ body: () async throws -> Void
+    ) async rethrows {
+        let originalValue = Keychain.load(for: provider.apiKeyKeychainKey)
+        defer {
+            if let originalValue {
+                _ = Keychain.save(originalValue, for: provider.apiKeyKeychainKey)
+            } else {
+                Keychain.delete(for: provider.apiKeyKeychainKey)
+            }
+        }
+        try await body()
+    }
+
+    @MainActor
+    @Test("unconfigured cloud selection falls back to local qwen")
+    func unconfiguredCloudSelectionFallsBackToLocalQwen() async {
+        await withSavedAPIKey(for: .openAI) {
+            Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
+
+            await withResetInferenceDefaults {
+                let inference = InferenceState()
+                let fallback = ChatModelSelection.localQwen(inference.preferredLocalTextModelID)
+
+                inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+                #expect(inference.preferredChatModelSelection == fallback)
+            }
+        }
+    }
+
+    @MainActor
+    @Test("clearing the active cloud provider key sanitizes the selected chat model")
+    func clearingActiveCloudProviderKeySanitizesSelectedChatModel() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("if trimmed.isEmpty {"))
+        #expect(source.contains("if case .cloud(let model) = preferredChatModelSelection, model.provider == provider"))
+        #expect(source.contains("persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))"))
     }
 }
 

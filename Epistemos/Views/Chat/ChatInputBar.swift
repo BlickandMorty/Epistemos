@@ -154,6 +154,9 @@ struct ChatInputBar: View {
     private var trimmedMentionFilter: String {
         mentionFilter.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+    private var ambientManifest: VaultManifest? {
+        vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
+    }
     private let composerMetrics = AssistantComposerMetrics.mainChat
     private let placeholderText = "Ask anything…"
     private var selectedOperatingMode: EpistemosOperatingMode {
@@ -178,7 +181,7 @@ struct ChatInputBar: View {
         let shouldSearchChats = !trimmedMentionFilter.isEmpty
         return ChatCoordinator.searchReferenceResults(
             filter: trimmedMentionFilter,
-            manifest: AppBootstrap.shared?.ambientManifest,
+            manifest: ambientManifest,
             chats: shouldSearchChats ? recentChats() : [],
             threads: shouldSearchChats ? (AppBootstrap.shared?.threadState.chatThreads ?? []) : [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
@@ -528,7 +531,7 @@ struct ChatInputBar: View {
         }
         referenceSearch.update(
             filter: trimmed,
-            manifest: AppBootstrap.shared?.ambientManifest,
+            manifest: ambientManifest,
             vaultSync: vaultSync
         )
     }

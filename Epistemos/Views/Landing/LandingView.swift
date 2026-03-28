@@ -89,6 +89,9 @@ struct LandingView: View {
             EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
         )
     }
+    private var ambientManifest: VaultManifest? {
+        vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
+    }
     private var operatingModeBinding: Binding<EpistemosOperatingMode> {
         Binding(
             get: { selectedOperatingMode },
@@ -98,7 +101,7 @@ struct LandingView: View {
     private var landingMentionSearchResults: ChatCoordinator.ReferenceSearchResults {
         ChatCoordinator.searchReferenceResults(
             filter: landingMentionFilter,
-            manifest: AppBootstrap.shared?.ambientManifest,
+            manifest: ambientManifest,
             chats: recentChats(limit: 20),
             threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
             indexedNoteIDs: landingReferenceSearch.indexedNoteIDs,
@@ -637,7 +640,7 @@ struct LandingView: View {
         }
         landingReferenceSearch.update(
             filter: trimmed,
-            manifest: AppBootstrap.shared?.ambientManifest,
+            manifest: ambientManifest,
             vaultSync: vaultSync
         )
     }

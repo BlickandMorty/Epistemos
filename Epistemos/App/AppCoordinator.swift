@@ -200,6 +200,7 @@ final class AppCoordinator {
                 },
                 apply: { manifest in
                     await MainActor.run {
+                        vaultSync.ambientManifest = manifest
                         bootstrap.ambientManifest = manifest
                         Log.app.info("Ambient manifest refreshed: \(manifest?.entries.count ?? 0) entries")
                     }

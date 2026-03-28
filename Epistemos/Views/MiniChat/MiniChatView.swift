@@ -613,6 +613,9 @@ private struct MiniChatInputBar: View {
     private var trimmedMentionFilter: String {
         mentionFilter.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+    private var ambientManifest: VaultManifest? {
+        vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
+    }
 
     private var activeContextAttachments: [ContextAttachment] {
         miniChatThread?.contextAttachments ?? []
@@ -636,7 +639,7 @@ private struct MiniChatInputBar: View {
         let shouldSearchChats = !trimmedMentionFilter.isEmpty
         return ChatCoordinator.searchReferenceResults(
             filter: trimmedMentionFilter,
-            manifest: AppBootstrap.shared?.ambientManifest,
+            manifest: ambientManifest,
             chats: shouldSearchChats ? recentChats() : [],
             threads: shouldSearchChats ? threadState.chatThreads : [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
@@ -1121,7 +1124,7 @@ private struct MiniChatInputBar: View {
                     notesContext = await ChatCoordinator.resolveAttachedContext(
                         query: trimmed,
                         attachments: attachments,
-                        manifest: AppBootstrap.shared?.ambientManifest,
+                        manifest: ambientManifest,
                         includeAllNotesContext: false,
                         findNotesByTitle: { title in
                             await vaultSync.findNotesByTitle(title)
@@ -1359,7 +1362,7 @@ private struct MiniChatInputBar: View {
         }
         referenceSearch.update(
             filter: trimmed,
-            manifest: AppBootstrap.shared?.ambientManifest,
+            manifest: ambientManifest,
             vaultSync: vaultSync
         )
     }

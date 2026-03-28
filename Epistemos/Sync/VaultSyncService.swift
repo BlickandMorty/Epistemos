@@ -181,6 +181,7 @@ final class VaultSyncService {
 
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
+    var ambientManifest: VaultManifest?
 
     /// Whether the vault is being imported/indexed. Starts true if a vault
     /// bookmark exists so the landing page shows a vault sync message on the
@@ -1191,6 +1192,7 @@ final class VaultSyncService {
         clearSearchIndexFiles()
         clearDerivedFilesystemCaches()
         sanitizeTransientSelectionsForVaultRebuild()
+        ambientManifest = nil
         AppBootstrap.shared?.ambientManifest = nil
     }
 
@@ -1442,6 +1444,8 @@ final class VaultSyncService {
         self.isWatching = true
         self.initialImportCompleted = false
         self.recoveryIssue = nil
+        self.ambientManifest = nil
+        AppBootstrap.shared?.ambientManifest = nil
         defaults.set(vaultURL.path, forKey: Self.lastVaultPathKey)
 
         // Create background indexer
@@ -1515,6 +1519,8 @@ final class VaultSyncService {
         indexActor = nil
         searchService = nil
         AppBootstrap.shared?.queryEngine.invalidateRuntime()
+        ambientManifest = nil
+        AppBootstrap.shared?.ambientManifest = nil
 
         var shouldClearLocalData = !preserveData
         if !preserveData {

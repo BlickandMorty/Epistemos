@@ -820,11 +820,31 @@ final class InferenceState {
         Keychain.load(for: provider.apiKeyKeychainKey)
     }
 
+    private func hasConfiguredAPIKey(for provider: CloudModelProvider) -> Bool {
+        guard let value = apiKey(for: provider)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return false
+        }
+        return !value.isEmpty
+    }
+
+    private func persistPreferredChatModelSelection(_ selection: ChatModelSelection) {
+        preferredChatModelSelection = selection
+        UserDefaults.standard.set(selection.rawValue, forKey: "epistemos.preferredChatModelSelection")
+        if case .localQwen(let modelID) = selection {
+            preferredLocalTextModelID = modelID
+            UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
+        }
+    }
+
     @discardableResult
     func setAPIKey(_ value: String, for provider: CloudModelProvider) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             Keychain.delete(for: provider.apiKeyKeychainKey)
+            if case .cloud(let model) = preferredChatModelSelection, model.provider == provider {
+                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+            }
             return true
         }
         return Keychain.save(trimmed, for: provider.apiKeyKeychainKey)
@@ -888,12 +908,11 @@ final class InferenceState {
     }
 
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
-        preferredChatModelSelection = selection
-        UserDefaults.standard.set(selection.rawValue, forKey: "epistemos.preferredChatModelSelection")
-        if case .localQwen(let modelID) = selection {
-            preferredLocalTextModelID = modelID
-            UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
+        if case .cloud(let model) = selection, !hasConfiguredAPIKey(for: model.provider) {
+            persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+            return
         }
+        persistPreferredChatModelSelection(selection)
     }
 
     func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {

@@ -789,6 +789,7 @@ final class AppBootstrap {
         queryTask?.cancel()
         queryTask = nil
         ambientManifest = nil
+        vaultSync.ambientManifest = nil
 
         let context = modelContainer.mainContext
         do {
