@@ -99,7 +99,11 @@ final class PipelineService {
 
                     continuation.yield(
                         .completed(
-                            DualMessage(rawAnalysis: "", uncertaintyTags: [], modelVsDataFlags: []),
+                            DualMessage(
+                                rawAnalysis: emittedVisibleText,
+                                uncertaintyTags: [],
+                                modelVsDataFlags: []
+                            ),
                             nil
                         )
                     )

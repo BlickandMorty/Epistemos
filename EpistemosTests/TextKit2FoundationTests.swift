@@ -2379,7 +2379,7 @@ struct ProseTextView2MouseDownTests {
 
 @Suite("TextKit 2 - ProseTextView2 Context Menu")
 struct ProseTextView2ContextMenuTests {
-    private final class NotificationRecorder: @unchecked Sendable {
+    private final class NotificationRecorder: Sendable {
         private let lock = NSLock()
         nonisolated(unsafe) private var operation: String?
 

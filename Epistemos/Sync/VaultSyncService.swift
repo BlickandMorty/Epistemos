@@ -2,6 +2,7 @@ import AppKit
 import CryptoKit
 import Foundation
 import Observation
+import SQLite3
 import SwiftData
 import os
 
@@ -19,6 +20,12 @@ struct VaultSyncConflict: Identifiable {
     let title: String
     let appBody: String
     let diskBody: String
+}
+
+struct VaultBookmarkStartupValidation: Sendable {
+    let bookmarkExists: Bool
+    let isReadyForAutomaticRestore: Bool
+    let failureReason: String?
 }
 
 struct VaultHealthSnapshot: Sendable {
@@ -95,6 +102,7 @@ private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 @MainActor @Observable
 final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> (path: String, bodyHash: String)?
+    typealias TMUtilCommandRunner = @Sendable ([String]) throws -> String
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
@@ -154,6 +162,12 @@ final class VaultSyncService {
         let dirtyIds: [String]
     }
 
+    private struct APFSSnapshotRecord: Codable, Sendable {
+        let snapshotID: String
+        let createdAt: Date
+        let reason: String
+    }
+
     private var indexActor: VaultIndexActor?
     private let modelContainer: ModelContainer
     var exportPageOverride: ExportPageOperation?
@@ -162,6 +176,7 @@ final class VaultSyncService {
     private var preferencesFileURLOverride: URL?
     private var recoverySnapshotRootURLOverride: URL?
     private var managedBodyCountProvider: (@Sendable () -> Int)?
+    private var tmutilCommandRunnerOverride: TMUtilCommandRunner?
     private var defaults = UserDefaults.standard
 
     private(set) var vaultURL: URL?
@@ -200,6 +215,13 @@ final class VaultSyncService {
     private var fileWatchDebounceTask: Task<Void, Never>?
     private let fileWatcherClock = ContinuousClock()
     private var fileWatcherIgnoreUntil: ContinuousClock.Instant?
+    private nonisolated static let recoverySnapshotLimit = 20
+
+    private struct ResolvedVaultBookmark {
+        let url: URL
+        let isStale: Bool
+        let usedSecurityScope: Bool
+    }
 
     init(modelContainer: ModelContainer, userDefaults: UserDefaults? = nil) {
         let resolvedDefaults = userDefaults ?? Self.makeDefaultUserDefaults()
@@ -244,6 +266,10 @@ final class VaultSyncService {
         managedBodyCountProvider = provider
     }
 
+    func setTMUtilCommandRunnerForTesting(_ runner: TMUtilCommandRunner?) {
+        tmutilCommandRunnerOverride = runner
+    }
+
     func setUserDefaultsForTesting(_ userDefaults: UserDefaults) {
         defaults = userDefaults
         isIndexing = userDefaults.data(forKey: Self.bookmarkKey) != nil
@@ -252,6 +278,30 @@ final class VaultSyncService {
 
     func setInitialImportCompletedForTesting(_ value: Bool) {
         initialImportCompleted = value
+    }
+
+    func startupBookmarkValidation() -> VaultBookmarkStartupValidation {
+        Self.startupBookmarkValidation(
+            bookmarkData: defaults.data(forKey: Self.bookmarkKey)
+        )
+    }
+
+    nonisolated static func startupBookmarkValidationForTesting(
+        bookmarkExists: Bool,
+        resolvedURL: URL?,
+        isStale: Bool,
+        usedSecurityScope: Bool,
+        accessGranted: Bool,
+        isReadable: Bool
+    ) -> VaultBookmarkStartupValidation {
+        makeStartupBookmarkValidation(
+            bookmarkExists: bookmarkExists,
+            resolvedURL: resolvedURL,
+            isStale: isStale,
+            usedSecurityScope: usedSecurityScope,
+            accessGranted: accessGranted,
+            isReadable: isReadable
+        )
     }
 
     private func exportPage(pageId: String, to vaultURL: URL) async throws -> (path: String, bodyHash: String)? {
@@ -529,12 +579,17 @@ final class VaultSyncService {
         return appSupportBase.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
     }
 
+    private func apfsSnapshotManifestURL() -> URL? {
+        recoverySnapshotRootURL()?.appendingPathComponent("apfs-snapshot-manifest.json")
+    }
+
     private func defaultSearchDatabaseURL() -> URL? {
         searchDatabaseURLOverride ?? appSupportDirectoryURL()?.appendingPathComponent("search.sqlite")
     }
 
     private func snapshotLocalState() throws {
         let fm = FileManager.default
+        createAPFSSafetySnapshotIfPossible(reason: "local-state-recovery")
         guard let snapshotRoot = recoverySnapshotRootURL() else { return }
         try fm.createDirectory(at: snapshotRoot, withIntermediateDirectories: true)
 
@@ -547,10 +602,21 @@ final class VaultSyncService {
         try fm.createDirectory(at: snapshotURL, withIntermediateDirectories: true)
 
         if let appSupportURL = appSupportDirectoryURL(), fm.fileExists(atPath: appSupportURL.path) {
-            try fm.copyItem(
-                at: appSupportURL,
-                to: snapshotURL.appendingPathComponent(appSupportURL.lastPathComponent, isDirectory: true)
+            let snapshottedAppSupportURL = snapshotURL.appendingPathComponent(
+                appSupportURL.lastPathComponent,
+                isDirectory: true
             )
+            let sqliteSourceURLs = sqliteDatabaseURLsForSnapshot()
+            try Self.copyDirectoryContents(
+                at: appSupportURL,
+                to: snapshottedAppSupportURL,
+                skipping: sqliteSourceURLs.filter { $0.deletingLastPathComponent() == appSupportURL }
+            )
+
+            for databaseURL in sqliteSourceURLs {
+                let destinationURL = snapshottedAppSupportURL.appendingPathComponent(databaseURL.lastPathComponent)
+                try Self.backupSQLiteDatabaseIfPresent(at: databaseURL, to: destinationURL)
+            }
         }
 
         if let preferencesURL = preferencesFileURL(), fm.fileExists(atPath: preferencesURL.path) {
@@ -558,6 +624,555 @@ final class VaultSyncService {
                 at: preferencesURL,
                 to: snapshotURL.appendingPathComponent(preferencesURL.lastPathComponent)
             )
+        }
+
+        try Self.pruneRecoverySnapshots(in: snapshotRoot, maxCount: Self.recoverySnapshotLimit)
+    }
+
+    private func pruneRecoverySnapshotsIfNeeded() {
+        pruneAPFSSafetySnapshotsIfNeeded()
+
+        guard let snapshotRoot = recoverySnapshotRootURL(),
+              FileManager.default.fileExists(atPath: snapshotRoot.path) else {
+            return
+        }
+
+        do {
+            try Self.pruneRecoverySnapshots(in: snapshotRoot, maxCount: Self.recoverySnapshotLimit)
+        } catch {
+            log.error("Failed to prune recovery snapshots: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func createAPFSSafetySnapshotIfPossible(reason: String) {
+        guard let manifestURL = apfsSnapshotManifestURL() else { return }
+
+        do {
+            _ = try Self.createAPFSSafetySnapshot(
+                reason: reason,
+                manifestURL: manifestURL,
+                maxCount: Self.recoverySnapshotLimit,
+                commandRunner: tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
+            )
+        } catch {
+            log.error("Failed to create APFS safety snapshot: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func pruneAPFSSafetySnapshotsIfNeeded() {
+        guard let manifestURL = apfsSnapshotManifestURL(),
+              FileManager.default.fileExists(atPath: manifestURL.path) else {
+            return
+        }
+
+        do {
+            try Self.pruneAPFSSnapshotManifest(
+                at: manifestURL,
+                maxCount: Self.recoverySnapshotLimit,
+                commandRunner: tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
+            )
+        } catch {
+            log.error("Failed to prune APFS safety snapshots: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private nonisolated static func startupBookmarkValidation(
+        bookmarkData: Data?
+    ) -> VaultBookmarkStartupValidation {
+        guard let bookmarkData else {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: false,
+                isReadyForAutomaticRestore: true,
+                failureReason: nil
+            )
+        }
+
+        guard let resolvedBookmark = resolveVaultBookmark(bookmarkData) else {
+            return makeStartupBookmarkValidation(
+                bookmarkExists: true,
+                resolvedURL: nil,
+                isStale: false,
+                usedSecurityScope: false,
+                accessGranted: false,
+                isReadable: false
+            )
+        }
+
+        let accessGranted: Bool
+        if resolvedBookmark.usedSecurityScope {
+            accessGranted = resolvedBookmark.url.startAccessingSecurityScopedResource()
+            if accessGranted {
+                resolvedBookmark.url.stopAccessingSecurityScopedResource()
+            }
+        } else {
+            accessGranted = FileManager.default.isReadableFile(atPath: resolvedBookmark.url.path)
+        }
+
+        let isReadable = FileManager.default.fileExists(atPath: resolvedBookmark.url.path)
+            && FileManager.default.isReadableFile(atPath: resolvedBookmark.url.path)
+
+        return makeStartupBookmarkValidation(
+            bookmarkExists: true,
+            resolvedURL: resolvedBookmark.url,
+            isStale: resolvedBookmark.isStale,
+            usedSecurityScope: resolvedBookmark.usedSecurityScope,
+            accessGranted: accessGranted,
+            isReadable: isReadable
+        )
+    }
+
+    private nonisolated static func makeStartupBookmarkValidation(
+        bookmarkExists: Bool,
+        resolvedURL: URL?,
+        isStale: Bool,
+        usedSecurityScope: Bool,
+        accessGranted: Bool,
+        isReadable: Bool
+    ) -> VaultBookmarkStartupValidation {
+        guard bookmarkExists else {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: false,
+                isReadyForAutomaticRestore: true,
+                failureReason: nil
+            )
+        }
+
+        guard resolvedURL != nil else {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark could not be resolved."
+            )
+        }
+
+        if isStale {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark is stale and must be re-selected."
+            )
+        }
+
+        if usedSecurityScope && !accessGranted {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark lost security-scoped access."
+            )
+        }
+
+        if !isReadable {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark points to a missing or unreadable directory."
+            )
+        }
+
+        return VaultBookmarkStartupValidation(
+            bookmarkExists: true,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+    }
+
+    private func sqliteDatabaseURLsForSnapshot() -> [URL] {
+        var urls: [URL] = []
+        if let appSupportURL = appSupportDirectoryURL() {
+            urls.append(appSupportURL.appendingPathComponent("event-store.sqlite"))
+        }
+        if let searchDatabaseURL = defaultSearchDatabaseURL() {
+            urls.append(searchDatabaseURL)
+        }
+        var seenPaths = Set<String>()
+        return urls.filter { seenPaths.insert($0.standardizedFileURL.path).inserted }
+    }
+
+    private nonisolated static func copyDirectoryContents(
+        at sourceDirectoryURL: URL,
+        to destinationDirectoryURL: URL,
+        skipping skippedRootURLs: [URL]
+    ) throws {
+        let fm = FileManager.default
+        let skippedPaths = Set(
+            skippedRootURLs.flatMap { url in
+                sqliteCompanionURLs(for: url).map(\.standardizedFileURL.path)
+            }
+        )
+
+        try fm.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
+        guard let enumerator = fm.enumerator(
+            at: sourceDirectoryURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: []
+        ) else {
+            return
+        }
+
+        while let itemURL = enumerator.nextObject() as? URL {
+            let standardizedPath = itemURL.standardizedFileURL.path
+            if skippedPaths.contains(standardizedPath) {
+                continue
+            }
+
+            let relativePath = String(standardizedPath.dropFirst(sourceDirectoryURL.standardizedFileURL.path.count + 1))
+            let resourceValues = try itemURL.resourceValues(forKeys: [.isDirectoryKey])
+            let destinationURL = destinationDirectoryURL.appendingPathComponent(
+                relativePath,
+                isDirectory: resourceValues.isDirectory == true
+            )
+
+            if resourceValues.isDirectory == true {
+                try fm.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+            } else {
+                try fm.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try fm.copyItem(at: itemURL, to: destinationURL)
+            }
+        }
+    }
+
+    private nonisolated static func sqliteCompanionURLs(for databaseURL: URL) -> [URL] {
+        [
+            databaseURL,
+            URL(fileURLWithPath: databaseURL.path + "-wal"),
+            URL(fileURLWithPath: databaseURL.path + "-shm"),
+        ]
+    }
+
+    private nonisolated static func replaceFileCopy(from sourceURL: URL, to destinationURL: URL) throws {
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+        try fileManager.copyItem(at: sourceURL, to: destinationURL)
+    }
+
+    private nonisolated static func isSQLiteDatabaseFile(at url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              data.count >= 16 else {
+            return false
+        }
+
+        return Array(data.prefix(16)) == Array("SQLite format 3\u{0}".utf8)
+    }
+
+    private nonisolated static func backupSQLiteDatabaseIfPresent(at sourceURL: URL, to destinationURL: URL) throws {
+        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+            return
+        }
+
+        guard isSQLiteDatabaseFile(at: sourceURL) else {
+            try replaceFileCopy(from: sourceURL, to: destinationURL)
+            return
+        }
+
+        try FileManager.default.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+
+        var sourceDB: OpaquePointer?
+        guard sqlite3_open_v2(sourceURL.path, &sourceDB, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+              let sourceDB else {
+            throw sqliteBackupError(
+                domain: "VaultSyncService.SQLiteBackup.OpenSource",
+                code: -1,
+                databaseURL: sourceURL,
+                db: sourceDB
+            )
+        }
+        defer { sqlite3_close(sourceDB) }
+
+        var destinationDB: OpaquePointer?
+        guard sqlite3_open_v2(
+            destinationURL.path,
+            &destinationDB,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
+            nil
+        ) == SQLITE_OK, let destinationDB else {
+            throw sqliteBackupError(
+                domain: "VaultSyncService.SQLiteBackup.OpenDestination",
+                code: -1,
+                databaseURL: destinationURL,
+                db: destinationDB
+            )
+        }
+        defer { sqlite3_close(destinationDB) }
+
+        sqlite3_busy_timeout(sourceDB, 1_000)
+        sqlite3_busy_timeout(destinationDB, 1_000)
+
+        guard let backup = sqlite3_backup_init(destinationDB, "main", sourceDB, "main") else {
+            throw sqliteBackupError(
+                domain: "VaultSyncService.SQLiteBackup.Init",
+                code: Int(sqlite3_errcode(destinationDB)),
+                databaseURL: sourceURL,
+                db: destinationDB
+            )
+        }
+        defer { sqlite3_backup_finish(backup) }
+
+        var resultCode: Int32
+        repeat {
+            resultCode = sqlite3_backup_step(backup, 128)
+            if resultCode == SQLITE_OK || resultCode == SQLITE_BUSY || resultCode == SQLITE_LOCKED {
+                sqlite3_sleep(25)
+            }
+        } while resultCode == SQLITE_OK || resultCode == SQLITE_BUSY || resultCode == SQLITE_LOCKED
+
+        guard resultCode == SQLITE_DONE else {
+            throw sqliteBackupError(
+                domain: "VaultSyncService.SQLiteBackup.Step",
+                code: Int(resultCode),
+                databaseURL: sourceURL,
+                db: destinationDB
+            )
+        }
+    }
+
+    private nonisolated static func sqliteBackupError(
+        domain: String,
+        code: Int,
+        databaseURL: URL,
+        db: OpaquePointer?
+    ) -> NSError {
+        let message = db.map { String(cString: sqlite3_errmsg($0)) } ?? "Unknown SQLite backup error"
+        return NSError(
+            domain: domain,
+            code: code,
+            userInfo: [
+                NSFilePathErrorKey: databaseURL.path,
+                NSLocalizedDescriptionKey: "\(message) (\(databaseURL.lastPathComponent))",
+            ]
+        )
+    }
+
+    private nonisolated static func pruneRecoverySnapshots(in rootURL: URL, maxCount: Int) throws {
+        guard maxCount >= 0 else { return }
+
+        let entries = try FileManager.default.contentsOfDirectory(
+            at: rootURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+        let directories = try entries.filter { entryURL in
+            try entryURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true
+        }
+        let sortedDirectories = directories.sorted { $0.lastPathComponent > $1.lastPathComponent }
+
+        for directoryURL in sortedDirectories.dropFirst(maxCount) {
+            try FileManager.default.removeItem(at: directoryURL)
+        }
+    }
+
+    nonisolated static func pruneRecoverySnapshotsForTesting(at rootURL: URL, maxCount: Int) throws {
+        try pruneRecoverySnapshots(in: rootURL, maxCount: maxCount)
+    }
+
+    private nonisolated static func runTMUtilCommand(_ arguments: [String]) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tmutil")
+        process.arguments = arguments
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let outputData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: outputData, encoding: .utf8) ?? ""
+        let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
+
+        guard process.terminationStatus == 0 else {
+            throw NSError(
+                domain: "VaultSyncService.TMUtil",
+                code: Int(process.terminationStatus),
+                userInfo: [
+                    NSLocalizedDescriptionKey: errorOutput.isEmpty ? output : errorOutput,
+                ]
+            )
+        }
+
+        return output
+    }
+
+    private nonisolated static func parseAPFSSnapshotID(from line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefix = "com.apple.TimeMachine."
+        let suffix = ".local"
+        guard trimmed.hasPrefix(prefix), trimmed.hasSuffix(suffix) else {
+            return nil
+        }
+        return String(trimmed.dropFirst(prefix.count).dropLast(suffix.count))
+    }
+
+    private nonisolated static func listAPFSSnapshotIDs(
+        commandRunner: TMUtilCommandRunner
+    ) throws -> Set<String> {
+        let output = try commandRunner(["listlocalsnapshots", "/"])
+        return Set(
+            output
+                .split(separator: "\n")
+                .compactMap { parseAPFSSnapshotID(from: String($0)) }
+        )
+    }
+
+    private nonisolated static func loadAPFSSnapshotManifest(at manifestURL: URL) throws -> [APFSSnapshotRecord] {
+        guard FileManager.default.fileExists(atPath: manifestURL.path) else {
+            return []
+        }
+        let data = try Data(contentsOf: manifestURL)
+        return try JSONDecoder().decode([APFSSnapshotRecord].self, from: data)
+    }
+
+    private nonisolated static func saveAPFSSnapshotManifest(
+        _ manifest: [APFSSnapshotRecord],
+        at manifestURL: URL
+    ) throws {
+        try FileManager.default.createDirectory(
+            at: manifestURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(manifest)
+        try data.write(to: manifestURL, options: .atomic)
+    }
+
+    private nonisolated static func createAPFSSafetySnapshot(
+        reason: String,
+        manifestURL: URL,
+        maxCount: Int,
+        commandRunner: TMUtilCommandRunner
+    ) throws -> [String] {
+        let before = try listAPFSSnapshotIDs(commandRunner: commandRunner)
+        _ = try commandRunner(["localsnapshot"])
+        let after = try listAPFSSnapshotIDs(commandRunner: commandRunner)
+        let createdSnapshotIDs = Array(after.subtracting(before)).sorted()
+
+        guard !createdSnapshotIDs.isEmpty else {
+            return []
+        }
+
+        var manifest = try loadAPFSSnapshotManifest(at: manifestURL)
+        let existingSnapshotIDs = Set(manifest.map(\.snapshotID))
+        let createdAt = Date()
+        for snapshotID in createdSnapshotIDs where !existingSnapshotIDs.contains(snapshotID) {
+            manifest.append(
+                APFSSnapshotRecord(
+                    snapshotID: snapshotID,
+                    createdAt: createdAt,
+                    reason: reason
+                )
+            )
+        }
+        try saveAPFSSnapshotManifest(manifest, at: manifestURL)
+        try pruneAPFSSnapshotManifest(at: manifestURL, maxCount: maxCount, commandRunner: commandRunner)
+        return createdSnapshotIDs
+    }
+
+    private nonisolated static func pruneAPFSSnapshotManifest(
+        at manifestURL: URL,
+        maxCount: Int,
+        commandRunner: TMUtilCommandRunner
+    ) throws {
+        guard maxCount >= 0 else { return }
+
+        let manifest = try loadAPFSSnapshotManifest(at: manifestURL)
+        guard manifest.count > maxCount else {
+            return
+        }
+
+        let sortedManifest = manifest.sorted {
+            if $0.createdAt == $1.createdAt {
+                return $0.snapshotID < $1.snapshotID
+            }
+            return $0.createdAt < $1.createdAt
+        }
+        let snapshotIDsToDelete = sortedManifest.prefix(sortedManifest.count - maxCount).map(\.snapshotID)
+
+        for snapshotID in snapshotIDsToDelete {
+            _ = try commandRunner(["deletelocalsnapshots", snapshotID])
+        }
+
+        let remainingSnapshotIDs = Set(sortedManifest.suffix(maxCount).map(\.snapshotID))
+        let remainingManifest = sortedManifest.filter { remainingSnapshotIDs.contains($0.snapshotID) }
+        try saveAPFSSnapshotManifest(remainingManifest, at: manifestURL)
+    }
+
+    nonisolated static func createAPFSSafetySnapshotForTesting(
+        reason: String,
+        manifestURL: URL,
+        maxCount: Int,
+        commandRunner: @escaping TMUtilCommandRunner
+    ) throws -> [String] {
+        try createAPFSSafetySnapshot(
+            reason: reason,
+            manifestURL: manifestURL,
+            maxCount: maxCount,
+            commandRunner: commandRunner
+        )
+    }
+
+    nonisolated static func readAPFSSnapshotManifestForTesting(manifestURL: URL) throws -> [String] {
+        try loadAPFSSnapshotManifest(at: manifestURL)
+            .sorted {
+                if $0.createdAt == $1.createdAt {
+                    return $0.snapshotID < $1.snapshotID
+                }
+                return $0.createdAt < $1.createdAt
+            }
+            .map(\.snapshotID)
+    }
+
+    nonisolated static func writeAPFSSnapshotManifestForTesting(
+        snapshotIDs: [String],
+        reasons: [String: String],
+        manifestURL: URL
+    ) throws {
+        let manifest = snapshotIDs.enumerated().map { index, snapshotID in
+            APFSSnapshotRecord(
+                snapshotID: snapshotID,
+                createdAt: Date(timeIntervalSince1970: TimeInterval(index)),
+                reason: reasons[snapshotID] ?? "test"
+            )
+        }
+        try saveAPFSSnapshotManifest(manifest, at: manifestURL)
+    }
+
+    private nonisolated static func resolveVaultBookmark(_ bookmarkData: Data) -> ResolvedVaultBookmark? {
+        var isStale = false
+        do {
+            let resolvedURL = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            return ResolvedVaultBookmark(url: resolvedURL, isStale: isStale, usedSecurityScope: true)
+        } catch {
+            do {
+                let resolvedURL = try URL(
+                    resolvingBookmarkData: bookmarkData,
+                    options: [],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &isStale
+                )
+                return ResolvedVaultBookmark(url: resolvedURL, isStale: isStale, usedSecurityScope: false)
+            } catch {
+                return nil
+            }
         }
     }
 
@@ -655,6 +1270,8 @@ final class VaultSyncService {
     /// Restore vault from saved bookmark on app launch.
     /// Call from RootView.onAppear (after NSApp is alive).
     func restoreVaultFromBookmark() {
+        pruneRecoverySnapshotsIfNeeded()
+
         guard Self.shouldRestoreVaultFromBookmark() else {
             isIndexing = false
             if Self.isRunningTests || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
@@ -710,41 +1327,7 @@ final class VaultSyncService {
             return
         }
         log.info("📦 Resolving bookmark (\(data.count) bytes)")
-        var isStale = false
-        // Try resolving with security scope first, then without (the app is not sandboxed,
-        // so migrated bookmarks from a different bundle ID may lack valid security scope
-        // but the path itself is still accessible).
-        var url: URL?
-        var usedSecurityScope = false
-        do {
-            let resolved = try URL(
-                resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil,
-                bookmarkDataIsStale: &isStale)
-            url = resolved
-            usedSecurityScope = true
-            log.info(
-                "📦 Resolved with security scope → \(resolved.path, privacy: .private) (stale=\(isStale))"
-            )
-        } catch {
-            log.info(
-                "📦 Security-scoped resolution failed: \(error.localizedDescription, privacy: .public)"
-            )
-            // Fallback: try without security scope (non-sandboxed app can still access by path)
-            do {
-                let resolved = try URL(
-                    resolvingBookmarkData: data, options: [], relativeTo: nil,
-                    bookmarkDataIsStale: &isStale)
-                url = resolved
-                log.info(
-                    "📦 Resolved WITHOUT security scope → \(resolved.path, privacy: .private) (stale=\(isStale))"
-                )
-            } catch {
-                log.info(
-                    "📦 Non-scoped resolution also failed: \(error.localizedDescription, privacy: .public)"
-                )
-            }
-        }
-        guard let url else {
+        guard let resolvedBookmark = Self.resolveVaultBookmark(data) else {
             defaults.removeObject(forKey: Self.bookmarkKey)
             handleRestoreFailure(
                 reason: "📦 Failed to resolve vault bookmark",
@@ -752,6 +1335,12 @@ final class VaultSyncService {
             )
             return
         }
+        let url = resolvedBookmark.url
+        let isStale = resolvedBookmark.isStale
+        let usedSecurityScope = resolvedBookmark.usedSecurityScope
+        log.info(
+            "📦 Resolved bookmark → \(url.path, privacy: .private) (stale=\(isStale), securityScope=\(usedSecurityScope))"
+        )
 
         // Start security-scoped access and keep it — do NOT release before startWatching.
         // Security-scoped access is reference-counted; releasing then re-acquiring creates

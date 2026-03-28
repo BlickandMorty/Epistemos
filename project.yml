@@ -25,6 +25,7 @@ targets:
     resources:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
+      - path: config/model_manifest.json
     entitlements:
       path: Epistemos/Epistemos.entitlements
     settings:
@@ -41,10 +42,18 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: true
         ENABLE_PREVIEWS: true
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine
+        LD_RUNPATH_SEARCH_PATHS:
+          - @executable_path
+          - @executable_path/../Frameworks
+          - @loader_path/../Frameworks
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lepistemos_core
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
     preBuildScripts:
       - name: Build Rust Engine
-        script: bash "${SRCROOT}/build-rust.sh"
+        script: bash "${SRCROOT}/build-rust.sh" && bash "${SRCROOT}/build-epistemos-core.sh"
+    postBuildScripts:
+      - name: Bundle Runtime Assets
+        script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
     dependencies:
       - package: GRDB
       - package: HuggingFace
@@ -101,7 +110,6 @@ schemes:
     build:
       targets:
         Epistemos: all
-        EpistemosTests: test
     test:
       targets:
         - EpistemosTests

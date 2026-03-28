@@ -23,6 +23,7 @@ actor NightBrainService {
 
     enum Job: String, CaseIterable, Sendable {
         case eventStoreCheckpointVacuum = "event_store_checkpoint_vacuum"
+        case searchIndexPassiveCheckpoint = "search_index_passive_checkpoint"
         case dedupeArtifacts = "dedupe_artifacts"
         case workspaceSnapshotCompaction = "workspace_snapshot_compaction"
         case maintenanceLog = "maintenance_log"
@@ -30,16 +31,19 @@ actor NightBrainService {
 
     private let config: EpistemosConfig
     private let storeProvider: @Sendable () -> EventStore?
+    private let searchIndexProvider: @MainActor @Sendable () -> SearchIndexService?
     private nonisolated(unsafe) var scheduler: NSBackgroundActivityScheduler?
     private var activityToken: NSObjectProtocol?
     private var currentRunId: Int64?
 
     init(
         config: EpistemosConfig,
-        storeProvider: @escaping @Sendable () -> EventStore? = { EventStore.shared }
+        storeProvider: @escaping @Sendable () -> EventStore? = { EventStore.shared },
+        searchIndexProvider: @escaping @MainActor @Sendable () -> SearchIndexService? = { nil }
     ) {
         self.config = config
         self.storeProvider = storeProvider
+        self.searchIndexProvider = searchIndexProvider
     }
 
     // MARK: - Config Reads
@@ -187,6 +191,10 @@ actor NightBrainService {
         case .eventStoreCheckpointVacuum:
             storeProvider()?.walCheckpointVacuum()
             try? await Task.sleep(nanoseconds: 100_000_000)
+
+        case .searchIndexPassiveCheckpoint:
+            let searchIndex = await MainActor.run { searchIndexProvider() }
+            try? searchIndex?.passiveCheckpoint()
 
         case .dedupeArtifacts:
             storeProvider()?.deduplicateArtifacts()

@@ -310,9 +310,6 @@ final class TrainingScheduler {
     /// Run the BFCL evaluation against the new adapter.
     /// Compares against baseline scores; blocks deployment if regression detected.
     private func runDeployGate(adapterPath: URL) async -> DeployGateResult {
-        let pyEnv = PythonEnvironmentManager.shared
-        let pythonPath = pyEnv.isReady ? pyEnv.pythonPath : "/usr/bin/python3"
-
         // Locate eval scripts and data
         let bundlePath = Bundle.main.resourceURL?
             .appendingPathComponent("KnowledgeFusion/MOHAWK") ??
@@ -320,13 +317,6 @@ final class TrainingScheduler {
 
         let evalScript = bundlePath.appendingPathComponent("eval_bfcl.py")
         let macosEval = bundlePath.appendingPathComponent("embodied_data/bfcl_eval_macos.jsonl")
-        let epistemosEval = bundlePath.appendingPathComponent("embodied_data/bfcl_eval_epistemos.jsonl")
-
-        // Baseline scores path (persisted across runs)
-        let support = FoundationSafety.userApplicationSupportDirectory()
-        let baselinePath = support.appendingPathComponent("Epistemos/eval_baseline.json")
-        let resultsPath = FileManager.default.temporaryDirectory
-            .appendingPathComponent("eval-\(UUID().uuidString).json")
 
         // Check if eval infrastructure exists
         guard FileManager.default.fileExists(atPath: evalScript.path),

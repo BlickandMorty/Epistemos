@@ -1,9 +1,17 @@
 import Testing
 import Foundation
 import SwiftData
+import Darwin
 @testable import Epistemos
 
 // MARK: - Memory Tracking
+
+enum TestSanitizerSupport {
+    static var hasRuntimeInstrumentation: Bool {
+        let defaultHandle = UnsafeMutableRawPointer(bitPattern: -2)
+        return dlsym(defaultHandle, "__asan_init") != nil || dlsym(defaultHandle, "__tsan_init") != nil
+    }
+}
 
 @MainActor
 class MemoryTracker {
@@ -247,6 +255,8 @@ struct MemoryStressTests {
     
     @Test("Peak memory during graph operations")
     func peakMemoryDuringOperations() async throws {
+        guard !TestSanitizerSupport.hasRuntimeInstrumentation else { return }
+
         let store = GraphStore()
         var peakMemory: UInt64 = 0
         
@@ -292,6 +302,8 @@ struct MemoryStressTests {
     
     @Test("Memory during intensive search")
     func memoryDuringIntensiveSearch() async throws {
+        guard !TestSanitizerSupport.hasRuntimeInstrumentation else { return }
+
         let store = GraphStore()
         let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 5000)
         store.loadDirect(nodes: nodes, edges: edges)

@@ -4,7 +4,7 @@ import Foundation
 
 /// Specialist agent for file system operations scoped to the vault directory.
 @MainActor
-final class FileAgent: OmegaAgent, @unchecked Sendable {
+final class FileAgent: OmegaAgent, Sendable {
     let name = "file"
     let description = "File system operations: read, write, list, move, delete files within the vault"
     let toolNames = ["read_file", "write_file", "list_files", "move_file", "delete_file"]

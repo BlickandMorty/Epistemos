@@ -66,7 +66,7 @@ struct EditorTelemetryEvent: Sendable {
 
 // MARK: - Ring Buffer
 
-struct RingBuffer<T: Sendable>: @unchecked Sendable {
+struct RingBuffer<T: Sendable>: Sendable {
     private var storage: [T?]
     private var writeIndex: Int = 0
     private(set) var count: Int = 0

@@ -2,6 +2,7 @@ import Foundation
 import GRDB
 import os
 import SQLite3
+import Synchronization
 
 // MARK: - SearchIndexService
 // FTS5 full-text search engine backed by GRDB.
@@ -20,82 +21,90 @@ import SQLite3
 
 enum SearchIndexError: Error {
     case noAppSupportDirectory
+    case integrityCheckFailed(String)
+    case journalModeRejected(String)
 }
 
 actor SearchIndexService {
-    private final class OffloadedSearchState<T: Sendable>: @unchecked Sendable {
-        private let lock = NSLock()
-        private var continuation: CheckedContinuation<T, Error>?
-        private var workItem: DispatchWorkItem?
-        private var completed = false
-        private var cancelled = false
+    private final class OffloadedSearchState<T: Sendable>: Sendable {
+        private struct Storage: Sendable {
+            var continuation: CheckedContinuation<T, Error>?
+            var completed = false
+            var cancelled = false
+        }
+
+        private let storage: Mutex<Storage>
+        private let workItemLock = NSLock()
+        nonisolated(unsafe) private var workItem: DispatchWorkItem?
 
         init(continuation: CheckedContinuation<T, Error>) {
-            self.continuation = continuation
+            storage = Mutex(Storage(continuation: continuation))
         }
 
         func bind(workItem: DispatchWorkItem) {
-            lock.lock()
+            workItemLock.lock()
             self.workItem = workItem
-            let shouldCancel = cancelled || completed
-            lock.unlock()
+            let shouldCancel = storage.withLock { storage in
+                return storage.cancelled || storage.completed
+            }
+            workItemLock.unlock()
             if shouldCancel {
                 workItem.cancel()
             }
         }
 
         func finish(with result: Result<T, Error>) {
-            lock.lock()
-            guard !completed else {
-                lock.unlock()
-                return
+            let continuation = storage.withLock { storage -> CheckedContinuation<T, Error>? in
+                guard !storage.completed else {
+                    return nil
+                }
+                storage.completed = true
+                let continuation = storage.continuation
+                storage.continuation = nil
+                return continuation
             }
-            completed = true
-            let continuation = self.continuation
-            self.continuation = nil
-            lock.unlock()
             continuation?.resume(with: result)
         }
 
         func isCancelled() -> Bool {
-            lock.lock()
-            let cancelled = self.cancelled
-            lock.unlock()
-            return cancelled
+            storage.withLock { storage in
+                storage.cancelled
+            }
         }
 
         func cancel() {
-            lock.lock()
-            guard !completed else {
-                lock.unlock()
-                return
-            }
-            completed = true
-            cancelled = true
-            let continuation = self.continuation
-            self.continuation = nil
+            workItemLock.lock()
             let workItem = self.workItem
-            lock.unlock()
+            let continuation = storage.withLock { storage -> CheckedContinuation<T, Error>? in
+                guard !storage.completed else {
+                    return nil
+                }
+                storage.completed = true
+                storage.cancelled = true
+                let continuation = storage.continuation
+                storage.continuation = nil
+                return continuation
+            }
+            workItemLock.unlock()
             workItem?.cancel()
             continuation?.resume(throwing: CancellationError())
         }
     }
 
-    private final class OffloadedSearchStateBox<T: Sendable>: @unchecked Sendable {
-        private let lock = NSLock()
-        private var state: OffloadedSearchState<T>?
+    private final class OffloadedSearchStateBox<T: Sendable>: Sendable {
+        private let state = Mutex<OffloadedSearchState<T>?>(nil)
 
         func set(_ state: OffloadedSearchState<T>) {
-            lock.lock()
-            self.state = state
-            lock.unlock()
+            self.state.withLock { currentState in
+                currentState = state
+            }
         }
 
         func cancel() {
-            lock.lock()
-            let state = self.state
-            lock.unlock()
-            state?.cancel()
+            let currentState = state.withLock { state in
+                state
+            }
+            currentState?.cancel()
         }
     }
 
@@ -109,7 +118,7 @@ actor SearchIndexService {
         }
     }
 
-    private final class SQLiteCancellationContext: @unchecked Sendable {
+    private final class SQLiteCancellationContext: Sendable {
         let isCancelled: @Sendable () -> Bool
 
         init(isCancelled: @escaping @Sendable () -> Bool) {
@@ -118,18 +127,24 @@ actor SearchIndexService {
     }
 
     private let log = Logger(subsystem: "com.epistemos", category: "SearchIndex")
+    nonisolated private let databaseURL: URL
     nonisolated private let dbPool: DatabasePool
     nonisolated private let workQueue: DispatchQueue
     nonisolated private let queryQueue: DispatchQueue
     nonisolated private let supportsPageFTS5: Bool
     nonisolated private let supportsBlockFTS5: Bool
 
-    init(databaseURL: URL? = nil) throws {
-        let dbPath: String
-        if let databaseURL {
-            let parent = databaseURL.deletingLastPathComponent()
+    init(databaseURL providedDatabaseURL: URL? = nil) throws {
+        let resolvedDatabaseURL: URL
+        let dbPool: DatabasePool
+        if let providedURL = providedDatabaseURL {
+            let parent = providedURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-            dbPath = databaseURL.path
+            resolvedDatabaseURL = providedURL
+            dbPool = try DatabasePool(
+                path: resolvedDatabaseURL.path,
+                configuration: Self.databaseConfiguration()
+            )
         } else {
             guard let appSupportBase = FileManager.default.urls(
                 for: .applicationSupportDirectory, in: .userDomainMask
@@ -138,10 +153,12 @@ actor SearchIndexService {
             }
             let appSupport = appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
             try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
-            dbPath = appSupport.appendingPathComponent("search.sqlite").path
+            resolvedDatabaseURL = appSupport.appendingPathComponent("search.sqlite")
+            dbPool = try DatabasePool(
+                path: resolvedDatabaseURL.path,
+                configuration: Self.databaseConfiguration()
+            )
         }
-
-        let dbPool = try DatabasePool(path: dbPath)
         let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .utility)
         let queryQueue = DispatchQueue(
             label: "com.epistemos.search-index.query",
@@ -149,8 +166,10 @@ actor SearchIndexService {
             attributes: .concurrent
         )
         try Self.setupSchema(dbPool)
+        try Self.refreshDatabaseFileProtections(resolvedDatabaseURL)
         let features = try Self.detectFeatures(dbPool)
 
+        self.databaseURL = resolvedDatabaseURL
         self.dbPool = dbPool
         self.workQueue = workQueue
         self.queryQueue = queryQueue
@@ -158,7 +177,7 @@ actor SearchIndexService {
         supportsBlockFTS5 = features.blockFTS5
 
         log.info(
-            "SearchIndexService initialized at \(dbPath, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5)"
+            "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5)"
         )
     }
 
@@ -167,6 +186,62 @@ actor SearchIndexService {
     private struct SearchIndexFeatures: Sendable {
         let pageFTS5: Bool
         let blockFTS5: Bool
+    }
+
+    private nonisolated static func databaseConfiguration() -> Configuration {
+        var config = Configuration()
+        config.prepareDatabase { db in
+            // Current durability stance: we still use system SQLite here. On macOS,
+            // `synchronous = FULL` may not flush as strongly as a bundled
+            // `SQLITE_HAVE_FULLFSYNC=1` build, so verified note-body storage and
+            // startup integrity checks remain the compensating controls until that
+            // SQLite bundling decision is implemented.
+            try db.execute(sql: "PRAGMA journal_mode = WAL")
+            try db.execute(sql: "PRAGMA synchronous = FULL")
+            try db.execute(sql: "PRAGMA wal_autocheckpoint = 1000")
+            try db.execute(sql: "PRAGMA foreign_keys = ON")
+
+            let journalMode = try String.fetchOne(db, sql: "PRAGMA journal_mode")?.lowercased()
+            guard journalMode == "wal" else {
+                throw SearchIndexError.journalModeRejected(journalMode ?? "unknown")
+            }
+
+            let integrity = try String.fetchOne(db, sql: "PRAGMA integrity_check")
+            guard integrity == "ok" else {
+                throw SearchIndexError.integrityCheckFailed(integrity ?? "unknown")
+            }
+        }
+        return config
+    }
+
+    private nonisolated static func excludeLiveDatabaseFilesFromBackup(_ databaseURL: URL) throws {
+        let liveFiles = [
+            databaseURL,
+            URL(fileURLWithPath: databaseURL.path + "-wal"),
+            URL(fileURLWithPath: databaseURL.path + "-shm"),
+        ]
+
+        for var fileURL in liveFiles where FileManager.default.fileExists(atPath: fileURL.path) {
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try fileURL.setResourceValues(values)
+        }
+    }
+
+    private nonisolated static func excludeDatabaseDirectoryFromSpotlight(_ databaseURL: URL) throws {
+        let markerURL = databaseURL.deletingLastPathComponent().appendingPathComponent(".metadata_never_index")
+        if !FileManager.default.fileExists(atPath: markerURL.path) {
+            FileManager.default.createFile(atPath: markerURL.path, contents: Data())
+        }
+    }
+
+    private nonisolated static func refreshDatabaseFileProtections(_ databaseURL: URL) throws {
+        try excludeLiveDatabaseFilesFromBackup(databaseURL)
+        try excludeDatabaseDirectoryFromSpotlight(databaseURL)
+    }
+
+    private nonisolated func refreshBackupExclusion() throws {
+        try Self.refreshDatabaseFileProtections(databaseURL)
     }
 
     private nonisolated static func setupSchema(_ db: DatabasePool) throws {
@@ -376,6 +451,7 @@ actor SearchIndexService {
                 arguments: [blockId, pageId, content]
             )
         }
+        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchBlocks])
     }
 
@@ -383,6 +459,7 @@ actor SearchIndexService {
         try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
         }
+        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchBlocks])
     }
 
@@ -403,6 +480,7 @@ actor SearchIndexService {
                 arguments: [id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate]
             )
         }
+        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchPages])
     }
 
@@ -433,6 +511,7 @@ actor SearchIndexService {
                 )
             }
         }
+        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchPages])
     }
 
@@ -440,7 +519,20 @@ actor SearchIndexService {
         try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [pageId])
         }
+        try refreshBackupExclusion()
         Self.notifyIndexChanged([.searchPages])
+    }
+
+    // MARK: - Maintenance
+
+    nonisolated func passiveCheckpoint() throws {
+        let stats = try dbPool.barrierWriteWithoutTransaction { db in
+            try db.checkpoint(.passive)
+        }
+        try refreshBackupExclusion()
+        log.info(
+            "SearchIndexService passive checkpoint completed walFrames=\(stats.walFrameCount) checkpointed=\(stats.checkpointedFrameCount)"
+        )
     }
 
     // MARK: - Change Notification
@@ -481,6 +573,7 @@ actor SearchIndexService {
                 )
             }
         }
+        try refreshBackupExclusion()
         log.info("Rebuilt search index with \(pages.count) pages")
         Self.notifyIndexChanged([.searchPages])
     }

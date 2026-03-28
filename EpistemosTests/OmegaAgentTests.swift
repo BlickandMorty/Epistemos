@@ -6,7 +6,7 @@ import Testing
 @Suite("Omega Agents")
 @MainActor
 struct OmegaAgentTests {
-    private final class NotificationFlag: @unchecked Sendable {
+    private final class NotificationFlag: Sendable {
         nonisolated(unsafe) var value = false
     }
 

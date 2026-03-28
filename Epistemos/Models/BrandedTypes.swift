@@ -16,13 +16,13 @@ extension BrandedId {
     nonisolated static func new() -> Self { Self(UUID().uuidString) }
 }
 
-struct ChatId: BrandedId, @unchecked Sendable {
+struct ChatId: BrandedId, Sendable {
     nonisolated let rawValue: String
     nonisolated init?(rawValue: String) { self.rawValue = rawValue }
     nonisolated init(_ raw: String) { self.rawValue = raw }
 }
 
-struct MessageId: BrandedId, @unchecked Sendable {
+struct MessageId: BrandedId, Sendable {
     nonisolated let rawValue: String
     nonisolated init?(rawValue: String) { self.rawValue = rawValue }
     nonisolated init(_ raw: String) { self.rawValue = raw }

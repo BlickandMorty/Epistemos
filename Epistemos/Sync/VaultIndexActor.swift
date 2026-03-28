@@ -1269,10 +1269,10 @@ actor VaultIndexActor {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordinatorError)
         { newURL in
-            do {
-                try content.write(to: newURL, atomically: true, encoding: .utf8)
-            } catch {
-                writeError = error
+            if !NoteFileStorage.writeTextAtomically(content, to: newURL, itemLabel: newURL.lastPathComponent) {
+                writeError = NSError(domain: "Epistemos", code: 1, userInfo: [
+                    NSLocalizedDescriptionKey: "Atomic write failed for \(newURL.lastPathComponent)"
+                ])
             }
         }
 

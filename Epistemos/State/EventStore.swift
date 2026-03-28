@@ -8,44 +8,80 @@ import os
 // never blocks the main thread. Stores both fine-grained events and periodic full
 // workspace snapshots for O(log n) historical state reconstruction.
 
-final class EventStore: @unchecked Sendable {
+// EventStore owns a single SQLite handle for the lifetime of the service.
+// All SQLite work is serialized through `queue`, and the handle itself is immutable
+// after initialization, so the type can use checked Sendable conformance.
+final class EventStore: Sendable {
     nonisolated(unsafe) static var shared: EventStore?
     nonisolated private static let queueKey = DispatchSpecificKey<UInt8>()
     nonisolated private static let queueToken: UInt8 = 1
 
     nonisolated private static let log = Logger(subsystem: "com.epistemos", category: "EventStore")
     private let queue = DispatchQueue(label: "com.epistemos.eventstore", qos: .utility)
-    nonisolated(unsafe) private var db: OpaquePointer?
+    nonisolated private let databaseURL: URL
+    nonisolated(unsafe) private let db: OpaquePointer
 
     convenience init?() {
         self.init(databaseURL: Self.databaseURL)
     }
 
     init?(databaseURL url: URL) {
+        self.databaseURL = url
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
         var dbPtr: OpaquePointer?
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
-        guard sqlite3_open_v2(url.path, &dbPtr, flags, nil) == SQLITE_OK else {
+        guard sqlite3_open_v2(url.path, &dbPtr, flags, nil) == SQLITE_OK,
+              let dbPtr else {
             Self.log.error("EventStore: failed to open database at \(url.path, privacy: .public)")
             return nil
         }
         self.db = dbPtr
         queue.setSpecific(key: Self.queueKey, value: Self.queueToken)
 
-        // WAL mode for concurrent reads/writes
-        execute("PRAGMA journal_mode=WAL;")
-        execute("PRAGMA synchronous=NORMAL;")
+        // Current durability stance: this store still uses system SQLite. On macOS,
+        // `synchronous = FULL` may not flush as strongly as a bundled
+        // `SQLITE_HAVE_FULLFSYNC=1` build, so verified note-body storage and startup
+        // integrity checks remain the compensating controls until bundled SQLite lands.
+        guard executeRequired("PRAGMA journal_mode=WAL;"),
+              pragmaTextValue("PRAGMA journal_mode;")?.lowercased() == "wal",
+              executeRequired("PRAGMA synchronous=FULL;"),
+              executeRequired("PRAGMA wal_autocheckpoint=1000;"),
+              executeRequired("PRAGMA foreign_keys=ON;") else {
+            Self.log.error("EventStore: durable SQLite pragmas failed during open")
+            sqlite3_close(dbPtr)
+            return nil
+        }
+
+        // Integrity check on open — catches corruption immediately (zero-corruption spec §3.2)
+        do {
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(dbPtr, "PRAGMA integrity_check;", -1, &stmt, nil) == SQLITE_OK else {
+                Self.log.error("EventStore: could not prepare integrity_check")
+                return nil
+            }
+            defer { sqlite3_finalize(stmt) }
+            var integrityOK = false
+            if sqlite3_step(stmt) == SQLITE_ROW,
+               let cStr = sqlite3_column_text(stmt, 0) {
+                integrityOK = String(cString: cStr) == "ok"
+            }
+            if !integrityOK {
+                Self.log.error("EventStore: integrity_check failed — refusing to open corrupt database")
+                sqlite3_close(dbPtr)
+                return nil
+            }
+        }
 
         createTables()
+        refreshFileProtections()
         Self.log.info("EventStore: opened at \(url.path, privacy: .public)")
     }
 
     deinit {
-        let dbPtr = db
-        if let dbPtr { sqlite3_close(dbPtr) }
+        sqlite3_close(db)
     }
 
     // MARK: - Schema
@@ -138,7 +174,8 @@ final class EventStore: @unchecked Sendable {
 
     func appendEvent(sessionId: String, kind: ActivityEventKind) {
         queue.async { [weak self] in
-            guard let self, let db = self.db else { return }
+            guard let self else { return }
+            let db = self.db
             let timestamp = Date().timeIntervalSince1970
             let kindString: String
             let payload: String
@@ -168,6 +205,7 @@ final class EventStore: @unchecked Sendable {
             sqlite3_bind_text(stmt, 3, (kindString as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 4, (payload as NSString).utf8String, -1, nil)
             sqlite3_step(stmt)
+            self.refreshFileProtections()
         }
     }
 
@@ -175,7 +213,8 @@ final class EventStore: @unchecked Sendable {
 
     func saveSnapshot(sessionId: String, snapshotJSON: String, summary: String = "", userNote: String = "") {
         queue.async { [weak self] in
-            guard let self, let db = self.db else { return }
+            guard let self else { return }
+            let db = self.db
             let timestamp = Date().timeIntervalSince1970
 
             var stmt: OpaquePointer?
@@ -189,6 +228,7 @@ final class EventStore: @unchecked Sendable {
             sqlite3_bind_text(stmt, 4, (summary as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 5, (userNote as NSString).utf8String, -1, nil)
             sqlite3_step(stmt)
+            self.refreshFileProtections()
 
             Self.log.info("EventStore: snapshot saved for session \(sessionId.prefix(8), privacy: .public)")
         }
@@ -313,7 +353,8 @@ final class EventStore: @unchecked Sendable {
 
     func insertCapturedArtifact(_ artifact: CapturedArtifact) {
         queue.async { [weak self] in
-            guard let self, let db = self.db else { return }
+            guard let self else { return }
+            let db = self.db
             var stmt: OpaquePointer?
             // INSERT OR IGNORE respects the UNIQUE constraint on dedupe_hash
             let sql = """
@@ -341,6 +382,7 @@ final class EventStore: @unchecked Sendable {
             sqlite3_bind_text(stmt, 7, (artifact.dedupeHash as NSString).utf8String, -1, nil)
             sqlite3_bind_int(stmt, 8, artifact.ocrUsed ? 1 : 0)
             sqlite3_step(stmt)
+            self.refreshFileProtections()
         }
     }
 
@@ -381,6 +423,7 @@ final class EventStore: @unchecked Sendable {
             sqlite3_bind_double(stmt, 10, window.regressionFrequency)
             sqlite3_bind_double(stmt, 11, window.frictionScore)
             sqlite3_step(stmt)
+            refreshFileProtections()
         }
     }
 
@@ -439,6 +482,7 @@ final class EventStore: @unchecked Sendable {
                 sqlite3_bind_null(stmt, 3)
             }
             guard sqlite3_step(stmt) == SQLITE_DONE else { return nil }
+            refreshFileProtections()
             return sqlite3_last_insert_rowid(db)
         }
     }
@@ -460,6 +504,7 @@ final class EventStore: @unchecked Sendable {
             }
             sqlite3_bind_int64(stmt, 4, id)
             sqlite3_step(stmt)
+            refreshFileProtections()
         }
     }
 
@@ -477,6 +522,7 @@ final class EventStore: @unchecked Sendable {
             sqlite3_bind_text(stmt, 3, (data as NSString).utf8String, -1, nil)
             sqlite3_bind_double(stmt, 4, Date().timeIntervalSince1970)
             sqlite3_step(stmt)
+            refreshFileProtections()
         }
     }
 
@@ -606,17 +652,40 @@ final class EventStore: @unchecked Sendable {
     // MARK: - Helpers
 
     private func execute(_ sql: String) {
-        guard let db else { return }
         sqlite3_exec(db, sql, nil, nil, nil)
+    }
+
+    @discardableResult
+    private func executeRequired(_ sql: String) -> Bool {
+        sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
+    }
+
+    private func pragmaTextValue(_ sql: String) -> String? {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW, let text = sqlite3_column_text(stmt, 0) else {
+            return nil
+        }
+        return String(cString: text)
+    }
+
+    nonisolated private func refreshFileProtections() {
+        do {
+            try Self.excludeLiveDatabaseFilesFromBackup(databaseURL)
+            try Self.excludeParentDirectoryFromSpotlight(databaseURL)
+        } catch {
+            Self.log.error(
+                "EventStore: failed to refresh database file protections: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     nonisolated private func withDatabaseRead<T>(_ body: (OpaquePointer) -> T?) -> T? {
         if DispatchQueue.getSpecific(key: Self.queueKey) == Self.queueToken {
-            guard let db else { return nil }
             return body(db)
         }
         return queue.sync {
-            guard let db else { return nil }
             return body(db)
         }
     }
@@ -643,5 +712,26 @@ final class EventStore: @unchecked Sendable {
         let dir = appSupport.appendingPathComponent("Epistemos")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("event-store.sqlite")
+    }
+
+    private nonisolated static func excludeLiveDatabaseFilesFromBackup(_ databaseURL: URL) throws {
+        let liveFiles = [
+            databaseURL,
+            URL(fileURLWithPath: databaseURL.path + "-wal"),
+            URL(fileURLWithPath: databaseURL.path + "-shm"),
+        ]
+
+        for var fileURL in liveFiles where FileManager.default.fileExists(atPath: fileURL.path) {
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try fileURL.setResourceValues(values)
+        }
+    }
+
+    private nonisolated static func excludeParentDirectoryFromSpotlight(_ databaseURL: URL) throws {
+        let markerURL = databaseURL.deletingLastPathComponent().appendingPathComponent(".metadata_never_index")
+        if !FileManager.default.fileExists(atPath: markerURL.path) {
+            FileManager.default.createFile(atPath: markerURL.path, contents: Data())
+        }
     }
 }

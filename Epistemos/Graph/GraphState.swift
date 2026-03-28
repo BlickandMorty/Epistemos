@@ -37,7 +37,7 @@ enum GraphOverlayPhysicsPolicy {
     }
 }
 
-private final class EngineHandleState: @unchecked Sendable {
+private final class EngineHandleState: Sendable {
     private let lock = NSLock()
     nonisolated(unsafe) private var handle: OpaquePointer?
 

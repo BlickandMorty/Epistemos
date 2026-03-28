@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import Testing
 @testable import Epistemos
 
@@ -60,6 +61,28 @@ struct SearchIndexServiceIntegrationTests {
             process.waitUntilExit()
             return process.terminationStatus
         }.value
+    }
+
+    private func pragmaValue(databaseURL: URL, pragma: String) throws -> String {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
+            throw SearchIndexError.noAppSupportDirectory
+        }
+        defer { sqlite3_close(db) }
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "PRAGMA \(pragma);", -1, &stmt, nil) == SQLITE_OK else {
+            throw SearchIndexError.noAppSupportDirectory
+        }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW, let text = sqlite3_column_text(stmt, 0) else {
+            throw SearchIndexError.noAppSupportDirectory
+        }
+        return String(cString: text)
+    }
+
+    private func isBackupExcluded(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup) ?? false
     }
 
     private func makeLegacyFTSDatabase(_ databaseURL: URL) async throws {
@@ -385,6 +408,67 @@ struct SearchIndexServiceIntegrationTests {
                 updatedAt: .now
             )
         }
+
+        let results = try withRetry { try service.search(query: token, limit: 10) }
+        #expect(results.contains { $0.pageId == pageId })
+    }
+
+    @Test("database uses WAL FULL integrity check and protects live files")
+    func databaseUsesDurablePragmasAndBackupExclusion() throws {
+        let setup = try makeService()
+        let service = setup.service
+        let databaseURL = setup.databaseURL
+        let pageId = uniqueId("pragma")
+        defer { cleanup(service, ids: [pageId]) }
+
+        try withRetry {
+            try service.upsert(
+                id: pageId,
+                title: "Pragma coverage",
+                body: "Ensure WAL FULL and backup exclusion are set",
+                tags: "pragma",
+                updatedAt: .now
+            )
+        }
+
+        #expect(try pragmaValue(databaseURL: databaseURL, pragma: "journal_mode").lowercased() == "wal")
+        #expect(try pragmaValue(databaseURL: databaseURL, pragma: "synchronous") == "2")
+        #expect(try pragmaValue(databaseURL: databaseURL, pragma: "wal_autocheckpoint") == "1000")
+        #expect(try pragmaValue(databaseURL: databaseURL, pragma: "integrity_check").lowercased() == "ok")
+
+        let walURL = URL(fileURLWithPath: databaseURL.path + "-wal")
+        let shmURL = URL(fileURLWithPath: databaseURL.path + "-shm")
+
+        #expect(isBackupExcluded(databaseURL))
+        if FileManager.default.fileExists(atPath: walURL.path) {
+            #expect(isBackupExcluded(walURL))
+        }
+        if FileManager.default.fileExists(atPath: shmURL.path) {
+            #expect(isBackupExcluded(shmURL))
+        }
+        let spotlightMarkerURL = databaseURL.deletingLastPathComponent().appendingPathComponent(".metadata_never_index")
+        #expect(FileManager.default.fileExists(atPath: spotlightMarkerURL.path))
+    }
+
+    @Test("passive checkpoint keeps indexed content readable")
+    func passiveCheckpointKeepsIndexedContentReadable() throws {
+        let setup = try makeService()
+        let service = setup.service
+        let pageId = uniqueId("checkpoint")
+        let token = uniqueToken("checkpoint")
+        defer { cleanup(service, ids: [pageId]) }
+
+        try withRetry {
+            try service.upsert(
+                id: pageId,
+                title: "Checkpoint \(token)",
+                body: "Body \(token)",
+                tags: "checkpoint",
+                updatedAt: .now
+            )
+        }
+
+        try service.passiveCheckpoint()
 
         let results = try withRetry { try service.search(query: token, limit: 10) }
         #expect(results.contains { $0.pageId == pageId })

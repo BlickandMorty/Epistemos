@@ -48,7 +48,10 @@ pub fn validate_tool_args(schema_json: String, args_json: String) -> String {
 
     if let Ok(schema) = serde_json::from_str::<serde_json::Value>(&schema_json) {
         if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
-            let obj = args.as_object().unwrap();
+            // SAFETY: is_object() check above guarantees as_object() succeeds
+            let Some(obj) = args.as_object() else {
+                return "Arguments must be a JSON object".to_string();
+            };
             for req in required {
                 if let Some(key) = req.as_str() {
                     if !obj.contains_key(key) {

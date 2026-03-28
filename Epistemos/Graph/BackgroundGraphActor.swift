@@ -68,7 +68,7 @@ actor BackgroundGraphActor {
 
     /// Run the full structural graph rebuild off main actor:
     /// build + persist + convert to Sendable records.
-    /// GraphBuilder is @unchecked Sendable — safe when called from the actor that owns the context.
+    /// GraphBuilder is Sendable and remains safe when called from the actor that owns the context.
     func rebuildStructural(
         positionHints: [String: SIMD2<Float>]
     ) throws -> (nodes: [GraphNodeRecord], edges: [GraphEdgeRecord]) {

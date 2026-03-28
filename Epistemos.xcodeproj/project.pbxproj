@@ -91,12 +91,12 @@
 		2B09FBC437D2E33A59BA0618 /* GraphModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9F30B88F3C07778943D4FFF /* GraphModelTests.swift */; };
 		2BB3A5442D431A87B258D631 /* MLXInferenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C10A861861089A16C15C873 /* MLXInferenceService.swift */; };
 		2C81E243528DEC2064304515 /* EpistemosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF9DAAD25FDFF22798F254E /* EpistemosApp.swift */; };
-		2D8BB0BF915E796C784D6B8F /* build-rust/swift-bindings/omega_mcp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7A23115BD1673B8E317FEC /* build-rust/swift-bindings/omega_mcp.swift */; settings = {COMPILER_FLAGS = "-Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; };
+		2D8BB0BF915E796C784D6B8F /* build-rust/swift-bindings/omega_mcp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7A23115BD1673B8E317FEC /* build-rust/swift-bindings/omega_mcp.swift */; settings = {COMPILER_FLAGS = "-Xfrontend -default-isolation=nonisolated -Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; };
 		2DD37C982FF5B34F992EE921 /* GraphEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997BB0D65B32658F8D557430 /* GraphEngine.swift */; };
 		2E1D0C9B8A7F6E5D4C3B2A19 /* EventStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D2D3D4D5D6D7D8D9E0E1E2 /* EventStore.swift */; };
 		2E2BCEB3E6E2D6D1C8C98FB7 /* NoteBacklinksPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF346E598150882F3F054C48 /* NoteBacklinksPanel.swift */; };
 		2E44B50711B9A41F60520BC6 /* MiniChatWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEC6EE77D8EDFD4E19FA9DEA /* MiniChatWindowController.swift */; };
-		2E4F7C8A3D9B1E6F5A0C2D74 /* build-rust/swift-bindings/epistemos_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3E6D5A2C7F4E9D1A0B3C68 /* build-rust/swift-bindings/epistemos_core.swift */; settings = {COMPILER_FLAGS = "-Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; };
+		2E4F7C8A3D9B1E6F5A0C2D74 /* build-rust/swift-bindings/epistemos_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3E6D5A2C7F4E9D1A0B3C68 /* build-rust/swift-bindings/epistemos_core.swift */; settings = {COMPILER_FLAGS = "-Xfrontend -default-isolation=nonisolated -Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; };
 		2E55344D0A116B5FB263D3E3 /* SystemSearchIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E423F3667C6824606063F3D /* SystemSearchIntent.swift */; };
 		2EA2110ADE899451EC0C98E9 /* SystemAppearanceObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF7D72EB1BE7CCEA442B57C /* SystemAppearanceObserver.swift */; };
 		2EDD6B28FDB5E43BEA63DCC0 /* BrandedTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF03138061D7396317DF9F6 /* BrandedTypes.swift */; };
@@ -238,6 +238,7 @@
 		8B5F9A2D4E0C3B7F61D8A924 /* ToolSchemaGrammar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A4E8F1C3D9B2A6E50C7F813 /* ToolSchemaGrammar.swift */; };
 		8C8A78384A1F0C50CE625780 /* FuzzGenerators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61DDF8E6C1C9EE55D955BFF7 /* FuzzGenerators.swift */; };
 		8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 33119B911499635E646BB389 /* RetroGaming.ttf */; };
+		8E2F41A93C5D7E6F8091A2B3 /* model_manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 8E2F41A83C5D7E6F8091A2B3 /* model_manifest.json */; };
 		8F2A55F7111045928E603F96 /* SyntheticDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D74AAF6C5D4A4DB59AD122FC /* SyntheticDataTests.swift */; };
 		91B55866A104B3E6884D040A /* DataIntegrityEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D898ED5537327F7B5BAF1D49 /* DataIntegrityEdgeCaseTests.swift */; };
 		91DCCA663C3106710A574227 /* ConfirmationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF35FBA6C8669B976C4FD9AE /* ConfirmationSheet.swift */; };
@@ -388,7 +389,7 @@
 		F339D0E186075C95E92F02E8 /* ConcurrencyStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754226FC01F5F8A079D73636 /* ConcurrencyStressTests.swift */; };
 		F45BB7183DB38687C2661519 /* ChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A242417BA0CA869146F4EC18 /* ChatInputBar.swift */; };
 		F5AAE4311D1899C7EE6B3B27 /* MappedNoteBodyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42277D01A4D9782F24372570 /* MappedNoteBodyTests.swift */; };
-		F6736A2131B38F0D39C325FE /* build-rust/swift-bindings/omega_ax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 975A8F9EC9F3356026AE8ED1 /* build-rust/swift-bindings/omega_ax.swift */; settings = {COMPILER_FLAGS = "-Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; };
+		F6736A2131B38F0D39C325FE /* build-rust/swift-bindings/omega_ax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 975A8F9EC9F3356026AE8ED1 /* build-rust/swift-bindings/omega_ax.swift */; settings = {COMPILER_FLAGS = "-Xfrontend -default-isolation=nonisolated -Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency"; }; };
 		F6B7C8D9E0F1A2B3C4D5E6F7 /* DualBrainRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E4F5A6B7C8D9E0F1A2B3C4 /* DualBrainRouter.swift */; };
 		F87128B8F0072AA8EA121B71 /* OmegaAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC085DB9CD5C51EB54EF9F4 /* OmegaAgentTests.swift */; };
 		F8B141E59E68A4804C09FDD1 /* OmegaSettingsDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826E1B0B7DB27F37C56F6CFC /* OmegaSettingsDetailView.swift */; };
@@ -502,6 +503,7 @@
 		32186F0FF89A179A2B0CC5E6 /* HologramController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HologramController.swift; sourceTree = "<group>"; };
 		32B436566D022F335FA30747 /* SDPageVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDPageVersion.swift; sourceTree = "<group>"; };
 		33119B911499635E646BB389 /* RetroGaming.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = RetroGaming.ttf; sourceTree = "<group>"; };
+		8E2F41A83C5D7E6F8091A2B3 /* model_manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../config/model_manifest.json; sourceTree = "<group>"; };
 		3397972547C089AC5376CEB8 /* QueryRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryRuntime.swift; sourceTree = "<group>"; };
 		344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultOrganizerView.swift; sourceTree = "<group>"; };
 		34BC9533D2D4472D97620FA0 /* SetupAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SetupAssistantView.swift; path = Epistemos/Views/Onboarding/SetupAssistantView.swift; sourceTree = SOURCE_ROOT; };
@@ -988,6 +990,7 @@
 			isa = PBXGroup;
 			children = (
 				D3FE9E2F9B78BA657002DE84 /* PrivacyInfo.xcprivacy */,
+				8E2F41A83C5D7E6F8091A2B3 /* model_manifest.json */,
 				3125BF94C0A9F8E7C6D2102E /* Fonts */,
 			);
 			path = Resources;
@@ -1626,6 +1629,7 @@
 				C4947A90CF3CE40B692640EF /* Sources */,
 				01A65B568692F58396CECD39 /* Resources */,
 				A336EB9C9FD0E5D5C3C96E9D /* Frameworks */,
+				D4E5F6A7B8C9D0E1F2030405 /* Bundle Runtime Assets */,
 			);
 			buildRules = (
 			);
@@ -1693,6 +1697,7 @@
 				E454BAD2A8BA26B5175DAC23 /* AppIcon.icon in Resources */,
 				93174F1E8411CA6EB86574B7 /* Assets.xcassets in Resources */,
 				AC3C291EB8258EA990B86BB4 /* PrivacyInfo.xcprivacy in Resources */,
+				8E2F41A93C5D7E6F8091A2B3 /* model_manifest.json in Resources */,
 				8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1714,10 +1719,11 @@
 			);
 			outputPaths = (
 				"$(SRCROOT)/build-rust/libgraph_engine.a",
+				"$(SRCROOT)/build-rust/libepistemos_core.dylib",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\"";
+			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\"";
 		};
 		A1B2C3D4E5F6A7B8C9D0E1F8 /* Build Omega Crates */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1739,8 +1745,8 @@
 			);
 			name = "Build Omega Crates";
 			outputPaths = (
-				"$(SRCROOT)/build-rust/libomega_mcp.a",
-				"$(SRCROOT)/build-rust/libomega_ax.a",
+				"$(SRCROOT)/build-rust/libomega_mcp.dylib",
+				"$(SRCROOT)/build-rust/libomega_ax.dylib",
 				"$(SRCROOT)/build-rust/swift-bindings/omega_mcp.swift",
 				"$(SRCROOT)/build-rust/swift-bindings/omega_ax.swift",
 				"$(SRCROOT)/build-rust/swift-bindings/omega_mcpFFI/module.modulemap",
@@ -1749,6 +1755,39 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\"\n";
+		};
+		D4E5F6A7B8C9D0E1F2030405 /* Bundle Runtime Assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/bundle-app-runtime-assets.sh",
+				"$(SRCROOT)/Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py",
+				"$(SRCROOT)/Epistemos/KnowledgeFusion/Training/scripts/train_style.py",
+				"$(SRCROOT)/Epistemos/KnowledgeFusion/Alignment/scripts/train_kto.py",
+				"$(SRCROOT)/Epistemos/KnowledgeFusion/MoLoRA/molora_inference.py",
+				"$(SRCROOT)/Epistemos/KnowledgeFusion/MoLoRA/sgmm_kernel.py",
+				"$(SRCROOT)/Epistemos/KnowledgeFusion/MOHAWK/eval_bfcl.py",
+				"$(SRCROOT)/Epistemos/KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl",
+			);
+			name = "Bundle Runtime Assets";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/KnowledgeFusion/Training/scripts/train_knowledge.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/KnowledgeFusion/Training/scripts/train_style.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/KnowledgeFusion/Alignment/scripts/train_kto.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/KnowledgeFusion/MoLoRA/molora_inference.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/KnowledgeFusion/MoLoRA/sgmm_kernel.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/KnowledgeFusion/MOHAWK/eval_bfcl.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash \"${SRCROOT}/bundle-app-runtime-assets.sh\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -2259,9 +2298,9 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Epistemos-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
+					"@executable_path",
 					"@executable_path/../Frameworks",
-					"$(PROJECT_DIR)/build-rust",
+					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				OTHER_LDFLAGS = (
@@ -2299,9 +2338,9 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Epistemos-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
+					"@executable_path",
 					"@executable_path/../Frameworks",
-					"$(PROJECT_DIR)/build-rust",
+					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				OTHER_LDFLAGS = (

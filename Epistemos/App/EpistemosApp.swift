@@ -103,6 +103,53 @@ struct ModularZoomWindowObserver: NSViewRepresentable {
     }
 }
 
+private struct LaunchIntegrityGateView<Content: View>: View {
+    private enum Phase {
+        case checking
+        case ready
+    }
+
+    @State private var phase: Phase = .checking
+    @State private var didStartGate = false
+
+    let bootstrap: AppBootstrap
+    let content: () -> Content
+
+    var body: some View {
+        Group {
+            switch phase {
+            case .checking:
+                VStack(spacing: 14) {
+                    ProgressView()
+                        .controlSize(.large)
+                    Text("Verifying vault integrity...")
+                        .font(.headline)
+                    Text("Epistemos is validating local note storage before opening your workspace.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 320)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(nsColor: .windowBackgroundColor))
+            case .ready:
+                content()
+            }
+        }
+        .task { @MainActor in
+            guard !didStartGate else { return }
+            didStartGate = true
+
+            let report = await bootstrap.performStartupIntegrityCheck()
+            if !report.shouldBlockAutomaticVaultRestore {
+                bootstrap.vaultSync.restoreVaultFromBookmark()
+            }
+
+            phase = .ready
+        }
+    }
+}
+
 @main
 struct EpistemosApp: App {
     private static let isRunningTests =
@@ -113,65 +160,67 @@ struct EpistemosApp: App {
 
     var body: some Scene {
         Window("Epistemos", id: "main") {
-            RootView(
-                databaseError: bootstrap.databaseError,
-                onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
-            )
-                .withAppEnvironment(bootstrap)
-                .sheet(isPresented: Binding(
-                    get: { !setupComplete },
-                    set: { if !$0 { setupComplete = true } }
-                )) {
-                    SetupAssistantView {
-                        setupComplete = true
-                    }
+            LaunchIntegrityGateView(bootstrap: bootstrap) {
+                RootView(
+                    databaseError: bootstrap.databaseError,
+                    onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
+                )
                     .withAppEnvironment(bootstrap)
-                }
-                .background(ModularZoomWindowObserver().allowsHitTesting(false))
-                .onAppear {
-                    guard !Self.isRunningTests else { return }
-                    StatusBar.shared.setup()
-                    HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
-                    // Restore last session after UI settles, then start tracking
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(500))
-                        bootstrap.workspaceService.autoRestore()
-                        bootstrap.activityTracker.startTracking()
-                        bootstrap.workspaceSummaryService.startAutoSummaryLoop()
-                        bootstrap.workspaceService.startAutoSave()
-                        // Generate a fresh welcome-back summary if workspace was restored
-                        if bootstrap.workspaceService.welcomeBack != nil {
-                            Task { @MainActor in
-                                await bootstrap.workspaceSummaryService.generateSummaryNow()
-                                // Update welcome-back with the fresh summary
-                                let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-                                if let ws = try? bootstrap.modelContainer.mainContext.fetch(
-                                    FetchDescriptor(predicate: predicate)
-                                ).first, !ws.summary.isEmpty {
-                                    bootstrap.workspaceService.welcomeBack?.intentSummary = ws.summary
+                    .sheet(isPresented: Binding(
+                        get: { !setupComplete },
+                        set: { if !$0 { setupComplete = true } }
+                    )) {
+                        SetupAssistantView {
+                            setupComplete = true
+                        }
+                        .withAppEnvironment(bootstrap)
+                    }
+                    .background(ModularZoomWindowObserver().allowsHitTesting(false))
+                    .onAppear {
+                        guard !Self.isRunningTests else { return }
+                        StatusBar.shared.setup()
+                        HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
+                        // Restore last session after UI settles, then start tracking
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(500))
+                            bootstrap.workspaceService.autoRestore()
+                            bootstrap.activityTracker.startTracking()
+                            bootstrap.workspaceSummaryService.startAutoSummaryLoop()
+                            bootstrap.workspaceService.startAutoSave()
+                            // Generate a fresh welcome-back summary if workspace was restored
+                            if bootstrap.workspaceService.welcomeBack != nil {
+                                Task { @MainActor in
+                                    await bootstrap.workspaceSummaryService.generateSummaryNow()
+                                    // Update welcome-back with the fresh summary
+                                    let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+                                    if let ws = try? bootstrap.modelContainer.mainContext.fetch(
+                                        FetchDescriptor(predicate: predicate)
+                                    ).first, !ws.summary.isEmpty {
+                                        bootstrap.workspaceService.welcomeBack?.intentSummary = ws.summary
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                // Handle Spotlight deep-links — user tapped a note in Spotlight results
-                .onContinueUserActivity(CSSearchableItemActionType) { activity in
-                    guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
-                    else { return }
-                    NoteWindowManager.shared.open(pageId: pageId)
-                }
-                // Handle Siri Suggestions / NSUserActivity continuations
-                .onContinueUserActivity("com.epistemos.openNote") { activity in
-                    guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
-                    else { return }
-                    NoteWindowManager.shared.open(pageId: pageId)
-                }
-                .onReceive(
-                    NotificationCenter.default.publisher(
-                        for: NSApplication.willTerminateNotification)
-                ) { _ in
-                    // Teardown handled by EpistemosAppDelegate.applicationShouldTerminate / applicationWillTerminate
-                }
+                    // Handle Spotlight deep-links — user tapped a note in Spotlight results
+                    .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                        guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
+                        else { return }
+                        NoteWindowManager.shared.open(pageId: pageId)
+                    }
+                    // Handle Siri Suggestions / NSUserActivity continuations
+                    .onContinueUserActivity("com.epistemos.openNote") { activity in
+                        guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
+                        else { return }
+                        NoteWindowManager.shared.open(pageId: pageId)
+                    }
+                    .onReceive(
+                        NotificationCenter.default.publisher(
+                            for: NSApplication.willTerminateNotification)
+                    ) { _ in
+                        // Teardown handled by EpistemosAppDelegate.applicationShouldTerminate / applicationWillTerminate
+                    }
+            }
         }
         .defaultSize(width: 1100, height: 720)
         .modelContainer(bootstrap.modelContainer)

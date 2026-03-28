@@ -22,7 +22,22 @@ impl StateManager {
     /// Open or create the state database at the given path.
     pub fn open(path: &str) -> Result<Self, StateError> {
         let conn = Connection::open(path)?;
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")?;
+        // Zero-corruption spec §3.2: WAL + FULL synchronous + integrity check on open
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             PRAGMA synchronous=FULL;
+             PRAGMA foreign_keys=ON;"
+        )?;
+        // Integrity check on open — catches corruption immediately
+        let integrity: String = conn.query_row(
+            "PRAGMA integrity_check;", [], |row| row.get(0)
+        )?;
+        if integrity != "ok" {
+            return Err(StateError::Sqlite(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(11), // SQLITE_CORRUPT
+                Some(format!("integrity_check failed: {}", integrity))
+            )));
+        }
         let mgr = StateManager { conn };
         mgr.create_tables()?;
         Ok(mgr)

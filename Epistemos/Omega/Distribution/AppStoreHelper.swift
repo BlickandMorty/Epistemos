@@ -155,7 +155,7 @@ enum GatewayConnectionStatus {
 
 /// Placeholder for the Unix Domain Socket connection.
 /// Full implementation in Ω17 with proper socket I/O.
-final class GatewayConnection: @unchecked Sendable {
+final class GatewayConnection: Sendable {
     private let socketPath: String
 
     private init(socketPath: String) {

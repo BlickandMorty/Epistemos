@@ -5,7 +5,7 @@ import Vision
 enum NoteImageProcessor {
     nonisolated static let maxDisplayWidth: CGFloat = 600
 
-    struct DisplayImage: @unchecked Sendable {
+    struct DisplayImage: Sendable {
         let cgImage: CGImage
         let displaySize: CGSize
     }

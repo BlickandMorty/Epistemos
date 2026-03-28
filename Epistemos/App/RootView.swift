@@ -68,9 +68,6 @@ struct RootView: View {
                 ui.isSystemDark = isDark
             }
             appearanceObserver.start()
-
-            // Restore vault from saved bookmark (requires NSApp to be alive)
-            vaultSync.restoreVaultFromBookmark()
         }
         .onDisappear {
             appearanceObserver.stop()

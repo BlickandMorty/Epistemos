@@ -1,11 +1,35 @@
 import AppKit
+import CryptoKit
+import Darwin
 import Foundation
 import Testing
 @testable import Epistemos
 
 @Suite("NoteFileStorage")
 struct NoteFileStorageTests {
-    private final class EventSink: @unchecked Sendable {
+    private func setStoredHashXAttr(_ value: String, at url: URL) {
+        let path = url.path
+        let data = Data(value.utf8)
+        _ = path.withCString { rawPath in
+            data.withUnsafeBytes { bytes in
+                setxattr(rawPath, "com.epistemos.content_hash", bytes.baseAddress, bytes.count, 0, 0)
+            }
+        }
+    }
+
+    private func storedHashXAttr(at url: URL) -> String? {
+        let path = url.path
+        return path.withCString { rawPath in
+            let size = getxattr(rawPath, "com.epistemos.content_hash", nil, 0, 0, 0)
+            guard size > 0 else { return nil }
+            var buffer = [UInt8](repeating: 0, count: Int(size))
+            let read = getxattr(rawPath, "com.epistemos.content_hash", &buffer, buffer.count, 0, 0)
+            guard read >= 0 else { return nil }
+            return String(bytes: buffer.prefix(Int(read)), encoding: .utf8)
+        }
+    }
+
+    private final class EventSink: Sendable {
         private let lock = NSLock()
         private let continuation: AsyncStream<String>.Continuation
 
@@ -108,6 +132,190 @@ struct NoteFileStorageTests {
         #expect(NoteFileStorage.readBody(pageId: pageId, mapped: true) == content)
     }
 
+    @Test("writeBody creates an integrity sidecar and deleteBody removes it")
+    func writeAndDeleteManageIntegritySidecar() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
+        }
+
+        NoteFileStorage.writeBody(pageId: pageId, content: "integrity-check")
+        let storedSidecar = try String(contentsOf: hashURL, encoding: .utf8)
+
+        #expect(FileManager.default.fileExists(atPath: hashURL.path))
+        #expect(!storedSidecar.isEmpty)
+        #expect(storedHashXAttr(at: bodyURL) == storedSidecar)
+
+        NoteFileStorage.deleteBody(pageId: pageId)
+
+        #expect(!FileManager.default.fileExists(atPath: hashURL.path))
+        #expect(storedHashXAttr(at: bodyURL) == nil)
+    }
+
+    @Test("writeBody normalizes note content to NFC and stores a blake3 integrity sidecar")
+    func writeBodyNormalizesContentAndStoresBlake3Integrity() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        let decomposed = "Cafe\u{301} and re\u{301}sume\u{301}"
+        let normalized = decomposed.precomposedStringWithCanonicalMapping
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
+        }
+
+        NoteFileStorage.writeBody(pageId: pageId, content: decomposed)
+
+        let storedData = try Data(contentsOf: bodyURL)
+        let storedHash = try String(contentsOf: hashURL, encoding: .utf8)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId) == normalized)
+        #expect(storedData == Data(normalized.utf8))
+        #expect(storedHash == NoteFileStorage.integrityTokenForTesting(storedData))
+    }
+
+    @Test("readBody fails closed when integrity sidecar does not match content")
+    func readBodyRejectsHashMismatch() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
+        }
+
+        try "healthy text".write(to: bodyURL, atomically: true, encoding: .utf8)
+        try "wrong-hash".write(to: hashURL, atomically: true, encoding: .utf8)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId).isEmpty)
+        #expect(NoteFileStorage.readBody(pageId: pageId, mapped: true).isEmpty)
+    }
+
+    @Test("readBodyData fails closed when integrity sidecar does not match content")
+    func readBodyDataRejectsHashMismatch() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
+        }
+
+        try "healthy bytes".write(to: bodyURL, atomically: true, encoding: .utf8)
+        try "wrong-hash".write(to: hashURL, atomically: true, encoding: .utf8)
+
+        #expect(NoteFileStorage.readBodyData(pageId: pageId) == nil)
+    }
+
+    @Test("readBody backfills missing integrity sidecar for existing note")
+    func readBodyBackfillsMissingIntegritySidecar() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
+        }
+
+        try "backfill me".write(to: bodyURL, atomically: true, encoding: .utf8)
+        try? FileManager.default.removeItem(at: hashURL)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId) == "backfill me")
+        #expect(FileManager.default.fileExists(atPath: hashURL.path))
+        #expect(!(try String(contentsOf: hashURL, encoding: .utf8)).isEmpty)
+    }
+
+    @Test("readBody repairs a missing integrity xattr from the valid sidecar")
+    func readBodyRepairsMissingIntegrityXAttr() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
+        }
+
+        NoteFileStorage.writeBody(pageId: pageId, content: "repair xattr")
+        _ = bodyURL.path.withCString { rawPath in
+            removexattr(rawPath, "com.epistemos.content_hash", 0)
+        }
+        let expectedHash = try String(contentsOf: hashURL, encoding: .utf8)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId) == "repair xattr")
+        #expect(storedHashXAttr(at: bodyURL) == expectedHash)
+    }
+
+    @Test("readBody repairs a corrupted integrity sidecar from the valid xattr")
+    func readBodyRepairsCorruptedSidecarFromXAttr() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
+        }
+
+        NoteFileStorage.writeBody(pageId: pageId, content: "repair sidecar")
+        let expectedHash = try String(contentsOf: hashURL, encoding: .utf8)
+        try "blake3:not-the-right-hash".write(to: hashURL, atomically: true, encoding: .utf8)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId) == "repair sidecar")
+        #expect(try String(contentsOf: hashURL, encoding: .utf8) == expectedHash)
+        #expect(storedHashXAttr(at: bodyURL) == expectedHash)
+    }
+
+    @Test("readBody quarantines a note when both integrity references are corrupted")
+    func readBodyQuarantinesIrrecoverableCorruption() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        let quarantineRoot = NoteFileStorage.quarantineDirectoryURLForTesting()
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: quarantineRoot)
+        }
+
+        NoteFileStorage.writeBody(pageId: pageId, content: "quarantine me")
+        try "blake3:not-the-right-hash".write(to: hashURL, atomically: true, encoding: .utf8)
+        setStoredHashXAttr("blake3:still-wrong", at: bodyURL)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: bodyURL.path))
+        #expect(!FileManager.default.fileExists(atPath: hashURL.path))
+
+        let quarantinedPaths = try FileManager.default.subpathsOfDirectory(atPath: quarantineRoot.path)
+        #expect(quarantinedPaths.contains(where: { $0.hasSuffix(".md") }))
+        #expect(quarantinedPaths.contains(where: { $0.hasSuffix("reason.txt") }))
+    }
+
+    @Test("readBody accepts legacy SHA sidecar content and upgrades it to blake3")
+    func readBodyAcceptsLegacySidecarPath() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let legacyHashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).blake3")
+        let primaryHashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: legacyHashURL)
+            try? FileManager.default.removeItem(at: primaryHashURL)
+        }
+
+        try "legacy sidecar".write(to: bodyURL, atomically: true, encoding: .utf8)
+        let digest = SHA256.hash(data: Data("legacy sidecar".utf8))
+        let hash = digest.map { String(format: "%02x", $0) }.joined()
+        try hash.write(to: legacyHashURL, atomically: true, encoding: .utf8)
+
+        #expect(NoteFileStorage.readBody(pageId: pageId) == "legacy sidecar")
+        #expect(!FileManager.default.fileExists(atPath: legacyHashURL.path))
+        #expect(
+            try String(contentsOf: primaryHashURL, encoding: .utf8)
+                == NoteFileStorage.integrityTokenForTesting(Data("legacy sidecar".utf8))
+        )
+    }
+
     @Test("readBody returns empty string for missing file")
     func missingFileReadReturnsEmpty() {
         let pageId = makePageId()
@@ -154,6 +362,7 @@ struct NoteFileStorageTests {
         try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
         let keepURL = tempDirectory.appendingPathComponent("\(keepId).md")
         let orphanURL = tempDirectory.appendingPathComponent("\(orphanId).md")
+        let orphanHashURL = tempDirectory.appendingPathComponent("\(orphanId).integrity")
         let nonMarkdownURL = tempDirectory.appendingPathComponent(
             "note-storage-ignore-\(UUID().uuidString).txt"
         )
@@ -163,6 +372,7 @@ struct NoteFileStorageTests {
 
         try "keep".write(to: keepURL, atomically: true, encoding: .utf8)
         try "orphan".write(to: orphanURL, atomically: true, encoding: .utf8)
+        try "stale-hash".write(to: orphanHashURL, atomically: true, encoding: .utf8)
         try "ignore".write(to: nonMarkdownURL, atomically: true, encoding: .utf8)
 
         let removed = NoteFileStorage.cleanupOrphanBodies(in: tempDirectory, validPageIds: [keepId])
@@ -170,6 +380,7 @@ struct NoteFileStorageTests {
         #expect(removed == [orphanId])
         #expect(FileManager.default.fileExists(atPath: keepURL.path))
         #expect(!FileManager.default.fileExists(atPath: orphanURL.path))
+        #expect(!FileManager.default.fileExists(atPath: orphanHashURL.path))
         #expect(FileManager.default.fileExists(atPath: nonMarkdownURL.path))
     }
 
@@ -177,9 +388,11 @@ struct NoteFileStorageTests {
     func readBodyMigratesLegacyRTFD() throws {
         let pageId = makePageId()
         let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let hashURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).integrity")
         let richTextURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).rtfd")
         defer {
             NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: hashURL)
             try? FileManager.default.removeItem(at: richTextURL)
         }
 
@@ -199,6 +412,7 @@ struct NoteFileStorageTests {
         #expect(NoteFileStorage.bodyExists(pageId: pageId))
         #expect(!FileManager.default.fileExists(atPath: richTextURL.path))
         #expect(try String(contentsOf: bodyURL, encoding: .utf8) == legacyContent.string)
+        #expect(FileManager.default.fileExists(atPath: hashURL.path))
     }
 
     @Test("invalid page IDs do not create files")

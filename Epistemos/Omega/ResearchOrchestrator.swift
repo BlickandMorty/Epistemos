@@ -118,7 +118,7 @@ final class ResearchOrchestrator {
 
         // Update the most recent snippet matching this URL with the scored confidence
         if let idx = confidenceState.snippets.lastIndex(where: { $0.url == url }) {
-            var updated = confidenceState
+            let updated = confidenceState
             var snippets = updated.snippets
             snippets[idx] = .init(text: snippets[idx].text, url: url, confidence: confidence)
             // Re-assign since struct is value type

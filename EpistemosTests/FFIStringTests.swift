@@ -451,10 +451,12 @@ struct FFIStringTests {
         // Verify it's valid UTF-8
         #expect(String(data: utf8Data, encoding: .utf8) == original)
         
-        // Create C string from data
-        utf8Data.withUnsafeBytes { bytes in
+        // Create a null-terminated C string from the UTF-8 bytes.
+        var cStringBytes = Array(utf8Data)
+        cStringBytes.append(0)
+        cStringBytes.withUnsafeBufferPointer { bytes in
             guard let baseAddress = bytes.baseAddress else { return }
-            let cString = strdup(baseAddress.assumingMemoryBound(to: CChar.self))
+            let cString = strdup(UnsafeRawPointer(baseAddress).assumingMemoryBound(to: CChar.self))
             #expect(cString != nil)
             
             let roundTrip = String(cString: cString!)

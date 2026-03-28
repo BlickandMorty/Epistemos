@@ -6,7 +6,7 @@ import SwiftData
 /// Specialist agent for Epistemos note operations.
 /// Uses the existing VaultSyncService and SwiftData ModelContainer to create/edit/search notes.
 @MainActor
-final class NotesAgent: OmegaAgent, @unchecked Sendable {
+final class NotesAgent: OmegaAgent, Sendable {
     let name = "notes"
     let description = "Epistemos note operations: create, edit, search, and organize notes"
     let toolNames = ["create_note", "edit_note", "search_notes", "list_notes",

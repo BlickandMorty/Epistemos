@@ -168,7 +168,15 @@
       "Bash(find /Users/jojo/Downloads/Epistemos -path */test_results -prune -o -type f \\\\\\(-name *.jsonl -o -name *.json \\\\\\) -size +1k -print)",
       "Bash(ls /Users/jojo/Downloads/Epistemos/EpistemosTests/*.swift)",
       "Bash(2)",
-      "Bash(xcodegen generate:*)"
+      "Bash(xcodegen generate:*)",
+      "Bash(plutil -p /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app/Contents/Info.plist)",
+      "Bash(curl -s -L \"https://developer.apple.com/app-store/review/guidelines/\")",
+      "Bash(sysctl hw.memsize)",
+      "Read(//Users/jojo/Downloads/Epistemos/{print $2/**)",
+      "Bash(sysctl -n machdep.cpu.brand_string)",
+      "Bash(system_profiler SPHardwareDataType)",
+      "Bash(open /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app)",
+      "Bash(/usr/bin/head -100)"
     ],
     "additionalDirectories": [
       "/tmp"

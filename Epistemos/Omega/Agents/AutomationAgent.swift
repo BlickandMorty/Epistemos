@@ -8,7 +8,7 @@ import AppKit
 /// Shortcuts go through omega-ax shortcuts (Rust Layer 1).
 /// Per Anti-Drift Anchors 1 and 5.
 @MainActor
-final class AutomationAgent: OmegaAgent, @unchecked Sendable {
+final class AutomationAgent: OmegaAgent, Sendable {
     let name = "automation"
     let description = "Generic macOS app automation via accessibility tree and input simulation"
     let toolNames = ["get_ui_tree", "click_element", "type_text", "press_key", "run_shortcut"]

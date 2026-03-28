@@ -1120,8 +1120,16 @@ struct ThemePairTests {
         let pbxproj = try loadProjectFile()
         #expect(pbxproj.contains("SWIFT_OBJC_BRIDGING_HEADER = \"Epistemos-Bridging-Header.h\";"))
         #expect(pbxproj.contains("SWIFT_INCLUDE_PATHS = \"$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI"))
-        #expect(pbxproj.contains("\"$(PROJECT_DIR)/build-rust\","))
         #expect(pbxproj.contains("\"-L$(PROJECT_DIR)/build-rust\","))
+        #expect(pbxproj.contains("\"@executable_path\","))
+        #expect(pbxproj.contains("\"@loader_path/../Frameworks\","))
+        #expect(!pbxproj.contains(#"""
+LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"$(PROJECT_DIR)/build-rust",
+				);
+"""#))
     }
 
     @Test("main window navigation keeps only the home tab")

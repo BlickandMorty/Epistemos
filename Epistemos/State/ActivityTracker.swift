@@ -11,27 +11,18 @@ import os
 // cross-session paragraph diffing. Events persisted to ring buffer (hot cache)
 // and flushed to EventStore for permanent history.
 
-private final class ActivityFlagState: @unchecked Sendable {
-    private let lock = NSLock()
-    nonisolated(unsafe) private var isMarkedActive = false
+private actor ActivityFlagState {
+    private var isMarkedActive = false
 
-    nonisolated init() {}
-
-    nonisolated func markActive() {
-        lock.lock()
-        defer { lock.unlock() }
+    func markActive() {
         isMarkedActive = true
     }
 
-    nonisolated func isActive() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return isMarkedActive
+    func isActive() -> Bool {
+        isMarkedActive
     }
 
-    nonisolated func clear() {
-        lock.lock()
-        defer { lock.unlock() }
+    func clear() {
         isMarkedActive = false
     }
 }
@@ -61,7 +52,9 @@ final class ActivityTracker {
         eventMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.keyDown, .scrollWheel, .leftMouseDown]
         ) { [weak self] event in
-            self?.activityFlagState.markActive()
+            Task { @MainActor [weak self] in
+                await self?.activityFlagState.markActive()
+            }
             return event
         }
 
@@ -72,13 +65,13 @@ final class ActivityTracker {
                 guard !Task.isCancelled, let self else { break }
 
                 // Only scan if user was recently active and is now idle
-                guard self.activityFlagState.isActive() else { continue }
+                guard await self.activityFlagState.isActive() else { continue }
                 let idleSeconds = CGEventSource.secondsSinceLastEventType(
                     .combinedSessionState, eventType: .keyDown
                 )
                 guard idleSeconds >= 5 else { continue }
 
-                self.activityFlagState.clear()
+                await self.activityFlagState.clear()
                 self.scanOpenNotes()
             }
         }

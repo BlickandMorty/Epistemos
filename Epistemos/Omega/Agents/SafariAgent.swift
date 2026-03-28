@@ -6,7 +6,7 @@ import Foundation
 /// All tool execution goes through the Rust Tool Layer (omega-mcp osascript.rs)
 /// per Anti-Drift Anchor 1 and Anchor 5.
 @MainActor
-final class SafariAgent: OmegaAgent, @unchecked Sendable {
+final class SafariAgent: OmegaAgent, Sendable {
     let name = "safari"
     let description = "Web browsing: open URLs, get page content, search the web via Safari"
     let toolNames = ["open_url", "get_page_url", "get_page_title", "search_web", "readpagecontent", "searchpapers"]

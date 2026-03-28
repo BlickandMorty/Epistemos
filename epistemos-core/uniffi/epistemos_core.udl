@@ -16,6 +16,32 @@ namespace epistemos_core {
     /// BLAKE3 content hash for incremental analysis caching.
     string content_hash(string content);
 
+    /// BLAKE3 hash of raw bytes for file integrity verification.
+    /// Zero-corruption spec §2.2.
+    string content_hash_bytes(sequence<u8> content);
+
+    /// Verify content against a previously computed BLAKE3 hash.
+    /// Returns true if matches, false if corrupted.
+    /// Zero-corruption spec §2.3.
+    boolean verify_content_hash(sequence<u8> content, string expected_hash);
+
+    // ── NFC Normalization (zero-corruption spec §5.1) ──────────────────────
+
+    /// Normalize text to Unicode NFC form.
+    /// All text entering the database must pass through this.
+    string normalize_to_nfc(string input);
+
+    /// Sanitize and normalize text from external sources.
+    /// Throws on rejection (null bytes, replacement chars, mid-string BOMs).
+    [Throws=TextNormalizationError]
+    string sanitize_and_normalize(string input);
+
+    // ── Durable Filesystem (zero-corruption spec §1.1) ──────────────────────
+
+    /// F_FULLFSYNC on a file descriptor. Returns 0 on success, -1 on failure.
+    /// The ONLY durable flush on macOS — fsync() does NOT flush drive cache.
+    i32 full_sync_fd(i32 fd);
+
     /// Classify a document as prose/source_code/technical_docs/mixed_media.
     DocumentClassification classify_document(string content);
 
@@ -166,4 +192,11 @@ dictionary QualityScore {
 dictionary RoutingDecision {
     string adapter_type;
     double confidence;
+};
+
+[Error]
+enum TextNormalizationError {
+    "ContainsNullByte",
+    "ContainsReplacementCharacter",
+    "ContainsMidStringBom"
 };

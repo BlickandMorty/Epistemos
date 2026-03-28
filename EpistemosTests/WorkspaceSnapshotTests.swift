@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import Testing
 
 @testable import Epistemos
@@ -121,6 +122,28 @@ struct WorkspaceSnapshotTests {
 
 @Suite("EventStore")
 struct EventStoreTests {
+    private func pragmaValue(databaseURL: URL, pragma: String) throws -> String {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        defer { sqlite3_close(db) }
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "PRAGMA \(pragma);", -1, &stmt, nil) == SQLITE_OK else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW, let text = sqlite3_column_text(stmt, 0) else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return String(cString: text)
+    }
+
+    private func isBackupExcluded(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup) ?? false
+    }
+
     @Test("reads reflect queued snapshot and event writes")
     func readsReflectQueuedWrites() async throws {
         let dbURL = FileManager.default.temporaryDirectory
@@ -155,5 +178,93 @@ struct EventStoreTests {
 
         let density = store.eventDensityByDay(days: 1)
         #expect(!density.isEmpty)
+    }
+
+    @Test("event store uses durable pragmas and protects live database files")
+    func eventStoreUsesDurablePragmasAndProtectsLiveFiles() async throws {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("event-store-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("events.sqlite")
+        let store = try #require(EventStore(databaseURL: dbURL))
+
+        store.appendEvent(sessionId: "session-1", kind: .chatMessageSent(chatId: "chat-1", snippet: "hello"))
+
+        let walURL = URL(fileURLWithPath: dbURL.path + "-wal")
+        let shmURL = URL(fileURLWithPath: dbURL.path + "-shm")
+        for _ in 0..<20 {
+            if FileManager.default.fileExists(atPath: walURL.path) {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        #expect(try pragmaValue(databaseURL: dbURL, pragma: "journal_mode").lowercased() == "wal")
+        #expect(try pragmaValue(databaseURL: dbURL, pragma: "synchronous") == "2")
+        #expect(try pragmaValue(databaseURL: dbURL, pragma: "wal_autocheckpoint") == "1000")
+        #expect(try pragmaValue(databaseURL: dbURL, pragma: "integrity_check").lowercased() == "ok")
+        #expect(isBackupExcluded(dbURL))
+        if FileManager.default.fileExists(atPath: walURL.path) {
+            #expect(isBackupExcluded(walURL))
+        }
+        if FileManager.default.fileExists(atPath: shmURL.path) {
+            #expect(isBackupExcluded(shmURL))
+        }
+        let spotlightMarkerURL = dbURL.deletingLastPathComponent().appendingPathComponent(".metadata_never_index")
+        #expect(FileManager.default.fileExists(atPath: spotlightMarkerURL.path))
+    }
+}
+
+@Suite("Startup Integrity")
+struct StartupIntegrityTests {
+    @Test("startup integrity samples at least one managed body and caps at ten percent")
+    func startupIntegritySamplesAtLeastOneManagedBodyAndCapsAtTenPercent() {
+        let sampleOfThree = AppBootstrap.startupIntegritySamplePageIdsForTesting([
+            "page-c", "page-a", "page-b",
+        ])
+        #expect(sampleOfThree.count == 1)
+        #expect(sampleOfThree == ["page-a"])
+
+        let twentyPageIDs = (1...20).map { "page-\($0)" }
+        let sampleOfTwenty = AppBootstrap.startupIntegritySamplePageIdsForTesting(twentyPageIDs)
+        #expect(sampleOfTwenty.count == 2)
+        #expect(sampleOfTwenty == ["page-1", "page-9"])
+    }
+
+    @Test("startup integrity report blocks automatic vault restore after note-body verification failures")
+    func startupIntegrityReportBlocksAutomaticVaultRestoreAfterVerificationFailures() {
+        let report = AppBootstrap.startupIntegrityReportForTesting(
+            samplePageIds: ["page-a", "page-b"],
+            readBodyData: { pageId in
+                pageId == "page-a" ? Data("ok".utf8) : nil
+            },
+            eventStoreAvailable: false
+        )
+
+        #expect(report.sampledPageIds == ["page-a", "page-b"])
+        #expect(report.corruptedPageIds == ["page-b"])
+        #expect(report.eventStoreAvailable == false)
+        #expect(report.shouldBlockAutomaticVaultRestore)
+    }
+
+    @Test("startup integrity report blocks automatic vault restore after bookmark validation failures")
+    func startupIntegrityReportBlocksAutomaticVaultRestoreAfterBookmarkValidationFailures() {
+        let report = AppBootstrap.startupIntegrityReportForTesting(
+            samplePageIds: ["page-a"],
+            readBodyData: { _ in Data("ok".utf8) },
+            eventStoreAvailable: true,
+            vaultBookmarkValidation: VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark is stale and must be re-selected."
+            )
+        )
+
+        #expect(report.sampledPageIds == ["page-a"])
+        #expect(report.corruptedPageIds.isEmpty)
+        #expect(report.eventStoreAvailable)
+        #expect(report.vaultBookmarkExists)
+        #expect(report.vaultBookmarkReadyForAutomaticRestore == false)
+        #expect(report.vaultBookmarkFailureReason == "Saved vault bookmark is stale and must be re-selected.")
+        #expect(report.shouldBlockAutomaticVaultRestore)
     }
 }

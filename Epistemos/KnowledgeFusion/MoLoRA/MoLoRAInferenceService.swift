@@ -15,7 +15,7 @@ struct MoLoRAGenerationResult: Sendable {
     let routeUsed: String
 }
 
-private final class MoLoRAReadBufferState: @unchecked Sendable {
+private final class MoLoRAReadBufferState: Sendable {
     private let lock = NSLock()
     nonisolated(unsafe) private var value = ""
 

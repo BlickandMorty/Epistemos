@@ -22,3 +22,4 @@ uniffi = { version = "0.28", features = ["build"] }
 [profile.release]
 opt-level = 3
 lto = "thin"
+panic = "abort"

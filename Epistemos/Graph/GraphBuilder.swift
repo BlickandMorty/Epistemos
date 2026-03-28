@@ -13,7 +13,9 @@ import SwiftData
 /// Graph builder — builds the structural knowledge graph from SwiftData entities.
 /// Safe to use from any actor that owns the passed ModelContext
 /// (@MainActor with mainContext, or @ModelActor with its own context).
-final class GraphBuilder: @unchecked Sendable {
+// GraphBuilder has no instance state. The testing diagnostics live in static storage
+// behind a lock, and call sites provide an actor-owned ModelContext.
+final class GraphBuilder: Sendable {
     private nonisolated static let blockRefFetchBatchSize = 128
     private nonisolated static let blockRefFetchDiagnosticsLock = NSLock()
     private nonisolated(unsafe) static var blockRefFetchBatchCount = 0
@@ -73,8 +75,8 @@ final class GraphBuilder: @unchecked Sendable {
     /// Scan all structured data and return graph nodes + edges (not yet persisted).
     /// Safe to call from any actor that owns the provided ModelContext.
     // SAFETY: @Model access is safe when caller owns the ModelContext
-    // (guaranteed by @ModelActor or @MainActor). @unchecked Sendable on the class
-    // + nonisolated here lets @ModelActor callers invoke without cross-actor hop.
+    // (guaranteed by @ModelActor or @MainActor). The class is Sendable because it
+    // carries no instance state across actor boundaries.
     nonisolated func build(context: ModelContext) -> (nodes: [SDGraphNode], edges: [SDGraphEdge]) {
         var nodes: [SDGraphNode] = []
         var edges: [SDGraphEdge] = []

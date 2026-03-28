@@ -371,7 +371,7 @@ struct PipelineServiceTests {
         }
 
         #expect(completedTruth == nil)
-        #expect(completedDual?.rawAnalysis.isEmpty == true)
+        #expect(completedDual?.rawAnalysis == "Answer complete.")
         #expect(completedDual?.uncertaintyTags.isEmpty == true)
         #expect(completedDual?.modelVsDataFlags.isEmpty == true)
         #expect(pipelineState.isProcessing == false)
@@ -535,7 +535,7 @@ struct PipelineContractTests {
         for try await event in stream {
             if case .completed(let dual, _) = event {
                 gotCompleted = true
-                #expect(dual.rawAnalysis.isEmpty)
+                #expect(dual.rawAnalysis == "The answer is 42")
             }
         }
 
@@ -544,7 +544,7 @@ struct PipelineContractTests {
 
 }
 
-private final class ActivityProbe: @unchecked Sendable {
+private final class ActivityProbe: Sendable {
     private let lock = NSLock()
     nonisolated(unsafe) private var events: [String] = []
 

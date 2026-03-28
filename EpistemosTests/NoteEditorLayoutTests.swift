@@ -4,7 +4,7 @@ import Testing
 import SwiftUI
 @testable import Epistemos
 
-private final class LayoutNotificationCounts: @unchecked Sendable {
+private final class LayoutNotificationCounts: Sendable {
     private let lock = NSLock()
     nonisolated(unsafe) private var frameCount = 0
     nonisolated(unsafe) private var boundsCount = 0

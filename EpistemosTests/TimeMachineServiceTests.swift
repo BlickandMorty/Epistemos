@@ -453,6 +453,8 @@ struct TimeMachineServiceTests {
 
     @Test("computeNoteDiff stays under the 10k note audit budget")
     func computeNoteDiffPerformance10KNotes() throws {
+        guard !TestSanitizerSupport.hasRuntimeInstrumentation else { return }
+
         let container = try makeContainer()
         let service = TimeMachineService(modelContainer: container)
         let count = 10_000

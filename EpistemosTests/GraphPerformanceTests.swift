@@ -670,6 +670,8 @@ struct GraphPerformanceTests {
     
     @Test("Position hint application performance")
     func positionHintPerformance() async throws {
+        guard !TestSanitizerSupport.hasRuntimeInstrumentation else { return }
+
         let store = GraphStore()
         let nodeCount = 1000
         let nodes = GraphTestDataGenerator.generateNodes(count: nodeCount)

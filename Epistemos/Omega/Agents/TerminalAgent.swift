@@ -6,7 +6,7 @@ import Foundation
 /// All execution goes through the Rust Tool Layer (omega-mcp osascript.rs tool_run_command)
 /// per Anti-Drift Anchor 1 and Anchor 5.
 @MainActor
-final class TerminalAgent: OmegaAgent, @unchecked Sendable {
+final class TerminalAgent: OmegaAgent, Sendable {
     let name = "terminal"
     let description = "Execute shell commands with allow-list restrictions"
     let toolNames = ["run_command"]

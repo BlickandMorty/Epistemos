@@ -295,6 +295,35 @@ struct TrainingProfileManagerTests {
 @Suite("Hyperparameter Compliance")
 struct HyperparameterComplianceTests {
 
+    @Test("Knowledge Fusion runtime scripts are bundled into the host app")
+    func knowledgeFusionRuntimeScriptsAreBundled() throws {
+        let hostBundleURL = ProcessInfo.processInfo.environment["TEST_HOST"]
+            .map(URL.init(fileURLWithPath:))
+            .map { $0.deletingLastPathComponent().deletingLastPathComponent() }
+            ?? Bundle.allBundles.first(where: {
+                $0.bundleURL.pathExtension == "app" && $0.bundleURL.lastPathComponent == "Epistemos.app"
+            })?.bundleURL
+        let resourceRoot = try #require(hostBundleURL)
+            .appendingPathComponent("Contents/Resources/KnowledgeFusion")
+        let requiredAssets = [
+            "Training/scripts/train_knowledge.py",
+            "Training/scripts/train_style.py",
+            "Alignment/scripts/train_kto.py",
+            "MoLoRA/molora_inference.py",
+            "MoLoRA/sgmm_kernel.py",
+            "MOHAWK/eval_bfcl.py",
+            "MOHAWK/embodied_data/bfcl_eval_macos.jsonl",
+        ]
+
+        for relativePath in requiredAssets {
+            let assetURL = resourceRoot.appendingPathComponent(relativePath)
+            #expect(
+                FileManager.default.fileExists(atPath: assetURL.path),
+                "Missing bundled runtime asset at \(assetURL.path)"
+            )
+        }
+    }
+
     @Test("Knowledge training script has correct hyperparameters")
     func knowledgeHyperparams() throws {
         let scriptURL = Bundle.main.bundleURL

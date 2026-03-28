@@ -31,6 +31,19 @@ private final class LocalModelRefreshThrottle {
     }
 }
 
+struct StartupIntegrityReport: Sendable {
+    let sampledPageIds: [String]
+    let corruptedPageIds: [String]
+    let eventStoreAvailable: Bool
+    let vaultBookmarkExists: Bool
+    let vaultBookmarkReadyForAutomaticRestore: Bool
+    let vaultBookmarkFailureReason: String?
+
+    var shouldBlockAutomaticVaultRestore: Bool {
+        !corruptedPageIds.isEmpty || (vaultBookmarkExists && !vaultBookmarkReadyForAutomaticRestore)
+    }
+}
+
 @MainActor
 final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
@@ -112,6 +125,7 @@ final class AppBootstrap {
     private var healthyVaultBodyCleanupTask: Task<Void, Never>?
     private var localRuntimeObserverTokens: [NSObjectProtocol] = []
     private let localModelRefreshThrottle: LocalModelRefreshThrottle
+    private var startupIntegrityReport: StartupIntegrityReport?
 
     private struct InstantRecallSeed: Sendable {
         let id: String
@@ -324,7 +338,12 @@ final class AppBootstrap {
         self._ambientCapture = AmbientCaptureService(config: epistemosConfig, screen2AXFusion: screen2AXFusion)
         self._frictionMonitor = FrictionMonitorService(config: epistemosConfig)
         FrictionMonitorService.shared = frictionMonitor
-        self._nightBrain = NightBrainService(config: epistemosConfig)
+        self._nightBrain = NightBrainService(
+            config: epistemosConfig,
+            searchIndexProvider: { @MainActor [weak vaultSync] in
+                vaultSync?.searchService
+            }
+        )
 
         if !Self.isRunningTests {
             wireLocalRuntimeLifecycle()
@@ -424,6 +443,89 @@ final class AppBootstrap {
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
         Log.app.info("AppBootstrap: initialized — local AI stack ready")
+    }
+
+    nonisolated static func startupIntegritySamplePageIdsForTesting(_ pageIds: [String]) -> [String] {
+        let normalized = Array(Set(pageIds.filter { NoteFileStorage.isValidPageId($0) })).sorted()
+        guard !normalized.isEmpty else { return [] }
+
+        let sampleSize = min(normalized.count, max(1, normalized.count / 10))
+        guard sampleSize < normalized.count else { return normalized }
+
+        let lastIndex = normalized.count - 1
+        let strideDivisor = max(1, sampleSize - 1)
+        let sampled = (0..<sampleSize).map { sampleIndex in
+            let position = Int(round(Double(sampleIndex * lastIndex) / Double(strideDivisor)))
+            return normalized[position]
+        }
+        return Array(NSOrderedSet(array: sampled)) as? [String] ?? sampled
+    }
+
+    nonisolated static func startupIntegrityReportForTesting(
+        samplePageIds: [String],
+        readBodyData: (String) -> Data?,
+        eventStoreAvailable: Bool,
+        vaultBookmarkValidation: VaultBookmarkStartupValidation = VaultBookmarkStartupValidation(
+            bookmarkExists: false,
+            isReadyForAutomaticRestore: true,
+            failureReason: nil
+        )
+    ) -> StartupIntegrityReport {
+        let corruptedPageIds = samplePageIds.filter { readBodyData($0) == nil }
+        return StartupIntegrityReport(
+            sampledPageIds: samplePageIds,
+            corruptedPageIds: corruptedPageIds,
+            eventStoreAvailable: eventStoreAvailable,
+            vaultBookmarkExists: vaultBookmarkValidation.bookmarkExists,
+            vaultBookmarkReadyForAutomaticRestore: vaultBookmarkValidation.isReadyForAutomaticRestore,
+            vaultBookmarkFailureReason: vaultBookmarkValidation.failureReason
+        )
+    }
+
+    func performStartupIntegrityCheck() async -> StartupIntegrityReport {
+        if let startupIntegrityReport {
+            return startupIntegrityReport
+        }
+
+        let report = Self.startupIntegrityReportForTesting(
+            samplePageIds: Self.startupIntegritySamplePageIdsForTesting(
+                NoteFileStorage.managedBodyPageIds()
+            ),
+            readBodyData: { pageId in
+                NoteFileStorage.readBodyData(pageId: pageId)
+            },
+            eventStoreAvailable: EventStore.shared != nil,
+            vaultBookmarkValidation: vaultSync.startupBookmarkValidation()
+        )
+
+        startupIntegrityReport = report
+
+        if !report.eventStoreAvailable {
+            uiState.showToast(
+                "Startup integrity warning: session store is unavailable.",
+                type: .error
+            )
+        }
+
+        if let vaultBookmarkFailureReason = report.vaultBookmarkFailureReason {
+            uiState.showToast(
+                "Startup integrity warning: \(vaultBookmarkFailureReason) Automatic vault restore was paused.",
+                type: .error
+            )
+        }
+
+        if report.shouldBlockAutomaticVaultRestore {
+            let noteCount = report.corruptedPageIds.count
+            if noteCount > 0 {
+                let noun = noteCount == 1 ? "note body" : "note bodies"
+                uiState.showToast(
+                    "Startup integrity check quarantined \(noteCount) corrupted \(noun). Automatic vault restore was paused.",
+                    type: .error
+                )
+            }
+        }
+
+        return report
     }
 
     // MARK: - Forwarding (for external callers that reference AppBootstrap directly)

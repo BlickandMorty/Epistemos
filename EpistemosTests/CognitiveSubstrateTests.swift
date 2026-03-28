@@ -150,10 +150,19 @@ struct NightBrainCheckpointResumeTests {
         #expect(alreadyDone == ["event_store_checkpoint_vacuum", "dedupe_artifacts"])
 
         // The pipeline would skip these and continue with remaining jobs
-        let allJobs = ["event_store_checkpoint_vacuum", "dedupe_artifacts",
-                       "workspace_snapshot_compaction", "maintenance_log"]
+        let allJobs = [
+            "event_store_checkpoint_vacuum",
+            "search_index_passive_checkpoint",
+            "dedupe_artifacts",
+            "workspace_snapshot_compaction",
+            "maintenance_log",
+        ]
         let remaining = allJobs.filter { !alreadyDone.contains($0) }
-        #expect(remaining == ["workspace_snapshot_compaction", "maintenance_log"])
+        #expect(remaining == [
+            "search_index_passive_checkpoint",
+            "workspace_snapshot_compaction",
+            "maintenance_log",
+        ])
     }
 
     @Test("Empty checkpoint table means no jobs to skip")

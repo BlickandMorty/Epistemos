@@ -293,8 +293,8 @@ nonisolated struct LLMSnapshot: Sendable {
     let reasoningMode: LocalReasoningMode
 }
 
-nonisolated struct ProcessActivityToken: @unchecked Sendable {
-    fileprivate let raw: NSObjectProtocol
+nonisolated struct ProcessActivityToken: Sendable {
+    nonisolated(unsafe) fileprivate let raw: NSObjectProtocol
 
     init(raw: NSObjectProtocol) {
         self.raw = raw

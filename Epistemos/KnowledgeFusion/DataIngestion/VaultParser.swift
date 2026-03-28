@@ -176,9 +176,8 @@ actor VaultParser {
             )
         }
 
-        // Classify + filter via Rust FFI (must call on MainActor for UniFFI concurrency)
-        let classification = await MainActor.run { classifyDocument(content: rawText) }
-        let filtered = await MainActor.run { filterBoilerplate(content: rawText) }
+        let classification = classifyDocument(content: rawText)
+        let filtered = filterBoilerplate(content: rawText)
 
         let resourceValues = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
         let wordCount = filtered.cleaned.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count

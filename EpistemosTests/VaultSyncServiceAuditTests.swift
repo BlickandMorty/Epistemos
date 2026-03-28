@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import SwiftData
 import Testing
 @testable import Epistemos
@@ -65,7 +66,7 @@ struct VaultSyncServiceAuditTests {
         }
     }
 
-    final class ManagedBodyCountProbe: @unchecked Sendable {
+    final class ManagedBodyCountProbe: Sendable {
         private let lock = NSLock()
         nonisolated(unsafe) private var count = 0
         nonisolated(unsafe) private var ranOnMainThread = false
@@ -93,6 +94,27 @@ struct VaultSyncServiceAuditTests {
             lock.lock()
             defer { lock.unlock() }
             return ranOnMainThread
+        }
+    }
+
+    final class Locked<Value>: Sendable {
+        private let lock = NSLock()
+        nonisolated(unsafe) private var storage: Value
+
+        init(_ value: Value) {
+            storage = value
+        }
+
+        nonisolated func withLock<Result>(_ body: (inout Value) -> Result) -> Result {
+            lock.lock()
+            defer { lock.unlock() }
+            return body(&storage)
+        }
+
+        nonisolated var value: Value {
+            lock.lock()
+            defer { lock.unlock() }
+            return storage
         }
     }
 
@@ -142,6 +164,36 @@ struct VaultSyncServiceAuditTests {
         Issue.record("Timed out waiting for condition")
     }
 
+    private func sqliteRowCount(databaseURL: URL, table: String) throws -> Int {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+              let db else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        defer { sqlite3_close(db) }
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table);", -1, &stmt, nil) == SQLITE_OK,
+              let stmt else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return Int(sqlite3_column_int64(stmt, 0))
+    }
+
+    private func latestSnapshotDirectory(in root: URL) throws -> URL {
+        let snapshotDirs = try FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        return try #require(snapshotDirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).last)
+    }
+
     @Test("restoreVaultFromBookmark is disabled under test hosts")
     func restoreVaultFromBookmarkDisabledUnderTests() {
         #expect(
@@ -171,6 +223,38 @@ struct VaultSyncServiceAuditTests {
                 processInfoEnvironment: ["EPISTEMOS_SKIP_VAULT_RESTORE": "0"]
             )
         )
+    }
+
+    @Test("startup bookmark validation rejects stale bookmarks")
+    func startupBookmarkValidationRejectsStaleBookmarks() {
+        let validation = VaultSyncService.startupBookmarkValidationForTesting(
+            bookmarkExists: true,
+            resolvedURL: URL(fileURLWithPath: "/tmp/vault", isDirectory: true),
+            isStale: true,
+            usedSecurityScope: false,
+            accessGranted: true,
+            isReadable: true
+        )
+
+        #expect(validation.bookmarkExists)
+        #expect(validation.isReadyForAutomaticRestore == false)
+        #expect(validation.failureReason == "Saved vault bookmark is stale and must be re-selected.")
+    }
+
+    @Test("startup bookmark validation accepts readable resolved bookmarks")
+    func startupBookmarkValidationAcceptsReadableResolvedBookmarks() {
+        let validation = VaultSyncService.startupBookmarkValidationForTesting(
+            bookmarkExists: true,
+            resolvedURL: URL(fileURLWithPath: "/tmp/vault", isDirectory: true),
+            isStale: false,
+            usedSecurityScope: true,
+            accessGranted: true,
+            isReadable: true
+        )
+
+        #expect(validation.bookmarkExists)
+        #expect(validation.isReadyForAutomaticRestore)
+        #expect(validation.failureReason == nil)
     }
 
     @Test("vault sync test hooks do not overwrite live vault defaults")
@@ -1067,5 +1151,184 @@ struct VaultSyncServiceAuditTests {
         #expect(NoteFileStorage.bodyExists(pageId: page.id))
         #expect(service.recoveryIssue != nil)
         #expect(service.recoveryIssue?.reason.contains("clear was aborted") == true)
+    }
+
+    @Test("destructive stop snapshots SQLite state via consistent backups instead of live file copies")
+    func destructiveStopSnapshotsSQLiteStateViaConsistentBackups() async throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let recoverySnapshotsURL = root.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        let eventStoreURL = appSupportURL.appendingPathComponent("event-store.sqlite")
+        let searchDatabaseURL = appSupportURL.appendingPathComponent("search.sqlite")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+        try "keep-me".write(
+            to: appSupportURL.appendingPathComponent("cache.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let eventStore = try #require(EventStore(databaseURL: eventStoreURL))
+        eventStore.appendEvent(sessionId: "session-1", kind: .chatMessageSent(chatId: "chat-1", snippet: "hello"))
+        for _ in 0..<20 {
+            if eventStore.events(from: .distantPast, to: .now).count == 1 {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(eventStore.events(from: .distantPast, to: .now).count == 1)
+
+        let searchService = try SearchIndexService(databaseURL: searchDatabaseURL)
+        try searchService.upsert(
+            id: "page-backup",
+            title: "Backup coverage",
+            body: "This search row must survive snapshotting.",
+            tags: "backup",
+            updatedAt: .now
+        )
+
+        service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+        service.setAppSupportDirectoryURLForTesting(appSupportURL)
+        service.setPreferencesFileURLForTesting(preferencesURL)
+        service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+
+        service.stopWatching(preserveData: false)
+
+        let snapshotURL = try latestSnapshotDirectory(in: recoverySnapshotsURL)
+        let snapshottedAppSupport = snapshotURL.appendingPathComponent(appSupportURL.lastPathComponent, isDirectory: true)
+        let snapshottedEventStoreURL = snapshottedAppSupport.appendingPathComponent("event-store.sqlite")
+        let snapshottedSearchDatabaseURL = snapshottedAppSupport.appendingPathComponent("search.sqlite")
+
+        #expect(FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("cache.txt").path))
+        #expect(FileManager.default.fileExists(atPath: snapshottedEventStoreURL.path))
+        #expect(FileManager.default.fileExists(atPath: snapshottedSearchDatabaseURL.path))
+        #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedEventStoreURL.path + "-wal").path))
+        #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedEventStoreURL.path + "-shm").path))
+        #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedSearchDatabaseURL.path + "-wal").path))
+        #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedSearchDatabaseURL.path + "-shm").path))
+        #expect(try sqliteRowCount(databaseURL: snapshottedEventStoreURL, table: "events") == 1)
+        #expect(try sqliteRowCount(databaseURL: snapshottedSearchDatabaseURL, table: "indexed_pages") == 1)
+
+        _ = searchService
+    }
+
+    @Test("recovery snapshot pruning keeps only the twenty most recent snapshots")
+    func recoverySnapshotPruningKeepsOnlyTwentyMostRecentSnapshots() throws {
+        let root = try makeTempDirectory()
+        let snapshotsRoot = root.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: snapshotsRoot, withIntermediateDirectories: true)
+        for index in 1...25 {
+            let directory = snapshotsRoot.appendingPathComponent(
+                String(format: "snapshot-%04d", index),
+                isDirectory: true
+            )
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+
+        try VaultSyncService.pruneRecoverySnapshotsForTesting(at: snapshotsRoot, maxCount: 20)
+
+        let remaining = try FileManager.default.contentsOfDirectory(
+            at: snapshotsRoot,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ).map(\.lastPathComponent).sorted()
+
+        #expect(remaining.count == 20)
+        #expect(!remaining.contains("snapshot-0001"))
+        #expect(!remaining.contains("snapshot-0005"))
+        #expect(remaining.contains("snapshot-0006"))
+        #expect(remaining.contains("snapshot-0025"))
+    }
+
+    @Test("APFS safety snapshot records newly created tmutil snapshots and prunes older app-owned entries")
+    func apfsSafetySnapshotRecordsNewSnapshotsAndPrunesOlderAppOwnedEntries() throws {
+        let root = try makeTempDirectory()
+        let manifestURL = root.appendingPathComponent("apfs-snapshot-manifest.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let commandLog = Locked<[String]>([])
+        let createdSnapshots = Locked<Set<String>>([
+            "2026-03-01-000001",
+            "2026-03-02-000002",
+            "2026-03-03-000003",
+            "2026-03-04-000004",
+            "2026-03-05-000005",
+            "2026-03-06-000006",
+            "2026-03-07-000007",
+            "2026-03-08-000008",
+            "2026-03-09-000009",
+            "2026-03-10-000010",
+            "2026-03-11-000011",
+            "2026-03-12-000012",
+            "2026-03-13-000013",
+            "2026-03-14-000014",
+            "2026-03-15-000015",
+            "2026-03-16-000016",
+            "2026-03-17-000017",
+            "2026-03-18-000018",
+            "2026-03-19-000019",
+            "2026-03-20-000020",
+        ])
+
+        try VaultSyncService.writeAPFSSnapshotManifestForTesting(
+            snapshotIDs: createdSnapshots.value.sorted(),
+            reasons: Dictionary(
+                uniqueKeysWithValues: createdSnapshots.value.map { ($0, "older-snapshot") }
+            ),
+            manifestURL: manifestURL
+        )
+
+        let created = try VaultSyncService.createAPFSSafetySnapshotForTesting(
+            reason: "destructive-clear",
+            manifestURL: manifestURL,
+            maxCount: 20
+        ) { arguments in
+            commandLog.withLock { $0.append(arguments.joined(separator: " ")) }
+
+            if arguments == ["listlocalsnapshots", "/"] {
+                let lines = createdSnapshots.value.sorted().map { "com.apple.TimeMachine.\($0).local" }
+                return (["Snapshots for disk /:"] + lines).joined(separator: "\n")
+            }
+
+            if arguments == ["localsnapshot"] {
+                _ = createdSnapshots.withLock { snapshots in
+                    snapshots.insert("2026-03-21-000021")
+                }
+                return "Created local snapshot with date: 2026-03-21-000021"
+            }
+
+            if arguments.count == 2, arguments[0] == "deletelocalsnapshots" {
+                let snapshotID = arguments[1]
+                _ = createdSnapshots.withLock { snapshots in
+                    snapshots.remove(snapshotID)
+                }
+                return "Deleted local snapshot \(snapshotID)"
+            }
+
+            Issue.record("Unexpected tmutil arguments: \(arguments)")
+            return ""
+        }
+
+        let manifestSnapshotIDs = try VaultSyncService.readAPFSSnapshotManifestForTesting(
+            manifestURL: manifestURL
+        )
+
+        #expect(created == ["2026-03-21-000021"])
+        #expect(manifestSnapshotIDs.count == 20)
+        #expect(!manifestSnapshotIDs.contains("2026-03-01-000001"))
+        #expect(manifestSnapshotIDs.contains("2026-03-02-000002"))
+        #expect(manifestSnapshotIDs.contains("2026-03-21-000021"))
+        #expect(commandLog.value.contains("listlocalsnapshots /"))
+        #expect(commandLog.value.contains("localsnapshot"))
+        #expect(commandLog.value.contains("deletelocalsnapshots 2026-03-01-000001"))
     }
 }

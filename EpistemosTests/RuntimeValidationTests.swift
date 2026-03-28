@@ -3,6 +3,42 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+private func isInterruptedFileReadError(_ error: Error) -> Bool {
+    let nsError = error as NSError
+    if nsError.domain == NSPOSIXErrorDomain, nsError.code == EINTR {
+        return true
+    }
+    if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+        return isInterruptedFileReadError(underlying)
+    }
+    return false
+}
+
+private func loadRepoTextFileWithRetry(
+    relativePath: String,
+    testsFilePath: String,
+    attempts: Int = 5
+) throws -> String {
+    let testsFileURL = URL(fileURLWithPath: testsFilePath)
+    let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+    let fileURL = repoRoot.appendingPathComponent(relativePath)
+
+    var lastError: Error?
+    for attempt in 1...attempts {
+        do {
+            return try String(contentsOf: fileURL, encoding: .utf8)
+        } catch {
+            lastError = error
+            guard isInterruptedFileReadError(error), attempt < attempts else {
+                throw error
+            }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+    }
+
+    throw lastError ?? CocoaError(.fileReadUnknown)
+}
+
 @Suite("Runtime Validation")
 struct RuntimeValidationTests {
     private let inferenceDefaultsKeys = [
@@ -202,6 +238,282 @@ struct RuntimeValidationTests {
         #expect(chatInputBar.contains("availableModes: inference.availableOperatingModes"))
         #expect(landing.contains("availableModes: inference.availableOperatingModes"))
         #expect(miniChat.contains("availableModes: inference.availableOperatingModes"))
+    }
+
+    @Test("xcode build graph regenerates and links epistemos core integrity bindings")
+    func xcodeBuildGraphRegeneratesEpistemosCoreBindings() throws {
+        let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let spec = try loadRepoTextFile("project.yml")
+        let patcher = try loadRepoTextFile("patch-uniffi-bindings.py")
+        let buildScript = try loadRepoTextFile("build-epistemos-core.sh")
+        let embedAndSignHelper = try loadRepoTextFile("embed-and-sign-rust-dylib.sh")
+        let bundleAssetsScript = try loadRepoTextFile("bundle-app-runtime-assets.sh")
+
+        #expect(project.contains("bash \\\"${SRCROOT}/build-rust.sh\\\" && bash \\\"${SRCROOT}/build-epistemos-core.sh\\\""))
+        #expect(project.contains("Bundle Runtime Assets"))
+        #expect(project.contains("bash \\\"${SRCROOT}/bundle-app-runtime-assets.sh\\\""))
+        #expect(project.contains("$(SRCROOT)/build-rust/libepistemos_core.dylib"))
+        #expect(project.contains("epistemos_coreFFI"))
+        #expect(project.contains("-Xfrontend -default-isolation=nonisolated"))
+        #expect(project.contains("\"@executable_path\","))
+        #expect(project.contains("\"@loader_path/../Frameworks\","))
+        #expect(spec.contains("bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\""))
+        #expect(spec.contains("name: Bundle Runtime Assets"))
+        #expect(spec.contains("bash \"${SRCROOT}/bundle-app-runtime-assets.sh\""))
+        #expect(spec.contains("-lepistemos_core"))
+        #expect(spec.contains("epistemos_coreFFI"))
+        #expect(spec.contains("@executable_path"))
+        #expect(spec.contains("@loader_path/../Frameworks"))
+        #expect(patcher.contains("nonisolated public var errorDescription"))
+        #expect(patcher.contains("nonisolated(unsafe)"))
+        #expect(patcher.contains("nonisolated(unsafe) let pointer = self.pointer"))
+        #expect(patcher.contains("((?:(?:open|public|private|fileprivate|internal|final|indirect)\\s+)*)((?:class|struct|enum|protocol|extension)\\b)"))
+        #expect(patcher.contains("((?:(?:open|public|private|fileprivate|internal|override|final)\\s+)*)((?:static|class)\\s+)?func\\s"))
+        #expect(buildScript.contains("rm -f \"$TARGET_BUILD_DIR/PackageFrameworks/libepistemos_core.dylib\""))
+        #expect(buildScript.contains("embed-and-sign-rust-dylib.sh"))
+        #expect(embedAndSignHelper.contains("codesign --force --sign"))
+        #expect(embedAndSignHelper.contains("EXPANDED_CODE_SIGN_IDENTITY"))
+        #expect(!buildScript.contains("cp ../build-rust/libepistemos_core.dylib \"$TARGET_BUILD_DIR/PackageFrameworks/libepistemos_core.dylib\""))
+        #expect(bundleAssetsScript.contains("KnowledgeFusion/Training/scripts/train_knowledge.py"))
+        #expect(bundleAssetsScript.contains("KnowledgeFusion/Training/scripts/train_style.py"))
+        #expect(bundleAssetsScript.contains("KnowledgeFusion/Alignment/scripts/train_kto.py"))
+        #expect(bundleAssetsScript.contains("KnowledgeFusion/MoLoRA/molora_inference.py"))
+        #expect(bundleAssetsScript.contains("KnowledgeFusion/MoLoRA/sgmm_kernel.py"))
+        #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/eval_bfcl.py"))
+        #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl"))
+    }
+
+    @Test("Rust build scripts force panic abort under thread sanitizer builds")
+    func rustBuildScriptsForcePanicAbortUnderThreadSanitizerBuilds() throws {
+        let graphEngine = try loadRepoTextFile("build-rust.sh")
+        let omegaMcp = try loadRepoTextFile("build-omega-mcp.sh")
+        let omegaAx = try loadRepoTextFile("build-omega-ax.sh")
+        let epistemosCore = try loadRepoTextFile("build-epistemos-core.sh")
+
+        for script in [graphEngine, omegaMcp, omegaAx, epistemosCore] {
+            #expect(script.contains("ENABLE_THREAD_SANITIZER"))
+            #expect(script.contains("CARGO_PROFILE_DEV_PANIC=abort"))
+            #expect(script.contains("RUSTFLAGS"))
+            #expect(script.contains("-C panic=abort"))
+        }
+    }
+
+    @Test("omega ffi crates build and embed dylibs instead of static archives")
+    func omegaFFICratesBuildAndEmbedDylibsInsteadOfStaticArchives() throws {
+        let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let omegaMcp = try loadRepoTextFile("build-omega-mcp.sh")
+        let omegaAx = try loadRepoTextFile("build-omega-ax.sh")
+
+        #expect(project.contains("$(SRCROOT)/build-rust/libomega_mcp.dylib"))
+        #expect(project.contains("$(SRCROOT)/build-rust/libomega_ax.dylib"))
+        #expect(!project.contains("$(SRCROOT)/build-rust/libomega_mcp.a"))
+        #expect(!project.contains("$(SRCROOT)/build-rust/libomega_ax.a"))
+
+        for script in [omegaMcp, omegaAx] {
+            #expect(script.contains("cargo build --target aarch64-apple-darwin"))
+            #expect(script.contains("cargo build --target x86_64-apple-darwin"))
+            #expect(script.contains("lipo -create"))
+            #expect(script.contains(".dylib\""))
+            #expect(script.contains("install_name_tool -id"))
+            #expect(script.contains("FRAMEWORKS_FOLDER_PATH"))
+            #expect(script.contains("embed-and-sign-rust-dylib.sh"))
+            #expect(script.contains("rm -f ../build-rust/lib"))
+            #expect(!script.contains("cp \"$LIB_PATH\" ../build-rust/libomega_mcp.a"))
+            #expect(!script.contains("cp \"$LIB_PATH\" ../build-rust/libomega_ax.a"))
+        }
+    }
+
+    @Test("graph engine and epistemos core build universal darwin artifacts")
+    func graphEngineAndEpistemosCoreBuildUniversalDarwinArtifacts() throws {
+        let graphEngine = try loadRepoTextFile("build-rust.sh")
+        let epistemosCore = try loadRepoTextFile("build-epistemos-core.sh")
+
+        for script in [graphEngine, epistemosCore] {
+            #expect(script.contains("cargo build --target aarch64-apple-darwin"))
+            #expect(script.contains("cargo build --target x86_64-apple-darwin"))
+            #expect(script.contains("lipo -create"))
+        }
+    }
+
+    @Test("epistemos core durability and instant recall exports stay fail-closed")
+    func epistemosCoreDurabilityAndInstantRecallExportsStayFailClosed() throws {
+        let source = try loadRepoTextFile("epistemos-core/src/uniffi_exports.rs")
+        let udl = try loadRepoTextFile("epistemos-core/uniffi/epistemos_core.udl")
+        let noteStorage = try loadRepoTextFile("Epistemos/Sync/NoteFileStorage.swift")
+
+        #expect(source.contains("libc::F_FULLFSYNC"))
+        #expect(!source.contains("libc::fsync("))
+        #expect(source.contains("fn with_recall_indices_mut<R>("))
+        #expect(source.contains("fn with_recall_indices<R>("))
+        #expect(!source.contains("RECALL_INDICES.lock().unwrap()"))
+        #expect(source.contains("with_recall_indices_mut(false"))
+        #expect(source.contains("with_recall_indices(\"[]\".to_string()"))
+        #expect(source.contains("with_recall_indices(0"))
+        #expect(source.contains("pub enum TextNormalizationError"))
+        #expect(source.contains("pub fn sanitize_and_normalize(input: String) -> Result<String, TextNormalizationError>"))
+        #expect(!source.contains("Returns empty string on rejection"))
+        #expect(udl.contains("[Throws=TextNormalizationError]"))
+        #expect(noteStorage.contains("try sanitizeAndNormalize(input: value)"))
+        #expect(!noteStorage.contains("uniffi_epistemos_core_checksum_func_sanitize_and_normalize()"))
+    }
+
+    @Test("activity tracker lane avoids unchecked sendable on simple local state containers")
+    func activityTrackerLaneAvoidsUncheckedSendableOnSimpleLocalStateContainers() throws {
+        let activityTracker = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
+        let substrateTypes = try loadRepoTextFile("Epistemos/State/CognitiveSubstrateTypes.swift")
+
+        #expect(!activityTracker.contains("@unchecked Sendable"))
+        #expect(activityTracker.contains("actor ActivityFlagState"))
+        #expect(!substrateTypes.contains("@unchecked Sendable"))
+        #expect(substrateTypes.contains("struct RingBuffer<T: Sendable>: Sendable"))
+    }
+
+    @Test("event store graph builder and branded ids avoid unchecked sendable wrappers")
+    func eventStoreGraphBuilderAndBrandedIdsAvoidUncheckedSendableWrappers() throws {
+        let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
+        let graphBuilder = try loadRepoTextFile("Epistemos/Graph/GraphBuilder.swift")
+        let brandedTypes = try loadRepoTextFile("Epistemos/Models/BrandedTypes.swift")
+
+        #expect(!eventStore.contains("@unchecked Sendable"))
+        #expect(eventStore.contains("final class EventStore: Sendable"))
+        #expect(eventStore.contains("executeRequired(\"PRAGMA journal_mode=WAL;\")"))
+        #expect(eventStore.contains("pragmaTextValue(\"PRAGMA journal_mode;\")?.lowercased() == \"wal\""))
+        #expect(!graphBuilder.contains("@unchecked Sendable"))
+        #expect(graphBuilder.contains("final class GraphBuilder: Sendable"))
+        #expect(!brandedTypes.contains("@unchecked Sendable"))
+        #expect(brandedTypes.contains("struct ChatId: BrandedId, Sendable"))
+        #expect(brandedTypes.contains("struct MessageId: BrandedId, Sendable"))
+    }
+
+    @Test("gateway helper and note image display payload avoid unchecked sendable wrappers")
+    func gatewayHelperAndNoteImageDisplayPayloadAvoidUncheckedSendableWrappers() throws {
+        let appStoreHelper = try loadRepoTextFile("Epistemos/Omega/Distribution/AppStoreHelper.swift")
+        let noteImageProcessor = try loadRepoTextFile("Epistemos/Views/Notes/NoteImageProcessor.swift")
+
+        #expect(!appStoreHelper.contains("@unchecked Sendable"))
+        #expect(appStoreHelper.contains("final class GatewayConnection: Sendable"))
+        #expect(!noteImageProcessor.contains("@unchecked Sendable"))
+        #expect(noteImageProcessor.contains("struct DisplayImage: Sendable"))
+    }
+
+    @Test("remaining production concurrency wrappers narrow unsafe state instead of unchecked sendable")
+    func remainingProductionConcurrencyWrappersNarrowUnsafeStateInsteadOfUncheckedSendable() throws {
+        let llmService = try loadRepoTextFile("Epistemos/Engine/LLMService.swift")
+        let graphState = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
+        let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift")
+        let searchIndex = try loadRepoTextFile("Epistemos/Sync/SearchIndexService.swift")
+
+        #expect(!llmService.contains("@unchecked Sendable"))
+        #expect(llmService.contains("struct ProcessActivityToken: Sendable"))
+        #expect(!graphState.contains("@unchecked Sendable"))
+        #expect(graphState.contains("final class EngineHandleState: Sendable"))
+        #expect(!moLoRA.contains("@unchecked Sendable"))
+        #expect(moLoRA.contains("final class MoLoRAReadBufferState: Sendable"))
+        #expect(!searchIndex.contains("@unchecked Sendable"))
+        #expect(searchIndex.contains("private final class OffloadedSearchState<T: Sendable>: Sendable"))
+        #expect(searchIndex.contains("private final class OffloadedSearchStateBox<T: Sendable>: Sendable"))
+        #expect(searchIndex.contains("private final class SQLiteCancellationContext: Sendable"))
+        #expect(searchIndex.contains("func passiveCheckpoint() throws"))
+        #expect(searchIndex.contains("db.checkpoint(.passive)"))
+        #expect(searchIndex.contains("case journalModeRejected(String)"))
+    }
+
+    @Test("night brain now checkpoints the search index during idle maintenance")
+    func nightBrainCheckpointsSearchIndexDuringIdleMaintenance() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
+
+        #expect(bootstrap.contains("searchIndexProvider: { @MainActor [weak vaultSync] in"))
+        #expect(nightBrain.contains("case searchIndexPassiveCheckpoint = \"search_index_passive_checkpoint\""))
+        #expect(nightBrain.contains("let searchIndex = await MainActor.run { searchIndexProvider() }"))
+        #expect(nightBrain.contains("try? searchIndex?.passiveCheckpoint()"))
+    }
+
+    @Test("vault parser uses nonisolated UniFFI helpers without main actor hops")
+    func vaultParserUsesNonisolatedRustHelpersWithoutMainActorHops() throws {
+        let parser = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/VaultParser.swift")
+
+        #expect(parser.contains("let classification = classifyDocument(content: rawText)"))
+        #expect(parser.contains("let filtered = filterBoilerplate(content: rawText)"))
+        #expect(!parser.contains("await MainActor.run { classifyDocument(content: rawText) }"))
+        #expect(!parser.contains("await MainActor.run { filterBoilerplate(content: rawText) }"))
+    }
+
+    @Test("test helper probes avoid unchecked sendable wrappers")
+    func testHelperProbesAvoidUncheckedSendableWrappers() throws {
+        let omegaAgentTests = try loadRepoTextFile("EpistemosTests/OmegaAgentTests.swift")
+        let noteEditorLayoutTests = try loadRepoTextFile("EpistemosTests/NoteEditorLayoutTests.swift")
+        let noteFileStorageTests = try loadRepoTextFile("EpistemosTests/NoteFileStorageTests.swift")
+        let pipelineServiceTests = try loadRepoTextFile("EpistemosTests/PipelineServiceTests.swift")
+        let vaultSyncAuditTests = try loadRepoTextFile("EpistemosTests/VaultSyncServiceAuditTests.swift")
+        let textKit2FoundationTests = try loadRepoTextFile("EpistemosTests/TextKit2FoundationTests.swift")
+
+        #expect(!omegaAgentTests.contains("@unchecked Sendable"))
+        #expect(omegaAgentTests.contains("private final class NotificationFlag: Sendable"))
+        #expect(!noteEditorLayoutTests.contains("@unchecked Sendable"))
+        #expect(noteEditorLayoutTests.contains("private final class LayoutNotificationCounts: Sendable"))
+        #expect(!noteFileStorageTests.contains("@unchecked Sendable"))
+        #expect(noteFileStorageTests.contains("private final class EventSink: Sendable"))
+        #expect(!pipelineServiceTests.contains("@unchecked Sendable"))
+        #expect(pipelineServiceTests.contains("private final class ActivityProbe: Sendable"))
+        #expect(!vaultSyncAuditTests.contains("@unchecked Sendable"))
+        #expect(vaultSyncAuditTests.contains("final class ManagedBodyCountProbe: Sendable"))
+        #expect(!textKit2FoundationTests.contains("@unchecked Sendable"))
+        #expect(textKit2FoundationTests.contains("private final class NotificationRecorder: Sendable"))
+    }
+
+    @Test("startup integrity check runs before automatic vault restore")
+    func startupIntegrityCheckRunsBeforeAutomaticVaultRestore() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(bootstrap.contains("struct StartupIntegrityReport: Sendable"))
+        #expect(bootstrap.contains("func performStartupIntegrityCheck() async -> StartupIntegrityReport"))
+        #expect(bootstrap.contains("static func startupIntegritySamplePageIdsForTesting"))
+        #expect(bootstrap.contains("static func startupIntegrityReportForTesting"))
+        #expect(bootstrap.contains("vaultSync.startupBookmarkValidation()"))
+        #expect(app.contains("let report = await bootstrap.performStartupIntegrityCheck()"))
+        #expect(app.contains("if !report.shouldBlockAutomaticVaultRestore"))
+        #expect(app.contains("bootstrap.vaultSync.restoreVaultFromBookmark()"))
+        #expect(vaultSync.contains("func startupBookmarkValidation() -> VaultBookmarkStartupValidation"))
+    }
+
+    @Test("launch integrity gate lives above RootView and owns automatic vault restore")
+    func launchIntegrityGateLivesAboveRootViewAndOwnsAutomaticVaultRestore() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(app.contains("private struct LaunchIntegrityGateView<Content: View>: View"))
+        #expect(app.contains("await bootstrap.performStartupIntegrityCheck()"))
+        #expect(app.contains("bootstrap.vaultSync.restoreVaultFromBookmark()"))
+        #expect(app.contains("LaunchIntegrityGateView(bootstrap: bootstrap)"))
+        #expect(!rootView.contains("performStartupIntegrityCheck"))
+        #expect(!rootView.contains("restoreVaultFromBookmark"))
+    }
+
+    @Test("prepared model manifest is bundled into app resources")
+    func preparedModelManifestIsBundledIntoAppResources() throws {
+        let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let spec = try loadRepoTextFile("project.yml")
+
+        #expect(project.contains("model_manifest.json in Resources"))
+        #expect(project.contains("config/model_manifest.json"))
+        #expect(spec.contains("config/model_manifest.json"))
+    }
+
+    @Test("shared scheme keeps test bundle out of normal app builds")
+    func sharedSchemeKeepsTestBundleOutOfNormalAppBuilds() throws {
+        let scheme = try loadRepoTextFile("Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme")
+        let spec = try loadRepoTextFile("project.yml")
+
+        #expect(spec.contains("targets:\n        Epistemos: all"))
+        #expect(!spec.contains("EpistemosTests: test"))
+        #expect(scheme.contains("BlueprintName = \"EpistemosTests\""))
+        #expect(scheme.contains("buildForTesting = \"YES\""))
+        #expect(scheme.contains("buildForRunning = \"NO\""))
+        #expect(scheme.contains("buildForProfiling = \"NO\""))
+        #expect(scheme.contains("buildForArchiving = \"NO\""))
     }
 
     @Test("installed local fallback prefers the strongest supported model on the current hardware")
@@ -1187,12 +1499,7 @@ struct RuntimeValidationTests {
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        return try String(
-            contentsOf: repoRoot.appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadRepoTextFileWithRetry(relativePath: relativePath, testsFilePath: #filePath)
     }
 }
 
@@ -1242,6 +1549,30 @@ struct AuditHardeningRegressionTests {
 
         #expect(snapshotCall.lowerBound > destructiveBlock.lowerBound)
         #expect(snapshotCall.lowerBound < clearCall.lowerBound)
+    }
+
+    @Test("Vault recovery snapshots use SQLite backups and prune old snapshots")
+    func vaultRecoverySnapshotsUseSQLiteBackupsAndPruneOldSnapshots() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(source.contains("sqlite3_backup_init"))
+        #expect(source.contains("backupSQLiteDatabaseIfPresent"))
+        #expect(source.contains("copyDirectoryContents("))
+        #expect(source.contains("pruneRecoverySnapshots(in: snapshotRoot"))
+        #expect(source.contains("pruneRecoverySnapshotsIfNeeded()"))
+        #expect(source.contains("recoverySnapshotLimit = 20"))
+    }
+
+    @Test("Vault recovery snapshots request and prune APFS safety snapshots")
+    func vaultRecoverySnapshotsRequestAndPruneAPFSSafetySnapshots() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(source.contains("createAPFSSafetySnapshotIfPossible(reason: \"local-state-recovery\")"))
+        #expect(source.contains("pruneAPFSSafetySnapshotsIfNeeded()"))
+        #expect(source.contains("commandRunner([\"localsnapshot\"])"))
+        #expect(source.contains("commandRunner([\"listlocalsnapshots\", \"/\"])"))
+        #expect(source.contains("commandRunner([\"deletelocalsnapshots\", snapshotID])"))
+        #expect(source.contains("apfs-snapshot-manifest.json"))
     }
 
     @Test("Omega planner schemas stay aligned with registered MCP tools")
@@ -1371,12 +1702,7 @@ struct AuditHardeningRegressionTests {
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        return try String(
-            contentsOf: repoRoot.appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadRepoTextFileWithRetry(relativePath: relativePath, testsFilePath: #filePath)
     }
 }
 
