@@ -724,6 +724,26 @@ fn detect_ordered_list(trimmed: &str, indent: usize) -> Option<(u8, u32)> {
 
 // ── FFI ──────────────────────────────────────────────────────────────────
 
+macro_rules! markdown_catch_unwind {
+    ($name:expr, $body:block) => {{
+        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)).is_err() {
+            eprintln!("{}: panic caught", $name);
+        }
+    }};
+}
+
+macro_rules! markdown_catch_unwind_or {
+    ($name:expr, $default:expr, $body:block) => {{
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(result) => result,
+            Err(_) => {
+                eprintln!("{}: panic caught", $name);
+                $default
+            }
+        }
+    }};
+}
+
 /// Parse markdown structure: one StructureSpan per line, written to pre-allocated buffer.
 /// Returns the number of lines (spans written). Returns 0 on null/invalid input.
 ///
@@ -736,26 +756,28 @@ pub unsafe extern "C" fn markdown_parse_structure(
     out_spans: *mut StructureSpan,
     max_spans: u32,
 ) -> u32 {
-    if text.is_null() || out_spans.is_null() || max_spans == 0 {
-        return 0;
-    }
+    markdown_catch_unwind_or!("markdown_parse_structure", 0, {
+        if text.is_null() || out_spans.is_null() || max_spans == 0 {
+            return 0;
+        }
 
-    // SAFETY: text is a valid null-terminated C string per FFI contract.
-    let c_str = unsafe { CStr::from_ptr(text) };
-    let rust_str = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => return 0,
-    };
+        // SAFETY: text is a valid null-terminated C string per FFI contract.
+        let c_str = unsafe { CStr::from_ptr(text) };
+        let rust_str = match c_str.to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        };
 
-    let spans = parse_structure(rust_str);
-    let count = spans.len().min(max_spans as usize);
+        let spans = parse_structure(rust_str);
+        let count = spans.len().min(max_spans as usize);
 
-    // SAFETY: out_spans buffer has capacity for at least max_spans elements.
-    unsafe {
-        std::ptr::copy_nonoverlapping(spans.as_ptr(), out_spans, count);
-    }
+        // SAFETY: out_spans buffer has capacity for at least max_spans elements.
+        unsafe {
+            std::ptr::copy_nonoverlapping(spans.as_ptr(), out_spans, count);
+        }
 
-    count as u32
+        count as u32
+    })
 }
 
 /// Parse markdown text and return an array of StyleSpans.
@@ -771,40 +793,42 @@ pub unsafe extern "C" fn markdown_parse(
     out_spans: *mut *mut StyleSpan,
     out_count: *mut u32,
 ) -> u8 {
-    if text.is_null() || out_spans.is_null() || out_count.is_null() {
-        return 1;
-    }
-
-    let c_str = unsafe { CStr::from_ptr(text) };
-    let rust_str = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => return 1,
-    };
-
-    let spans = parse_markdown(rust_str);
-
-    if spans.is_empty() {
-        unsafe {
-            *out_spans = std::ptr::null_mut();
-            *out_count = 0;
+    markdown_catch_unwind_or!("markdown_parse", 1, {
+        if text.is_null() || out_spans.is_null() || out_count.is_null() {
+            return 1;
         }
-        return 0;
-    }
 
-    let count = spans.len();
-    let layout = std::alloc::Layout::array::<StyleSpan>(count).unwrap();
-    let ptr = unsafe { std::alloc::alloc(layout) as *mut StyleSpan };
-    if ptr.is_null() {
-        return 1;
-    }
+        let c_str = unsafe { CStr::from_ptr(text) };
+        let rust_str = match c_str.to_str() {
+            Ok(s) => s,
+            Err(_) => return 1,
+        };
 
-    unsafe {
-        std::ptr::copy_nonoverlapping(spans.as_ptr(), ptr, count);
-        *out_spans = ptr;
-        *out_count = count as u32;
-    }
+        let spans = parse_markdown(rust_str);
 
-    0
+        if spans.is_empty() {
+            unsafe {
+                *out_spans = std::ptr::null_mut();
+                *out_count = 0;
+            }
+            return 0;
+        }
+
+        let count = spans.len();
+        let layout = std::alloc::Layout::array::<StyleSpan>(count).unwrap();
+        let ptr = unsafe { std::alloc::alloc(layout) as *mut StyleSpan };
+        if ptr.is_null() {
+            return 1;
+        }
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(spans.as_ptr(), ptr, count);
+            *out_spans = ptr;
+            *out_count = count as u32;
+        }
+
+        0
+    })
 }
 
 /// Free a spans array previously returned by `markdown_parse`.
@@ -814,16 +838,18 @@ pub unsafe extern "C" fn markdown_parse(
 /// match the count returned with it.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn markdown_free_spans(spans: *mut StyleSpan, count: u32) {
-    if spans.is_null() || count == 0 {
-        return;
-    }
-    let layout = match std::alloc::Layout::array::<StyleSpan>(count as usize) {
-        Ok(l) => l,
-        Err(_) => return,
-    };
-    unsafe {
-        std::alloc::dealloc(spans as *mut u8, layout);
-    }
+    markdown_catch_unwind!("markdown_free_spans", {
+        if spans.is_null() || count == 0 {
+            return;
+        }
+        let layout = match std::alloc::Layout::array::<StyleSpan>(count as usize) {
+            Ok(l) => l,
+            Err(_) => return,
+        };
+        unsafe {
+            std::alloc::dealloc(spans as *mut u8, layout);
+        }
+    });
 }
 
 // ── Code Tokenization (FFI contract for Swift code block rendering) ──────
@@ -894,36 +920,39 @@ pub unsafe extern "C" fn markdown_parse_code_tokens(
     out_tokens: *mut CodeToken,
     max_tokens: u32,
 ) -> u32 {
-    if code.is_null() || out_tokens.is_null() || max_tokens == 0 || code_len == 0 {
-        return 0;
-    }
+    markdown_catch_unwind_or!("markdown_parse_code_tokens", 0, {
+        if code.is_null() || out_tokens.is_null() || max_tokens == 0 || code_len == 0 {
+            return 0;
+        }
 
-    // SAFETY: language is a valid null-terminated C string per FFI contract, or null.
-    let lang_str = if language.is_null() {
-        return 0;
-    } else {
-        match unsafe { CStr::from_ptr(language) }.to_str() {
+        // SAFETY: language is a valid null-terminated C string per FFI contract, or null.
+        let lang_str = if language.is_null() {
+            return 0;
+        } else {
+            match unsafe { CStr::from_ptr(language) }.to_str() {
+                Ok(s) => s,
+                Err(_) => return 0,
+            }
+        };
+
+        // SAFETY: code points to valid UTF-8 of code_len bytes per FFI contract.
+        let code_slice =
+            unsafe { std::slice::from_raw_parts(code as *const u8, code_len as usize) };
+        let code_str = match std::str::from_utf8(code_slice) {
             Ok(s) => s,
             Err(_) => return 0,
+        };
+
+        let tokens = crate::code_highlight::tokenize(lang_str, code_str);
+        let count = tokens.len().min(max_tokens as usize);
+
+        // SAFETY: out_tokens buffer has capacity for at least max_tokens elements.
+        unsafe {
+            std::ptr::copy_nonoverlapping(tokens.as_ptr(), out_tokens, count);
         }
-    };
 
-    // SAFETY: code points to valid UTF-8 of code_len bytes per FFI contract.
-    let code_slice = unsafe { std::slice::from_raw_parts(code as *const u8, code_len as usize) };
-    let code_str = match std::str::from_utf8(code_slice) {
-        Ok(s) => s,
-        Err(_) => return 0,
-    };
-
-    let tokens = crate::code_highlight::tokenize(lang_str, code_str);
-    let count = tokens.len().min(max_tokens as usize);
-
-    // SAFETY: out_tokens buffer has capacity for at least max_tokens elements.
-    unsafe {
-        std::ptr::copy_nonoverlapping(tokens.as_ptr(), out_tokens, count);
-    }
-
-    count as u32
+        count as u32
+    })
 }
 
 // ── Non-Destructive Fold State ───────────────────────────────────────────
@@ -990,7 +1019,9 @@ pub fn fold_range_for_heading(heading_line: u32, spans: &[StructureSpan]) -> Opt
 /// registry is initialized in this process. The caller must provide a valid line
 /// index for the current markdown document state.
 pub unsafe extern "C" fn markdown_set_fold(line_index: u32, folded: bool) {
-    set_fold(line_index, folded);
+    markdown_catch_unwind!("markdown_set_fold", {
+        set_fold(line_index, folded);
+    });
 }
 
 #[unsafe(no_mangle)]
@@ -1000,7 +1031,7 @@ pub unsafe extern "C" fn markdown_set_fold(line_index: u32, folded: bool) {
 /// registry is initialized in this process. The caller must provide a valid line
 /// index for the current markdown document state.
 pub unsafe extern "C" fn markdown_is_folded(line_index: u32) -> bool {
-    is_folded(line_index)
+    markdown_catch_unwind_or!("markdown_is_folded", false, { is_folded(line_index) })
 }
 
 #[unsafe(no_mangle)]
@@ -1009,7 +1040,9 @@ pub unsafe extern "C" fn markdown_is_folded(line_index: u32) -> bool {
 /// This FFI entry point is called from foreign code and assumes the shared fold
 /// registry is initialized in this process.
 pub unsafe extern "C" fn markdown_clear_all_folds() {
-    clear_all_folds();
+    markdown_catch_unwind!("markdown_clear_all_folds", {
+        clear_all_folds();
+    });
 }
 
 /// Get the fold range for a heading. Returns false if not a heading.
@@ -1024,27 +1057,29 @@ pub unsafe extern "C" fn markdown_fold_range(
     out_start: *mut u32,
     out_end: *mut u32,
 ) -> bool {
-    if text.is_null() || out_start.is_null() || out_end.is_null() {
-        return false;
-    }
-    // SAFETY: text is a valid null-terminated UTF-8 string per contract.
-    let rust_str = match unsafe { CStr::from_ptr(text) }.to_str() {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-
-    let spans = parse_structure(rust_str);
-    match fold_range_for_heading(heading_line, &spans) {
-        Some((start, end)) => {
-            // SAFETY: out_start/out_end are valid pointers per contract.
-            unsafe {
-                *out_start = start;
-                *out_end = end;
-            }
-            true
+    markdown_catch_unwind_or!("markdown_fold_range", false, {
+        if text.is_null() || out_start.is_null() || out_end.is_null() {
+            return false;
         }
-        None => false,
-    }
+        // SAFETY: text is a valid null-terminated UTF-8 string per contract.
+        let rust_str = match unsafe { CStr::from_ptr(text) }.to_str() {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+
+        let spans = parse_structure(rust_str);
+        match fold_range_for_heading(heading_line, &spans) {
+            Some((start, end)) => {
+                // SAFETY: out_start/out_end are valid pointers per contract.
+                unsafe {
+                    *out_start = start;
+                    *out_end = end;
+                }
+                true
+            }
+            None => false,
+        }
+    })
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────

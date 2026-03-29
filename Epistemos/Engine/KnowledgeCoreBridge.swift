@@ -123,6 +123,13 @@ actor KnowledgeCoreBridge {
         peerId: UInt64 = 1
     ) {
         guard let core = graph_engine_kc_create(slotCount, slotPayloadBytes, peerId) else {
+            Log.ffiBoundary.fault("KnowledgeCoreBridge creation returned a null core")
+            RuntimeDiagnostics.record(
+                .fault,
+                category: "FFIBoundary",
+                message: "KnowledgeCoreBridge creation returned a null core",
+                metadata: ["peerId": "\(peerId)"]
+            )
             return nil
         }
 
@@ -132,6 +139,18 @@ actor KnowledgeCoreBridge {
               region.len > 0,
               layout.slot_count > 0,
               layout.slot_payload_bytes > 0 else {
+            Log.ffiBoundary.fault("KnowledgeCoreBridge exposed an invalid ring layout")
+            RuntimeDiagnostics.record(
+                .fault,
+                category: "FFIBoundary",
+                message: "KnowledgeCoreBridge exposed an invalid ring layout",
+                metadata: [
+                    "peerId": "\(peerId)",
+                    "regionLength": "\(region.len)",
+                    "slotCount": "\(layout.slot_count)",
+                    "slotPayloadBytes": "\(layout.slot_payload_bytes)",
+                ]
+            )
             graph_engine_kc_destroy(core)
             return nil
         }
@@ -543,8 +562,14 @@ actor KnowledgeCoreBridge {
         if let decoded = String(bytes: buffer, encoding: .utf8) {
             return decoded
         }
-        Log.engine.warning(
-            "KnowledgeCoreBridge: invalid UTF-8 payload (\(slice.len) bytes); coercing with replacement characters"
+        Log.ffiBoundary.warning(
+            "KnowledgeCoreBridge received invalid UTF-8 payload (\(slice.len) bytes); coercing with replacement characters"
+        )
+        RuntimeDiagnostics.record(
+            .warning,
+            category: "FFIBoundary",
+            message: "KnowledgeCoreBridge received invalid UTF-8 payload",
+            metadata: ["bytes": "\(slice.len)"]
         )
         return String(decoding: buffer, as: UTF8.self)
     }
@@ -554,13 +579,17 @@ actor KnowledgeCoreBridge {
             lastError = nil
             return true
         }
-        lastError = fetchLastError()
+        let error = fetchLastError()
+        lastError = error
+        recordFFIFailure(error)
         return false
     }
 
     private func finish(_ value: UInt64) -> UInt64? {
         guard value != 0 else {
-            lastError = fetchLastError()
+            let error = fetchLastError()
+            lastError = error
+            recordFFIFailure(error)
             return nil
         }
         lastError = nil
@@ -574,6 +603,21 @@ actor KnowledgeCoreBridge {
         return KnowledgeCoreBridgeError(
             code: code,
             message: message.isEmpty ? "staged knowledge-core call failed" : message
+        )
+    }
+
+    private func recordFFIFailure(_ error: KnowledgeCoreBridgeError) {
+        Log.ffiBoundary.error(
+            "KnowledgeCoreBridge call failed with \(String(describing: error.code), privacy: .public): \(error.message, privacy: .public)"
+        )
+        RuntimeDiagnostics.record(
+            .error,
+            category: "FFIBoundary",
+            message: "KnowledgeCoreBridge call failed",
+            metadata: [
+                "code": "\(error.code.rawValue)",
+                "message": error.message,
+            ]
         )
     }
 }

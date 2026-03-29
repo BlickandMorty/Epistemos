@@ -5,6 +5,8 @@ import os
 import Synchronization
 import SwiftData
 
+nonisolated private let metalGraphLog = Logger(subsystem: "com.epistemos", category: "MetalGraph")
+
 struct GraphNodeBatchPayload {
     var ids: [String] = []
     var xs: [Float] = []
@@ -77,6 +79,22 @@ enum GraphDisplayLinkTransition: Equatable {
     case none
     case start
     case stop
+}
+
+enum GraphInitialRenderBootstrapState: Equatable {
+    case awaitingData
+    case bootstrapCommit
+    case renderCommittedGraph
+}
+
+func graphInitialRenderBootstrapState(
+    isCommitted: Bool,
+    isGraphLoaded: Bool
+) -> GraphInitialRenderBootstrapState {
+    if isCommitted {
+        return .renderCommittedGraph
+    }
+    return isGraphLoaded ? .bootstrapCommit : .awaitingData
 }
 
 struct GraphNodeHoverHapticState {
@@ -381,6 +399,8 @@ final class MetalGraphNSView: NSView {
     nonisolated(unsafe) private var engine: OpaquePointer?
     nonisolated(unsafe) private var activeDisplayLink: CADisplayLink?
     private var metalLayer: CAMetalLayer?
+    private nonisolated(unsafe) var backingPropertiesObserver: (any NSObjectProtocol)?
+    private nonisolated(unsafe) var occlusionObserver: (any NSObjectProtocol)?
 
     /// Frame coalescing: prevents queuing multiple render dispatches.
     /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
@@ -396,6 +416,10 @@ final class MetalGraphNSView: NSView {
     private let isInvalidated = Atomic<Bool>(false)
 
     private var isEnginePaused = false
+
+    private var isGraphVisible: Bool {
+        !isHidden && alphaValue > 0.001 && bounds.width > 0 && bounds.height > 0
+    }
 
     /// Convenience wrapper for main-thread code. Background thread should
     /// use renderNeeded directly for thread safety.
@@ -934,8 +958,38 @@ final class MetalGraphNSView: NSView {
     /// Render one frame. Must be called on the main thread.
     private func renderFrame() {
         guard !isInvalidated.load(ordering: .relaxed),
-              let engine, isCommitted else { return }
+              let engine else { return }
+        guard let window = window,
+              window.occlusionState.contains(.visible) else {
+            needsRender = false
+            return
+        }
+        guard isGraphVisible else {
+            needsRender = false
+            return
+        }
         guard let layer = metalLayer else { return }
+
+        switch graphInitialRenderBootstrapState(
+            isCommitted: isCommitted,
+            isGraphLoaded: graphState?.isLoaded == true
+        ) {
+        case .awaitingData:
+            return
+        case .bootstrapCommit:
+            guard let graphState else { return }
+            let isPageMode: Bool = {
+                if case .page = graphState.mode { return true }
+                return false
+            }()
+            metalGraphLog.debug("Bootstrapping initial graph commit after async load")
+            lastModeVersion = graphState.modeVersion
+            setGraphMode(isPageMode ? 1 : 0)
+            commitGraphData()
+            lastGraphDataVersion = graphState.graphDataVersion
+        case .renderCommittedGraph:
+            break
+        }
 
         // Sync force params if GraphState changed (handles hologram overlay mode
         // where there's no SwiftUI update cycle to trigger updateNSView).
@@ -1485,20 +1539,64 @@ final class MetalGraphNSView: NSView {
 
     override func layout() {
         super.layout()
+        updateMetalLayerBackingProperties()
+        needsRender = true
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        refreshWindowObservers()
+        updateMetalLayerBackingProperties()
+        if window != nil, !isCommitted, graphState?.isLoaded == true {
+            commitGraphData()
+        }
+    }
+
+    private func refreshWindowObservers() {
+        if let backingPropertiesObserver {
+            NotificationCenter.default.removeObserver(backingPropertiesObserver)
+            self.backingPropertiesObserver = nil
+        }
+        if let occlusionObserver {
+            NotificationCenter.default.removeObserver(occlusionObserver)
+            self.occlusionObserver = nil
+        }
+        guard let window else { return }
+
+        backingPropertiesObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeBackingPropertiesNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.updateMetalLayerBackingProperties()
+                self.needsRender = true
+            }
+        }
+
+        occlusionObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      let window = self.window else { return }
+                let visible = window.occlusionState.contains(.visible)
+                metalGraphLog.debug("Window occlusion changed: visible=\(visible, privacy: .public)")
+                self.needsRender = visible
+            }
+        }
+    }
+
+    private func updateMetalLayerBackingProperties() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
         metalLayer?.contentsScale = scale
         metalLayer?.drawableSize = CGSize(
             width: bounds.width * scale,
             height: bounds.height * scale
         )
-        needsRender = true
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window != nil, !isCommitted, graphState?.isLoaded == true {
-            commitGraphData()
-        }
     }
 
     private func graphBaseDepth(for type: GraphNodeType) -> Int {
@@ -1639,6 +1737,12 @@ final class MetalGraphNSView: NSView {
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.
         isInvalidated.store(true, ordering: .relaxed)
+        if let backingPropertiesObserver {
+            NotificationCenter.default.removeObserver(backingPropertiesObserver)
+        }
+        if let occlusionObserver {
+            NotificationCenter.default.removeObserver(occlusionObserver)
+        }
         // Inline display-link stop — can't call @MainActor stopDisplayLink() from nonisolated deinit.
         // Safe: no other references exist during deallocation.
         if let link = activeDisplayLink {

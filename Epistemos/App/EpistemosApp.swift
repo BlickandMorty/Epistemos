@@ -1,8 +1,11 @@
 import AppKit
 import CoreSpotlight
+import Dispatch
+import MetricKit
 import SwiftData
 import SwiftUI
 import UserNotifications
+import os
 
 // MARK: - App Entry Point
 
@@ -119,6 +122,315 @@ private struct LaunchIntegrityGateView<Content: View>: View {
     }
 }
 
+final class CrashReportCollector: NSObject, MXMetricManagerSubscriber {
+    static let shared = CrashReportCollector()
+
+    private let log = Logger(subsystem: "com.epistemos", category: "CrashReportCollector")
+    private let maxRetainedReports = 100
+    private let formatter = ISO8601DateFormatter()
+    private var isCollecting = false
+
+    func startCollecting() {
+        guard !isCollecting else { return }
+        isCollecting = true
+        pruneOldReportsIfNeeded()
+        MXMetricManager.shared.add(self)
+    }
+
+    func didReceive(_ payloads: [MXDiagnosticPayload]) {
+        do {
+            let reportsDir = try reportsDirectory()
+            for payload in payloads {
+                saveDiagnostics(payload.crashDiagnostics, type: "crash", dir: reportsDir)
+                saveDiagnostics(payload.hangDiagnostics, type: "hang", dir: reportsDir)
+                saveDiagnostics(payload.diskWriteExceptionDiagnostics, type: "disk_write", dir: reportsDir)
+            }
+            pruneOldReportsIfNeeded()
+        } catch {
+            log.error("Failed to persist MetricKit payloads: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func saveDiagnostics(_ diagnostics: [MXDiagnostic]?, type: String, dir: URL) {
+        guard let diagnostics else { return }
+
+        for diagnostic in diagnostics {
+            let data = diagnostic.jsonRepresentation()
+            let filename = "\(type)_\(formatter.string(from: Date()))_\(UUID().uuidString).json"
+            let destination = dir.appendingPathComponent(filename, isDirectory: false)
+            do {
+                try data.write(to: destination, options: .atomic)
+            } catch {
+                log.error("Failed to write MetricKit \(type, privacy: .public) report: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func pruneOldReportsIfNeeded() {
+        do {
+            let reportsDir = try reportsDirectory()
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: reportsDir,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            )
+            let sorted = try contents.sorted { lhs, rhs in
+                let lhsDate = try lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast
+                let rhsDate = try rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast
+                return lhsDate > rhsDate
+            }
+
+            guard sorted.count > maxRetainedReports else { return }
+            for url in sorted.dropFirst(maxRetainedReports) {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    log.error("Failed to prune MetricKit report \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        } catch {
+            log.error("Failed to prune MetricKit reports: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func reportsDirectory() throws -> URL {
+        guard let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+
+        let directory = appSupport
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("crash_reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+}
+
+@MainActor
+final class RuntimeIssueMonitor {
+    static let shared = RuntimeIssueMonitor()
+
+    private struct ObserverToken {
+        let center: NotificationCenter
+        let token: NSObjectProtocol
+    }
+
+    private var observerTokens: [ObserverToken] = []
+    private var memoryPressureSource: DispatchSourceMemoryPressure?
+    private var started = false
+
+    private init() {}
+
+    func start() {
+        guard !started else { return }
+        started = true
+
+        NSSetUncaughtExceptionHandler { exception in
+            RuntimeDiagnostics.record(
+                .fault,
+                category: "Diagnostics",
+                message: "uncaught_exception",
+                metadata: [
+                    "name": exception.name.rawValue,
+                    "reason": exception.reason ?? "unknown",
+                    "userInfo": String(describing: exception.userInfo ?? [:]),
+                    "callStack": exception.callStackSymbols.joined(separator: "\n"),
+                ]
+            )
+        }
+        wireApplicationLifecycle()
+        wireSystemLifecycle()
+        startMemoryPressureMonitoring()
+        recordLifecycle("monitor_started", metadata: launchMetadata())
+    }
+
+    func stop(reason: String) {
+        guard started else { return }
+        started = false
+
+        for observer in observerTokens {
+            observer.center.removeObserver(observer.token)
+        }
+        observerTokens.removeAll()
+
+        memoryPressureSource?.cancel()
+        memoryPressureSource = nil
+
+        recordLifecycle("monitor_stopped", metadata: ["reason": reason])
+        RuntimeDiagnostics.recordSessionEnd(
+            reason: reason,
+            metadata: currentEnvironmentMetadata()
+        )
+    }
+
+    private func wireApplicationLifecycle() {
+        let center = NotificationCenter.default
+        observe(center, name: NSApplication.didBecomeActiveNotification) { [weak self] in
+            self?.recordLifecycle("app_became_active")
+        }
+        observe(center, name: NSApplication.didResignActiveNotification) { [weak self] in
+            self?.recordLifecycle("app_resigned_active")
+        }
+        observe(center, name: NSApplication.didHideNotification) { [weak self] in
+            self?.recordLifecycle("app_hidden")
+        }
+        observe(center, name: NSApplication.didUnhideNotification) { [weak self] in
+            self?.recordLifecycle("app_unhidden")
+        }
+        observe(center, name: ProcessInfo.thermalStateDidChangeNotification) { [weak self] in
+            self?.recordThermalState()
+        }
+        observe(center, name: .NSProcessInfoPowerStateDidChange) { [weak self] in
+            self?.recordPowerState()
+        }
+    }
+
+    private func wireSystemLifecycle() {
+        let center = NSWorkspace.shared.notificationCenter
+        observe(center, name: NSWorkspace.willSleepNotification) { [weak self] in
+            self?.recordLifecycle("system_will_sleep")
+        }
+        observe(center, name: NSWorkspace.didWakeNotification) { [weak self] in
+            self?.recordLifecycle("system_did_wake")
+        }
+    }
+
+    private func observe(
+        _ center: NotificationCenter,
+        name: Notification.Name,
+        using handler: @escaping @MainActor @Sendable () -> Void
+    ) {
+        let token = center.addObserver(forName: name, object: nil, queue: .main) { _ in
+            Task { @MainActor in
+                handler()
+            }
+        }
+        observerTokens.append(ObserverToken(center: center, token: token))
+    }
+
+    private func startMemoryPressureMonitoring() {
+        let source = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.normal, .warning, .critical],
+            queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            self?.recordMemoryPressure(source.data)
+        }
+        source.resume()
+        memoryPressureSource = source
+    }
+
+    private func recordMemoryPressure(_ event: DispatchSource.MemoryPressureEvent) {
+        var metadata = currentEnvironmentMetadata()
+
+        if event.contains(.critical) {
+            metadata["level"] = "critical"
+            RuntimeDiagnostics.record(
+                .fault,
+                category: "Diagnostics",
+                message: "memory_pressure",
+                metadata: metadata
+            )
+        } else if event.contains(.warning) {
+            metadata["level"] = "warning"
+            RuntimeDiagnostics.record(
+                .warning,
+                category: "Diagnostics",
+                message: "memory_pressure",
+                metadata: metadata
+            )
+        } else if event.contains(.normal) {
+            metadata["level"] = "normal"
+            recordLifecycle("memory_pressure_recovered", metadata: metadata)
+        }
+    }
+
+    private func recordThermalState() {
+        let state = ProcessInfo.processInfo.thermalState
+        var metadata = currentEnvironmentMetadata()
+        metadata["thermalState"] = thermalStateLabel(state)
+
+        let severity: RuntimeDiagnosticSeverity
+        switch state {
+        case .serious:
+            severity = .warning
+        case .critical:
+            severity = .fault
+        case .nominal, .fair:
+            severity = .info
+        @unknown default:
+            severity = .warning
+        }
+
+        if severity == .warning || severity == .error || severity == .fault {
+            RuntimeDiagnostics.record(
+                severity,
+                category: "Diagnostics",
+                message: "thermal_state_changed",
+                metadata: metadata
+            )
+        } else {
+            recordLifecycle("thermal_state_changed", metadata: metadata)
+        }
+    }
+
+    private func recordPowerState() {
+        var metadata = currentEnvironmentMetadata()
+        metadata["lowPowerMode"] = boolLabel(ProcessInfo.processInfo.isLowPowerModeEnabled)
+        recordLifecycle("power_state_changed", metadata: metadata)
+    }
+
+    private func recordLifecycle(
+        _ name: String,
+        metadata: [String: String] = [:]
+    ) {
+        RuntimeDiagnostics.recordLifecycleEvent(
+            name,
+            metadata: currentEnvironmentMetadata().merging(metadata) { _, new in new }
+        )
+    }
+
+    private func launchMetadata() -> [String: String] {
+        currentEnvironmentMetadata().merging(
+            [
+                "pid": "\(ProcessInfo.processInfo.processIdentifier)",
+                "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+                "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+            ],
+            uniquingKeysWith: { _, new in new }
+        )
+    }
+
+    private func currentEnvironmentMetadata() -> [String: String] {
+        let application = NSApplication.shared
+        let windows = application.windows
+        return [
+            "windowCount": "\(windows.count)",
+            "visibleWindowCount": "\(windows.filter(\.isVisible).count)",
+            "isActive": boolLabel(application.isActive),
+            "thermalState": thermalStateLabel(ProcessInfo.processInfo.thermalState),
+            "lowPowerMode": boolLabel(ProcessInfo.processInfo.isLowPowerModeEnabled),
+        ]
+    }
+
+    private func boolLabel(_ value: Bool) -> String {
+        value ? "true" : "false"
+    }
+
+    private func thermalStateLabel(_ state: ProcessInfo.ThermalState) -> String {
+        switch state {
+        case .nominal: "nominal"
+        case .fair: "fair"
+        case .serious: "serious"
+        case .critical: "critical"
+        @unknown default: "unknown"
+        }
+    }
+}
+
 @main
 struct EpistemosApp: App {
     private static let isRunningTests =
@@ -126,6 +438,19 @@ struct EpistemosApp: App {
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
     @State private var bootstrap = AppBootstrap()
     @AppStorage("epistemos.setupComplete") private var setupComplete = false
+
+    init() {
+        if !Self.isRunningTests {
+            CrashReportCollector.shared.startCollecting()
+            RuntimeDiagnostics.logStorageLocations()
+            _ = RuntimeDiagnostics.recordSessionStart(metadata: [
+                "pid": "\(ProcessInfo.processInfo.processIdentifier)",
+                "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+                "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+            ])
+            RuntimeIssueMonitor.shared.start()
+        }
+    }
 
     var body: some Scene {
         Window("Epistemos", id: "main") {
@@ -286,6 +611,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             HologramController.shared.teardown()
             return
         }
+        RuntimeIssueMonitor.shared.stop(reason: "application_teardown")
         guard let bootstrap = AppBootstrap.shared else { return }
         bootstrap.activityTracker.stopTracking()
         bootstrap.workspaceSummaryService.stopAutoSummaryLoop()

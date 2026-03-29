@@ -140,6 +140,21 @@ final class AppBootstrap {
         let liveBody: String?
     }
 
+    private func recordPersistenceIssue(
+        _ message: String,
+        error: Error
+    ) {
+        Log.persistence.error(
+            "\(message, privacy: .public): \(error.localizedDescription, privacy: .public)"
+        )
+        RuntimeDiagnostics.record(
+            .error,
+            category: "Persistence",
+            message: message,
+            metadata: ["error": error.localizedDescription]
+        )
+    }
+
     // MARK: - Services
     let llmService: LLMService
     let localInferenceService: MLXInferenceService
@@ -176,7 +191,15 @@ final class AppBootstrap {
             )
             dbError = nil
         } catch {
-            Log.app.error("Database failed to load, falling back to in-memory: \(error.localizedDescription, privacy: .public)")
+            Log.persistence.error(
+                "Database failed to load, falling back to in-memory: \(error.localizedDescription, privacy: .public)"
+            )
+            RuntimeDiagnostics.record(
+                .fault,
+                category: "Persistence",
+                message: "Database failed to load, falling back to in-memory",
+                metadata: ["error": error.localizedDescription]
+            )
             container = Self.makeFallbackModelContainer(schema: schema)
             dbError = error
         }
@@ -615,7 +638,7 @@ final class AppBootstrap {
         await waitForPrimaryLaunchInitializationIfNeeded(
             vaultBookmarkValidation: vaultBookmarkValidation
         )
-        vaultSync.restoreVaultFromBookmark()
+        await vaultSync.restoreVaultFromBookmark()
     }
 
     private func refreshWelcomeBackSummary() async {
@@ -732,7 +755,7 @@ final class AppBootstrap {
                     try? fm.removeItem(at: file)
                 }
             } catch {
-                Log.app.error("Failed to enumerate Epistemos directory during reset: \(error.localizedDescription, privacy: .public)")
+                recordPersistenceIssue("Failed to enumerate Epistemos directory during reset", error: error)
             }
         }
         Log.app.info("Database reset complete — relaunching")
@@ -866,10 +889,10 @@ final class AppBootstrap {
                 let migrated = try await actor.migrateInlineBodiesToFiles()
                 UserDefaults.standard.set(true, forKey: migrationKey)
                 if migrated > 0 {
-                    Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
+                    Log.persistence.info("Body file storage migration moved \(migrated) bodies to disk")
                 }
             } catch {
-                Log.app.error("Body migration: failed — \(error.localizedDescription, privacy: .public)")
+                recordPersistenceIssue("Body migration failed", error: error)
             }
         }
 
@@ -879,10 +902,10 @@ final class AppBootstrap {
                 let migrated = try await actor.migrateBlockReferences()
                 UserDefaults.standard.set(true, forKey: blockMigrationKey)
                 if migrated > 0 {
-                    Log.app.info("Block reference migration: cached \(migrated) pages")
+                    Log.persistence.info("Block reference migration cached \(migrated) pages")
                 }
             } catch {
-                Log.app.error("Block ref migration: failed — \(error.localizedDescription, privacy: .public)")
+                recordPersistenceIssue("Block reference migration failed", error: error)
             }
         }
     }
@@ -891,10 +914,10 @@ final class AppBootstrap {
         do {
             let removed = try await BodyMigrationActor(modelContainer: modelContainer).cleanupOrphanBodies()
             if removed > 0 {
-                Log.app.info("Body file cleanup: removed \(removed) orphan note bodies")
+                Log.persistence.info("Body file cleanup removed \(removed) orphan note bodies")
             }
         } catch {
-            Log.app.error("Body file cleanup failed: \(error.localizedDescription, privacy: .public)")
+            recordPersistenceIssue("Body file cleanup failed", error: error)
         }
     }
 

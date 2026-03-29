@@ -358,11 +358,18 @@ fn load_embeddings(path: &Path, dimension: usize, document_count: usize) -> Opti
     }
 
     if let Ok(values) = bytemuck::try_cast_slice::<u8, f32>(&bytes) {
-        return Some(values.iter().copied().map(decode_little_endian_f32).collect());
+        return Some(
+            values
+                .iter()
+                .copied()
+                .map(decode_little_endian_f32)
+                .collect(),
+        );
     }
 
     Some(
-        bytes.chunks_exact(std::mem::size_of::<f32>())
+        bytes
+            .chunks_exact(std::mem::size_of::<f32>())
             .map(bytemuck::pod_read_unaligned::<f32>)
             .map(decode_little_endian_f32)
             .collect(),
@@ -405,7 +412,7 @@ fn new_index(dimension: usize) -> Result<Index, String> {
 }
 
 fn build_index(dimension: usize, embeddings: &[f32]) -> Result<Index, String> {
-    if dimension == 0 || embeddings.len() % dimension != 0 {
+    if dimension == 0 || !embeddings.len().is_multiple_of(dimension) {
         return Err("embedding matrix dimensions are invalid".to_string());
     }
 
@@ -838,7 +845,7 @@ mod tests {
             Some("page-a")
         );
 
-        let updated_rows = vec![0.0f32, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0];
+        let updated_rows = [0.0f32, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0];
         let embeddings_bytes = updated_rows
             .iter()
             .flat_map(|value| value.to_le_bytes())

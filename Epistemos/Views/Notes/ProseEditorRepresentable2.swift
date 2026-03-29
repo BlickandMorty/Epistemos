@@ -1,6 +1,7 @@
 import AppKit
 import SwiftData
 import SwiftUI
+import os
 
 // MARK: - ProseEditorRepresentable2
 // TextKit 2 note editor bridge.
@@ -91,6 +92,9 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         }
         tv.onOpenInGraph = { pid in
             HologramController.shared.revealPage(pid)
+        }
+        tv.onMarkedTextStart = { [weak coord] in
+            coord?.blockRefAutocomplete?.dismiss()
         }
 
         // Scroll-to-offset observer for TOC section navigator.
@@ -220,6 +224,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 extension ProseEditorRepresentable2 {
     @MainActor
     final class Coordinator2: NSObject, NSTextViewDelegate {
+        private let log = Logger(subsystem: "com.epistemos", category: "ProseEditorRepresentable2")
         var parent: ProseEditorRepresentable2
         var textBinding: Binding<String>
         nonisolated(unsafe) var textView: ProseTextView2?
@@ -248,6 +253,7 @@ extension ProseEditorRepresentable2 {
 
         // Bracket auto-close
         private var isInsertingBrackets = false
+        private var isStreamingUndoGroupOpen = false
 
         // Data detection
         private var dataDetectionTask: Task<Void, Never>?
@@ -535,20 +541,24 @@ extension ProseEditorRepresentable2 {
                 self?.textView?.string ?? ""
             }
 
-            noteChat.onStreamStart = { [weak self] _ in
-                self?.startNoteChatStream()
+            noteChat.onStreamStart = { [weak self, pageId = noteChat.pageId] _ in
+                self?.startNoteChatStream(for: pageId)
             }
 
-            noteChat.onTokenFlush = { [weak self] delta in
-                self?.appendNoteChatTokens(delta)
+            noteChat.onTokenFlush = { [weak self, pageId = noteChat.pageId] delta in
+                self?.appendNoteChatTokens(delta, for: pageId)
             }
 
-            noteChat.onAccept = { [weak self] in
-                self?.acceptNoteChatResponse()
+            noteChat.onStreamFinish = { [weak self, pageId = noteChat.pageId] in
+                self?.finishNoteChatStream(for: pageId)
             }
 
-            noteChat.onDiscard = { [weak self] in
-                self?.discardNoteChatResponse()
+            noteChat.onAccept = { [weak self, pageId = noteChat.pageId] in
+                self?.acceptNoteChatResponse(for: pageId)
+            }
+
+            noteChat.onDiscard = { [weak self, pageId = noteChat.pageId] in
+                self?.discardNoteChatResponse(for: pageId)
             }
 
             noteChat.onInsertAtCursor = { [weak self] text in
@@ -556,8 +566,13 @@ extension ProseEditorRepresentable2 {
             }
         }
 
-        private func startNoteChatStream() {
-            guard let tv = textView, let ts = tv.textStorage else { return }
+        private func startNoteChatStream(for expectedPageId: String) {
+            guard currentPageId == expectedPageId,
+                  let tv = textView,
+                  let ts = tv.textStorage else { return }
+            finishNoteChatStreamUndoGrouping()
+            tv.beginNamedUndoGroup("AI Response")
+            isStreamingUndoGroupOpen = true
             isFlushingTokens = true
             let insertLoc = ts.length
             tv.setProgrammaticEditLocation(insertLoc)
@@ -571,8 +586,11 @@ extension ProseEditorRepresentable2 {
             tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
         }
 
-        private func appendNoteChatTokens(_ delta: String) {
-            guard let tv = textView, let ts = tv.textStorage, !delta.isEmpty else { return }
+        private func appendNoteChatTokens(_ delta: String, for expectedPageId: String) {
+            guard currentPageId == expectedPageId,
+                  let tv = textView,
+                  let ts = tv.textStorage,
+                  !delta.isEmpty else { return }
             isFlushingTokens = true
             let insertLoc = ts.length
             tv.setProgrammaticEditLocation(insertLoc)
@@ -585,11 +603,30 @@ extension ProseEditorRepresentable2 {
             tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
         }
 
-        private func acceptNoteChatResponse() {
-            guard let tv = textView, let ts = tv.textStorage else { return }
+        private func finishNoteChatStream(for expectedPageId: String) {
+            guard currentPageId == expectedPageId else {
+                finishNoteChatStreamUndoGrouping()
+                return
+            }
+            finishNoteChatStreamUndoGrouping()
+        }
+
+        private func finishNoteChatStreamUndoGrouping() {
+            guard isStreamingUndoGroupOpen else { return }
+            textView?.endNamedUndoGroup()
+            isStreamingUndoGroupOpen = false
+        }
+
+        private func acceptNoteChatResponse(for expectedPageId: String) {
+            guard currentPageId == expectedPageId,
+                  let tv = textView,
+                  let ts = tv.textStorage else { return }
+            finishNoteChatStreamUndoGrouping()
             let str = ts.string
             guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
             let nsRange = NSRange(range, in: str)
+            tv.beginNamedUndoGroup("Accept AI Response")
+            defer { tv.endNamedUndoGroup() }
             isFlushingTokens = true
             tv.setProgrammaticEditLocation(nsRange.location)
             ts.replaceCharacters(in: nsRange, with: "\n\n")
@@ -599,12 +636,17 @@ extension ProseEditorRepresentable2 {
             flushBindingSync()
         }
 
-        private func discardNoteChatResponse() {
-            guard let tv = textView, let ts = tv.textStorage else { return }
+        private func discardNoteChatResponse(for expectedPageId: String) {
+            guard currentPageId == expectedPageId,
+                  let tv = textView,
+                  let ts = tv.textStorage else { return }
+            finishNoteChatStreamUndoGrouping()
             let str = ts.string
             guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
             let nsRange = NSRange(range, in: str)
             let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
+            tv.beginNamedUndoGroup("Discard AI Response")
+            defer { tv.endNamedUndoGroup() }
             isFlushingTokens = true
             tv.setProgrammaticEditLocation(nsRange.location)
             ts.replaceCharacters(in: deleteRange, with: "")
@@ -631,6 +673,7 @@ extension ProseEditorRepresentable2 {
         /// Strip in-progress AI response (divider + tokens) from storage.
         /// Called before any save-path read of tv.string to avoid persisting ephemeral content.
         private func stripUnacceptedAIResponse() {
+            finishNoteChatStreamUndoGrouping()
             guard let tv = textView, let ts = tv.textStorage else { return }
             let str = ts.string
             guard let range = NoteChatInlineResponse.dividerRange(in: str) else {
@@ -742,7 +785,10 @@ extension ProseEditorRepresentable2 {
 
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
-            guard !tv.hasMarkedText() else { return }
+            guard !tv.hasMarkedText() else {
+                blockRefAutocomplete?.dismiss()
+                return
+            }
             guard !isFlushingTokens else { return }
 
             // Clear all folds on any edit — folds are purely a reading aid

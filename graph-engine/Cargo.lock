@@ -1033,6 +1033,7 @@ dependencies = [
 name = "graph-engine"
 version = "0.1.0"
 dependencies = [
+ "block",
  "bytemuck",
  "cozo",
  "fst",
@@ -1044,6 +1045,7 @@ dependencies = [
  "orgize",
  "parking_lot",
  "pulldown-cmark",
+ "rand",
  "rkyv",
  "rustc-hash 2.1.1",
  "serde",

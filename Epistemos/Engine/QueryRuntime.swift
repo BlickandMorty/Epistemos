@@ -21,6 +21,13 @@ nonisolated enum BTKQueryPageIDBufferDecoder {
         guard let ptr = buffer.ptr, buffer.len > 0 else {
             if buffer.capacity > 0 {
                 graph_engine_free_bytes(buffer)
+                return recordDecodeFailure(
+                    "BTK query returned an allocated buffer without payload bytes",
+                    metadata: [
+                        "length": "\(buffer.len)",
+                        "capacity": "\(buffer.capacity)",
+                    ]
+                )
             }
             return []
         }
@@ -31,23 +38,54 @@ nonisolated enum BTKQueryPageIDBufferDecoder {
     }
 
     static func decode(_ bytes: UnsafeRawBufferPointer) -> [String] {
-        guard let count = readUInt32(bytes, offset: 0) else { return [] }
+        guard let count = readUInt32(bytes, offset: 0) else {
+            return recordDecodeFailure(
+                "BTK query payload was missing the page count header",
+                metadata: ["byteCount": "\(bytes.count)"]
+            )
+        }
 
         var offset = 4
         var pageIDs: [String] = []
         pageIDs.reserveCapacity(Int(count))
 
         for _ in 0..<count {
-            guard let length = readUInt32(bytes, offset: offset) else { return [] }
+            guard let length = readUInt32(bytes, offset: offset) else {
+                return recordDecodeFailure(
+                    "BTK query payload was truncated while reading page ID length",
+                    metadata: [
+                        "byteCount": "\(bytes.count)",
+                        "offset": "\(offset)",
+                    ]
+                )
+            }
             offset += 4
             let byteCount = Int(length)
-            guard byteCount >= 0, offset + byteCount <= bytes.count else { return [] }
+            guard byteCount >= 0, offset + byteCount <= bytes.count else {
+                return recordDecodeFailure(
+                    "BTK query payload declared an out-of-bounds page ID",
+                    metadata: [
+                        "byteCount": "\(bytes.count)",
+                        "offset": "\(offset)",
+                        "declaredLength": "\(byteCount)",
+                    ]
+                )
+            }
             let slice = bytes[offset..<(offset + byteCount)]
             pageIDs.append(String(decoding: slice, as: UTF8.self))
             offset += byteCount
         }
 
-        return offset == bytes.count ? pageIDs : []
+        guard offset == bytes.count else {
+            return recordDecodeFailure(
+                "BTK query payload had trailing bytes after decoding page IDs",
+                metadata: [
+                    "byteCount": "\(bytes.count)",
+                    "offset": "\(offset)",
+                ]
+            )
+        }
+        return pageIDs
     }
 
     private static func readUInt32(
@@ -63,6 +101,20 @@ nonisolated enum BTKQueryPageIDBufferDecoder {
             | (UInt32(byte1) << 8)
             | (UInt32(byte2) << 16)
             | (UInt32(byte3) << 24)
+    }
+
+    private static func recordDecodeFailure(
+        _ message: String,
+        metadata: [String: String]
+    ) -> [String] {
+        Log.ffiBoundary.error("\(message, privacy: .public)")
+        RuntimeDiagnostics.record(
+            .error,
+            category: "FFIBoundary",
+            message: message,
+            metadata: metadata
+        )
+        return []
     }
 }
 
@@ -756,7 +808,10 @@ final class QueryRuntime {
     }
 
     private func executeBTKPropertyFilter(key: String, op: CompOp, value: PropertyValue) -> QueryResult {
-        guard let engine = graphState.engineHandle else { return .empty }
+        guard let engine = graphState.engineHandle else {
+            Log.ffiBoundary.debug("BTK property query skipped because the graph engine handle is unavailable")
+            return .empty
+        }
 
         let opCode = op.ffiCode
         let (valType, valStr) = value.ffiEncoded
@@ -770,7 +825,10 @@ final class QueryRuntime {
     }
 
     private func executeBTKDepthFilter(op: CompOp, value: Int) -> QueryResult {
-        guard let engine = graphState.engineHandle else { return .empty }
+        guard let engine = graphState.engineHandle else {
+            Log.ffiBoundary.debug("BTK depth query skipped because the graph engine handle is unavailable")
+            return .empty
+        }
 
         let buffer = graph_engine_btk_query_depth(engine, op.ffiCode, UInt32(max(0, value)))
         return pageIdsToQueryResult(buffer)

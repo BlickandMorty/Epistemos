@@ -469,6 +469,7 @@ enum NoteToolbarGlyph: Sendable {
     case more
     case backlinks
     case history
+    case recovery
     case saveToDisk
     case notesSidebar
     case outlineFold(OutlineFoldMode)
@@ -491,6 +492,8 @@ enum NoteToolbarGlyph: Sendable {
             "link"
         case .history:
             "bubble.left"
+        case .recovery:
+            "exclamationmark.triangle"
         case .saveToDisk:
             "square.and.arrow.down"
         case .notesSidebar:
@@ -504,6 +507,8 @@ enum NoteToolbarGlyph: Sendable {
         switch self {
         case .history:
             "bubble.left.fill"
+        case .recovery:
+            "exclamationmark.triangle.fill"
         default:
             symbolName
         }
@@ -573,6 +578,9 @@ struct NoteDetailWorkspaceView: View {
     @State private var showPreview = false
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var persistedBody: String
+    @State private var showLegacyRecoverySheet = false
+    @State private var legacyRecoveryPresentation: NoteLegacyRecoveryPresentation?
+    @State private var legacyRecoveryRefreshTask: Task<Void, Never>?
 
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
@@ -716,6 +724,15 @@ struct NoteDetailWorkspaceView: View {
                 )
             }
         }
+        .sheet(isPresented: $showLegacyRecoverySheet) {
+            if let legacyRecoveryPresentation {
+                LegacyRecoverySheet(
+                    title: pages.first?.title ?? "Untitled",
+                    presentation: legacyRecoveryPresentation,
+                    theme: ui.theme
+                )
+            }
+        }
         .sheet(isPresented: $showBlockPropertySheet) {
             BlockPropertySheet(
                 existing: BlockPropertyParser.parse(blockPropertyLineText).map {
@@ -818,6 +835,16 @@ struct NoteDetailWorkspaceView: View {
             ZStack {
                 if let page = pages.first {
                     VStack(spacing: 0) {
+                        if let legacyRecoveryPresentation,
+                           legacyRecoveryPresentation.hasEncodingIssues
+                        {
+                            LegacyRecoveryBanner(theme: ui.theme) {
+                                showLegacyRecoverySheet = true
+                            }
+                            .padding(.horizontal, 18)
+                            .padding(.top, 12)
+                            .padding(.bottom, 10)
+                        }
                         if showPreview {
                             notePreview(body: displayBody(for: page))
                         } else {
@@ -859,6 +886,7 @@ struct NoteDetailWorkspaceView: View {
                         if persistedBody != body {
                             persistedBody = body
                         }
+                        refreshLegacyRecoveryPresentation()
                         scheduleMetricsRefresh(
                             body: body,
                             includeMarkdownHeadings: true
@@ -879,6 +907,8 @@ struct NoteDetailWorkspaceView: View {
                 metricsTask?.cancel()
                 missingPageRecoveryTask?.cancel()
                 missingPageRecoveryTask = nil
+                legacyRecoveryRefreshTask?.cancel()
+                legacyRecoveryRefreshTask = nil
                 noteChatState.clear()
             }
             .onChange(of: pages.isEmpty) { _, isEmpty in
@@ -887,6 +917,7 @@ struct NoteDetailWorkspaceView: View {
                 } else {
                     missingPageRecoveryTask?.cancel()
                     missingPageRecoveryTask = nil
+                    refreshLegacyRecoveryPresentation()
                 }
             }
             .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
@@ -901,6 +932,22 @@ struct NoteDetailWorkspaceView: View {
                 guard persistedBody != freshBody else { return }
                 persistedBody = freshBody
                 scheduleMetricsRefresh(body: freshBody, includeMarkdownHeadings: true)
+                refreshLegacyRecoveryPresentation()
+            }
+        }
+    }
+
+    private func refreshLegacyRecoveryPresentation() {
+        legacyRecoveryRefreshTask?.cancel()
+        let currentPageId = pageId
+        legacyRecoveryRefreshTask = Task { @MainActor in
+            let presentation = await Task.detached(priority: .utility) {
+                NoteLegacyRecoveryPresentation.load(pageId: currentPageId)
+            }.value
+            guard !Task.isCancelled, self.pageId == currentPageId else { return }
+            legacyRecoveryPresentation = presentation
+            if presentation?.hasEncodingIssues != true {
+                showLegacyRecoverySheet = false
             }
         }
     }
@@ -1045,6 +1092,17 @@ struct NoteDetailWorkspaceView: View {
             }
 
             if !showPreview {
+                if let legacyRecoveryPresentation,
+                   legacyRecoveryPresentation.hasEncodingIssues
+                {
+                    toolbarIconButton(
+                        glyph: .recovery,
+                        isActive: true,
+                        help: "Inspect Corrupted File"
+                    ) {
+                        showLegacyRecoverySheet = true
+                    }
+                }
                 toolbarIconButton(
                     glyph: .history,
                     isActive: showChatSidebar,
@@ -3090,5 +3148,366 @@ private struct TransitionGreetingView: View {
                 .font(AppDisplayTypography.font(size: 44))
                 .foregroundStyle(theme.fontAccent)
         }
+    }
+}
+
+nonisolated private struct NoteLegacyRecoveryPresentation: Equatable, @unchecked Sendable {
+    let pageId: String
+    let filePath: String
+    let rawData: Data
+    let rawDecodedText: String
+    let analysis: CorruptionAnalysis
+    let repairCandidates: [RepairCandidate]
+    let binaryExtraction: BinaryTextExtraction?
+    let paddingRatio: Double
+
+    nonisolated init(
+        pageId: String,
+        filePath: String,
+        rawData: Data,
+        rawDecodedText: String,
+        analysis: CorruptionAnalysis,
+        repairCandidates: [RepairCandidate],
+        binaryExtraction: BinaryTextExtraction?,
+        paddingRatio: Double
+    ) {
+        self.pageId = pageId
+        self.filePath = filePath
+        self.rawData = rawData
+        self.rawDecodedText = rawDecodedText
+        self.analysis = analysis
+        self.repairCandidates = repairCandidates
+        self.binaryExtraction = binaryExtraction
+        self.paddingRatio = paddingRatio
+    }
+
+    nonisolated var hasEncodingIssues: Bool {
+        analysis.classification != "likely_clean" || paddingRatio >= 0.05
+    }
+
+    nonisolated var formattedClassification: String {
+        analysis.classification
+            .replacingOccurrences(of: "_", with: " ")
+            .capitalized
+    }
+
+    nonisolated var bestRepairCandidate: RepairCandidate? {
+        repairCandidates.first(where: { $0.score >= 0.35 && $0.repairedText != rawDecodedText })
+            ?? repairCandidates.first
+    }
+
+    nonisolated var preferredDecodedText: String {
+        if let bestRepairCandidate, bestRepairCandidate.score >= 0.35 {
+            return bestRepairCandidate.repairedText
+        }
+        if let binaryExtraction {
+            let extracted = binaryExtraction.readableText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !extracted.isEmpty {
+                return extracted
+            }
+        }
+        return rawDecodedText
+    }
+
+    nonisolated var preferredDecodedTitle: String {
+        if bestRepairCandidate != nil {
+            return "Best Repair Candidate"
+        }
+        if binaryExtraction != nil {
+            return "Extracted Text Regions"
+        }
+        return "Decoded UTF-8"
+    }
+
+    nonisolated var preferredDecodedSubtitle: String? {
+        if let bestRepairCandidate {
+            return "\(bestRepairCandidate.chain) • score \(String(format: "%.2f", bestRepairCandidate.score))"
+        }
+        if paddingRatio >= 0.05 {
+            return "Recovered from binary-like regions"
+        }
+        return nil
+    }
+
+    nonisolated var prefersHexAutoMode: Bool {
+        paddingRatio >= 0.08 && (bestRepairCandidate?.score ?? 0) < 0.55
+    }
+
+    nonisolated var prefersHexRawPane: Bool {
+        paddingRatio >= 0.05
+    }
+
+    nonisolated static func load(pageId: String) -> NoteLegacyRecoveryPresentation? {
+        guard let rawData = NoteFileStorage.readRawBodyData(pageId: pageId),
+              let fileURL = NoteFileStorage.bodyFileURL(pageId: pageId) else {
+            return nil
+        }
+
+        let bytes = [UInt8](rawData)
+        let rawDecodedText = String(decoding: bytes, as: UTF8.self)
+        let analysis = classifyCorruption(text: rawDecodedText, sourceEncoding: "utf-8")
+        let paddingRatio = Double(rawData.lazy.filter { $0 == 0x00 || $0 == 0xFF }.count)
+            / Double(max(rawData.count, 1))
+
+        let shouldRepair = analysis.classification != "likely_clean"
+            || rawDecodedText.contains("\u{FFFD}")
+            || rawDecodedText.contains("Ã")
+            || rawDecodedText.contains("Â")
+        let repairCandidates = shouldRepair ? Array(repairMojibake(content: bytes).prefix(5)) : []
+
+        let shouldExtractBinary =
+            paddingRatio >= 0.05
+            || rawData.contains(0x00 as UInt8)
+            || rawData.contains(0xFF as UInt8)
+        let binaryExtraction = shouldExtractBinary
+            ? extractTextFromBinary(content: bytes, encodingLabel: "utf-8")
+            : nil
+
+        let presentation = NoteLegacyRecoveryPresentation(
+            pageId: pageId,
+            filePath: fileURL.path,
+            rawData: rawData,
+            rawDecodedText: rawDecodedText,
+            analysis: analysis,
+            repairCandidates: repairCandidates,
+            binaryExtraction: binaryExtraction,
+            paddingRatio: paddingRatio
+        )
+        return presentation.hasEncodingIssues ? presentation : nil
+    }
+}
+
+private struct LegacyRecoveryBanner: View {
+    let theme: EpistemosTheme
+    let inspect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Color.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("This file appears to have encoding issues")
+                    .font(AppDisplayTypography.font(size: 13))
+                Text("Open recovery tools to inspect repaired text, raw bytes, and binary regions.")
+                    .font(AppDisplayTypography.font(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            Button("Inspect", action: inspect)
+                .buttonStyle(.borderedProminent)
+                .tint(Color.orange.opacity(theme.isDark ? 0.9 : 0.75))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.orange.opacity(0.28), lineWidth: 0.8)
+        }
+    }
+}
+
+private enum LegacyRecoveryViewMode: String, CaseIterable, Identifiable {
+    case auto
+    case dual
+    case raw
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .auto:
+            "Auto"
+        case .dual:
+            "Dual"
+        case .raw:
+            "Raw"
+        }
+    }
+}
+
+private struct LegacyRecoverySheet: View {
+    let title: String
+    let presentation: NoteLegacyRecoveryPresentation
+    let theme: EpistemosTheme
+    @State private var mode: LegacyRecoveryViewMode = .auto
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            header
+            Divider()
+            content
+        }
+        .padding(20)
+        .frame(minWidth: 920, minHeight: 680)
+        .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea())
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(AppDisplayTypography.font(size: 18))
+                    Label("This file appears to have encoding issues", systemImage: "exclamationmark.triangle.fill")
+                        .font(AppDisplayTypography.font(size: 13))
+                        .foregroundStyle(Color.orange)
+                    Text(presentation.analysis.detail)
+                        .font(AppDisplayTypography.font(size: 12))
+                        .foregroundStyle(.secondary)
+                    Text(presentation.filePath)
+                        .font(.system(size: 11, weight: .regular, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                Spacer(minLength: 12)
+                Picker("Mode", selection: $mode) {
+                    ForEach(LegacyRecoveryViewMode.allCases) { candidate in
+                        Text(candidate.label).tag(candidate)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 240)
+            }
+
+            HStack(spacing: 8) {
+                LegacyInfoChip(label: "Class", value: presentation.formattedClassification)
+                LegacyInfoChip(label: "Encoding", value: presentation.analysis.likelyTrueEncoding)
+                LegacyInfoChip(
+                    label: "Padding",
+                    value: "\(Int((presentation.paddingRatio * 100).rounded()))%"
+                )
+                if let candidate = presentation.bestRepairCandidate {
+                    LegacyInfoChip(
+                        label: "Top Repair",
+                        value: String(format: "%.2f", candidate.score)
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch mode {
+        case .auto:
+            if presentation.prefersHexAutoMode {
+                LegacyHexViewer(data: presentation.rawData)
+            } else {
+                LegacyRecoveryTextPanel(
+                    title: presentation.preferredDecodedTitle,
+                    subtitle: presentation.preferredDecodedSubtitle,
+                    text: presentation.preferredDecodedText
+                )
+            }
+        case .dual:
+            VStack(spacing: 14) {
+                LegacyRecoveryTextPanel(
+                    title: presentation.preferredDecodedTitle,
+                    subtitle: presentation.preferredDecodedSubtitle,
+                    text: presentation.preferredDecodedText
+                )
+                if presentation.prefersHexRawPane {
+                    LegacyHexViewer(data: presentation.rawData, title: "Raw Original")
+                } else {
+                    LegacyRecoveryTextPanel(
+                        title: "Raw Original",
+                        subtitle: "Lossy UTF-8 decode from on-disk bytes",
+                        text: presentation.rawDecodedText
+                    )
+                }
+            }
+        case .raw:
+            LegacyHexViewer(data: presentation.rawData)
+        }
+    }
+}
+
+private struct LegacyInfoChip: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(AppDisplayTypography.font(size: 11))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.thinMaterial, in: Capsule())
+    }
+}
+
+private struct LegacyRecoveryTextPanel: View {
+    let title: String
+    let subtitle: String?
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(AppDisplayTypography.font(size: 14))
+            if let subtitle {
+                Text(subtitle)
+                    .font(AppDisplayTypography.font(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            ScrollView([.vertical, .horizontal]) {
+                Text(text.isEmpty ? "No readable text extracted." : text)
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(12)
+            }
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct LegacyHexViewer: View {
+    let data: Data
+    var title: String = "Raw Bytes"
+
+    private var rows: [String] {
+        let bytes = [UInt8](data)
+        guard !bytes.isEmpty else { return ["00000000  --  (empty)"] }
+
+        return stride(from: 0, to: bytes.count, by: 16).map { offset in
+            let slice = Array(bytes[offset..<min(offset + 16, bytes.count)])
+            let hex = slice.map { String(format: "%02X", $0) }.joined(separator: " ")
+            let paddedHex = hex.padding(toLength: 47, withPad: " ", startingAt: 0)
+            let ascii = slice.map { byte -> Character in
+                if byte >= 0x20 && byte < 0x7F {
+                    return Character(UnicodeScalar(byte))
+                }
+                return "·"
+            }
+            return String(format: "%08X  %@  %@", offset, paddedHex, String(ascii))
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(AppDisplayTypography.font(size: 14))
+            ScrollView([.vertical, .horizontal]) {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        Text(row)
+                            .font(.system(size: 12, weight: .regular, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

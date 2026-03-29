@@ -36,6 +36,17 @@ namespace epistemos_core {
     [Throws=TextNormalizationError]
     string sanitize_and_normalize(string input);
 
+    // ── Corrupted File Recovery ────────────────────────────────────────────
+
+    /// Classify likely corruption markers in decoded text.
+    CorruptionAnalysis classify_corruption(string text, string source_encoding);
+
+    /// Try common mojibake repair chains against raw bytes.
+    sequence<RepairCandidate> repair_mojibake(sequence<u8> content);
+
+    /// Split a binary blob into padding and text regions using the provided encoding.
+    BinaryTextExtraction extract_text_from_binary(sequence<u8> content, string encoding_label);
+
     // ── Durable Filesystem (zero-corruption spec §1.1) ──────────────────────
 
     /// F_FULLFSYNC on a file descriptor. Returns 0 on success, -1 on failure.
@@ -175,6 +186,34 @@ dictionary ChunkDocumentResult {
     string chunks_json;
     u32 chunk_count;
     u64 total_tokens;
+};
+
+dictionary CorruptionAnalysis {
+    string classification;
+    string detail;
+    double replacement_ratio;
+    double null_density;
+    string likely_true_encoding;
+    u64 first_problem_offset;
+};
+
+dictionary RepairCandidate {
+    string chain;
+    string repaired_text;
+    double score;
+};
+
+dictionary BinaryTextRegion {
+    u64 offset;
+    u64 length;
+    string decoded;
+    sequence<u8> raw_bytes;
+    boolean is_padding;
+};
+
+dictionary BinaryTextExtraction {
+    sequence<BinaryTextRegion> regions;
+    string readable_text;
 };
 
 dictionary DedupResult {

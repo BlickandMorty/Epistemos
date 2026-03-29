@@ -342,7 +342,13 @@ enum NoteFileStorage {
         }
 
         let reasonURL = quarantineURL.appendingPathComponent("reason.txt", isDirectory: false)
-        try? reason.write(to: reasonURL, atomically: true, encoding: .utf8)
+        do {
+            try reason.write(to: reasonURL, atomically: true, encoding: .utf8)
+        } catch {
+            logger.error(
+                "Failed to persist quarantine reason for \(pageId, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
+        }
 
         if movedAnyFile {
             logger.error(
@@ -629,6 +635,21 @@ enum NoteFileStorage {
         }
 
         return normalizedText
+    }
+
+    /// Read raw on-disk bytes for a note body without attempting UTF-8 decode.
+    /// Used by legacy/corruption recovery tooling.
+    nonisolated static func readRawBodyData(pageId: String, mapped: Bool = true) -> Data? {
+        guard isValidPageId(pageId) else { return nil }
+        let url = bodyURL(pageId: pageId)
+        let options: Data.ReadingOptions = mapped ? .mappedIfSafe : []
+        return try? Data(contentsOf: url, options: options)
+    }
+
+    nonisolated static func bodyFileURL(pageId: String) -> URL? {
+        guard isValidPageId(pageId) else { return nil }
+        let url = bodyURL(pageId: pageId)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     /// Read raw file data for a note body. Returns nil if file doesn't exist or pageId is invalid.

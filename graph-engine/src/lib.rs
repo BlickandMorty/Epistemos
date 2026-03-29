@@ -77,6 +77,7 @@ use crate::knowledge_core::{
 use crate::retrieval_index::PreparedRetrievalStore;
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct GraphEngineByteBuffer {
     /// Pointer to an owned byte region allocated by Rust.
     pub ptr: *mut u8,
@@ -93,6 +94,7 @@ pub struct GraphEnginePreparedRetrievalCandidate {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct GraphEnginePreparedRetrievalCandidateList {
     pub candidates: *mut GraphEnginePreparedRetrievalCandidate,
     pub count: u32,
@@ -108,6 +110,7 @@ pub struct GraphEngineStringSlice {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct GraphEngineSharedMemoryRegion {
     /// Base pointer of a mapped shared-memory region owned by Rust.
     pub ptr: *mut u8,
@@ -116,6 +119,7 @@ pub struct GraphEngineSharedMemoryRegion {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct GraphEngineRingLayout {
     pub head_offset: u64,
     pub tail_offset: u64,
@@ -203,6 +207,7 @@ pub struct KnowledgePayloadSummaryFFI {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
 pub struct KnowledgeCoreTransportStatsFFI {
     pub published_frames: u64,
     pub dropped_frames: u64,
@@ -239,6 +244,26 @@ macro_rules! ffi_cstr {
             ""
         } else {
             unsafe { CStr::from_ptr($ptr) }.to_str().unwrap_or("")
+        }
+    }};
+}
+
+macro_rules! ffi_catch_unwind {
+    ($name:expr, $body:block) => {{
+        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)).is_err() {
+            eprintln!("{}: panic caught", $name);
+        }
+    }};
+}
+
+macro_rules! ffi_catch_unwind_or {
+    ($name:expr, $default:expr, $body:block) => {{
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(result) => result,
+            Err(_) => {
+                eprintln!("{}: panic caught", $name);
+                $default
+            }
         }
     }};
 }
@@ -532,20 +557,24 @@ pub extern "C" fn graph_engine_create(
     device_ptr: *mut c_void,
     layer_ptr: *mut c_void,
 ) -> *mut Engine {
-    match Engine::new(device_ptr, layer_ptr) {
-        Some(engine) => Box::into_raw(Box::new(engine)),
-        None => std::ptr::null_mut(),
-    }
+    ffi_catch_unwind_or!("graph_engine_create", std::ptr::null_mut(), {
+        match Engine::new(device_ptr, layer_ptr) {
+            Some(engine) => Box::into_raw(Box::new(engine)),
+            None => std::ptr::null_mut(),
+        }
+    })
 }
 
 /// Destroy the engine and free all resources.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_destroy(engine: *mut Engine) {
-    if !engine.is_null() {
-        unsafe {
-            drop(Box::from_raw(engine));
+    ffi_catch_unwind!("graph_engine_destroy", {
+        if !engine.is_null() {
+            unsafe {
+                drop(Box::from_raw(engine));
+            }
         }
-    }
+    });
 }
 
 // ── Graph Data Loading ──────────────────────────────────────────────────────
@@ -553,8 +582,10 @@ pub extern "C" fn graph_engine_destroy(engine: *mut Engine) {
 /// Clear all nodes and edges (call before re-populating).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.graph_mut().clear();
+    ffi_catch_unwind!("graph_engine_clear", {
+        ffi_engine!(engine);
+        engine.graph_mut().clear();
+    });
 }
 
 /// Add a node to the graph.
@@ -571,12 +602,14 @@ pub extern "C" fn graph_engine_add_node(
     link_count: u32,
     label: *const c_char,
 ) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid).to_owned();
-    let label_str = ffi_cstr!(label).to_owned();
-    engine
-        .graph_mut()
-        .add_node(uuid_str, x, y, node_type, link_count, label_str);
+    ffi_catch_unwind!("graph_engine_add_node", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid).to_owned();
+        let label_str = ffi_cstr!(label).to_owned();
+        engine
+            .graph_mut()
+            .add_node(uuid_str, x, y, node_type, link_count, label_str);
+    });
 }
 
 /// Add an edge between two nodes by UUID.
@@ -589,10 +622,12 @@ pub extern "C" fn graph_engine_add_edge(
     weight: f32,
     edge_type: u8,
 ) {
-    ffi_engine!(engine);
-    let src = ffi_cstr!(source_uuid);
-    let tgt = ffi_cstr!(target_uuid);
-    engine.graph_mut().add_edge(src, tgt, weight, edge_type);
+    ffi_catch_unwind!("graph_engine_add_edge", {
+        ffi_engine!(engine);
+        let src = ffi_cstr!(source_uuid);
+        let tgt = ffi_cstr!(target_uuid);
+        engine.graph_mut().add_edge(src, tgt, weight, edge_type);
+    });
 }
 
 /// Batch-add nodes to the graph in a single FFI call.
@@ -610,45 +645,47 @@ pub extern "C" fn graph_engine_add_nodes_batch(
     labels: *const *const c_char,
     count: u32,
 ) {
-    ffi_engine!(engine);
-    let count = count as usize;
-    if count == 0
-        || uuids.is_null()
-        || labels.is_null()
-        || xs.is_null()
-        || ys.is_null()
-        || node_types.is_null()
-        || link_counts.is_null()
-    {
-        return;
-    }
-    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
-    let label_ptrs = unsafe { std::slice::from_raw_parts(labels, count) };
-    let xs = unsafe { std::slice::from_raw_parts(xs, count) };
-    let ys = unsafe { std::slice::from_raw_parts(ys, count) };
-    let types = unsafe { std::slice::from_raw_parts(node_types, count) };
-    let links = unsafe { std::slice::from_raw_parts(link_counts, count) };
+    ffi_catch_unwind!("graph_engine_add_nodes_batch", {
+        ffi_engine!(engine);
+        let count = count as usize;
+        if count == 0
+            || uuids.is_null()
+            || labels.is_null()
+            || xs.is_null()
+            || ys.is_null()
+            || node_types.is_null()
+            || link_counts.is_null()
+        {
+            return;
+        }
+        let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+        let label_ptrs = unsafe { std::slice::from_raw_parts(labels, count) };
+        let xs = unsafe { std::slice::from_raw_parts(xs, count) };
+        let ys = unsafe { std::slice::from_raw_parts(ys, count) };
+        let types = unsafe { std::slice::from_raw_parts(node_types, count) };
+        let links = unsafe { std::slice::from_raw_parts(link_counts, count) };
 
-    let graph = engine.graph_mut();
-    for i in 0..count {
-        let uuid_str = if uuid_ptrs[i].is_null() {
-            String::new()
-        } else {
-            unsafe { CStr::from_ptr(uuid_ptrs[i]) }
-                .to_str()
-                .unwrap_or("")
-                .to_owned()
-        };
-        let label_str = if label_ptrs[i].is_null() {
-            String::new()
-        } else {
-            unsafe { CStr::from_ptr(label_ptrs[i]) }
-                .to_str()
-                .unwrap_or("")
-                .to_owned()
-        };
-        graph.add_node(uuid_str, xs[i], ys[i], types[i], links[i], label_str);
-    }
+        let graph = engine.graph_mut();
+        for i in 0..count {
+            let uuid_str = if uuid_ptrs[i].is_null() {
+                String::new()
+            } else {
+                unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+                    .to_str()
+                    .unwrap_or("")
+                    .to_owned()
+            };
+            let label_str = if label_ptrs[i].is_null() {
+                String::new()
+            } else {
+                unsafe { CStr::from_ptr(label_ptrs[i]) }
+                    .to_str()
+                    .unwrap_or("")
+                    .to_owned()
+            };
+            graph.add_node(uuid_str, xs[i], ys[i], types[i], links[i], label_str);
+        }
+    });
 }
 
 /// Batch-add edges to the graph in a single FFI call.
@@ -663,39 +700,41 @@ pub extern "C" fn graph_engine_add_edges_batch(
     edge_types: *const u8,
     count: u32,
 ) {
-    ffi_engine!(engine);
-    let count = count as usize;
-    if count == 0
-        || source_uuids.is_null()
-        || target_uuids.is_null()
-        || weights.is_null()
-        || edge_types.is_null()
-    {
-        return;
-    }
-    let src_ptrs = unsafe { std::slice::from_raw_parts(source_uuids, count) };
-    let tgt_ptrs = unsafe { std::slice::from_raw_parts(target_uuids, count) };
-    let wts = unsafe { std::slice::from_raw_parts(weights, count) };
-    let types = unsafe { std::slice::from_raw_parts(edge_types, count) };
+    ffi_catch_unwind!("graph_engine_add_edges_batch", {
+        ffi_engine!(engine);
+        let count = count as usize;
+        if count == 0
+            || source_uuids.is_null()
+            || target_uuids.is_null()
+            || weights.is_null()
+            || edge_types.is_null()
+        {
+            return;
+        }
+        let src_ptrs = unsafe { std::slice::from_raw_parts(source_uuids, count) };
+        let tgt_ptrs = unsafe { std::slice::from_raw_parts(target_uuids, count) };
+        let wts = unsafe { std::slice::from_raw_parts(weights, count) };
+        let types = unsafe { std::slice::from_raw_parts(edge_types, count) };
 
-    let graph = engine.graph_mut();
-    for i in 0..count {
-        let src = if src_ptrs[i].is_null() {
-            ""
-        } else {
-            unsafe { CStr::from_ptr(src_ptrs[i]) }
-                .to_str()
-                .unwrap_or("")
-        };
-        let tgt = if tgt_ptrs[i].is_null() {
-            ""
-        } else {
-            unsafe { CStr::from_ptr(tgt_ptrs[i]) }
-                .to_str()
-                .unwrap_or("")
-        };
-        graph.add_edge(src, tgt, wts[i], types[i]);
-    }
+        let graph = engine.graph_mut();
+        for i in 0..count {
+            let src = if src_ptrs[i].is_null() {
+                ""
+            } else {
+                unsafe { CStr::from_ptr(src_ptrs[i]) }
+                    .to_str()
+                    .unwrap_or("")
+            };
+            let tgt = if tgt_ptrs[i].is_null() {
+                ""
+            } else {
+                unsafe { CStr::from_ptr(tgt_ptrs[i]) }
+                    .to_str()
+                    .unwrap_or("")
+            };
+            graph.add_edge(src, tgt, wts[i], types[i]);
+        }
+    });
 }
 
 /// Commit the graph: loads data into simulation, starts physics.
@@ -703,17 +742,21 @@ pub extern "C" fn graph_engine_add_edges_batch(
 /// `entrance`: if 1, uses degree-sorted spiral for initial node layout.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_commit(engine: *mut Engine, entrance: u8) {
-    ffi_engine!(engine);
-    engine.commit(entrance != 0);
+    ffi_catch_unwind!("graph_engine_commit", {
+        ffi_engine!(engine);
+        engine.commit(entrance != 0);
+    });
 }
 
 /// Remove a node by UUID. Also removes all edges touching it.
 /// Returns 1 if the node was found and removed, 0 otherwise.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_remove_node(engine: *mut Engine, uuid: *const c_char) -> u8 {
-    ffi_engine_or!(engine, 0);
-    let uuid_str = ffi_cstr!(uuid);
-    u8::from(engine.graph_mut().remove_node(uuid_str))
+    ffi_catch_unwind_or!("graph_engine_remove_node", 0, {
+        ffi_engine_or!(engine, 0);
+        let uuid_str = ffi_cstr!(uuid);
+        u8::from(engine.graph_mut().remove_node(uuid_str))
+    })
 }
 
 /// Remove edges between two nodes by UUID (both directions).
@@ -724,10 +767,12 @@ pub extern "C" fn graph_engine_remove_edge(
     source_uuid: *const c_char,
     target_uuid: *const c_char,
 ) -> u32 {
-    ffi_engine_or!(engine, 0);
-    let src = ffi_cstr!(source_uuid);
-    let tgt = ffi_cstr!(target_uuid);
-    engine.graph_mut().remove_edges(src, tgt) as u32
+    ffi_catch_unwind_or!("graph_engine_remove_edge", 0, {
+        ffi_engine_or!(engine, 0);
+        let src = ffi_cstr!(source_uuid);
+        let tgt = ffi_cstr!(target_uuid);
+        engine.graph_mut().remove_edges(src, tgt) as u32
+    })
 }
 
 /// Batch-remove nodes by UUID array.
@@ -738,27 +783,29 @@ pub extern "C" fn graph_engine_remove_nodes_batch(
     uuids: *const *const c_char,
     count: u32,
 ) -> u32 {
-    ffi_engine_or!(engine, 0);
-    let count = count as usize;
-    if count == 0 || uuids.is_null() {
-        return 0;
-    }
-    // SAFETY: caller guarantees `uuids` points to `count` valid pointers.
-    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
-    let graph = engine.graph_mut();
-    let mut removed = 0u32;
-    for &uuid_ptr in uuid_ptrs.iter().take(count) {
-        let uuid_str = if uuid_ptr.is_null() {
-            ""
-        } else {
-            // SAFETY: caller guarantees null-terminated UTF-8.
-            unsafe { CStr::from_ptr(uuid_ptr) }.to_str().unwrap_or("")
-        };
-        if graph.remove_node(uuid_str) {
-            removed += 1;
+    ffi_catch_unwind_or!("graph_engine_remove_nodes_batch", 0, {
+        ffi_engine_or!(engine, 0);
+        let count = count as usize;
+        if count == 0 || uuids.is_null() {
+            return 0;
         }
-    }
-    removed
+        // SAFETY: caller guarantees `uuids` points to `count` valid pointers.
+        let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+        let graph = engine.graph_mut();
+        let mut removed = 0u32;
+        for &uuid_ptr in uuid_ptrs.iter().take(count) {
+            let uuid_str = if uuid_ptr.is_null() {
+                ""
+            } else {
+                // SAFETY: caller guarantees null-terminated UTF-8.
+                unsafe { CStr::from_ptr(uuid_ptr) }.to_str().unwrap_or("")
+            };
+            if graph.remove_node(uuid_str) {
+                removed += 1;
+            }
+        }
+        removed
+    })
 }
 
 /// Lightweight commit after incremental adds/removes.
@@ -766,8 +813,10 @@ pub extern "C" fn graph_engine_remove_nodes_batch(
 /// Use instead of `graph_engine_commit` for incremental topology changes.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_commit_incremental(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.commit_incremental();
+    ffi_catch_unwind!("graph_engine_commit_incremental", {
+        ffi_engine!(engine);
+        engine.commit_incremental();
+    });
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -775,8 +824,10 @@ pub extern "C" fn graph_engine_commit_incremental(engine: *mut Engine) {
 /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_render(engine: *mut Engine, width: u32, height: u32) -> u32 {
-    ffi_engine_or!(engine, 0);
-    engine.render(width, height)
+    ffi_catch_unwind_or!("graph_engine_render", 0, {
+        ffi_engine_or!(engine, 0);
+        engine.render(width, height)
+    })
 }
 
 // ── Input Events ────────────────────────────────────────────────────────────
@@ -790,30 +841,38 @@ pub extern "C" fn graph_engine_mouse_down(
     screen_y: f32,
     shift: u8,
 ) {
-    ffi_engine!(engine);
-    engine.mouse_down(screen_x, screen_y, shift != 0);
+    ffi_catch_unwind!("graph_engine_mouse_down", {
+        ffi_engine!(engine);
+        engine.mouse_down(screen_x, screen_y, shift != 0);
+    });
 }
 
 /// Mouse/trackpad moved.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_mouse_moved(engine: *mut Engine, screen_x: f32, screen_y: f32) {
-    ffi_engine!(engine);
-    engine.mouse_moved(screen_x, screen_y);
+    ffi_catch_unwind!("graph_engine_mouse_moved", {
+        ffi_engine!(engine);
+        engine.mouse_moved(screen_x, screen_y);
+    });
 }
 
 /// Mouse/trackpad button released.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_mouse_up(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.mouse_up();
+    ffi_catch_unwind!("graph_engine_mouse_up", {
+        ffi_engine!(engine);
+        engine.mouse_up();
+    });
 }
 
 /// Two-finger scroll: pan the camera.
 /// `delta_x`, `delta_y`: scroll deltas in screen points.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_scroll(engine: *mut Engine, delta_x: f32, delta_y: f32) {
-    ffi_engine!(engine);
-    engine.scroll(delta_x, delta_y);
+    ffi_catch_unwind!("graph_engine_scroll", {
+        ffi_engine!(engine);
+        engine.scroll(delta_x, delta_y);
+    });
 }
 
 /// Pinch-to-zoom toward cursor position.
@@ -825,8 +884,10 @@ pub extern "C" fn graph_engine_magnify(
     screen_y: f32,
     magnification: f32,
 ) {
-    ffi_engine!(engine);
-    engine.magnify(screen_x, screen_y, magnification);
+    ffi_catch_unwind!("graph_engine_magnify", {
+        ffi_engine!(engine);
+        engine.magnify(screen_x, screen_y, magnification);
+    });
 }
 
 // ── Force Parameters ────────────────────────────────────────────────────────
@@ -840,8 +901,10 @@ pub extern "C" fn graph_engine_set_force_params(
     charge_range: f32,
     link_strength: f32,
 ) {
-    ffi_engine!(engine);
-    engine.set_force_params(link_distance, charge_strength, charge_range, link_strength);
+    ffi_catch_unwind!("graph_engine_set_force_params", {
+        ffi_engine!(engine);
+        engine.set_force_params(link_distance, charge_strength, charge_range, link_strength);
+    });
 }
 
 /// Update extended physics parameters.
@@ -852,8 +915,10 @@ pub extern "C" fn graph_engine_set_extended_force_params(
     center_strength: f32,
     collision_radius: f32,
 ) {
-    ffi_engine!(engine);
-    engine.set_extended_force_params(velocity_decay, center_strength, collision_radius);
+    ffi_catch_unwind!("graph_engine_set_extended_force_params", {
+        ffi_engine!(engine);
+        engine.set_extended_force_params(velocity_decay, center_strength, collision_radius);
+    });
 }
 
 // ── Highlighting ────────────────────────────────────────────────────────────
@@ -862,40 +927,50 @@ pub extern "C" fn graph_engine_set_extended_force_params(
 /// `uuid`: null-terminated UTF-8 C string.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_highlight_neighbors(engine: *mut Engine, uuid: *const c_char) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid);
-    engine.highlight_neighbors(uuid_str);
+    ffi_catch_unwind!("graph_engine_highlight_neighbors", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        engine.highlight_neighbors(uuid_str);
+    });
 }
 
 /// Clear neighbor highlighting.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear_highlight(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.clear_highlight();
+    ffi_catch_unwind!("graph_engine_clear_highlight", {
+        ffi_engine!(engine);
+        engine.clear_highlight();
+    });
 }
 
 /// Highlight all nodes matching a search query (case-insensitive label match).
 /// Empty query clears highlighting.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_search_highlight(engine: *mut Engine, query: *const c_char) {
-    ffi_engine!(engine);
-    let query_str = ffi_cstr!(query);
-    engine.search_highlight(query_str);
+    ffi_catch_unwind!("graph_engine_search_highlight", {
+        ffi_engine!(engine);
+        let query_str = ffi_cstr!(query);
+        engine.search_highlight(query_str);
+    });
 }
 
 /// Poll haptic event flag from the simulation.
 /// Returns 0=None, 1=Light (alignment snap), 2=Heavy (collision).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_poll_haptic(engine: *mut Engine) -> u8 {
-    ffi_engine_or!(engine, 0);
-    engine.poll_haptic()
+    ffi_catch_unwind_or!("graph_engine_poll_haptic", 0, {
+        ffi_engine_or!(engine, 0);
+        engine.poll_haptic()
+    })
 }
 
 /// Enable/disable bullet-time search physics (slow-motion drift during search).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_search_active(engine: *mut Engine, active: u8) {
-    ffi_engine!(engine);
-    engine.set_search_active(active != 0);
+    ffi_catch_unwind!("graph_engine_set_search_active", {
+        ffi_engine!(engine);
+        engine.set_search_active(active != 0);
+    });
 }
 
 /// Update laboratory physics toggles and tuning knobs.
@@ -915,21 +990,23 @@ pub extern "C" fn graph_engine_set_lab_params(
     enable_orbital: u8,
     orbital_speed: f32,
 ) {
-    ffi_engine!(engine);
-    engine.set_lab_params(
-        enable_fluid != 0,
-        enable_torsion != 0,
-        enable_elastic != 0,
-        enable_tension != 0,
-        fluid_viscosity,
-        edge_elasticity,
-        torsion_rigidity,
-        boids_cohesion,
-        wind_x,
-        wind_y,
-        enable_orbital != 0,
-        orbital_speed,
-    );
+    ffi_catch_unwind!("graph_engine_set_lab_params", {
+        ffi_engine!(engine);
+        engine.set_lab_params(
+            enable_fluid != 0,
+            enable_torsion != 0,
+            enable_elastic != 0,
+            enable_tension != 0,
+            fluid_viscosity,
+            edge_elasticity,
+            torsion_rigidity,
+            boids_cohesion,
+            wind_x,
+            wind_y,
+            enable_orbital != 0,
+            orbital_speed,
+        );
+    });
 }
 
 // ── Camera ──────────────────────────────────────────────────────────────────
@@ -937,23 +1014,29 @@ pub extern "C" fn graph_engine_set_lab_params(
 /// Animate camera to center on the centroid of visible nodes.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_center_camera(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.center_camera();
+    ffi_catch_unwind!("graph_engine_center_camera", {
+        ffi_engine!(engine);
+        engine.center_camera();
+    });
 }
 
 /// Center camera on a specific node by UUID, zooming in moderately.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_center_on_node(engine: *mut Engine, uuid: *const c_char) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid);
-    engine.center_on_node(uuid_str);
+    ffi_catch_unwind!("graph_engine_center_on_node", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        engine.center_on_node(uuid_str);
+    });
 }
 
 /// Zoom to fit all visible nodes in the viewport.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_zoom_to_fit(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.zoom_to_fit();
+    ffi_catch_unwind!("graph_engine_zoom_to_fit", {
+        ffi_engine!(engine);
+        engine.zoom_to_fit();
+    });
 }
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
@@ -961,22 +1044,28 @@ pub extern "C" fn graph_engine_zoom_to_fit(engine: *mut Engine) {
 /// Pause the engine: stop physics thread to free CPU when overlay is hidden.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_pause(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.pause();
+    ffi_catch_unwind!("graph_engine_pause", {
+        ffi_engine!(engine);
+        engine.pause();
+    });
 }
 
 /// Resume the engine: restart physics thread when overlay is shown again.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_resume(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.resume();
+    ffi_catch_unwind!("graph_engine_resume", {
+        ffi_engine!(engine);
+        engine.resume();
+    });
 }
 
 /// User-controlled physics freeze: 1 = freeze (stop all forces), 0 = unfreeze (reheat).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_user_frozen(engine: *mut Engine, frozen: u8) {
-    ffi_engine!(engine);
-    engine.set_user_frozen(frozen != 0);
+    ffi_catch_unwind!("graph_engine_set_user_frozen", {
+        ffi_engine!(engine);
+        engine.set_user_frozen(frozen != 0);
+    });
 }
 
 // ── Node Pinning ────────────────────────────────────────────────────────────
@@ -984,25 +1073,31 @@ pub extern "C" fn graph_engine_set_user_frozen(engine: *mut Engine, frozen: u8) 
 /// Pin a node at its current position. Uses d3-style fx/fy constraint.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_pin_node(engine: *mut Engine, uuid: *const c_char) {
-    ffi_engine!(engine);
-    let uuid = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
-    engine.pin_node(uuid);
+    ffi_catch_unwind!("graph_engine_pin_node", {
+        ffi_engine!(engine);
+        let uuid = ffi_cstr!(uuid);
+        engine.pin_node(uuid);
+    });
 }
 
 /// Unpin a node, releasing its fx/fy constraint.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_unpin_node(engine: *mut Engine, uuid: *const c_char) {
-    ffi_engine!(engine);
-    let uuid = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
-    engine.unpin_node(uuid);
+    ffi_catch_unwind!("graph_engine_unpin_node", {
+        ffi_engine!(engine);
+        let uuid = ffi_cstr!(uuid);
+        engine.unpin_node(uuid);
+    });
 }
 
 /// Check if a node is pinned. Returns 1 if pinned, 0 if not.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_is_node_pinned(engine: *mut Engine, uuid: *const c_char) -> u8 {
-    ffi_engine_or!(engine, 0);
-    let uuid = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
-    if engine.is_node_pinned(uuid) { 1 } else { 0 }
+    ffi_catch_unwind_or!("graph_engine_is_node_pinned", 0, {
+        ffi_engine_or!(engine, 0);
+        let uuid = ffi_cstr!(uuid);
+        if engine.is_node_pinned(uuid) { 1 } else { 0 }
+    })
 }
 
 // ── Cluster Parameters ──────────────────────────────────────────────────────
@@ -1010,15 +1105,19 @@ pub extern "C" fn graph_engine_is_node_pinned(engine: *mut Engine, uuid: *const 
 /// Set cluster cohesion strength (0 = off, 1 = strong bubbles).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_cluster_params(engine: *mut Engine, cluster_strength: f32) {
-    ffi_engine!(engine);
-    engine.set_cluster_params(cluster_strength);
+    ffi_catch_unwind!("graph_engine_set_cluster_params", {
+        ffi_engine!(engine);
+        engine.set_cluster_params(cluster_strength);
+    });
 }
 
 /// Set center force mode: 0 = attract, 1 = off, 2 = repel.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_center_mode(engine: *mut Engine, mode: u8) {
-    ffi_engine!(engine);
-    engine.set_center_mode(mode);
+    ffi_catch_unwind!("graph_engine_set_center_mode", {
+        ffi_engine!(engine);
+        engine.set_center_mode(mode);
+    });
 }
 
 // ── Coordinate Conversion ───────────────────────────────────────────────────
@@ -1033,16 +1132,18 @@ pub extern "C" fn graph_engine_screen_to_world(
     out_world_x: *mut f32,
     out_world_y: *mut f32,
 ) {
-    ffi_engine!(engine);
-    let (wx, wy) = engine.screen_to_world(screen_x, screen_y);
-    unsafe {
-        if !out_world_x.is_null() {
-            *out_world_x = wx;
+    ffi_catch_unwind!("graph_engine_screen_to_world", {
+        ffi_engine!(engine);
+        let (wx, wy) = engine.screen_to_world(screen_x, screen_y);
+        unsafe {
+            if !out_world_x.is_null() {
+                *out_world_x = wx;
+            }
+            if !out_world_y.is_null() {
+                *out_world_y = wy;
+            }
         }
-        if !out_world_y.is_null() {
-            *out_world_y = wy;
-        }
-    }
+    });
 }
 
 /// Get a node's screen pixel position by UUID.
@@ -1053,24 +1154,26 @@ pub extern "C" fn graph_engine_node_screen_pos(
     uuid: *const std::ffi::c_char,
     out: *mut f32,
 ) -> u8 {
-    ffi_engine_or!(engine, 0);
-    if uuid.is_null() || out.is_null() {
-        return 0;
-    }
-    // SAFETY: `uuid` is a valid C string from Swift.
-    let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
-    let Ok(uuid_str) = uuid_str.to_str() else {
-        return 0;
-    };
-    let Some(pos) = engine.node_screen_pos(uuid_str) else {
-        return 0;
-    };
-    // SAFETY: `out` points to caller-owned array of at least 2 floats.
-    unsafe {
-        *out.add(0) = pos[0];
-        *out.add(1) = pos[1];
-    }
-    1
+    ffi_catch_unwind_or!("graph_engine_node_screen_pos", 0, {
+        ffi_engine_or!(engine, 0);
+        if uuid.is_null() || out.is_null() {
+            return 0;
+        }
+        // SAFETY: `uuid` is a valid C string from Swift.
+        let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
+        let Ok(uuid_str) = uuid_str.to_str() else {
+            return 0;
+        };
+        let Some(pos) = engine.node_screen_pos(uuid_str) else {
+            return 0;
+        };
+        // SAFETY: `out` points to caller-owned array of at least 2 floats.
+        unsafe {
+            *out.add(0) = pos[0];
+            *out.add(1) = pos[1];
+        }
+        1
+    })
 }
 
 /// Get the cumulative drift (total distance traveled) for a node by UUID.
@@ -1080,16 +1183,18 @@ pub extern "C" fn graph_engine_node_drift(
     engine: *mut Engine,
     uuid: *const std::ffi::c_char,
 ) -> f32 {
-    ffi_engine_or!(engine, -1.0);
-    if uuid.is_null() {
-        return -1.0;
-    }
-    // SAFETY: `uuid` is a valid C string from Swift.
-    let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
-    let Ok(uuid_str) = uuid_str.to_str() else {
-        return -1.0;
-    };
-    engine.node_drift(uuid_str).unwrap_or(-1.0)
+    ffi_catch_unwind_or!("graph_engine_node_drift", 0.0, {
+        ffi_engine_or!(engine, -1.0);
+        if uuid.is_null() {
+            return -1.0;
+        }
+        // SAFETY: `uuid` is a valid C string from Swift.
+        let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
+        let Ok(uuid_str) = uuid_str.to_str() else {
+            return -1.0;
+        };
+        engine.node_drift(uuid_str).unwrap_or(-1.0)
+    })
 }
 
 // ── Visibility (Lightweight Filtering) ──────────────────────────────────────
@@ -1102,17 +1207,21 @@ pub extern "C" fn graph_engine_set_node_visible(
     uuid: *const c_char,
     visible: u8,
 ) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid);
-    engine.set_node_visible(uuid_str, visible != 0);
+    ffi_catch_unwind!("graph_engine_set_node_visible", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        engine.set_node_visible(uuid_str, visible != 0);
+    });
 }
 
 /// Apply visibility changes: re-upload to renderer, reload simulation, reheat.
 /// Preserves positions and velocities — lightweight alternative to full recommit.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_refresh_visibility(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.refresh_visibility();
+    ffi_catch_unwind!("graph_engine_refresh_visibility", {
+        ffi_engine!(engine);
+        engine.refresh_visibility();
+    });
 }
 
 // ── Display Settings ────────────────────────────────────────────────────────
@@ -1126,37 +1235,47 @@ pub extern "C" fn graph_engine_set_clear_color(
     b: f64,
     a: f64,
 ) {
-    ffi_engine!(engine);
-    engine.set_clear_color(r, g, b, a);
+    ffi_catch_unwind!("graph_engine_set_clear_color", {
+        ffi_engine!(engine);
+        engine.set_clear_color(r, g, b, a);
+    });
 }
 
 /// Set graph mode: 0 = global, 1 = page.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_mode(engine: *mut Engine, mode: u8) {
-    ffi_engine!(engine);
-    engine.set_mode(mode);
+    ffi_catch_unwind!("graph_engine_set_mode", {
+        ffi_engine!(engine);
+        engine.set_mode(mode);
+    });
 }
 
 /// Set light/dark mode color palette: 0 = dark, 1 = light.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) {
-    ffi_engine!(engine);
-    engine.set_light_mode(enabled != 0);
+    ffi_catch_unwind!("graph_engine_set_light_mode", {
+        ffi_engine!(engine);
+        engine.set_light_mode(enabled != 0);
+    });
 }
 
 /// Set quality level: 0 = Cinematic (full effects), 1 = Balanced (static depth, no glow/breathing),
 /// 2 = Performance (straight edges, lighter static shading). Replaces the binary lite_mode.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_quality_level(engine: *mut Engine, level: u8) {
-    ffi_engine!(engine);
-    engine.set_quality_level(level);
+    ffi_catch_unwind!("graph_engine_set_quality_level", {
+        ffi_engine!(engine);
+        engine.set_quality_level(level);
+    });
 }
 
 /// Set visual theme: 0 = Dialogue (default), 1 = Classic.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_visual_theme(engine: *mut Engine, theme: u8) {
-    ffi_engine!(engine);
-    engine.set_visual_theme(theme);
+    ffi_catch_unwind!("graph_engine_set_visual_theme", {
+        ffi_engine!(engine);
+        engine.set_visual_theme(theme);
+    });
 }
 
 /// Set per-node color override by UUID. Pass alpha=0 to clear the override.
@@ -1169,9 +1288,11 @@ pub extern "C" fn graph_engine_set_node_color_override(
     b: f32,
     a: f32,
 ) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid);
-    engine.set_node_color_override(uuid_str, r, g, b, a);
+    ffi_catch_unwind!("graph_engine_set_node_color_override", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        engine.set_node_color_override(uuid_str, r, g, b, a);
+    });
 }
 
 // ── 3D Orbit Camera ────────────────────────────────────────────────────────
@@ -1186,8 +1307,10 @@ pub extern "C" fn graph_engine_set_anchor_rect(
     w: f32,
     h: f32,
 ) {
-    ffi_engine!(engine);
-    engine.set_anchor_rect(x, y, w, h);
+    ffi_catch_unwind!("graph_engine_set_anchor_rect", {
+        ffi_engine!(engine);
+        engine.set_anchor_rect(x, y, w, h);
+    });
 }
 
 // ── Queries ─────────────────────────────────────────────────────────────────
@@ -1196,16 +1319,20 @@ pub extern "C" fn graph_engine_set_anchor_rect(
 /// Returns 1 if settled, 0 if still running.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_is_settled(engine: *mut Engine) -> u8 {
-    ffi_engine_or!(engine, 1);
-    u8::from(engine.is_settled())
+    ffi_catch_unwind_or!("graph_engine_is_settled", 0, {
+        ffi_engine_or!(engine, 1);
+        u8::from(engine.is_settled())
+    })
 }
 
 /// Check if physics is completely disabled (static layout for large graphs).
 /// Returns 1 if static (physics off), 0 if physics is active.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_is_static_layout(engine: *mut Engine) -> u8 {
-    ffi_engine_or!(engine, 0);
-    u8::from(engine.is_static_layout())
+    ffi_catch_unwind_or!("graph_engine_is_static_layout", 0, {
+        ffi_engine_or!(engine, 0);
+        u8::from(engine.is_static_layout())
+    })
 }
 
 /// Get the UUID of the currently hovered node.
@@ -1213,11 +1340,13 @@ pub extern "C" fn graph_engine_is_static_layout(engine: *mut Engine) -> u8 {
 /// The pointer is valid until the next call to any UUID query function.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_hovered_node_uuid(engine: *mut Engine) -> *const c_char {
-    ffi_engine_or!(engine, std::ptr::null());
-    match engine.hovered_id() {
-        Some(id) => engine.node_uuid_by_id(id),
-        None => std::ptr::null(),
-    }
+    ffi_catch_unwind_or!("graph_engine_hovered_node_uuid", std::ptr::null(), {
+        ffi_engine_or!(engine, std::ptr::null());
+        match engine.hovered_id() {
+            Some(id) => engine.node_uuid_by_id(id),
+            None => std::ptr::null(),
+        }
+    })
 }
 
 /// Get the UUID of the currently selected node.
@@ -1225,11 +1354,13 @@ pub extern "C" fn graph_engine_hovered_node_uuid(engine: *mut Engine) -> *const 
 /// The pointer is valid until the next call to any UUID query function.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_selected_node_uuid(engine: *mut Engine) -> *const c_char {
-    ffi_engine_or!(engine, std::ptr::null());
-    match engine.selected_id() {
-        Some(id) => engine.node_uuid_by_id(id),
-        None => std::ptr::null(),
-    }
+    ffi_catch_unwind_or!("graph_engine_selected_node_uuid", std::ptr::null(), {
+        ffi_engine_or!(engine, std::ptr::null());
+        match engine.selected_id() {
+            Some(id) => engine.node_uuid_by_id(id),
+            None => std::ptr::null(),
+        }
+    })
 }
 
 // ── Search ──────────────────────────────────────────────────────────────────
@@ -1243,59 +1374,63 @@ pub extern "C" fn graph_engine_search(
     limit: u32,
     out_count: *mut u32,
 ) -> *mut search::SearchResult {
-    ffi_engine_or!(engine, std::ptr::null_mut());
-    let query_str = ffi_cstr!(query);
+    ffi_catch_unwind_or!("graph_engine_search", std::ptr::null_mut(), {
+        ffi_engine_or!(engine, std::ptr::null_mut());
+        let query_str = ffi_cstr!(query);
 
-    let results = engine.search_index.search(query_str, limit as usize);
+        let results = engine.search_index.search(query_str, limit as usize);
 
-    unsafe {
-        if !out_count.is_null() {
-            *out_count = results.len() as u32;
+        unsafe {
+            if !out_count.is_null() {
+                *out_count = results.len() as u32;
+            }
         }
-    }
 
-    if results.is_empty() {
-        return std::ptr::null_mut();
-    }
+        if results.is_empty() {
+            return std::ptr::null_mut();
+        }
 
-    let ffi_results: Vec<search::SearchResult> = results
-        .into_iter()
-        .map(|(uuid, label, node_type, score)| search::SearchResult {
-            uuid: CString::new(uuid).unwrap_or_default().into_raw(),
-            label: CString::new(label).unwrap_or_default().into_raw(),
-            node_type,
-            score,
-        })
-        .collect();
+        let ffi_results: Vec<search::SearchResult> = results
+            .into_iter()
+            .map(|(uuid, label, node_type, score)| search::SearchResult {
+                uuid: CString::new(uuid).unwrap_or_default().into_raw(),
+                label: CString::new(label).unwrap_or_default().into_raw(),
+                node_type,
+                score,
+            })
+            .collect();
 
-    // into_boxed_slice guarantees capacity == len, avoiding UB in from_raw_parts.
-    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+        // into_boxed_slice guarantees capacity == len, avoiding UB in from_raw_parts.
+        Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+    })
 }
 
 /// Free search results allocated by `graph_engine_search`.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_free_search_results(results: *mut search::SearchResult, count: u32) {
-    if results.is_null() {
-        return;
-    }
-    // SAFETY: `results` and `count` were produced by `graph_engine_search` /
-    // `graph_engine_search_semantic` via `Box::into_raw(boxed_slice)`.
-    unsafe {
-        let slice: &mut [search::SearchResult] =
-            std::slice::from_raw_parts_mut(results, count as usize);
-        for result in slice.iter() {
-            if !result.uuid.is_null() {
-                let _ = CString::from_raw(result.uuid as *mut _);
-            }
-            if !result.label.is_null() {
-                let _ = CString::from_raw(result.label as *mut _);
-            }
+    ffi_catch_unwind!("graph_engine_free_search_results", {
+        if results.is_null() {
+            return;
         }
-        // Reconstruct the boxed slice and drop it to free the allocation.
-        let to_drop: *mut [search::SearchResult] =
-            std::ptr::slice_from_raw_parts_mut(results, count as usize);
-        drop(Box::from_raw(to_drop));
-    }
+        // SAFETY: `results` and `count` were produced by `graph_engine_search` /
+        // `graph_engine_search_semantic` via `Box::into_raw(boxed_slice)`.
+        unsafe {
+            let slice: &mut [search::SearchResult] =
+                std::slice::from_raw_parts_mut(results, count as usize);
+            for result in slice.iter() {
+                if !result.uuid.is_null() {
+                    let _ = CString::from_raw(result.uuid as *mut _);
+                }
+                if !result.label.is_null() {
+                    let _ = CString::from_raw(result.label as *mut _);
+                }
+            }
+            // Reconstruct the boxed slice and drop it to free the allocation.
+            let to_drop: *mut [search::SearchResult] =
+                std::ptr::slice_from_raw_parts_mut(results, count as usize);
+            drop(Box::from_raw(to_drop));
+        }
+    });
 }
 
 // ── Semantic Clustering ─────────────────────────────────────────────────────
@@ -1313,29 +1448,31 @@ pub extern "C" fn graph_engine_set_cluster_ids(
     cluster_ids: *const u32,
     count: u32,
 ) {
-    ffi_engine!(engine);
-    let count = count as usize;
-    if count == 0 || uuids.is_null() || cluster_ids.is_null() {
-        return;
-    }
-
-    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
-    let ids = unsafe { std::slice::from_raw_parts(cluster_ids, count) };
-
-    // Build UUID → cluster_id map.
-    let mut uuid_to_cluster = std::collections::HashMap::new();
-    for i in 0..count {
-        if uuid_ptrs[i].is_null() {
-            continue;
+    ffi_catch_unwind!("graph_engine_set_cluster_ids", {
+        ffi_engine!(engine);
+        let count = count as usize;
+        if count == 0 || uuids.is_null() || cluster_ids.is_null() {
+            return;
         }
-        let uuid_str = unsafe { CStr::from_ptr(uuid_ptrs[i]) }
-            .to_str()
-            .unwrap_or("")
-            .to_owned();
-        uuid_to_cluster.insert(uuid_str, ids[i]);
-    }
 
-    engine.set_cluster_ids(&uuid_to_cluster);
+        let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+        let ids = unsafe { std::slice::from_raw_parts(cluster_ids, count) };
+
+        // Build UUID → cluster_id map.
+        let mut uuid_to_cluster = std::collections::HashMap::new();
+        for i in 0..count {
+            if uuid_ptrs[i].is_null() {
+                continue;
+            }
+            let uuid_str = unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+                .to_str()
+                .unwrap_or("")
+                .to_owned();
+            uuid_to_cluster.insert(uuid_str, ids[i]);
+        }
+
+        engine.set_cluster_ids(&uuid_to_cluster);
+    });
 }
 
 // ── Embeddings ──────────────────────────────────────────────────────────────
@@ -1350,54 +1487,64 @@ pub extern "C" fn graph_engine_set_node_embedding(
     data: *const f32,
     dim: u32,
 ) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid);
-    if data.is_null() || dim == 0 {
-        return;
-    }
-    let slice = unsafe { std::slice::from_raw_parts(data, dim as usize) };
-    if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
-        engine.embedding_store.set(idx as u32, slice);
-    }
+    ffi_catch_unwind!("graph_engine_set_node_embedding", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        if data.is_null() || dim == 0 {
+            return;
+        }
+        let slice = unsafe { std::slice::from_raw_parts(data, dim as usize) };
+        if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
+            engine.embedding_store.set(idx as u32, slice);
+        }
+    });
 }
 
 /// Clear all stored semantic embeddings and neighbor pairs.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear_embeddings(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.embedding_store.clear();
-    engine.semantic_neighbors.clear();
-    engine.reheat();
+    ffi_catch_unwind!("graph_engine_clear_embeddings", {
+        ffi_engine!(engine);
+        engine.embedding_store.clear();
+        engine.semantic_neighbors.clear();
+        engine.reheat();
+    });
 }
 
 /// Return the number of stored semantic embeddings.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_embedding_count(engine: *mut Engine) -> u32 {
-    ffi_engine_or!(engine, 0);
-    engine.embedding_store.len() as u32
+    ffi_catch_unwind_or!("graph_engine_embedding_count", 0, {
+        ffi_engine_or!(engine, 0);
+        engine.embedding_store.len() as u32
+    })
 }
 
 /// Return the active semantic embedding dimension.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_embedding_dimension(engine: *mut Engine) -> u32 {
-    ffi_engine_or!(engine, 0);
-    engine.embedding_store.dimension() as u32
+    ffi_catch_unwind_or!("graph_engine_embedding_dimension", 0, {
+        ffi_engine_or!(engine, 0);
+        engine.embedding_store.dimension() as u32
+    })
 }
 
 /// Reset the semantic embedding dimension and clear stored vectors/neighbors.
 /// Returns 1 when the dimension changed, 0 when the request was invalid or unchanged.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_reset_embedding_dimension(engine: *mut Engine, dim: u32) -> u8 {
-    ffi_engine_or!(engine, 0);
-    if dim == 0 {
-        return 0;
-    }
-    if !engine.embedding_store.reset_dimension(dim as usize) {
-        return 0;
-    }
-    engine.semantic_neighbors.clear();
-    engine.reheat();
-    1
+    ffi_catch_unwind_or!("graph_engine_reset_embedding_dimension", 0, {
+        ffi_engine_or!(engine, 0);
+        if dim == 0 {
+            return 0;
+        }
+        if !engine.embedding_store.reset_dimension(dim as usize) {
+            return 0;
+        }
+        engine.semantic_neighbors.clear();
+        engine.reheat();
+        1
+    })
 }
 
 /// Recompute the semantic neighbor pairs (KNN) from current embeddings.
@@ -1412,17 +1559,21 @@ pub extern "C" fn graph_engine_recompute_semantic_neighbors(
     k: u32,
     threshold: f32,
 ) {
-    ffi_engine!(engine);
-    engine.semantic_neighbors = engine.embedding_store.all_knn_pairs(k as usize, threshold);
-    // Reheat physics so the new attraction forces take effect.
-    engine.reheat();
+    ffi_catch_unwind!("graph_engine_recompute_semantic_neighbors", {
+        ffi_engine!(engine);
+        engine.semantic_neighbors = engine.embedding_store.all_knn_pairs(k as usize, threshold);
+        // Reheat physics so the new attraction forces take effect.
+        engine.reheat();
+    });
 }
 
 /// Set semantic attraction strength (0 = off, 1 = strong).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_semantic_strength(engine: *mut Engine, strength: f32) {
-    ffi_engine!(engine);
-    engine.set_semantic_strength(strength);
+    ffi_catch_unwind!("graph_engine_set_semantic_strength", {
+        ffi_engine!(engine);
+        engine.set_semantic_strength(strength);
+    });
 }
 
 // ── Temporal Index ──────────────────────────────────────────────────────────
@@ -1436,9 +1587,11 @@ pub extern "C" fn graph_engine_set_node_time(
     created_at: f64,
     updated_at: f64,
 ) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid);
-    engine.set_node_time(uuid_str, created_at, updated_at);
+    ffi_catch_unwind!("graph_engine_set_node_time", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        engine.set_node_time(uuid_str, created_at, updated_at);
+    });
 }
 
 // ── Confidence ─────────────────────────────────────────────────────────────
@@ -1450,9 +1603,11 @@ pub extern "C" fn graph_engine_set_node_confidence(
     uuid: *const c_char,
     confidence: f32,
 ) {
-    ffi_engine!(engine);
-    let uuid_str = ffi_cstr!(uuid);
-    engine.set_node_confidence(uuid_str, confidence);
+    ffi_catch_unwind!("graph_engine_set_node_confidence", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        engine.set_node_confidence(uuid_str, confidence);
+    });
 }
 
 /// Batch-set node timestamps + confidence from parallel arrays.
@@ -1465,37 +1620,39 @@ pub extern "C" fn graph_engine_set_node_metadata_batch(
     confidences: *const f32,
     count: u32,
 ) {
-    ffi_engine!(engine);
-    let count = count as usize;
-    if count == 0
-        || uuids.is_null()
-        || created_ats.is_null()
-        || updated_ats.is_null()
-        || confidences.is_null()
-    {
-        return;
-    }
+    ffi_catch_unwind!("graph_engine_set_node_metadata_batch", {
+        ffi_engine!(engine);
+        let count = count as usize;
+        if count == 0
+            || uuids.is_null()
+            || created_ats.is_null()
+            || updated_ats.is_null()
+            || confidences.is_null()
+        {
+            return;
+        }
 
-    // SAFETY: caller guarantees parallel arrays of `count` items.
-    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
-    // SAFETY: caller guarantees parallel arrays of `count` items.
-    let created = unsafe { std::slice::from_raw_parts(created_ats, count) };
-    // SAFETY: caller guarantees parallel arrays of `count` items.
-    let updated = unsafe { std::slice::from_raw_parts(updated_ats, count) };
-    // SAFETY: caller guarantees parallel arrays of `count` items.
-    let confidences = unsafe { std::slice::from_raw_parts(confidences, count) };
+        // SAFETY: caller guarantees parallel arrays of `count` items.
+        let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+        // SAFETY: caller guarantees parallel arrays of `count` items.
+        let created = unsafe { std::slice::from_raw_parts(created_ats, count) };
+        // SAFETY: caller guarantees parallel arrays of `count` items.
+        let updated = unsafe { std::slice::from_raw_parts(updated_ats, count) };
+        // SAFETY: caller guarantees parallel arrays of `count` items.
+        let confidences = unsafe { std::slice::from_raw_parts(confidences, count) };
 
-    for i in 0..count {
-        let uuid_str = if uuid_ptrs[i].is_null() {
-            ""
-        } else {
-            // SAFETY: caller guarantees null-terminated UTF-8 strings.
-            unsafe { CStr::from_ptr(uuid_ptrs[i]) }
-                .to_str()
-                .unwrap_or("")
-        };
-        engine.set_node_metadata(uuid_str, created[i], updated[i], confidences[i]);
-    }
+        for i in 0..count {
+            let uuid_str = if uuid_ptrs[i].is_null() {
+                ""
+            } else {
+                // SAFETY: caller guarantees null-terminated UTF-8 strings.
+                unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+                    .to_str()
+                    .unwrap_or("")
+            };
+            engine.set_node_metadata(uuid_str, created[i], updated[i], confidences[i]);
+        }
+    });
 }
 
 /// Semantic search: find nodes most similar to a query embedding.
@@ -1509,49 +1666,51 @@ pub extern "C" fn graph_engine_semantic_search(
     limit: u32,
     out_count: *mut u32,
 ) -> *mut search::SearchResult {
-    ffi_engine_or!(engine, std::ptr::null_mut());
-    if query_data.is_null() || dim == 0 {
+    ffi_catch_unwind_or!("graph_engine_semantic_search", std::ptr::null_mut(), {
+        ffi_engine_or!(engine, std::ptr::null_mut());
+        if query_data.is_null() || dim == 0 {
+            unsafe {
+                if !out_count.is_null() {
+                    *out_count = 0;
+                }
+            }
+            return std::ptr::null_mut();
+        }
+
+        let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
+        let hits = engine
+            .embedding_store
+            .search(query_vec, limit as usize, 0.0);
+
         unsafe {
             if !out_count.is_null() {
-                *out_count = 0;
+                *out_count = hits.len() as u32;
             }
         }
-        return std::ptr::null_mut();
-    }
 
-    let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
-    let hits = engine
-        .embedding_store
-        .search(query_vec, limit as usize, 0.0);
-
-    unsafe {
-        if !out_count.is_null() {
-            *out_count = hits.len() as u32;
+        if hits.is_empty() {
+            return std::ptr::null_mut();
         }
-    }
 
-    if hits.is_empty() {
-        return std::ptr::null_mut();
-    }
-
-    let ffi_results: Vec<search::SearchResult> = hits
-        .into_iter()
-        .filter_map(|hit| {
-            let node = engine.graph().nodes.get(hit.node_index as usize)?;
-            Some(search::SearchResult {
-                uuid: CString::new(node.uuid.as_str())
-                    .unwrap_or_default()
-                    .into_raw(),
-                label: CString::new(node.label.as_str())
-                    .unwrap_or_default()
-                    .into_raw(),
-                node_type: node.node_type as u8,
-                score: hit.similarity,
+        let ffi_results: Vec<search::SearchResult> = hits
+            .into_iter()
+            .filter_map(|hit| {
+                let node = engine.graph().nodes.get(hit.node_index as usize)?;
+                Some(search::SearchResult {
+                    uuid: CString::new(node.uuid.as_str())
+                        .unwrap_or_default()
+                        .into_raw(),
+                    label: CString::new(node.label.as_str())
+                        .unwrap_or_default()
+                        .into_raw(),
+                    node_type: node.node_type as u8,
+                    score: hit.similarity,
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+        Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -1559,46 +1718,54 @@ pub extern "C" fn graph_engine_load_prepared_retrieval_index(
     engine: *mut Engine,
     manifest_path: *const c_char,
 ) -> u8 {
-    ffi_engine_or!(engine, 0);
-    let manifest_path = ffi_cstr!(manifest_path);
-    if manifest_path.is_empty() {
-        return 0;
-    }
-    let Some(manifest_signature) =
-        PreparedRetrievalStore::manifest_signature_for_path(manifest_path)
-    else {
-        return 0;
-    };
+    ffi_catch_unwind_or!("graph_engine_load_prepared_retrieval_index", 0, {
+        ffi_engine_or!(engine, 0);
+        let manifest_path = ffi_cstr!(manifest_path);
+        if manifest_path.is_empty() {
+            return 0;
+        }
+        let Some(manifest_signature) =
+            PreparedRetrievalStore::manifest_signature_for_path(manifest_path)
+        else {
+            return 0;
+        };
 
-    if engine
-        .prepared_retrieval_store
-        .as_ref()
-        .is_some_and(|store| store.matches_manifest_cache_key(manifest_path, manifest_signature))
-    {
-        return 1;
-    }
+        if engine
+            .prepared_retrieval_store
+            .as_ref()
+            .is_some_and(|store| {
+                store.matches_manifest_cache_key(manifest_path, manifest_signature)
+            })
+        {
+            return 1;
+        }
 
-    let Some(store) = PreparedRetrievalStore::load(manifest_path) else {
-        return 0;
-    };
-    engine.prepared_retrieval_store = Some(store);
-    1
+        let Some(store) = PreparedRetrievalStore::load(manifest_path) else {
+            return 0;
+        };
+        engine.prepared_retrieval_store = Some(store);
+        1
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear_prepared_retrieval_index(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.prepared_retrieval_store = None;
+    ffi_catch_unwind!("graph_engine_clear_prepared_retrieval_index", {
+        ffi_engine!(engine);
+        engine.prepared_retrieval_store = None;
+    });
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_prepared_retrieval_dimension(engine: *mut Engine) -> u32 {
-    ffi_engine_or!(engine, 0);
-    engine
-        .prepared_retrieval_store
-        .as_ref()
-        .map(|store| store.dimension() as u32)
-        .unwrap_or(0)
+    ffi_catch_unwind_or!("graph_engine_prepared_retrieval_dimension", 0, {
+        ffi_engine_or!(engine, 0);
+        engine
+            .prepared_retrieval_store
+            .as_ref()
+            .map(|store| store.dimension() as u32)
+            .unwrap_or(0)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -1609,49 +1776,55 @@ pub extern "C" fn graph_engine_prepared_retrieval_search(
     limit: u32,
     out_count: *mut u32,
 ) -> *mut search::SearchResult {
-    ffi_engine_or!(engine, std::ptr::null_mut());
-    if query_data.is_null() || dim == 0 {
-        unsafe {
-            if !out_count.is_null() {
-                *out_count = 0;
+    ffi_catch_unwind_or!(
+        "graph_engine_prepared_retrieval_search",
+        std::ptr::null_mut(),
+        {
+            ffi_engine_or!(engine, std::ptr::null_mut());
+            if query_data.is_null() || dim == 0 {
+                unsafe {
+                    if !out_count.is_null() {
+                        *out_count = 0;
+                    }
+                }
+                return std::ptr::null_mut();
             }
-        }
-        return std::ptr::null_mut();
-    }
 
-    let Some(store) = engine.prepared_retrieval_store.as_ref() else {
-        unsafe {
-            if !out_count.is_null() {
-                *out_count = 0;
+            let Some(store) = engine.prepared_retrieval_store.as_ref() else {
+                unsafe {
+                    if !out_count.is_null() {
+                        *out_count = 0;
+                    }
+                }
+                return std::ptr::null_mut();
+            };
+
+            let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
+            let hits = store.search(query_vec, limit as usize, 0.0);
+
+            unsafe {
+                if !out_count.is_null() {
+                    *out_count = hits.len() as u32;
+                }
             }
+
+            if hits.is_empty() {
+                return std::ptr::null_mut();
+            }
+
+            let ffi_results: Vec<search::SearchResult> = hits
+                .into_iter()
+                .map(|hit| search::SearchResult {
+                    uuid: CString::new(hit.page_id).unwrap_or_default().into_raw(),
+                    label: CString::default().into_raw(),
+                    node_type: 0,
+                    score: hit.similarity,
+                })
+                .collect();
+
+            Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
         }
-        return std::ptr::null_mut();
-    };
-
-    let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
-    let hits = store.search(query_vec, limit as usize, 0.0);
-
-    unsafe {
-        if !out_count.is_null() {
-            *out_count = hits.len() as u32;
-        }
-    }
-
-    if hits.is_empty() {
-        return std::ptr::null_mut();
-    }
-
-    let ffi_results: Vec<search::SearchResult> = hits
-        .into_iter()
-        .map(|hit| search::SearchResult {
-            uuid: CString::new(hit.page_id).unwrap_or_default().into_raw(),
-            label: CString::default().into_raw(),
-            node_type: 0,
-            score: hit.similarity,
-        })
-        .collect();
-
-    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
+    )
 }
 
 /// Score a fixed set of page IDs against the loaded prepared retrieval index.
@@ -1664,87 +1837,97 @@ pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
     page_ids: *const *const std::os::raw::c_char,
     page_id_count: u32,
 ) -> GraphEnginePreparedRetrievalCandidateList {
-    ffi_engine_or!(
-        engine,
-        GraphEnginePreparedRetrievalCandidateList {
-            candidates: std::ptr::null_mut(),
-            count: 0,
-        }
-    );
-    if query_data.is_null() || dim == 0 || page_ids.is_null() || page_id_count == 0 {
-        return GraphEnginePreparedRetrievalCandidateList {
-            candidates: std::ptr::null_mut(),
-            count: 0,
-        };
-    }
-
-    let store = match engine.prepared_retrieval_store.as_ref() {
-        Some(store) => store,
-        None => {
-            return GraphEnginePreparedRetrievalCandidateList {
-                candidates: std::ptr::null_mut(),
-                count: 0,
-            };
-        }
-    };
-
-    let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
-    let page_id_ptrs = unsafe { std::slice::from_raw_parts(page_ids, page_id_count as usize) };
-    let requested_page_ids: Vec<String> = page_id_ptrs
-        .iter()
-        .filter_map(|page_id_ptr| {
-            if page_id_ptr.is_null() {
-                return None;
+    ffi_catch_unwind_or!(
+        "graph_engine_prepared_retrieval_score_page_ids",
+        GraphEnginePreparedRetrievalCandidateList::default(),
+        {
+            ffi_engine_or!(
+                engine,
+                GraphEnginePreparedRetrievalCandidateList {
+                    candidates: std::ptr::null_mut(),
+                    count: 0,
+                }
+            );
+            if query_data.is_null() || dim == 0 || page_ids.is_null() || page_id_count == 0 {
+                return GraphEnginePreparedRetrievalCandidateList {
+                    candidates: std::ptr::null_mut(),
+                    count: 0,
+                };
             }
-            unsafe { CStr::from_ptr(*page_id_ptr) }
-                .to_str()
-                .ok()
-                .map(ToOwned::to_owned)
-        })
-        .collect();
 
-    let hits = store.score_page_ids(query_vec, &requested_page_ids);
-    if hits.is_empty() {
-        return GraphEnginePreparedRetrievalCandidateList {
-            candidates: std::ptr::null_mut(),
-            count: 0,
-        };
-    }
+            let store = match engine.prepared_retrieval_store.as_ref() {
+                Some(store) => store,
+                None => {
+                    return GraphEnginePreparedRetrievalCandidateList {
+                        candidates: std::ptr::null_mut(),
+                        count: 0,
+                    };
+                }
+            };
 
-    let mut ffi_results: Vec<GraphEnginePreparedRetrievalCandidate> = hits
-        .into_iter()
-        .map(|hit| GraphEnginePreparedRetrievalCandidate {
-            page_id: CString::new(hit.page_id).unwrap_or_default().into_raw(),
-            score: hit.similarity,
-        })
-        .collect();
+            let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
+            let page_id_ptrs =
+                unsafe { std::slice::from_raw_parts(page_ids, page_id_count as usize) };
+            let requested_page_ids: Vec<String> = page_id_ptrs
+                .iter()
+                .filter_map(|page_id_ptr| {
+                    if page_id_ptr.is_null() {
+                        return None;
+                    }
+                    unsafe { CStr::from_ptr(*page_id_ptr) }
+                        .to_str()
+                        .ok()
+                        .map(ToOwned::to_owned)
+                })
+                .collect();
 
-    let count = ffi_results.len() as u32;
-    let candidates = ffi_results.as_mut_ptr();
-    std::mem::forget(ffi_results);
-    GraphEnginePreparedRetrievalCandidateList { candidates, count }
+            let hits = store.score_page_ids(query_vec, &requested_page_ids);
+            if hits.is_empty() {
+                return GraphEnginePreparedRetrievalCandidateList {
+                    candidates: std::ptr::null_mut(),
+                    count: 0,
+                };
+            }
+
+            let mut ffi_results: Vec<GraphEnginePreparedRetrievalCandidate> = hits
+                .into_iter()
+                .map(|hit| GraphEnginePreparedRetrievalCandidate {
+                    page_id: CString::new(hit.page_id).unwrap_or_default().into_raw(),
+                    score: hit.similarity,
+                })
+                .collect();
+
+            let count = ffi_results.len() as u32;
+            let candidates = ffi_results.as_mut_ptr();
+            std::mem::forget(ffi_results);
+            GraphEnginePreparedRetrievalCandidateList { candidates, count }
+        }
+    )
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_free_prepared_retrieval_candidates(
     list: GraphEnginePreparedRetrievalCandidateList,
 ) {
-    if list.candidates.is_null() || list.count == 0 {
-        return;
-    }
-
-    // SAFETY: `list.candidates` and `list.count` come directly from
-    // graph_engine_prepared_retrieval_score_page_ids.
-    let mut candidates =
-        unsafe { Vec::from_raw_parts(list.candidates, list.count as usize, list.count as usize) };
-
-    for candidate in &mut candidates {
-        if !candidate.page_id.is_null() {
-            // SAFETY: each page_id was allocated with CString::into_raw above.
-            let _ = unsafe { CString::from_raw(candidate.page_id) };
-            candidate.page_id = std::ptr::null_mut();
+    ffi_catch_unwind!("graph_engine_free_prepared_retrieval_candidates", {
+        if list.candidates.is_null() || list.count == 0 {
+            return;
         }
-    }
+
+        // SAFETY: `list.candidates` and `list.count` come directly from
+        // graph_engine_prepared_retrieval_score_page_ids.
+        let mut candidates = unsafe {
+            Vec::from_raw_parts(list.candidates, list.count as usize, list.count as usize)
+        };
+
+        for candidate in &mut candidates {
+            if !candidate.page_id.is_null() {
+                // SAFETY: each page_id was allocated with CString::into_raw above.
+                let _ = unsafe { CString::from_raw(candidate.page_id) };
+                candidate.page_id = std::ptr::null_mut();
+            }
+        }
+    });
 }
 
 // ── Block Transaction Kernel (BTK) ───────────────────────────────────────────
@@ -1752,21 +1935,23 @@ pub extern "C" fn graph_engine_free_prepared_retrieval_candidates(
 /// Initialize BTK for a page. Call once when a page is opened.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_init(engine: *mut Engine, page_id: *const c_char) -> u8 {
-    ffi_engine_or!(engine, 0);
-    let page_id = ffi_cstr!(page_id);
-    if page_id.is_empty() {
-        return 0;
-    }
+    ffi_catch_unwind_or!("graph_engine_btk_init", 0, {
+        ffi_engine_or!(engine, 0);
+        let page_id = ffi_cstr!(page_id);
+        if page_id.is_empty() {
+            return 0;
+        }
 
-    engine
-        .btk_trees
-        .entry(page_id.to_string())
-        .or_insert_with(block_kernel::BlockTree::new);
-    engine
-        .btk_logs
-        .entry(page_id.to_string())
-        .or_insert_with(block_kernel::op_log::OpLog::new);
-    1
+        engine
+            .btk_trees
+            .entry(page_id.to_string())
+            .or_insert_with(block_kernel::BlockTree::new);
+        engine
+            .btk_logs
+            .entry(page_id.to_string())
+            .or_insert_with(block_kernel::op_log::OpLog::new);
+        1
+    })
 }
 
 /// BlockFFI struct for loading existing blocks from Swift
@@ -1788,56 +1973,58 @@ pub extern "C" fn graph_engine_btk_load_blocks(
     blocks_ptr: *const BlockFFI,
     count: u32,
 ) -> u8 {
-    ffi_engine_or!(engine, 0);
-    let page_id_str = ffi_cstr!(page_id);
-    if page_id_str.is_empty() || blocks_ptr.is_null() {
-        return 0;
-    }
+    ffi_catch_unwind_or!("graph_engine_btk_load_blocks", 0, {
+        ffi_engine_or!(engine, 0);
+        let page_id_str = ffi_cstr!(page_id);
+        if page_id_str.is_empty() || blocks_ptr.is_null() {
+            return 0;
+        }
 
-    let tree = engine
-        .btk_trees
-        .entry(page_id_str.to_string())
-        .or_insert_with(block_kernel::BlockTree::new);
-    let log = engine
-        .btk_logs
-        .entry(page_id_str.to_string())
-        .or_insert_with(block_kernel::op_log::OpLog::new);
+        let tree = engine
+            .btk_trees
+            .entry(page_id_str.to_string())
+            .or_insert_with(block_kernel::BlockTree::new);
+        let log = engine
+            .btk_logs
+            .entry(page_id_str.to_string())
+            .or_insert_with(block_kernel::op_log::OpLog::new);
 
-    // SAFETY: Swift passes a valid array of `count` BlockFFI structs.
-    let blocks = unsafe { std::slice::from_raw_parts(blocks_ptr, count as usize) };
+        // SAFETY: Swift passes a valid array of `count` BlockFFI structs.
+        let blocks = unsafe { std::slice::from_raw_parts(blocks_ptr, count as usize) };
 
-    for b in blocks {
-        let content = if b.content_ptr.is_null() {
-            String::new()
-        } else {
-            // SAFETY: Swift passes a valid null-terminated UTF-8 string; lifetime spans this loop iteration.
-            unsafe { CStr::from_ptr(b.content_ptr) }
-                .to_str()
-                .unwrap_or("")
-                .to_string()
-        };
+        for b in blocks {
+            let content = if b.content_ptr.is_null() {
+                String::new()
+            } else {
+                // SAFETY: Swift passes a valid null-terminated UTF-8 string; lifetime spans this loop iteration.
+                unsafe { CStr::from_ptr(b.content_ptr) }
+                    .to_str()
+                    .unwrap_or("")
+                    .to_string()
+            };
 
-        let block_id = block_kernel::BlockId(b.id);
-        let parent_id = if b.parent_id == [0u8; 16] {
-            None
-        } else {
-            Some(block_kernel::BlockId(b.parent_id))
-        };
+            let block_id = block_kernel::BlockId(b.id);
+            let parent_id = if b.parent_id == [0u8; 16] {
+                None
+            } else {
+                Some(block_kernel::BlockId(b.parent_id))
+            };
 
-        let op = block_kernel::Op::InsertBlock {
-            block_id,
-            parent_id,
-            position: b.order,
-            content,
-            depth: b.depth,
-        };
-        tree.apply(&op);
-        log.append(op);
-    }
+            let op = block_kernel::Op::InsertBlock {
+                block_id,
+                parent_id,
+                position: b.order,
+                content,
+                depth: b.depth,
+            };
+            tree.apply(&op);
+            log.append(op);
+        }
 
-    sync_btk_query_kernel(engine, page_id_str);
+        sync_btk_query_kernel(engine, page_id_str);
 
-    1
+        1
+    })
 }
 
 /// Translate a text edit into block ops and apply them.
@@ -1850,33 +2037,35 @@ pub extern "C" fn graph_engine_btk_translate_edit(
     old_length: u32,
     new_text: *const c_char,
 ) -> u32 {
-    ffi_engine_or!(engine, 0);
-    let page_id_str = ffi_cstr!(page_id);
-    let new_text_str = ffi_cstr!(new_text);
+    ffi_catch_unwind_or!("graph_engine_btk_translate_edit", 0, {
+        ffi_engine_or!(engine, 0);
+        let page_id_str = ffi_cstr!(page_id);
+        let new_text_str = ffi_cstr!(new_text);
 
-    let ops = {
-        let tree = match engine.btk_trees.get(page_id_str) {
-            Some(t) => t,
-            None => return 0,
+        let ops = {
+            let tree = match engine.btk_trees.get(page_id_str) {
+                Some(t) => t,
+                None => return 0,
+            };
+            block_kernel::translator::translate_edit(tree, edit_offset, old_length, new_text_str)
         };
-        block_kernel::translator::translate_edit(tree, edit_offset, old_length, new_text_str)
-    };
 
-    let count = ops.len() as u32;
+        let count = ops.len() as u32;
 
-    // Apply ops to both tree and log
-    if let Some(tree) = engine.btk_trees.get_mut(page_id_str)
-        && let Some(log) = engine.btk_logs.get_mut(page_id_str)
-    {
-        for op in ops {
-            tree.apply(&op);
-            log.append(op);
+        // Apply ops to both tree and log
+        if let Some(tree) = engine.btk_trees.get_mut(page_id_str)
+            && let Some(log) = engine.btk_logs.get_mut(page_id_str)
+        {
+            for op in ops {
+                tree.apply(&op);
+                log.append(op);
+            }
         }
-    }
 
-    sync_btk_query_kernel(engine, page_id_str);
+        sync_btk_query_kernel(engine, page_id_str);
 
-    count
+        count
+    })
 }
 
 /// Get the current markdown projection for a page.
@@ -1886,30 +2075,34 @@ pub extern "C" fn graph_engine_btk_get_markdown(
     engine: *mut Engine,
     page_id: *const c_char,
 ) -> *const c_char {
-    ffi_engine_or!(engine, std::ptr::null());
-    let page_id_str = ffi_cstr!(page_id);
+    ffi_catch_unwind_or!("graph_engine_btk_get_markdown", std::ptr::null(), {
+        ffi_engine_or!(engine, std::ptr::null());
+        let page_id_str = ffi_cstr!(page_id);
 
-    let tree = match engine.btk_trees.get(page_id_str) {
-        Some(t) => t,
-        None => return std::ptr::null(),
-    };
+        let tree = match engine.btk_trees.get(page_id_str) {
+            Some(t) => t,
+            None => return std::ptr::null(),
+        };
 
-    let md = block_kernel::projection::project(tree);
-    match CString::new(md) {
-        Ok(cs) => cs.into_raw(),
-        Err(_) => std::ptr::null(),
-    }
+        let md = block_kernel::projection::project(tree);
+        match CString::new(md) {
+            Ok(cs) => cs.into_raw(),
+            Err(_) => std::ptr::null(),
+        }
+    })
 }
 
 /// Free a string returned by graph_engine_btk_get_markdown.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_free_string(s: *mut c_char) {
-    if !s.is_null() {
-        // SAFETY: `s` was allocated by CString::into_raw in graph_engine_btk_get_markdown.
-        unsafe {
-            let _ = CString::from_raw(s);
+    ffi_catch_unwind!("graph_engine_free_string", {
+        if !s.is_null() {
+            // SAFETY: `s` was allocated by CString::into_raw in graph_engine_btk_get_markdown.
+            unsafe {
+                let _ = CString::from_raw(s);
+            }
         }
-    }
+    });
 }
 
 /// Directly update a block's content by block_id (16-byte UUID).
@@ -1922,35 +2115,37 @@ pub extern "C" fn graph_engine_btk_update_block(
     block_id_bytes: *const u8,
     new_content: *const c_char,
 ) -> u8 {
-    ffi_engine_or!(engine, 0);
-    let page_id_str = ffi_cstr!(page_id);
-    if page_id_str.is_empty() || block_id_bytes.is_null() {
-        return 0;
-    }
-    let content_str = ffi_cstr!(new_content);
-
-    // SAFETY: block_id_bytes points to 16 bytes from Swift.
-    let mut id_arr = [0u8; 16];
-    unsafe {
-        std::ptr::copy_nonoverlapping(block_id_bytes, id_arr.as_mut_ptr(), 16);
-    }
-    let block_id = block_kernel::op::BlockId(id_arr);
-
-    let op = block_kernel::op::Op::UpdateBlock {
-        block_id,
-        content: content_str.to_string(),
-    };
-
-    if let Some(tree) = engine.btk_trees.get_mut(page_id_str) {
-        tree.apply(&op);
-        if let Some(log) = engine.btk_logs.get_mut(page_id_str) {
-            log.append(op);
+    ffi_catch_unwind_or!("graph_engine_btk_update_block", 0, {
+        ffi_engine_or!(engine, 0);
+        let page_id_str = ffi_cstr!(page_id);
+        if page_id_str.is_empty() || block_id_bytes.is_null() {
+            return 0;
         }
-        sync_btk_query_kernel(engine, page_id_str);
-        1
-    } else {
-        0
-    }
+        let content_str = ffi_cstr!(new_content);
+
+        // SAFETY: block_id_bytes points to 16 bytes from Swift.
+        let mut id_arr = [0u8; 16];
+        unsafe {
+            std::ptr::copy_nonoverlapping(block_id_bytes, id_arr.as_mut_ptr(), 16);
+        }
+        let block_id = block_kernel::op::BlockId(id_arr);
+
+        let op = block_kernel::op::Op::UpdateBlock {
+            block_id,
+            content: content_str.to_string(),
+        };
+
+        if let Some(tree) = engine.btk_trees.get_mut(page_id_str) {
+            tree.apply(&op);
+            if let Some(log) = engine.btk_logs.get_mut(page_id_str) {
+                log.append(op);
+            }
+            sync_btk_query_kernel(engine, page_id_str);
+            1
+        } else {
+            0
+        }
+    })
 }
 
 // ── BTK Queries ─────────────────────────────────────────────────────────────
@@ -1968,36 +2163,42 @@ pub extern "C" fn graph_engine_btk_query_property(
     val_type: u8,
     val_str: *const c_char,
 ) -> GraphEngineByteBuffer {
-    ffi_engine_or!(engine, empty_byte_buffer());
-    let key_str = ffi_cstr!(key);
-    let val_raw = ffi_cstr!(val_str);
+    ffi_catch_unwind_or!(
+        "graph_engine_btk_query_property",
+        GraphEngineByteBuffer::default(),
+        {
+            ffi_engine_or!(engine, empty_byte_buffer());
+            let key_str = ffi_cstr!(key);
+            let val_raw = ffi_cstr!(val_str);
 
-    let value = match val_type {
-        0 => block_kernel::op::PropertyValue::String(val_raw.to_string()),
-        1 => match val_raw.parse::<f32>() {
-            Ok(f) => block_kernel::op::PropertyValue::Float(f),
-            Err(_) => return empty_byte_buffer(),
-        },
-        2 => match val_raw.parse::<i64>() {
-            Ok(i) => block_kernel::op::PropertyValue::Int(i),
-            Err(_) => return empty_byte_buffer(),
-        },
-        3 => block_kernel::op::PropertyValue::Bool(val_raw == "true"),
-        _ => return empty_byte_buffer(),
-    };
+            let value = match val_type {
+                0 => block_kernel::op::PropertyValue::String(val_raw.to_string()),
+                1 => match val_raw.parse::<f32>() {
+                    Ok(f) => block_kernel::op::PropertyValue::Float(f),
+                    Err(_) => return empty_byte_buffer(),
+                },
+                2 => match val_raw.parse::<i64>() {
+                    Ok(i) => block_kernel::op::PropertyValue::Int(i),
+                    Err(_) => return empty_byte_buffer(),
+                },
+                3 => block_kernel::op::PropertyValue::Bool(val_raw == "true"),
+                _ => return empty_byte_buffer(),
+            };
 
-    let mut matching_pages = Vec::new();
-    for (page_id, tree) in &engine.btk_trees {
-        if tree.has_matching_property(key_str, op, &value) {
-            matching_pages.push(page_id.clone());
+            let mut matching_pages = Vec::new();
+            for (page_id, tree) in &engine.btk_trees {
+                if tree.has_matching_property(key_str, op, &value) {
+                    matching_pages.push(page_id.clone());
+                }
+            }
+
+            if matching_pages.is_empty() {
+                return empty_byte_buffer();
+            }
+
+            byte_buffer_from_length_prefixed_strings(&matching_pages)
         }
-    }
-
-    if matching_pages.is_empty() {
-        return empty_byte_buffer();
-    }
-
-    byte_buffer_from_length_prefixed_strings(&matching_pages)
+    )
 }
 
 /// Query all BTK trees for blocks matching a depth filter.
@@ -2010,33 +2211,41 @@ pub extern "C" fn graph_engine_btk_query_depth(
     op: u8,
     depth: u32,
 ) -> GraphEngineByteBuffer {
-    ffi_engine_or!(engine, empty_byte_buffer());
+    ffi_catch_unwind_or!(
+        "graph_engine_btk_query_depth",
+        GraphEngineByteBuffer::default(),
+        {
+            ffi_engine_or!(engine, empty_byte_buffer());
 
-    let depth16 = depth.min(u16::MAX as u32) as u16;
-    let mut matching_pages = Vec::new();
-    for (page_id, tree) in &engine.btk_trees {
-        if tree.has_matching_depth(op, depth16) {
-            matching_pages.push(page_id.clone());
+            let depth16 = depth.min(u16::MAX as u32) as u16;
+            let mut matching_pages = Vec::new();
+            for (page_id, tree) in &engine.btk_trees {
+                if tree.has_matching_depth(op, depth16) {
+                    matching_pages.push(page_id.clone());
+                }
+            }
+
+            if matching_pages.is_empty() {
+                return empty_byte_buffer();
+            }
+
+            byte_buffer_from_length_prefixed_strings(&matching_pages)
         }
-    }
-
-    if matching_pages.is_empty() {
-        return empty_byte_buffer();
-    }
-
-    byte_buffer_from_length_prefixed_strings(&matching_pages)
+    )
 }
 
 /// Free a byte buffer returned by graph_engine_btk_take_subscription_update or snapshot APIs.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_free_bytes(buffer: GraphEngineByteBuffer) {
-    if buffer.ptr.is_null() || buffer.capacity == 0 {
-        return;
-    }
-    // SAFETY: Buffer originates from Vec::into_raw_parts-equivalent in byte_buffer_from_vec.
-    unsafe {
-        let _ = Vec::from_raw_parts(buffer.ptr, buffer.len as usize, buffer.capacity as usize);
-    }
+    ffi_catch_unwind!("graph_engine_free_bytes", {
+        if buffer.ptr.is_null() || buffer.capacity == 0 {
+            return;
+        }
+        // SAFETY: Buffer originates from Vec::into_raw_parts-equivalent in byte_buffer_from_vec.
+        unsafe {
+            let _ = Vec::from_raw_parts(buffer.ptr, buffer.len as usize, buffer.capacity as usize);
+        }
+    });
 }
 
 // ── Knowledge Core (Shared-Memory Reactive FFI) ────────────────────────────
@@ -2047,96 +2256,118 @@ pub extern "C" fn graph_engine_kc_create(
     slot_payload_bytes: u32,
     peer_id: u64,
 ) -> *mut KnowledgeCore {
-    match KnowledgeCore::new(slot_count as usize, slot_payload_bytes as usize, peer_id) {
-        Ok(core) => Box::into_raw(Box::new(core)),
-        Err(_) => std::ptr::null_mut(),
-    }
+    ffi_catch_unwind_or!("graph_engine_kc_create", std::ptr::null_mut(), {
+        match KnowledgeCore::new(slot_count as usize, slot_payload_bytes as usize, peer_id) {
+            Ok(core) => Box::into_raw(Box::new(core)),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_destroy(core: *mut KnowledgeCore) {
-    if !core.is_null() {
-        // SAFETY: `core` was allocated by `graph_engine_kc_create` and ownership
-        // returns to Rust exactly once in this destructor entrypoint.
-        unsafe {
-            drop(Box::from_raw(core));
+    ffi_catch_unwind!("graph_engine_kc_destroy", {
+        if !core.is_null() {
+            // SAFETY: `core` was allocated by `graph_engine_kc_create` and ownership
+            // returns to Rust exactly once in this destructor entrypoint.
+            unsafe {
+                drop(Box::from_raw(core));
+            }
         }
-    }
+    });
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_ring_region(
     core: *mut KnowledgeCore,
 ) -> GraphEngineSharedMemoryRegion {
-    if core.is_null() {
-        return empty_shared_region();
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call and is only
-    // borrowed mutably to access the ring metadata.
-    let core = unsafe { &mut *core };
-    let region = core.shared_region();
-    GraphEngineSharedMemoryRegion {
-        ptr: region.ptr,
-        len: region.len,
-    }
+    ffi_catch_unwind_or!(
+        "graph_engine_kc_ring_region",
+        GraphEngineSharedMemoryRegion::default(),
+        {
+            if core.is_null() {
+                return empty_shared_region();
+            }
+            // SAFETY: `core` is non-null for the duration of this FFI call and is only
+            // borrowed mutably to access the ring metadata.
+            let core = unsafe { &mut *core };
+            let region = core.shared_region();
+            GraphEngineSharedMemoryRegion {
+                ptr: region.ptr,
+                len: region.len,
+            }
+        }
+    )
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_ring_layout(core: *mut KnowledgeCore) -> GraphEngineRingLayout {
-    if core.is_null() {
-        return GraphEngineRingLayout {
-            head_offset: 0,
-            tail_offset: 0,
-            slots_offset: 0,
-            slot_stride: 0,
-            slot_payload_offset: 0,
-            slot_count: 0,
-            slot_payload_bytes: 0,
-        };
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call and is only
-    // borrowed mutably to access the exported layout.
-    let core = unsafe { &mut *core };
-    let layout = core.ring_layout();
-    GraphEngineRingLayout {
-        head_offset: layout.head_offset,
-        tail_offset: layout.tail_offset,
-        slots_offset: layout.slots_offset,
-        slot_stride: layout.slot_stride,
-        slot_payload_offset: layout.slot_payload_offset,
-        slot_count: layout.slot_count,
-        slot_payload_bytes: layout.slot_payload_bytes,
-    }
+    ffi_catch_unwind_or!(
+        "graph_engine_kc_ring_layout",
+        GraphEngineRingLayout::default(),
+        {
+            if core.is_null() {
+                return GraphEngineRingLayout {
+                    head_offset: 0,
+                    tail_offset: 0,
+                    slots_offset: 0,
+                    slot_stride: 0,
+                    slot_payload_offset: 0,
+                    slot_count: 0,
+                    slot_payload_bytes: 0,
+                };
+            }
+            // SAFETY: `core` is non-null for the duration of this FFI call and is only
+            // borrowed mutably to access the exported layout.
+            let core = unsafe { &mut *core };
+            let layout = core.ring_layout();
+            GraphEngineRingLayout {
+                head_offset: layout.head_offset,
+                tail_offset: layout.tail_offset,
+                slots_offset: layout.slots_offset,
+                slot_stride: layout.slot_stride,
+                slot_payload_offset: layout.slot_payload_offset,
+                slot_count: layout.slot_count,
+                slot_payload_bytes: layout.slot_payload_bytes,
+            }
+        }
+    )
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_ring_head(core: *mut KnowledgeCore) -> u64 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null and remains valid for this immediate load.
-    let core = unsafe { &mut *core };
-    core.load_head()
+    ffi_catch_unwind_or!("graph_engine_kc_ring_head", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null and remains valid for this immediate load.
+        let core = unsafe { &mut *core };
+        core.load_head()
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_ring_tail(core: *mut KnowledgeCore) -> u64 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null and remains valid for this immediate load.
-    let core = unsafe { &mut *core };
-    core.load_tail()
+    ffi_catch_unwind_or!("graph_engine_kc_ring_tail", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null and remains valid for this immediate load.
+        let core = unsafe { &mut *core };
+        core.load_tail()
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_ring_set_tail(core: *mut KnowledgeCore, tail: u64) {
-    if core.is_null() {
-        return;
-    }
-    // SAFETY: `core` is non-null and remains valid for this immediate store.
-    let core = unsafe { &mut *core };
-    core.store_tail(tail);
+    ffi_catch_unwind!("graph_engine_kc_ring_set_tail", {
+        if core.is_null() {
+            return;
+        }
+        // SAFETY: `core` is non-null and remains valid for this immediate store.
+        let core = unsafe { &mut *core };
+        core.store_tail(tail);
+    });
 }
 
 #[unsafe(no_mangle)]
@@ -2144,21 +2375,23 @@ pub extern "C" fn graph_engine_kc_subscribe_outline(
     core: *mut KnowledgeCore,
     page_id: *const c_char,
 ) -> u64 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let page_id = ffi_cstr!(page_id);
-    if page_id.is_empty() {
-        core.set_last_error(
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "outline subscriptions require a non-empty page id",
-        );
-        return 0;
-    }
-    let result = core.subscribe_outline(page_id);
-    kc_finish_subscription(core, result)
+    ffi_catch_unwind_or!("graph_engine_kc_subscribe_outline", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        let page_id = ffi_cstr!(page_id);
+        if page_id.is_empty() {
+            core.set_last_error(
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "outline subscriptions require a non-empty page id",
+            );
+            return 0;
+        }
+        let result = core.subscribe_outline(page_id);
+        kc_finish_subscription(core, result)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2166,25 +2399,27 @@ pub extern "C" fn graph_engine_kc_subscribe_tasks(
     core: *mut KnowledgeCore,
     page_id: *const c_char,
 ) -> u64 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let page_id = if page_id.is_null() {
-        None
-    } else {
-        Some(ffi_cstr!(page_id))
-    };
-    if matches!(page_id, Some("")) {
-        core.set_last_error(
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "task subscriptions use either nil or a non-empty page id",
-        );
-        return 0;
-    }
-    let result = core.subscribe_tasks(page_id);
-    kc_finish_subscription(core, result)
+    ffi_catch_unwind_or!("graph_engine_kc_subscribe_tasks", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        let page_id = if page_id.is_null() {
+            None
+        } else {
+            Some(ffi_cstr!(page_id))
+        };
+        if matches!(page_id, Some("")) {
+            core.set_last_error(
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "task subscriptions use either nil or a non-empty page id",
+            );
+            return 0;
+        }
+        let result = core.subscribe_tasks(page_id);
+        kc_finish_subscription(core, result)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2193,30 +2428,32 @@ pub extern "C" fn graph_engine_kc_subscribe_properties(
     page_id: *const c_char,
     key: *const c_char,
 ) -> u64 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let page_id = if page_id.is_null() {
-        None
-    } else {
-        Some(ffi_cstr!(page_id))
-    };
-    let key = if key.is_null() {
-        None
-    } else {
-        Some(ffi_cstr!(key))
-    };
-    if matches!(page_id, Some("")) || matches!(key, Some("")) {
-        core.set_last_error(
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "property subscriptions use nil or non-empty page/key values",
-        );
-        return 0;
-    }
-    let result = core.subscribe_properties(page_id, key);
-    kc_finish_subscription(core, result)
+    ffi_catch_unwind_or!("graph_engine_kc_subscribe_properties", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        let page_id = if page_id.is_null() {
+            None
+        } else {
+            Some(ffi_cstr!(page_id))
+        };
+        let key = if key.is_null() {
+            None
+        } else {
+            Some(ffi_cstr!(key))
+        };
+        if matches!(page_id, Some("")) || matches!(key, Some("")) {
+            core.set_last_error(
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "property subscriptions use nil or non-empty page/key values",
+            );
+            return 0;
+        }
+        let result = core.subscribe_properties(page_id, key);
+        kc_finish_subscription(core, result)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2224,21 +2461,23 @@ pub extern "C" fn graph_engine_kc_unsubscribe(
     core: *mut KnowledgeCore,
     subscription_id: u64,
 ) -> u8 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    if core.unsubscribe(subscription_id) {
-        core.clear_last_error();
-        1
-    } else {
-        kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "subscription id was not registered",
-        )
-    }
+    ffi_catch_unwind_or!("graph_engine_kc_unsubscribe", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        if core.unsubscribe(subscription_id) {
+            core.clear_last_error();
+            1
+        } else {
+            kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "subscription id was not registered",
+            )
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2248,30 +2487,32 @@ pub extern "C" fn graph_engine_kc_ingest_document(
     format: u8,
     text: *const c_char,
 ) -> u8 {
-    if core.is_null() {
-        return 0;
-    }
-    let Some(format) = DocumentFormat::from_ffi(format) else {
-        // SAFETY: `core` is non-null in this branch and only used to record the error.
+    ffi_catch_unwind_or!("graph_engine_kc_ingest_document", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        let Some(format) = DocumentFormat::from_ffi(format) else {
+            // SAFETY: `core` is non-null in this branch and only used to record the error.
+            let core = unsafe { &mut *core };
+            return kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "document format must be 0 (markdown) or 1 (org)",
+            );
+        };
+        // SAFETY: `core` is non-null for the duration of this FFI call.
         let core = unsafe { &mut *core };
-        return kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "document format must be 0 (markdown) or 1 (org)",
-        );
-    };
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let page_id = ffi_cstr!(page_id);
-    if page_id.is_empty() {
-        return kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "ingest_document requires a non-empty page id",
-        );
-    }
-    let result = core.ingest_document(page_id, format, ffi_cstr!(text));
-    kc_finish_result(core, result)
+        let page_id = ffi_cstr!(page_id);
+        if page_id.is_empty() {
+            return kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "ingest_document requires a non-empty page id",
+            );
+        }
+        let result = core.ingest_document(page_id, format, ffi_cstr!(text));
+        kc_finish_result(core, result)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2283,40 +2524,42 @@ pub extern "C" fn graph_engine_kc_insert_block(
     index: u32,
     content: *const c_char,
 ) -> u8 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let page_id = ffi_cstr!(page_id);
-    let block_id = ffi_cstr!(block_id);
-    if page_id.is_empty() || block_id.is_empty() {
-        return kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "insert_block requires non-empty page and block ids",
+    ffi_catch_unwind_or!("graph_engine_kc_insert_block", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        let page_id = ffi_cstr!(page_id);
+        let block_id = ffi_cstr!(block_id);
+        if page_id.is_empty() || block_id.is_empty() {
+            return kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "insert_block requires non-empty page and block ids",
+            );
+        }
+        let parent = if parent_id.is_null() {
+            None
+        } else {
+            Some(ffi_cstr!(parent_id))
+        };
+        if matches!(parent, Some("")) {
+            return kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "insert_block uses nil or a non-empty parent id",
+            );
+        }
+        let result = core.insert_block(
+            page_id,
+            block_id,
+            parent,
+            index as usize,
+            ffi_cstr!(content),
         );
-    }
-    let parent = if parent_id.is_null() {
-        None
-    } else {
-        Some(ffi_cstr!(parent_id))
-    };
-    if matches!(parent, Some("")) {
-        return kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "insert_block uses nil or a non-empty parent id",
-        );
-    }
-    let result = core.insert_block(
-        page_id,
-        block_id,
-        parent,
-        index as usize,
-        ffi_cstr!(content),
-    );
-    kc_finish_result(core, result)
+        kc_finish_result(core, result)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2327,34 +2570,36 @@ pub extern "C" fn graph_engine_kc_move_block(
     new_parent_id: *const c_char,
     index: u32,
 ) -> u8 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let page_id = ffi_cstr!(page_id);
-    let block_id = ffi_cstr!(block_id);
-    if page_id.is_empty() || block_id.is_empty() {
-        return kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "move_block requires non-empty page and block ids",
-        );
-    }
-    let parent = if new_parent_id.is_null() {
-        None
-    } else {
-        Some(ffi_cstr!(new_parent_id))
-    };
-    if matches!(parent, Some("")) {
-        return kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "move_block uses nil or a non-empty parent id",
-        );
-    }
-    let result = core.move_block(page_id, block_id, parent, index as usize);
-    kc_finish_result(core, result)
+    ffi_catch_unwind_or!("graph_engine_kc_move_block", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        let page_id = ffi_cstr!(page_id);
+        let block_id = ffi_cstr!(block_id);
+        if page_id.is_empty() || block_id.is_empty() {
+            return kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "move_block requires non-empty page and block ids",
+            );
+        }
+        let parent = if new_parent_id.is_null() {
+            None
+        } else {
+            Some(ffi_cstr!(new_parent_id))
+        };
+        if matches!(parent, Some("")) {
+            return kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "move_block uses nil or a non-empty parent id",
+            );
+        }
+        let result = core.move_block(page_id, block_id, parent, index as usize);
+        kc_finish_result(core, result)
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -2363,109 +2608,136 @@ pub extern "C" fn graph_engine_kc_delete_block(
     page_id: *const c_char,
     block_id: *const c_char,
 ) -> u8 {
-    if core.is_null() {
-        return 0;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let page_id = ffi_cstr!(page_id);
-    let block_id = ffi_cstr!(block_id);
-    if page_id.is_empty() || block_id.is_empty() {
-        return kc_fail_with(
-            core,
-            KnowledgeCoreErrorCode::InvalidArgument,
-            "delete_block requires non-empty page and block ids",
-        );
-    }
-    let result = core.delete_block(page_id, block_id);
-    kc_finish_result(core, result)
+    ffi_catch_unwind_or!("graph_engine_kc_delete_block", 0, {
+        if core.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        let page_id = ffi_cstr!(page_id);
+        let block_id = ffi_cstr!(block_id);
+        if page_id.is_empty() || block_id.is_empty() {
+            return kc_fail_with(
+                core,
+                KnowledgeCoreErrorCode::InvalidArgument,
+                "delete_block requires non-empty page and block ids",
+            );
+        }
+        let result = core.delete_block(page_id, block_id);
+        kc_finish_result(core, result)
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_last_error_code(core: *mut KnowledgeCore) -> u8 {
-    if core.is_null() {
-        return KnowledgeCoreErrorCode::InvalidArgument as u8;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    core.last_error_code()
+    ffi_catch_unwind_or!("graph_engine_kc_last_error_code", 0, {
+        if core.is_null() {
+            return KnowledgeCoreErrorCode::InvalidArgument as u8;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        core.last_error_code()
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_last_error_message(
     core: *mut KnowledgeCore,
 ) -> GraphEngineStringSlice {
-    if core.is_null() {
-        return empty_string_slice();
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    string_slice(core.last_error_message())
+    ffi_catch_unwind_or!(
+        "graph_engine_kc_last_error_message",
+        GraphEngineStringSlice::default(),
+        {
+            if core.is_null() {
+                return empty_string_slice();
+            }
+            // SAFETY: `core` is non-null for the duration of this FFI call.
+            let core = unsafe { &mut *core };
+            string_slice(core.last_error_message())
+        }
+    )
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_backpressure_policy(core: *mut KnowledgeCore) -> u8 {
-    if core.is_null() {
-        return KnowledgeCoreBackpressurePolicy::FailFast as u8;
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    core.backpressure_policy() as u8
+    ffi_catch_unwind_or!("graph_engine_kc_backpressure_policy", 0, {
+        if core.is_null() {
+            return KnowledgeCoreBackpressurePolicy::FailFast as u8;
+        }
+        // SAFETY: `core` is non-null for the duration of this FFI call.
+        let core = unsafe { &mut *core };
+        core.backpressure_policy() as u8
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_transport_stats(
     core: *mut KnowledgeCore,
 ) -> KnowledgeCoreTransportStatsFFI {
-    if core.is_null() {
-        return KnowledgeCoreTransportStatsFFI {
-            published_frames: 0,
-            dropped_frames: 0,
-            coalesced_frames: 0,
-            ring_full_failures: 0,
-        };
-    }
-    // SAFETY: `core` is non-null for the duration of this FFI call.
-    let core = unsafe { &mut *core };
-    let stats = core.transport_stats();
-    KnowledgeCoreTransportStatsFFI {
-        published_frames: stats.published_frames,
-        dropped_frames: stats.dropped_frames,
-        coalesced_frames: stats.coalesced_frames,
-        ring_full_failures: stats.ring_full_failures,
-    }
+    ffi_catch_unwind_or!(
+        "graph_engine_kc_transport_stats",
+        KnowledgeCoreTransportStatsFFI::default(),
+        {
+            if core.is_null() {
+                return KnowledgeCoreTransportStatsFFI {
+                    published_frames: 0,
+                    dropped_frames: 0,
+                    coalesced_frames: 0,
+                    ring_full_failures: 0,
+                };
+            }
+            // SAFETY: `core` is non-null for the duration of this FFI call.
+            let core = unsafe { &mut *core };
+            let stats = core.transport_stats();
+            KnowledgeCoreTransportStatsFFI {
+                published_frames: stats.published_frames,
+                dropped_frames: stats.dropped_frames,
+                coalesced_frames: stats.coalesced_frames,
+                ring_full_failures: stats.ring_full_failures,
+            }
+        }
+    )
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_subscription_kind(kind: u16) -> u8 {
-    match kind {
-        x if x == KnowledgeSubscriptionKind::Outline.code() => 0,
-        x if x == KnowledgeSubscriptionKind::Tasks.code() => 1,
-        x if x == KnowledgeSubscriptionKind::Properties.code() => 2,
-        x if x == KnowledgeSubscriptionKind::Links.code() => 3,
-        _ => u8::MAX,
-    }
+    ffi_catch_unwind_or!("graph_engine_kc_subscription_kind", 0, {
+        match kind {
+            x if x == KnowledgeSubscriptionKind::Outline.code() => 0,
+            x if x == KnowledgeSubscriptionKind::Tasks.code() => 1,
+            x if x == KnowledgeSubscriptionKind::Properties.code() => 2,
+            x if x == KnowledgeSubscriptionKind::Links.code() => 3,
+            _ => u8::MAX,
+        }
+    })
 }
 
 /// Read the archived tx id from a knowledge-core payload.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_payload_tx_id(data: *const u8, len: u64) -> u64 {
-    with_knowledge_payload(data, len, |payload| payload.tx_id.to_native()).unwrap_or(0)
+    ffi_catch_unwind_or!("graph_engine_kc_payload_tx_id", 0, {
+        with_knowledge_payload(data, len, |payload| payload.tx_id.to_native()).unwrap_or(0)
+    })
 }
 
 /// Read the archived subscription id from a knowledge-core payload.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_payload_subscription_id(data: *const u8, len: u64) -> u64 {
-    with_knowledge_payload(data, len, |payload| payload.subscription_id.to_native()).unwrap_or(0)
+    ffi_catch_unwind_or!("graph_engine_kc_payload_subscription_id", 0, {
+        with_knowledge_payload(data, len, |payload| payload.subscription_id.to_native())
+            .unwrap_or(0)
+    })
 }
 
 /// Read the archived subscription kind code from a knowledge-core payload.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_payload_kind(data: *const u8, len: u64) -> u16 {
-    with_knowledge_payload(data, len, |payload| {
-        archived_knowledge_kind_code(&payload.kind)
+    ffi_catch_unwind_or!("graph_engine_kc_payload_kind", 0, {
+        with_knowledge_payload(data, len, |payload| {
+            archived_knowledge_kind_code(&payload.kind)
+        })
+        .unwrap_or(u16::MAX)
     })
-    .unwrap_or(u16::MAX)
 }
 
 /// Read all archived summary metadata in one validated pass.
@@ -2475,36 +2747,40 @@ pub extern "C" fn graph_engine_kc_payload_summary(
     len: u64,
     out: *mut KnowledgePayloadSummaryFFI,
 ) -> u8 {
-    if out.is_null() {
-        return 0;
-    }
+    ffi_catch_unwind_or!("graph_engine_kc_payload_summary", 0, {
+        if out.is_null() {
+            return 0;
+        }
 
-    with_knowledge_payload(data, len, |payload| {
-        // SAFETY: `out` points to caller-owned storage for one `KnowledgePayloadSummaryFFI`.
-        let out_summary = unsafe { &mut *out };
-        reset_knowledge_summary(out_summary);
-        out_summary.tx_id = payload.tx_id.to_native();
-        out_summary.subscription_id = payload.subscription_id.to_native();
-        out_summary.kind =
-            graph_engine_kc_subscription_kind(archived_knowledge_kind_code(&payload.kind));
-        out_summary.added_count = payload.added.len() as u32;
-        out_summary.updated_count = payload.updated.len() as u32;
-        out_summary.removed_count = payload.removed.len() as u32;
-        1
+        with_knowledge_payload(data, len, |payload| {
+            // SAFETY: `out` points to caller-owned storage for one `KnowledgePayloadSummaryFFI`.
+            let out_summary = unsafe { &mut *out };
+            reset_knowledge_summary(out_summary);
+            out_summary.tx_id = payload.tx_id.to_native();
+            out_summary.subscription_id = payload.subscription_id.to_native();
+            out_summary.kind =
+                graph_engine_kc_subscription_kind(archived_knowledge_kind_code(&payload.kind));
+            out_summary.added_count = payload.added.len() as u32;
+            out_summary.updated_count = payload.updated.len() as u32;
+            out_summary.removed_count = payload.removed.len() as u32;
+            1
+        })
+        .unwrap_or(0)
     })
-    .unwrap_or(0)
 }
 
 /// Row count for section 0=added, 1=updated, 2=removed.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_payload_row_count(data: *const u8, len: u64, section: u8) -> u32 {
-    with_knowledge_payload(data, len, |payload| match section {
-        0 => payload.added.len(),
-        1 => payload.updated.len(),
-        2 => payload.removed.len(),
-        _ => 0,
-    } as u32)
-    .unwrap_or(0)
+    ffi_catch_unwind_or!("graph_engine_kc_payload_row_count", 0, {
+        with_knowledge_payload(data, len, |payload| match section {
+            0 => payload.added.len(),
+            1 => payload.updated.len(),
+            2 => payload.removed.len(),
+            _ => 0,
+        } as u32)
+        .unwrap_or(0)
+    })
 }
 
 /// Read one archived row from section 0=added, 1=updated, 2=removed.
@@ -2516,27 +2792,29 @@ pub extern "C" fn graph_engine_kc_payload_row(
     index: u32,
     out: *mut KnowledgeQueryRowFFI,
 ) -> u8 {
-    if out.is_null() {
-        return 0;
-    }
-
-    with_knowledge_payload(data, len, |payload| {
-        let archived_row = match section {
-            0 => payload.added.get(index as usize),
-            1 => payload.updated.get(index as usize),
-            2 => payload.removed.get(index as usize),
-            _ => None,
-        };
-        let Some(archived_row) = archived_row else {
+    ffi_catch_unwind_or!("graph_engine_kc_payload_row", 0, {
+        if out.is_null() {
             return 0;
-        };
+        }
 
-        // SAFETY: `out` points to caller-owned storage for one `KnowledgeQueryRowFFI`.
-        let out_row = unsafe { &mut *out };
-        fill_knowledge_row_from_archived(out_row, archived_row);
-        1
+        with_knowledge_payload(data, len, |payload| {
+            let archived_row = match section {
+                0 => payload.added.get(index as usize),
+                1 => payload.updated.get(index as usize),
+                2 => payload.removed.get(index as usize),
+                _ => None,
+            };
+            let Some(archived_row) = archived_row else {
+                return 0;
+            };
+
+            // SAFETY: `out` points to caller-owned storage for one `KnowledgeQueryRowFFI`.
+            let out_row = unsafe { &mut *out };
+            fill_knowledge_row_from_archived(out_row, archived_row);
+            1
+        })
+        .unwrap_or(0)
     })
-    .unwrap_or(0)
 }
 
 /// Read a contiguous batch of archived rows from section 0=added, 1=updated, 2=removed.
@@ -2549,36 +2827,38 @@ pub extern "C" fn graph_engine_kc_payload_rows(
     out: *mut KnowledgeQueryRowFFI,
     max_rows: u32,
 ) -> u32 {
-    if out.is_null() || max_rows == 0 {
-        return 0;
-    }
-
-    with_knowledge_payload(data, len, |payload| {
-        let rows = match section {
-            0 => &payload.added,
-            1 => &payload.updated,
-            2 => &payload.removed,
-            _ => return 0,
-        };
-
-        let start = start_index as usize;
-        if start >= rows.len() {
+    ffi_catch_unwind_or!("graph_engine_kc_payload_rows", 0, {
+        if out.is_null() || max_rows == 0 {
             return 0;
         }
 
-        let write_count = usize::min(max_rows as usize, rows.len() - start);
-        // SAFETY: `out` points to caller-owned storage for at least `max_rows`
-        // `KnowledgeQueryRowFFI` values, and `write_count <= max_rows`.
-        let out_rows = unsafe { std::slice::from_raw_parts_mut(out, write_count) };
-        for (out_row, archived_row) in out_rows
-            .iter_mut()
-            .zip(rows.iter().skip(start).take(write_count))
-        {
-            fill_knowledge_row_from_archived(out_row, archived_row);
-        }
-        write_count as u32
+        with_knowledge_payload(data, len, |payload| {
+            let rows = match section {
+                0 => &payload.added,
+                1 => &payload.updated,
+                2 => &payload.removed,
+                _ => return 0,
+            };
+
+            let start = start_index as usize;
+            if start >= rows.len() {
+                return 0;
+            }
+
+            let write_count = usize::min(max_rows as usize, rows.len() - start);
+            // SAFETY: `out` points to caller-owned storage for at least `max_rows`
+            // `KnowledgeQueryRowFFI` values, and `write_count <= max_rows`.
+            let out_rows = unsafe { std::slice::from_raw_parts_mut(out, write_count) };
+            for (out_row, archived_row) in out_rows
+                .iter_mut()
+                .zip(rows.iter().skip(start).take(write_count))
+            {
+                fill_knowledge_row_from_archived(out_row, archived_row);
+            }
+            write_count as u32
+        })
+        .unwrap_or(0)
     })
-    .unwrap_or(0)
 }
 
 /// Register an outline subscription for a page.
@@ -2587,12 +2867,14 @@ pub extern "C" fn graph_engine_btk_subscribe_outline(
     engine: *mut Engine,
     page_id: *const c_char,
 ) -> u64 {
-    ffi_engine_or!(engine, 0);
-    let page_id = ffi_cstr!(page_id);
-    if page_id.is_empty() {
-        return 0;
-    }
-    engine.btk_query_kernel.subscribe_outline(page_id)
+    ffi_catch_unwind_or!("graph_engine_btk_subscribe_outline", 0, {
+        ffi_engine_or!(engine, 0);
+        let page_id = ffi_cstr!(page_id);
+        if page_id.is_empty() {
+            return 0;
+        }
+        engine.btk_query_kernel.subscribe_outline(page_id)
+    })
 }
 
 /// Register a property subscription. Pass NULL for `value` to match any value for the key.
@@ -2602,15 +2884,17 @@ pub extern "C" fn graph_engine_btk_subscribe_property(
     key: *const c_char,
     value: *const c_char,
 ) -> u64 {
-    ffi_engine_or!(engine, 0);
-    let key = ffi_cstr!(key);
-    if key.is_empty() {
-        return 0;
-    }
-    let value = (!value.is_null()).then(|| ffi_cstr!(value));
-    engine
-        .btk_query_kernel
-        .subscribe_property_equals(key, value)
+    ffi_catch_unwind_or!("graph_engine_btk_subscribe_property", 0, {
+        ffi_engine_or!(engine, 0);
+        let key = ffi_cstr!(key);
+        if key.is_empty() {
+            return 0;
+        }
+        let value = (!value.is_null()).then(|| ffi_cstr!(value));
+        engine
+            .btk_query_kernel
+            .subscribe_property_equals(key, value)
+    })
 }
 
 /// Register a link traversal subscription rooted at `block_id`.
@@ -2620,25 +2904,29 @@ pub extern "C" fn graph_engine_btk_subscribe_links(
     block_id: *const c_char,
     max_depth: u8,
 ) -> u64 {
-    ffi_engine_or!(engine, 0);
-    let block_id = ffi_cstr!(block_id);
-    if block_id.is_empty() {
-        return 0;
-    }
-    engine
-        .btk_query_kernel
-        .subscribe_links(block_id, max_depth.max(1))
+    ffi_catch_unwind_or!("graph_engine_btk_subscribe_links", 0, {
+        ffi_engine_or!(engine, 0);
+        let block_id = ffi_cstr!(block_id);
+        if block_id.is_empty() {
+            return 0;
+        }
+        engine
+            .btk_query_kernel
+            .subscribe_links(block_id, max_depth.max(1))
+    })
 }
 
 /// Remove a BTK subscription.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_unsubscribe(engine: *mut Engine, subscription_id: u64) -> u8 {
-    ffi_engine_or!(engine, 0);
-    if engine.btk_query_kernel.unsubscribe(subscription_id) {
-        1
-    } else {
-        0
-    }
+    ffi_catch_unwind_or!("graph_engine_btk_unsubscribe", 0, {
+        ffi_engine_or!(engine, 0);
+        if engine.btk_query_kernel.unsubscribe(subscription_id) {
+            1
+        } else {
+            0
+        }
+    })
 }
 
 /// Return the latest archived diff for a subscription and clear its pending state.
@@ -2647,11 +2935,17 @@ pub extern "C" fn graph_engine_btk_take_subscription_update(
     engine: *mut Engine,
     subscription_id: u64,
 ) -> GraphEngineByteBuffer {
-    ffi_engine_or!(engine, empty_byte_buffer());
-    match engine.btk_query_kernel.take_update(subscription_id) {
-        Some(bytes) => byte_buffer_from_vec(bytes),
-        None => empty_byte_buffer(),
-    }
+    ffi_catch_unwind_or!(
+        "graph_engine_btk_take_subscription_update",
+        GraphEngineByteBuffer::default(),
+        {
+            ffi_engine_or!(engine, empty_byte_buffer());
+            match engine.btk_query_kernel.take_update(subscription_id) {
+                Some(bytes) => byte_buffer_from_vec(bytes),
+                None => empty_byte_buffer(),
+            }
+        }
+    )
 }
 
 /// Return an archived snapshot of a subscription at a historical BTK transaction version.
@@ -2661,33 +2955,45 @@ pub extern "C" fn graph_engine_btk_snapshot_subscription(
     subscription_id: u64,
     version: u64,
 ) -> GraphEngineByteBuffer {
-    ffi_engine_or!(engine, empty_byte_buffer());
-    match engine
-        .btk_query_kernel
-        .snapshot_bytes(subscription_id, version, &engine.btk_logs)
-    {
-        Some(bytes) => byte_buffer_from_vec(bytes),
-        None => empty_byte_buffer(),
-    }
+    ffi_catch_unwind_or!(
+        "graph_engine_btk_snapshot_subscription",
+        GraphEngineByteBuffer::default(),
+        {
+            ffi_engine_or!(engine, empty_byte_buffer());
+            match engine
+                .btk_query_kernel
+                .snapshot_bytes(subscription_id, version, &engine.btk_logs)
+            {
+                Some(bytes) => byte_buffer_from_vec(bytes),
+                None => empty_byte_buffer(),
+            }
+        }
+    )
 }
 
 /// Latest BTK query-kernel transaction sequence.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_latest_subscription_seq(engine: *mut Engine) -> u64 {
-    ffi_engine_or!(engine, 0);
-    engine.btk_query_kernel.latest_seq()
+    ffi_catch_unwind_or!("graph_engine_btk_latest_subscription_seq", 0, {
+        ffi_engine_or!(engine, 0);
+        engine.btk_query_kernel.latest_seq()
+    })
 }
 
 /// Read the archived payload version from a BTK subscription buffer.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_payload_version(data: *const u8, len: u64) -> u64 {
-    with_subscription_payload(data, len, |payload| payload.version.to_native()).unwrap_or(0)
+    ffi_catch_unwind_or!("graph_engine_btk_payload_version", 0, {
+        with_subscription_payload(data, len, |payload| payload.version.to_native()).unwrap_or(0)
+    })
 }
 
 /// Read the archived payload kind from a BTK subscription buffer.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_payload_kind(data: *const u8, len: u64) -> u8 {
-    with_subscription_payload(data, len, |payload| payload.kind).unwrap_or(0)
+    ffi_catch_unwind_or!("graph_engine_btk_payload_kind", 0, {
+        with_subscription_payload(data, len, |payload| payload.kind).unwrap_or(0)
+    })
 }
 
 /// Read all archived BTK summary metadata in one validated pass.
@@ -2697,22 +3003,24 @@ pub extern "C" fn graph_engine_btk_payload_summary(
     len: u64,
     out: *mut BtkSubscriptionPayloadSummaryFFI,
 ) -> u8 {
-    if out.is_null() {
-        return 0;
-    }
+    ffi_catch_unwind_or!("graph_engine_btk_payload_summary", 0, {
+        if out.is_null() {
+            return 0;
+        }
 
-    with_subscription_payload(data, len, |payload| {
-        // SAFETY: `out` points to caller-owned storage for one `BtkSubscriptionPayloadSummaryFFI`.
-        let out_summary = unsafe { &mut *out };
-        reset_btk_summary(out_summary);
-        out_summary.version = payload.version.to_native();
-        out_summary.kind = payload.kind;
-        out_summary.added_count = payload.added.len() as u32;
-        out_summary.updated_count = payload.updated.len() as u32;
-        out_summary.removed_count = payload.removed.len() as u32;
-        1
+        with_subscription_payload(data, len, |payload| {
+            // SAFETY: `out` points to caller-owned storage for one `BtkSubscriptionPayloadSummaryFFI`.
+            let out_summary = unsafe { &mut *out };
+            reset_btk_summary(out_summary);
+            out_summary.version = payload.version.to_native();
+            out_summary.kind = payload.kind;
+            out_summary.added_count = payload.added.len() as u32;
+            out_summary.updated_count = payload.updated.len() as u32;
+            out_summary.removed_count = payload.removed.len() as u32;
+            1
+        })
+        .unwrap_or(0)
     })
-    .unwrap_or(0)
 }
 
 /// Row count for section 0=added, 1=updated, 2=removed.
@@ -2722,13 +3030,15 @@ pub extern "C" fn graph_engine_btk_payload_row_count(
     len: u64,
     section: u8,
 ) -> u32 {
-    with_subscription_payload(data, len, |payload| match section {
-        0 => payload.added.len(),
-        1 => payload.updated.len(),
-        2 => payload.removed.len(),
-        _ => 0,
-    } as u32)
-    .unwrap_or(0)
+    ffi_catch_unwind_or!("graph_engine_btk_payload_row_count", 0, {
+        with_subscription_payload(data, len, |payload| match section {
+            0 => payload.added.len(),
+            1 => payload.updated.len(),
+            2 => payload.removed.len(),
+            _ => 0,
+        } as u32)
+        .unwrap_or(0)
+    })
 }
 
 /// Read one row from section 0=added, 1=updated, 2=removed.
@@ -2740,26 +3050,28 @@ pub extern "C" fn graph_engine_btk_payload_row(
     index: u32,
     out: *mut BtkSubscriptionRowFFI,
 ) -> u8 {
-    if out.is_null() {
-        return 0;
-    }
-    with_subscription_payload(data, len, |payload| {
-        let archived_row = match section {
-            0 => payload.added.get(index as usize),
-            1 => payload.updated.get(index as usize),
-            2 => payload.removed.get(index as usize),
-            _ => None,
-        };
-        let Some(archived_row) = archived_row else {
+    ffi_catch_unwind_or!("graph_engine_btk_payload_row", 0, {
+        if out.is_null() {
             return 0;
-        };
+        }
+        with_subscription_payload(data, len, |payload| {
+            let archived_row = match section {
+                0 => payload.added.get(index as usize),
+                1 => payload.updated.get(index as usize),
+                2 => payload.removed.get(index as usize),
+                _ => None,
+            };
+            let Some(archived_row) = archived_row else {
+                return 0;
+            };
 
-        // SAFETY: `out` is caller-owned memory for one BtkSubscriptionRowFFI.
-        let out_row = unsafe { &mut *out };
-        fill_btk_row_from_archived(out_row, archived_row);
-        1
+            // SAFETY: `out` is caller-owned memory for one BtkSubscriptionRowFFI.
+            let out_row = unsafe { &mut *out };
+            fill_btk_row_from_archived(out_row, archived_row);
+            1
+        })
+        .unwrap_or(0)
     })
-    .unwrap_or(0)
 }
 
 /// Read a contiguous batch of archived BTK rows from section 0=added, 1=updated, 2=removed.
@@ -2772,33 +3084,35 @@ pub extern "C" fn graph_engine_btk_payload_rows(
     out: *mut BtkSubscriptionRowFFI,
     max_rows: u32,
 ) -> u32 {
-    if out.is_null() || max_rows == 0 {
-        return 0;
-    }
-
-    with_subscription_payload(data, len, |payload| {
-        let rows = match section {
-            0 => &payload.added,
-            1 => &payload.updated,
-            2 => &payload.removed,
-            _ => return 0,
-        };
-
-        let start = start_index as usize;
-        if start >= rows.len() {
+    ffi_catch_unwind_or!("graph_engine_btk_payload_rows", 0, {
+        if out.is_null() || max_rows == 0 {
             return 0;
         }
 
-        let end = (start + max_rows as usize).min(rows.len());
-        let slice = &rows[start..end];
-        for (idx, archived_row) in slice.iter().enumerate() {
-            // SAFETY: `out` points to caller-owned storage for `max_rows` entries.
-            let out_row = unsafe { &mut *out.add(idx) };
-            fill_btk_row_from_archived(out_row, archived_row);
-        }
-        slice.len() as u32
+        with_subscription_payload(data, len, |payload| {
+            let rows = match section {
+                0 => &payload.added,
+                1 => &payload.updated,
+                2 => &payload.removed,
+                _ => return 0,
+            };
+
+            let start = start_index as usize;
+            if start >= rows.len() {
+                return 0;
+            }
+
+            let end = (start + max_rows as usize).min(rows.len());
+            let slice = &rows[start..end];
+            for (idx, archived_row) in slice.iter().enumerate() {
+                // SAFETY: `out` points to caller-owned storage for `max_rows` entries.
+                let out_row = unsafe { &mut *out.add(idx) };
+                fill_btk_row_from_archived(out_row, archived_row);
+            }
+            slice.len() as u32
+        })
+        .unwrap_or(0)
     })
-    .unwrap_or(0)
 }
 
 #[cfg(test)]

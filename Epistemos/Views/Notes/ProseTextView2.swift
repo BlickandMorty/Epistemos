@@ -1,5 +1,6 @@
 import AppKit
 import UniformTypeIdentifiers
+import os
 
 @MainActor
 final class ScrollWorkCoalescer {
@@ -42,6 +43,7 @@ final class ScrollWorkCoalescer {
 
 final class ProseTextView2: NSTextView {
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "ProseTextView2")
     private var requestedTheme: EpistemosTheme = .nativeDefault
 
     static func editorBackgroundColor(for theme: EpistemosTheme) -> NSColor {
@@ -83,6 +85,7 @@ final class ProseTextView2: NSTextView {
 
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
+    var onMarkedTextStart: (() -> Void)?
 
     /// Closure called when user clicks a heading fold triangle. Receives the heading character offset.
     var onFoldToggle: ((Int) -> Void)?
@@ -103,10 +106,107 @@ final class ProseTextView2: NSTextView {
         pageUndoManager ?? super.undoManager
     }
 
+    func beginNamedUndoGroup(_ name: String) {
+        undoManager?.beginUndoGrouping()
+        undoManager?.setActionName(name)
+    }
+
+    func endNamedUndoGroup() {
+        guard let undoManager, undoManager.groupingLevel > 0 else { return }
+        undoManager.endUndoGrouping()
+    }
+
     deinit {
         if let boundsObserver {
             NotificationCenter.default.removeObserver(boundsObserver)
         }
+    }
+
+    override func paste(_ sender: Any?) {
+        pasteAsPlainText(sender)
+    }
+
+    override func pasteAsPlainText(_ sender: Any?) {
+        let pasteboard = NSPasteboard.general
+
+        if let text = pasteboard.string(forType: .string) {
+            beginNamedUndoGroup("Paste")
+            defer { endNamedUndoGroup() }
+            insertText(sanitizePastedText(text), replacementRange: selectedRange())
+            return
+        }
+
+        if let rtfData = pasteboard.data(forType: .rtf),
+           let attributed = NSAttributedString(rtf: rtfData, documentAttributes: nil) {
+            beginNamedUndoGroup("Paste")
+            defer { endNamedUndoGroup() }
+            insertText(sanitizePastedText(attributed.string), replacementRange: selectedRange())
+            return
+        }
+
+        Self.log.debug("Paste contained no extractable text")
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 229,
+           let chars = event.characters,
+           chars.contains(where: { $0 == "\r" || $0 == "\n" }) {
+            Self.log.debug("Ignoring IME confirmation return for page \(self.pageId ?? "unknown", privacy: .public)")
+            return
+        }
+
+        if hasMarkedText() {
+            super.keyDown(with: event)
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        onMarkedTextStart?()
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+    }
+
+    override func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
+        actualRange?.pointee = range
+
+        let safeLocation = max(0, min(range.location, (string as NSString).length))
+        guard let textLayoutManager,
+              let textContentManager = textLayoutManager.textContentManager,
+              let documentLocation = textContentManager.location(
+                textContentManager.documentRange.location,
+                offsetBy: safeLocation
+              ),
+              let fragment = textLayoutManager.textLayoutFragment(for: documentLocation)
+        else {
+            return super.firstRect(forCharacterRange: range, actualRange: actualRange)
+        }
+
+        let fragmentFrame = fragment.layoutFragmentFrame.offsetBy(
+            dx: textContainerOrigin.x,
+            dy: textContainerOrigin.y
+        )
+        let caretRect = NSRect(
+            x: fragmentFrame.minX,
+            y: fragmentFrame.minY,
+            width: 1,
+            height: fragmentFrame.height
+        )
+        let windowRect = convert(caretRect, to: nil)
+        return window?.convertToScreen(windowRect) ?? windowRect
+    }
+
+    private func sanitizePastedText(_ text: String) -> String {
+        text.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: "\u{FFFC}", with: "")
+            .replacingOccurrences(of: "\u{200B}", with: "")
+            .replacingOccurrences(of: "\u{FEFF}", with: "")
+            .replacingOccurrences(of: "\u{200C}", with: "")
+            .replacingOccurrences(of: "\u{200D}", with: "")
+            .replacingOccurrences(of: "\u{200E}", with: "")
+            .replacingOccurrences(of: "\u{200F}", with: "")
     }
 
     func applyTheme(_ theme: EpistemosTheme) {

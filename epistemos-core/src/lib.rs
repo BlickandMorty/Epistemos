@@ -11,6 +11,7 @@ pub mod repo_analyzer;
 pub mod training;
 pub mod quality_filter;
 pub mod instant_recall;
+pub mod recovery;
 
 // ── UniFFI Exports ──────────────────────────────────────────────────────────
 // All types and functions referenced in the UDL must be in scope at crate root.
@@ -22,6 +23,7 @@ pub use vault_analyzer::classifier::DocumentClassification;
 pub use vault_analyzer::boilerplate_filter::BoilerplateResult;
 pub use vault_analyzer::chunker::ChunkDocumentResult;
 pub use quality_filter::{DedupResult, QualityScore};
+pub use recovery::{BinaryTextExtraction, BinaryTextRegion, CorruptionAnalysis, RepairCandidate};
 pub use skill_engine::RoutingDecision;
 
 // Re-export free functions for UniFFI scaffolding

@@ -39,6 +39,21 @@ final class GraphBuilder: Sendable {
         blockRefFetchDiagnosticsLock.unlock()
     }
 
+    private nonisolated func recordGraphBuilderFailure(
+        _ action: String,
+        error: Error
+    ) {
+        Log.graphBuilder.error(
+            "\(action, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
+        )
+        RuntimeDiagnostics.record(
+            .error,
+            category: "GraphBuilder",
+            message: "\(action) failed",
+            metadata: ["error": error.localizedDescription]
+        )
+    }
+
     private nonisolated func fetchReferencedBlocks(
         blockIds: Set<String>,
         context: ModelContext
@@ -94,7 +109,7 @@ final class GraphBuilder: Sendable {
         do {
             pages = try context.fetch(SDPage.activePagesDescriptor)
         } catch {
-            Log.app.error("GraphBuilder: failed to fetch pages: \(error.localizedDescription, privacy: .public)")
+            recordGraphBuilderFailure("Fetch active pages", error: error)
             pages = []
         }
 
@@ -180,7 +195,7 @@ final class GraphBuilder: Sendable {
         do {
             folders = try context.fetch(Self.folderDescriptor())
         } catch {
-            Log.app.error("GraphBuilder: failed to fetch folders: \(error.localizedDescription, privacy: .public)")
+            recordGraphBuilderFailure("Fetch folders", error: error)
             folders = []
         }
 
@@ -257,7 +272,7 @@ final class GraphBuilder: Sendable {
         do {
             chats = try context.fetch(FetchDescriptor<SDChat>())
         } catch {
-            Log.app.error("GraphBuilder: failed to fetch chats: \(error.localizedDescription, privacy: .public)")
+            recordGraphBuilderFailure("Fetch chats", error: error)
             chats = []
         }
 
@@ -272,7 +287,9 @@ final class GraphBuilder: Sendable {
             sourceIdToNodeId[chat.id] = node.id
         }
 
-        Log.app.info("GraphBuilder: \(pages.count) pages, \(chats.count) chats → \(nodes.count) nodes, \(edges.count) edges")
+        Log.graphBuilder.info(
+            "Built graph from \(pages.count) pages and \(chats.count) chats -> \(nodes.count) nodes, \(edges.count) edges"
+        )
         return (nodes: nodes, edges: edges)
     }
 
@@ -298,13 +315,13 @@ final class GraphBuilder: Sendable {
         let currentNodes: [SDGraphNode]
         do { currentNodes = try context.fetch(currentNodeDesc) }
         catch {
-            Log.app.error("GraphBuilder.persist: failed to fetch current nodes: \(error.localizedDescription, privacy: .public)")
+            recordGraphBuilderFailure("Fetch persisted graph nodes", error: error)
             currentNodes = []
         }
         let currentEdges: [SDGraphEdge]
         do { currentEdges = try context.fetch(currentEdgeDesc) }
         catch {
-            Log.app.error("GraphBuilder.persist: failed to fetch current edges: \(error.localizedDescription, privacy: .public)")
+            recordGraphBuilderFailure("Fetch persisted graph edges", error: error)
             currentEdges = []
         }
 
@@ -504,13 +521,13 @@ final class GraphBuilder: Sendable {
 
         do {
             try context.save()
-            Log.app.info("""
-                GraphBuilder: diff persist — \
+            Log.graphBuilder.info("""
+                Diff persist complete — \
                 nodes: +\(inserted) ~\(updated) -\(deleted), \
                 edges: +\(edgeInserted) ~\(edgeUpdated) -\(edgeDeleted)
                 """)
         } catch {
-            Log.app.error("GraphBuilder: failed to save graph: \(error.localizedDescription, privacy: .public)")
+            recordGraphBuilderFailure("Save graph diff", error: error)
         }
     }
 }

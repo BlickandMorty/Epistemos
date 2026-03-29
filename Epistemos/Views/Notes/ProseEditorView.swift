@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 // MARK: - ProseEditorView
 // The single notes editor for the entire app.
@@ -20,6 +21,7 @@ import SwiftUI
 // - Wikilink navigation (via NoteWindowManager)
 
 struct ProseEditorView: View {
+    private static let log = Logger(subsystem: "com.epistemos", category: "ProseEditorView")
     let page: SDPage
     var isEditable: Bool = true
     let initialBodyOverride: String?
@@ -57,10 +59,16 @@ struct ProseEditorView: View {
     }
 
     private static func currentBody(for page: SDPage, preferredBody: String? = nil) -> String {
-        if let preferredBody {
-            return preferredBody
-        }
-        return NoteWindowManager.shared.currentBody(for: page.id)
+        let rawBody = preferredBody ?? NoteWindowManager.shared.currentBody(for: page.id)
+        return stripOrphanedInlineAIResponse(in: rawBody, page: page)
+    }
+
+    private static func stripOrphanedInlineAIResponse(in body: String, page: SDPage) -> String {
+        guard let dividerRange = NoteChatInlineResponse.dividerRange(in: body) else { return body }
+        let title = page.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedTitle = title.isEmpty ? page.id : title
+        log.warning("Found orphaned AI divider in note \(resolvedTitle, privacy: .public) — stripping")
+        return String(body[..<dividerRange.lowerBound])
     }
 
     static func syncedNoteTitle(from body: String) -> String? {
@@ -177,6 +185,7 @@ struct ProseEditorView: View {
             outlineFoldMode: notesUI.outlineFoldMode
         )
         .onAppear {
+            repairOrphanedInlineAIResponseIfNeeded()
             syncBlocks(body: bodyText)
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
@@ -185,6 +194,7 @@ struct ProseEditorView: View {
             let body = Self.currentBody(for: page)
             bodyText = body
             lastPersistedBody = body
+            repairOrphanedInlineAIResponseIfNeeded()
             syncBlocks(body: body)
         }
         .onChange(of: bodyText) { _, newValue in
@@ -203,6 +213,7 @@ struct ProseEditorView: View {
             let fresh = Self.currentBody(for: page)
             bodyText = fresh
             lastPersistedBody = fresh
+            repairOrphanedInlineAIResponseIfNeeded()
         }
         // Flush in-memory edits to disk when another editor is about to read our body
         // (e.g. transclusion edit on one of our blocks from a different note).
@@ -239,6 +250,20 @@ struct ProseEditorView: View {
             page.needsVaultSync = true
             try? modelContext.save()
         }
+    }
+
+    private func repairOrphanedInlineAIResponseIfNeeded() {
+        guard NoteWindowManager.shared.editorBody(for: page.id) == nil else { return }
+        let persistedBody = NoteFileStorage.readBody(pageId: page.id, mapped: false)
+        let sanitizedBody = Self.stripOrphanedInlineAIResponse(in: persistedBody, page: page)
+        guard sanitizedBody != persistedBody else { return }
+
+        page.saveBody(sanitizedBody)
+        BlockMirror.sync(pageId: page.id, body: sanitizedBody, modelContext: modelContext)
+        bodyText = sanitizedBody
+        lastPersistedBody = sanitizedBody
+        page.needsVaultSync = true
+        try? modelContext.save()
     }
 
     // MARK: - Debounced Save

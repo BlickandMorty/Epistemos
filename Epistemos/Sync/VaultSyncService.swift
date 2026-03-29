@@ -218,10 +218,15 @@ final class VaultSyncService {
     private var fileWatcherIgnoreUntil: ContinuousClock.Instant?
     private nonisolated static let recoverySnapshotLimit = 20
 
-    private struct ResolvedVaultBookmark {
+    private struct ResolvedVaultBookmark: Sendable {
         let url: URL
         let isStale: Bool
         let usedSecurityScope: Bool
+    }
+
+    private enum VaultBookmarkResolutionError: Error {
+        case corrupted
+        case timedOut
     }
 
     init(modelContainer: ModelContainer, userDefaults: UserDefaults? = nil) {
@@ -326,12 +331,17 @@ final class VaultSyncService {
     }
 
     func persistVaultSelection(_ url: URL) {
-        if let bookmark = try? url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        ) {
+        do {
+            let bookmark = try url.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
             defaults.set(bookmark, forKey: Self.bookmarkKey)
+        } catch {
+            log.error(
+                "Failed to persist vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
         defaults.set(url.path, forKey: Self.lastVaultPathKey)
         recoveryIssue = nil
@@ -1186,6 +1196,31 @@ final class VaultSyncService {
         }
     }
 
+    private nonisolated static func resolveVaultBookmarkWithTimeout(
+        _ bookmarkData: Data,
+        timeout: Duration = .seconds(5)
+    ) async throws -> ResolvedVaultBookmark {
+        try await withThrowingTaskGroup(of: ResolvedVaultBookmark.self) { group in
+            group.addTask {
+                guard let resolved = resolveVaultBookmark(bookmarkData) else {
+                    throw VaultBookmarkResolutionError.corrupted
+                }
+                return resolved
+            }
+
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw VaultBookmarkResolutionError.timedOut
+            }
+
+            guard let result = try await group.next() else {
+                throw VaultBookmarkResolutionError.timedOut
+            }
+            group.cancelAll()
+            return result
+        }
+    }
+
     private func clearDerivedLocalStateForRecovery() {
         clearVaultData()
         _ = NoteFileStorage.removeAllManagedBodies()
@@ -1280,7 +1315,7 @@ final class VaultSyncService {
 
     /// Restore vault from saved bookmark on app launch.
     /// Call from RootView.onAppear (after NSApp is alive).
-    func restoreVaultFromBookmark() {
+    func restoreVaultFromBookmark() async {
         pruneRecoverySnapshotsIfNeeded()
 
         guard Self.shouldRestoreVaultFromBookmark() else {
@@ -1338,7 +1373,16 @@ final class VaultSyncService {
             return
         }
         log.info("📦 Resolving bookmark (\(data.count) bytes)")
-        guard let resolvedBookmark = Self.resolveVaultBookmark(data) else {
+        let resolvedBookmark: ResolvedVaultBookmark
+        do {
+            resolvedBookmark = try await Self.resolveVaultBookmarkWithTimeout(data)
+        } catch VaultBookmarkResolutionError.timedOut {
+            handleRestoreFailure(
+                reason: "Vault bookmark resolution timed out — please reattach the vault folder",
+                bookmarkExists: true
+            )
+            return
+        } catch {
             defaults.removeObject(forKey: Self.bookmarkKey)
             handleRestoreFailure(
                 reason: "📦 Failed to resolve vault bookmark",
@@ -1363,13 +1407,20 @@ final class VaultSyncService {
             // No security scope needed — bookmark resolved without it (non-sandboxed).
             // Create a fresh security-scoped bookmark so future launches work cleanly.
             gained = FileManager.default.isReadableFile(atPath: url.path)
-            if gained,
-                let fresh = try? url.bookmarkData(
-                    options: .withSecurityScope, includingResourceValuesForKeys: nil,
-                    relativeTo: nil)
-            {
-                defaults.set(fresh, forKey: Self.bookmarkKey)
-                log.info("Created fresh security-scoped bookmark for vault")
+            if gained {
+                do {
+                    let fresh = try url.bookmarkData(
+                        options: .withSecurityScope,
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil
+                    )
+                    defaults.set(fresh, forKey: Self.bookmarkKey)
+                    log.info("Created fresh security-scoped bookmark for vault")
+                } catch {
+                    log.error(
+                        "Failed to create fresh security-scoped bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
             }
         }
         if !gained {
@@ -1393,10 +1444,17 @@ final class VaultSyncService {
         }
 
         if isStale {
-            if let fresh = try? url.bookmarkData(
-                options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
-            {
+            do {
+                let fresh = try url.bookmarkData(
+                    options: .withSecurityScope,
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
                 defaults.set(fresh, forKey: Self.bookmarkKey)
+            } catch {
+                log.error(
+                    "Failed to refresh stale vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
 

@@ -60,6 +60,8 @@ final class NoteChatState {
     var onStreamStart: ((_ query: String) -> Void)?
     /// Append streaming tokens to end of storage.
     var onTokenFlush: ((_ delta: String) -> Void)?
+    /// Signals that inline streaming has fully flushed and its undo group can close.
+    var onStreamFinish: (() -> Void)?
     /// Strip the divider, keep response text inline.
     var onAccept: (() -> Void)?
     /// Delete everything from the divider onward.
@@ -166,9 +168,13 @@ final class NoteChatState {
 
         let taskToken = UUID()
         streamingTaskToken = taskToken
+        let usesInlineResponse = !useResponsePanel
         streamingTask = Task { [weak self] in
             guard let self else { return }
             defer {
+                if usesInlineResponse {
+                    self.onStreamFinish?()
+                }
                 if self.streamingTaskToken == taskToken {
                     self.streamingTask = nil
                 }
@@ -255,9 +261,13 @@ final class NoteChatState {
 
         let taskToken = UUID()
         streamingTaskToken = taskToken
+        let usesInlineResponse = !useResponsePanel
         streamingTask = Task { [weak self] in
             guard let self else { return }
             defer {
+                if usesInlineResponse {
+                    self.onStreamFinish?()
+                }
                 if self.streamingTaskToken == taskToken {
                     self.streamingTask = nil
                 }

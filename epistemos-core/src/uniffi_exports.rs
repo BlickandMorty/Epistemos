@@ -6,6 +6,7 @@ use crate::vault_analyzer::token_estimator;
 use crate::vault_analyzer::classifier;
 use crate::vault_analyzer::boilerplate_filter;
 use crate::vault_analyzer::chunker;
+use crate::recovery;
 use crate::quality_filter;
 use crate::skill_engine;
 use crate::auto_tuner::hyperparams;
@@ -83,6 +84,23 @@ pub fn sanitize_and_normalize(input: String) -> Result<String, TextNormalization
     let normalized: String = input.nfc().collect();
     debug_assert_eq!(normalized, normalized.nfc().collect::<String>());
     Ok(normalized)
+}
+
+// ── Corrupted File Recovery ────────────────────────────────────────────────
+
+pub fn classify_corruption(text: String, source_encoding: String) -> recovery::CorruptionAnalysis {
+    recovery::classify_corruption(&text, &source_encoding)
+}
+
+pub fn repair_mojibake(content: Vec<u8>) -> Vec<recovery::RepairCandidate> {
+    recovery::repair_mojibake(&content)
+}
+
+pub fn extract_text_from_binary(
+    content: Vec<u8>,
+    encoding_label: String,
+) -> recovery::BinaryTextExtraction {
+    recovery::extract_text_from_binary(&content, &encoding_label)
 }
 
 // ── Durable Filesystem Operations (zero-corruption spec §1.1) ──────────────

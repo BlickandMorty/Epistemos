@@ -566,6 +566,16 @@ const CONF_GLOW_ALPHA_SCALE: f32 = 0.08;
 const GLOW_INSTANCE_ALPHA_CUTOFF: f32 = 0.15;
 const CURVE_EDGE_STRIP_SEGMENTS: usize = 20;
 
+fn attach_command_buffer_logging(cmd_buf: &CommandBufferRef, label: &'static str) {
+    let block = block::ConcreteBlock::new(move |buffer: &CommandBufferRef| {
+        if buffer.status() == MTLCommandBufferStatus::Error {
+            eprintln!("[graph-engine] GPU command buffer failed in {label}");
+        }
+    })
+    .copy();
+    cmd_buf.add_completed_handler(&block);
+}
+
 /// Evaluate a quadratic bezier at parameter t in [0, 1].
 fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
     let s = 1.0 - t;
@@ -1690,6 +1700,7 @@ impl Renderer {
         }
 
         let cmd_buf = self.command_queue.new_command_buffer();
+        attach_command_buffer_logging(cmd_buf, "gpu_nbody_forces");
         let encoder = cmd_buf.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(pipeline);
         encoder.set_buffer(0, Some(pos_buf), 0);
@@ -3394,6 +3405,7 @@ impl Renderer {
             color.set_store_action(MTLStoreAction::Store);
 
             let cmd_buf = self.command_queue.new_command_buffer();
+            attach_command_buffer_logging(cmd_buf, "renderer_draw");
             let encoder = cmd_buf.new_render_command_encoder(render_desc);
 
             // Draw edges first (behind nodes)

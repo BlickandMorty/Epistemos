@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
+use rand::Rng;
 use rustc_hash::FxHashSet;
 
 use crate::block_kernel::{BlockTree, BtkQueryKernel, OpLog};
@@ -1079,32 +1080,32 @@ impl Engine {
     /// Pin a node at its current position by UUID (called from FFI).
     /// Uses existing d3-style fx/fy constraint — zero new physics code.
     pub fn pin_node(&self, uuid: &str) {
-        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
-            if let Some(index) = self.world.index_of_node_id(node_id) {
-                let mut sim = self.sim.lock();
-                let x = sim.x[index];
-                let y = sim.y[index];
-                sim.fix_node(index, x, y);
-            }
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid)
+            && let Some(index) = self.world.index_of_node_id(node_id)
+        {
+            let mut sim = self.sim.lock();
+            let x = sim.x[index];
+            let y = sim.y[index];
+            sim.fix_node(index, x, y);
         }
     }
 
     /// Unpin a node by UUID (called from FFI).
     pub fn unpin_node(&self, uuid: &str) {
-        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
-            if let Some(index) = self.world.index_of_node_id(node_id) {
-                self.sim.lock().unfix_node(index);
-            }
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid)
+            && let Some(index) = self.world.index_of_node_id(node_id)
+        {
+            self.sim.lock().unfix_node(index);
         }
     }
 
     /// Check if a node is pinned by UUID.
     pub fn is_node_pinned(&self, uuid: &str) -> bool {
-        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
-            if let Some(index) = self.world.index_of_node_id(node_id) {
-                let sim = self.sim.lock();
-                return sim.fx[index].is_some();
-            }
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid)
+            && let Some(index) = self.world.index_of_node_id(node_id)
+        {
+            let sim = self.sim.lock();
+            return sim.fx[index].is_some();
         }
         false
     }
@@ -1648,6 +1649,22 @@ impl Drop for Engine {
 
 // ── Physics Thread ──────────────────────────────────────────────────────────
 
+fn sanitize_simulation_positions(sim: &mut Simulation) {
+    let mut rng = rand::thread_rng();
+    for i in 0..sim.x.len() {
+        if sim.x[i].is_nan() || sim.x[i].is_infinite() {
+            sim.x[i] = rng.gen_range(-100.0..100.0);
+            sim.vx[i] = 0.0;
+        }
+        if sim.y[i].is_nan() || sim.y[i].is_infinite() {
+            sim.y[i] = rng.gen_range(-100.0..100.0);
+            sim.vy[i] = 0.0;
+        }
+        sim.x[i] = sim.x[i].clamp(-10_000.0, 10_000.0);
+        sim.y[i] = sim.y[i].clamp(-10_000.0, 10_000.0);
+    }
+}
+
 fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         while !stop.load(Ordering::Relaxed) {
@@ -1656,6 +1673,7 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
             let (settled, _alpha, node_count) = {
                 let mut sim = sim.lock();
                 sim.tick();
+                sanitize_simulation_positions(&mut sim);
                 (sim.is_settled, sim.params.alpha, sim.x.len())
             };
 

@@ -96,8 +96,22 @@ final class BlockEditTranslator {
         newContent: String,
         engine: OpaquePointer
     ) -> Bool {
-        guard isPageInitialized(pageId, engine: engine) else { return false }
-        guard let uuid = UUID(uuidString: blockId) else { return false }
+        guard isPageInitialized(pageId, engine: engine) else {
+            recordFFIDiagnostic(
+                .warning,
+                message: "BTK block update skipped because page was not initialized",
+                metadata: ["pageId": pageId, "blockId": blockId]
+            )
+            return false
+        }
+        guard let uuid = UUID(uuidString: blockId) else {
+            recordFFIDiagnostic(
+                .error,
+                message: "BTK block update rejected an invalid block UUID",
+                metadata: ["pageId": pageId, "blockId": blockId]
+            )
+            return false
+        }
         let (b0, b1, b2, b3, b4, b5, b6, b7,
              b8, b9, b10, b11, b12, b13, b14, b15) = uuid.uuid
         let bytes: [UInt8] = [b0, b1, b2, b3, b4, b5, b6, b7,
@@ -110,7 +124,19 @@ final class BlockEditTranslator {
                 }
             }
         }
-        return result == 1
+        guard result == 1 else {
+            recordFFIDiagnostic(
+                .error,
+                message: "BTK block update failed at the FFI boundary",
+                metadata: [
+                    "pageId": pageId,
+                    "blockId": blockId,
+                    "contentBytes": "\(newContent.utf8.count)",
+                ]
+            )
+            return false
+        }
+        return true
     }
 
     private static func markPageInitialized(_ pageId: String, engine: OpaquePointer) {
@@ -122,5 +148,29 @@ final class BlockEditTranslator {
 
     private static func isPageInitialized(_ pageId: String, engine: OpaquePointer) -> Bool {
         initializedPageIDsByEngine[Int(bitPattern: engine)]?.contains(pageId) == true
+    }
+
+    private static func recordFFIDiagnostic(
+        _ severity: RuntimeDiagnosticSeverity,
+        message: String,
+        metadata: [String: String]
+    ) {
+        switch severity {
+        case .warning:
+            Log.ffiBoundary.warning("\(message, privacy: .public)")
+        case .error, .fault:
+            Log.ffiBoundary.error("\(message, privacy: .public)")
+        case .info:
+            Log.ffiBoundary.info("\(message, privacy: .public)")
+        case .debug:
+            Log.ffiBoundary.debug("\(message, privacy: .public)")
+        }
+
+        RuntimeDiagnostics.record(
+            severity,
+            category: "FFIBoundary",
+            message: message,
+            metadata: metadata
+        )
     }
 }
