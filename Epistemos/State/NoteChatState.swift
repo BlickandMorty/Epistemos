@@ -24,6 +24,12 @@ enum NoteChatInlineResponse {
     }
 }
 
+enum NoteChatToolbarStatusPhase: Equatable {
+    case idle
+    case analyzing
+    case typing
+}
+
 // MARK: - Note Chat State (v2 — Simplified)
 // Per-note AI chat state. One instance per open note tab.
 // Manages a single query → response cycle with display-paced token buffering.
@@ -36,6 +42,12 @@ enum NoteChatInlineResponse {
 
 @MainActor @Observable
 final class NoteChatState {
+    private enum StreamingPresentation {
+        case responsePanel
+        case inlinePending
+        case inlineAutoCommit
+    }
+
     private let log = Logger(subsystem: "com.epistemos", category: "NoteChat")
 
     let pageId: String
@@ -51,6 +63,7 @@ final class NoteChatState {
     /// True when response displays in the slide-up panel (free-text queries).
     /// False when response is inline in storage (context menu operations).
     var useResponsePanel = false
+    var toolbarStatusPhase: NoteChatToolbarStatusPhase = .idle
     /// Per-note chat history.
     var messages: [AssistantMessage] = []
 
@@ -66,6 +79,8 @@ final class NoteChatState {
     var onAccept: (() -> Void)?
     /// Delete everything from the divider onward.
     var onDiscard: (() -> Void)?
+    /// Replace the inline response body with a sanitized final version before accept/discard.
+    var onReplaceInlineResponse: ((_ text: String) -> Void)?
     /// Read the current note body from storage.
     var noteBodyProvider: (() -> String)?
     /// Insert text at the current cursor position (panel mode accept).
@@ -81,14 +96,27 @@ final class NoteChatState {
     private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
         guard let self else { return }
         self.responseText += delta
-        if !self.useResponsePanel {
+        switch self.streamingPresentation {
+        case .responsePanel:
+            if !self.useResponsePanel {
+                self.onTokenFlush?(delta)
+            }
+        case .inlinePending:
             self.onTokenFlush?(delta)
+        case .inlineAutoCommit:
+            let visibleDelta = self.visibleToolbarInlineDelta(for: self.responseText)
+            if !visibleDelta.isEmpty {
+                self.toolbarStatusPhase = .typing
+                self.onTokenFlush?(visibleDelta)
+            }
         }
         self.emitStreamingHapticIfNeeded()
     }
     @ObservationIgnored private var lastStreamingHapticAt: Date?
     @ObservationIgnored private var streamingTask: Task<Void, Never>?
     @ObservationIgnored private var streamingTaskToken = UUID()
+    @ObservationIgnored private var streamingPresentation: StreamingPresentation = .responsePanel
+    @ObservationIgnored private var streamedInlineVisibleText = ""
 
     init(pageId: String) {
         self.pageId = pageId
@@ -115,13 +143,20 @@ final class NoteChatState {
         HapticHelper.streamingTick()
     }
 
-    // MARK: - Submit
+    private func visibleToolbarInlineDelta(for rawResponse: String) -> String {
+        let visibleText = UserFacingModelOutput.streamingVisibleText(from: rawResponse)
+        guard !visibleText.isEmpty else { return "" }
+        guard visibleText.hasPrefix(streamedInlineVisibleText) else { return "" }
+        let start = visibleText.index(visibleText.startIndex, offsetBy: streamedInlineVisibleText.count)
+        streamedInlineVisibleText = visibleText
+        return String(visibleText[start...])
+    }
 
-    func submitQuery(_ query: String, triageService: TriageService) {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        replacePendingResponseIfNeeded()
-
+    private func beginSubmission(
+        trimmed: String,
+        presentation: StreamingPresentation,
+        startInlineStream: Bool
+    ) {
         messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
         resetStreamBuffer()
@@ -129,8 +164,106 @@ final class NoteChatState {
         error = nil
         isStreaming = true
         hasResponse = true
-        useResponsePanel = true
+        useResponsePanel = presentation == .responsePanel
+        toolbarStatusPhase = presentation == .inlineAutoCommit ? .analyzing : .idle
         responseText.reserveCapacity(16_384)
+        streamingPresentation = presentation
+        streamedInlineVisibleText = ""
+
+        if startInlineStream {
+            onStreamStart?(trimmed)
+        }
+    }
+
+    private func finishStreamingTaskIfNeeded(taskToken: UUID, usesInlineResponse: Bool) {
+        if usesInlineResponse {
+            onStreamFinish?()
+        }
+        if streamingTaskToken == taskToken {
+            streamingTask = nil
+        }
+    }
+
+    private func finalizeResponseText() -> String {
+        isStreaming = false
+        let final = UserFacingModelOutput.finalVisibleText(from: responseText)
+        responseText = final
+        if !useResponsePanel {
+            onReplaceInlineResponse?(final)
+        }
+        return final
+    }
+
+    private func resolveInlineAutoCommitResponse() {
+        guard streamingPresentation == .inlineAutoCommit, hasResponse else {
+            toolbarStatusPhase = .idle
+            return
+        }
+
+        let final = finalizeResponseText()
+        if !final.isEmpty {
+            acceptResponse()
+            messages.append(AssistantMessage(role: .assistant, content: final))
+        } else {
+            discardResponse()
+        }
+    }
+
+    private func startStreamingTask(
+        stream: AsyncThrowingStream<String, Error>,
+        taskToken: UUID,
+        usesInlineResponse: Bool
+    ) {
+        let autoCommitInlineResponse = streamingPresentation == .inlineAutoCommit
+        streamingTask = Task { [weak self] in
+            guard let self else { return }
+            defer { self.finishStreamingTaskIfNeeded(taskToken: taskToken, usesInlineResponse: usesInlineResponse) }
+            do {
+                for try await chunk in stream {
+                    self.appendStreamingText(chunk)
+                }
+                self.flushTokens()
+                guard !Task.isCancelled else {
+                    self.isStreaming = false
+                    self.resolveInlineAutoCommitResponse()
+                    return
+                }
+
+                if autoCommitInlineResponse {
+                    self.resolveInlineAutoCommitResponse()
+                } else {
+                    let final = self.finalizeResponseText()
+                    if !final.isEmpty {
+                        self.messages.append(AssistantMessage(role: .assistant, content: final))
+                    }
+                }
+            } catch is CancellationError {
+                self.flushTokens()
+                self.isStreaming = false
+                self.resolveInlineAutoCommitResponse()
+            } catch {
+                self.flushTokens()
+                self.isStreaming = false
+                self.error = error.localizedDescription
+                self.log.error("Note chat error: \(error.localizedDescription)")
+                self.resolveInlineAutoCommitResponse()
+            }
+        }
+    }
+
+    private func resetStreamingPresentationState() {
+        streamingPresentation = .responsePanel
+        streamedInlineVisibleText = ""
+        toolbarStatusPhase = .idle
+    }
+
+    // MARK: - Submit
+
+    func submitQuery(_ query: String, triageService: TriageService) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        replacePendingResponseIfNeeded()
+        beginSubmission(trimmed: trimmed, presentation: .responsePanel, startInlineStream: false)
 
         AppBootstrap.shared?.activityTracker.recordChatMessage(chatId: pageId, snippet: trimmed)
 
@@ -169,41 +302,51 @@ final class NoteChatState {
         let taskToken = UUID()
         streamingTaskToken = taskToken
         let usesInlineResponse = !useResponsePanel
-        streamingTask = Task { [weak self] in
-            guard let self else { return }
-            defer {
-                if usesInlineResponse {
-                    self.onStreamFinish?()
-                }
-                if self.streamingTaskToken == taskToken {
-                    self.streamingTask = nil
-                }
-            }
-            do {
-                for try await chunk in stream {
-                    self.appendStreamingText(chunk)
-                }
-                self.flushTokens()
-                guard !Task.isCancelled else {
-                    self.isStreaming = false
-                    return
-                }
-                self.isStreaming = false
-                let final = UserFacingModelOutput.finalVisibleText(from: self.responseText)
-                self.responseText = final
-                if !final.isEmpty {
-                    self.messages.append(AssistantMessage(role: .assistant, content: final))
-                }
-            } catch is CancellationError {
-                self.flushTokens()
-                self.isStreaming = false
-            } catch {
-                self.flushTokens()
-                self.isStreaming = false
-                self.error = error.localizedDescription
-                self.log.error("Note chat error: \(error.localizedDescription)")
-            }
+        startStreamingTask(stream: stream, taskToken: taskToken, usesInlineResponse: usesInlineResponse)
+    }
+
+    func submitToolbarQuery(_ query: String, triageService: TriageService) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        replacePendingResponseIfNeeded()
+        beginSubmission(trimmed: trimmed, presentation: .inlineAutoCommit, startInlineStream: true)
+
+        AppBootstrap.shared?.activityTracker.recordChatMessage(chatId: pageId, snippet: trimmed)
+
+        let noteBody = noteBodyProvider?() ?? ""
+        let noteSnippet = String(noteBody.prefix(4000))
+
+        indexCurrentNoteForInstantRecall(noteBody)
+        let recallContext = instantRecallContext(for: trimmed)
+
+        let history = conversationHistoryPrompt()
+        let fullPrompt = buildPrompt(
+            noteSnippet: noteSnippet,
+            recallContext: recallContext,
+            history: history,
+            query: trimmed
+        )
+
+        let stream: AsyncThrowingStream<String, Error>
+        if let reasoning = AppBootstrap.shared?.reasoningLoopService, reasoning.config.enabled {
+            stream = reasoning.streamWithReasoning(
+                prompt: fullPrompt, systemPrompt: nil,
+                operation: .ask(query: trimmed),
+                contentLength: noteBody.count, query: trimmed
+            )
+            log.info("Note chat toolbar: reasoning loop enabled")
+        } else {
+            stream = triageService.stream(
+                prompt: fullPrompt, systemPrompt: nil,
+                operation: .ask(query: trimmed),
+                contentLength: noteBody.count, query: trimmed
+            )
+            log.info("Note chat toolbar: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
         }
+
+        let taskToken = UUID()
+        streamingTaskToken = taskToken
+        startStreamingTask(stream: stream, taskToken: taskToken, usesInlineResponse: true)
     }
 
     /// Submit with a specific operation for proper triage routing.
@@ -217,18 +360,7 @@ final class NoteChatState {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         replacePendingResponseIfNeeded()
-
-        messages.append(AssistantMessage(role: .user, content: trimmed))
-        inputText = ""
-        resetStreamBuffer()
-        responseText = ""
-        error = nil
-        isStreaming = true
-        hasResponse = true
-        useResponsePanel = false
-        responseText.reserveCapacity(16_384)
-
-        onStreamStart?(trimmed)
+        beginSubmission(trimmed: trimmed, presentation: .inlinePending, startInlineStream: true)
 
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
@@ -262,42 +394,7 @@ final class NoteChatState {
         let taskToken = UUID()
         streamingTaskToken = taskToken
         let usesInlineResponse = !useResponsePanel
-        streamingTask = Task { [weak self] in
-            guard let self else { return }
-            defer {
-                if usesInlineResponse {
-                    self.onStreamFinish?()
-                }
-                if self.streamingTaskToken == taskToken {
-                    self.streamingTask = nil
-                }
-            }
-            do {
-                for try await chunk in stream {
-                    self.appendStreamingText(chunk)
-                }
-                self.flushTokens()
-                guard !Task.isCancelled else {
-                    self.isStreaming = false
-                    return
-                }
-                self.isStreaming = false
-                let final = UserFacingModelOutput.finalVisibleText(from: self.responseText)
-                self.responseText = final
-                if !final.isEmpty {
-                    self.messages.append(AssistantMessage(role: .assistant, content: final))
-                }
-                self.log.info("Note chat complete for page \(self.pageId)")
-            } catch is CancellationError {
-                self.flushTokens()
-                self.isStreaming = false
-            } catch {
-                self.flushTokens()
-                self.isStreaming = false
-                self.error = error.localizedDescription
-                self.log.error("Note chat error: \(error.localizedDescription)")
-            }
-        }
+        startStreamingTask(stream: stream, taskToken: taskToken, usesInlineResponse: usesInlineResponse)
     }
 
     /// Build a conversation history string from prior messages (excluding the just-appended user message).
@@ -418,6 +515,7 @@ final class NoteChatState {
         streamingTask = nil
         flushTokens()
         isStreaming = false
+        resolveInlineAutoCommitResponse()
     }
 
     private func replacePendingResponseIfNeeded() {
@@ -438,6 +536,7 @@ final class NoteChatState {
         hasResponse = false
         useResponsePanel = false
         responseText = ""
+        resetStreamingPresentationState()
     }
 
     func discardResponse() {
@@ -448,6 +547,7 @@ final class NoteChatState {
         hasResponse = false
         useResponsePanel = false
         responseText = ""
+        resetStreamingPresentationState()
     }
 
     func clear() {
@@ -458,6 +558,7 @@ final class NoteChatState {
             resetStreamBuffer()
             responseText = ""
             useResponsePanel = false
+            resetStreamingPresentationState()
         }
         inputText = ""
         error = nil

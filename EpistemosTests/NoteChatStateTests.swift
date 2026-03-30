@@ -231,6 +231,56 @@ struct NoteChatStateTests {
         )
     }
 
+    @Test("toolbar ask streams inline, sanitizes the final text, and auto-commits it into the note")
+    @MainActor func toolbarAskStreamsInlineAndAutoCommits() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        llm.streamTokens = [
+            "<think>Inspecting note context.</think>",
+            "\n\nFinal Answer:\n",
+            "Visible answer."
+        ]
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-toolbar-inline")
+        state.noteBodyProvider = { "Original note body." }
+
+        var lifecycleEvents: [String] = []
+        var flushedVisibleDeltas: [String] = []
+        var finalizedInlineText: [String] = []
+        state.onStreamStart = { _ in lifecycleEvents.append("start") }
+        state.onTokenFlush = { delta in
+            lifecycleEvents.append("flush")
+            flushedVisibleDeltas.append(delta)
+        }
+        state.onReplaceInlineResponse = { text in
+            lifecycleEvents.append("replace")
+            finalizedInlineText.append(text)
+        }
+        state.onAccept = { lifecycleEvents.append("accept") }
+
+        state.submitToolbarQuery("Explain this note.", triageService: triage)
+
+        for _ in 0..<50 where state.isStreaming || state.hasResponse {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(!state.useResponsePanel)
+        #expect(!state.hasResponse)
+        #expect(!state.isStreaming)
+        #expect(flushedVisibleDeltas.joined() == "Visible answer.")
+        #expect(finalizedInlineText == ["Visible answer."])
+        #expect(Array(lifecycleEvents.suffix(2)) == ["replace", "accept"])
+        #expect(state.messages.count == 2)
+        #expect(state.messages.last?.role == .assistant)
+        #expect(state.messages.last?.content == "Visible answer.")
+    }
+
     @Test("operation submit discards an existing inline response before starting a new stream")
     @MainActor func operationSubmitDiscardsExistingInlineResponse() throws {
         let inference = InferenceState()

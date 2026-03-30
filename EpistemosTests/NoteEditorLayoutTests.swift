@@ -360,6 +360,27 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
     }
 
+    @Test("toolbar ask field streams inline with siri glow instead of the old ascii status badge")
+    func toolbarAskFieldStreamsInlineWithoutPopover() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        guard let toolbarRange = source.range(of: "private func toolbarChatField(width: CGFloat) -> some View"),
+              let nextSectionRange = source.range(of: "private var noteChatContextAttachment", range: toolbarRange.upperBound..<source.endIndex) else {
+            Issue.record("Failed to isolate toolbarChatField() in NoteDetailWorkspaceView.swift")
+            return
+        }
+
+        let toolbarSource = String(source[toolbarRange.lowerBound..<nextSectionRange.lowerBound])
+
+        #expect(toolbarSource.contains("noteChatState.submitToolbarQuery("))
+        #expect(toolbarSource.contains(".siriGlow("))
+        #expect(!toolbarSource.contains(".popover("))
+        #expect(!toolbarSource.contains("ASCIIFrameAnimationText("))
+        #expect(!toolbarSource.contains("ASCIIRippleText("))
+        #expect(!source.contains("private var toolbarResponseDropdown"))
+        #expect(!source.contains("private var toolbarAskStatusAnimation"))
+        #expect(!source.contains("private var toolbarAskStatusBadge"))
+    }
+
     @Test("preview reserves the native titlebar inset and falls back higher for tab groups")
     func previewReservesTitlebarInset() {
         #expect(

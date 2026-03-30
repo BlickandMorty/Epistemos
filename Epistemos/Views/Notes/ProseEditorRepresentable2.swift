@@ -561,6 +561,10 @@ extension ProseEditorRepresentable2 {
                 self?.discardNoteChatResponse(for: pageId)
             }
 
+            noteChat.onReplaceInlineResponse = { [weak self, pageId = noteChat.pageId] text in
+                self?.replaceNoteChatResponse(text, for: pageId)
+            }
+
             noteChat.onInsertAtCursor = { [weak self] text in
                 self?.insertTextAtCursor(text)
             }
@@ -654,6 +658,25 @@ extension ProseEditorRepresentable2 {
             isFlushingTokens = false
             tv.hasProtectedInlineResponseDivider = false
             flushBindingSync()
+        }
+
+        private func replaceNoteChatResponse(_ text: String, for expectedPageId: String) {
+            guard currentPageId == expectedPageId,
+                  let tv = textView,
+                  let ts = tv.textStorage else { return }
+            let str = ts.string
+            guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
+            let dividerRange = NSRange(range, in: str)
+            let responseLocation = dividerRange.location + dividerRange.length
+            let responseLength = max(0, ts.length - responseLocation)
+            let responseRange = NSRange(location: responseLocation, length: responseLength)
+
+            isFlushingTokens = true
+            tv.setProgrammaticEditLocation(responseLocation)
+            ts.replaceCharacters(in: responseRange, with: text)
+            tv.didChangeText()
+            isFlushingTokens = false
+            tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
         }
 
         private func insertTextAtCursor(_ text: String) {

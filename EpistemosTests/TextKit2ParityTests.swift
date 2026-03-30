@@ -862,6 +862,20 @@ struct AIStreamingTests {
         #expect(getText() == tv.string)
     }
 
+    @Test("Inline finalization replaces the streamed draft before commit")
+    func inlineFinalizationReplacesStreamedDraftBeforeCommit() {
+        let (_, tv, chat, getText) = Self.makeCoordinator2Stack()
+        chat.onStreamStart?("q")
+        chat.onTokenFlush?("Draft response")
+        chat.onReplaceInlineResponse?("Final response")
+        chat.onAccept?()
+
+        #expect(!tv.string.contains("<!-- ai-response -->"))
+        #expect(tv.string.contains("Final response"))
+        #expect(!tv.string.contains("Draft response"))
+        #expect(getText() == tv.string)
+    }
+
     // MARK: - Discard
 
     @Test("Discard — removes everything from divider onward")

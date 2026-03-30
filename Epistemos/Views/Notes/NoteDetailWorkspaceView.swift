@@ -1563,151 +1563,73 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    // MARK: - Toolbar Response Dropdown
-
-    private var toolbarResponseDropdown: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ui.theme.resolved.accent.color)
-                Text("Response")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Spacer()
-                if noteChatState.isStreaming {
-                    ProgressView().controlSize(.mini)
-                } else {
-                    Button {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(
-                            UserFacingModelOutput.finalVisibleText(from: noteChatState.responseText),
-                            forType: .string
-                        )
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(ui.theme.textTertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Copy")
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-
-            Divider().opacity(0.3)
-
-            ScrollView {
-                let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(from: noteChatState.responseText)
-                let visibleFinalText = UserFacingModelOutput.finalVisibleText(from: noteChatState.responseText)
-
-                if visibleStreamingText.isEmpty && noteChatState.isStreaming {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text("Responding\u{2026}")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                } else {
-                    Text(
-                        (noteChatState.isStreaming ? visibleStreamingText : visibleFinalText)
-                            + (noteChatState.isStreaming ? " \u{258D}" : "")
-                    )
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                }
-            }
-            .frame(height: 260)
-
-            Divider().opacity(0.3)
-
-            // Follow-up + actions
-            VStack(alignment: .leading, spacing: 8) {
-                if let attachment = noteChatContextAttachment {
-                    noteChatAttachmentChip(attachment)
-                }
-
-                HStack(spacing: 8) {
-                    @Bindable var chat = noteChatState
-                    TextField("Follow up\u{2026}", text: $chat.inputText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 12))
-                        .onSubmit {
-                            noteChatState.submitQuery(
-                                noteChatState.inputText,
-                                triageService: triageService
-                            )
-                        }
-                        .disabled(noteChatState.isStreaming)
-
-                    if noteChatState.isStreaming {
-                        Button {
-                            noteChatState.stopStreaming()
-                        } label: {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 9))
-                                .foregroundStyle(ui.theme.error)
-                        }
-                        .buttonStyle(.plain)
-                    } else if !noteChatState.responseText.isEmpty {
-                        Button {
-                            logNoteChatFeedback(desirable: true)
-                            noteChatState.acceptResponse()
-                        } label: {
-                            Label("Insert", systemImage: "text.insert")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(ui.theme.resolved.accent.color)
-
-                        Button {
-                            logNoteChatFeedback(desirable: false)
-                            noteChatState.discardResponse()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 11))
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(ui.theme.textTertiary)
-                    }
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-        }
-        .frame(width: 420)
-    }
-
-    /// Log a KTO feedback signal from note chat accept/discard to the training pipeline.
-    /// Captures prompt+completion before the response state is cleared.
-    private func logNoteChatFeedback(desirable: Bool) {
-        let completion = noteChatState.responseText
-        guard !completion.isEmpty else { return }
-        let prompt = noteChatState.messages.last(where: { $0.role == .user })?.content ?? ""
-        let feedbackType: FeedbackType = desirable ? .acceptGhost : .rejectEdit
-        Task {
-            await KnowledgeFusionViewModel.shared.logFeedback(
-                prompt: prompt,
-                completion: completion,
-                desirable: desirable,
-                type: feedbackType
-            )
-        }
-    }
-
     private func showAppleWritingTools() {
         NotificationCenter.default.post(
             name: WritingToolsBridge.showNotification,
             object: nil,
             userInfo: ["pageId": pageId]
         )
+    }
+
+    private var toolbarAskStatusText: String {
+        switch noteChatState.toolbarStatusPhase {
+        case .idle:
+            ""
+        case .analyzing:
+            "AI response below"
+        case .typing:
+            "Scroll to bottom"
+        }
+    }
+
+    private var toolbarAskGlowLineWidth: CGFloat {
+        switch noteChatState.toolbarStatusPhase {
+        case .idle:
+            1.0
+        case .analyzing:
+            1.6
+        case .typing:
+            1.1
+        }
+    }
+
+    private var toolbarAskFillColor: Color {
+        let accent = ui.theme.resolved.accent.color
+        switch noteChatState.toolbarStatusPhase {
+        case .idle:
+            return ui.theme.resolved.foreground.color.opacity(0.035)
+        case .analyzing:
+            return accent.opacity(0.10)
+        case .typing:
+            return accent.opacity(0.05)
+        }
+    }
+
+    private var toolbarAskStrokeColor: Color {
+        let accent = ui.theme.resolved.accent.color
+        switch noteChatState.toolbarStatusPhase {
+        case .idle:
+            return ui.theme.resolved.foreground.color.opacity(0.08)
+        case .analyzing:
+            return accent.opacity(0.22)
+        case .typing:
+            return accent.opacity(0.12)
+        }
+    }
+
+    @ViewBuilder
+    private var toolbarAskStatusLabel: some View {
+        if !toolbarAskStatusText.isEmpty {
+            Text(toolbarAskStatusText)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(
+                    noteChatState.toolbarStatusPhase == .analyzing
+                        ? ui.theme.textSecondary
+                        : ui.theme.textTertiary
+                )
+                .lineLimit(1)
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+        }
     }
 
     // MARK: - Toolbar Chat Field
@@ -1728,11 +1650,13 @@ struct NoteDetailWorkspaceView: View {
                 .font(.system(size: 11))
                 .frame(width: width)
                 .onSubmit {
-                    noteChatState.submitQuery(
+                    noteChatState.submitToolbarQuery(
                         noteChatState.inputText,
                         triageService: triageService
                     )
                 }
+
+            toolbarAskStatusLabel
 
             if noteChatState.isStreaming {
                 Button {
@@ -1747,15 +1671,20 @@ struct NoteDetailWorkspaceView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .popover(
-            isPresented: Binding(
-                get: { noteChatState.hasResponse && noteChatState.useResponsePanel },
-                set: { if !$0 { noteChatState.discardResponse() } }
-            ),
-            arrowEdge: .bottom
-        ) {
-            toolbarResponseDropdown
-        }
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(toolbarAskFillColor)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(toolbarAskStrokeColor, lineWidth: 0.75)
+        )
+        .siriGlow(
+            cornerRadius: 10,
+            lineWidth: toolbarAskGlowLineWidth,
+            isActive: noteChatState.toolbarStatusPhase != .idle
+        )
+        .animation(Motion.quick, value: noteChatState.toolbarStatusPhase)
     }
 
     private var noteChatContextAttachment: ContextAttachment? {
