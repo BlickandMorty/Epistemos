@@ -4,6 +4,7 @@ import SwiftUI
 struct AgentSessionPanel: View {
     @Bindable var viewModel: AgentViewModel
     @State private var prompt = ""
+    @State private var searchText = ""
     @FocusState private var promptFocused: Bool
 
     var body: some View {
@@ -348,17 +349,53 @@ struct AgentSessionPanel: View {
                 .padding(.top, 14)
                 .padding(.bottom, 12)
 
+                TextField("Search sessions...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+                    .onSubmit {
+                        viewModel.searchSessions(query: searchText)
+                    }
+                    .onChange(of: searchText) { _, newValue in
+                        viewModel.searchSessions(query: newValue)
+                    }
+
                 Rectangle()
                     .fill(Color.white.opacity(0.08))
                     .frame(height: 1)
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
+                        if !searchText.isEmpty {
+                            if viewModel.sessionSearchResults.isEmpty {
+                                Text("No results for \"\(searchText)\"")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 4)
+                            } else {
+                                Text("Search Results")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                ForEach(viewModel.sessionSearchResults) { session in
+                                    sessionRow(session)
+                                }
+                                Divider()
+                            }
+                        }
+
                         ForEach(viewModel.sessions) { session in
                             sessionRow(session)
                         }
 
-                        if viewModel.sessions.isEmpty {
+                        if viewModel.sessions.isEmpty && searchText.isEmpty {
                             emptySessionsView
                                 .padding(.top, 6)
                         }

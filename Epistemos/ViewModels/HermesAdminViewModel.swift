@@ -16,6 +16,8 @@ final class HermesAdminViewModel {
     var isLoading = false
     var lastError: String?
 
+    var isSubprocessRunning: Bool { hermesManager.isRunning }
+
     // MARK: - Private
 
     private let hermesManager: HermesSubprocessManager
@@ -61,7 +63,7 @@ final class HermesAdminViewModel {
 
         case ("skills", "list"):
             installedSkills = parseSkills(payload["data"])
-        case ("skills", "install"), ("skills", "remove"):
+        case ("skills", "install"), ("skills", "remove"), ("skills", "toggle"):
             refreshSkills()
 
         case ("sessions", "list"), ("sessions", "search"):
@@ -156,6 +158,14 @@ final class HermesAdminViewModel {
 
     func removeSkill(name: String) {
         sendAdmin(domain: "skills", action: "remove", extra: ["name": name])
+    }
+
+    func installSkillFromURL(url: String) {
+        sendAdmin(domain: "skills", action: "install", extra: ["url": url])
+    }
+
+    func toggleSkill(name: String, enabled: Bool) {
+        sendAdmin(domain: "skills", action: "toggle", extra: ["name": name, "enabled": enabled])
     }
 
     func checkForUpdates() {
@@ -288,7 +298,13 @@ final class HermesAdminViewModel {
         guard let skills = data as? [[String: Any]] else { return [] }
         return skills.compactMap { dict in
             guard let name = dict["name"] as? String else { return nil }
-            return HermesSkillEntry(name: name, path: dict["path"] as? String ?? "")
+            return HermesSkillEntry(
+                name: name,
+                path: dict["path"] as? String ?? "",
+                description: dict["description"] as? String ?? "",
+                version: dict["version"] as? String ?? "0.0.0",
+                enabled: dict["enabled"] as? Bool ?? true
+            )
         }
     }
 
@@ -364,6 +380,9 @@ struct HermesSkillEntry: Identifiable, Sendable {
     var id: String { name }
     let name: String
     let path: String
+    let description: String
+    let version: String
+    let enabled: Bool
 }
 
 struct DiagnosticsResult: Sendable {

@@ -27,63 +27,73 @@ struct HermesAdminPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                Text("Hermes Runtime Admin")
-                    .font(.title3.weight(.semibold))
-                Spacer()
-                if viewModel.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-                Button("Refresh All") {
-                    viewModel.refreshAll()
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
-            Picker("Section", selection: $selectedTab) {
-                ForEach(AdminTab.allCases) { tab in
-                    Label(tab.rawValue, systemImage: tab.icon).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
-
-            if let error = viewModel.lastError {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        if viewModel.isSubprocessRunning {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 12) {
+                    Text("Hermes Runtime Admin")
+                        .font(.title3.weight(.semibold))
                     Spacer()
-                    Button("Dismiss") { viewModel.lastError = nil }
-                        .buttonStyle(.plain)
-                        .font(.caption)
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Button("Refresh All") {
+                        viewModel.refreshAll()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 8)
-            }
+                .padding(.top, 16)
+                .padding(.bottom, 12)
 
-            Divider()
+                Picker("Section", selection: $selectedTab) {
+                    ForEach(AdminTab.allCases) { tab in
+                        Label(tab.rawValue, systemImage: tab.icon).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
 
-            switch selectedTab {
-            case .cron: CronJobsSection(viewModel: viewModel)
-            case .mcp: MCPServersSection(viewModel: viewModel)
-            case .tools: ToolsSection(viewModel: viewModel)
-            case .config: ConfigSection(viewModel: viewModel)
-            case .skills: SkillsSection(viewModel: viewModel)
-            case .diagnostics: DiagnosticsSection(viewModel: viewModel)
+                if let error = viewModel.lastError {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Dismiss") { viewModel.lastError = nil }
+                            .buttonStyle(.plain)
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                }
+
+                Divider()
+
+                switch selectedTab {
+                case .cron: CronJobsSection(viewModel: viewModel)
+                case .mcp: MCPServersSection(viewModel: viewModel)
+                case .tools: ToolsSection(viewModel: viewModel)
+                case .config: ConfigSection(viewModel: viewModel)
+                case .skills: SkillsSection(viewModel: viewModel)
+                case .diagnostics: DiagnosticsSection(viewModel: viewModel)
+                }
             }
-        }
-        .task {
-            viewModel.refreshAll()
+            .task {
+                if viewModel.isSubprocessRunning {
+                    viewModel.refreshAll()
+                }
+            }
+        } else {
+            ContentUnavailableView(
+                "Hermes Runtime Offline",
+                systemImage: "bolt.horizontal.circle",
+                description: Text("The Hermes runtime is not connected. Start an agent session to activate the runtime.")
+            )
         }
     }
 }
@@ -430,13 +440,36 @@ private struct SkillsSection: View {
 
         List {
             ForEach(viewModel.installedSkills) { skill in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(skill.name)
-                        .font(.body.weight(.medium))
-                    Text(skill.path)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(skill.name)
+                                .font(.body.weight(.medium))
+                            Text("v\(skill.version)")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.blue.opacity(0.12)))
+                                .foregroundStyle(.blue)
+                        }
+                        if !skill.description.isEmpty {
+                            Text(skill.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        Text(skill.path)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { skill.enabled },
+                        set: { viewModel.toggleSkill(name: skill.name, enabled: $0) }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                 }
                 .contextMenu {
                     Button("Remove", role: .destructive) {
@@ -464,27 +497,70 @@ private struct SkillsSection: View {
 private struct InstallSkillSheet: View {
     let viewModel: HermesAdminViewModel
     @Binding var isPresented: Bool
+
+    enum InstallType: String, CaseIterable, Identifiable {
+        case name = "Name"
+        case url = "GitHub URL"
+        case localPath = "Local Path"
+
+        var id: String { rawValue }
+    }
+
+    @State private var installType: InstallType = .name
     @State private var skillName = ""
+    @State private var gitURL = ""
+    @State private var localPath = ""
+
+    private var canInstall: Bool {
+        switch installType {
+        case .name: !skillName.isEmpty
+        case .url: !gitURL.isEmpty
+        case .localPath: !localPath.isEmpty
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Install Skill")
                 .font(.headline)
-            TextField("Skill name or path", text: $skillName)
+
+            Picker("Install From", selection: $installType) {
+                ForEach(InstallType.allCases) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            switch installType {
+            case .name:
+                TextField("Skill name (e.g. web-search, code-review)", text: $skillName)
+            case .url:
+                TextField("Git URL (e.g. https://github.com/org/hermes-skill-example.git)", text: $gitURL)
+            case .localPath:
+                TextField("Local path (e.g. ~/hermes-skills/my-skill)", text: $localPath)
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel") { isPresented = false }
                     .buttonStyle(.bordered)
                 Button("Install") {
-                    viewModel.installSkill(name: skillName)
+                    switch installType {
+                    case .name:
+                        viewModel.installSkill(name: skillName)
+                    case .url:
+                        viewModel.installSkillFromURL(url: gitURL)
+                    case .localPath:
+                        viewModel.installSkillFromURL(url: localPath)
+                    }
                     isPresented = false
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(skillName.isEmpty)
+                .disabled(!canInstall)
             }
         }
         .padding(20)
-        .frame(minWidth: 360)
+        .frame(minWidth: 420)
     }
 }
 

@@ -13,24 +13,30 @@ final class AgentViewModel {
     var latestStopReason = ""
     var sessions: [AgentSessionSummary] = []
     var activeSessionID: String?
+    var sessionSearchQuery = ""
+    var sessionSearchResults: [AgentSessionSummary] = []
 
     private var currentTask: Task<Void, Never>?
     private var streamTask: Task<Void, Never>?
     private let hermesManager: HermesSubprocessManager
     private let inferenceState: InferenceState?
+    private var localLLMClient: (any LLMClientProtocol)?
     private var awaitingPrompt = false
     private var isAwaitingApproval = false
     private var activeContinuation: AsyncStream<AgentStreamEvent>.Continuation?
     private var installedBridgeHandler = false
     private var lastSubmittedPrompt = ""
     var adminViewModel: HermesAdminViewModel?
+    private(set) var localInferencePort: Int?
 
     init(
         hermesManager: HermesSubprocessManager? = nil,
-        inferenceState: InferenceState? = nil
+        inferenceState: InferenceState? = nil,
+        localLLMClient: (any LLMClientProtocol)? = nil
     ) {
         self.hermesManager = hermesManager ?? HermesSubprocessManager()
         self.inferenceState = inferenceState
+        self.localLLMClient = localLLMClient
     }
 
     var isRunning: Bool {
@@ -124,6 +130,21 @@ final class AgentViewModel {
                 self.handleError(error.localizedDescription)
             }
         }
+    }
+
+    func searchSessions(query: String) {
+        sessionSearchQuery = query
+        guard !query.isEmpty else {
+            sessionSearchResults = []
+            return
+        }
+        let payload: [String: Any] = [
+            "command": "admin",
+            "domain": "sessions",
+            "action": "search",
+            "query": query,
+        ]
+        sendHermesCommand(payload, handlesRuntimeFailure: false)
     }
 
     func startNewSession() {
@@ -328,23 +349,44 @@ final class AgentViewModel {
         to payload: inout [String: Any],
         providerName: String?
     ) {
-        if let inferenceState,
-           let route = HermesRuntimeRoute.resolve(
-               for: inferenceState.preferredChatModelSelection,
-               apiKeyLookup: { inferenceState.apiKey(for: $0) }
-           ) {
-            payload["model"] = route.model
-            payload["requested_provider"] = route.requestedProvider
-            payload["env"] = route.environmentOverrides
+        guard let inferenceState else {
+            if let providerName, !providerName.isEmpty {
+                payload["provider_name"] = providerName
+            }
+            return
+        }
 
-            if let baseURL = route.baseURL {
-                payload["base_url"] = baseURL
-            }
-            if let apiMode = route.apiMode {
-                payload["api_mode"] = apiMode
-            }
-        } else if let providerName, !providerName.isEmpty {
+        // Try cloud route first.
+        if let route = HermesRuntimeRoute.resolve(
+            for: inferenceState.preferredChatModelSelection,
+            apiKeyLookup: { inferenceState.apiKey(for: $0) }
+        ) {
+            applyRoute(route, to: &payload)
+            return
+        }
+
+        // Try local agent route (agent-capable local model → local inference server).
+        if case .localQwen(let modelID) = inferenceState.preferredChatModelSelection,
+           let port = localInferencePort,
+           let route = HermesRuntimeRoute.resolveLocal(modelID: modelID, inferencePort: port) {
+            applyRoute(route, to: &payload)
+            return
+        }
+
+        if let providerName, !providerName.isEmpty {
             payload["provider_name"] = providerName
+        }
+    }
+
+    private func applyRoute(_ route: HermesRuntimeRoute, to payload: inout [String: Any]) {
+        payload["model"] = route.model
+        payload["requested_provider"] = route.requestedProvider
+        payload["env"] = route.environmentOverrides
+        if let baseURL = route.baseURL {
+            payload["base_url"] = baseURL
+        }
+        if let apiMode = route.apiMode {
+            payload["api_mode"] = apiMode
         }
     }
 
@@ -384,7 +426,13 @@ final class AgentViewModel {
 
         switch type {
         case "ready":
+            if let port = payload["inference_port"] as? Int, port > 0 {
+                localInferencePort = port
+            }
             requestSessionList()
+
+        case "inference_request":
+            handleInferenceRequest(payload)
 
         case "session_list":
             let activeID = (payload["active_session_id"] as? String) ?? activeSessionID
@@ -485,10 +533,70 @@ final class AgentViewModel {
             }
 
         case "admin_result":
+            if let domain = payload["domain"] as? String,
+               domain == "sessions",
+               let action = payload["action"] as? String,
+               action == "search" {
+                let activeID = activeSessionID
+                let rawSessions = (payload["results"] as? [[String: Any]]) ?? []
+                sessionSearchResults = rawSessions
+                    .compactMap { AgentSessionSummary(payload: $0, activeSessionID: activeID) }
+                    .sorted(by: Self.sessionSort)
+            }
             adminViewModel?.handleAdminResult(payload)
 
         default:
             break
+        }
+    }
+
+    private func handleInferenceRequest(_ payload: [String: Any]) {
+        let requestId = payload["request_id"] as? String ?? ""
+        let prompt = payload["prompt"] as? String ?? ""
+        let systemPrompt = payload["system_prompt"] as? String
+        let maxTokens = payload["max_tokens"] as? Int ?? 2048
+
+        guard !requestId.isEmpty, !prompt.isEmpty else {
+            sendHermesCommand([
+                "command": "inference_response",
+                "request_id": requestId,
+                "result": ["text": "", "error": "missing request_id or prompt"],
+            ])
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self, let client = self.localLLMClient else {
+                self?.sendHermesCommand([
+                    "command": "inference_response",
+                    "request_id": requestId,
+                    "result": ["text": "", "error": "local LLM client not available"],
+                ])
+                return
+            }
+
+            do {
+                let text = try await client.generate(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    maxTokens: maxTokens
+                )
+                self.sendHermesCommand([
+                    "command": "inference_response",
+                    "request_id": requestId,
+                    "result": [
+                        "text": text,
+                        "prompt_tokens": max(1, prompt.utf8.count / 4),
+                        "completion_tokens": max(1, text.utf8.count / 4),
+                    ],
+                ])
+            } catch {
+                self.sendHermesCommand([
+                    "command": "inference_response",
+                    "request_id": requestId,
+                    "result": ["text": "", "error": error.localizedDescription],
+                ])
+            }
         }
     }
 
