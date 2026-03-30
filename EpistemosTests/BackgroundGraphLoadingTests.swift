@@ -19,6 +19,15 @@ struct BackgroundGraphLoadingTests {
         )
     }
 
+    private func loadRepoTextFile(_ relativePath: String) throws -> String {
+        let testsFileURL = URL(fileURLWithPath: #filePath)
+        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+        return try String(
+            contentsOf: repoRoot.appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
+    }
+
     // MARK: - loadFromRecords
 
     @Test("loadFromRecords populates store from Sendable records")
@@ -238,6 +247,31 @@ struct BackgroundGraphLoadingTests {
         #expect(graphState.isLoaded)
         #expect(graphState.store.nodeCount == 1)
         #expect(graphState.graphDataVersion == 1)
+    }
+
+    @Test("fragile graph first-open wiring keeps async bootstrap and recommit hooks intact")
+    func fragileGraphFirstOpenWiringKeepsAsyncBootstrapAndRecommitHooksIntact() throws {
+        let controllerSource = try loadRepoTextFile("Epistemos/Views/Graph/HologramController.swift")
+        let graphStateSource = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
+        let graphViewSource = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(controllerSource.contains("if !graphState.isLoaded, let modelContainer {"))
+        #expect(controllerSource.contains("Task(priority: .utility) {"))
+        #expect(controllerSource.contains("await graphState.loadGraph(container: modelContainer)"))
+        #expect(controllerSource.contains("overlay = HologramOverlay("))
+        #expect(controllerSource.contains("let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)"))
+        #expect(controllerSource.contains("if !refreshedIncrementally {"))
+        #expect(controllerSource.contains("graphState.requestRecommit()"))
+
+        #expect(graphStateSource.contains("guard !isLoaded, !isLoadingGraph else { return }"))
+        #expect(graphStateSource.contains("store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)"))
+        #expect(graphStateSource.contains("if store.nodeCount == 0, !isBuildingStructural {"))
+        #expect(graphStateSource.contains("_ = await refreshStructuralDataAsync(container: container)"))
+        #expect(graphStateSource.contains("if isLoaded {"))
+        #expect(graphStateSource.contains("requestRecommit()"))
+
+        #expect(graphViewSource.contains("if let graphState, lastGraphDataVersion != graphState.graphDataVersion {"))
+        #expect(graphViewSource.contains("if window != nil, !isCommitted, graphState?.isLoaded == true {"))
     }
 
     // MARK: - Edge Cases (Gate 4)

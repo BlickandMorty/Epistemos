@@ -1467,9 +1467,19 @@ struct NoteDetailWorkspaceView: View {
             persistedBody = fullText
             return
         }
+        let pageId = page.id
         persistedBody = fullText
-        page.saveBody(fullText)
-        BlockMirror.sync(pageId: page.id, body: fullText, modelContext: modelContext)
+        page.applyInteractiveDerivedState(from: fullText)
+        _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: fullText)
+        if let modelContainer = AppBootstrap.shared?.modelContainer {
+            Task {
+                await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                    pageId: pageId,
+                    body: fullText,
+                    modelContainer: modelContainer
+                )
+            }
+        }
         page.needsVaultSync = true
         page.updatedAt = .now
         try? modelContext.save()

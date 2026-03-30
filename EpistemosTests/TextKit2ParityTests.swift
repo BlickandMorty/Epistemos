@@ -636,6 +636,23 @@ struct ParagraphTests {
     }
 
     @MainActor
+    @Test("TK2 heading styling stays scoped to the selected paragraph")
+    func tk2HeadingStyleDoesNotBleedIntoFollowingParagraph() {
+        let markdown = "## Start:\nRead these files in order"
+        let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
+        #expect(paragraphs.count >= 2)
+
+        let headingFont = paragraphs[0].attribute(.font, at: 3, effectiveRange: nil) as? NSFont
+        let bodyFont = paragraphs[1].attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        let headingStyle = paragraphs[0].attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        let bodyStyle = paragraphs[1].attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+
+        #expect((headingFont?.pointSize ?? 0) > (bodyFont?.pointSize ?? 0))
+        #expect((headingStyle?.paragraphSpacingBefore ?? 0) > (bodyStyle?.paragraphSpacingBefore ?? 0))
+        #expect(abs((bodyStyle?.headIndent ?? 0) - MarkdownEditorStyle.bodyParagraphStyle().headIndent) < 0.01)
+    }
+
+    @MainActor
     @Test("TK2 display heading markers inherit TK1 font and color treatment")
     func tk2HeadingMarkerStyleMatchesLegacy() {
         let markdown = "# Big Heading"
@@ -1483,10 +1500,22 @@ struct TransclusionRewriteTests {
 @MainActor
 struct BlockMirrorTests {
 
-    private func makeContext() throws -> ModelContext {
+    private func makeContainer() throws -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: SDBlock.self, configurations: config)
-        return ModelContext(container)
+        return try ModelContainer(for: SDBlock.self, configurations: config)
+    }
+
+    private func makeContext() throws -> ModelContext {
+        ModelContext(try makeContainer())
+    }
+
+    private func fetchBlocks(pageId: String, from container: ModelContainer) throws -> [SDBlock] {
+        let context = ModelContext(container)
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.order)]
+        )
+        return try context.fetch(descriptor)
     }
 
     @Test("Block mirror preserves edited block ID across insertions")
@@ -1580,6 +1609,73 @@ struct BlockMirrorTests {
         )
 
         #expect(rewritten == "- Edited through transclusion\n- Other block")
+    }
+
+    @Test("Transclusion rewrite reconciles stale stored ranges against current page blocks")
+    @MainActor
+    func rewriteReconcilesStaleStoredRanges() throws {
+        let context = try makeContext()
+        let pageId = "page-3"
+
+        BlockMirror.sync(
+            pageId: pageId,
+            body: "- Alpha\n- Beta\n- Gamma",
+            modelContext: context
+        )
+
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.order)]
+        )
+        let existingBlocks = try context.fetch(descriptor)
+        #expect(existingBlocks.count == 3)
+
+        let rewritten = BlockMirror.rewrittenBody(
+            body: "- New opening\n- Alpha revised\n- Beta\n- Gamma",
+            block: existingBlocks[1],
+            existingBlocks: existingBlocks,
+            newContent: "Beta edited"
+        )
+
+        #expect(rewritten == "- New opening\n- Alpha revised\n- Beta edited\n- Gamma")
+    }
+
+    @Test("Background coordinator persists blocks through a separate model context")
+    func backgroundCoordinatorPersistsBlocks() async throws {
+        let container = try makeContainer()
+        let coordinator = BlockMirrorSyncCoordinator()
+        let pageId = "page-\(UUID().uuidString)"
+
+        await coordinator.syncNow(
+            pageId: pageId,
+            body: "- Alpha\n- Beta",
+            modelContainer: container
+        )
+
+        let blocks = try fetchBlocks(pageId: pageId, from: container)
+        #expect(blocks.map(\.content) == ["Alpha", "Beta"])
+    }
+
+    @Test("Background coordinator keeps only the latest rescheduled body")
+    func backgroundCoordinatorKeepsLatestRescheduledBody() async throws {
+        let container = try makeContainer()
+        let coordinator = BlockMirrorSyncCoordinator()
+        let pageId = "page-\(UUID().uuidString)"
+
+        await coordinator.scheduleSync(
+            pageId: pageId,
+            body: "- Old opening",
+            modelContainer: container
+        )
+        await coordinator.scheduleSync(
+            pageId: pageId,
+            body: "- New opening\n- New followup",
+            modelContainer: container
+        )
+        await coordinator.waitForSync(pageId: pageId)
+
+        let blocks = try fetchBlocks(pageId: pageId, from: container)
+        #expect(blocks.map(\.content) == ["New opening", "New followup"])
     }
 }
 
@@ -1728,6 +1824,20 @@ struct TK2HeadingInsertionTests {
         tv.setSelectedRange(NSRange(location: 3, length: 0))
         tv.insertHeading(level: 3)
         #expect(tv.string.hasPrefix("### Plain text"))
+    }
+
+    @Test("insertHeading removes the marker when the matching heading level is applied again")
+    func insertHeadingRemovesMatchingLevel() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "## Existing Heading\n"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 4, length: 0))
+        tv.insertHeading(level: 2)
+        #expect(tv.string == "Existing Heading\n")
+        #expect(tv.selectedRange() == NSRange(location: 0, length: 0))
     }
 }
 

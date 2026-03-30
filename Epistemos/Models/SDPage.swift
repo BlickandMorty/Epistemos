@@ -215,17 +215,64 @@ final class SDPage {
     /// Save the note body to disk. Also clears the inline body (post-migration).
     func saveBody(_ content: String) {
         NoteFileStorage.writeBody(pageId: id, content: content)
-        // Clear inline body to keep SQLite rows small.
-        if !body.isEmpty { body = "" }
+        updateBodyDerivedState(from: content)
+    }
 
-        // Extract block references ((blockId)) for the structural graph.
-        // Storing these on the model eliminates O(N) disk I/O during graph building.
-        let pattern = /\(\(([^)]+)\)\)/
-        let matches = content.matches(of: pattern)
-        self.blockReferences = matches.compactMap { match -> String? in
-            let refId = String(match.1).trimmingCharacters(in: .whitespaces)
-            return refId.isEmpty ? nil : refId
+    func clearInlineBodyIfNeeded() {
+        if !body.isEmpty { body = "" }
+    }
+
+    func applyInteractiveDerivedState(from content: String) {
+        clearInlineBodyIfNeeded()
+        guard content.contains("((") else {
+            if !blockReferences.isEmpty {
+                blockReferences.removeAll(keepingCapacity: true)
+            }
+            return
         }
+        blockReferences = Self.extractBlockReferences(from: content)
+    }
+
+    func updateBodyDerivedState(from content: String) {
+        clearInlineBodyIfNeeded()
+        blockReferences = Self.extractBlockReferences(from: content)
+    }
+
+    static func extractBlockReferences(from content: String) -> [String] {
+        guard let initialSearchStart = content.range(of: "((")?.lowerBound else { return [] }
+
+        var refs: [String] = []
+        refs.reserveCapacity(4)
+        var searchStart = initialSearchStart
+
+        while searchStart < content.endIndex,
+              let openRange = content.range(of: "((", range: searchStart..<content.endIndex) {
+            let candidateStart = openRange.upperBound
+            var cursor = candidateStart
+            var matched = false
+
+            while cursor < content.endIndex {
+                if content[cursor] == ")" {
+                    let next = content.index(after: cursor)
+                    if next < content.endIndex, content[next] == ")" {
+                        let raw = String(content[candidateStart..<cursor])
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !raw.isEmpty {
+                            refs.append(raw)
+                        }
+                        searchStart = content.index(after: next)
+                        matched = true
+                    }
+                    break
+                }
+                cursor = content.index(after: cursor)
+            }
+
+            if matched { continue }
+            searchStart = content.index(after: openRange.lowerBound)
+        }
+
+        return refs
     }
 
     /// SHA256 hash prefix (16 hex chars) for dirty detection.

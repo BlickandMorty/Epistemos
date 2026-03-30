@@ -784,15 +784,17 @@ extension ProseEditorRepresentable2 {
         // MARK: - NSTextViewDelegate
 
         func textDidChange(_ notification: Notification) {
-            guard let tv = notification.object as? NSTextView else { return }
+            guard let tv = notification.object as? ProseTextView2 else { return }
             guard !tv.hasMarkedText() else {
                 blockRefAutocomplete?.dismiss()
                 return
             }
             guard !isFlushingTokens else { return }
 
-            // Clear all folds on any edit — folds are purely a reading aid
-            clearAllFolds()
+            // Clear active folds on edit — avoid full-document re-enumeration when nothing is folded.
+            if tv.markdownDelegate.hasActiveFolds() {
+                clearAllFolds()
+            }
 
             // ── SAVE-CRITICAL ──────────────────────────────────
             let newText = tv.string
@@ -1114,31 +1116,39 @@ extension ProseEditorRepresentable2 {
             // SDBlock.content alone is not read by vault export, search, or reopen.
             let sourcePageId = block.pageId
 
-            // Flush any open editor for the source page so disk is current.
-            // Synchronous — when this returns, loadBody() reflects live edits.
+            // Stage any open editor text before reading so downstream consumers see live edits.
             NoteFileStorage.requestFlush(pageId: sourcePageId)
 
             let pageDesc = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.id == sourcePageId }
             )
+            let pageBlocksDesc = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.pageId == sourcePageId },
+                sortBy: [SortDescriptor(\.order)]
+            )
             if let page = try? mc.fetch(pageDesc).first {
                 let pageBody = page.loadBody()
-                if BlockMirror.parsedBlock(in: pageBody, for: block) == nil {
-                    BlockMirror.sync(pageId: sourcePageId, body: pageBody, modelContext: mc)
-                }
+                let pageBlocks = (try? mc.fetch(pageBlocksDesc)) ?? [block]
 
-                guard let refreshedBlock = try? mc.fetch(descriptor).first,
-                      let newBody = BlockMirror.rewrittenBody(
+                guard let newBody = BlockMirror.rewrittenBody(
                           body: pageBody,
-                          block: refreshedBlock,
+                          block: block,
+                          existingBlocks: pageBlocks,
                           newContent: newContent
                       ) else { return }
 
-                page.saveBody(newBody)
-                BlockMirror.sync(pageId: sourcePageId, body: newBody, modelContext: mc)
-                if let syncedBlock = try? mc.fetch(descriptor).first {
-                    syncedBlock.updatedAt = .now
+                page.applyInteractiveDerivedState(from: newBody)
+                _ = NoteFileStorage.scheduleWriteBody(pageId: sourcePageId, content: newBody)
+                if let modelContainer = AppBootstrap.shared?.modelContainer {
+                    Task {
+                        await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                            pageId: sourcePageId,
+                            body: newBody,
+                            modelContainer: modelContainer
+                        )
+                    }
                 }
+                block.updatedAt = .now
                 transclusionManager?.invalidateResolvedBlock(blockId)
                 page.needsVaultSync = true
                 page.updatedAt = .now
@@ -1193,6 +1203,7 @@ extension ProseEditorRepresentable2 {
         func applyOutlineFoldMode(_ mode: OutlineFoldMode) {
             guard let tv = textView else { return }
             let delegate = tv.markdownDelegate
+            markdown_clear_all_folds()
 
             switch mode {
             case .auto:

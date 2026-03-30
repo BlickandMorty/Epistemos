@@ -226,6 +226,119 @@ struct NoteEditorLayoutTests {
         #expect(!source.contains("isScanningCitations"))
     }
 
+    @Test("interactive note flush paths use the lightweight derived-state helper")
+    func interactiveNoteFlushPathsUseLightweightDerivedStateHelper() throws {
+        let proseSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+        let workspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let syncSource = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(proseSource.contains("applyInteractiveDerivedState("))
+        #expect(workspaceSource.contains("applyInteractiveDerivedState("))
+        #expect(syncSource.contains("applyInteractiveDerivedState("))
+    }
+
+    @Test("interactive save paths defer version maintenance off the main actor")
+    func interactiveSavePathsDeferVersionMaintenance() throws {
+        let syncSource = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(syncSource.contains("scheduleVersionCaptureIfNeeded(pageId: pageId, context: context)"))
+        #expect(syncSource.contains("scheduleVersionCaptureIfNeeded(pageId: page.id, context: context)"))
+        #expect(syncSource.contains("Task.detached(priority: .utility)"))
+    }
+
+    @Test("periodic version capture reuses the deferred dirty-page path")
+    func periodicVersionCaptureReusesDeferredDirtyPagePath() throws {
+        let syncSource = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        guard let autoCaptureRange = syncSource.range(of: "private func autoCaptureVersions()"),
+              let createPageRange = syncSource.range(of: "func createPage(", range: autoCaptureRange.upperBound..<syncSource.endIndex) else {
+            Issue.record("Failed to isolate autoCaptureVersions() in VaultSyncService.swift")
+            return
+        }
+
+        let autoCaptureSource = String(syncSource[autoCaptureRange.lowerBound..<createPageRange.lowerBound])
+
+        #expect(autoCaptureSource.contains("predicate: #Predicate<SDPage> { $0.needsVaultSync == true || $0.lastSyncedBodyHash == nil }"))
+        #expect(autoCaptureSource.contains("scheduleVersionCaptureIfNeeded(pageId: page.id, context: context)"))
+        #expect(!autoCaptureSource.contains("captureVersionIfNeeded(pageId:"))
+        #expect(!autoCaptureSource.contains("let descriptor = FetchDescriptor<SDPage>()"))
+        #expect(!autoCaptureSource.contains("let dirty = allPages.filter(\\.isDirtyVault)"))
+    }
+
+    @Test("fragile note save wiring keeps editor flushes on the deferred export path")
+    func fragileNoteSaveWiringKeepsEditorFlushesOnDeferredExportPath() throws {
+        let workspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let proseSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+        let syncSource = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(workspaceSource.contains("private func flushCurrentEditor()"))
+        #expect(workspaceSource.contains("page.applyInteractiveDerivedState(from: fullText)"))
+        #expect(workspaceSource.contains("NoteFileStorage.scheduleWriteBody(pageId: pageId, content: fullText)"))
+        #expect(workspaceSource.contains("BlockMirrorSyncCoordinator.shared.scheduleSync("))
+        #expect(workspaceSource.contains("vaultSync.savePage(pageId: pageId)"))
+        #expect(workspaceSource.contains("vaultSync.saveAllDirtyPages()"))
+
+        #expect(proseSource.contains("NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody)"))
+        #expect(proseSource.contains("page.applyInteractiveDerivedState(from: currentBody)"))
+        #expect(proseSource.contains("vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)"))
+
+        #expect(syncSource.contains("preparePageForExport(pageId: pageId, context: context)"))
+        #expect(syncSource.contains("scheduleVersionCaptureIfNeeded(pageId: pageId, context: context)"))
+        #expect(syncSource.contains("await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
+        #expect(syncSource.contains("if let task = inFlightDirtySaveTask, !task.isCancelled {"))
+        #expect(syncSource.contains("pendingDirtySaveRequest = true"))
+        #expect(syncSource.contains("guard let initialBatch = nextDirtySaveBatch() else { return nil }"))
+        #expect(syncSource.contains("await self.runDirtySaveLoop(startingWith: initialBatch)"))
+    }
+
+    @Test("fold gutter anchors to first-line typography and outline boot starts from a clean fold slate")
+    func foldGutterAnchorsToFirstLineTypography() throws {
+        let proseSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseTextView2.swift")
+        let bridgeSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
+        guard let layoutRange = proseSource.range(of: "private func foldIndicatorLayout("),
+              let visibleFragmentsRange = proseSource.range(of: "// MARK: - Visible Fragment Enumeration", range: layoutRange.upperBound..<proseSource.endIndex),
+              let drawRange = proseSource.range(of: "private func drawFoldIndicators(in dirtyRect: NSRect)"),
+              let tableHelpersRange = proseSource.range(of: "// MARK: - Table Detection Helpers", range: drawRange.upperBound..<proseSource.endIndex),
+              let mouseRange = proseSource.range(of: "override func mouseDown(with event: NSEvent)", range: drawRange.upperBound..<proseSource.endIndex),
+              let dataDetectionRange = proseSource.range(of: "// Data detection click", range: mouseRange.upperBound..<proseSource.endIndex),
+              let foldModeRange = bridgeSource.range(of: "func applyOutlineFoldMode(_ mode: OutlineFoldMode)"),
+              let reenumRange = bridgeSource.range(of: "/// Force the content manager to re-enumerate all elements", range: foldModeRange.upperBound..<bridgeSource.endIndex) else {
+            Issue.record("Failed to isolate fold-indicator source ranges")
+            return
+        }
+
+        let layoutSource = String(proseSource[layoutRange.lowerBound..<visibleFragmentsRange.lowerBound])
+        let drawSource = String(proseSource[drawRange.lowerBound..<tableHelpersRange.lowerBound])
+        let mouseSource = String(proseSource[mouseRange.lowerBound..<dataDetectionRange.lowerBound])
+        let foldModeSource = String(bridgeSource[foldModeRange.lowerBound..<reenumRange.lowerBound])
+
+        #expect(layoutSource.contains("lineFrag.typographicBounds.origin.y"))
+        #expect(layoutSource.contains("lineFrag.typographicBounds.height"))
+        #expect(layoutSource.contains("lineRect = NSRect"))
+        #expect(drawSource.contains("seenParagraphs"))
+        #expect(drawSource.contains("size(withAttributes: attrs)"))
+        #expect(drawSource.contains("indicator.lineRect.midY"))
+        #expect(!drawSource.contains("fragFrame.midY - size / 2"))
+
+        #expect(mouseSource.contains("indicator.hitRect.contains(clickPoint)"))
+        #expect(!mouseSource.contains("clickPoint.x < lineLeft + 6 && clickPoint.x > lineLeft - 30"))
+
+        #expect(foldModeSource.contains("markdown_clear_all_folds()"))
+        #expect(foldModeSource.contains("delegate.recomputeHiddenLines(documentText: tv.string)"))
+        #expect(foldModeSource.contains("forceContentReEnumeration(tv)"))
+        #expect(bridgeSource.contains("coord.applyOutlineFoldMode(outlineFoldMode)"))
+        #expect(bridgeSource.contains("applyOutlineFoldMode(parent.outlineFoldMode)"))
+    }
+
+    @Test("heading prefix styling covers H6 markers and respects tab indentation")
+    func headingPrefixStylingCoversH6AndTabs() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/MarkdownContentStorage.swift")
+
+        #expect(source.contains("case 5:"))
+        #expect(source.contains("prefix: \"###### \""))
+        #expect(source.contains("line.prefix { $0 == \" \" || $0 == \"\\t\" }.utf16.count"))
+        #expect(!source.contains("line.prefix(while: { $0 == \" \" }).count"))
+    }
+
     @Test("note toolbar keeps secondary actions in the top-level more menu")
     func noteToolbarKeepsSecondaryActionsInTopLevelMoreMenu() throws {
         let source = try String(
@@ -338,6 +451,90 @@ struct NoteEditorLayoutTests {
     func noteWorkspaceRenderPathAvoidsLoadBodyFallback() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         #expect(!source.contains("page.loadBody()"))
+    }
+
+    @Test("editor save path offloads block mirror sync from the main actor")
+    func editorSavePathOffloadsBlockMirrorSyncFromMainActor() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+
+        #expect(source.contains("private func scheduleBlockMirrorSync"))
+        #expect(source.contains("await BlockMirrorSyncCoordinator.shared.scheduleSync("))
+        #expect(!source.contains("BlockMirror.sync(pageId: pageId, body: newValue, modelContext: modelContext)"))
+        #expect(!source.contains("private func syncBlocks(body: String) {\n        BlockMirror.sync("))
+    }
+
+    @Test("transclusion edits avoid synchronous block mirror fallback on the main actor")
+    func transclusionEditsAvoidSynchronousBlockMirrorFallback() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
+
+        #expect(source.contains("BlockMirror.rewrittenBody("))
+        #expect(source.contains("existingBlocks: pageBlocks"))
+        #expect(!source.contains("BlockMirror.sync(pageId: sourcePageId, body: pageBody, modelContext: mc)"))
+        #expect(!source.contains("Synchronous — when this returns, loadBody() reflects live edits."))
+    }
+
+    @Test("interactive note flush paths avoid synchronous durable writes on the main actor")
+    func interactiveNoteFlushPathsAvoidSynchronousDurableWrites() throws {
+        let proseSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+        let workspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let inspectorSource = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let diffSource = try loadRepoTextFile("Epistemos/Views/Notes/DiffSheetView.swift")
+
+        #expect(proseSource.contains("await NoteFileStorage.writeBodyAsync("))
+        #expect(proseSource.contains("NoteFileStorage.scheduleWriteBody("))
+        #expect(!proseSource.contains("Task {\n                    await NoteFileStorage.writeBodyAsync("))
+        #expect(!proseSource.contains("oldPage.saveBody(currentText)"))
+        #expect(!proseSource.contains("page.saveBody(bodyText)"))
+        #expect(!proseSource.contains("page.saveBody(sanitizedBody)"))
+
+        #expect(workspaceSource.contains("NoteFileStorage.scheduleWriteBody("))
+        #expect(!workspaceSource.contains("Task {\n            await NoteFileStorage.writeBodyAsync(pageId: pageId, content: fullText)\n        }"))
+        #expect(!workspaceSource.contains("page.saveBody(fullText)"))
+        #expect(!workspaceSource.contains("BlockMirror.sync(pageId: page.id, body: fullText, modelContext: modelContext)"))
+
+        #expect(inspectorSource.contains("NoteFileStorage.scheduleWriteBody("))
+        #expect(inspectorSource.contains("await NoteFileStorage.writeBodyAsync(pageId: pageId, content: text)"))
+        #expect(!inspectorSource.contains("Task {\n            await NoteFileStorage.writeBodyAsync(pageId: pageId, content: editorText)\n        }"))
+        #expect(!inspectorSource.contains("NoteFileStorage.writeBody(pageId: pageId, content: editorText)"))
+
+        #expect(diffSource.contains("NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body)"))
+        #expect(diffSource.contains("await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
+        #expect(!diffSource.contains("await NoteFileStorage.writeBodyAsync("))
+        #expect(!diffSource.contains("page.saveBody(body)"))
+        #expect(!diffSource.contains("BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)"))
+    }
+
+    @Test("requestFlush stages the live editor body before downstream readers continue")
+    func requestFlushStagesLiveEditorBodyBeforeDownstreamReadersContinue() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/NoteFileStorage.swift")
+
+        #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
+        #expect(source.contains("stageBodyForImmediateRead(pageId: pageId, content: liveBody)"))
+        #expect(!source.contains("await writeBodyAsync(pageId: pageId, content: liveBody)"))
+        #expect(!source.contains("Synchronous — disk is current when this returns."))
+    }
+
+    @Test("vault saves prepare live editor state before export")
+    func vaultSavesPrepareLiveEditorStateBeforeExport() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(source.contains("private func preparePageForExport(pageId: String, context: ModelContext)"))
+        #expect(source.contains("preparePageForExport(pageId: pageId, context: context)"))
+        #expect(source.contains("preparePageForExport(pageId: page.id, context: context)"))
+        #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId) ?? page.loadBody()"))
+        #expect(source.contains("NoteFileStorage.stageBodyForImmediateRead("))
+        #expect(source.contains("await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
+        #expect(source.contains("page.needsVaultSync = true"))
+        #expect(source.contains("ProseEditorView.syncNoteTitleIfNeeded("))
+    }
+
+    @Test("page-body read requests stage editor text without forcing a full metadata flush on the main actor")
+    func pageBodyReadRequestsStageEditorTextWithoutFullMetadataFlush() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+
+        #expect(source.contains("stagePendingBodyForReadIfNeeded()"))
+        #expect(source.contains("NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody)"))
+        #expect(source.contains("NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyWillRead)"))
     }
 
     @Test("preview handoff never reuses another note's captured body")

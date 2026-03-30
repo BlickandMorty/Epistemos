@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 enum BlockMirror {
 
@@ -79,8 +80,26 @@ enum BlockMirror {
     }
 
     nonisolated static func rewrittenBody(body: String, block: SDBlock, newContent: String) -> String? {
+        rewrittenBody(
+            body: body,
+            block: block,
+            existingBlocks: [],
+            newContent: newContent
+        )
+    }
+
+    nonisolated static func rewrittenBody(
+        body: String,
+        block: SDBlock,
+        existingBlocks: [SDBlock],
+        newContent: String
+    ) -> String? {
         let parsed = BlockParser.parse(body)
-        guard let match = parsedBlock(in: parsed, for: block) else { return nil }
+        guard let match = resolvedParsedBlock(
+            in: parsed,
+            for: block,
+            existingBlocks: existingBlocks
+        ) else { return nil }
         let newRaw = reconstructRaw(match: match, newContent: newContent)
         return applyRewrite(body: body, match: match, newRaw: newRaw)
     }
@@ -98,6 +117,27 @@ enum BlockMirror {
             $0.utf16Range.lowerBound == block.sourceStartUTF16
                 && $0.utf16Range.upperBound == block.sourceEndUTF16
         }
+    }
+
+    nonisolated private static func resolvedParsedBlock(
+        in parsed: [BlockParser.ParsedBlock],
+        for block: SDBlock,
+        existingBlocks: [SDBlock]
+    ) -> BlockParser.ParsedBlock? {
+        if let exactMatch = parsedBlock(in: parsed, for: block) {
+            return exactMatch
+        }
+
+        guard !existingBlocks.isEmpty else { return nil }
+        let sortedExisting = existingBlocks.sorted {
+            if $0.order != $1.order {
+                return $0.order < $1.order
+            }
+            return $0.id < $1.id
+        }
+        let mapped = reconcile(existing: sortedExisting, parsed: parsed)
+        guard let parsedIndex = mapped.firstIndex(where: { $0?.id == block.id }) else { return nil }
+        return parsed[parsedIndex]
     }
 
     nonisolated private static func reconcile(
@@ -400,4 +440,90 @@ private enum Move {
     case substitute
     case delete
     case insert
+}
+
+actor BlockMirrorSyncCoordinator {
+    nonisolated private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "BlockMirrorSync"
+    )
+
+    static let shared = BlockMirrorSyncCoordinator()
+
+    private var tasks: [String: Task<Void, Never>] = [:]
+    private var generations: [String: UInt64] = [:]
+
+    func scheduleSync(
+        pageId: String,
+        body: String,
+        modelContainer: ModelContainer,
+        priority: TaskPriority = .utility
+    ) {
+        guard !pageId.isEmpty else { return }
+
+        tasks[pageId]?.cancel()
+        let generation = (generations[pageId] ?? 0) + 1
+        generations[pageId] = generation
+
+        let coordinator = self
+        let task = Task.detached(priority: priority) { [pageId, body, modelContainer] in
+            let context = ModelContext(modelContainer)
+            context.autosaveEnabled = false
+
+            guard !Task.isCancelled else { return }
+            BlockMirror.sync(pageId: pageId, body: body, modelContext: context)
+            guard !Task.isCancelled else { return }
+            guard await coordinator.generationIsCurrent(pageId: pageId, generation: generation) else {
+                return
+            }
+
+            do {
+                try context.save()
+            } catch {
+                Self.log.error(
+                    "Block mirror save failed for \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+
+            await coordinator.finishSync(pageId: pageId, generation: generation)
+        }
+
+        tasks[pageId] = task
+    }
+
+    func syncNow(
+        pageId: String,
+        body: String,
+        modelContainer: ModelContainer,
+        priority: TaskPriority = .utility
+    ) async {
+        scheduleSync(
+            pageId: pageId,
+            body: body,
+            modelContainer: modelContainer,
+            priority: priority
+        )
+        await waitForSync(pageId: pageId)
+    }
+
+    func waitForSync(pageId: String) async {
+        let task = tasks[pageId]
+        await task?.value
+    }
+
+    func cancelSync(pageId: String) {
+        tasks[pageId]?.cancel()
+        tasks.removeValue(forKey: pageId)
+        generations.removeValue(forKey: pageId)
+    }
+
+    private func finishSync(pageId: String, generation: UInt64) {
+        guard generations[pageId] == generation else { return }
+        tasks.removeValue(forKey: pageId)
+        generations.removeValue(forKey: pageId)
+    }
+
+    private func generationIsCurrent(pageId: String, generation: UInt64) -> Bool {
+        generations[pageId] == generation
+    }
 }

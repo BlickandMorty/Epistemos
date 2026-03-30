@@ -834,6 +834,48 @@ final class ProseTextView2: NSTextView {
         return (textParagraph.attributedString.string, NSRange(location: offset, length: length))
     }
 
+    private struct FoldIndicatorLayout {
+        let paragraphRange: NSRange
+        let headingOffset: Int
+        let isFolded: Bool
+        let lineRect: NSRect
+        let hitRect: NSRect
+    }
+
+    private func foldIndicatorLayout(
+        for fragment: NSTextLayoutFragment,
+        fragFrame: NSRect,
+        contentStorage: NSTextContentStorage
+    ) -> FoldIndicatorLayout? {
+        guard let (_, nsRange) = paragraphInfo(for: fragment, contentStorage: contentStorage) else {
+            return nil
+        }
+
+        let lineIdx = markdownDelegate.lineIndex(at: nsRange.location)
+        guard lineIdx >= 0,
+              markdownDelegate.paragraphType(at: lineIdx) == 1,
+              let lineFrag = fragment.textLineFragments.first else {
+            return nil
+        }
+
+        let lineY = fragFrame.minY + lineFrag.typographicBounds.origin.y
+        let lineRect = NSRect(
+            x: floor(fragFrame.minX - 22),
+            y: floor(lineY),
+            width: 16,
+            height: ceil(lineFrag.typographicBounds.height)
+        )
+        let hitRect = lineRect.insetBy(dx: -6, dy: -4)
+
+        return FoldIndicatorLayout(
+            paragraphRange: nsRange,
+            headingOffset: nsRange.location,
+            isFolded: markdown_is_folded(UInt32(clamping: lineIdx)),
+            lineRect: lineRect,
+            hitRect: hitRect
+        )
+    }
+
     // MARK: - Visible Fragment Enumeration
 
     /// Enumerate layout fragments intersecting the dirty rect.
@@ -1272,32 +1314,37 @@ final class ProseTextView2: NSTextView {
 
         let isDark = markdownDelegate.theme.isDark
         let accent = MarkdownContentStorage.accentColor(isDark: isDark)
+        var seenParagraphs = Set<String>()
 
         enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
-            guard
-                let (_, nsRange) = self.paragraphInfo(
-                    for: fragment, contentStorage: contentStorage
-                )
-            else { return true }
-
-            let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
-            guard lineIdx >= 0, self.markdownDelegate.paragraphType(at: lineIdx) == 1 else {
+            guard let indicator = self.foldIndicatorLayout(
+                for: fragment,
+                fragFrame: fragFrame,
+                contentStorage: contentStorage
+            ) else {
                 return true
             }
 
-            let isFolded = markdown_is_folded(UInt32(clamping: lineIdx))
+            let paragraphKey =
+                "\(indicator.paragraphRange.location):\(indicator.paragraphRange.length)"
+            guard seenParagraphs.insert(paragraphKey).inserted else {
+                return true
+            }
 
-            let size: CGFloat = 10
-            let x = fragFrame.minX - 20
-            let y = fragFrame.midY - size / 2
-
-            let glyph = isFolded ? "\u{25B6}" : "\u{25BC}"
-            let alpha: CGFloat = isFolded ? 0.7 : 0.35
+            let glyph = indicator.isFolded ? "\u{25B6}" : "\u{25BC}"
+            let alpha: CGFloat = indicator.isFolded ? 0.7 : 0.35
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 9, weight: .medium),
                 .foregroundColor: accent.withAlphaComponent(alpha),
             ]
-            (glyph as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
+            let glyphSize = (glyph as NSString).size(withAttributes: attrs)
+            let drawRect = NSRect(
+                x: floor(indicator.lineRect.midX - glyphSize.width / 2),
+                y: floor(indicator.lineRect.midY - glyphSize.height / 2),
+                width: ceil(glyphSize.width),
+                height: ceil(glyphSize.height)
+            )
+            (glyph as NSString).draw(in: drawRect, withAttributes: attrs)
 
             return true
         }
@@ -1408,17 +1455,17 @@ final class ProseTextView2: NSTextView {
                 .trimmingCharacters(in: .newlines)
 
             // Fold triangle click — gutter area on a heading line
-            let fragFrame = frag.layoutFragmentFrame
-            let lineLeft = fragFrame.minX + textContainerOrigin.x
-            if clickPoint.x < lineLeft + 6 && clickPoint.x > lineLeft - 30 {
-                if paraText.hasPrefix("#") && paraText.contains(" ") {
-                    var hashCount = 0
-                    for ch in paraText { if ch == "#" { hashCount += 1 } else { break } }
-                    if hashCount >= 1 && hashCount <= 6 {
-                        onFoldToggle?(paraOffset)
-                        return
-                    }
-                }
+            let fragFrame = frag.layoutFragmentFrame.offsetBy(
+                dx: textContainerOrigin.x,
+                dy: textContainerOrigin.y
+            )
+            if let indicator = foldIndicatorLayout(
+                for: frag,
+                fragFrame: fragFrame,
+                contentStorage: contentStorage
+            ), indicator.hitRect.contains(clickPoint) {
+                onFoldToggle?(indicator.headingOffset)
+                return
             }
 
             // Data detection click
@@ -1924,31 +1971,14 @@ final class ProseTextView2: NSTextView {
     // MARK: - Formatting Actions
 
     func insertHeading(level: Int) {
-        let prefix = String(repeating: "#", count: level) + " "
-        let str = string as NSString
-        let sel = selectedRange()
-        let lineRange = str.lineRange(for: NSRange(location: sel.location, length: 0))
-        let lineText = str.substring(with: lineRange)
-
-        // Strip existing heading prefix
-        var stripped = lineText
-        var existingHashes = 0
-        for ch in stripped {
-            if ch == "#" { existingHashes += 1 } else { break }
+        guard let edit = MarkdownEditorCommands.setHeading(
+            in: string,
+            selection: selectedRange(),
+            level: level
+        ) else {
+            return
         }
-        if existingHashes > 0 {
-            stripped = String(stripped.dropFirst(existingHashes))
-            if stripped.hasPrefix(" ") { stripped = String(stripped.dropFirst()) }
-        }
-
-        let newLine = prefix + stripped
-        if shouldChangeText(in: lineRange, replacementString: newLine) {
-            textStorage?.replaceCharacters(in: lineRange, with: newLine)
-            didChangeText()
-            let newCursor = lineRange.location + prefix.utf16.count
-            setSelectedRange(
-                NSRange(location: min(newCursor, (string as NSString).length), length: 0))
-        }
+        _ = MarkdownEditorCommands.apply(edit, to: self)
     }
 
     func toggleLinePrefix(_ prefix: String) {

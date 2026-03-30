@@ -154,8 +154,9 @@ struct ProseEditorView: View {
                 predicate: #Predicate<SDPage> { $0.id == oldPageId }
             )
             if let oldPage = try? modelContext.fetch(desc).first {
-                oldPage.saveBody(currentText)
-                BlockMirror.sync(pageId: oldPageId, body: currentText, modelContext: modelContext)
+                oldPage.applyInteractiveDerivedState(from: currentText)
+                _ = NoteFileStorage.scheduleWriteBody(pageId: oldPageId, content: currentText)
+                scheduleBlockMirrorSync(pageId: oldPageId, body: currentText)
                 Self.syncNoteTitleIfNeeded(
                     from: currentText,
                     for: oldPage,
@@ -222,7 +223,7 @@ struct ProseEditorView: View {
         ) { notification in
             guard let requestId = notification.userInfo?["pageId"] as? String,
                   requestId == page.id else { return }
-            flushIfNeeded()
+            stagePendingBodyForReadIfNeeded()
         }
         .onDisappear {
             flushIfNeeded()
@@ -237,19 +238,33 @@ struct ProseEditorView: View {
     private func flushIfNeeded() {
         saveTask?.cancel()
         if lastPersistedBody != bodyText {
-            page.saveBody(bodyText)
-            BlockMirror.sync(pageId: page.id, body: bodyText, modelContext: modelContext)
+            let pageId = page.id
+            let currentBody = bodyText
+            page.applyInteractiveDerivedState(from: currentBody)
+            _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody)
+            scheduleBlockMirrorSync(pageId: pageId, body: currentBody)
             Self.syncNoteTitleIfNeeded(
-                from: bodyText,
+                from: currentBody,
                 for: page,
                 modelContext: modelContext
             ) { pageId, newTitle in
                 vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
             }
-            lastPersistedBody = bodyText
+            lastPersistedBody = currentBody
             page.needsVaultSync = true
             try? modelContext.save()
         }
+    }
+
+    private func stagePendingBodyForReadIfNeeded() {
+        saveTask?.cancel()
+        guard lastPersistedBody != bodyText else { return }
+        let pageId = page.id
+        let currentBody = bodyText
+        guard NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody) != nil else {
+            return
+        }
+        lastPersistedBody = currentBody
     }
 
     private func repairOrphanedInlineAIResponseIfNeeded() {
@@ -258,8 +273,10 @@ struct ProseEditorView: View {
         let sanitizedBody = Self.stripOrphanedInlineAIResponse(in: persistedBody, page: page)
         guard sanitizedBody != persistedBody else { return }
 
-        page.saveBody(sanitizedBody)
-        BlockMirror.sync(pageId: page.id, body: sanitizedBody, modelContext: modelContext)
+        let pageId = page.id
+        page.applyInteractiveDerivedState(from: sanitizedBody)
+        _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: sanitizedBody)
+        scheduleBlockMirrorSync(pageId: pageId, body: sanitizedBody)
         bodyText = sanitizedBody
         lastPersistedBody = sanitizedBody
         page.needsVaultSync = true
@@ -294,10 +311,11 @@ struct ProseEditorView: View {
             ) { pageId, newTitle in
                 vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
             }
+            page.applyInteractiveDerivedState(from: newValue)
             // File write FIRST — disk is source of truth. Must complete before
             // modelContext.save() so any @Query cascade reads correct content.
             await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newValue)
-            BlockMirror.sync(pageId: pageId, body: newValue, modelContext: modelContext)
+            scheduleBlockMirrorSync(pageId: pageId, body: newValue)
             lastPersistedBody = newValue
             // Persist dirty flag AFTER file write. This ensures loadBody() returns
             // the new content if @Query refetch triggers view re-evaluation.
@@ -310,8 +328,19 @@ struct ProseEditorView: View {
 
     /// Keep SwiftData blocks aligned with the current markdown body.
     private func syncBlocks(body: String) {
-        BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
-        try? modelContext.save()
+        scheduleBlockMirrorSync(pageId: page.id, body: body)
+    }
+
+    private func scheduleBlockMirrorSync(pageId: String, body: String) {
+        guard !pageId.isEmpty,
+              let modelContainer = AppBootstrap.shared?.modelContainer else { return }
+        Task {
+            await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                pageId: pageId,
+                body: body,
+                modelContainer: modelContainer
+            )
+        }
     }
 
     // MARK: - Wikilink Navigation

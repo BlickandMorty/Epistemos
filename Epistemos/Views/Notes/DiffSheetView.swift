@@ -436,8 +436,21 @@ struct DiffSheetView: View {
 
     @MainActor
     static func persistRestoredBody(_ body: String, to page: SDPage, modelContext: ModelContext) throws {
-        page.saveBody(body)
-        BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
+        let pageId = page.id
+        _ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body)
+        page.applyInteractiveDerivedState(from: body)
+        Task {
+            await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)
+        }
+        if let modelContainer = AppBootstrap.shared?.modelContainer {
+            Task {
+                await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                    pageId: pageId,
+                    body: body,
+                    modelContainer: modelContainer
+                )
+            }
+        }
         page.wordCount = body.split(separator: " ").count
         page.needsVaultSync = true
         try modelContext.save()

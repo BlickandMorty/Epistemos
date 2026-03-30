@@ -1005,7 +1005,6 @@ struct VaultSyncServiceAuditTests {
         let searchURL = appSupportURL.appendingPathComponent("search.sqlite")
         defer {
             service.stopWatching(preserveData: true)
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             try? FileManager.default.removeItem(at: root)
         }
 
@@ -1044,41 +1043,42 @@ struct VaultSyncServiceAuditTests {
         context.insert(stalePage)
         try context.save()
 
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(noteBodiesURL)
-        NoteFileStorage.writeBody(pageId: "orphan-body", content: "stale orphan")
-        try "stale-search".write(to: searchURL, atomically: true, encoding: .utf8)
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL, operation: { @MainActor in
+            NoteFileStorage.writeBody(pageId: "orphan-body", content: "stale orphan")
+            try "stale-search".write(to: searchURL, atomically: true, encoding: .utf8)
 
-        service.setSearchDatabaseURLForTesting(searchURL)
-        service.setAppSupportDirectoryURLForTesting(appSupportURL)
-        service.setPreferencesFileURLForTesting(preferencesURL)
-        service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+            service.setSearchDatabaseURLForTesting(searchURL)
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
 
-        let recovered = await service.recoverFromVault(at: vaultURL)
-        #expect(recovered)
+            let recovered = await service.recoverFromVault(at: vaultURL)
+            #expect(recovered)
 
-        let pages = try context.fetch(FetchDescriptor<SDPage>())
-        #expect(pages.count == 2)
-        #expect(pages.allSatisfy { ($0.filePath?.isEmpty == false) })
-        #expect(pages.contains { $0.id == "recovered-a" })
-        #expect(pages.contains { $0.id == "recovered-b" })
-        #expect(NoteFileStorage.bodyExists(pageId: "recovered-a"))
-        #expect(NoteFileStorage.bodyExists(pageId: "recovered-b"))
-        #expect(!NoteFileStorage.bodyExists(pageId: "orphan-body"))
+            let pages = try context.fetch(FetchDescriptor<SDPage>())
+            #expect(pages.count == 2)
+            #expect(pages.allSatisfy { ($0.filePath?.isEmpty == false) })
+            #expect(pages.contains { $0.id == "recovered-a" })
+            #expect(pages.contains { $0.id == "recovered-b" })
+            #expect(NoteFileStorage.bodyExists(pageId: "recovered-a"))
+            #expect(NoteFileStorage.bodyExists(pageId: "recovered-b"))
+            #expect(!NoteFileStorage.bodyExists(pageId: "orphan-body"))
 
-        let searchHits = await service.searchFullAsync(query: "recover-alpha", limit: 5)
-        #expect(searchHits.contains { $0.pageId == "recovered-a" })
+            let searchHits = await service.searchFullAsync(query: "recover-alpha", limit: 5)
+            #expect(searchHits.contains { $0.pageId == "recovered-a" })
 
-        let snapshotDirs = try FileManager.default.contentsOfDirectory(
-            at: recoverySnapshotsURL,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )
-        #expect(snapshotDirs.isEmpty == false)
-        let latestSnapshot = try #require(snapshotDirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).last)
-        let snapshottedPrefs = latestSnapshot.appendingPathComponent(preferencesURL.lastPathComponent)
-        let snapshottedAppSupport = latestSnapshot.appendingPathComponent(appSupportURL.lastPathComponent, isDirectory: true)
-        #expect(FileManager.default.fileExists(atPath: snapshottedPrefs.path))
-        #expect(FileManager.default.fileExists(atPath: snapshottedAppSupport.path))
+            let snapshotDirs = try FileManager.default.contentsOfDirectory(
+                at: recoverySnapshotsURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            #expect(snapshotDirs.isEmpty == false)
+            let latestSnapshot = try #require(snapshotDirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).last)
+            let snapshottedPrefs = latestSnapshot.appendingPathComponent(preferencesURL.lastPathComponent)
+            let snapshottedAppSupport = latestSnapshot.appendingPathComponent(appSupportURL.lastPathComponent, isDirectory: true)
+            #expect(FileManager.default.fileExists(atPath: snapshottedPrefs.path))
+            #expect(FileManager.default.fileExists(atPath: snapshottedAppSupport.path))
+        })
     }
 
     @Test("destructive stop snapshots local state before clearing vault data")
@@ -1092,7 +1092,6 @@ struct VaultSyncServiceAuditTests {
         let recoverySnapshotsURL = root.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
         let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             try? FileManager.default.removeItem(at: root)
         }
 
@@ -1105,23 +1104,24 @@ struct VaultSyncServiceAuditTests {
         context.insert(page)
         try context.save()
 
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(noteBodiesURL)
-        NoteFileStorage.writeBody(pageId: page.id, content: "local body")
+        try NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL) {
+            NoteFileStorage.writeBody(pageId: page.id, content: "local body")
 
-        service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
-        service.setAppSupportDirectoryURLForTesting(appSupportURL)
-        service.setPreferencesFileURLForTesting(preferencesURL)
-        service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+            service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
 
-        service.stopWatching(preserveData: false)
+            service.stopWatching(preserveData: false)
 
-        let snapshotDirs = try FileManager.default.contentsOfDirectory(
-            at: recoverySnapshotsURL,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )
-        #expect(snapshotDirs.isEmpty == false)
-        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+            let snapshotDirs = try FileManager.default.contentsOfDirectory(
+                at: recoverySnapshotsURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            #expect(snapshotDirs.isEmpty == false)
+            #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        }
     }
 
     @MainActor
@@ -1136,7 +1136,6 @@ struct VaultSyncServiceAuditTests {
         let snapshotRootFile = root.appendingPathComponent("snapshot-root-file")
         let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             try? FileManager.default.removeItem(at: root)
         }
 
@@ -1150,21 +1149,22 @@ struct VaultSyncServiceAuditTests {
         context.insert(page)
         try context.save()
 
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(noteBodiesURL)
-        NoteFileStorage.writeBody(pageId: page.id, content: "local body")
+        try NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL) {
+            NoteFileStorage.writeBody(pageId: page.id, content: "local body")
 
-        service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
-        service.setAppSupportDirectoryURLForTesting(appSupportURL)
-        service.setPreferencesFileURLForTesting(preferencesURL)
-        service.setRecoverySnapshotRootURLForTesting(snapshotRootFile)
+            service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setRecoverySnapshotRootURLForTesting(snapshotRootFile)
 
-        service.stopWatching(preserveData: false)
+            service.stopWatching(preserveData: false)
 
-        let pages = try context.fetch(FetchDescriptor<SDPage>())
-        #expect(pages.count == 1)
-        #expect(NoteFileStorage.bodyExists(pageId: page.id))
-        #expect(service.recoveryIssue != nil)
-        #expect(service.recoveryIssue?.reason.contains("clear was aborted") == true)
+            let pages = try context.fetch(FetchDescriptor<SDPage>())
+            #expect(pages.count == 1)
+            #expect(NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(service.recoveryIssue != nil)
+            #expect(service.recoveryIssue?.reason.contains("clear was aborted") == true)
+        }
     }
 
     @Test("destructive stop snapshots SQLite state via consistent backups instead of live file copies")

@@ -19,19 +19,18 @@ final class NoteFileMutationQueue: Sendable {
         self.queue = queue
     }
 
-    nonisolated func performSync(_ operation: () -> Void) {
+    nonisolated func performSync<T>(_ operation: () -> T) -> T {
         if DispatchQueue.getSpecific(key: queueKey) == queueToken {
-            operation()
+            return operation()
         } else {
-            queue.sync(execute: operation)
+            return queue.sync(execute: operation)
         }
     }
 
-    nonisolated func performAsync(_ operation: @escaping @Sendable () -> Void) async {
+    nonisolated func performAsync<T: Sendable>(_ operation: @escaping @Sendable () -> T) async -> T {
         await withCheckedContinuation { continuation in
             queue.async {
-                operation()
-                continuation.resume()
+                continuation.resume(returning: operation())
             }
         }
     }
@@ -210,7 +209,11 @@ private enum EpistemosCoreIntegrityBridge {
 enum NoteFileStorage {
     private nonisolated static let logger = Logger(subsystem: "com.epistemos", category: "NoteFileStorage")
     private nonisolated static let mutationQueue = NoteFileMutationQueue()
+    private nonisolated static let pendingBodyQueue = DispatchQueue(label: "com.epistemos.NoteFileStorage.pending")
+    private nonisolated static let storageOverrideQueue = DispatchQueue(label: "com.epistemos.NoteFileStorage.override")
+    private nonisolated static let storageOverrideScope = DispatchSemaphore(value: 1)
     private nonisolated(unsafe) static var storageDirectoryOverride: URL?
+    private nonisolated(unsafe) static var pendingBodies: [String: String] = [:]
     private nonisolated static let blake3HashPrefix = "blake3:"
     private nonisolated static let contentHashXAttrName = "com.epistemos.content_hash"
 
@@ -236,6 +239,10 @@ enum NoteFileStorage {
 
     private nonisolated static func legacyRichTextURL(pageId: String) -> URL {
         storageDirectory().appendingPathComponent("\(pageId).rtfd")
+    }
+
+    private nonisolated static func pendingBodyKey(pageId: String, directory: URL) -> String {
+        "\(directory.standardizedFileURL.path)\u{1F}\(pageId)"
     }
 
     private nonisolated static func quarantineDirectory(in directory: URL) -> URL {
@@ -362,10 +369,10 @@ enum NoteFileStorage {
         for data: Data,
         decodedText: String,
         pageId: String,
-        hashFileURL: URL
+        hashFileURL: URL,
+        directory: URL
     ) -> Bool {
-        let storageURL = storageDirectory()
-        let bodyFileURL = bodyURL(pageId: pageId, in: storageURL)
+        let bodyFileURL = bodyURL(pageId: pageId, in: directory)
         let normalizedToken = integrityToken(for: data)
         let storedSidecar = storedIntegrityReference(from: hashFileURL)
         let storedXAttr = storedIntegrityXAttr(at: bodyFileURL)
@@ -391,7 +398,7 @@ enum NoteFileStorage {
                 _ = quarantineManagedFiles(
                     pageId: pageId,
                     reason: "Neither integrity reference matches the on-disk note body",
-                    in: storageURL
+                    in: directory
                 )
             }
             return false
@@ -404,7 +411,7 @@ enum NoteFileStorage {
             if needsRepair {
                 var repaired = false
                 mutationQueue.performSync {
-                    repaired = persistHash(normalizedToken, pageId: pageId)
+                    repaired = persistHash(normalizedToken, pageId: pageId, directory: directory)
                 }
                 if !repaired {
                     logger.error("Failed to repair integrity references for \(pageId, privacy: .private)")
@@ -421,21 +428,45 @@ enum NoteFileStorage {
     }
 
     @discardableResult
-    private nonisolated static func persistHash(_ hash: String, pageId: String) -> Bool {
-        let primaryURL = hashURL(pageId: pageId)
+    private nonisolated static func persistStagedBody(
+        _ stagedContent: String,
+        pageId: String,
+        url: URL,
+        directory: URL
+    ) -> Bool {
+        guard let normalizedContent = normalizedStorageContent(stagedContent, pageId: pageId) else {
+            return false
+        }
+        let data = Data(normalizedContent.utf8)
+        let hash = integrityToken(for: data)
+        guard persistBody(normalizedContent, to: url, pageId: pageId) else {
+            return false
+        }
+        guard persistHash(hash, pageId: pageId, directory: directory) else {
+            logger.error("Failed to persist integrity hash for \(pageId, privacy: .private)")
+            try? FileManager.default.removeItem(at: integrityURL(pageId: pageId, in: directory))
+            try? FileManager.default.removeItem(at: legacyIntegrityURL(pageId: pageId, in: directory))
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
+    private nonisolated static func persistHash(_ hash: String, pageId: String, directory: URL) -> Bool {
+        let primaryURL = integrityURL(pageId: pageId, in: directory)
         guard atomicWriteUTF8(hash, to: primaryURL, itemLabel: "\(pageId).integrity") else {
             return false
         }
-        persistHashXAttr(hash, pageId: pageId)
-        let legacyURL = legacyIntegrityURL(pageId: pageId, in: storageDirectory())
+        persistHashXAttr(hash, bodyURL: bodyURL(pageId: pageId, in: directory))
+        let legacyURL = legacyIntegrityURL(pageId: pageId, in: directory)
         if FileManager.default.fileExists(atPath: legacyURL.path) {
             try? FileManager.default.removeItem(at: legacyURL)
         }
         return true
     }
 
-    private nonisolated static func persistHashXAttr(_ hash: String, pageId: String) {
-        let bodyPath = bodyURL(pageId: pageId).path
+    private nonisolated static func persistHashXAttr(_ hash: String, bodyURL: URL) {
+        let bodyPath = bodyURL.path
         let data = Data(hash.utf8)
         let result = bodyPath.withCString { rawPath in
             data.withUnsafeBytes { bytes in
@@ -443,7 +474,7 @@ enum NoteFileStorage {
             }
         }
         if result != 0 {
-            logger.error("Failed to persist integrity xattr for \(pageId, privacy: .private)")
+            logger.error("Failed to persist integrity xattr for \(bodyURL.lastPathComponent, privacy: .public)")
         }
     }
 
@@ -555,13 +586,18 @@ enum NoteFileStorage {
         guard let normalizedBody = normalizedStorageContent(body, pageId: pageId) else {
             return ""
         }
+        let directory = storageDirectory()
         var didPersist = false
         mutationQueue.performSync {
-            guard persistBody(normalizedBody, to: bodyURL(pageId: pageId), pageId: pageId) else {
+            guard persistBody(normalizedBody, to: bodyURL(pageId: pageId, in: directory), pageId: pageId) else {
                 return
             }
-            guard persistHash(integrityToken(for: Data(normalizedBody.utf8)), pageId: pageId) else {
-                removeManagedFiles(pageId: pageId, in: storageDirectory())
+            guard persistHash(
+                integrityToken(for: Data(normalizedBody.utf8)),
+                pageId: pageId,
+                directory: directory
+            ) else {
+                removeManagedFiles(pageId: pageId, in: directory)
                 return
             }
             didPersist = true
@@ -599,14 +635,72 @@ enum NoteFileStorage {
     }()
 
     nonisolated static func setStorageDirectoryOverrideForTesting(_ url: URL?) {
-        storageDirectoryOverride = url
+        storageOverrideQueue.sync {
+            storageDirectoryOverride = url
+        }
         if let url {
             try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         }
     }
 
+    private nonisolated static func currentStorageDirectoryOverride() -> URL? {
+        storageOverrideQueue.sync { storageDirectoryOverride }
+    }
+
+    nonisolated static func withStorageDirectoryOverrideForTesting<T>(
+        _ url: URL?,
+        operation: () throws -> T
+    ) rethrows -> T {
+        if let url {
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        }
+        storageOverrideScope.wait()
+        let previousOverride = currentStorageDirectoryOverride()
+        storageOverrideQueue.sync {
+            storageDirectoryOverride = url
+        }
+        defer {
+            storageOverrideQueue.sync {
+                storageDirectoryOverride = previousOverride
+            }
+            storageOverrideScope.signal()
+        }
+        return try operation()
+    }
+
+    private nonisolated static func waitForStorageOverrideScope() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                storageOverrideScope.wait()
+                continuation.resume()
+            }
+        }
+    }
+
+    @MainActor
+    static func withStorageDirectoryOverrideForTesting<T>(
+        _ url: URL?,
+        operation: @MainActor @Sendable @escaping () async throws -> T
+    ) async rethrows -> T {
+        if let url {
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        }
+        await waitForStorageOverrideScope()
+        let previousOverride = currentStorageDirectoryOverride()
+        storageOverrideQueue.sync {
+            storageDirectoryOverride = url
+        }
+        defer {
+            storageOverrideQueue.sync {
+                storageDirectoryOverride = previousOverride
+            }
+            storageOverrideScope.signal()
+        }
+        return try await operation()
+    }
+
     nonisolated static func storageDirectory() -> URL {
-        let dir = storageDirectoryOverride ?? _storageDirectory
+        let dir = currentStorageDirectoryOverride() ?? _storageDirectory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
@@ -619,7 +713,11 @@ enum NoteFileStorage {
     ///   Falls back to normal read for small files or network filesystems.
     nonisolated static func readBody(pageId: String, mapped: Bool = false) -> String {
         guard isValidPageId(pageId) else { return "" }
-        let url = bodyURL(pageId: pageId)
+        let directory = storageDirectory()
+        if let pending = pendingBody(for: pageId, directory: directory) {
+            return pending
+        }
+        let url = bodyURL(pageId: pageId, in: directory)
         let options: Data.ReadingOptions = mapped ? .mappedIfSafe : []
         guard let data = try? Data(contentsOf: url, options: options),
               let text = FoundationSafety.decodedText(from: data) else {
@@ -629,8 +727,14 @@ enum NoteFileStorage {
             return ""
         }
 
-        let hashFileURL = existingHashURL(pageId: pageId)
-        guard verifyOrBackfillIntegrityHash(for: data, decodedText: text, pageId: pageId, hashFileURL: hashFileURL) else {
+        let hashFileURL = existingHashURL(pageId: pageId, in: directory)
+        guard verifyOrBackfillIntegrityHash(
+            for: data,
+            decodedText: text,
+            pageId: pageId,
+            hashFileURL: hashFileURL,
+            directory: directory
+        ) else {
             return ""
         }
 
@@ -641,14 +745,14 @@ enum NoteFileStorage {
     /// Used by legacy/corruption recovery tooling.
     nonisolated static func readRawBodyData(pageId: String, mapped: Bool = true) -> Data? {
         guard isValidPageId(pageId) else { return nil }
-        let url = bodyURL(pageId: pageId)
+        let url = bodyURL(pageId: pageId, in: storageDirectory())
         let options: Data.ReadingOptions = mapped ? .mappedIfSafe : []
         return try? Data(contentsOf: url, options: options)
     }
 
     nonisolated static func bodyFileURL(pageId: String) -> URL? {
         guard isValidPageId(pageId) else { return nil }
-        let url = bodyURL(pageId: pageId)
+        let url = bodyURL(pageId: pageId, in: storageDirectory())
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
@@ -657,7 +761,8 @@ enum NoteFileStorage {
     /// you only need bytes, not a decoded String.
     nonisolated static func readBodyData(pageId: String) -> Data? {
         guard isValidPageId(pageId) else { return nil }
-        let url = bodyURL(pageId: pageId)
+        let directory = storageDirectory()
+        let url = bodyURL(pageId: pageId, in: directory)
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let text = FoundationSafety.decodedText(from: data) else {
             return nil
@@ -665,8 +770,14 @@ enum NoteFileStorage {
         guard normalizedStorageContent(text, pageId: pageId) != nil else {
             return nil
         }
-        let hashFileURL = existingHashURL(pageId: pageId)
-        guard verifyOrBackfillIntegrityHash(for: data, decodedText: text, pageId: pageId, hashFileURL: hashFileURL) else {
+        let hashFileURL = existingHashURL(pageId: pageId, in: directory)
+        guard verifyOrBackfillIntegrityHash(
+            for: data,
+            decodedText: text,
+            pageId: pageId,
+            hashFileURL: hashFileURL,
+            directory: directory
+        ) else {
             return nil
         }
         return data
@@ -675,70 +786,68 @@ enum NoteFileStorage {
     /// Write a note body to disk with an integrity hash sidecar.
     /// Zero-corruption spec §2.3: every byte written is checksummed.
     nonisolated static func writeBody(pageId: String, content: String) {
-        guard isValidPageId(pageId) else {
-            logger.error("Invalid pageId rejected in writeBody: \(pageId.prefix(20))")
+        let directory = storageDirectory()
+        guard let stagedContent = stageBodyForImmediateRead(pageId: pageId, content: content, directory: directory) else {
             return
         }
-        guard let normalizedContent = normalizedStorageContent(content, pageId: pageId) else {
-            return
+        let url = bodyURL(pageId: pageId, in: directory)
+        let didPersist = mutationQueue.performSync {
+            persistStagedBody(stagedContent, pageId: pageId, url: url, directory: directory)
         }
-        let url = bodyURL(pageId: pageId)
-        let data = Data(normalizedContent.utf8)
-        let hash = integrityToken(for: data)
-
-        // Empty writes are legitimate (user cleared the note). The original zero-byte
-        // bug is fixed by textDidChange restructure + NSNotFound bounds checks + direct
-        // file save bypassing the SwiftUI binding chain. No need to block empty writes here.
-        mutationQueue.performSync {
-            guard persistBody(normalizedContent, to: url, pageId: pageId) else {
-                return
-            }
-            guard persistHash(hash, pageId: pageId) else {
-                logger.error("Failed to persist integrity hash for \(pageId)")
-                try? FileManager.default.removeItem(at: hashURL(pageId: pageId))
-                try? FileManager.default.removeItem(at: legacyIntegrityURL(pageId: pageId, in: storageDirectory()))
-                return
-            }
+        if didPersist {
+            clearPendingBody(pageId: pageId, directory: directory, matching: stagedContent)
         }
     }
 
     /// Write a note body off the caller actor while preserving global file mutation order.
     nonisolated static func writeBodyAsync(pageId: String, content: String) async {
-        guard isValidPageId(pageId) else {
-            logger.error("Invalid pageId rejected in writeBodyAsync: \(pageId.prefix(20))")
+        let directory = storageDirectory()
+        guard let stagedContent = stageBodyForImmediateRead(pageId: pageId, content: content, directory: directory) else {
             return
         }
-        guard let normalizedContent = normalizedStorageContent(content, pageId: pageId) else {
-            return
+        await persistStagedBodyAsync(stagedContent, pageId: pageId, directory: directory)
+    }
+
+    /// Stage a note body for immediate reads and durably persist it in the background.
+    /// Use this from non-async UI flush paths instead of wrapping `writeBodyAsync` in a new Task,
+    /// which can delay the staging step long enough for the next reader to observe stale content.
+    @discardableResult
+    nonisolated static func scheduleWriteBody(pageId: String, content: String) -> Task<Bool, Never>? {
+        let directory = storageDirectory()
+        guard let stagedContent = stageBodyForImmediateRead(pageId: pageId, content: content, directory: directory) else {
+            return nil
         }
-        let url = bodyURL(pageId: pageId)
-        let data = Data(normalizedContent.utf8)
-        let hash = integrityToken(for: data)
-        await mutationQueue.performAsync {
-            guard persistBody(normalizedContent, to: url, pageId: pageId) else {
-                return
-            }
-            guard persistHash(hash, pageId: pageId) else {
-                logger.error("Failed to persist integrity hash for \(pageId)")
-                try? FileManager.default.removeItem(at: hashURL(pageId: pageId))
-                try? FileManager.default.removeItem(at: legacyIntegrityURL(pageId: pageId, in: storageDirectory()))
-                return
-            }
+        return Task.detached(priority: .utility) {
+            await persistStagedBodyAsync(stagedContent, pageId: pageId, directory: directory)
         }
+    }
+
+    /// Persist a staged in-memory body to disk when a background save/export task needs
+    /// the normalized durable version before continuing.
+    @discardableResult
+    nonisolated static func flushPendingBodyToDisk(pageId: String) async -> Bool {
+        let directory = storageDirectory()
+        guard isValidPageId(pageId),
+              let stagedContent = pendingBody(for: pageId, directory: directory) else {
+            return false
+        }
+        return await persistStagedBodyAsync(stagedContent, pageId: pageId, directory: directory)
     }
 
     /// Delete a note body file.
     nonisolated static func deleteBody(pageId: String) {
         guard isValidPageId(pageId) else { return }
+        let directory = storageDirectory()
+        clearPendingBody(pageId: pageId, directory: directory)
         mutationQueue.performSync {
-            removeManagedFiles(pageId: pageId, in: storageDirectory())
+            removeManagedFiles(pageId: pageId, in: directory)
         }
     }
 
     /// Check if a body file exists on disk.
     nonisolated static func bodyExists(pageId: String) -> Bool {
         guard isValidPageId(pageId) else { return false }
-        let url = bodyURL(pageId: pageId)
+        let url = bodyURL(pageId: pageId, in: storageDirectory())
         return FileManager.default.fileExists(atPath: url.path)
     }
 
@@ -850,13 +959,12 @@ enum NoteFileStorage {
         try? FileManager.default.removeItem(at: legacyIntegrityURL(pageId: pageId, in: directory))
     }
 
-    private nonisolated static func existingHashURL(pageId: String) -> URL {
-        let storageURL = storageDirectory()
-        let primaryURL = integrityURL(pageId: pageId, in: storageURL)
+    private nonisolated static func existingHashURL(pageId: String, in directory: URL) -> URL {
+        let primaryURL = integrityURL(pageId: pageId, in: directory)
         if FileManager.default.fileExists(atPath: primaryURL.path) {
             return primaryURL
         }
-        let legacyURL = legacyIntegrityURL(pageId: pageId, in: storageURL)
+        let legacyURL = legacyIntegrityURL(pageId: pageId, in: directory)
         if FileManager.default.fileExists(atPath: legacyURL.path) {
             return legacyURL
         }
@@ -871,8 +979,8 @@ enum NoteFileStorage {
     /// is always "" for migrated notes and therefore useless as a change signal).
     nonisolated static let pageBodyDidChange = Notification.Name("EpistemosPageBodyDidChange")
 
-    /// Asks any open editor for the given page to flush its in-memory edits to disk NOW.
-    /// Synchronous on main thread — when this returns, disk is up to date.
+    /// Asks any open editor for the given page to stage its in-memory edits immediately
+    /// before a downstream reader (save/export/transclusion) continues.
     nonisolated static let pageBodyWillRead = Notification.Name("EpistemosPageBodyWillRead")
 
     /// Post the body-changed notification on the main thread.
@@ -881,9 +989,71 @@ enum NoteFileStorage {
         NotificationCenter.default.post(name: pageBodyDidChange, object: nil, userInfo: ["pageId": pageId])
     }
 
-    /// Ask any open editor for this page to flush pending edits to disk.
-    /// Synchronous — disk is current when this returns.
+    /// Ask any open editor for this page to flush pending edits.
+    /// Live editor text becomes readable immediately via the pending-body cache while the
+    /// background save/export task decides when to durably persist it.
     @MainActor static func requestFlush(pageId: String) {
+        if let liveBody = NoteWindowManager.shared.editorBody(for: pageId),
+           stageBodyForImmediateRead(pageId: pageId, content: liveBody) != nil {
+        }
         NotificationCenter.default.post(name: pageBodyWillRead, object: nil, userInfo: ["pageId": pageId])
+    }
+
+    @discardableResult
+    nonisolated static func stageBodyForImmediateRead(
+        pageId: String,
+        content: String,
+        directory: URL? = nil
+    ) -> String? {
+        guard isValidPageId(pageId) else {
+            logger.error("Invalid pageId rejected in writeBody: \(pageId.prefix(20))")
+            return nil
+        }
+        setPendingBody(content, for: pageId, directory: directory ?? storageDirectory())
+        return content
+    }
+
+    private nonisolated static func pendingBody(for pageId: String, directory: URL) -> String? {
+        let key = pendingBodyKey(pageId: pageId, directory: directory)
+        return pendingBodyQueue.sync { pendingBodies[key] }
+    }
+
+    private nonisolated static func setPendingBody(_ body: String, for pageId: String, directory: URL) {
+        let key = pendingBodyKey(pageId: pageId, directory: directory)
+        pendingBodyQueue.sync {
+            pendingBodies[key] = body
+        }
+    }
+
+    private nonisolated static func clearPendingBody(
+        pageId: String,
+        directory: URL,
+        matching expectedBody: String? = nil
+    ) {
+        let key = pendingBodyKey(pageId: pageId, directory: directory)
+        pendingBodyQueue.sync {
+            guard let expectedBody else {
+                pendingBodies.removeValue(forKey: key)
+                return
+            }
+            guard pendingBodies[key] == expectedBody else { return }
+            pendingBodies.removeValue(forKey: key)
+        }
+    }
+
+    @discardableResult
+    private nonisolated static func persistStagedBodyAsync(
+        _ stagedContent: String,
+        pageId: String,
+        directory: URL
+    ) async -> Bool {
+        let url = bodyURL(pageId: pageId, in: directory)
+        let didPersist = await mutationQueue.performAsync {
+            persistStagedBody(stagedContent, pageId: pageId, url: url, directory: directory)
+        }
+        if didPersist {
+            clearPendingBody(pageId: pageId, directory: directory, matching: stagedContent)
+        }
+        return didPersist
     }
 }

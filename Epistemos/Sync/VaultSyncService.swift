@@ -97,6 +97,13 @@ struct VaultRecoveryIssue: Identifiable, Sendable {
     }
 }
 
+private struct VersionCaptureSnapshot: Sendable {
+    let pageId: String
+    let title: String
+    let body: String
+    let wordCount: Int
+}
+
 private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 
 @MainActor @Observable
@@ -108,6 +115,10 @@ final class VaultSyncService {
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
     fileprivate nonisolated static let testDefaultsSuitePrefix = "com.epistemos.tests.VaultSyncService."
     fileprivate nonisolated static let skipRestoreEnvironmentKey = "EPISTEMOS_SKIP_VAULT_RESTORE"
+    private nonisolated static let backgroundLog = Logger(
+        subsystem: "com.epistemos",
+        category: "VaultSync"
+    )
     private nonisolated static let defaultRecoveryVaultURL = URL(
         fileURLWithPath: "/Users/jojo/My mind",
         isDirectory: true
@@ -1830,8 +1841,6 @@ final class VaultSyncService {
     /// Save a single page to its vault .md file and update sync tracking fields.
     @discardableResult
     func savePage(pageId: String) -> Task<Void, Never>? {
-        captureVersionIfNeeded(pageId: pageId)
-
         guard let vaultURL else {
             log.warning("Cannot save page: no vault URL")
             return nil
@@ -1841,7 +1850,8 @@ final class VaultSyncService {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard (try? context.fetch(descriptor).first) != nil else { return nil }
 
-        NoteFileStorage.requestFlush(pageId: pageId)
+        preparePageForExport(pageId: pageId, context: context)
+        scheduleVersionCaptureIfNeeded(pageId: pageId, context: context)
 
         do {
             try context.save()
@@ -1853,12 +1863,15 @@ final class VaultSyncService {
 
         let task = Task {
             do {
+                await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)
                 let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL)
 
                 await MainActor.run {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
                     if let page = try? context.fetch(desc).first, let result = exportResult {
-                        let currentHash = SDPage.bodyHash(page.loadBody(mapped: true))
+                        let currentHash = SDPage.bodyHash(
+                            self.latestAvailableBody(for: page, pageId: pageId)
+                        )
                         if currentHash == result.bodyHash {
                             page.lastSyncedBodyHash = currentHash
                             page.lastSyncedAt = .now
@@ -1887,6 +1900,38 @@ final class VaultSyncService {
             }
         }
         return task
+    }
+
+    private func preparePageForExport(pageId: String, context: ModelContext) {
+        NoteFileStorage.requestFlush(pageId: pageId)
+
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = try? context.fetch(descriptor).first else { return }
+
+        let currentBody = latestAvailableBody(for: page, pageId: pageId)
+        guard let stagedBody = NoteFileStorage.stageBodyForImmediateRead(
+            pageId: pageId,
+            content: currentBody
+        ) else { return }
+        page.applyInteractiveDerivedState(from: stagedBody)
+        page.needsVaultSync = true
+        ProseEditorView.syncNoteTitleIfNeeded(
+            from: stagedBody,
+            for: page,
+            modelContext: context
+        ) { [weak self] resolvedPageId, newTitle in
+            self?.renamePageFile(pageId: resolvedPageId, newTitle: newTitle)
+        }
+    }
+
+    private func latestAvailableBody(for page: SDPage, pageId: String) -> String {
+        if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
+            return liveBody
+        }
+        if !page.body.isEmpty {
+            return page.body
+        }
+        return page.loadBody(mapped: true)
     }
 
     /// Save all dirty pages to their vault .md files.
@@ -1921,7 +1966,8 @@ final class VaultSyncService {
         }
 
         for page in dirtyPages {
-            captureVersionIfNeeded(pageId: page.id)
+            preparePageForExport(pageId: page.id, context: context)
+            scheduleVersionCaptureIfNeeded(pageId: page.id, context: context)
         }
 
         do {
@@ -1961,6 +2007,7 @@ final class VaultSyncService {
             for pageId in batch.dirtyIds {
                 do {
                     suppressFileWatcherForSelfOriginatedChange()
+                    await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)
                     if let result = try await exportPage(pageId: pageId, to: batch.vaultURL) {
                         successfulExports.append(SuccessfulExport(pageId: pageId, bodyHash: result.bodyHash))
                     }
@@ -1974,7 +2021,9 @@ final class VaultSyncService {
                 let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pid })
                 guard let page = try? batch.context.fetch(desc).first else { continue }
 
-                let currentHash = SDPage.bodyHash(page.loadBody(mapped: true))
+                let currentHash = SDPage.bodyHash(
+                    latestAvailableBody(for: page, pageId: pid)
+                )
                 if currentHash == export.bodyHash {
                     page.lastSyncedBodyHash = currentHash
                     page.lastSyncedAt = .now
@@ -2145,15 +2194,15 @@ final class VaultSyncService {
 
     // MARK: - Version Capture
 
-    private static let maxVersionsPerPage = 50
-    static let maxTotalVersions = 10_000
+    private nonisolated static let maxVersionsPerPage = 50
+    nonisolated static let maxTotalVersions = 10_000
 
     /// Capture a snapshot of the current page body as a version, if it changed.
     func captureVersionIfNeeded(pageId: String) {
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = try? context.fetch(descriptor).first else { return }
-        let currentBody = page.loadBody()
+        let currentBody = NoteWindowManager.shared.editorBody(for: pageId) ?? page.loadBody()
         guard !currentBody.isEmpty else { return }
 
         // Check if body actually changed since last version
@@ -2173,13 +2222,70 @@ final class VaultSyncService {
             Log.vault.error("Failed to save captured version for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
         log.info("Captured version for page \(pageId.prefix(8))")
-        pruneVersions(pageId: pageId)
+        Self.pruneVersions(pageId: pageId, modelContainer: modelContainer)
         pruneVersionsGlobal()
     }
 
+    private func scheduleVersionCaptureIfNeeded(pageId: String, context: ModelContext) {
+        guard let snapshot = versionCaptureSnapshot(pageId: pageId, context: context) else { return }
+        let modelContainer = modelContainer
+        Task.detached(priority: .utility) {
+            Self.captureVersionSnapshotIfNeeded(snapshot, modelContainer: modelContainer)
+        }
+    }
+
+    private func versionCaptureSnapshot(pageId: String, context: ModelContext) -> VersionCaptureSnapshot? {
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = try? context.fetch(descriptor).first else { return nil }
+        let currentBody = latestAvailableBody(for: page, pageId: pageId)
+        guard !currentBody.isEmpty else { return nil }
+        return VersionCaptureSnapshot(
+            pageId: pageId,
+            title: page.title,
+            body: currentBody,
+            wordCount: page.wordCount
+        )
+    }
+
+    private nonisolated static func captureVersionSnapshotIfNeeded(
+        _ snapshot: VersionCaptureSnapshot,
+        modelContainer: ModelContainer
+    ) {
+        let context = ModelContext(modelContainer)
+        context.autosaveEnabled = false
+
+        let pageId = snapshot.pageId
+        var versionDesc = FetchDescriptor<SDPageVersion>(
+            predicate: #Predicate<SDPageVersion> { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        versionDesc.fetchLimit = 1
+        if let latest = try? context.fetch(versionDesc).first, latest.body == snapshot.body { return }
+
+        let version = SDPageVersion(
+            pageId: snapshot.pageId,
+            title: snapshot.title,
+            body: snapshot.body,
+            wordCount: snapshot.wordCount
+        )
+        context.insert(version)
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error(
+                "Failed to save captured version for page \(snapshot.pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+        Self.backgroundLog.info("Captured version for page \(snapshot.pageId.prefix(8))")
+        pruneVersions(pageId: snapshot.pageId, modelContainer: modelContainer)
+        pruneVersionsGlobal(modelContainer: modelContainer)
+    }
+
     /// Keep only the most recent N versions per page.
-    private func pruneVersions(pageId: String) {
-        let context = modelContainer.mainContext
+    private nonisolated static func pruneVersions(pageId: String, modelContainer: ModelContainer) {
+        let context = ModelContext(modelContainer)
+        context.autosaveEnabled = false
         var desc = FetchDescriptor<SDPageVersion>(
             predicate: #Predicate<SDPageVersion> { $0.pageId == pageId },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
@@ -2192,13 +2298,18 @@ final class VaultSyncService {
         } catch {
             Log.vault.error("Failed to save after pruning versions for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
-        log.info("Pruned \(old.count) old versions for page \(pageId.prefix(8))")
+        Self.backgroundLog.info("Pruned \(old.count) old versions for page \(pageId.prefix(8))")
     }
 
     /// Delete the oldest versions across all pages when total exceeds the global limit.
     /// Called after every per-page prune to keep storage bounded.
     func pruneVersionsGlobal() {
-        let context = modelContainer.mainContext
+        Self.pruneVersionsGlobal(modelContainer: modelContainer)
+    }
+
+    private nonisolated static func pruneVersionsGlobal(modelContainer: ModelContainer) {
+        let context = ModelContext(modelContainer)
+        context.autosaveEnabled = false
         let countDesc = FetchDescriptor<SDPageVersion>()
         guard let totalCount = try? context.fetchCount(countDesc),
               totalCount > Self.maxTotalVersions else { return }
@@ -2215,7 +2326,7 @@ final class VaultSyncService {
         } catch {
             Log.vault.error("Failed to save after global version prune: \(error.localizedDescription, privacy: .public)")
         }
-        log.info("Global version prune: removed \(oldest.count) oldest versions (total was \(totalCount))")
+        Self.backgroundLog.info("Global version prune: removed \(oldest.count) oldest versions (total was \(totalCount))")
     }
 
     /// Start a 10-minute timer that captures versions for all dirty pages.
@@ -2233,16 +2344,15 @@ final class VaultSyncService {
     /// Capture versions for all dirty pages (called by timer).
     private func autoCaptureVersions() {
         let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<SDPage>()
-        guard let allPages = try? context.fetch(descriptor) else { return }
-        let dirty = allPages.filter(\.isDirtyVault)
-        for page in dirty {
-            let pid = page.id
-            captureVersionIfNeeded(pageId: pid)
+        let dirtyDescriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.needsVaultSync == true || $0.lastSyncedBodyHash == nil }
+        )
+        guard let dirtyPages = try? context.fetch(dirtyDescriptor),
+              !dirtyPages.isEmpty else { return }
+        for page in dirtyPages {
+            scheduleVersionCaptureIfNeeded(pageId: page.id, context: context)
         }
-        if !dirty.isEmpty {
-            log.info("Auto-captured versions for \(dirty.count) dirty pages")
-        }
+        log.info("Auto-captured versions for \(dirtyPages.count) dirty pages")
     }
 
     /// Create a new page in SwiftData and write its .md file.

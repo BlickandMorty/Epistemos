@@ -311,8 +311,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 )
             case 4:
                 applyPrefixColor(to: attrStr, line: line, prefix: "#### ", color: accent.withAlphaComponent(0.40), bold: true)
-            default:
+            case 5:
                 applyPrefixColor(to: attrStr, line: line, prefix: "##### ", color: accent.withAlphaComponent(0.35), bold: true)
+            default:
+                applyPrefixColor(to: attrStr, line: line, prefix: "###### ", color: accent.withAlphaComponent(0.35), bold: true)
             }
 
         case 6:  // CodeBlock
@@ -824,8 +826,8 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         color: NSColor,
         bold: Bool = false
     ) {
-        let leadingSpaces = line.prefix(while: { $0 == " " }).count
-        let dimRange = NSRange(location: leadingSpaces, length: prefix.utf16.count)
+        let leadingIndent = leadingIndentLength(in: line)
+        let dimRange = NSRange(location: leadingIndent, length: prefix.utf16.count)
         guard dimRange.location + dimRange.length <= attrStr.length else { return }
         
         var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: color]
@@ -841,8 +843,8 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         line: String,
         color: NSColor
     ) {
-        let leadingSpaces = line.prefix(while: { $0 == " " }).count
-        let dimRange = NSRange(location: leadingSpaces, length: 2)
+        let leadingIndent = leadingIndentLength(in: line)
+        let dimRange = NSRange(location: leadingIndent, length: 2)
         guard dimRange.location + dimRange.length <= attrStr.length else { return }
         attrStr.addAttributes(
             [
@@ -851,6 +853,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             ],
             range: dimRange
         )
+    }
+
+    private func leadingIndentLength(in line: String) -> Int {
+        line.prefix { $0 == " " || $0 == "\t" }.utf16.count
     }
 
     // MARK: - Code Token Styling (Phase 6)
@@ -1082,6 +1088,20 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
 
     func isLineInFoldedRange(_ line: Int) -> Bool {
         hiddenLines.contains(line)
+    }
+
+    func hasActiveFolds() -> Bool {
+        if !hiddenLines.isEmpty {
+            return true
+        }
+
+        for lineIndex in cachedTypes.indices where cachedTypes[lineIndex].paraType == 1 {
+            if markdown_is_folded(UInt32(lineIndex)) {
+                return true
+            }
+        }
+
+        return false
     }
 
     /// Number of heading lines in the document.

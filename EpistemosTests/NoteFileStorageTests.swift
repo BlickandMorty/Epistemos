@@ -177,6 +177,35 @@ struct NoteFileStorageTests {
         #expect(storedHash == NoteFileStorage.integrityTokenForTesting(storedData))
     }
 
+    @Test("staged editor bodies stay immediately readable until background persistence normalizes them")
+    func stagedEditorBodiesStayReadableUntilFlush() async {
+        let pageId = makePageId()
+        let decomposed = "Cafe\u{301} and re\u{301}sume\u{301}"
+        let normalized = decomposed.precomposedStringWithCanonicalMapping
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        let staged = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: decomposed)
+
+        #expect(staged == decomposed)
+        #expect(NoteFileStorage.readBody(pageId: pageId) == decomposed)
+        #expect(await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId))
+        #expect(NoteFileStorage.readBody(pageId: pageId) == normalized)
+    }
+
+    @Test("scheduled body writes stage immediately before background persistence begins")
+    func scheduledBodyWritesStageImmediately() async {
+        let pageId = makePageId()
+        let content = String(repeating: "Scheduled body line\n", count: 2048)
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        let writeTask = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: content)
+
+        #expect(writeTask != nil)
+        #expect(NoteFileStorage.readBody(pageId: pageId) == content)
+        #expect(await writeTask?.value == true)
+        #expect(NoteFileStorage.readBody(pageId: pageId) == content)
+    }
+
     @Test("readBody fails closed when integrity sidecar does not match content")
     func readBodyRejectsHashMismatch() throws {
         let pageId = makePageId()

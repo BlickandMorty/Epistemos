@@ -204,7 +204,7 @@ struct HologramNodeInspector: View {
         editorSaveTask?.cancel()
         editorSaveTask = nil
         guard lastPersistedBody != editorText else { return }
-        NoteFileStorage.writeBody(pageId: pageId, content: editorText)
+        _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: editorText)
         lastPersistedBody = editorText
         markPageDirty(pageId: pageId, body: editorText)
         NoteFileStorage.notifyBodyChanged(pageId: pageId)
@@ -228,7 +228,16 @@ struct HologramNodeInspector: View {
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
         if let page = try? modelContext.fetch(desc).first {
-            BlockMirror.sync(pageId: pageId, body: body, modelContext: modelContext)
+            page.applyInteractiveDerivedState(from: body)
+            if let modelContainer = AppBootstrap.shared?.modelContainer {
+                Task {
+                    await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                        pageId: pageId,
+                        body: body,
+                        modelContainer: modelContainer
+                    )
+                }
+            }
             page.needsVaultSync = true
             try? modelContext.save()
         }

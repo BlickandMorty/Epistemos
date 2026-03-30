@@ -472,6 +472,30 @@ struct NoteStorageIntegrationTests {
         
         #expect(readContent == testContent, "SDPage storage roundtrip failed")
     }
+
+    @Test("scheduled body writes stay readable before the durable flush completes")
+    func scheduledBodyWritesStayReadableBeforeFlushCompletes() async throws {
+        let storageURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EpistemosTests-AsyncRead-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: storageURL)
+        }
+
+        await NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL, operation: { @MainActor in
+            let pageId = UUID().uuidString
+            let content = String(repeating: "Pending async body line\n", count: 4096)
+
+            let writeTask = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: content)
+
+            let immediateRead = NoteFileStorage.readBody(pageId: pageId)
+            #expect(immediateRead == content)
+
+            let completed = await writeTask?.value
+            #expect(completed == true)
+            let finalRead = NoteFileStorage.readBody(pageId: pageId)
+            #expect(finalRead == content)
+        })
+    }
     
     @Test("empty note body handling")
     func emptyNoteBodyHandling() async throws {

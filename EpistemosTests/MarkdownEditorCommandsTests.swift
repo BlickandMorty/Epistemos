@@ -93,6 +93,17 @@ struct MarkdownEditorCommandsTests {
         #expect(edit?.replacementText == "# Existing Heading\n")
     }
 
+    @Test("Setting the same heading level removes the heading marker")
+    func setHeadingSameLevelRemovesMarker() {
+        let text = "## Existing Heading\n"
+        let selection = NSRange(location: 4, length: 0)
+
+        let edit = MarkdownEditorCommands.setHeading(in: text, selection: selection, level: 2)
+
+        #expect(edit?.replacementText == "Existing Heading\n")
+        #expect(edit?.selectedRange == NSRange(location: 0, length: 0))
+    }
+
     @Test("Toggling a markdown prefix swaps the existing line marker instead of stacking markers")
     func togglePrefixSwapsExistingMarker() {
         let text = "- task item\n"

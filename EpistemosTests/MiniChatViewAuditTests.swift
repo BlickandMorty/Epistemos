@@ -45,6 +45,37 @@ struct MiniChatViewAuditTests {
         #expect(controllerSource.contains("MiniChatView(chatID: chatID, initialContextAttachment: initialContextAttachment)"))
     }
 
+    @Test("fragile note attachment wiring stays connected from notes into full and mini chats")
+    func fragileNoteAttachmentWiringStaysConnectedFromNotesIntoChats() throws {
+        let noteWorkspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let controllerSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let chatInputSource = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let threadStateSource = try loadRepoTextFile("Epistemos/State/ThreadState.swift")
+
+        #expect(noteWorkspaceSource.contains("private var noteChatContextAttachment: ContextAttachment?"))
+        #expect(noteWorkspaceSource.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
+
+        #expect(controllerSource.contains("func openNewChat(attaching attachment: ContextAttachment? = nil)"))
+        #expect(controllerSource.contains("resolvedAttachment = activeNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("openChat(UUID().uuidString, initialContextAttachment: resolvedAttachment)"))
+        #expect(controllerSource.contains("let view = MiniChatView(chatID: chatID, initialContextAttachment: initialContextAttachment)"))
+
+        #expect(miniChatSource.contains("applyInitialContextAttachmentIfNeeded()"))
+        #expect(miniChatSource.contains("threadState.addMiniChatContextAttachment(initialContextAttachment, chatID: chatID)"))
+        #expect(miniChatSource.contains("return ChatCoordinator.searchReferenceResults("))
+        #expect(miniChatSource.contains("ComposerReferenceHelpers.contextAttachment(for: choice)"))
+        #expect(miniChatSource.contains("ComposerReferenceHelpers.allNotesAttachment"))
+
+        #expect(chatInputSource.contains("return ChatCoordinator.searchReferenceResults("))
+        #expect(chatInputSource.contains("chat.addContextAttachment(ComposerReferenceHelpers.contextAttachment(for: choice))"))
+        #expect(chatInputSource.contains("chat.addContextAttachment(ComposerReferenceHelpers.allNotesAttachment)"))
+
+        #expect(threadStateSource.contains("let threadID = ensureMiniChatSession(id: chatID)"))
+        #expect(threadStateSource.contains("if chatThreads[index].contextAttachments.contains(attachment) { return }"))
+        #expect(threadStateSource.contains("chatThreads[index].contextAttachments.append(attachment)"))
+    }
+
     @Test("chat model picker includes Apple Intelligence alongside local models")
     func chatModelPickerIncludesAppleIntelligenceAlongsideLocalModels() throws {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")

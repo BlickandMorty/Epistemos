@@ -2060,6 +2060,38 @@ struct NonDestructiveFoldingTests {
         #expect(delegate.hiddenLines.isEmpty)
     }
 
+    @Test("hasActiveFolds tracks ordinary folded ranges")
+    func hasActiveFoldsTracksFoldedRanges() {
+        let delegate = MarkdownContentStorage()
+        let text = "# Title\nBody\n## Other"
+        delegate.reparse(text: text)
+        defer { markdown_clear_all_folds() }
+
+        #expect(delegate.hasActiveFolds() == false)
+
+        markdown_set_fold(0, true)
+        delegate.recomputeHiddenLines(documentText: text)
+        #expect(delegate.hasActiveFolds() == true)
+
+        markdown_clear_all_folds()
+        delegate.recomputeHiddenLines(documentText: text)
+        #expect(delegate.hasActiveFolds() == false)
+    }
+
+    @Test("hasActiveFolds detects folded terminal headings with no hidden lines")
+    func hasActiveFoldsDetectsTerminalHeadingFold() {
+        let delegate = MarkdownContentStorage()
+        let text = "# Title"
+        delegate.reparse(text: text)
+        defer { markdown_clear_all_folds() }
+
+        markdown_set_fold(0, true)
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.hiddenLines.isEmpty)
+        #expect(delegate.hasActiveFolds() == true)
+    }
+
     @Test("nested headings fold correctly — H1 hides H2 sub-content")
     func nestedHeadingFold() {
         let delegate = MarkdownContentStorage()

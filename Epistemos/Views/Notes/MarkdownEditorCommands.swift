@@ -65,29 +65,25 @@ enum MarkdownEditorCommands {
         let hasTrailingNewline = lineText.hasSuffix("\n")
         let lineBody = hasTrailingNewline ? String(lineText.dropLast()) : lineText
 
-        var stripped = lineBody
-        var hashCount = 0
-        for character in stripped {
-            if character == "#" {
-                hashCount += 1
-            } else {
-                break
-            }
-        }
-        if hashCount > 0 {
-            stripped = String(stripped.dropFirst(hashCount))
-            if stripped.hasPrefix(" ") {
-                stripped = String(stripped.dropFirst())
-            }
+        let clampedLevel = min(max(level, 1), 6)
+        let components = headingComponents(from: lineBody)
+        let selectionLocation: Int
+        let replacementBody: String
+
+        if components.level == clampedLevel {
+            replacementBody = components.indentation + components.content
+            selectionLocation = lineRange.location + components.indentation.utf16.count
+        } else {
+            let prefix = String(repeating: "#", count: clampedLevel) + " "
+            replacementBody = components.indentation + prefix + components.content
+            selectionLocation = lineRange.location + components.indentation.utf16.count + prefix.utf16.count
         }
 
-        let clampedLevel = min(max(level, 1), 6)
-        let prefix = String(repeating: "#", count: clampedLevel) + " "
-        let replacementText = prefix + stripped + (hasTrailingNewline ? "\n" : "")
+        let replacementText = replacementBody + (hasTrailingNewline ? "\n" : "")
         return TextEdit(
             replacementRange: lineRange,
             replacementText: replacementText,
-            selectedRange: NSRange(location: lineRange.location + prefix.utf16.count, length: 0)
+            selectedRange: NSRange(location: selectionLocation, length: 0)
         )
     }
 
@@ -300,6 +296,35 @@ enum MarkdownEditorCommands {
 
     static func calloutTemplate(for kind: NoteCalloutKind) -> String {
         "> [!\(kind.rawValue)] \(kind.title)\n> "
+    }
+
+    private static func headingComponents(from lineBody: String) -> (
+        indentation: String, level: Int?, content: String
+    ) {
+        let indentation = String(lineBody.prefix { $0 == " " || $0 == "\t" })
+        let bodyStart = lineBody.index(lineBody.startIndex, offsetBy: indentation.count)
+        let contentBody = String(lineBody[bodyStart...])
+
+        var hashCount = 0
+        for character in contentBody {
+            if character == "#" {
+                hashCount += 1
+            } else {
+                break
+            }
+        }
+
+        guard hashCount > 0 else {
+            return (indentation, nil, contentBody)
+        }
+
+        let markerEnd = contentBody.index(contentBody.startIndex, offsetBy: hashCount)
+        guard markerEnd < contentBody.endIndex, contentBody[markerEnd] == " " else {
+            return (indentation, nil, contentBody)
+        }
+
+        let contentStart = contentBody.index(after: markerEnd)
+        return (indentation, hashCount, String(contentBody[contentStart...]))
     }
 
     static func alignTable(in text: String, selection: NSRange) -> TableEdit? {
