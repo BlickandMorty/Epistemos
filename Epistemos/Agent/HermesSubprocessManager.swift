@@ -303,6 +303,31 @@ struct HermesRuntimeRoute: Sendable, Equatable {
     let apiMode: String?
     let environmentOverrides: [String: String]
 
+    /// Resolve a route for a local agent-capable model via the bridge's local
+    /// inference server. Returns nil if the model lacks agent capability.
+    static func resolveLocal(
+        modelID: String,
+        inferencePort: Int
+    ) -> HermesRuntimeRoute? {
+        guard let model = LocalTextModelID(rawValue: modelID),
+              model.canActAsAgent,
+              inferencePort > 0 else {
+            return nil
+        }
+
+        return HermesRuntimeRoute(
+            model: "local-mlx",
+            requestedProvider: "custom",
+            baseURL: "http://127.0.0.1:\(inferencePort)/v1",
+            apiMode: "chat_completions",
+            environmentOverrides: [
+                "HERMES_INFERENCE_PROVIDER": "custom",
+                "OPENAI_API_KEY": "local-epistemos",
+                "OPENAI_BASE_URL": "http://127.0.0.1:\(inferencePort)/v1",
+            ]
+        )
+    }
+
     static func resolve(
         for selection: ChatModelSelection,
         apiKeyLookup: (CloudModelProvider) -> String?
