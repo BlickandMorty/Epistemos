@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import os
 
 // MARK: - Visual Verify Loop
@@ -11,10 +12,26 @@ import os
 /// Current: ~200-500ms via shared GPU (Brain 1 fallback).
 @MainActor @Observable
 final class VisualVerifyLoop {
+    typealias AXStateProvider = @MainActor @Sendable (_ appBundleID: String?) async -> String
+    typealias ScreenshotFingerprintProvider = @MainActor @Sendable (_ appBundleID: String?) async -> UInt64?
+    typealias SemanticVerificationHandler = @MainActor @Sendable (
+        _ beforeState: String,
+        _ afterState: String,
+        _ expectedOutcome: String
+    ) async throws -> SemanticVerification
+
+    struct SemanticVerification: Sendable {
+        let confidence: Double
+        let method: String
+    }
+
     private let log = Logger(subsystem: "com.epistemos.omega", category: "VisualVerify")
 
     private let screenCapture: ScreenCaptureService
     private let deviceAgent: DeviceAgentService?
+    private let axStateProvider: AXStateProvider
+    private let screenshotFingerprintProvider: ScreenshotFingerprintProvider
+    private let semanticVerifier: SemanticVerificationHandler?
 
     /// Last verification result.
     private(set) var lastResult: VerifyResult?
@@ -29,6 +46,48 @@ final class VisualVerifyLoop {
     init(screenCapture: ScreenCaptureService, deviceAgent: DeviceAgentService? = nil) {
         self.screenCapture = screenCapture
         self.deviceAgent = deviceAgent
+        self.axStateProvider = { appBundleID in
+            Self.captureAXState(appBundleID: appBundleID)
+        }
+        self.screenshotFingerprintProvider = { appBundleID in
+            let image: CGImage?
+            if let appBundleID {
+                image = await screenCapture.captureApp(bundleID: appBundleID)
+            } else {
+                image = await screenCapture.captureFrontmostWindow()
+            }
+            guard let image else { return nil }
+            return Self.screenshotFingerprint(for: image)
+        }
+        if let deviceAgent {
+            self.semanticVerifier = { beforeState, afterState, expectedOutcome in
+                let confidence = try await deviceAgent.verifyAction(
+                    beforeState: beforeState,
+                    afterState: afterState,
+                    expectedOutcome: expectedOutcome
+                )
+                return SemanticVerification(
+                    confidence: confidence,
+                    method: deviceAgent.isANEDedicated ? "Brain2-ANE" : "Brain2-SharedGPU"
+                )
+            }
+        } else {
+            self.semanticVerifier = nil
+        }
+    }
+
+    init(
+        screenCapture: ScreenCaptureService,
+        deviceAgent: DeviceAgentService? = nil,
+        axStateProvider: @escaping AXStateProvider,
+        screenshotFingerprintProvider: @escaping ScreenshotFingerprintProvider,
+        semanticVerifier: SemanticVerificationHandler?
+    ) {
+        self.screenCapture = screenCapture
+        self.deviceAgent = deviceAgent
+        self.axStateProvider = axStateProvider
+        self.screenshotFingerprintProvider = screenshotFingerprintProvider
+        self.semanticVerifier = semanticVerifier
     }
 
     /// Capture the "before" state for a pending action.
@@ -36,19 +95,15 @@ final class VisualVerifyLoop {
     func captureBeforeState(appBundleID: String? = nil) async -> VerifyToken? {
         let start = ContinuousClock.now
 
-        // Capture AX tree state (fast, <500ms from R5 results)
-        let axState: String
-        if let bundleID = appBundleID, let pid = pidForBundleID(bundleID) {
-            axState = walkAxTreeJson(pid: Int64(pid))
-        } else {
-            axState = "{}"
-        }
+        let axState = await axStateProvider(appBundleID)
+        let screenshotFingerprintBefore = await screenshotFingerprintProvider(appBundleID)
 
         let elapsed = start.duration(to: ContinuousClock.now)
         log.debug("Before state captured in \(elapsed.omegaMilliseconds)ms")
 
         return VerifyToken(
             axStateBefore: axState,
+            screenshotFingerprintBefore: screenshotFingerprintBefore,
             capturedAt: Date()
         )
     }
@@ -62,26 +117,21 @@ final class VisualVerifyLoop {
     ) async -> VerifyResult {
         let start = ContinuousClock.now
 
-        // Capture "after" AX tree
-        let axStateAfter: String
-        if let bundleID = appBundleID, let pid = pidForBundleID(bundleID) {
-            axStateAfter = walkAxTreeJson(pid: Int64(pid))
-        } else {
-            axStateAfter = "{}"
-        }
+        let axStateAfter = await axStateProvider(appBundleID)
 
         var confidence: Double
         var method: String
 
         // Try LLM-based verification via Brain 2 (fast, semantic)
-        if let agent = deviceAgent, agent.isReady {
+        if let semanticVerifier {
             do {
-                confidence = try await agent.verifyAction(
-                    beforeState: token.axStateBefore,
-                    afterState: axStateAfter,
-                    expectedOutcome: expectedOutcome
+                let semanticResult = try await semanticVerifier(
+                    token.axStateBefore,
+                    axStateAfter,
+                    expectedOutcome
                 )
-                method = agent.isANEDedicated ? "Brain2-ANE" : "Brain2-SharedGPU"
+                confidence = semanticResult.confidence
+                method = semanticResult.method
             } catch {
                 log.warning("LLM verify failed, falling back to diff: \(error.localizedDescription)")
                 confidence = diffBasedVerification(
@@ -97,6 +147,14 @@ final class VisualVerifyLoop {
                 after: axStateAfter
             )
             method = "AX-diff"
+        }
+
+        if confidence < 0.8,
+           let beforeFingerprint = token.screenshotFingerprintBefore,
+           let afterFingerprint = await screenshotFingerprintProvider(appBundleID),
+           beforeFingerprint != afterFingerprint {
+            confidence = max(confidence, 0.6)
+            method = method == "AX-diff" ? "AX+screenshot-diff" : "\(method)+screenshot-diff"
         }
 
         let elapsed = start.duration(to: ContinuousClock.now)
@@ -151,9 +209,44 @@ final class VisualVerifyLoop {
         return elements.count
     }
 
-    private func pidForBundleID(_ bundleID: String) -> Int32? {
+    private static func captureAXState(appBundleID: String?) -> String {
+        if let appBundleID, let pid = pidForBundleID(appBundleID) {
+            // AXorcist-powered tree walk (replaces omega-ax walkAxTreeJson)
+            return AXorcistBridge.shared.walkTree(pid: pid)
+        }
+        return "{}"
+    }
+
+    private static func pidForBundleID(_ bundleID: String) -> Int32? {
         let apps = NSWorkspace.shared.runningApplications
         return apps.first { $0.bundleIdentifier == bundleID }?.processIdentifier
+    }
+
+    private static func screenshotFingerprint(for image: CGImage) -> UInt64 {
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        hash ^= UInt64(image.width)
+        hash &*= 1_099_511_628_211
+        hash ^= UInt64(image.height)
+        hash &*= 1_099_511_628_211
+
+        guard let data = image.dataProvider?.data else {
+            return hash
+        }
+
+        let length = CFDataGetLength(data)
+        guard length > 0,
+              let bytes = CFDataGetBytePtr(data) else {
+            return hash
+        }
+
+        let step = max(1, length / 1024)
+        var index = 0
+        while index < length {
+            hash ^= UInt64(bytes[index])
+            hash &*= 1_099_511_628_211
+            index += step
+        }
+        return hash
     }
 }
 
@@ -162,6 +255,7 @@ final class VisualVerifyLoop {
 /// Opaque token capturing pre-action state.
 struct VerifyToken: Sendable {
     let axStateBefore: String
+    let screenshotFingerprintBefore: UInt64?
     let capturedAt: Date
 }
 
@@ -174,4 +268,3 @@ struct VerifyResult: Sendable {
 
     var passed: Bool { confidence >= 0.8 }
 }
-

@@ -6,6 +6,20 @@ import Foundation
 /// Uses OmegaInferenceBridge for LLM-based plan generation, ToolCallParser for extraction.
 @MainActor
 final class OmegaPlanningService {
+    enum PlanningAttempt<Value: Sendable>: Sendable {
+        case success(Value)
+        case failure(String)
+        case timedOut
+    }
+
+    private enum PlanningRace<Value: Sendable>: Sendable {
+        case value(Value)
+        case error(String)
+        case timeout
+    }
+
+    static let localPlanningTimeout: Duration = .seconds(12)
+
     private let inferenceBridge: OmegaInferenceBridge
     private let availableAgents: [String]
 
@@ -15,7 +29,7 @@ final class OmegaPlanningService {
     }
 
     /// Generate a plan (list of AgentSteps) from a task description.
-    /// Falls back to a simple single-step plan if LLM planning fails.
+    /// Returns only parsed LLM output; orchestrator-level callers own fallback behavior.
     func generatePlan(for taskDescription: String) async -> [AgentStep] {
         // Try LLM-based planning
         do {
@@ -28,11 +42,44 @@ final class OmegaPlanningService {
                 return steps
             }
         } catch {
-            // LLM planning failed — fall through to heuristic
+            return []
         }
 
-        // Fallback: simple heuristic routing
-        return heuristicPlan(for: taskDescription)
+        return []
+    }
+
+    static func runPlanningAttempt<Value: Sendable>(
+        timeout: Duration,
+        operation: @escaping @MainActor @Sendable () async throws -> Value
+    ) async -> PlanningAttempt<Value> {
+        await withTaskGroup(
+            of: PlanningRace<Value>.self,
+            returning: PlanningAttempt<Value>.self
+        ) { group in
+            group.addTask {
+                do {
+                    return .value(try await operation())
+                } catch {
+                    return .error(error.localizedDescription)
+                }
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return .timeout
+            }
+
+            let firstCompleted = await group.next() ?? .timeout
+            group.cancelAll()
+
+            switch firstCompleted {
+            case .value(let value):
+                return .success(value)
+            case .error(let message):
+                return .failure(message)
+            case .timeout:
+                return .timedOut
+            }
+        }
     }
 
     /// Parse the LLM's JSON plan response into AgentSteps.

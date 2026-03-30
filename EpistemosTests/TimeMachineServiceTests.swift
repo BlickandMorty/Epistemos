@@ -71,55 +71,55 @@ struct TimeMachineServiceTests {
         let service = TimeMachineService(modelContainer: container)
         let storageURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("time-machine-tests-\(UUID().uuidString)", isDirectory: true)
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(storageURL)
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             try? FileManager.default.removeItem(at: storageURL)
         }
 
-        let kept = SDPage(title: "Kept")
-        kept.id = "kept-note"
-        kept.createdAt = Date(timeIntervalSince1970: 10)
-        kept.saveBody("alpha beta gamma\na\n\nb\n\nc")
-        context.insert(kept)
+        try NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
+            let kept = SDPage(title: "Kept")
+            kept.id = "kept-note"
+            kept.createdAt = Date(timeIntervalSince1970: 10)
+            kept.saveBody("alpha beta gamma\na\n\nb\n\nc")
+            context.insert(kept)
 
-        let added = SDPage(title: "Added")
-        added.id = "added-note"
-        added.createdAt = Date(timeIntervalSince1970: 5)
-        added.saveBody("delta epsilon")
-        context.insert(added)
+            let added = SDPage(title: "Added")
+            added.id = "added-note"
+            added.createdAt = Date(timeIntervalSince1970: 5)
+            added.saveBody("delta epsilon")
+            context.insert(added)
 
-        try context.save()
+            try context.save()
 
-        let pastState = makePastState(
-            timestamp: Date(timeIntervalSince1970: 100),
-            noteSnapshots: [
-                .init(
-                    id: kept.id,
-                    title: kept.title,
-                    bodyPreview: "alpha beta",
-                    wordCount: 2,
-                    versionDate: nil
-                ),
-                .init(
-                    id: "removed-note",
-                    title: "Removed",
-                    bodyPreview: "gone",
-                    wordCount: 1,
-                    versionDate: nil
-                ),
-            ],
-            allPageIds: [kept.id, "removed-note"]
-        )
+            let pastState = makePastState(
+                timestamp: Date(timeIntervalSince1970: 100),
+                noteSnapshots: [
+                    .init(
+                        id: kept.id,
+                        title: kept.title,
+                        bodyPreview: "alpha beta",
+                        wordCount: 2,
+                        versionDate: nil
+                    ),
+                    .init(
+                        id: "removed-note",
+                        title: "Removed",
+                        bodyPreview: "gone",
+                        wordCount: 1,
+                        versionDate: nil
+                    ),
+                ],
+                allPageIds: [kept.id, "removed-note"]
+            )
 
-        let diff = service.computeDiff(from: pastState)
+            let diff = service.computeDiff(from: pastState)
 
-        #expect(diff.addedNotes == ["Added"])
-        #expect(diff.removedNotes == ["Removed"])
-        #expect(diff.modifiedNotes.count == 1)
-        #expect(diff.modifiedNotes.first?.id == kept.id)
-        #expect(diff.modifiedNotes.first?.wordCountDelta == 4)
-        #expect(diff.modifiedNotes.first?.paragraphsChanged == 2)
+            #expect(diff.addedNotes == ["Added"])
+            #expect(diff.removedNotes == ["Removed"])
+            #expect(diff.modifiedNotes.count == 1)
+            #expect(diff.modifiedNotes.first?.id == kept.id)
+            #expect(diff.modifiedNotes.first?.wordCountDelta == 4)
+            #expect(diff.modifiedNotes.first?.paragraphsChanged == 2)
+        }
     }
 
     @Test("computeDiff fallback only counts notes created after the snapshot date")
@@ -129,53 +129,53 @@ struct TimeMachineServiceTests {
         let service = TimeMachineService(modelContainer: container)
         let storageURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("time-machine-tests-\(UUID().uuidString)", isDirectory: true)
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(storageURL)
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             try? FileManager.default.removeItem(at: storageURL)
         }
 
-        let existing = SDPage(title: "Existing")
-        existing.id = "existing-note"
-        existing.createdAt = Date(timeIntervalSince1970: 50)
-        existing.saveBody("one two three four")
-        context.insert(existing)
+        try NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
+            let existing = SDPage(title: "Existing")
+            existing.id = "existing-note"
+            existing.createdAt = Date(timeIntervalSince1970: 50)
+            existing.saveBody("one two three four")
+            context.insert(existing)
 
-        let olderUntracked = SDPage(title: "Older Untracked")
-        olderUntracked.id = "older-untracked"
-        olderUntracked.createdAt = Date(timeIntervalSince1970: 60)
-        olderUntracked.saveBody("historical body")
-        context.insert(olderUntracked)
+            let olderUntracked = SDPage(title: "Older Untracked")
+            olderUntracked.id = "older-untracked"
+            olderUntracked.createdAt = Date(timeIntervalSince1970: 60)
+            olderUntracked.saveBody("historical body")
+            context.insert(olderUntracked)
 
-        let newer = SDPage(title: "Newer")
-        newer.id = "newer-note"
-        newer.createdAt = Date(timeIntervalSince1970: 200)
-        newer.saveBody("fresh body text")
-        context.insert(newer)
+            let newer = SDPage(title: "Newer")
+            newer.id = "newer-note"
+            newer.createdAt = Date(timeIntervalSince1970: 200)
+            newer.saveBody("fresh body text")
+            context.insert(newer)
 
-        try context.save()
+            try context.save()
 
-        let pastState = makePastState(
-            timestamp: Date(timeIntervalSince1970: 100),
-            noteSnapshots: [
-                .init(
-                    id: existing.id,
-                    title: existing.title,
-                    bodyPreview: "one two",
-                    wordCount: 2,
-                    versionDate: nil
-                ),
-            ],
-            allPageIds: nil
-        )
+            let pastState = makePastState(
+                timestamp: Date(timeIntervalSince1970: 100),
+                noteSnapshots: [
+                    .init(
+                        id: existing.id,
+                        title: existing.title,
+                        bodyPreview: "one two",
+                        wordCount: 2,
+                        versionDate: nil
+                    ),
+                ],
+                allPageIds: nil
+            )
 
-        let diff = service.computeDiff(from: pastState)
+            let diff = service.computeDiff(from: pastState)
 
-        #expect(diff.addedNotes == ["Newer"])
-        #expect(diff.removedNotes.isEmpty)
-        #expect(diff.modifiedNotes.count == 1)
-        #expect(diff.modifiedNotes.first?.id == existing.id)
-        #expect(diff.modifiedNotes.first?.wordCountDelta == 2)
+            #expect(diff.addedNotes == ["Newer"])
+            #expect(diff.removedNotes.isEmpty)
+            #expect(diff.modifiedNotes.count == 1)
+            #expect(diff.modifiedNotes.first?.id == existing.id)
+            #expect(diff.modifiedNotes.first?.wordCountDelta == 2)
+        }
     }
 
     @Test("computeNoteDiff returns no changes for empty past and current note sets")
@@ -313,49 +313,49 @@ struct TimeMachineServiceTests {
         let noteID = "aligned-persisted-rewrite"
         let storageURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("time-machine-tests-\(UUID().uuidString)", isDirectory: true)
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(storageURL)
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             try? FileManager.default.removeItem(at: storageURL)
         }
 
-        let pastState = makePastState(
-            timestamp: Date(timeIntervalSince1970: 100),
-            noteSnapshots: [
-                .init(
+        NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
+            let pastState = makePastState(
+                timestamp: Date(timeIntervalSince1970: 100),
+                noteSnapshots: [
+                    .init(
+                        id: noteID,
+                        title: "Original",
+                        bodyPreview: String(originalBody.prefix(500)),
+                        wordCount: 3,
+                        versionDate: nil,
+                        contentSignature: TimeMachineService.contentSignature(for: originalBody)
+                    )
+                ],
+                allPageIds: [noteID]
+            )
+
+            let persistedPage = SDPage(title: "Original")
+            persistedPage.id = noteID
+            persistedPage.saveBody(rewrittenBody)
+
+            let currentSnapshots = [
+                TimeMachineService.CurrentPageSnapshot(
                     id: noteID,
                     title: "Original",
-                    bodyPreview: String(originalBody.prefix(500)),
+                    body: "",
                     wordCount: 3,
-                    versionDate: nil,
-                    contentSignature: TimeMachineService.contentSignature(for: originalBody)
+                    createdAt: Date(timeIntervalSince1970: 100),
+                    contentSignature: nil
                 )
-            ],
-            allPageIds: [noteID]
-        )
+            ]
 
-        let persistedPage = SDPage(title: "Original")
-        persistedPage.id = noteID
-        persistedPage.saveBody(rewrittenBody)
+            let diff = service.computeNoteDiff(from: pastState, currentPageSnapshots: currentSnapshots)
 
-        let currentSnapshots = [
-            TimeMachineService.CurrentPageSnapshot(
-                id: noteID,
-                title: "Original",
-                body: "",
-                wordCount: 3,
-                createdAt: Date(timeIntervalSince1970: 100),
-                contentSignature: nil
-            )
-        ]
-
-        let diff = service.computeNoteDiff(from: pastState, currentPageSnapshots: currentSnapshots)
-
-        #expect(diff.addedTitles.isEmpty)
-        #expect(diff.removedTitles.isEmpty)
-        #expect(diff.modifiedNotes.count == 1)
-        #expect(diff.modifiedNotes[0].id == noteID)
-        #expect(diff.modifiedNotes[0].wordCountDelta == 0)
+            #expect(diff.addedTitles.isEmpty)
+            #expect(diff.removedTitles.isEmpty)
+            #expect(diff.modifiedNotes.count == 1)
+            #expect(diff.modifiedNotes[0].id == noteID)
+            #expect(diff.modifiedNotes[0].wordCountDelta == 0)
+        }
     }
 
     @Test("computeNoteDiff detects same-length rewrites for live SDPage snapshots")

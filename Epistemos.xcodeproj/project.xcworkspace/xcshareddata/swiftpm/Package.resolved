@@ -1,6 +1,24 @@
 {
-  "originHash" : "7584fffeb0342f3452058cd02103a07b75cf8bf20617dd36cb7bc884ab3cff13",
+  "originHash" : "e7d248eb1ce82f2cd9d4c2e1a1455ef1c16fffdd37ac1aeda3872390629b4cad",
   "pins" : [
+    {
+      "identity" : "axorcist",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/steipete/AXorcist.git",
+      "state" : {
+        "revision" : "c75d06f7f93e264a9786edc2b78c04973061cb2f",
+        "version" : "0.1.0"
+      }
+    },
+    {
+      "identity" : "commander",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/steipete/Commander.git",
+      "state" : {
+        "revision" : "9e349575c8e3c6745e81fe19e5bb5efa01b078ce",
+        "version" : "0.2.1"
+      }
+    },
     {
       "identity" : "eventsource",
       "kind" : "remoteSourceControl",
@@ -8,6 +26,15 @@
       "state" : {
         "revision" : "a3a85a85214caf642abaa96ae664e4c772a59f6e",
         "version" : "1.4.1"
+      }
+    },
+    {
+      "identity" : "grape",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftGraphs/Grape",
+      "state" : {
+        "revision" : "48eb7d8ab4ce549c6cdde106b5f7fa317421364c",
+        "version" : "1.1.0"
       }
     },
     {
@@ -33,15 +60,6 @@
       "location" : "https://github.com/ml-explore/mlx-swift-lm",
       "state" : {
         "revision" : "bc3c20ef4644c86f2b347debcfe1efe4308712a6"
-      }
-    },
-    {
-      "identity" : "mlx-swift-structured",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/petrukha-ivan/mlx-swift-structured",
-      "state" : {
-        "revision" : "92ad6f05282b66eeb64843d277d6da1de708e473",
-        "version" : "0.0.4"
       }
     },
     {
@@ -99,12 +117,12 @@
       }
     },
     {
-      "identity" : "swift-json-schema",
+      "identity" : "swift-log",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/petrukha-ivan/swift-json-schema",
+      "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "5d5b410ec67629586255dcb148f98362f6ef4629",
-        "version" : "2.0.2"
+        "revision" : "bbd81b6725ae874c69e9b8c8804d462356b55523",
+        "version" : "1.10.1"
       }
     },
     {

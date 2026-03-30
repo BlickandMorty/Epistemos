@@ -366,10 +366,15 @@ struct LocalModelToolbarMenu: View {
     var variant: NativeControlVariant = .toolbar
     var overrideTitle: String? = nil
     var overrideFont: Font? = nil
+    var operatingMode: Binding<EpistemosOperatingMode>? = nil
+    var isTemporaryChatEnabled: Binding<Bool>? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
     @Environment(LocalModelManager.self) private var localModelManager
+    @State private var isPresented = false
+    @State private var showsLocalModels = true
+    @State private var showsCloudModels = true
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -409,16 +414,18 @@ struct LocalModelToolbarMenu: View {
 
     private var labelText: String {
         if let overrideTitle { return overrideTitle }
-        return switch selectedMenuItem {
+        let selectedModelLabel = switch selectedMenuItem {
         case .appleIntelligence:
             "Apple Intelligence"
         case .cloud(let model):
-            model.displayName
+            model.compactDisplayName
         case .inProcess(let descriptor):
-            descriptor.displayName
+            LocalTextModelID(rawValue: descriptor.id)?.compactDisplayName ?? descriptor.displayName
         case nil:
             "Select Model"
         }
+        guard let operatingMode else { return selectedModelLabel }
+        return "\(selectedModelLabel) \(operatingMode.wrappedValue.displayName)"
     }
 
     private var labelFont: Font {
@@ -431,122 +438,345 @@ struct LocalModelToolbarMenu: View {
         }
     }
 
-    private var cloudModelSection: some View {
-        Section("Cloud Models") {
-            ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
-                Section(provider.displayName) {
-                    ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
-                        let providerConfigured = inference.configuredCloudProviders.contains(provider)
-                        Button {
-                            inference.setPreferredChatModelSelection(.cloud(model))
-                        } label: {
-                            HStack {
-                                Text(model.displayName)
-                                if selectedMenuItem == .cloud(model) {
-                                    Spacer(minLength: 8)
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                        .disabled(!providerConfigured)
-                    }
-                }
-            }
+    private var disclosureWidth: CGFloat {
+        NativeControlSystem.reservedWidth(
+            for: [
+                "Apple Intelligence Agent",
+                "GPT-5.4 Thinking",
+                "Gemini 2.5 Pro Agent",
+                "Qwen 35B Thinking",
+            ],
+            variant: variant,
+            includesDisclosureGlyph: true
+        )
+    }
 
-            if !inference.hasConfiguredCloudModels {
-                Text("Add API keys in Settings to enable cloud models")
-            }
-
-            Button("Configure Cloud API Keys") {
-                UtilityWindowManager.shared.show(.settings)
-                NSApp.activate()
-            }
+    private var buttonSystemImage: String {
+        if isTemporaryChatEnabled?.wrappedValue == true {
+            return "eye.slash.fill"
         }
+        if let operatingMode {
+            return operatingMode.wrappedValue.systemImage
+        }
+        switch selectedMenuItem {
+        case .appleIntelligence:
+            return "apple.intelligence"
+        case .cloud:
+            return "cloud.fill"
+        case .inProcess, .none:
+            return "memorychip"
+        }
+    }
+
+    private var selectedModeSummary: String {
+        if let operatingMode {
+            return operatingMode.wrappedValue.helpText
+        }
+        return "Choose the model that should power this surface."
+    }
+
+    private var noLocalModelsText: String {
+        inference.appleIntelligenceAvailable
+            ? "Install a local model to add an on-device fallback here."
+            : "No supported local models are installed yet."
     }
 
     var body: some View {
         if overrideTitle != nil {
-            // Toolbar title — plain label, no menu interaction.
-            menuLabel
+            titleLabel
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .help(labelText)
                 .accessibilityLabel(labelText)
         } else {
-            // Input bar model selector — full menu.
-            Menu {
-                if inference.appleIntelligenceAvailable {
-                    appleIntelligenceButton
-
-                    if !installedSelectableModels.isEmpty {
-                        Divider()
-                    }
-                }
-
-                if !installedSelectableModels.isEmpty {
-                    localModelsSection
-                } else if !inference.appleIntelligenceAvailable {
-                    Text("No supported local models installed")
-                }
-
-                Divider()
-
-                cloudModelSection
-
-                Divider()
-
-                settingsSection
-            } label: {
-                menuLabel
+            AnchoredPopoverButton(
+                title: labelText,
+                systemImage: buttonSystemImage,
+                isPresented: $isPresented,
+                isActive: isTemporaryChatEnabled?.wrappedValue == true,
+                variant: variant,
+                showsLabelWhenCollapsed: true,
+                helpText: selectedModeSummary,
+                accessibilityLabel: labelText,
+                idealPopoverWidth: variant == .toolbar ? 340 : 360,
+                contentPadding: 12,
+                stableWidth: disclosureWidth
+            ) {
+                runtimePopover
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
             .fixedSize()
-            .help(labelText)
-            .accessibilityLabel(labelText)
         }
     }
 
     @ViewBuilder
-    private var appleIntelligenceButton: some View {
-        Button {
-            inference.setPreferredChatModelSelection(.appleIntelligence)
-        } label: {
-            HStack {
-                Text("Apple Intelligence")
-                if selectedMenuItem == .appleIntelligence {
-                    Image(systemName: "checkmark")
+    private var runtimePopover: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Runtime")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(selectedModeSummary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
                 }
-            }
-        }
-    }
 
-    @ViewBuilder
-    private var localModelsSection: some View {
-        ForEach(installedSelectableModels, id: \.id) { model in
-            Button {
-                inference.setPreferredChatModelSelection(.localQwen(model.id))
-            } label: {
-                HStack {
-                    Text(model.displayName)
-                    if selectedMenuItem == .inProcess(model) {
-                        Image(systemName: "checkmark")
+                if let operatingMode {
+                    VStack(alignment: .leading, spacing: 8) {
+                        popoverSectionTitle("Mode")
+                        ForEach(EpistemosOperatingMode.allCases, id: \.rawValue) { option in
+                            let isEnabled = inference.availableOperatingModes.contains(option)
+                            selectionRow(
+                                title: option.displayName,
+                                subtitle: modeSubtitle(for: option, isEnabled: isEnabled),
+                                systemImage: option.systemImage,
+                                isSelected: operatingMode.wrappedValue == option,
+                                isEnabled: isEnabled
+                            ) {
+                                operatingMode.wrappedValue = inference.sanitizedOperatingMode(option)
+                                isPresented = false
+                            }
+                        }
                     }
                 }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    popoverSectionTitle("Models")
+
+                    DisclosureGroup(
+                        isExpanded: $showsLocalModels,
+                        content: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                if inference.appleIntelligenceAvailable {
+                                    selectionRow(
+                                        title: "Apple Intelligence",
+                                        subtitle: "Fast on-device work for lightweight requests.",
+                                        systemImage: "apple.intelligence",
+                                        isSelected: selectedMenuItem == .appleIntelligence
+                                    ) {
+                                        inference.setPreferredChatModelSelection(.appleIntelligence)
+                                        isPresented = false
+                                    }
+                                }
+
+                                if installedSelectableModels.isEmpty {
+                                    Text(noLocalModelsText)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(theme.textTertiary)
+                                        .padding(.leading, 4)
+                                        .padding(.top, 2)
+                                } else {
+                                    ForEach(installedSelectableModels, id: \.id) { model in
+                                        selectionRow(
+                                            title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                            subtitle: localModelSubtitle(for: model),
+                                            systemImage: "memorychip",
+                                            isSelected: selectedMenuItem == .inProcess(model)
+                                        ) {
+                                            inference.setPreferredChatModelSelection(.localQwen(model.id))
+                                            isPresented = false
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        label: {
+                            disclosureTitle(
+                                title: "Local Models",
+                                subtitle: installedSelectableModels.isEmpty
+                                    ? "On-device"
+                                    : "\(installedSelectableModels.count) available"
+                            )
+                        }
+                    )
+
+                    DisclosureGroup(
+                        isExpanded: $showsCloudModels,
+                        content: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(alignment: .center, spacing: 8) {
+                                            Image(systemName: provider.systemImage)
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundStyle(theme.textSecondary)
+                                            Text(provider.displayName)
+                                                .font(.system(size: 12, weight: .semibold))
+                                            Spacer()
+                                            Text(inference.cloudValidationState(for: provider).statusBadge)
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundStyle(theme.textTertiary)
+                                        }
+
+                                        Text(inference.cloudValidationState(for: provider).statusText)
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(theme.textTertiary)
+
+                                        ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
+                                            let providerConfigured = inference.configuredCloudProviders.contains(provider)
+                                            selectionRow(
+                                                title: model.compactDisplayName,
+                                                subtitle: provider.modelSummary,
+                                                systemImage: provider.systemImage,
+                                                isSelected: selectedMenuItem == .cloud(model),
+                                                isEnabled: providerConfigured
+                                            ) {
+                                                inference.setPreferredChatModelSelection(.cloud(model))
+                                                isPresented = false
+                                            }
+                                        }
+                                    }
+                                    .padding(.top, 2)
+                                }
+
+                                Button("Open Inference Settings") {
+                                    openSettings()
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(theme.resolved.accent.color)
+                                .padding(.leading, 4)
+                            }
+                        },
+                        label: {
+                            disclosureTitle(
+                                title: "Cloud Models",
+                                subtitle: inference.hasConfiguredCloudModels
+                                    ? "\(inference.configuredCloudProviders.count) provider\(inference.configuredCloudProviders.count == 1 ? "" : "s") ready"
+                                    : "Add a key to unlock"
+                            )
+                        }
+                    )
+                }
+
+                if let isTemporaryChatEnabled {
+                    VStack(alignment: .leading, spacing: 8) {
+                        popoverSectionTitle("Conversation")
+                        selectionRow(
+                            title: "Temporary Chat",
+                            subtitle: isTemporaryChatEnabled.wrappedValue
+                                ? "This conversation stays in memory only and will not be saved."
+                                : "Turns off chat persistence for this thread.",
+                            systemImage: isTemporaryChatEnabled.wrappedValue ? "eye.slash.fill" : "eye.slash",
+                            isSelected: isTemporaryChatEnabled.wrappedValue
+                        ) {
+                            isTemporaryChatEnabled.wrappedValue.toggle()
+                        }
+                    }
+                }
+
+                Divider()
+
+                Button("Open Settings") {
+                    openSettings()
+                }
+                .buttonStyle(.borderless)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color)
             }
         }
     }
 
     @ViewBuilder
-    private var settingsSection: some View {
-        Button("Open Settings") {
-            UtilityWindowManager.shared.show(.settings)
-            NSApp.activate()
+    private func popoverSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(theme.textTertiary)
+            .textCase(.uppercase)
+    }
+
+    @ViewBuilder
+    private func disclosureTitle(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+            Text(subtitle)
+                .font(.system(size: 10))
+                .foregroundStyle(theme.textTertiary)
         }
     }
 
     @ViewBuilder
-    private var menuLabel: some View {
+    private func selectionRow(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        isSelected: Bool,
+        isEnabled: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: variant == .toolbar ? 12 : 13, weight: .semibold))
+                    .frame(width: 14, height: 14)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: variant == .toolbar ? 12.5 : 13, weight: .semibold))
+                        .multilineTextAlignment(.leading)
+                    Text(subtitle)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(theme.textTertiary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 8)
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.resolved.accent.color)
+                        .padding(.top, 2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(NativeCardButtonStyle(cornerRadius: 12))
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.55)
+    }
+
+    private func modeSubtitle(for option: EpistemosOperatingMode, isEnabled: Bool) -> String {
+        guard isEnabled else {
+            switch option {
+            case .thinking:
+                return "This model does not expose verified thinking mode."
+            case .agent:
+                return "This model cannot run the current visible agent loop."
+            case .fast:
+                return option.helpText
+            }
+        }
+        return option.helpText
+    }
+
+    private func localModelSubtitle(for model: LocalModelDescriptor) -> String {
+        guard let modelID = LocalTextModelID(rawValue: model.id) else {
+            return "On-device model"
+        }
+
+        var features: [String] = []
+        if modelID.supportsThinkingMode {
+            features.append("Thinking")
+        }
+        if modelID.canActAsAgent {
+            features.append("Agent")
+        }
+        let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")
+        return "\(featureSummary) • \(modelID.minimumRecommendedMemoryGB) GB+"
+    }
+
+    private func openSettings() {
+        UtilityWindowManager.shared.show(.settings)
+        NSApp.activate()
+    }
+
+    @ViewBuilder
+    private var titleLabel: some View {
         HStack(spacing: 5) {
             if overrideTitle != nil {
                 TypewriterASCIIRippleText(
@@ -563,8 +793,6 @@ struct LocalModelToolbarMenu: View {
                     configuration: .init(duration: 0.55, spread: 1.25, waveThreshold: 2.2, characterMultiplier: 2)
                 )
             }
-            // Chevron removed — the title acts as a clean label.
-            // The menu is still accessible via click; no visual dropdown indicator.
         }
         .fixedSize()
     }

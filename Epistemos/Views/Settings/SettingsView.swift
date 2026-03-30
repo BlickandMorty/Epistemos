@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 // MARK: - Settings View
-// Mirrors macOS System Settings: NavigationSplitView sidebar → Form-based detail pane.
-// Fixed width (680pt), only height is resizable. Sidebar sits in the toolbar area.
+// Mirrors macOS System Settings: NavigationSplitView sidebar → detail pane.
+// The window itself handles sizing; this view provides the split layout + chrome.
 
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
@@ -14,7 +14,8 @@ struct SettingsView: View {
         case cognitive = "Cognitive"
         case inference = "Inference"
         case knowledgeFusion = "Knowledge Fusion (Experimental)"
-        case omega = "Omega"
+        case omega = "Agent Runtime"
+        case hermesAdmin = "Hermes Admin"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -27,6 +28,7 @@ struct SettingsView: View {
             .inference,
             .knowledgeFusion,
             .omega,
+            .hermesAdmin,
             .landing,
             .appearance,
             .vault,
@@ -38,7 +40,8 @@ struct SettingsView: View {
             case .cognitive: "brain"
             case .inference: "cpu"
             case .knowledgeFusion: "brain.head.profile.fill"
-            case .omega: "cpu.fill"
+            case .omega: "waveform.path.ecg.rectangle"
+            case .hermesAdmin: "server.rack"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -53,12 +56,19 @@ struct SettingsView: View {
                     .tag(section)
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 180, max: 180)
+            .scrollContentBackground(.hidden)
+            .background {
+                SettingsSidebarBackdrop(theme: ui.theme)
+                    .ignoresSafeArea()
+            }
+            .navigationSplitViewColumnWidth(min: 196, ideal: 212, max: 260)
         } detail: {
             settingsDetail
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(SettingsDetailBackdrop(theme: ui.theme))
         }
         .navigationSplitViewStyle(.balanced)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: toggleSidebar) {
@@ -69,6 +79,8 @@ struct SettingsView: View {
         }
     }
 
+    @Environment(HermesAdminViewModel.self) private var hermesAdmin
+
     @ViewBuilder
     private var settingsDetail: some View {
         switch selection {
@@ -77,6 +89,7 @@ struct SettingsView: View {
         case .inference: InferenceDetailView()
         case .knowledgeFusion: KnowledgeFusionDetailView()
         case .omega: OmegaSettingsDetailView()
+        case .hermesAdmin: HermesAdminPanel(viewModel: hermesAdmin)
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()
@@ -90,6 +103,44 @@ struct SettingsView: View {
             to: nil,
             from: nil
         )
+    }
+}
+
+private struct SettingsSidebarBackdrop: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        Rectangle()
+            .fill(theme.card.opacity(theme.isDark ? 0.92 : 0.97))
+            .overlay {
+                if theme.usesNativeWindowBlur {
+                    Rectangle()
+                        .fill(.white.opacity(0.001))
+                        .glassEffect(.regular.interactive(), in: Rectangle())
+                }
+            }
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(theme.border.opacity(theme.isDark ? 0.6 : 0.42))
+                    .frame(width: 0.6)
+            }
+    }
+}
+
+private struct SettingsDetailBackdrop: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        Rectangle()
+            .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.94 : 0.985))
+            .overlay {
+                if theme.usesNativeWindowBlur {
+                    Rectangle()
+                        .fill(.white.opacity(0.001))
+                        .glassEffect(.regular.interactive(), in: Rectangle())
+                }
+            }
+            .ignoresSafeArea()
     }
 }
 
@@ -557,13 +608,13 @@ private struct InferenceDetailView: View {
 
             Section("Cloud AI") {
                 SettingsDescriptionText(
-                    text: "Cloud keys are optional credentials for workflows where you explicitly choose a cloud model. They do not replace the default local model path."
+                    text: "Cloud keys are optional. Save one, run a live check, and the cloud model picker unlocks immediately. Local models remain the default path unless you explicitly switch."
                 )
                 cloudKeyRow(title: "OpenAI", text: $openAIKey, provider: .openAI)
                 cloudKeyRow(title: "Anthropic", text: $anthropicKey, provider: .anthropic)
                 cloudKeyRow(title: "Google", text: $googleKey, provider: .google)
 
-                Text("API keys are stored in the Apple Data Protection Keychain.")
+                Text("Stored securely in the Apple Keychain. Cloud models enable as soon as a key is saved, and the checker confirms whether the provider actually accepts it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -611,22 +662,42 @@ private struct InferenceDetailView: View {
         }
     }
 
-    @ViewBuilder
     private func cloudKeyRow(
         title: String,
         text: Binding<String>,
         provider: CloudModelProvider
     ) -> some View {
-        LabeledContent(title) {
+        let validationState = inference.cloudValidationState(for: provider)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Label(title, systemImage: provider.systemImage)
+                    .font(.body.weight(.semibold))
+                Spacer()
+                statusBadge(for: provider)
+            }
+
+            SettingsDescriptionText(text: provider.setupHelpText)
+
             HStack(spacing: 6) {
-                SecureField("Not Set", text: text)
+                SecureField(provider.apiKeyPlaceholder, text: text)
                     .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 180)
+                    .frame(minWidth: 220)
                 Button("Save") {
-                    _ = inference.setAPIKey(text.wrappedValue, for: provider)
+                    let didSave = inference.setAPIKey(text.wrappedValue, for: provider)
+                    text.wrappedValue = inference.apiKey(for: provider) ?? ""
+                    if didSave {
+                        Task { _ = await inference.validateAPIKey(for: provider) }
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                Button("Check Key") {
+                    Task { _ = await inference.validateAPIKey(for: provider) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(validationState.isChecking || (inference.apiKey(for: provider)?.isEmpty ?? true))
                 Button("Clear") {
                     text.wrappedValue = ""
                     _ = inference.setAPIKey("", for: provider)
@@ -634,6 +705,47 @@ private struct InferenceDetailView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: validationState.systemImage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(statusColor(for: validationState))
+                    .frame(width: 14, height: 14)
+                Text(validationState.statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text("Available models: \(provider.modelSummary)")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func statusBadge(for provider: CloudModelProvider) -> some View {
+        let validationState = inference.cloudValidationState(for: provider)
+
+        Label(validationState.statusBadge, systemImage: validationState.systemImage)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(statusColor(for: validationState).opacity(0.10), in: Capsule())
+            .foregroundStyle(statusColor(for: validationState))
+    }
+
+    private func statusColor(for validationState: CloudProviderValidationState) -> Color {
+        switch validationState.tintColor {
+        case .accent:
+            theme.resolved.accent.color
+        case .secondary:
+            .secondary
+        case .success:
+            theme.success
+        case .warning:
+            theme.warning
         }
     }
 }

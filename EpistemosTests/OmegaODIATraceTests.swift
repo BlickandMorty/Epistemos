@@ -59,7 +59,9 @@ struct ODIATraceTests {
         for line in jsonl.split(separator: "\n") {
             let data = Data(line.utf8)
             let parsed = try? JSONSerialization.jsonObject(with: data)
-            #expect(parsed != nil, "Line should be valid JSON: \(line)")
+            if parsed == nil {
+                Issue.record("Line should be valid JSON: \(line)")
+            }
         }
     }
 

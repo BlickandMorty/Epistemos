@@ -68,7 +68,7 @@ struct FeedbackIndicatorView: View {
 
             Divider()
 
-            Text("Preference training is optional and only runs overnight if you enable it in Omega settings.")
+            Text("Preference training is optional and only runs overnight if you enable it in Agent Runtime settings.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

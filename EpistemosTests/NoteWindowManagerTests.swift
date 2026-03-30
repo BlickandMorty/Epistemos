@@ -484,7 +484,7 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarMetrics.iconSide == 14)
         #expect(NoteToolbarMetrics.buttonSide == 28)
         #expect(NoteToolbarMetrics.buttonSide == NoteToolbarMetrics.iconSide * 2)
-        #expect(NoteToolbarMetrics.chatFieldWidth == 180)
+        #expect(NoteToolbarMetrics.chatFieldWidth == 220)
         #expect(NoteToolbarMetrics.stripGlowBlurRadius == 6)
         #expect(NoteToolbarDisplay.hidesMenuIndicators)
         #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0)

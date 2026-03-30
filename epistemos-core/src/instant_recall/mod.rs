@@ -12,13 +12,14 @@
 //   128 bytes/note × 500K = 64MB, scanned at ~350 GB/s = 0.18ms.
 // HNSW is deferred until vault sizes exceed this threshold.
 
-pub mod quantizer;
-pub mod index;
 pub mod embedder;
+pub mod index;
+pub mod progressive;
+pub mod quantizer;
 
-pub use index::{InstantRecallIndex, RecallResult};
 pub use embedder::TrigramEmbedder;
-pub use quantizer::{quantize_to_binary, hamming_distance};
+pub use index::{InstantRecallIndex, RecallResult};
+pub use quantizer::{hamming_distance, quantize_to_binary};
 
 /// Configuration for the instant recall system.
 #[derive(Debug, Clone)]
@@ -145,7 +146,12 @@ mod integration_tests {
 
         // Insert 1000 notes
         for i in 0..1000 {
-            let text = format!("Note number {} about topic {} with content {}", i, i % 50, i * 7);
+            let text = format!(
+                "Note number {} about topic {} with content {}",
+                i,
+                i % 50,
+                i * 7
+            );
             let embedding = embedder.encode(&text);
             index.insert(format!("note-{}", i), embedding, text);
         }

@@ -11,11 +11,22 @@ namespace omega_mcp {
     /// Create a JSON-RPC error response.
     string jsonrpc_error(string id_json, i64 code, string message);
 
+    // ── Vault Tool Execution ──────────────────────────────────────────────────
+
+    /// Execute a vault tool by name. Returns JSON ToolResult.
+    string execute_vault_tool(string vault_root, string tool_name, string args_json);
+
     // ── Tool Validation ──────────────────────────────────────────────────────
 
     /// Validate tool arguments against a schema. Returns empty string on success,
     /// error message on failure.
     string validate_tool_args(string schema_json, string args_json);
+
+    // ── Tool Catalog ──────────────────────────────────────────────────────
+
+    /// Get the built-in tool catalog as a JSON array. This is the single source
+    /// of truth for all agent tool definitions.
+    string builtin_tools_json();
 
     // ── Orchestrator (Layer 3 — Rust-side per Anchor 1) ──────────────────
 
@@ -65,6 +76,10 @@ interface MCPDispatcher {
     // Registry operations
     string register_tool(string name, string description, string input_schema_json,
                          boolean destructive, boolean requires_confirmation);
+    string register_tool_full(string name, string agent, string description,
+                              string input_schema_json, string arguments_example,
+                              boolean destructive, boolean requires_confirmation);
+    u32 register_builtin_tools();
     string list_tools_json();
     string get_tool_json(string name);
     u32 tool_count();

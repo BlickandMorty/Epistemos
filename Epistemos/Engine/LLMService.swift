@@ -389,6 +389,8 @@ nonisolated enum LLMError: LocalizedError {
                 return "Authentication failed (401). Check the selected provider API key in Settings."
             case 403:
                 return "The selected provider rejected this request (403). Verify model access and API permissions."
+            case 404:
+                return "The selected AI provider could not find the requested model or endpoint (404). Re-check provider status or choose a different model."
             case 429:
                 return "The selected AI provider is rate-limiting requests right now (429). Please wait a moment and try again."
             case 502:
@@ -505,8 +507,32 @@ final class CloudLLMClient: LLMClientProtocol {
 
     func testConnection() async -> ConnectionTestResult {
         do {
-            let output = try await generate(prompt: "Reply with OK.", systemPrompt: nil, maxTokens: 16)
-            return ConnectionTestResult(success: true, message: String(output.prefix(60)))
+            let model = try selectedCloudModel()
+            let apiKey = try apiKey(for: model.provider)
+            return await testConnection(provider: model.provider, apiKey: apiKey, model: model)
+        } catch {
+            return ConnectionTestResult(success: false, message: error.localizedDescription)
+        }
+    }
+
+    func testConnection(
+        provider: CloudModelProvider,
+        apiKey: String,
+        model: CloudTextModelID? = nil
+    ) async -> ConnectionTestResult {
+        do {
+            if let model {
+                try await testModelConnection(provider: provider, apiKey: apiKey, model: model)
+                return ConnectionTestResult(
+                    success: true,
+                    message: "Connected to \(provider.displayName) via \(model.compactDisplayName)"
+                )
+            }
+
+            return ConnectionTestResult(
+                success: true,
+                message: try await validateProviderAuthorization(provider: provider, apiKey: apiKey)
+            )
         } catch {
             return ConnectionTestResult(success: false, message: error.localizedDescription)
         }
@@ -537,6 +563,113 @@ final class CloudLLMClient: LLMClientProtocol {
             throw CloudLLMError.missingAPIKey(provider.displayName)
         }
         return value
+    }
+
+    private func testModelConnection(
+        provider: CloudModelProvider,
+        apiKey: String,
+        model: CloudTextModelID
+    ) async throws {
+        switch provider {
+        case .openAI:
+            _ = try await generateOpenAI(
+                model: model,
+                apiKey: apiKey,
+                prompt: "Reply with OK.",
+                systemPrompt: nil,
+                maxTokens: 16
+            )
+        case .anthropic:
+            _ = try await generateAnthropic(
+                model: model,
+                apiKey: apiKey,
+                prompt: "Reply with OK.",
+                systemPrompt: nil,
+                maxTokens: 16
+            )
+        case .google:
+            _ = try await generateGoogle(
+                model: model,
+                apiKey: apiKey,
+                prompt: "Reply with OK.",
+                systemPrompt: nil,
+                maxTokens: 16
+            )
+        }
+    }
+
+    private func validateProviderAuthorization(
+        provider: CloudModelProvider,
+        apiKey: String
+    ) async throws -> String {
+        let request = try providerAuthorizationRequest(provider: provider, apiKey: apiKey)
+        let json = try await sendJSON(request)
+        let supportedModelCount = supportedProviderModelCount(in: json, provider: provider)
+        if supportedModelCount > 0 {
+            return "Connected to \(provider.displayName). \(supportedModelCount) supported models are available."
+        }
+        return "Connected to \(provider.displayName)."
+    }
+
+    private func providerAuthorizationRequest(
+        provider: CloudModelProvider,
+        apiKey: String
+    ) throws -> URLRequest {
+        switch provider {
+        case .openAI:
+            guard let url = URL(string: "https://api.openai.com/v1/models") else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            return request
+        case .anthropic:
+            guard let url = URL(string: "https://api.anthropic.com/v1/models") else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            return request
+        case .google:
+            var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models")
+            components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
+            guard let url = components?.url else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            return request
+        }
+    }
+
+    private func supportedProviderModelCount(
+        in json: [String: Any],
+        provider: CloudModelProvider
+    ) -> Int {
+        let supportedModelIDs = Set(CloudTextModelID.models(for: provider).map(\.vendorModelID))
+        let availableModelIDs = availableProviderModelIDs(in: json, provider: provider)
+        guard !availableModelIDs.isEmpty else { return 0 }
+        return supportedModelIDs.intersection(availableModelIDs).count
+    }
+
+    private func availableProviderModelIDs(
+        in json: [String: Any],
+        provider: CloudModelProvider
+    ) -> Set<String> {
+        switch provider {
+        case .openAI, .anthropic:
+            let models = json["data"] as? [[String: Any]] ?? []
+            return Set(models.compactMap { $0["id"] as? String })
+        case .google:
+            let models = json["models"] as? [[String: Any]] ?? []
+            return Set(
+                models.compactMap { $0["name"] as? String }
+                    .map { $0.replacingOccurrences(of: "models/", with: "") }
+            )
+        }
     }
 
     private func generateOpenAI(
@@ -828,7 +961,7 @@ final class CloudLLMClient: LLMClientProtocol {
                     }
 
                     guard let jsonData = payload.data(using: .utf8),
-                          let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
                         return
                     }
 

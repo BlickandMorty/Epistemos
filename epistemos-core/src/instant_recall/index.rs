@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 
-use crate::instant_recall::quantizer::{quantize_to_binary, hamming_distance, dot_product};
+use crate::instant_recall::quantizer::{dot_product, hamming_distance, quantize_to_binary};
 use crate::instant_recall::InstantRecallConfig;
 
 /// A single indexed document with both binary and float32 representations.
@@ -97,7 +97,8 @@ impl InstantRecallIndex {
 
         // Phase 1: Binary Hamming scan
         let query_binary = quantize_to_binary(query_embedding);
-        let mut candidates: Vec<(usize, u32)> = self.entries
+        let mut candidates: Vec<(usize, u32)> = self
+            .entries
             .iter()
             .enumerate()
             .map(|(i, entry)| {
@@ -219,7 +220,11 @@ mod tests {
     fn search_returns_correct_count() {
         let mut index = InstantRecallIndex::new(make_config());
         for i in 0..20u8 {
-            index.insert(format!("doc-{}", i), make_embedding(i, 16), format!("text {}", i));
+            index.insert(
+                format!("doc-{}", i),
+                make_embedding(i, 16),
+                format!("text {}", i),
+            );
         }
         let results = index.search(&make_embedding(5, 16), 3);
         assert_eq!(results.len(), 3);

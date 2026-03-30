@@ -81,13 +81,13 @@ enum GraphDisplayLinkTransition: Equatable {
     case stop
 }
 
-enum GraphInitialRenderBootstrapState: Equatable {
+nonisolated enum GraphInitialRenderBootstrapState: Equatable {
     case awaitingData
     case bootstrapCommit
     case renderCommittedGraph
 }
 
-func graphInitialRenderBootstrapState(
+nonisolated func graphInitialRenderBootstrapState(
     isCommitted: Bool,
     isGraphLoaded: Bool
 ) -> GraphInitialRenderBootstrapState {

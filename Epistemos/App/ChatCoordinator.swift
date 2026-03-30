@@ -55,6 +55,8 @@ final class ChatCoordinator {
     }
 
     nonisolated static let allNotesMentionToken = "All Notes"
+    nonisolated static let maxFileAttachmentContextBytes = min(FileAttachmentBuilder.maxPreviewBytes, 131_072)
+    nonisolated static let maxFileAttachmentContextCharacters = 12_000
 
     private unowned let bootstrap: AppBootstrap
     private let chatState: ChatState
@@ -127,15 +129,26 @@ final class ChatCoordinator {
                     chatState.loadedNoteTitles = []
                 }
 
+                let fileAttachmentContext = Self.buildFileAttachmentContext(
+                    from: chatState.messages.last(where: { $0.role == .user })?.attachments ?? []
+                )
+
                 // For vault briefing, override notesContext with full manifest (includes bodies)
                 let effectiveNotesContext: String?
                 let effectiveQuery: String
                 if isVaultBriefing {
-                    effectiveNotesContext = chatState.vaultBriefingManifest?.asContext() ?? notesContext
+                    effectiveNotesContext = Self.mergedContextSections(
+                        chatState.vaultBriefingManifest?.asContext(),
+                        notesContext,
+                        fileAttachmentContext
+                    )
                     chatState.vaultBriefingManifest = nil  // Consumed — free memory
                     effectiveQuery = "Analyze my vault and provide a briefing: find cross-note connections, recurring themes, contradictions, topic gaps, stale notes worth revisiting, and notes that could be merged or split. Be specific — reference notes by title."
                 } else {
-                    effectiveNotesContext = notesContext
+                    effectiveNotesContext = Self.mergedContextSections(
+                        notesContext,
+                        fileAttachmentContext
+                    )
                     effectiveQuery = resolvedQuery
                 }
 
@@ -1219,6 +1232,86 @@ final class ChatCoordinator {
         }
 
         return parts.joined(separator: "\n\n")
+    }
+
+    nonisolated static func buildFileAttachmentContext(from attachments: [FileAttachment]) -> String? {
+        let sections = attachments.compactMap(fileAttachmentSection(for:))
+        guard !sections.isEmpty else { return nil }
+        return "Attached file context:\n\n" + sections.joined(separator: "\n\n")
+    }
+
+    private nonisolated static func mergedContextSections(_ sections: String?...) -> String? {
+        let nonEmptySections = sections.compactMap { section -> String? in
+            guard let trimmed = section?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !trimmed.isEmpty else {
+                return nil
+            }
+            return trimmed
+        }
+        guard !nonEmptySections.isEmpty else { return nil }
+        return nonEmptySections.joined(separator: "\n\n")
+    }
+
+    private nonisolated static func fileAttachmentSection(for attachment: FileAttachment) -> String? {
+        guard attachment.type == .text || attachment.type == .csv else { return nil }
+        guard let text = loadedTextAttachmentBody(for: attachment) else { return nil }
+        return """
+        Attached file: \(attachment.name)
+        \(text)
+        """
+    }
+
+    private nonisolated static func loadedTextAttachmentBody(for attachment: FileAttachment) -> String? {
+        if let fileURL = resolvedFileAttachmentURL(from: attachment.uri),
+           let text = readTextAttachment(at: fileURL) {
+            return text
+        }
+
+        guard let preview = attachment.preview?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !preview.isEmpty else {
+            return nil
+        }
+        return preview
+    }
+
+    private nonisolated static func resolvedFileAttachmentURL(from uri: String) -> URL? {
+        if let url = URL(string: uri), url.isFileURL {
+            return url
+        }
+
+        if uri.hasPrefix("/") {
+            return URL(fileURLWithPath: uri)
+        }
+
+        if let decodedPath = uri.removingPercentEncoding, decodedPath.hasPrefix("/") {
+            return URL(fileURLWithPath: decodedPath)
+        }
+
+        return nil
+    }
+
+    private nonisolated static func readTextAttachment(at url: URL) -> String? {
+        let gainedSecurityScope = url.startAccessingSecurityScopedResource()
+        defer {
+            if gainedSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+
+        guard let data = try? handle.read(upToCount: maxFileAttachmentContextBytes),
+              !data.isEmpty,
+              let decoded = FoundationSafety.decodedText(from: data) else {
+            return nil
+        }
+
+        let trimmed = decoded.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard trimmed.count > maxFileAttachmentContextCharacters else { return trimmed }
+        return String(trimmed.prefix(maxFileAttachmentContextCharacters)) + "\n...(truncated)"
     }
 
     // MARK: - Vault Action Execution

@@ -136,7 +136,9 @@ mod tests {
 
     #[test]
     fn binary_quantization_roundtrip_preserves_sign() {
-        let embedding: Vec<f32> = (0..1024).map(|i| if i % 3 == 0 { -1.0 } else { 1.0 }).collect();
+        let embedding: Vec<f32> = (0..1024)
+            .map(|i| if i % 3 == 0 { -1.0 } else { 1.0 })
+            .collect();
         let binary = quantize_to_binary(&embedding);
         assert_eq!(binary.len(), 128); // 1024 / 8
 

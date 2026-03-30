@@ -1,0 +1,337 @@
+import Foundation
+import AppKit
+import AXorcist
+import CoreGraphics
+
+// MARK: - Ghost Computer Agent
+
+/// Ghost OS-style computer use agent using AXorcist for AX queries
+/// and omega-ax for input simulation.
+///
+/// Tools: see, click, type, scroll, keys, screenshot
+///
+/// AX-first design: uses AXorcist fuzzy matching for element discovery,
+/// falls back to coordinate-based CGEvent for input when semantic
+/// targeting is unavailable.
+@MainActor
+final class GhostComputerAgent: OmegaAgent, Sendable {
+    let name = "computer"
+    let description = "Ghost OS-style macOS computer use via AXorcist accessibility and input simulation"
+    let toolNames = ["see", "click", "type", "scroll", "keys", "screenshot"]
+
+    private let screenCapture: ScreenCaptureService
+    private let perception: Screen2AXFusion
+
+    init(screenCapture: ScreenCaptureService, perception: Screen2AXFusion? = nil) {
+        self.screenCapture = screenCapture
+        self.perception = perception ?? Screen2AXFusion(screenCapture: screenCapture)
+    }
+
+    func execute(step: AgentStep) async throws -> AgentStepResult {
+        let start = ContinuousClock.now
+
+        guard let args = try? JSONSerialization.jsonObject(with: Data(step.argumentsJson.utf8)) as? [String: Any] else {
+            return .fail("Invalid arguments JSON", stepId: step.id, durationMs: 0)
+        }
+
+        let resultJson: String
+        switch step.toolName {
+        case "see":
+            resultJson = await executeSee(args: args)
+        case "click":
+            resultJson = executeClick(args: args)
+        case "type":
+            resultJson = executeType(args: args)
+        case "scroll":
+            resultJson = executeScroll(args: args)
+        case "keys":
+            resultJson = executeKeys(args: args)
+        case "screenshot":
+            resultJson = await executeScreenshot(args: args)
+        default:
+            return .fail("Unknown tool: \(step.toolName)", stepId: step.id, durationMs: 0)
+        }
+
+        let elapsed = UInt64(start.duration(to: .now).components.attoseconds / 1_000_000_000_000_000)
+        return .ok(resultJson, stepId: step.id, durationMs: elapsed, confidence: 0.9)
+    }
+
+    // MARK: - see
+
+    /// View the AX tree using AX-first with Vision OCR fallback.
+    /// Uses Screen2AXFusion perception pipeline:
+    /// 1. AXorcist tree walk (covers ~90% of apps)
+    /// 2. If sparse (<10 interactive), enrich with Apple Vision OCR
+    /// Pass "quick": true for AX-only mode (no Vision fallback).
+    private func executeSee(args: [String: Any]) async -> String {
+        let quick = args["quick"] as? Bool ?? false
+
+        // Quick mode: AX-only via AXorcist (used for verify loops)
+        if quick {
+            let pid = resolvePID(from: args)
+            guard pid > 0 else {
+                return "{\"success\":false,\"error\":\"Could not resolve app — provide 'app' or 'pid'\"}"
+            }
+            return AXorcistBridge.shared.walkTree(pid: pid_t(pid))
+        }
+
+        // Full perception: AX-first + Vision OCR fallback
+        guard let appName = args["app"] as? String else {
+            let pid = resolvePID(from: args)
+            guard pid > 0 else {
+                return "{\"success\":false,\"error\":\"Could not resolve app — provide 'app' or 'pid'\"}"
+            }
+            return AXorcistBridge.shared.walkTree(pid: pid_t(pid))
+        }
+
+        let result = await perception.perceive(appName: appName)
+        return result.axTreeJson
+    }
+
+    // MARK: - click
+
+    /// Click using AXorcist fuzzy match or coordinate fallback.
+    private func executeClick(args: [String: Any]) -> String {
+        // Semantic click: find element by title via AXorcist
+        if let elementName = args["element"] as? String {
+            if let bundleID = resolveBundleID(from: args) {
+                let response = AXorcistBridge.shared.pressElement(
+                    bundleID: bundleID,
+                    title: elementName
+                )
+                if case .success = response {
+                    return "{\"success\":true,\"method\":\"AXorcist-press\",\"element\":\"\(elementName)\"}"
+                }
+            }
+
+            // Fallback to omega-ax semantic click
+            let pid = resolvePID(from: args)
+            if pid > 0 {
+                return clickElementByName(pid: Int64(pid), elementName: elementName)
+            }
+
+            return "{\"success\":false,\"error\":\"Could not resolve app for semantic click\"}"
+        }
+
+        // Coordinate click via omega-ax CGEvent
+        if let x = args["x"] as? Double, let y = args["y"] as? Double {
+            return simulateClick(x: x, y: y)
+        }
+
+        return "{\"success\":false,\"error\":\"click requires 'element' name or 'x'/'y' coordinates\"}"
+    }
+
+    // MARK: - type
+
+    /// Type text via omega-ax CGEvent keyboard simulation.
+    private func executeType(args: [String: Any]) -> String {
+        guard let text = args["text"] as? String else {
+            return "{\"success\":false,\"error\":\"Missing 'text' argument\"}"
+        }
+        return simulateTypeText(text: text)
+    }
+
+    // MARK: - scroll
+
+    /// Scroll via CGEvent scroll wheel simulation.
+    private func executeScroll(args: [String: Any]) -> String {
+        guard let direction = args["direction"] as? String else {
+            return "{\"success\":false,\"error\":\"Missing 'direction' (up/down/left/right)\"}"
+        }
+
+        let amount = (args["amount"] as? Int) ?? 3
+
+        // Determine scroll deltas
+        var deltaY: Int32 = 0
+        var deltaX: Int32 = 0
+        switch direction.lowercased() {
+        case "up":    deltaY = Int32(amount)
+        case "down":  deltaY = -Int32(amount)
+        case "left":  deltaX = Int32(amount)
+        case "right": deltaX = -Int32(amount)
+        default:
+            return "{\"success\":false,\"error\":\"Invalid direction: \(direction). Use up/down/left/right\"}"
+        }
+
+        // Create scroll wheel event via CoreGraphics
+        guard let event = CGEvent(scrollWheelEvent2Source: nil,
+                                   units: .line,
+                                   wheelCount: 2,
+                                   wheel1: deltaY,
+                                   wheel2: deltaX,
+                                   wheel3: 0) else {
+            return "{\"success\":false,\"error\":\"Failed to create scroll event\"}"
+        }
+
+        // Move mouse to target position if coordinates provided
+        if let x = args["x"] as? Double, let y = args["y"] as? Double {
+            let point = CGPoint(x: x, y: y)
+            event.location = point
+        }
+
+        event.post(tap: .cghidEventTap)
+
+        return "{\"success\":true,\"direction\":\"\(direction)\",\"amount\":\(amount)}"
+    }
+
+    // MARK: - keys
+
+    /// Press keyboard keys via omega-ax CGEvent key simulation.
+    private func executeKeys(args: [String: Any]) -> String {
+        guard let key = args["key"] as? String else {
+            return "{\"success\":false,\"error\":\"Missing 'key' argument\"}"
+        }
+
+        let keyCode = resolveKeyCode(key)
+        guard keyCode != UInt16.max else {
+            return "{\"success\":false,\"error\":\"Unknown key: \(key)\"}"
+        }
+
+        // Build modifier flags
+        var modFlags: UInt64 = 0
+        if let modifiers = args["modifiers"] as? [String] {
+            for mod in modifiers {
+                switch mod.lowercased() {
+                case "cmd", "command":   modFlags |= CGEventFlags.maskCommand.rawValue
+                case "shift":            modFlags |= CGEventFlags.maskShift.rawValue
+                case "option", "alt":    modFlags |= CGEventFlags.maskAlternate.rawValue
+                case "control", "ctrl":  modFlags |= CGEventFlags.maskControl.rawValue
+                default: break
+                }
+            }
+        }
+
+        return simulateKeyPress(keyCode: keyCode, modifiers: modFlags)
+    }
+
+    // MARK: - screenshot
+
+    /// Capture screenshot via ScreenCaptureKit.
+    private func executeScreenshot(args: [String: Any]) async -> String {
+        let bundleID: String?
+        if let app = args["app"] as? String {
+            bundleID = bundleIDForApp(named: app)
+        } else {
+            bundleID = nil
+        }
+
+        let image: CGImage?
+        if let bundleID {
+            image = await screenCapture.captureApp(bundleID: bundleID)
+        } else {
+            image = await screenCapture.captureFrontmostWindow()
+        }
+
+        guard let cgImage = image else {
+            return "{\"success\":false,\"error\":\"Screenshot capture failed\"}"
+        }
+
+        // Encode as base64 PNG
+        let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
+        guard let pngData = bitmapRep.representation(using: .png, properties: [:]) else {
+            return "{\"success\":false,\"error\":\"PNG encoding failed\"}"
+        }
+
+        let base64 = pngData.base64EncodedString()
+        let width = cgImage.width
+        let height = cgImage.height
+
+        return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"data_base64_length\":\(base64.count)}"
+    }
+
+    // MARK: - Helpers
+
+    private func resolvePID(from args: [String: Any]) -> Int64 {
+        if let pid = args["pid"] as? Int { return Int64(pid) }
+        if let pid = args["pid"] as? Int64 { return pid }
+        if let appName = args["app"] as? String {
+            return pidForApp(named: appName)
+        }
+        return -1
+    }
+
+    private func resolveBundleID(from args: [String: Any]) -> String? {
+        if let app = args["app"] as? String {
+            return bundleIDForApp(named: app)
+        }
+        if let pid = args["pid"] as? Int {
+            return NSWorkspace.shared.runningApplications
+                .first { $0.processIdentifier == Int32(pid) }?
+                .bundleIdentifier
+        }
+        return nil
+    }
+
+    private func pidForApp(named name: String) -> Int64 {
+        let lower = name.lowercased()
+        let apps = NSWorkspace.shared.runningApplications
+        if let app = apps.first(where: { $0.localizedName?.lowercased() == lower }) {
+            return Int64(app.processIdentifier)
+        }
+        if let app = apps.first(where: { $0.localizedName?.lowercased().contains(lower) == true }) {
+            return Int64(app.processIdentifier)
+        }
+        return -1
+    }
+
+    private func bundleIDForApp(named name: String) -> String? {
+        let lower = name.lowercased()
+        let apps = NSWorkspace.shared.runningApplications
+        if let app = apps.first(where: { $0.localizedName?.lowercased() == lower }) {
+            return app.bundleIdentifier
+        }
+        return apps.first(where: { $0.localizedName?.lowercased().contains(lower) == true })?.bundleIdentifier
+    }
+
+    /// Map named keys to macOS virtual key codes.
+    private func resolveKeyCode(_ key: String) -> UInt16 {
+        // Try parsing as integer first
+        if let code = UInt16(key) { return code }
+
+        switch key.lowercased() {
+        case "return", "enter":  return 36
+        case "tab":              return 48
+        case "space":            return 49
+        case "delete", "backspace": return 51
+        case "escape", "esc":    return 53
+        case "up":               return 126
+        case "down":             return 125
+        case "left":             return 123
+        case "right":            return 124
+        case "home":             return 115
+        case "end":              return 119
+        case "pageup":           return 116
+        case "pagedown":         return 121
+        case "f1":  return 122; case "f2":  return 120; case "f3":  return 99
+        case "f4":  return 118; case "f5":  return 96;  case "f6":  return 97
+        case "f7":  return 98;  case "f8":  return 100; case "f9":  return 101
+        case "f10": return 109; case "f11": return 103; case "f12": return 111
+        default:
+            // Single character: look up by key equivalent
+            if key.count == 1, let char = key.lowercased().unicodeScalars.first {
+                return keyCodeForCharacter(char)
+            }
+            return UInt16.max
+        }
+    }
+
+    /// Map common ASCII characters to virtual key codes.
+    private func keyCodeForCharacter(_ char: Unicode.Scalar) -> UInt16 {
+        switch char {
+        case "a": return 0; case "b": return 11; case "c": return 8
+        case "d": return 2; case "e": return 14; case "f": return 3
+        case "g": return 5; case "h": return 4;  case "i": return 34
+        case "j": return 38; case "k": return 40; case "l": return 37
+        case "m": return 46; case "n": return 45; case "o": return 31
+        case "p": return 35; case "q": return 12; case "r": return 15
+        case "s": return 1;  case "t": return 17; case "u": return 32
+        case "v": return 9;  case "w": return 13; case "x": return 7
+        case "y": return 16; case "z": return 6
+        case "0": return 29; case "1": return 18; case "2": return 19
+        case "3": return 20; case "4": return 21; case "5": return 23
+        case "6": return 22; case "7": return 26; case "8": return 28
+        case "9": return 25
+        default: return UInt16.max
+        }
+    }
+}

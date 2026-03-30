@@ -57,7 +57,8 @@ final class Screen2AXFusion {
             return result
         }
 
-        let axJson = walkAxTreeJson(pid: Int64(pid))
+        // AXorcist-powered tree walk (replaces omega-ax walkAxTreeJson)
+        let axJson = AXorcistBridge.shared.walkTree(pid: pid)
         let interactiveCount = countInteractiveElements(axJson)
 
         // Step 2: Check if AX tree is rich enough
@@ -116,7 +117,8 @@ final class Screen2AXFusion {
     /// Quick AX-only perception (no fallback). Used for verify loops.
     func perceiveQuick(pid: Int32) -> PerceptionResult {
         let start = ContinuousClock.now
-        let axJson = walkAxTreeJson(pid: Int64(pid))
+        // AXorcist-powered tree walk (replaces omega-ax walkAxTreeJson)
+        let axJson = AXorcistBridge.shared.walkTree(pid: pid)
         let count = countInteractiveElements(axJson)
         let elapsed = start.duration(to: ContinuousClock.now).omegaMilliseconds
         return PerceptionResult(

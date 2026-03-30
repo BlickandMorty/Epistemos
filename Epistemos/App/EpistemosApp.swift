@@ -501,6 +501,7 @@ struct EpistemosApp: App {
             }
         }
         .defaultSize(width: 1100, height: 720)
+        .windowResizability(.contentSize)
         .modelContainer(bootstrap.modelContainer)
         .commands {
             EpistemosCommands(
@@ -618,6 +619,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         bootstrap.workspaceService.stopAutoSave()
         bootstrap.workspaceService.autoSave()
         bootstrap.vaultSync.stopWatching(preserveData: true)
+        bootstrap.hermesManager.terminate()
         StatusBar.shared.remove()
         HologramController.shared.teardown()
     }

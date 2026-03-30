@@ -794,8 +794,9 @@ struct ThemePairTests {
         #expect(landingView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
         #expect(rootView.contains("LocalModelToolbarMenu("))
         #expect(rootView.contains("variant: .toolbar"))
-        #expect(miniChat.contains("LocalModelToolbarMenu(variant: .toolbar)"))
-        #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .content)"))
+        #expect(miniChat.contains("LocalModelToolbarMenu("))
+        #expect(miniChat.contains("variant: .toolbar"))
+        #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .toolbar)"))
         #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
         #expect(rootView.contains("ASCIIRippleText("))
         #expect(rootView.contains(".menuStyle(.borderlessButton)"))
@@ -840,16 +841,19 @@ struct ThemePairTests {
         )
     }
 
-    @Test("Chat surfaces expose a visible research entry point without reviving the old research mode control")
-    func chatSurfacesExposeResearchEntryPoint() throws {
+    @Test("Chat surfaces no longer expose a separate research entry point")
+    func chatSurfacesDoNotExposeResearchEntryPoint() throws {
         let chatInputBar = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
         let miniChatView = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        #expect(chatInputBar.contains("ResearchComposerButton("))
-        #expect(landingView.contains("ResearchComposerButton("))
-        #expect(miniChatView.contains("ResearchComposerButton("))
-        #expect(chatInputBar.contains("Ask a research question"))
+        #expect(!chatInputBar.contains("ResearchComposerButton("))
+        #expect(!landingView.contains("ResearchComposerButton("))
+        #expect(!rootView.contains("title: \"Research\""))
+        #expect(!rootView.contains("ResearchComplexityGate.toggledComposerDraft"))
+        #expect(miniChatView.contains("operatingMode: operatingModeBinding"))
+        #expect(!miniChatView.contains("composerText: $text"))
         #expect(!chatInputBar.contains("ResearchModeControl"))
         #expect(!landingView.contains("ResearchModeControl"))
         #expect(!miniChatView.contains("ResearchModeControl"))
@@ -1008,13 +1012,14 @@ struct ThemePairTests {
         #expect(coordinator.contains("static func searchReferenceResults("))
     }
 
-    @Test("Note chat shows the explicit locked note attachment chip")
-    func noteChatShowsLockedNoteAttachmentChip() throws {
+    @Test("Note chat keeps the current note attachment implicit instead of rendering a redundant locked chip")
+    func noteChatKeepsCurrentNoteAttachmentImplicit() throws {
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(noteWorkspace.contains("private var noteChatContextAttachment: ContextAttachment?"))
-        #expect(noteWorkspace.contains("noteChatAttachmentChip("))
-        #expect(noteWorkspace.contains("if let attachment = noteChatContextAttachment"))
+        #expect(noteWorkspace.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
+        #expect(!noteWorkspace.contains("noteChatAttachmentChip("))
+        #expect(!noteWorkspace.contains("if let attachment = noteChatContextAttachment"))
     }
 
     @MainActor

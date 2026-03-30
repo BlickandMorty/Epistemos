@@ -117,8 +117,10 @@ mod tests {
     fn make_tool(name: &str) -> ToolDefinition {
         ToolDefinition {
             name: name.to_string(),
+            agent: "test".to_string(),
             description: format!("Test tool: {name}"),
             input_schema_json: r#"{"type":"object","properties":{"input":{"type":"string"}},"required":["input"]}"#.to_string(),
+            arguments_example: r#"{"input":"test"}"#.to_string(),
             safety: SafetyInfo {
                 destructive: false,
                 requires_confirmation: false,

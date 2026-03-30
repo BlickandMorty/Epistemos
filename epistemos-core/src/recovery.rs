@@ -71,7 +71,10 @@ const TRANSCODE_CHAINS: [(&str, &str); 10] = [
 
 pub fn classify_corruption(text: &str, source_encoding: &str) -> CorruptionAnalysis {
     let total_chars = text.chars().count().max(1) as f64;
-    let replacement_count = text.chars().filter(|&character| character == '\u{FFFD}').count();
+    let replacement_count = text
+        .chars()
+        .filter(|&character| character == '\u{FFFD}')
+        .count();
     let replacement_ratio = replacement_count as f64 / total_chars;
     let null_count = text.chars().filter(|&character| character == '\0').count();
     let null_density = null_count as f64 / total_chars;
@@ -89,7 +92,10 @@ pub fn classify_corruption(text: &str, source_encoding: &str) -> CorruptionAnaly
     let (classification, detail) = if null_density >= 0.05 {
         (
             CorruptionClass::NullPadded,
-            format!("Detected null/0xFF style padding density of {:.1}%", null_density * 100.0),
+            format!(
+                "Detected null/0xFF style padding density of {:.1}%",
+                null_density * 100.0
+            ),
         )
     } else if replacement_ratio > 0.05 || marker_density > 0.02 {
         (
@@ -103,21 +109,36 @@ pub fn classify_corruption(text: &str, source_encoding: &str) -> CorruptionAnaly
     } else if replacement_count >= 2 {
         (
             CorruptionClass::ReplacementCharClusters,
-            format!("Detected {} replacement characters in visible clusters", replacement_count),
+            format!(
+                "Detected {} replacement characters in visible clusters",
+                replacement_count
+            ),
         )
     } else if replacement_count > 0 {
         (
             CorruptionClass::TruncatedMultibyte,
-            format!("Detected trailing replacement character near byte {}", first_problem_offset),
+            format!(
+                "Detected trailing replacement character near byte {}",
+                first_problem_offset
+            ),
         )
     } else {
-        (CorruptionClass::LikelyClean, "No obvious corruption markers detected".to_string())
+        (
+            CorruptionClass::LikelyClean,
+            "No obvious corruption markers detected".to_string(),
+        )
     };
 
     let likely_true_encoding = if matches!(classification, CorruptionClass::Mojibake) {
         repair_mojibake(text.as_bytes())
             .into_iter()
-            .find_map(|candidate| candidate.chain.split("→").nth(1).map(|encoding| encoding.trim().to_string()))
+            .find_map(|candidate| {
+                candidate
+                    .chain
+                    .split("→")
+                    .nth(1)
+                    .map(|encoding| encoding.trim().to_string())
+            })
             .unwrap_or_else(|| source_encoding.to_string())
     } else {
         source_encoding.to_string()
@@ -223,9 +244,18 @@ fn score_decoded_text(text: &str, had_errors: bool) -> f64 {
         .chars()
         .filter(|character| !character.is_control() || matches!(character, '\n' | '\r' | '\t'))
         .count() as f64;
-    let alphanumeric = text.chars().filter(|character| character.is_alphanumeric()).count() as f64;
-    let whitespace = text.chars().filter(|character| character.is_whitespace()).count() as f64;
-    let replacement_count = text.chars().filter(|&character| character == '\u{FFFD}').count() as f64;
+    let alphanumeric = text
+        .chars()
+        .filter(|character| character.is_alphanumeric())
+        .count() as f64;
+    let whitespace = text
+        .chars()
+        .filter(|character| character.is_whitespace())
+        .count() as f64;
+    let replacement_count = text
+        .chars()
+        .filter(|&character| character == '\u{FFFD}')
+        .count() as f64;
     let control_count = text
         .chars()
         .filter(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))

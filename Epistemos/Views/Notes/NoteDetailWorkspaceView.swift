@@ -101,7 +101,7 @@ enum NoteToolbarMetrics {
     static let iconSide: CGFloat = 14
     static let buttonSide: CGFloat = 28
     static let spacing: CGFloat = 6
-    static let chatFieldWidth: CGFloat = 180
+    static let chatFieldWidth: CGFloat = 220
     static let stripGlowBlurRadius: CGFloat = 6
 }
 
@@ -187,6 +187,15 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
             .saveToDisk
         case .notesSidebar:
             .notesSidebar
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .saveToDisk:
+            "Save to Disk"
+        case .notesSidebar:
+            "Open Notes Sidebar"
         }
     }
 
@@ -541,21 +550,6 @@ private struct NoteToolbarIcon: View {
     }
 }
 
-private struct NoteToolbarControlCluster<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        HStack(alignment: .center, spacing: NoteToolbarMetrics.spacing) {
-            content
-        }
-        .frame(height: NoteToolbarMetrics.buttonSide)
-    }
-}
-
 // MARK: - Note Page Content
 // Self-contained note editor for each page within a tab.
 // Resolves pageId → SDPage via @Query, shows ProseEditorView,
@@ -642,7 +636,10 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
             ToolbarItem(placement: .principal) {
-                noteToolbarStrip
+                noteToolbarAskItem
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
+                noteToolbarPrimaryActions
             }
         }
         .preferredColorScheme(ui.preferredColorScheme)
@@ -981,22 +978,6 @@ struct NoteDetailWorkspaceView: View {
         .padding(NoteWorkspaceFooterDisplay.footerPadding)
     }
 
-    @ViewBuilder
-    private func noteWorkspaceQuickActionButton(_ action: NoteWorkspaceQuickAction) -> some View {
-        let button = Button {
-            performNoteWorkspaceQuickAction(action)
-        } label: {
-            NoteToolbarIcon(glyph: action.glyph, theme: ui.theme)
-        }
-        .buttonStyle(.plain)
-
-        if let help = action.help {
-            button.help(help)
-        } else {
-            button
-        }
-    }
-
     private func performNoteWorkspaceQuickAction(_ action: NoteWorkspaceQuickAction) {
         switch action {
         case .saveToDisk:
@@ -1025,13 +1006,9 @@ struct NoteDetailWorkspaceView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private var noteToolbarStrip: some View {
+    private var noteToolbarAskItem: some View {
         noteToolbarSurface {
-            HStack(spacing: NoteToolbarMetrics.spacing) {
-                toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
-
-                noteToolbarControls
-            }
+            toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
         }
     }
 
@@ -1039,7 +1016,6 @@ struct NoteDetailWorkspaceView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
-            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, NoteToolbarSurfaceStyle.horizontalPadding)
             .padding(.vertical, NoteToolbarSurfaceStyle.verticalPadding)
             .background {
@@ -1066,57 +1042,31 @@ struct NoteDetailWorkspaceView: View {
     }
 
     @ViewBuilder
-    private var noteToolbarControls: some View {
-        NoteToolbarControlCluster {
+    private var noteToolbarPrimaryActions: some View {
+        toolbarIconButton(
+            glyph: showPreview ? .edit : .preview,
+            isActive: showPreview,
+            help: showPreview ? "Editor (⌘E)" : "Preview (⌘E)"
+        ) {
+            togglePreviewMode()
+        }
+
+        if !showPreview {
             toolbarIconButton(
-                glyph: showPreview ? .edit : .preview,
-                isActive: showPreview,
-                help: showPreview ? "Editor (⌘E)" : "Preview (⌘E)"
+                glyph: .history,
+                isActive: showChatSidebar,
+                help: "Chat History"
             ) {
-                togglePreviewMode()
+                showChatSidebar.toggle()
             }
-
-            outlineFoldButton
-
-            moreMenu
-
-            toolbarIconButton(
-                glyph: .miniChat,
-                help: "Open Mini Chat"
-            ) {
-                openMiniChatForCurrentNote()
-            }
-
-            ForEach(NoteWorkspaceQuickAction.allCases, id: \.self) { action in
-                noteWorkspaceQuickActionButton(action)
-            }
-
-            if !showPreview {
-                if let legacyRecoveryPresentation,
-                   legacyRecoveryPresentation.hasEncodingIssues
-                {
-                    toolbarIconButton(
-                        glyph: .recovery,
-                        isActive: true,
-                        help: "Inspect Corrupted File"
-                    ) {
-                        showLegacyRecoverySheet = true
-                    }
-                }
-                toolbarIconButton(
-                    glyph: .history,
-                    isActive: showChatSidebar,
-                    help: "Chat History"
-                ) {
-                    showChatSidebar.toggle()
-                }
-                .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
-                    NoteChatSidebar()
-                        .environment(noteChatState)
-                        .frame(width: 340, height: 380)
-                }
+            .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
+                NoteChatSidebar()
+                    .environment(noteChatState)
+                    .frame(width: 340, height: 380)
             }
         }
+
+        moreMenu
     }
 
     private func toolbarIconButton(
@@ -1130,21 +1080,6 @@ struct NoteDetailWorkspaceView: View {
         }
         .buttonStyle(.plain)
         .help(help)
-    }
-
-    // MARK: - Outline Fold Toggle
-
-    private var outlineFoldButton: some View {
-        Button {
-            notesUI.cycleOutlineFoldMode()
-        } label: {
-            NoteToolbarIcon(
-                glyph: .outlineFold(notesUI.outlineFoldMode),
-                theme: ui.theme
-            )
-        }
-        .buttonStyle(.plain)
-        .help("Outline: \(notesUI.outlineFoldMode.label)")
     }
 
     // MARK: - Wikilink Navigation
@@ -1571,17 +1506,6 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
-    private var toolbarAskStatusText: String {
-        switch noteChatState.toolbarStatusPhase {
-        case .idle:
-            ""
-        case .analyzing:
-            "AI response below"
-        case .typing:
-            "Scroll to bottom"
-        }
-    }
-
     private var toolbarAskGlowLineWidth: CGFloat {
         switch noteChatState.toolbarStatusPhase {
         case .idle:
@@ -1617,37 +1541,15 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    @ViewBuilder
-    private var toolbarAskStatusLabel: some View {
-        if !toolbarAskStatusText.isEmpty {
-            Text(toolbarAskStatusText)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(
-                    noteChatState.toolbarStatusPhase == .analyzing
-                        ? ui.theme.textSecondary
-                        : ui.theme.textTertiary
-                )
-                .lineLimit(1)
-                .transition(.opacity.combined(with: .move(edge: .trailing)))
-        }
-    }
-
     // MARK: - Toolbar Chat Field
 
     private func toolbarChatField(width: CGFloat) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             @Bindable var chat = noteChatState
-            if let attachment = noteChatContextAttachment {
-                noteChatAttachmentChip(attachment, compact: true)
-            }
-            LocalModelToolbarMenu(variant: .content)
-
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 11))
-                .foregroundStyle(ui.theme.mutedForeground)
-            TextField("Ask", text: $chat.inputText)
+            LocalModelToolbarMenu(variant: .toolbar)
+            TextField("Ask this note", text: $chat.inputText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .frame(width: width)
                 .onSubmit {
                     noteChatState.submitToolbarQuery(
@@ -1655,8 +1557,6 @@ struct NoteDetailWorkspaceView: View {
                         triageService: triageService
                     )
                 }
-
-            toolbarAskStatusLabel
 
             if noteChatState.isStreaming {
                 Button {
@@ -1669,22 +1569,22 @@ struct NoteDetailWorkspaceView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 6)
+        .frame(minHeight: NoteToolbarMetrics.buttonSide)
+        .padding(.horizontal, 10)
         .padding(.vertical, 2)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            Capsule()
                 .fill(toolbarAskFillColor)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            Capsule()
                 .strokeBorder(toolbarAskStrokeColor, lineWidth: 0.75)
         )
         .siriGlow(
-            cornerRadius: 10,
+            cornerRadius: NoteToolbarMetrics.buttonSide / 2,
             lineWidth: toolbarAskGlowLineWidth,
             isActive: noteChatState.toolbarStatusPhase != .idle
         )
-        .animation(Motion.quick, value: noteChatState.toolbarStatusPhase)
     }
 
     private var noteChatContextAttachment: ContextAttachment? {
@@ -1693,23 +1593,6 @@ struct NoteDetailWorkspaceView: View {
             kind: .note,
             targetId: page.id,
             title: page.title.isEmpty ? "Untitled" : page.title
-        )
-    }
-
-    private func noteChatAttachmentChip(_ attachment: ContextAttachment, compact: Bool = false) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: compact ? "pin.fill" : "doc.text")
-                .font(.system(size: compact ? 8 : 10, weight: .medium))
-            Text(attachment.title)
-                .font(.system(size: compact ? 10 : 11, weight: .medium))
-                .lineLimit(1)
-        }
-        .foregroundStyle(ui.theme.resolved.accent.color)
-        .padding(.horizontal, compact ? 8 : 10)
-        .padding(.vertical, compact ? 4 : 5)
-        .background(
-            Capsule()
-                .fill(ui.theme.resolved.accent.color.opacity(0.1))
         )
     }
 
@@ -1751,15 +1634,36 @@ struct NoteDetailWorkspaceView: View {
 
             Divider()
 
-            Button {
-                togglePreviewMode()
-            } label: {
+            Button(action: { notesUI.cycleOutlineFoldMode() }) {
                 Label(
-                    showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)",
-                    systemImage: showPreview ? "pencil" : "eye")
+                    "Outline: \(notesUI.outlineFoldMode.label)",
+                    systemImage: notesUI.outlineFoldMode.symbolName
+                )
             }
 
             if !showPreview {
+                Button {
+                    openMiniChatForCurrentNote()
+                } label: {
+                    Label("Open Mini Chat", systemImage: "bubble.left.and.text.bubble.right")
+                }
+
+                ForEach(NoteWorkspaceQuickAction.allCases, id: \.self) { action in
+                    Button(action.title) {
+                        performNoteWorkspaceQuickAction(action)
+                    }
+                }
+
+                if let legacyRecoveryPresentation,
+                   legacyRecoveryPresentation.hasEncodingIssues
+                {
+                    Button {
+                        showLegacyRecoverySheet = true
+                    } label: {
+                        Label("Inspect Corrupted File", systemImage: "exclamationmark.triangle")
+                    }
+                }
+
                 Menu("Format") {
                     formatMenuContent
                 }

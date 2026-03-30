@@ -113,17 +113,21 @@ mod tests {
             .map(|i| ["the", "cat", "sat"][i % 3].to_string())
             .collect();
         let score = mtld_ma_bid(&tokens, DEFAULT_MTLD_THRESHOLD);
-        assert!(score < 20.0, "Repetitive text should have low MTLD, got {score}");
+        assert!(
+            score < 20.0,
+            "Repetitive text should have low MTLD, got {score}"
+        );
     }
 
     #[test]
     fn test_diverse_high_diversity() {
         // All unique words → high MTLD
-        let tokens: Vec<String> = (0..100)
-            .map(|i| format!("word{i}"))
-            .collect();
+        let tokens: Vec<String> = (0..100).map(|i| format!("word{i}")).collect();
         let score = mtld_ma_bid(&tokens, DEFAULT_MTLD_THRESHOLD);
-        assert!(score > 50.0, "All unique words should have high MTLD, got {score}");
+        assert!(
+            score > 50.0,
+            "All unique words should have high MTLD, got {score}"
+        );
     }
 
     #[test]

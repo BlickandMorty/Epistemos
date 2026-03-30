@@ -247,6 +247,7 @@ struct ChatView: View {
             // Right: chat controls (title + nav handled by toolbar)
             ToolbarItemGroup(placement: .primaryAction) {
                 historyToolbarButton
+                miniChatToolbarButton
                 
                 Button(action: exportChat) {
                     Label("Export", systemImage: "square.and.arrow.up")
@@ -291,6 +292,14 @@ struct ChatView: View {
         }
     }
 
+    private var miniChatToolbarButton: some View {
+        Button(action: openCurrentChatInMiniChat) {
+            Label("Open in Mini Chat", systemImage: "arrow.up.right.square")
+        }
+        .accessibilityLabel("Open in Mini Chat")
+        .help("Open in Mini Chat")
+    }
+
     private func submitMainChatQuery(_ query: String, operatingMode: EpistemosOperatingMode) {
         MainChatSubmissionRouter.submit(
             query,
@@ -298,6 +307,14 @@ struct ChatView: View {
             chat: chat,
             orchestrator: orchestrator
         )
+    }
+
+    private func openCurrentChatInMiniChat() {
+        if let chatId = chat.activeChatId {
+            MiniChatWindowController.shared.openChat(chatId)
+        } else {
+            MiniChatWindowController.shared.openNewChat()
+        }
     }
 
     private func sanitizeStoredOperatingMode() {

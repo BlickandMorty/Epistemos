@@ -2,6 +2,7 @@ import Testing
 @testable import Epistemos
 
 @Suite("AXSemanticSelector")
+@MainActor
 struct AXSemanticSelectorTests {
 
     // MARK: - Parsing

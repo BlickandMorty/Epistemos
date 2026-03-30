@@ -14,6 +14,7 @@ import os
 @MainActor @Observable
 final class DeviceAgentService {
     private let log = Logger(subsystem: "com.epistemos.omega", category: "DeviceAgent")
+    private let minimumResolutionConfidence = 0.8
 
     /// The active inference backend.
     private var backend: (any DeviceInferenceBackend)?
@@ -64,7 +65,14 @@ final class DeviceAgentService {
 
         log.debug("UI resolve: \(elapsed.omegaMilliseconds, privacy: .public)ms")
 
-        return parseActionResult(raw)
+        let result = parseActionResult(raw, backendName: backend.name)
+        guard !result.selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw DeviceAgentError.selectorNotFound("Model did not return a selector")
+        }
+        guard result.confidence >= minimumResolutionConfidence else {
+            throw DeviceAgentError.lowConfidence(result.confidence)
+        }
+        return result
     }
 
     /// Verify a UI action succeeded by comparing before/after screen state.
@@ -139,14 +147,15 @@ final class DeviceAgentService {
 
     // MARK: - Result Parsing
 
-    private func parseActionResult(_ raw: String) -> DeviceActionResult {
+    private func parseActionResult(_ raw: String, backendName: String) -> DeviceActionResult {
         guard let data = raw.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return DeviceActionResult(
                 selector: "",
                 action: .axPress,
                 confidence: 0.0,
-                rawOutput: raw
+                rawOutput: raw,
+                backendName: backendName
             )
         }
 
@@ -165,7 +174,8 @@ final class DeviceAgentService {
             selector: selector,
             action: action,
             confidence: confidence.isFinite ? min(1.0, max(0.0, confidence)) : 0.0,
-            rawOutput: raw
+            rawOutput: raw,
+            backendName: backendName
         )
     }
 }
@@ -188,16 +198,31 @@ final class SharedGPUBackend: DeviceInferenceBackend {
     nonisolated let name = "SharedGPU"
     nonisolated let usesANE = false
     private let triageService: TriageService
+    private let localModelClient: (any LocalConfigurableLLMClient)?
+    private let constrainedDecoding: ConstrainedDecodingService?
+    private let activeModelID: @MainActor @Sendable () -> String?
 
-    init(triageService: TriageService) {
+    init(
+        triageService: TriageService,
+        localModelClient: (any LocalConfigurableLLMClient)? = nil,
+        constrainedDecoding: ConstrainedDecodingService? = nil,
+        activeModelID: @escaping @MainActor @Sendable () -> String? = { nil }
+    ) {
         self.triageService = triageService
+        self.localModelClient = localModelClient
+        self.constrainedDecoding = constrainedDecoding
+        self.activeModelID = activeModelID
     }
 
     nonisolated func generate(prompt: String, systemPrompt: String, maxTokens: Int) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor [triageService] in
+            Task { @MainActor [weak self] in
+                guard let self else {
+                    continuation.resume(throwing: DeviceAgentError.backendNotReady)
+                    return
+                }
                 do {
-                    let result = try await triageService.generateRawLocal(
+                    let result = try await self.generateOnMainActor(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
                         maxTokens: maxTokens
@@ -209,6 +234,53 @@ final class SharedGPUBackend: DeviceInferenceBackend {
             }
         }
     }
+
+    private func generateOnMainActor(
+        prompt: String,
+        systemPrompt: String,
+        maxTokens: Int
+    ) async throws -> String {
+        if let agentLoop = makeLocalAgentLoopIfAvailable(maxTokens: maxTokens) {
+            return try await agentLoop.run(
+                objective: prompt,
+                tools: [],
+                maxTurns: 1,
+                additionalSystemPrompt: systemPrompt,
+                onToken: { _ in }
+            )
+        }
+
+        return try await triageService.generateRawLocal(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens
+        )
+    }
+
+    private func makeLocalAgentLoopIfAvailable(maxTokens: Int) -> LocalAgentLoop? {
+        guard let localModelClient,
+              let modelID = activeModelID(),
+              let resolvedModel = LocalTextModelID(rawValue: modelID),
+              resolvedModel.canActAsAgent else {
+            return nil
+        }
+
+        return LocalAgentLoop(
+            generator: LocalAgentLoop.mlxOneShotGenerator(using: localModelClient),
+            structuredGenerator: constrainedDecoding.map { LocalAgentLoop.constrainedGenerator(using: $0) },
+            toolExecutor: Self.unavailableToolExecutor,
+            modelID: modelID,
+            maxResponseTokens: maxTokens
+        )
+    }
+
+    private static let unavailableToolExecutor: LocalAgentToolExecutor = { name, _ in
+        LocalToolResult(
+            toolName: name,
+            resultJson: #"{"error":"No local tools are available for the device backend."}"#,
+            isError: true
+        )
+    }
 }
 
 // MARK: - Types
@@ -218,6 +290,11 @@ struct DeviceActionResult: Sendable {
     let action: DeviceActionType
     let confidence: Double
     let rawOutput: String
+    let backendName: String
+
+    var requiresEscalation: Bool {
+        confidence < 0.8
+    }
 }
 
 enum DeviceActionType: String, Sendable {
@@ -239,4 +316,3 @@ enum DeviceAgentError: Error, LocalizedError {
         }
     }
 }
-

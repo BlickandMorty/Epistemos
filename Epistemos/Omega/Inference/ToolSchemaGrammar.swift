@@ -8,7 +8,7 @@ import Foundation
 ///
 /// Output format: a set of production rules compatible with EBNF logit masking.
 /// Each rule describes valid next-token sets at each position in the output.
-enum ToolSchemaGrammar {
+nonisolated enum ToolSchemaGrammar {
 
     /// A compiled grammar ready for constrained decoding.
     struct CompiledGrammar: Sendable {

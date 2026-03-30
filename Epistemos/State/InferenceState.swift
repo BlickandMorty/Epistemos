@@ -31,6 +31,22 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    var compactDisplayName: String {
+        switch self {
+        case .qwen35_0_8B4Bit: "Qwen 0.8B"
+        case .qwen35_2B4Bit: "Qwen 2B"
+        case .qwen35_4B4Bit: "Qwen 4B"
+        case .qwen35_9B4Bit: "Qwen 9B"
+        case .qwen35_27B4Bit: "Qwen 27B"
+        case .qwen35_35BA3B4Bit: "Qwen 35B"
+        case .smolLM3_3B4Bit: "SmolLM3"
+        case .devstralSmall2505_4Bit: "Devstral"
+        case .mistralSmall31_24B4Bit: "Mistral 24B"
+        case .gemma3_27BQAT4Bit: "Gemma 27B"
+        case .llama4Scout17B16E4Bit: "Llama 4"
+        }
+    }
+
     var familyName: String {
         switch self {
         case .qwen35_0_8B4Bit,
@@ -91,6 +107,24 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              .devstralSmall2505_4Bit,
              .mistralSmall31_24B4Bit,
              .gemma3_27BQAT4Bit,
+             .llama4Scout17B16E4Bit:
+            false
+        }
+    }
+
+    var canActAsAgent: Bool {
+        switch self {
+        case .qwen35_4B4Bit,
+             .qwen35_27B4Bit,
+             .qwen35_35BA3B4Bit,
+             .devstralSmall2505_4Bit,
+             .mistralSmall31_24B4Bit,
+             .gemma3_27BQAT4Bit:
+            true
+        case .qwen35_0_8B4Bit,
+             .qwen35_2B4Bit,
+             .qwen35_9B4Bit,
+             .smolLM3_3B4Bit,
              .llama4Scout17B16E4Bit:
             false
         }
@@ -210,6 +244,29 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    var compactDisplayName: String {
+        switch self {
+        case .openAIGPT54: "GPT-5.4"
+        case .openAIGPT54Mini: "GPT-5.4 Mini"
+        case .openAIGPT54Nano: "GPT-5.4 Nano"
+        case .openAIGPT52: "GPT-5.2"
+        case .openAIGPT41: "GPT-4.1"
+        case .openAIGPT41Mini: "GPT-4.1 Mini"
+        case .openAIO3: "o3"
+        case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeOpus41: "Opus 4.1"
+        case .anthropicClaudeOpus4: "Opus 4"
+        case .anthropicClaudeSonnet4: "Sonnet 4"
+        case .anthropicClaudeSonnet37: "Sonnet 3.7"
+        case .anthropicClaudeHaiku35: "Haiku 3.5"
+        case .googleGemini25Pro: "Gemini 2.5 Pro"
+        case .googleGemini25Flash: "Gemini 2.5 Flash"
+        case .googleGemini3FlashPreview: "Gemini 3 Flash"
+        case .googleGemini3ProPreview: "Gemini 3 Pro"
+        case .googleGemini31ProPreview: "Gemini 3.1 Pro"
+        }
+    }
+
     var providerDisplayName: String {
         provider.displayName
     }
@@ -261,6 +318,143 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     ]
 }
 
+nonisolated enum CloudProviderValidationState: Sendable, Equatable {
+    case missing
+    case unchecked
+    case checking
+    case valid(message: String, checkedAt: Date)
+    case invalid(message: String, checkedAt: Date)
+
+    var isChecking: Bool {
+        if case .checking = self {
+            return true
+        }
+        return false
+    }
+
+    var statusBadge: String {
+        switch self {
+        case .missing:
+            "No Key"
+        case .unchecked:
+            "Saved"
+        case .checking:
+            "Checking"
+        case .valid:
+            "Valid"
+        case .invalid:
+            "Needs Attention"
+        }
+    }
+
+    var statusText: String {
+        return switch self {
+        case .missing:
+            "Add a provider key to unlock these cloud models."
+        case .unchecked:
+            "Key saved. Run a check to confirm provider access."
+        case .checking:
+            "Checking this provider with a lightweight live request…"
+        case .valid(let message, let checkedAt):
+            "\(message) • Checked \(checkedAt.formatted(date: .omitted, time: .shortened))"
+        case .invalid(let message, let checkedAt):
+            "\(message) • Checked \(checkedAt.formatted(date: .omitted, time: .shortened))"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .missing:
+            "key.slash"
+        case .unchecked:
+            "key.fill"
+        case .checking:
+            "arrow.triangle.2.circlepath"
+        case .valid:
+            "checkmark.shield.fill"
+        case .invalid:
+            "exclamationmark.triangle.fill"
+        }
+    }
+
+    var tintColor: ColorRole {
+        switch self {
+        case .missing:
+            .secondary
+        case .unchecked, .checking:
+            .accent
+        case .valid:
+            .success
+        case .invalid:
+            .warning
+        }
+    }
+}
+
+nonisolated enum ColorRole: Sendable, Equatable {
+    case accent
+    case secondary
+    case success
+    case warning
+}
+
+extension CloudModelProvider {
+    var systemImage: String {
+        switch self {
+        case .openAI:
+            "sparkles"
+        case .anthropic:
+            "brain"
+        case .google:
+            "globe.americas.fill"
+        }
+    }
+
+    var apiKeyPlaceholder: String {
+        switch self {
+        case .openAI:
+            "sk-..."
+        case .anthropic:
+            "sk-ant-..."
+        case .google:
+            "AIza..."
+        }
+    }
+
+    var setupHelpText: String {
+        switch self {
+        case .openAI:
+            "Unlocks GPT-5.4, GPT-5.2, GPT-4.1, and o3. Great default for general cloud chat."
+        case .anthropic:
+            "Unlocks Claude Sonnet and Opus models. Best fit when you want a strong agentic writing partner."
+        case .google:
+            "Unlocks Gemini 2.5 and preview Gemini 3 models. Useful for broad long-context work."
+        }
+    }
+
+    var modelSummary: String {
+        switch self {
+        case .openAI:
+            "GPT-5.4, GPT-5.2, GPT-4.1, o3"
+        case .anthropic:
+            "Claude Opus 4.1, Opus 4, Sonnet 4"
+        case .google:
+            "Gemini 2.5 Pro, 2.5 Flash, Gemini 3 previews"
+        }
+    }
+
+    var validationModel: CloudTextModelID {
+        switch self {
+        case .openAI:
+            .openAIGPT41Mini
+        case .anthropic:
+            .anthropicClaudeSonnet4
+        case .google:
+            .googleGemini25Flash
+        }
+    }
+}
+
 nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
     case appleIntelligence
     case localQwen(String)
@@ -303,6 +497,17 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
             LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
         case .cloud(let model):
             model.displayName
+        }
+    }
+
+    var compactDisplayName: String {
+        switch self {
+        case .appleIntelligence:
+            "Apple Intelligence"
+        case .localQwen(let modelID):
+            LocalTextModelID(rawValue: modelID)?.compactDisplayName ?? modelID
+        case .cloud(let model):
+            model.compactDisplayName
         }
     }
 }
@@ -368,7 +573,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         case .thinking:
             "Spend more local reasoning budget before answering."
         case .agent:
-            "Hand off the task to Omega for visible multi-step execution."
+            "Hand off the task to the agent runtime for visible multi-step execution."
         }
     }
 
@@ -383,7 +588,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     var handoffMessage: String? {
         switch self {
         case .agent:
-            "Handing this off to Omega Agent for multi-step execution. Follow progress in the Omega panel."
+            "Handing this off to the agent runtime for multi-step execution. Follow progress in the Agent Runtime panel."
         case .fast, .thinking:
             nil
         }
@@ -474,6 +679,13 @@ nonisolated struct LocalModelSelection: Sendable, Equatable {
     let modelID: String
     let reasoningMode: LocalReasoningMode
     let contentBudget: Int
+
+    var canActAsAgent: Bool {
+        guard let model = LocalTextModelID(rawValue: modelID) else {
+            return false
+        }
+        return model.canActAsAgent
+    }
 }
 
 nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
@@ -611,6 +823,8 @@ final class InferenceState {
     var preferredChatModelSelection: ChatModelSelection = .localQwen(
         LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     )
+    private(set) var cachedCloudAPIKeys: [CloudModelProvider: String] = [:]
+    private(set) var cloudProviderValidationStates: [CloudModelProvider: CloudProviderValidationState] = [:]
     private(set) var installedLocalTextModelIDs: Set<String> = []
     private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current
@@ -627,6 +841,7 @@ final class InferenceState {
         self.appleIntelligenceAvailable = available
         self.appleIntelligenceUnavailableReason = reason
         migrateLegacyCloudAPIKeysIfNeeded()
+        refreshCachedCloudAPIKeys()
 
         let defaults = UserDefaults.standard
         if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
@@ -688,6 +903,21 @@ final class InferenceState {
                 Keychain.delete(for: legacyKey)
                 break
             }
+        }
+    }
+
+    private func refreshCachedCloudAPIKeys() {
+        cachedCloudAPIKeys = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
+            guard let key = Keychain.load(for: provider.apiKeyKeychainKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                  !key.isEmpty else {
+                return
+            }
+            partialResult[provider] = key
+        }
+
+        cloudProviderValidationStates = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
+            partialResult[provider] = cachedCloudAPIKeys[provider] == nil ? .missing : .unchecked
         }
     }
 
@@ -755,20 +985,38 @@ final class InferenceState {
         effectiveLocalTextModelID != nil
     }
 
+    var supportsLocalAgentLoop: Bool {
+        guard let modelID = activeLocalTextModelID,
+              let model = LocalTextModelID(rawValue: modelID) else {
+            return false
+        }
+
+        return model.canActAsAgent
+    }
+
     var operatingModeCapabilities: OperatingModeCapabilities {
         switch preferredChatModelSelection {
-        case .appleIntelligence, .cloud:
+        case .appleIntelligence:
+            // Apple Intelligence has no agent capability — fast only.
+            return OperatingModeCapabilities(availableModes: [.fast])
+        case .cloud:
+            // Cloud models always support Hermes agent mode.
             return OperatingModeCapabilities(availableModes: [.fast, .agent])
         case .localQwen(let modelID):
             let activeModelID = LocalTextModelID(rawValue: modelID) != nil ? modelID : activeLocalTextModelID
             guard let activeModelID,
                   let model = LocalTextModelID(rawValue: activeModelID) else {
-                return OperatingModeCapabilities(availableModes: [.fast, .agent])
+                return OperatingModeCapabilities(availableModes: [.fast])
             }
+            // Only models explicitly marked canActAsAgent get the agent option.
+            var modes: [EpistemosOperatingMode] = [.fast]
             if model.supportsThinkingMode {
-                return OperatingModeCapabilities(availableModes: [.fast, .thinking, .agent])
+                modes.append(.thinking)
             }
-            return OperatingModeCapabilities(availableModes: [.fast, .agent])
+            if model.canActAsAgent {
+                modes.append(.agent)
+            }
+            return OperatingModeCapabilities(availableModes: modes)
         }
     }
 
@@ -817,7 +1065,11 @@ final class InferenceState {
     }
 
     func apiKey(for provider: CloudModelProvider) -> String? {
-        Keychain.load(for: provider.apiKeyKeychainKey)
+        cachedCloudAPIKeys[provider] ?? Keychain.load(for: provider.apiKeyKeychainKey)
+    }
+
+    func cloudValidationState(for provider: CloudModelProvider) -> CloudProviderValidationState {
+        cloudProviderValidationStates[provider] ?? .missing
     }
 
     private func hasConfiguredAPIKey(for provider: CloudModelProvider) -> Bool {
@@ -842,12 +1094,47 @@ final class InferenceState {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             Keychain.delete(for: provider.apiKeyKeychainKey)
+            cachedCloudAPIKeys.removeValue(forKey: provider)
+            cloudProviderValidationStates[provider] = .missing
             if case .cloud(let model) = preferredChatModelSelection, model.provider == provider {
                 persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
             }
             return true
         }
-        return Keychain.save(trimmed, for: provider.apiKeyKeychainKey)
+        let didSave = Keychain.save(trimmed, for: provider.apiKeyKeychainKey)
+        if didSave {
+            cachedCloudAPIKeys[provider] = trimmed
+            cloudProviderValidationStates[provider] = .unchecked
+        } else {
+            cloudProviderValidationStates[provider] = .invalid(
+                message: "Couldn't store this key in the Apple Keychain.",
+                checkedAt: Date()
+            )
+        }
+        return didSave
+    }
+
+    func validateAPIKey(for provider: CloudModelProvider) async -> ConnectionTestResult {
+        guard let apiKey = apiKey(for: provider)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !apiKey.isEmpty else {
+            cloudProviderValidationStates[provider] = .missing
+            return ConnectionTestResult(
+                success: false,
+                message: "No \(provider.displayName) API key saved yet."
+            )
+        }
+
+        cloudProviderValidationStates[provider] = .checking
+        let result = await CloudLLMClient(inference: self).testConnection(
+            provider: provider,
+            apiKey: apiKey
+        )
+        let checkedAt = Date()
+        cloudProviderValidationStates[provider] = result.success
+            ? .valid(message: result.message, checkedAt: checkedAt)
+            : .invalid(message: result.message, checkedAt: checkedAt)
+        return result
     }
 
     func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {
@@ -882,6 +1169,14 @@ final class InferenceState {
                 visibleThinkingRequested: false
             )
         )
+    }
+
+    func canRouteToLocalAgentLoop(for profile: InferenceRequestProfile) -> Bool {
+        guard localRuntimeConditions.allowsAutomaticLocalRouting else { return false }
+        guard let selection = localModelSelection(for: profile) else { return false }
+        guard selection.canActAsAgent else { return false }
+        guard hardwareCapabilitySnapshot.supports(textModelID: selection.modelID) else { return false }
+        return profile.contentLength <= selection.contentBudget
     }
 
     func setChatOutputTokens(_ tokens: Int) {

@@ -111,7 +111,11 @@ mod tests {
         let embedder = TrigramEmbedder::new(1024);
         let embedding = embedder.encode("hello world");
         let norm: f32 = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "Expected unit norm, got {}", norm);
+        assert!(
+            (norm - 1.0).abs() < 1e-5,
+            "Expected unit norm, got {}",
+            norm
+        );
     }
 
     #[test]
@@ -156,7 +160,11 @@ mod tests {
         let embedding = embedder.encode("hi");
         // Should produce non-zero vector despite being shorter than trigram
         let norm: f32 = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
-        assert!(norm > 0.9, "Expected near-unit norm for short text, got {}", norm);
+        assert!(
+            norm > 0.9,
+            "Expected near-unit norm for short text, got {}",
+            norm
+        );
     }
 
     #[test]

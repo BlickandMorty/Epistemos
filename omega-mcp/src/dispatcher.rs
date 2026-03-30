@@ -49,8 +49,10 @@ impl MCPDispatcher {
     ) -> String {
         let tool = ToolDefinition {
             name,
+            agent: String::new(),
             description,
             input_schema_json,
+            arguments_example: String::new(),
             safety: crate::types::SafetyInfo {
                 destructive,
                 requires_confirmation,
@@ -61,6 +63,50 @@ impl MCPDispatcher {
             Ok(()) => String::new(),
             Err(e) => e.to_string(),
         }
+    }
+
+    /// Register a tool with full metadata (agent, description, example args).
+    /// Returns empty string on success, error message on failure.
+    pub fn register_tool_full(
+        &self,
+        name: String,
+        agent: String,
+        description: String,
+        input_schema_json: String,
+        arguments_example: String,
+        destructive: bool,
+        requires_confirmation: bool,
+    ) -> String {
+        let tool = ToolDefinition {
+            name,
+            agent,
+            description,
+            input_schema_json,
+            arguments_example,
+            safety: crate::types::SafetyInfo {
+                destructive,
+                requires_confirmation,
+                scoped_to_apps: vec![],
+            },
+        };
+        match self.registry.lock().unwrap().register(tool) {
+            Ok(()) => String::new(),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    /// Register all built-in Epistemos tools from the canonical catalog.
+    /// Returns the number of tools registered.
+    pub fn register_builtin_tools(&self) -> u32 {
+        let catalog = crate::catalog::builtin_tools();
+        let mut count = 0u32;
+        let mut reg = self.registry.lock().unwrap();
+        for tool in catalog {
+            if reg.register(tool).is_ok() {
+                count += 1;
+            }
+        }
+        count
     }
 
     /// List all registered tools as JSON array.

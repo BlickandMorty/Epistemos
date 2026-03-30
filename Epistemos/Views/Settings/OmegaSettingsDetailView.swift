@@ -1,8 +1,8 @@
 import SwiftUI
 
-// MARK: - Omega Settings Detail View
+// MARK: - Agent Runtime Settings Detail View
 
-/// Settings panel for the Omega agent system.
+/// Settings panel for the local agent runtime.
 /// Configures: model routing, agent behavior, permissions, training preferences.
 struct OmegaSettingsDetailView: View {
     @Environment(OrchestratorState.self) private var orchestrator
@@ -18,22 +18,22 @@ struct OmegaSettingsDetailView: View {
 
     var body: some View {
         Form {
-            SettingsDescriptionCard(
-                title: "What Omega Does",
+                SettingsDescriptionCard(
+                title: "What The Agent Runtime Does",
                 systemImage: "cpu.fill",
-                text: "Omega is the app's tool-using layer for research, browsing, notes, terminal tasks, and desktop actions. It does not run hidden background research by itself. Research starts when you explicitly ask for it or submit a task that routes into Omega."
+                text: "The agent runtime is the app's tool-using layer for research, browsing, notes, terminal tasks, and desktop actions. It does not run hidden background research by itself. Research starts when you explicitly ask for it or submit a task that routes into the runtime."
             )
 
             // MARK: - Agent Behavior
             Section("Agent Behavior") {
                 SettingsDescriptionText(
-                    text: "These controls decide how independently Omega can act once you have already put it on a task."
+                    text: "These controls decide how independently the local agent runtime can act once you have already put it on a task."
                 )
                 Toggle("Auto-execute low-risk actions", isOn: $autoExecuteLowRisk)
                     .help("When enabled, LOW risk tool calls execute without confirmation.")
 
                 SettingsDescriptionText(
-                    text: "When enabled, Omega can continue through obviously safe steps without pausing on each one. Higher-risk actions should still require an explicit permission or confirmation boundary."
+                    text: "When enabled, the runtime can continue through obviously safe steps without pausing on each one. Higher-risk actions should still require an explicit permission or confirmation boundary."
                 )
 
                 Stepper("Max retries per tool call: \(maxRetries)", value: $maxRetries, in: 1...10)
@@ -47,7 +47,7 @@ struct OmegaSettingsDetailView: View {
             // MARK: - Terminal Safety
             Section("Terminal Agent") {
                 SettingsDescriptionText(
-                    text: "Terminal access stays constrained by a base-command allow-list so Omega can do useful shell work without becoming unrestricted shell control."
+                    text: "Terminal access stays constrained by a base-command allow-list so the runtime can do useful shell work without becoming unrestricted shell control."
                 )
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Allowed Commands")
@@ -64,7 +64,7 @@ struct OmegaSettingsDetailView: View {
             // MARK: - Permissions
             Section("Permissions") {
                 SettingsDescriptionText(
-                    text: "Omega uses standard macOS permissions for accessibility, screen understanding, and Apple Events automation. Grant only what you want the app to control."
+                    text: "The local agent runtime uses standard macOS permissions for accessibility, screen understanding, and Apple Events automation. Grant only what you want the app to control."
                 )
                 HStack {
                     Text("Accessibility")
@@ -120,7 +120,7 @@ struct OmegaSettingsDetailView: View {
             // MARK: - Perception
             Section("Perception") {
                 SettingsDescriptionText(
-                    text: "Perception settings control how Omega sees the current app. Accessibility data stays the first choice; Vision OCR only fills gaps when UI structure is too sparse."
+                    text: "Perception settings control how the runtime sees the current app. Accessibility data stays the first choice; Vision OCR only fills gaps when UI structure is too sparse."
                 )
                 Toggle("Screen2AX Vision OCR enrichment", isOn: $screen2axEnabled)
                     .help("When AX tree is sparse (<10 interactive elements), enrich with Vision OCR.")
@@ -143,10 +143,10 @@ struct OmegaSettingsDetailView: View {
                 )
 
                 Toggle("Embodied data capture (Experimental)", isOn: $embodiedCapture)
-                    .help("Capture AX tree snapshots and screenshots around Omega actions for experimental trace collection.")
+                    .help("Capture AX tree snapshots and screenshots around agent runtime actions for experimental trace collection.")
 
                 SettingsDescriptionText(
-                    text: "Embodied capture records trace context around Omega actions so future automation and training can be debugged and improved more honestly."
+                    text: "Embodied capture records trace context around runtime actions so future automation and training can be debugged and improved more honestly."
                 )
 
                 HStack {
@@ -160,7 +160,7 @@ struct OmegaSettingsDetailView: View {
             // MARK: - Agents
             Section("Registered Agents") {
                 SettingsDescriptionText(
-                    text: "These are the live specialist agents currently exposed through Omega. Tool counts show how much surface area each agent can control."
+                    text: "These are the live specialist agents currently exposed through the local runtime. Tool counts show how much surface area each agent can control."
                 )
                 ForEach(Array(orchestrator.agents.keys.sorted()), id: \.self) { name in
                     if let agent = orchestrator.agents[name] {
@@ -185,7 +185,7 @@ struct OmegaSettingsDetailView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Omega")
+        .navigationTitle("Agent Runtime")
     }
 
     private func agentIcon(_ name: String) -> String {

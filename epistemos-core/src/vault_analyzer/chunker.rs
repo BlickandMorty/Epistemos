@@ -261,9 +261,16 @@ fn split_oversized(sections: Vec<RawSection>) -> Vec<RawSection> {
             if current_tokens + para_tokens > MAX_TOKENS && !current_paras.is_empty() {
                 // Flush
                 let heading_suffix = if is_first { "" } else { " (cont.)" };
-                let heading = section.heading.as_ref().map(|h| format!("{h}{heading_suffix}"));
+                let heading = section
+                    .heading
+                    .as_ref()
+                    .map(|h| format!("{h}{heading_suffix}"));
                 let heading_line = section.heading_line.as_ref().map(|hl| {
-                    if is_first { hl.clone() } else { format!("{hl} (cont.)") }
+                    if is_first {
+                        hl.clone()
+                    } else {
+                        format!("{hl} (cont.)")
+                    }
                 });
 
                 result.push(RawSection {
@@ -284,9 +291,16 @@ fn split_oversized(sections: Vec<RawSection>) -> Vec<RawSection> {
 
         if !current_paras.is_empty() {
             let heading_suffix = if is_first { "" } else { " (cont.)" };
-            let heading = section.heading.as_ref().map(|h| format!("{h}{heading_suffix}"));
+            let heading = section
+                .heading
+                .as_ref()
+                .map(|h| format!("{h}{heading_suffix}"));
             let heading_line = section.heading_line.as_ref().map(|hl| {
-                if is_first { hl.clone() } else { format!("{hl} (cont.)") }
+                if is_first {
+                    hl.clone()
+                } else {
+                    format!("{hl} (cont.)")
+                }
             });
 
             result.push(RawSection {
@@ -461,13 +475,29 @@ mod tests {
                     as an independent chunk. The subsection elaborates on a specific aspect of \
                     section one with concrete examples and analysis.";
         let chunks = chunk_markdown(doc);
-        assert!(chunks.len() >= 2, "expected >= 2 chunks, got {}", chunks.len());
+        assert!(
+            chunks.len() >= 2,
+            "expected >= 2 chunks, got {}",
+            chunks.len()
+        );
 
         // The subsection should carry hierarchy from parent headings
         let last = chunks.last().unwrap();
-        assert!(last.hierarchy.contains("Top Level"), "hierarchy: {}", last.hierarchy);
-        assert!(last.hierarchy.contains("Section One"), "hierarchy: {}", last.hierarchy);
-        assert!(last.hierarchy.contains("Subsection A"), "hierarchy: {}", last.hierarchy);
+        assert!(
+            last.hierarchy.contains("Top Level"),
+            "hierarchy: {}",
+            last.hierarchy
+        );
+        assert!(
+            last.hierarchy.contains("Section One"),
+            "hierarchy: {}",
+            last.hierarchy
+        );
+        assert!(
+            last.hierarchy.contains("Subsection A"),
+            "hierarchy: {}",
+            last.hierarchy
+        );
     }
 
     #[test]
@@ -476,10 +506,16 @@ mod tests {
                     ## Part One\n\nPart one text with enough content to qualify as standalone.\n\n\
                     ### Detail\n\nDetail text with sufficient words for the minimum token threshold.";
         let chunks = chunk_markdown(doc);
-        let detail = chunks.iter().find(|c| c.heading.as_deref() == Some("Detail"));
+        let detail = chunks
+            .iter()
+            .find(|c| c.heading.as_deref() == Some("Detail"));
         if let Some(d) = detail {
             // Hierarchy should show the path: "# Doc Title > ## Part One > ### Detail"
-            assert!(d.hierarchy.contains(">"), "hierarchy should use > separator: {}", d.hierarchy);
+            assert!(
+                d.hierarchy.contains(">"),
+                "hierarchy should use > separator: {}",
+                d.hierarchy
+            );
         }
     }
 
@@ -562,8 +598,11 @@ mod tests {
         let chunks = chunk_markdown(doc);
         for chunk in &chunks {
             // Single small documents can be under MIN_TOKENS, that's ok
-            assert!(chunk.estimated_tokens <= MAX_TOKENS + 100,
-                "chunk too large: {} tokens", chunk.estimated_tokens);
+            assert!(
+                chunk.estimated_tokens <= MAX_TOKENS + 100,
+                "chunk too large: {} tokens",
+                chunk.estimated_tokens
+            );
         }
     }
 
@@ -576,7 +615,9 @@ mod tests {
         let chunks = chunk_markdown(doc);
         // Should handle all heading levels
         let headings: Vec<_> = chunks.iter().filter_map(|c| c.heading.as_deref()).collect();
-        assert!(headings.contains(&"Title") || chunks.iter().any(|c| c.hierarchy.contains("Title")));
+        assert!(
+            headings.contains(&"Title") || chunks.iter().any(|c| c.hierarchy.contains("Title"))
+        );
     }
 
     #[test]

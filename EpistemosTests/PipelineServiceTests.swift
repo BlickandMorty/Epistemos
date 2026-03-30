@@ -1545,16 +1545,10 @@ struct ChatStateLocalMessageTests {
         #expect(capturedMode == .thinking)
     }
 
-    @Test("main chat router hands research queries off to Omega and keeps a visible transcript")
-    func mainChatRouterHandsResearchQueriesOffToOmega() async {
+    @Test("main chat router no longer treats research phrasing as a special runtime mode")
+    func mainChatRouterDoesNotSpecialCaseResearchPhrasing() async {
         let chatState = ChatState()
         let orchestrator = OrchestratorState()
-        let attachment = ContextAttachment(
-            kind: .note,
-            targetId: "note-1",
-            title: "Transformer Notes"
-        )
-        chatState.addContextAttachment(attachment)
 
         var omegaPanelShown = false
         MainChatSubmissionRouter.submit(
@@ -1567,17 +1561,9 @@ struct ChatStateLocalMessageTests {
 
         await Task.yield()
 
-        #expect(omegaPanelShown)
-        #expect(chatState.messages.count == 2)
-        #expect(chatState.messages.first?.role == .user)
-        #expect(chatState.messages.first?.content == "/research transformer attention")
-        #expect(chatState.messages.first?.contextAttachments == [attachment])
-        #expect(chatState.messages.last?.role == .assistant)
-        #expect(
-            chatState.messages.last?.content
-                == ResearchComplexityGate.handoffMessage(for: "/research transformer attention")
-        )
-        #expect(orchestrator.currentTaskDescription == "research: transformer attention")
+        #expect(!omegaPanelShown)
+        #expect(chatState.messages.isEmpty)
+        #expect(orchestrator.currentTaskDescription.isEmpty)
     }
 
     @Test("main chat router hands agent mode off to Omega and keeps a visible transcript")

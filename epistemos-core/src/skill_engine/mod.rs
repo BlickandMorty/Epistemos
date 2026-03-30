@@ -1,6 +1,13 @@
 // Skill engine: classifies prompts to route to the appropriate adapter.
 // Provides Rust-side prompt classification for adapter routing.
 // Swift-side MoLoRARouter and AdapterRouter use this for automatic routing.
+//
+// Also provides SKILL.md progressive disclosure: 3-level manifest parsing
+// (catalog → instructions → resources) to minimize context window usage.
+
+pub mod command_palette;
+pub mod generator;
+pub mod manifest;
 
 /// Classify a prompt into an adapter category.
 /// Returns: "knowledge", "style", "tool", or "general".
@@ -9,10 +16,17 @@ pub fn classify_prompt(prompt: &str) -> String {
 
     // Style cues: personal writing assistance
     let style_cues = [
-        "help me write", "in my style", "rewrite this",
-        "match my tone", "how would i say", "draft a",
-        "writing style", "personal voice", "sound like me",
-        "like i would write", "my voice",
+        "help me write",
+        "in my style",
+        "rewrite this",
+        "match my tone",
+        "how would i say",
+        "draft a",
+        "writing style",
+        "personal voice",
+        "sound like me",
+        "like i would write",
+        "my voice",
     ];
     let style_hits = style_cues.iter().filter(|c| lower.contains(*c)).count();
     if style_hits >= 1 {
@@ -21,10 +35,24 @@ pub fn classify_prompt(prompt: &str) -> String {
 
     // Tool cues: API/code/function usage
     let tool_cues = [
-        "how to use", "api", "function", "endpoint",
-        "code", "command", "script", "import", "install",
-        "configure", "setup", "debug", "compile", "error",
-        "build", "deploy", "docker", "git ",
+        "how to use",
+        "api",
+        "function",
+        "endpoint",
+        "code",
+        "command",
+        "script",
+        "import",
+        "install",
+        "configure",
+        "setup",
+        "debug",
+        "compile",
+        "error",
+        "build",
+        "deploy",
+        "docker",
+        "git ",
     ];
     let tool_hits = tool_cues.iter().filter(|c| lower.contains(*c)).count();
     if tool_hits >= 2 {
@@ -33,11 +61,17 @@ pub fn classify_prompt(prompt: &str) -> String {
 
     // Knowledge cues: factual lookup from vault
     let knowledge_cues = [
-        "what is", "according to my notes", "from my vault",
-        "what did i write about", "my research on",
-        "remind me about", "summarize my notes",
-        "what do i know about", "explain",
-        "tell me about", "describe",
+        "what is",
+        "according to my notes",
+        "from my vault",
+        "what did i write about",
+        "my research on",
+        "remind me about",
+        "summarize my notes",
+        "what do i know about",
+        "explain",
+        "tell me about",
+        "describe",
     ];
     let knowledge_hits = knowledge_cues.iter().filter(|c| lower.contains(*c)).count();
     if knowledge_hits >= 1 {
@@ -75,20 +109,29 @@ mod tests {
 
     #[test]
     fn test_classify_style() {
-        assert_eq!(classify_prompt("Help me write an email in my style"), "style");
+        assert_eq!(
+            classify_prompt("Help me write an email in my style"),
+            "style"
+        );
         assert_eq!(classify_prompt("Rewrite this paragraph"), "style");
     }
 
     #[test]
     fn test_classify_tool() {
-        assert_eq!(classify_prompt("How to use the git command to deploy code"), "tool");
+        assert_eq!(
+            classify_prompt("How to use the git command to deploy code"),
+            "tool"
+        );
         assert_eq!(classify_prompt("Configure the Docker API endpoint"), "tool");
     }
 
     #[test]
     fn test_classify_knowledge() {
         assert_eq!(classify_prompt("What is quantum computing?"), "knowledge");
-        assert_eq!(classify_prompt("Summarize my notes on machine learning"), "knowledge");
+        assert_eq!(
+            classify_prompt("Summarize my notes on machine learning"),
+            "knowledge"
+        );
     }
 
     #[test]

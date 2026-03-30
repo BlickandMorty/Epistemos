@@ -15,6 +15,9 @@ pub mod dataset_formatter;
 pub mod quality_filter;
 pub mod orchestrator;
 pub mod osascript;
+pub mod catalog;
+pub mod transport;
+pub mod vault;
 
 // Re-export types for UniFFI
 pub use types::{ToolDefinition, ToolResult, ToolCall, ExecutionRecord, SafetyInfo};

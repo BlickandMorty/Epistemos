@@ -1,5 +1,5 @@
+use super::rank_selector::{select_lora_alpha, select_lora_rank};
 use serde::{Deserialize, Serialize};
-use super::rank_selector::{select_lora_rank, select_lora_alpha};
 
 /// Auto-tuned training configuration.
 /// Exported to Swift via UniFFI as a dictionary type.
@@ -34,10 +34,22 @@ pub fn auto_tune(
 
     let target_modules: Vec<String> = if profile == "style" {
         ["q_proj", "k_proj", "v_proj", "o_proj"]
-            .iter().map(|s| s.to_string()).collect()
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
     } else {
-        ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
-            .iter().map(|s| s.to_string()).collect()
+        [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
     };
 
     let epochs = if dataset_size == 0 {
@@ -60,7 +72,11 @@ pub fn auto_tune(
 
     let warmup_ratio = if dataset_size < 100 { 0.10 } else { 0.15 };
     let weight_decay = if dataset_size < 100 { 0.1 } else { 0.05 };
-    let max_seq_length = if available_memory_mb < 20000 { 1024 } else { 2048 };
+    let max_seq_length = if available_memory_mb < 20000 {
+        1024
+    } else {
+        2048
+    };
 
     let model_memory = (model_size_b * 1000.0 * 0.5) as u32;
     let lora_memory = (lora_rank * 32 * 2 * 128 * 2 / 1024) as u32;

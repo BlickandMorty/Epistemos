@@ -112,13 +112,16 @@ struct RuntimeValidationTests {
         #expect(source.contains("\"gemini-1.5-pro\": .googleGemini25Pro"))
     }
 
-    @Test("chat model selector groups cloud models by provider")
-    func chatModelSelectorGroupsCloudModelsByProvider() throws {
+    @Test("chat model selector uses a popover with foldable local and cloud sections")
+    func chatModelSelectorUsesPopoverWithFoldableSections() throws {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(rootView.contains("Section(\"Cloud Models\")"))
+        #expect(rootView.contains("AnchoredPopoverButton("))
+        #expect(rootView.contains("DisclosureGroup("))
+        #expect(rootView.contains("\"Local Models\""))
+        #expect(rootView.contains("\"Cloud Models\""))
+        #expect(rootView.contains("\"Temporary Chat\""))
         #expect(rootView.contains("ForEach(CloudModelProvider.allCases"))
-        #expect(rootView.contains("Section(provider.displayName)"))
         #expect(rootView.contains("ForEach(CloudTextModelID.models(for: provider)"))
     }
 
@@ -246,15 +249,82 @@ struct RuntimeValidationTests {
         #expect(!snapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue))
     }
 
-    @Test("composer surfaces use tailored operating mode availability")
-    func composerSurfacesUseTailoredOperatingModeAvailability() throws {
+    @Test("composer surfaces route runtime controls through the consolidated popover")
+    func composerSurfacesUseConsolidatedRuntimePopover() throws {
         let chatInputBar = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        #expect(chatInputBar.contains("availableModes: inference.availableOperatingModes"))
-        #expect(landing.contains("availableModes: inference.availableOperatingModes"))
-        #expect(miniChat.contains("availableModes: inference.availableOperatingModes"))
+        #expect(chatInputBar.contains("operatingMode: operatingModeBinding"))
+        #expect(landing.contains("operatingMode: operatingModeBinding"))
+        #expect(miniChat.contains("operatingMode: operatingModeBinding"))
+        #expect(!chatInputBar.contains("OperatingModeSelectorView("))
+        #expect(!landing.contains("OperatingModeSelectorView("))
+        #expect(!miniChat.contains("OperatingModeSelectorView("))
+    }
+
+    @Test("inference exposes observable cloud credential cache and validation state")
+    func inferenceExposesObservableCloudCredentialCacheAndValidationState() throws {
+        let source = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+
+        #expect(source.contains("private(set) var cachedCloudAPIKeys"))
+        #expect(source.contains("private(set) var cloudProviderValidationStates"))
+        #expect(source.contains("func validateAPIKey(for provider: CloudModelProvider) async -> ConnectionTestResult"))
+        #expect(source.contains("cloudProviderValidationStates[provider] = .checking"))
+        #expect(source.contains("cloudProviderValidationStates[provider] = .unchecked"))
+        #expect(source.contains("cloudProviderValidationStates[provider] = .missing"))
+        #expect(source.contains("cachedCloudAPIKeys[provider] = trimmed"))
+    }
+
+    @Test("cloud key validation checks provider auth before probing a model")
+    func cloudKeyValidationChecksProviderAuthBeforeProbingAModel() throws {
+        let llmService = try loadRepoTextFile("Epistemos/Engine/LLMService.swift")
+        let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+
+        #expect(llmService.contains("if let model"))
+        #expect(llmService.contains("providerAuthorizationRequest"))
+        #expect(llmService.contains("https://api.openai.com/v1/models"))
+        #expect(llmService.contains("https://api.anthropic.com/v1/models"))
+        #expect(llmService.contains("generativelanguage.googleapis.com/v1beta/models"))
+        #expect(inference.contains("case .anthropic:\n            .anthropicClaudeSonnet4"))
+    }
+
+    @Test("inference settings surface exposes key validation and provider guidance")
+    func inferenceSettingsSurfaceExposesValidationAndGuidance() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(source.contains("Check Key"))
+        #expect(source.contains("statusBadge"))
+        #expect(source.contains("setupHelpText"))
+        #expect(source.contains("Stored securely in the Apple Keychain"))
+    }
+
+    @Test("agent runtime panel uses a glass-native shell instead of the old flat split pane")
+    func agentRuntimePanelUsesGlassNativeShell() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/AgentSessionPanel.swift")
+
+        #expect(source.contains("RuntimeGlassCard"))
+        #expect(source.contains(".glassEffect("))
+        #expect(source.contains("private var runtimeHero"))
+        #expect(source.contains("private var promptComposer"))
+    }
+
+    @Test("agent runtime panel surfaces Hermes command actions in the native UI")
+    func agentRuntimePanelSurfacesHermesCommandActions() throws {
+        let panel = try loadRepoTextFile("Epistemos/Views/AgentSessionPanel.swift")
+        let viewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
+
+        #expect(panel.contains("Hermes Commands"))
+        #expect(panel.contains("commandShortcutRow"))
+        #expect(panel.contains("commandMenuButton"))
+        #expect(viewModel.contains("enum HermesQuickAction"))
+        #expect(viewModel.contains("case help"))
+        #expect(viewModel.contains("case model"))
+        #expect(viewModel.contains("case tools"))
+        #expect(viewModel.contains("case context"))
+        #expect(viewModel.contains("case compact"))
+        #expect(viewModel.contains("case reset"))
+        #expect(viewModel.contains("case version"))
     }
 
     @Test("xcode build graph regenerates and links epistemos core integrity bindings")
@@ -266,18 +336,20 @@ struct RuntimeValidationTests {
         let embedAndSignHelper = try loadRepoTextFile("embed-and-sign-rust-dylib.sh")
         let bundleAssetsScript = try loadRepoTextFile("bundle-app-runtime-assets.sh")
 
-        #expect(project.contains("bash \\\"${SRCROOT}/build-rust.sh\\\" && bash \\\"${SRCROOT}/build-epistemos-core.sh\\\""))
+        #expect(
+            project.contains(
+                "bash \\\"${SRCROOT}/build-rust.sh\\\" && bash \\\"${SRCROOT}/build-omega-mcp.sh\\\" && bash \\\"${SRCROOT}/build-omega-ax.sh\\\" && bash \\\"${SRCROOT}/build-epistemos-core.sh\\\""
+            )
+        )
         #expect(project.contains("Bundle Runtime Assets"))
         #expect(project.contains("bash \\\"${SRCROOT}/bundle-app-runtime-assets.sh\\\""))
-        #expect(project.contains("$(SRCROOT)/build-rust/libepistemos_core.dylib"))
-        #expect(project.contains("$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libepistemos_core.dylib"))
-        #expect(project.contains("$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libomega_mcp.dylib"))
-        #expect(project.contains("$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libomega_ax.dylib"))
+        #expect(project.contains("-lepistemos_core"))
+        #expect(project.contains("-lomega_mcp"))
+        #expect(project.contains("-lomega_ax"))
         #expect(project.contains("epistemos_coreFFI"))
-        #expect(project.contains("-Xfrontend -default-isolation=nonisolated"))
         #expect(project.contains("\"@executable_path\","))
         #expect(project.contains("\"@loader_path/../Frameworks\","))
-        #expect(spec.contains("bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\""))
+        #expect(spec.contains("bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\""))
         #expect(spec.contains("name: Bundle Runtime Assets"))
         #expect(spec.contains("bash \"${SRCROOT}/bundle-app-runtime-assets.sh\""))
         #expect(spec.contains("-lepistemos_core"))
@@ -324,8 +396,10 @@ struct RuntimeValidationTests {
         let omegaMcp = try loadRepoTextFile("build-omega-mcp.sh")
         let omegaAx = try loadRepoTextFile("build-omega-ax.sh")
 
-        #expect(project.contains("$(SRCROOT)/build-rust/libomega_mcp.dylib"))
-        #expect(project.contains("$(SRCROOT)/build-rust/libomega_ax.dylib"))
+        #expect(project.contains("-lomega_mcp"))
+        #expect(project.contains("-lomega_ax"))
+        #expect(project.contains("omega_mcpFFI"))
+        #expect(project.contains("omega_axFFI"))
         #expect(!project.contains("$(SRCROOT)/build-rust/libomega_mcp.a"))
         #expect(!project.contains("$(SRCROOT)/build-rust/libomega_ax.a"))
 
@@ -525,26 +599,28 @@ struct RuntimeValidationTests {
 
     @Test("prepared model manifest is bundled into app resources")
     func preparedModelManifestIsBundledIntoAppResources() throws {
-        let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
         let spec = try loadRepoTextFile("project.yml")
+        let manifest = try loadRepoTextFile("config/model_manifest.json")
 
-        #expect(project.contains("model_manifest.json in Resources"))
-        #expect(project.contains("config/model_manifest.json"))
         #expect(spec.contains("config/model_manifest.json"))
+        #expect(manifest.contains("\"version\": 1"))
+        #expect(manifest.contains("\"models\""))
     }
 
     @Test("shared scheme keeps test bundle out of normal app builds")
     func sharedSchemeKeepsTestBundleOutOfNormalAppBuilds() throws {
         let scheme = try loadRepoTextFile("Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme")
         let spec = try loadRepoTextFile("project.yml")
+        let buildAction = scheme.components(separatedBy: "<TestAction").first ?? scheme
 
         #expect(spec.contains("targets:\n        Epistemos: all"))
         #expect(!spec.contains("EpistemosTests: test"))
         #expect(scheme.contains("BlueprintName = \"EpistemosTests\""))
         #expect(scheme.contains("buildForTesting = \"YES\""))
-        #expect(scheme.contains("buildForRunning = \"NO\""))
-        #expect(scheme.contains("buildForProfiling = \"NO\""))
-        #expect(scheme.contains("buildForArchiving = \"NO\""))
+        #expect(scheme.contains("buildForRunning = \"YES\""))
+        #expect(scheme.contains("buildForProfiling = \"YES\""))
+        #expect(scheme.contains("buildForArchiving = \"YES\""))
+        #expect(!buildAction.contains("BuildableName = \"EpistemosTests.xctest\""))
     }
 
     @Test("installed local fallback prefers the strongest supported model on the current hardware")
@@ -744,7 +820,7 @@ struct RuntimeValidationTests {
         let cognitive = try loadRepoTextFile("Epistemos/Views/Settings/CognitiveSettingsSection.swift")
         let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
-        #expect(omega.contains("Omega is the app's tool-using layer"))
+        #expect(omega.contains("The agent runtime is the app's tool-using layer"))
         #expect(omega.contains("It does not run hidden background research by itself"))
         #expect(cognitive.contains("Stores compact activity artifacts"))
         #expect(cognitive.contains("No keystroke logging"))
@@ -1212,6 +1288,7 @@ struct RuntimeValidationTests {
         let intents = try loadRepoTextFile("Epistemos/Intents/Custom/NavigationIntents.swift")
         let sidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
         let windowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
@@ -1227,6 +1304,9 @@ struct RuntimeValidationTests {
         #expect(app.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
         #expect(landing.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
         #expect(landing.contains("CommandHint(modIcon: \"command\", key: \"3\", label: \"Mini Chat\", theme: theme)"))
+        #expect(chatView.contains("Label(\"Open in Mini Chat\""))
+        #expect(chatView.contains("openCurrentChatInMiniChat()"))
+        #expect(chatView.contains("MiniChatWindowController.shared.openChat(chatId)"))
 
         #expect(windowController.contains("let window = NSWindow("))
         #expect(!windowController.contains(".nonactivatingPanel"))
@@ -1277,8 +1357,8 @@ struct RuntimeValidationTests {
         #expect(triage.contains("case .mainChat, .miniChat:"))
     }
 
-    @Test("chat surfaces expose operating mode selection and route agent mode through Omega")
-    func chatSurfacesExposeOperatingModeSelectionAndRouteAgentModeThroughOmega() throws {
+    @Test("chat surfaces expose operating mode selection and route only agent mode through Omega")
+    func chatSurfacesExposeOperatingModeSelectionAndRouteOnlyAgentModeThroughOmega() throws {
         let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
         let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
@@ -1288,16 +1368,18 @@ struct RuntimeValidationTests {
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
 
         #expect(inference.contains("enum EpistemosOperatingMode"))
-        #expect(chatInput.contains("OperatingModeSelectorView("))
-        #expect(landing.contains("OperatingModeSelectorView("))
-        #expect(miniChat.contains("OperatingModeSelectorView("))
+        #expect(chatInput.contains("operatingMode: operatingModeBinding"))
+        #expect(landing.contains("operatingMode: operatingModeBinding"))
+        #expect(miniChat.contains("operatingMode: operatingModeBinding"))
         #expect(chatState.contains("enum MainChatSubmissionRouter"))
         #expect(chatState.contains("case .agent"))
         #expect(miniChat.contains("case .agent"))
         #expect(chatView.contains("MainChatSubmissionRouter.submit("))
         #expect(landing.contains("MainChatSubmissionRouter.submit("))
-        #expect(chatState.contains("ResearchComplexityGate.handoffMessage("))
-        #expect(chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
+        #expect(!chatState.contains("ResearchComplexityGate.handoffMessage("))
+        #expect(!chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
+        #expect(!miniChat.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
+        #expect(!miniChat.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
         #expect(miniChat.contains("await orchestrator.submitTask(trimmed)"))
         #expect(pipeline.contains("localReasoningMode: LocalReasoningMode = .fast"))
         #expect(pipeline.contains("localReasoningMode: localReasoningMode"))
@@ -1320,25 +1402,25 @@ struct RuntimeValidationTests {
         #expect(landing.contains("resetKey: composerControlResetKey"))
         #expect(miniChat.contains("ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey)"))
 
-        if let chatModeRange = chatInput.range(of: "OperatingModeSelectorView("),
+        if let chatModeRange = chatInput.range(of: "LocalModelToolbarMenu("),
            let chatShortcutRange = chatInput.range(of: "ComposerContextShortcutBar(") {
             #expect(chatModeRange.lowerBound < chatShortcutRange.lowerBound)
         } else {
-            Issue.record("Chat input should contain both operating mode and context shortcut controls")
+            Issue.record("Chat input should contain both runtime menu and context shortcut controls")
         }
 
-        if let landingModeRange = landing.range(of: "OperatingModeSelectorView("),
+        if let landingModeRange = landing.range(of: "LocalModelToolbarMenu("),
            let landingShortcutRange = landing.range(of: "ComposerContextShortcutBar(") {
             #expect(landingModeRange.lowerBound < landingShortcutRange.lowerBound)
         } else {
-            Issue.record("Landing should contain both operating mode and context shortcut controls")
+            Issue.record("Landing should contain both runtime menu and context shortcut controls")
         }
 
-        if let miniModeRange = miniChat.range(of: "OperatingModeSelectorView("),
+        if let miniModeRange = miniChat.range(of: "LocalModelToolbarMenu("),
            let miniShortcutRange = miniChat.range(of: "ComposerContextShortcutBar(") {
             #expect(miniModeRange.lowerBound < miniShortcutRange.lowerBound)
         } else {
-            Issue.record("Mini chat should contain both operating mode and context shortcut controls")
+            Issue.record("Mini chat should contain both runtime menu and context shortcut controls")
         }
     }
 

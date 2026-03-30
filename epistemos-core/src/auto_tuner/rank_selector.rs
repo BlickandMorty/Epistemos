@@ -45,7 +45,10 @@ mod tests {
     fn test_high_diversity_high_rank() {
         // High MTLD (150), large dataset → should get higher rank
         let rank = select_lora_rank(150.0, 100000);
-        assert!(rank >= 16, "High MTLD + large data should yield higher rank, got {rank}");
+        assert!(
+            rank >= 16,
+            "High MTLD + large data should yield higher rank, got {rank}"
+        );
     }
 
     #[test]

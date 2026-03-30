@@ -13,6 +13,7 @@ final class OrchestratorState {
     let taskGraph = TaskGraph()
     let confirmationGate = ConfirmationGate()
     let researchPause = ResearchPauseHandler()
+    let liveRuntime = OmegaLiveRuntimeState()
 
     // MARK: - Planning
     private(set) var planningService: OmegaPlanningService?
@@ -92,6 +93,8 @@ final class OrchestratorState {
     /// Uses LLM-based planning when available, falls back to heuristic routing.
     func submitTask(_ description: String) async {
         currentTaskDescription = description
+        liveRuntime.runScaffoldTurn(taskDescription: description)
+        liveRuntime.markPlanning(description)
         taskGraph.reset()
         taskGraph.status = .planning
         isPlanning = true
@@ -103,15 +106,25 @@ final class OrchestratorState {
 
         // Generate plan via LLM or Rust heuristic fallback
         var steps: [AgentStep] = []
-        var usedLLM = false
+        var resolvedPlanningMethod = "Rust heuristic"
 
         if let planner = planningService {
             isModelLoading = true
-            let llmSteps = await planner.generatePlan(for: description)
+            let planningAttempt = await OmegaPlanningService.runPlanningAttempt(
+                timeout: OmegaPlanningService.localPlanningTimeout
+            ) {
+                await planner.generatePlan(for: description)
+            }
             isModelLoading = false
-            if !llmSteps.isEmpty {
-                steps = llmSteps
-                usedLLM = true
+
+            switch planningAttempt {
+            case .success(let plannedSteps) where !plannedSteps.isEmpty:
+                steps = plannedSteps
+                resolvedPlanningMethod = "AI-planned"
+            case .timedOut:
+                resolvedPlanningMethod = "Rust heuristic (planner timed out)"
+            case .failure, .success:
+                break
             }
         }
 
@@ -121,11 +134,12 @@ final class OrchestratorState {
         }
 
         isPlanning = false
-        planningMethod = usedLLM ? "AI-planned" : "Rust heuristic"
+        planningMethod = resolvedPlanningMethod
 
         if steps.isEmpty {
             planningError = "Could not determine what to do. Try rephrasing your task, or load a local AI model in Settings > Inference for intelligent planning."
             taskGraph.status = .failed
+            liveRuntime.markFailure(planningError ?? "Planning failed")
             return
         }
 
@@ -158,10 +172,13 @@ final class OrchestratorState {
                     break
                 case .requirePreview, .requireExplicitConfirmation:
                     taskGraph.status = .awaitingConfirmation
+                    liveRuntime.markAwaitingApproval(for: step)
                     let approved = await confirmationGate.requestConfirmation(for: step)
                     if !approved {
-                        let result = AgentStepResult.fail("User denied", stepId: step.id, durationMs: 0)
+                        let message = "User denied \(step.toolName)"
+                        let result = AgentStepResult.fail(message, stepId: step.id, durationMs: 0)
                         recordAndLog(result, step: step)
+                        liveRuntime.markFailure(message)
                         continue
                     }
                     taskGraph.status = .executing
@@ -169,11 +186,13 @@ final class OrchestratorState {
 
                 // Find the assigned agent
                 guard let agent = agents[step.assignedAgent] else {
+                    let message = "Agent '\(step.assignedAgent)' not found"
                     let result = AgentStepResult.fail(
-                        "Agent '\(step.assignedAgent)' not found",
+                        message,
                         stepId: step.id, durationMs: 0
                     )
                     recordAndLog(result, step: step)
+                    liveRuntime.markFailure(message)
                     continue
                 }
 
@@ -197,6 +216,10 @@ final class OrchestratorState {
                     : nil
 
                 for attempt in 0..<maxRetries {
+                    if attempt == 0 {
+                        liveRuntime.markExecuting(step: enrichedStep)
+                    }
+
                     do {
                         let result = try await agent.execute(step: enrichedStep)
 
@@ -223,6 +246,7 @@ final class OrchestratorState {
                             }
 
                             recordAndLog(result, step: step)
+                            liveRuntime.markStepResult(result, step: step)
 
                             // Update research confidence tracking
                             researchOrchestrator.processResult(
@@ -256,11 +280,13 @@ final class OrchestratorState {
                             try? await Task.sleep(for: .milliseconds(baseDelayMs * UInt64(1 << attempt)))
                         } else {
                             recordAndLog(result, step: step)
+                            liveRuntime.markFailure(result.error ?? "Step failed")
                         }
                     } catch {
                         let result = AgentStepResult.fail(error.localizedDescription, stepId: step.id, durationMs: 0)
                         if attempt == maxRetries - 1 {
                             recordAndLog(result, step: step)
+                            liveRuntime.markFailure(error.localizedDescription)
                         } else {
                             try? await Task.sleep(for: .milliseconds(baseDelayMs * UInt64(1 << attempt)))
                         }
@@ -270,6 +296,13 @@ final class OrchestratorState {
         }
 
         isExecuting = false
+
+        if taskGraph.hasFailed {
+            let failure = executionLog.last(where: { !$0.success })?.error ?? "Execution failed"
+            liveRuntime.markFailure(failure)
+        } else if taskGraph.isComplete {
+            liveRuntime.markComplete("Execution complete")
+        }
 
         // Record to knowledge graph (Ω14)
         agentGraphMemory?.recordExecution(
@@ -326,7 +359,14 @@ final class OrchestratorState {
         // Generate escalation steps via LLM planner
         var newSteps: [AgentStep] = []
         if let planner = planningService {
-            newSteps = await planner.generatePlan(for: escalationPrompt)
+            let planningAttempt = await OmegaPlanningService.runPlanningAttempt(
+                timeout: OmegaPlanningService.localPlanningTimeout
+            ) {
+                await planner.generatePlan(for: escalationPrompt)
+            }
+            if case .success(let plannedSteps) = planningAttempt {
+                newSteps = plannedSteps
+            }
         }
         if newSteps.isEmpty {
             newSteps = rustHeuristicPlan(for: escalationPrompt)
@@ -409,8 +449,10 @@ final class OrchestratorState {
     func cancel() {
         isExecuting = false
         isPlanning = false
+        isModelLoading = false
         taskGraph.status = .failed
         pendingTrajectorySteps.removeAll()
+        liveRuntime.markCancelled()
     }
 
     /// Retry the last task from scratch.
@@ -424,10 +466,12 @@ final class OrchestratorState {
     func editPlan() {
         isExecuting = false
         isPlanning = false
+        isModelLoading = false
         planningError = nil
         planningMethod = ""
         executionLog.removeAll()
         taskGraph.reset()
+        liveRuntime.reset()
         // currentTaskDescription is kept so the input bar shows it for editing
     }
 
@@ -436,11 +480,13 @@ final class OrchestratorState {
         currentTaskDescription = ""
         isExecuting = false
         isPlanning = false
+        isModelLoading = false
         planningError = nil
         planningMethod = ""
         executionLog.removeAll()
         taskGraph.reset()
         pendingTrajectorySteps.removeAll()
+        liveRuntime.reset()
     }
 
     // MARK: - Target PID Resolution

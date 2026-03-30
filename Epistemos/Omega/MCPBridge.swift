@@ -22,6 +22,8 @@ nonisolated struct OmegaToolDefinition {
     }
 }
 
+/// Tool registry that derives its catalog from the Rust `omega-mcp` crate.
+/// `builtinToolsJson()` is the single source of truth; this enum is a decoded Swift cache.
 nonisolated enum OmegaToolRegistry {
     private static let agentHeaders: [String: String] = [
         "safari": "SAFARI agent:",
@@ -33,43 +35,43 @@ nonisolated enum OmegaToolRegistry {
 
     private static let agentOrder = ["safari", "file", "notes", "terminal", "automation"]
 
-    static let all: [OmegaToolDefinition] = [
-        OmegaToolDefinition(name: "open_url", agent: "safari", description: "Open a URL in Safari", argumentsExample: #"{"url": "https://..."}"#, schemaJson: #"{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "get_page_url", agent: "safari", description: "Get the URL of Safari's current tab", argumentsExample: #"{}"#, schemaJson: #"{"type":"object","properties":{}}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "get_page_title", agent: "safari", description: "Get the title of Safari's current tab", argumentsExample: #"{}"#, schemaJson: #"{"type":"object","properties":{}}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "search_web", agent: "safari", description: "Search the web via Google in Safari", argumentsExample: #"{"query": "search terms"}"#, schemaJson: #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "readpagecontent", agent: "safari", description: "Extract the visible text content of Safari's current tab. Use after open_url or search_web", argumentsExample: #"{"maxLength": 4000}"#, schemaJson: #"{"type":"object","properties":{"maxLength":{"type":"integer","description":"Max characters to return, default 4000"}}}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "searchpapers", agent: "safari", description: "Search academic papers on Semantic Scholar. Returns titles, authors, year, citation count", argumentsExample: #"{"query": "transformer attention mechanisms"}"#, schemaJson: #"{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","description":"Max results, default 5"},"yearMin":{"type":"integer","description":"Minimum publication year"}},"required":["query"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "read_file", agent: "file", description: "Read a file from the vault", argumentsExample: #"{"path": "relative/path.md"}"#, schemaJson: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "write_file", agent: "file", description: "Write content to a file in the vault", argumentsExample: #"{"path": "relative/path.md", "content": "..."}"#, schemaJson: #"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "list_files", agent: "file", description: "List files in a vault directory", argumentsExample: #"{"path": "."}"#, schemaJson: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "move_file", agent: "file", description: "Move a file within the vault", argumentsExample: #"{"path": "old.md", "destination": "new.md"}"#, schemaJson: #"{"type":"object","properties":{"path":{"type":"string"},"destination":{"type":"string"}},"required":["path","destination"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "delete_file", agent: "file", description: "Delete a file from the vault", argumentsExample: #"{"path": "relative/path.md"}"#, schemaJson: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#, destructive: true, requiresConfirmation: true),
-        OmegaToolDefinition(name: "create_note", agent: "notes", description: "Create a new Epistemos note", argumentsExample: #"{"title": "...", "body": "..."}"#, schemaJson: #"{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"}},"required":["title"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "edit_note", agent: "notes", description: "Edit an existing note", argumentsExample: #"{"id": "page-uuid", "body": "new content"}"#, schemaJson: #"{"type":"object","properties":{"id":{"type":"string"},"body":{"type":"string"}},"required":["id"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "search_notes", agent: "notes", description: "Search notes by content", argumentsExample: #"{"query": "search terms"}"#, schemaJson: #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "list_notes", agent: "notes", description: "List all notes", argumentsExample: #"{}"#, schemaJson: #"{"type":"object","properties":{}}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "collectsnippet", agent: "notes", description: "Save a quoted passage from a source into a research session note", argumentsExample: #"{"text": "quoted passage", "sourceUrl": "https://...", "sourceTitle": "Page Title"}"#, schemaJson: #"{"type":"object","properties":{"text":{"type":"string"},"sourceUrl":{"type":"string"},"sourceTitle":{"type":"string"},"sessionNoteId":{"type":"string"}},"required":["text","sourceUrl"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "savecitation", agent: "notes", description: "Save a formal citation to the vault: title, authors, URL, publication date", argumentsExample: #"{"title": "Paper Title", "authors": "Smith et al.", "url": "https://..."}"#, schemaJson: #"{"type":"object","properties":{"title":{"type":"string"},"authors":{"type":"string"},"url":{"type":"string"},"date":{"type":"string"},"sessionNoteId":{"type":"string"}},"required":["title","url"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "createresearchnote", agent: "notes", description: "Create a structured research note with question, findings, evidence, contradictions, and citations", argumentsExample: #"{"question": "...", "findings": "..."}"#, schemaJson: #"{"type":"object","properties":{"question":{"type":"string"},"findings":{"type":"string"},"evidence":{"type":"array","items":{"type":"string"}},"contradictions":{"type":"array","items":{"type":"string"}},"citations":{"type":"array","items":{"type":"string"}}},"required":["question","findings"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "analyzecontradiction", agent: "notes", description: "Compare two text snippets and return whether they agree, contradict, or are orthogonal", argumentsExample: #"{"snippetA": "...", "snippetB": "..."}"#, schemaJson: #"{"type":"object","properties":{"snippetA":{"type":"string"},"snippetB":{"type":"string"},"sessionNoteId":{"type":"string"}},"required":["snippetA","snippetB"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "scoreevidence", agent: "notes", description: "Score the reliability of a source: arxiv preprint, peer-reviewed, news, blog, primary data", argumentsExample: #"{"url": "https://arxiv.org/..."}"#, schemaJson: #"{"type":"object","properties":{"url":{"type":"string"},"sourceType":{"type":"string","enum":["arxiv","peer_reviewed","news","blog","primary","unknown"]}},"required":["url"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "run_command", agent: "terminal", description: "Execute a shell command (allow-listed only)", argumentsExample: #"{"command": "ls -la"}"#, schemaJson: #"{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "get_ui_tree", agent: "automation", description: "Get the accessibility tree for an app by name or PID", argumentsExample: #"{"app": "AppName"} or {"pid": 1234}"#, schemaJson: #"{"type":"object","properties":{"app":{"type":"string","description":"App name (case-insensitive)"},"pid":{"type":"integer","description":"Process ID"}}}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "click_element", agent: "automation", description: "Click a UI element by name or screen coordinates", argumentsExample: #"{"app": "AppName", "element": "Button Name"} or {"x": 500, "y": 300}"#, schemaJson: #"{"type":"object","properties":{"app":{"type":"string","description":"App name for semantic click"},"pid":{"type":"integer","description":"Process ID for semantic click"},"element":{"type":"string","description":"Element name to click"},"x":{"type":"number","description":"Screen X coordinate"},"y":{"type":"number","description":"Screen Y coordinate"}}}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "type_text", agent: "automation", description: "Type text via simulated keyboard input", argumentsExample: #"{"text": "..."}"#, schemaJson: #"{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "press_key", agent: "automation", description: "Press a key with optional modifiers", argumentsExample: #"{"key_code": 36, "modifiers": 0}"#, schemaJson: #"{"type":"object","properties":{"key_code":{"type":"integer","description":"macOS virtual key code (e.g. 36=Return, 49=Space)"},"modifiers":{"type":"integer","description":"CGEventFlags bitmask (e.g. 256=Shift, 1048576=Cmd)"}},"required":["key_code"]}"#, destructive: false, requiresConfirmation: false),
-        OmegaToolDefinition(name: "run_shortcut", agent: "automation", description: "Execute a named macOS Shortcut", argumentsExample: #"{"name": "shortcut-name"}"#, schemaJson: #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#, destructive: false, requiresConfirmation: false),
-    ]
+    /// Lazily decoded tool catalog from the Rust `builtinToolsJson()` export.
+    /// Falls back to an empty array if the Rust catalog is unavailable or malformed.
+    static let all: [OmegaToolDefinition] = {
+        let json = builtinToolsJson()
+        guard let data = json.data(using: .utf8),
+              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+        return array.compactMap { dict -> OmegaToolDefinition? in
+            guard let name = dict["name"] as? String,
+                  let description = dict["description"] as? String else { return nil }
+            let agent = dict["agent"] as? String ?? ""
+            let schemaJson = dict["input_schema_json"] as? String ?? "{}"
+            let example = dict["arguments_example"] as? String ?? "{}"
+            let safety = dict["safety"] as? [String: Any]
+            let destructive = safety?["destructive"] as? Bool ?? false
+            let requiresConfirmation = safety?["requires_confirmation"] as? Bool ?? false
+            return OmegaToolDefinition(
+                name: name,
+                agent: agent,
+                description: description,
+                argumentsExample: example,
+                schemaJson: schemaJson,
+                destructive: destructive,
+                requiresConfirmation: requiresConfirmation
+            )
+        }
+    }()
 
     static var planningSchemas: [[String: Any]] {
         all.map(\.planningSchema)
     }
 
-    static var planningSchemasJson: String {
+    static let planningSchemasJson: String = {
         (try? JSONSerialization.data(withJSONObject: planningSchemas, options: [.sortedKeys]))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-    }
+    }()
 
     static func agent(for toolName: String) -> String? {
         all.first(where: { $0.name == toolName })?.agent
@@ -123,30 +125,17 @@ final class MCPBridge {
         // Create the SQLite database in Application Support
         let dbPath = Self.executionLogPath()
         dispatcher = McpDispatcher(logDbPath: dbPath)
-        registerAllTools()
+        // Register all built-in tools from the Rust catalog (single source of truth).
+        // This replaces the previous Swift-side registerAllTools() loop.
+        _ = dispatcher?.registerBuiltinTools()
     }
 
-    // MARK: - Tool Registration
+    // MARK: - Catalog Query
 
-    /// Register all tools from all specialist agents.
-    private func registerAllTools() {
-        guard let d = dispatcher else { return }
-        for tool in OmegaToolRegistry.all {
-            register(d, tool: tool)
-        }
-    }
-
-    private func register(_ d: McpDispatcher, tool: OmegaToolDefinition) {
-        let err = d.registerTool(
-            name: tool.name,
-            description: tool.description,
-            inputSchemaJson: tool.schemaJson,
-            destructive: tool.destructive,
-            requiresConfirmation: tool.requiresConfirmation
-        )
-        if !err.isEmpty {
-            // Tool already registered or invalid schema — log but don't crash
-        }
+    /// Returns the built-in tool catalog from Rust as a JSON array.
+    /// This is the single source of truth for tool definitions.
+    static func builtinCatalogJson() -> String {
+        builtinToolsJson()
     }
 
     // MARK: - Execution Logging

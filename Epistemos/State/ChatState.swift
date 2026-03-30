@@ -364,29 +364,6 @@ enum MainChatSubmissionRouter {
             ? nil
             : chat.pendingContextAttachments
 
-        let shouldRouteResearch =
-            ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)
-            || ResearchComplexityGate.requiresResearch(trimmed)
-
-        if shouldRouteResearch {
-            let cleaned = ResearchComplexityGate.stripPrefix(trimmed)
-            chat.appendLocalMessage(
-                role: .user,
-                content: trimmed,
-                contextAttachments: contextAttachments
-            )
-            chat.appendLocalMessage(
-                role: .assistant,
-                content: ResearchComplexityGate.handoffMessage(for: trimmed)
-            )
-            guard !cleaned.isEmpty else { return }
-            showOmegaPanel()
-            Task {
-                await orchestrator.submitTask("research: \(cleaned)")
-            }
-            return
-        }
-
         switch operatingMode {
         case .agent:
             chat.appendLocalMessage(

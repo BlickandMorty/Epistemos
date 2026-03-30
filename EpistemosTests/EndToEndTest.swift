@@ -130,6 +130,7 @@ private func createE2ETestVault() throws -> URL {
 // MARK: - End-to-End Test
 
 @Suite("EndToEnd Knowledge Fusion Pipeline")
+@MainActor
 struct EndToEndTest {
 
     @Test("Full pipeline: parse → chunk → generate → curate → register")

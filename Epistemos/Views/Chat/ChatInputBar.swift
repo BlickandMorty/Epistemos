@@ -56,33 +56,6 @@ struct OperatingModeSelectorView: View {
     }
 }
 
-struct ResearchComposerButton: View {
-    @Binding var text: String
-    var variant: NativeControlVariant = .toolbar
-    var focusAction: (() -> Void)? = nil
-
-    private var isActive: Bool {
-        ResearchComplexityGate.hasExplicitResearchPrefix(text)
-    }
-
-    var body: some View {
-        ExpandingModeButton(
-            title: "Research",
-            systemImage: isActive ? "magnifyingglass.circle.fill" : "magnifyingglass.circle",
-            isActive: isActive,
-            variant: variant,
-            helpText: isActive
-                ? "Research draft enabled — send this through Omega research."
-                : "Ask a research question with Omega.",
-            accessibilityLabel: isActive ? "Research draft enabled" : "Ask a research question",
-            stableWidth: NativeControlSystem.reservedWidth(for: "Research", variant: variant)
-        ) {
-            text = ResearchComplexityGate.toggledComposerDraft(text)
-            focusAction?()
-        }
-    }
-}
-
 struct ComposerControlStrip<Content: View>: View {
     let spacing: CGFloat
     var resetKey: String = ""
@@ -168,6 +141,12 @@ struct ChatInputBar: View {
         Binding(
             get: { selectedOperatingMode },
             set: { operatingModeRaw = inference.sanitizedOperatingMode($0).rawValue }
+        )
+    }
+    private var incognitoBinding: Binding<Bool> {
+        Binding(
+            get: { chat.isIncognito },
+            set: { chat.isIncognito = $0 }
         )
     }
     private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
@@ -256,20 +235,20 @@ struct ChatInputBar: View {
             .animation(Motion.quick, value: chat.pendingAttachments.count + chat.pendingContextAttachments.count)
 
             VStack(alignment: .leading, spacing: 0) {
+                if chat.isIncognito {
+                    temporaryChatBanner
+                        .padding(.bottom, 8)
+                }
+
                 composerTextArea
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
-                        OperatingModeSelectorView(
-                            mode: operatingModeBinding,
-                            availableModes: inference.availableOperatingModes
+                        LocalModelToolbarMenu(
+                            variant: .toolbar,
+                            operatingMode: operatingModeBinding,
+                            isTemporaryChatEnabled: incognitoBinding
                         )
-
-                        ResearchComposerButton(text: $text) {
-                            isFocused = true
-                        }
-
-                        LocalModelToolbarMenu(variant: .toolbar)
                             .accessibilityLabel("Chat model")
 
                         ComposerContextShortcutBar(
@@ -279,8 +258,6 @@ struct ChatInputBar: View {
                         )
 
                         attachButton
-
-                        incognitoButton
                     }
 
                     sendButton
@@ -387,21 +364,27 @@ struct ChatInputBar: View {
         .disabled(isProcessing)
     }
 
-    private var incognitoButton: some View {
-        ExpandingModeButton(
-            title: "Incognito",
-            systemImage: chat.isIncognito ? "eye.slash.fill" : "eye.slash",
-            isActive: chat.isIncognito,
-            variant: .toolbar,
-            helpText: chat.isIncognito
-                ? "Incognito On — chat won't be saved"
-                : "Enable Incognito",
-            stableWidth: NativeControlSystem.reservedWidth(for: "Incognito", variant: .toolbar)
-        ) {
-            withAnimation(Motion.quick) { chat.isIncognito.toggle() }
+    private var temporaryChatBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "eye.slash.fill")
+                .font(.system(size: 11, weight: .semibold))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Temporary Chat")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Messages stay in memory only and will not be saved.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(theme.textTertiary)
+            }
+            Spacer(minLength: 0)
         }
-        .accessibilityLabel(chat.isIncognito ? "Incognito mode on" : "Incognito mode off")
-        .disabled(isProcessing)
+        .foregroundStyle(theme.resolved.accent.color)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(theme.resolved.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(theme.resolved.accent.color.opacity(0.14), lineWidth: 0.8)
+        }
     }
 
     private var sendButton: some View {
@@ -427,7 +410,11 @@ struct ChatInputBar: View {
 
             let panel = NSOpenPanel()
             panel.allowsMultipleSelection = true
-            panel.allowedContentTypes = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
+            var allowedTypes: [UTType] = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
+            if let markdownType = UTType(filenameExtension: "md") {
+                allowedTypes.insert(markdownType, at: 2)
+            }
+            panel.allowedContentTypes = allowedTypes
             panel.canChooseDirectories = false
 
             let urls = await presentFilePicker(panel)

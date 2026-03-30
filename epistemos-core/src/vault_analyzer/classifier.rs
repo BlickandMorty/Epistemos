@@ -142,21 +142,33 @@ pub fn classify_document(content: &str) -> ClassificationResult {
 
     // Classification logic
     let (doc_type, confidence) = if code_prose_ratio >= 0.70 {
-        (DocumentType::SourceCode, 0.7 + (code_prose_ratio - 0.70) * 1.0)
+        (
+            DocumentType::SourceCode,
+            0.7 + (code_prose_ratio - 0.70) * 1.0,
+        )
     } else if code_prose_ratio <= 0.15 && heading_density >= 0.03 {
         if table_density >= 0.10 || heading_density >= 0.10 {
-            (DocumentType::TechnicalDocs, 0.70 + heading_density.min(0.30))
+            (
+                DocumentType::TechnicalDocs,
+                0.70 + heading_density.min(0.30),
+            )
         } else {
             (DocumentType::Prose, 0.75 + (1.0 - code_prose_ratio) * 0.25)
         }
     } else if code_prose_ratio <= 0.15 {
         (DocumentType::Prose, 0.70 + (1.0 - code_prose_ratio) * 0.25)
     } else if code_prose_ratio >= 0.30 && code_prose_ratio < 0.70 {
-        (DocumentType::MixedMedia, 0.60 + (0.50 - (code_prose_ratio - 0.50).abs()) * 0.5)
+        (
+            DocumentType::MixedMedia,
+            0.60 + (0.50 - (code_prose_ratio - 0.50).abs()) * 0.5,
+        )
     } else {
         // 0.15..0.30 — lean prose or technical
         if heading_density >= 0.05 || has_frontmatter {
-            (DocumentType::TechnicalDocs, 0.55 + heading_density.min(0.30))
+            (
+                DocumentType::TechnicalDocs,
+                0.55 + heading_density.min(0.30),
+            )
         } else {
             (DocumentType::Prose, 0.55)
         }
@@ -200,11 +212,10 @@ fn is_code_line(line: &str) -> bool {
 
     // Common code patterns
     let code_indicators = [
-        "fn ", "pub fn", "let ", "mut ", "use ", "impl ", "struct ", "enum ", "mod ",
-        "import ", "from ", "def ", "class ", "return ", "if ", "for ", "while ",
-        "const ", "var ", "func ", "switch ", "case ", "guard ", "async ", "await ",
-        "export ", "module ", "#include", "#define", "#pragma",
-        "//", "/*", "*/", "///",
+        "fn ", "pub fn", "let ", "mut ", "use ", "impl ", "struct ", "enum ", "mod ", "import ",
+        "from ", "def ", "class ", "return ", "if ", "for ", "while ", "const ", "var ", "func ",
+        "switch ", "case ", "guard ", "async ", "await ", "export ", "module ", "#include",
+        "#define", "#pragma", "//", "/*", "*/", "///",
     ];
 
     for indicator in &code_indicators {
@@ -217,7 +228,12 @@ fn is_code_line(line: &str) -> bool {
     let alpha_count = trimmed.chars().filter(|c| c.is_alphabetic()).count();
     let symbol_count = trimmed
         .chars()
-        .filter(|c| matches!(c, '{' | '}' | '(' | ')' | '[' | ']' | ';' | '=' | '<' | '>' | '&' | '|'))
+        .filter(|c| {
+            matches!(
+                c,
+                '{' | '}' | '(' | ')' | '[' | ']' | ';' | '=' | '<' | '>' | '&' | '|'
+            )
+        })
         .count();
 
     if alpha_count > 0 && symbol_count as f64 / alpha_count as f64 > 0.3 {
@@ -252,7 +268,11 @@ mod tests {
                      Children played near the old oak tree.";
         let result = classify_document(text);
         assert_eq!(result.doc_type, DocumentType::Prose);
-        assert!(result.code_prose_ratio < 0.15, "Expected low code ratio, got {}", result.code_prose_ratio);
+        assert!(
+            result.code_prose_ratio < 0.15,
+            "Expected low code ratio, got {}",
+            result.code_prose_ratio
+        );
     }
 
     #[test]
@@ -267,7 +287,11 @@ mod tests {
                      }";
         let result = classify_document(code);
         assert_eq!(result.doc_type, DocumentType::SourceCode);
-        assert!(result.code_prose_ratio >= 0.70, "Expected high code ratio, got {}", result.code_prose_ratio);
+        assert!(
+            result.code_prose_ratio >= 0.70,
+            "Expected high code ratio, got {}",
+            result.code_prose_ratio
+        );
     }
 
     #[test]
@@ -291,8 +315,10 @@ mod tests {
                    That's all you need to get started.";
         let result = classify_document(md);
         assert!(
-            result.doc_type == DocumentType::MixedMedia || result.doc_type == DocumentType::TechnicalDocs,
-            "Expected mixed or technical, got {:?}", result.doc_type
+            result.doc_type == DocumentType::MixedMedia
+                || result.doc_type == DocumentType::TechnicalDocs,
+            "Expected mixed or technical, got {:?}",
+            result.doc_type
         );
     }
 
@@ -340,7 +366,10 @@ mod tests {
     #[test]
     fn test_confidence_bounded() {
         // Even extreme inputs should keep confidence in [0, 1]
-        let code = (0..1000).map(|i| format!("let x{i} = {i};")).collect::<Vec<_>>().join("\n");
+        let code = (0..1000)
+            .map(|i| format!("let x{i} = {i};"))
+            .collect::<Vec<_>>()
+            .join("\n");
         let result = classify_document(&code);
         assert!(result.confidence <= 1.0);
         assert!(result.confidence >= 0.0);

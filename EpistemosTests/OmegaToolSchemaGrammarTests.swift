@@ -2,6 +2,7 @@ import Testing
 @testable import Epistemos
 
 @Suite("ToolSchemaGrammar")
+@MainActor
 struct ToolSchemaGrammarTests {
 
     // MARK: - Planning Grammar
@@ -137,9 +138,9 @@ struct ToolSchemaGrammarTests {
         for (tool, expectedAgent) in expectedMappings {
             let schemas: [[String: Any]] = [["name": tool]]
             let grammar = ToolSchemaGrammar.compilePlanningGrammar(toolSchemas: schemas)
-            // The agent should appear in the EBNF
-            #expect(grammar.ebnf.contains("\"\(expectedAgent)\""),
-                    "Tool '\(tool)' should map to agent '\(expectedAgent)'")
+            if !grammar.ebnf.contains("\"\(expectedAgent)\"") {
+                Issue.record("Tool '\(tool)' should map to agent '\(expectedAgent)'")
+            }
         }
     }
 

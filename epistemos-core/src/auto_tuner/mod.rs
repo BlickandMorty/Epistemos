@@ -1,2 +1,2 @@
-pub mod rank_selector;
 pub mod hyperparams;
+pub mod rank_selector;

@@ -67,6 +67,43 @@ struct FileAttachmentBuilderTests {
         #expect(attachment.preview == content)
     }
 
+    @Test("attached text context reopens percent encoded file URLs and preserves markdown content")
+    func attachedTextContextReopensPercentEncodedFileURL() async throws {
+        let url = try temporaryFileURL(named: "vault note cafe.md")
+        let content = """
+        # Vault Note
+
+        This came from a markdown file with spaces in its URL.
+        """
+        try content.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let attachment = await FileAttachmentBuilder.build(from: url)
+        let context = ChatCoordinator.buildFileAttachmentContext(from: [attachment])
+
+        #expect(context?.contains("Attached file: vault note cafe.md") == true)
+        #expect(context?.contains("# Vault Note") == true)
+        #expect(context?.contains("spaces in its URL") == true)
+    }
+
+    @Test("attached text context falls back to cached preview when the file can no longer be reopened")
+    func attachedTextContextFallsBackToPreview() {
+        let attachment = FileAttachment(
+            id: UUID().uuidString,
+            name: "offline.md",
+            type: .text,
+            uri: "file:///Users/jojo/Definitely%20Missing/offline.md",
+            size: 128,
+            mimeType: "text/plain",
+            preview: "Cached text from the earlier attachment scan."
+        )
+
+        let context = ChatCoordinator.buildFileAttachmentContext(from: [attachment])
+
+        #expect(context?.contains("Attached file: offline.md") == true)
+        #expect(context?.contains("Cached text from the earlier attachment scan.") == true)
+    }
+
     private func temporaryFileURL(named name: String) throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "file-attachment-builder-\(UUID().uuidString)",

@@ -95,6 +95,25 @@ final class ConstrainedDecodingService {
         )
     }
 
+    /// Reuse the existing constrained-decoding runtime with a precompiled grammar
+    /// from another subsystem. Returns `nil` unless the registered generator
+    /// performs real token-level masking.
+    func generateCompiledGrammarOutput(
+        prompt: String,
+        systemPrompt: String?,
+        grammar: ToolSchemaGrammar.CompiledGrammar,
+        maxTokens: Int
+    ) async throws -> String? {
+        guard let generator, isAvailable else { return nil }
+
+        return try await generator.generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            grammar: grammar,
+            maxTokens: maxTokens
+        )
+    }
+
     // MARK: - Grammar Caching
 
     private func planningGrammar(for schemas: [[String: Any]]) -> ToolSchemaGrammar.CompiledGrammar {

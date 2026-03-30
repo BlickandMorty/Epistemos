@@ -225,36 +225,35 @@ struct OmegaAgentTests {
         let vaultURL = try makeTempDirectory(prefix: "omega-agent-vault")
         let storageURL = try makeTempDirectory(prefix: "omega-agent-bodies")
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             defaults.removePersistentDomain(forName: suiteName)
             try? FileManager.default.removeItem(at: vaultURL)
             try? FileManager.default.removeItem(at: storageURL)
         }
 
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(storageURL)
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL, operation: { @MainActor in
+            let sync = VaultSyncService(modelContainer: container, userDefaults: defaults)
+            sync.setVaultURLForTesting(vaultURL)
 
-        let sync = VaultSyncService(modelContainer: container, userDefaults: defaults)
-        sync.setVaultURLForTesting(vaultURL)
+            let agent = NotesAgent(modelContainer: container, vaultSync: sync)
+            let snippet = "Selective state-space models reduce attention overhead."
+            let step = AgentStep(
+                description: "Collect research snippet",
+                assignedAgent: "notes",
+                toolName: "collectsnippet",
+                argumentsJson: """
+                {"text":"\(snippet)","sourceUrl":"https://arxiv.org/abs/2405.21060","sourceTitle":"Mamba-2"}
+                """
+            )
 
-        let agent = NotesAgent(modelContainer: container, vaultSync: sync)
-        let snippet = "Selective state-space models reduce attention overhead."
-        let step = AgentStep(
-            description: "Collect research snippet",
-            assignedAgent: "notes",
-            toolName: "collectsnippet",
-            argumentsJson: """
-            {"text":"\(snippet)","sourceUrl":"https://arxiv.org/abs/2405.21060","sourceTitle":"Mamba-2"}
-            """
-        )
+            let result = try await agent.execute(step: step)
+            #expect(result.success)
 
-        let result = try await agent.execute(step: step)
-        #expect(result.success)
-
-        let payload = try parseJSONObject(result.outputJson)
-        #expect(payload["sessionNoteId"] as? String != nil)
-        #expect(payload["sourceUrl"] as? String == "https://arxiv.org/abs/2405.21060")
-        #expect(payload["sourceTitle"] as? String == "Mamba-2")
-        #expect(payload["text"] as? String == snippet)
+            let payload = try parseJSONObject(result.outputJson)
+            #expect(payload["sessionNoteId"] as? String != nil)
+            #expect(payload["sourceUrl"] as? String == "https://arxiv.org/abs/2405.21060")
+            #expect(payload["sourceTitle"] as? String == "Mamba-2")
+            #expect(payload["text"] as? String == snippet)
+        })
     }
 
     @Test("NotesAgent collectsnippet flushes editor state and notifies body changes for session notes")
@@ -265,69 +264,68 @@ struct OmegaAgentTests {
         let vaultURL = try makeTempDirectory(prefix: "omega-agent-vault")
         let storageURL = try makeTempDirectory(prefix: "omega-agent-bodies")
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             defaults.removePersistentDomain(forName: suiteName)
             try? FileManager.default.removeItem(at: vaultURL)
             try? FileManager.default.removeItem(at: storageURL)
         }
 
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(storageURL)
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL, operation: { @MainActor in
+            let sync = VaultSyncService(modelContainer: container, userDefaults: defaults)
+            sync.setVaultURLForTesting(vaultURL)
 
-        let sync = VaultSyncService(modelContainer: container, userDefaults: defaults)
-        sync.setVaultURLForTesting(vaultURL)
+            let noteId = try #require(await sync.createPage(
+                title: "Research Session",
+                body: "# Research Session\n\nDisk body\n\n"
+            ))
+            let flushedBody = "# Research Session\n\nLive editor body\n\n"
+            let snippet = "Selective state-space models reduce attention overhead."
 
-        let noteId = try #require(await sync.createPage(
-            title: "Research Session",
-            body: "# Research Session\n\nDisk body\n\n"
-        ))
-        let flushedBody = "# Research Session\n\nLive editor body\n\n"
-        let snippet = "Selective state-space models reduce attention overhead."
+            let flushRequested = NotificationFlag()
+            let bodyChangeNotified = NotificationFlag()
+            let flushToken = NotificationCenter.default.addObserver(
+                forName: NoteFileStorage.pageBodyWillRead,
+                object: nil,
+                queue: nil
+            ) { notification in
+                guard notification.userInfo?["pageId"] as? String == noteId else { return }
+                flushRequested.value = true
+                NoteFileStorage.writeBody(pageId: noteId, content: flushedBody)
+            }
+            let changeToken = NotificationCenter.default.addObserver(
+                forName: NoteFileStorage.pageBodyDidChange,
+                object: nil,
+                queue: nil
+            ) { notification in
+                guard notification.userInfo?["pageId"] as? String == noteId else { return }
+                bodyChangeNotified.value = true
+            }
+            defer {
+                NotificationCenter.default.removeObserver(flushToken)
+                NotificationCenter.default.removeObserver(changeToken)
+            }
 
-        let flushRequested = NotificationFlag()
-        let bodyChangeNotified = NotificationFlag()
-        let flushToken = NotificationCenter.default.addObserver(
-            forName: NoteFileStorage.pageBodyWillRead,
-            object: nil,
-            queue: nil
-        ) { notification in
-            guard notification.userInfo?["pageId"] as? String == noteId else { return }
-            flushRequested.value = true
-            NoteFileStorage.writeBody(pageId: noteId, content: flushedBody)
-        }
-        let changeToken = NotificationCenter.default.addObserver(
-            forName: NoteFileStorage.pageBodyDidChange,
-            object: nil,
-            queue: nil
-        ) { notification in
-            guard notification.userInfo?["pageId"] as? String == noteId else { return }
-            bodyChangeNotified.value = true
-        }
-        defer {
-            NotificationCenter.default.removeObserver(flushToken)
-            NotificationCenter.default.removeObserver(changeToken)
-        }
+            let agent = NotesAgent(modelContainer: container, vaultSync: sync)
+            let step = AgentStep(
+                description: "Collect research snippet",
+                assignedAgent: "notes",
+                toolName: "collectsnippet",
+                argumentsJson: """
+                {"text":"\(snippet)","sourceUrl":"https://arxiv.org/abs/2405.21060","sourceTitle":"Mamba-2","sessionNoteId":"\(noteId)"}
+                """
+            )
 
-        let agent = NotesAgent(modelContainer: container, vaultSync: sync)
-        let step = AgentStep(
-            description: "Collect research snippet",
-            assignedAgent: "notes",
-            toolName: "collectsnippet",
-            argumentsJson: """
-            {"text":"\(snippet)","sourceUrl":"https://arxiv.org/abs/2405.21060","sourceTitle":"Mamba-2","sessionNoteId":"\(noteId)"}
-            """
-        )
+            let result = try await agent.execute(step: step)
+            #expect(result.success)
+            #expect(flushRequested.value)
+            #expect(bodyChangeNotified.value)
 
-        let result = try await agent.execute(step: step)
-        #expect(result.success)
-        #expect(flushRequested.value)
-        #expect(bodyChangeNotified.value)
-
-        let context = container.mainContext
-        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == noteId })
-        let page = try #require(context.fetch(descriptor).first)
-        let body = page.loadBody()
-        #expect(body.contains(flushedBody))
-        #expect(body.contains(snippet))
+            let context = container.mainContext
+            let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == noteId })
+            let page = try #require(context.fetch(descriptor).first)
+            let body = page.loadBody()
+            #expect(body.contains(flushedBody))
+            #expect(body.contains(snippet))
+        })
     }
 
     @Test("NotesAgent savecitation flushes editor state and notifies body changes for session notes")
@@ -338,69 +336,68 @@ struct OmegaAgentTests {
         let vaultURL = try makeTempDirectory(prefix: "omega-agent-vault")
         let storageURL = try makeTempDirectory(prefix: "omega-agent-bodies")
         defer {
-            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
             defaults.removePersistentDomain(forName: suiteName)
             try? FileManager.default.removeItem(at: vaultURL)
             try? FileManager.default.removeItem(at: storageURL)
         }
 
-        NoteFileStorage.setStorageDirectoryOverrideForTesting(storageURL)
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL, operation: { @MainActor in
+            let sync = VaultSyncService(modelContainer: container, userDefaults: defaults)
+            sync.setVaultURLForTesting(vaultURL)
 
-        let sync = VaultSyncService(modelContainer: container, userDefaults: defaults)
-        sync.setVaultURLForTesting(vaultURL)
+            let noteId = try #require(await sync.createPage(
+                title: "Research Session",
+                body: "# Research Session\n\nDisk draft\n\n"
+            ))
+            let flushedBody = "# Research Session\n\nLive draft\n\n"
 
-        let noteId = try #require(await sync.createPage(
-            title: "Research Session",
-            body: "# Research Session\n\nDisk draft\n\n"
-        ))
-        let flushedBody = "# Research Session\n\nLive draft\n\n"
+            let flushRequested = NotificationFlag()
+            let bodyChangeNotified = NotificationFlag()
+            let flushToken = NotificationCenter.default.addObserver(
+                forName: NoteFileStorage.pageBodyWillRead,
+                object: nil,
+                queue: nil
+            ) { notification in
+                guard notification.userInfo?["pageId"] as? String == noteId else { return }
+                flushRequested.value = true
+                NoteFileStorage.writeBody(pageId: noteId, content: flushedBody)
+            }
+            let changeToken = NotificationCenter.default.addObserver(
+                forName: NoteFileStorage.pageBodyDidChange,
+                object: nil,
+                queue: nil
+            ) { notification in
+                guard notification.userInfo?["pageId"] as? String == noteId else { return }
+                bodyChangeNotified.value = true
+            }
+            defer {
+                NotificationCenter.default.removeObserver(flushToken)
+                NotificationCenter.default.removeObserver(changeToken)
+            }
 
-        let flushRequested = NotificationFlag()
-        let bodyChangeNotified = NotificationFlag()
-        let flushToken = NotificationCenter.default.addObserver(
-            forName: NoteFileStorage.pageBodyWillRead,
-            object: nil,
-            queue: nil
-        ) { notification in
-            guard notification.userInfo?["pageId"] as? String == noteId else { return }
-            flushRequested.value = true
-            NoteFileStorage.writeBody(pageId: noteId, content: flushedBody)
-        }
-        let changeToken = NotificationCenter.default.addObserver(
-            forName: NoteFileStorage.pageBodyDidChange,
-            object: nil,
-            queue: nil
-        ) { notification in
-            guard notification.userInfo?["pageId"] as? String == noteId else { return }
-            bodyChangeNotified.value = true
-        }
-        defer {
-            NotificationCenter.default.removeObserver(flushToken)
-            NotificationCenter.default.removeObserver(changeToken)
-        }
+            let agent = NotesAgent(modelContainer: container, vaultSync: sync)
+            let step = AgentStep(
+                description: "Save citation to session note",
+                assignedAgent: "notes",
+                toolName: "savecitation",
+                argumentsJson: """
+                {"title":"Mamba-2","url":"https://arxiv.org/abs/2405.21060","authors":"Gu et al.","date":"2024","sessionNoteId":"\(noteId)"}
+                """
+            )
 
-        let agent = NotesAgent(modelContainer: container, vaultSync: sync)
-        let step = AgentStep(
-            description: "Save citation to session note",
-            assignedAgent: "notes",
-            toolName: "savecitation",
-            argumentsJson: """
-            {"title":"Mamba-2","url":"https://arxiv.org/abs/2405.21060","authors":"Gu et al.","date":"2024","sessionNoteId":"\(noteId)"}
-            """
-        )
+            let result = try await agent.execute(step: step)
+            #expect(result.success)
+            #expect(flushRequested.value)
+            #expect(bodyChangeNotified.value)
 
-        let result = try await agent.execute(step: step)
-        #expect(result.success)
-        #expect(flushRequested.value)
-        #expect(bodyChangeNotified.value)
-
-        let context = container.mainContext
-        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == noteId })
-        let page = try #require(context.fetch(descriptor).first)
-        let body = page.loadBody()
-        #expect(body.contains(flushedBody))
-        #expect(body.contains("## Citations"))
-        #expect(body.contains("https://arxiv.org/abs/2405.21060"))
+            let context = container.mainContext
+            let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == noteId })
+            let page = try #require(context.fetch(descriptor).first)
+            let body = page.loadBody()
+            #expect(body.contains(flushedBody))
+            #expect(body.contains("## Citations"))
+            #expect(body.contains("https://arxiv.org/abs/2405.21060"))
+        })
     }
 
     @Test("NotesAgent contradiction analysis echoes compared snippets for confidence tracking")

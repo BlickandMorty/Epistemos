@@ -79,6 +79,9 @@ final class AppBootstrap {
     let dialogueChatState = DialogueChatState()
     let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
+    let hermesManager = HermesSubprocessManager()
+    let agentViewModel: AgentViewModel
+    let hermesAdminViewModel: HermesAdminViewModel
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
     private var _deviceAgent: DeviceAgentService?
@@ -257,6 +260,22 @@ final class AppBootstrap {
             cloudLLMClient: cloudLLMClient
         )
         self.llmService = llm
+        let adminVM = HermesAdminViewModel(hermesManager: hermesManager)
+        self.hermesAdminViewModel = adminVM
+        let agentVM = AgentViewModel(
+            hermesManager: hermesManager,
+            inferenceState: inference,
+            localLLMClient: localLLMClient
+        )
+        agentVM.adminViewModel = adminVM
+        self.agentViewModel = agentVM
+
+        // Pre-warm the Hermes subprocess for cloud model users to avoid cold-start lag.
+        if case .cloud = inference.preferredChatModelSelection {
+            Task.detached(priority: .utility) { [hermesManager] in
+                await hermesManager.preWarm()
+            }
+        }
 
         // TriageService routes between Apple Intelligence and local Qwen.
         let triage = TriageService(
@@ -347,7 +366,16 @@ final class AppBootstrap {
             deviceAgent: deviceAgent
         )
         // Wire Brain 2 to shared GPU backend (until dedicated ANE model is available post-Ω15)
-        deviceAgent.setBackend(SharedGPUBackend(triageService: triage))
+        deviceAgent.setBackend(
+            SharedGPUBackend(
+                triageService: triage,
+                localModelClient: localMLXClient,
+                constrainedDecoding: constrainedDecoding,
+                activeModelID: { [weak inference] in
+                    inference?.activeLocalTextModelID
+                }
+            )
+        )
 
         // Initialize computer use stack (Ω13)
         let screenCapture = ScreenCaptureService()

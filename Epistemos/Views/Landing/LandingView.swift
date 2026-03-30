@@ -98,6 +98,12 @@ struct LandingView: View {
             set: { operatingModeRaw = inference.sanitizedOperatingMode($0).rawValue }
         )
     }
+    private var incognitoBinding: Binding<Bool> {
+        Binding(
+            get: { chat.isIncognito },
+            set: { chat.isIncognito = $0 }
+        )
+    }
     private var landingMentionSearchResults: ChatCoordinator.ReferenceSearchResults {
         ChatCoordinator.searchReferenceResults(
             filter: landingMentionFilter,
@@ -363,6 +369,29 @@ struct LandingView: View {
                     }
 
                     VStack(alignment: .leading, spacing: LandingSearchLayout.controlRowTopPadding) {
+                        if chat.isIncognito {
+                            HStack(spacing: 8) {
+                                Image(systemName: "eye.slash.fill")
+                                    .font(.system(size: 11, weight: .semibold))
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Temporary Chat")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text("The next chat starts in memory only and will not be saved.")
+                                        .font(.system(size: 10.5))
+                                        .foregroundStyle(theme.textTertiary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(theme.resolved.accent.color)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(theme.resolved.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(theme.resolved.accent.color.opacity(0.14), lineWidth: 0.8)
+                            }
+                        }
+
                         HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 18, weight: .medium))
@@ -435,15 +464,6 @@ struct LandingView: View {
                                 spacing: LandingSearchLayout.controlRowSpacing,
                                 resetKey: composerControlResetKey
                             ) {
-                                OperatingModeSelectorView(
-                                    mode: operatingModeBinding,
-                                    availableModes: inference.availableOperatingModes
-                                )
-
-                                ResearchComposerButton(text: $landingSearchText) {
-                                    isLandingSearchFocused = true
-                                }
-
                                 landingInferenceControl
 
                                 ComposerContextShortcutBar(
@@ -522,7 +542,11 @@ struct LandingView: View {
     }
 
     private var landingInferenceControl: some View {
-        LocalModelToolbarMenu(variant: .toolbar)
+        LocalModelToolbarMenu(
+            variant: .toolbar,
+            operatingMode: operatingModeBinding,
+            isTemporaryChatEnabled: incognitoBinding
+        )
             .accessibilityLabel("Local Model")
     }
 

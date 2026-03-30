@@ -4,10 +4,15 @@
 
 use crate::types::ToolResult;
 use std::process::Command;
+use std::thread;
 use std::time::{Duration, Instant};
 
 /// Default timeout for osascript execution (30 seconds per spec).
 pub const DEFAULT_TIMEOUT_MS: u64 = 30_000;
+const SAFARI_LAUNCH_DELAY_MS: u64 = 500;
+const APP_LAUNCH_TIMEOUT_MS: u64 = 5_000;
+const APP_LAUNCH_POLL_MS: u64 = 100;
+const SAFARI_LAUNCH_RETRIES: usize = 3;
 
 /// Execute an AppleScript string via osascript.
 /// Returns a structured ToolResult with stdout, error parsing, and duration.
@@ -77,6 +82,10 @@ fn parse_osascript_error(stderr: &str) -> (String, &'static str) {
 
     if lower.contains("not authorized") || lower.contains("access for assistive") || lower.contains("not allowed") {
         (format!("Permission denied: {stderr}"), crate::types::error_codes::PERMISSION_DENIED)
+    } else if lower.contains("has no open windows") {
+        (format!("Application state unavailable: {stderr}"), crate::types::error_codes::NOT_FOUND)
+    } else if is_app_not_running_error(stderr) {
+        (format!("Application not running: {stderr}"), crate::types::error_codes::NOT_FOUND)
     } else if lower.contains("application can't be found") || lower.contains("can't get application") {
         (format!("Application not found: {stderr}"), crate::types::error_codes::NOT_FOUND)
     } else if lower.contains("connection is invalid") || lower.contains("timed out") {
@@ -86,40 +95,147 @@ fn parse_osascript_error(stderr: &str) -> (String, &'static str) {
     }
 }
 
+fn is_app_not_running_error(stderr: &str) -> bool {
+    let lower = stderr.to_lowercase();
+    lower.contains("application isn't running") || lower.contains("(-600)")
+}
+
+fn escape_applescript_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn safari_open_location_script(url: &str) -> String {
+    format!(
+        "tell application \"Safari\"\nactivate\nopen location \"{}\"\ndelay 0.35\nreturn URL of current tab of front window\nend tell",
+        escape_applescript_string(url)
+    )
+}
+
+fn safari_window_value_script(value_expression: &str) -> String {
+    format!(
+        "tell application \"Safari\"\nactivate\nif (count of windows) = 0 then\nerror \"Safari has no open windows\"\nend if\nreturn {value_expression}\nend tell"
+    )
+}
+
+fn safari_page_text_script(limit: u32) -> String {
+    format!(
+        "tell application \"Safari\"\nactivate\nif (count of windows) = 0 then\nerror \"Safari has no open windows\"\nend if\nreturn (do JavaScript \"document.body ? document.body.innerText.substring(0, {limit}) : ''\" in current tab of front window)\nend tell"
+    )
+}
+
+fn launch_application(app_name: &str) -> Result<(), ToolResult> {
+    let start = Instant::now();
+    let output = Command::new("/usr/bin/open").args(["-a", app_name]).output();
+
+    match output {
+        Ok(result) if result.status.success() => {
+            if !wait_for_application_process(app_name, Duration::from_millis(APP_LAUNCH_TIMEOUT_MS)) {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                return Err(ToolResult::err(
+                    format!("Timed out waiting for {app_name} to launch"),
+                    crate::types::error_codes::TIMEOUT,
+                    duration_ms,
+                ));
+            }
+            thread::sleep(Duration::from_millis(SAFARI_LAUNCH_DELAY_MS));
+            Ok(())
+        }
+        Ok(result) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let stderr = String::from_utf8_lossy(&result.stderr).trim().to_string();
+            Err(ToolResult::err(
+                format!("Failed to launch {app_name}: {stderr}"),
+                crate::types::error_codes::EXECUTION_ERROR,
+                duration_ms,
+            ))
+        }
+        Err(error) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            Err(ToolResult::err(
+                format!("Failed to launch {app_name}: {error}"),
+                crate::types::error_codes::EXECUTION_ERROR,
+                duration_ms,
+            ))
+        }
+    }
+}
+
+fn wait_for_application_process(app_name: &str, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if Command::new("/usr/bin/pgrep")
+            .args(["-x", app_name])
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+        {
+            return true;
+        }
+
+        if Instant::now() >= deadline {
+            return false;
+        }
+
+        thread::sleep(Duration::from_millis(APP_LAUNCH_POLL_MS));
+    }
+}
+
+fn run_safari_applescript(script: &str, timeout_ms: Option<u64>) -> ToolResult {
+    run_safari_applescript_with_hooks(script, timeout_ms, run_applescript, launch_application)
+}
+
+fn run_safari_applescript_with_hooks<FRun, FLaunch>(
+    script: &str,
+    timeout_ms: Option<u64>,
+    mut run_script: FRun,
+    mut launch_app: FLaunch,
+) -> ToolResult
+where
+    FRun: FnMut(&str, Option<u64>) -> ToolResult,
+    FLaunch: FnMut(&str) -> Result<(), ToolResult>,
+{
+    let mut result = run_script(script, timeout_ms);
+    for _ in 0..SAFARI_LAUNCH_RETRIES {
+        if result.success || !result.error.as_deref().is_some_and(is_app_not_running_error) {
+            return result;
+        }
+
+        match launch_app("Safari") {
+            Ok(()) => {
+                result = run_script(script, timeout_ms);
+            }
+            Err(error) => return error,
+        }
+    }
+
+    result
+}
+
 // ── Tool Wrappers (called by agents via MCPDispatcher) ───────────────────────
 
 /// Tool: open_url — opens a URL in Safari via AppleScript.
 pub fn tool_open_url(url: &str) -> ToolResult {
-    let script = format!(
-        "tell application \"Safari\" to open location \"{}\"",
-        url.replace('"', "\\\"")
-    );
-    run_applescript(&script, None)
+    let script = safari_open_location_script(url);
+    run_safari_applescript(&script, None)
 }
 
 /// Tool: get_page_url — gets the current Safari tab URL.
 pub fn tool_get_page_url() -> ToolResult {
-    run_applescript(
-        "tell application \"Safari\" to get URL of current tab of front window",
-        Some(10_000),
-    )
+    let script = safari_window_value_script("URL of current tab of front window");
+    run_safari_applescript(&script, Some(10_000))
 }
 
 /// Tool: get_page_title — gets the current Safari tab title.
 pub fn tool_get_page_title() -> ToolResult {
-    run_applescript(
-        "tell application \"Safari\" to get name of current tab of front window",
-        Some(10_000),
-    )
+    let script = safari_window_value_script("name of current tab of front window");
+    run_safari_applescript(&script, Some(10_000))
 }
 
 /// Tool: get_page_text — extracts visible text from Safari's current tab via JavaScript.
 pub fn tool_get_page_text(max_length: u32) -> ToolResult {
     let limit = if max_length == 0 { 4000 } else { max_length };
-    let script = format!(
-        "tell application \"Safari\" to return (do JavaScript \"document.body.innerText.substring(0, {limit})\" in current tab of front window)"
-    );
-    run_applescript(&script, Some(15_000))
+    let script = safari_page_text_script(limit);
+    run_safari_applescript(&script, Some(15_000))
 }
 
 /// Tool: search_web — searches Google via Safari.
@@ -185,6 +301,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_app_not_running_error_is_retryable() {
+        assert!(is_app_not_running_error(
+            "Safari got an error: Application isn't running. (-600)"
+        ));
+        assert!(!is_app_not_running_error("Application can't be found"));
+    }
+
+    #[test]
+    fn test_safari_open_script_activates_before_opening() {
+        let script = safari_open_location_script("https://example.com?q=1");
+        assert!(script.contains("tell application \"Safari\""));
+        assert!(script.contains("activate"));
+        assert!(script.contains("open location"));
+        assert!(script.contains("delay 0.35"));
+    }
+
+    #[test]
+    fn test_safari_window_value_script_requires_front_window() {
+        let script = safari_window_value_script("URL of current tab of front window");
+        assert!(script.contains("if (count of windows) = 0 then"));
+        assert!(script.contains("error \"Safari has no open windows\""));
+        assert!(script.contains("return URL of current tab of front window"));
+    }
+
+    #[test]
     fn test_parse_error_permission() {
         let (_, code) = parse_osascript_error("Not authorized to send Apple events");
         assert_eq!(code, crate::types::error_codes::PERMISSION_DENIED);
@@ -193,6 +334,12 @@ mod tests {
     #[test]
     fn test_parse_error_not_found() {
         let (_, code) = parse_osascript_error("Application can't be found");
+        assert_eq!(code, crate::types::error_codes::NOT_FOUND);
+    }
+
+    #[test]
+    fn test_parse_error_no_open_windows() {
+        let (_, code) = parse_osascript_error("Safari has no open windows");
         assert_eq!(code, crate::types::error_codes::NOT_FOUND);
     }
 
@@ -221,6 +368,88 @@ mod tests {
         let result = tool_run_command("echo hello", &["echo", "ls"]);
         assert!(result.success);
         assert!(result.data_json.contains("hello"));
+    }
+
+    #[test]
+    fn test_run_safari_applescript_retries_until_launch_succeeds() {
+        let mut run_calls = 0;
+        let mut launch_calls = 0;
+        let result = run_safari_applescript_with_hooks(
+            "dummy",
+            Some(1_000),
+            |_, _| {
+                run_calls += 1;
+                if run_calls == 1 {
+                    ToolResult::err(
+                        "Application not running: Safari got an error: Application isn't running. (-600)".to_string(),
+                        crate::types::error_codes::NOT_FOUND,
+                        1,
+                    )
+                } else {
+                    ToolResult::ok("{\"output\":\"ok\"}".to_string(), 1)
+                }
+            },
+            |_| {
+                launch_calls += 1;
+                Ok(())
+            },
+        );
+
+        assert!(result.success);
+        assert_eq!(run_calls, 2);
+        assert_eq!(launch_calls, 1);
+    }
+
+    #[test]
+    fn test_run_safari_applescript_stops_retry_after_non_retryable_error() {
+        let mut launch_calls = 0;
+        let result = run_safari_applescript_with_hooks(
+            "dummy",
+            Some(1_000),
+            |_, _| {
+                ToolResult::err(
+                    "Permission denied: Not authorized to send Apple events".to_string(),
+                    crate::types::error_codes::PERMISSION_DENIED,
+                    1,
+                )
+            },
+            |_| {
+                launch_calls += 1;
+                Ok(())
+            },
+        );
+
+        assert!(!result.success);
+        assert_eq!(result.error_code.as_deref(), Some(crate::types::error_codes::PERMISSION_DENIED));
+        assert_eq!(launch_calls, 0);
+    }
+
+    #[test]
+    fn test_run_safari_applescript_returns_launch_error() {
+        let mut launch_calls = 0;
+        let result = run_safari_applescript_with_hooks(
+            "dummy",
+            Some(1_000),
+            |_, _| {
+                ToolResult::err(
+                    "Application not running: Safari got an error: Application isn't running. (-600)".to_string(),
+                    crate::types::error_codes::NOT_FOUND,
+                    1,
+                )
+            },
+            |_| {
+                launch_calls += 1;
+                Err(ToolResult::err(
+                    "Timed out waiting for Safari to launch".to_string(),
+                    crate::types::error_codes::TIMEOUT,
+                    2,
+                ))
+            },
+        );
+
+        assert!(!result.success);
+        assert_eq!(result.error_code.as_deref(), Some(crate::types::error_codes::TIMEOUT));
+        assert_eq!(launch_calls, 1);
     }
 
     #[test]

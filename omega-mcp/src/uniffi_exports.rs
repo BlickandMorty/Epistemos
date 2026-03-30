@@ -65,6 +65,27 @@ pub fn validate_tool_args(schema_json: String, args_json: String) -> String {
     String::new() // empty = valid
 }
 
+// ── Catalog Exports ──────────────────────────────────────────────────────────
+
+/// Get the built-in tool catalog as a JSON array.
+/// Each element has: name, agent, description, arguments_example, input_schema_json,
+/// and safety (destructive, requires_confirmation).
+pub fn builtin_tools_json() -> String {
+    let tools = crate::catalog::builtin_tools();
+    serde_json::to_string(&tools).unwrap_or_else(|_| "[]".to_string())
+}
+
+// ── Vault Tool Exports ───────────────────────────────────────────────────────
+
+/// Execute a vault tool by name. vault_root is the path to the user's vault.
+/// tool_name is one of: read_file, write_file, list_files, search_notes,
+/// vault_read, vault_write, vault_search.
+/// args_json is the tool arguments as JSON.
+/// Returns a JSON ToolResult.
+pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: String) -> String {
+    crate::vault::execute_vault_tool(vault_root, tool_name, args_json)
+}
+
 // ── Orchestrator Exports ─────────────────────────────────────────────────────
 
 /// Generate a heuristic plan (Rust-side, no LLM needed).

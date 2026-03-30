@@ -28,8 +28,8 @@ final class AutomationAgent: OmegaAgent, Sendable {
             guard pid > 0 else {
                 return .fail("Could not resolve app PID — provide 'pid' or 'app' name", stepId: step.id, durationMs: 0)
             }
-            // omega-ax Rust Layer 1: AX tree walker
-            resultJson = walkAxTreeJson(pid: pid)
+            // AXorcist-powered tree walk (replaces omega-ax walkAxTreeJson)
+            resultJson = AXorcistBridge.shared.walkTree(pid: pid_t(pid))
 
         case "click_element":
             resultJson = try await executeClick(args: args)

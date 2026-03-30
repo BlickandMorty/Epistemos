@@ -668,16 +668,10 @@ private struct MiniChatInputBar: View {
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
-                        OperatingModeSelectorView(
-                            mode: operatingModeBinding,
-                            availableModes: inference.availableOperatingModes
+                        LocalModelToolbarMenu(
+                            variant: .toolbar,
+                            operatingMode: operatingModeBinding
                         )
-
-                        ResearchComposerButton(text: $text) {
-                            isFocused = true
-                        }
-
-                        LocalModelToolbarMenu(variant: .toolbar)
                             .accessibilityLabel("Chat model")
 
                         ComposerContextShortcutBar(
@@ -1059,26 +1053,6 @@ private struct MiniChatInputBar: View {
     private func send() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isProcessing else { return }
-
-        // Route research-intent queries to Omega instead of streaming locally.
-        let shouldRouteResearch =
-            ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)
-            || ResearchComplexityGate.requiresResearch(trimmed)
-
-        if shouldRouteResearch {
-            let cleaned = ResearchComplexityGate.stripPrefix(trimmed)
-            let handoffMessage = ResearchComplexityGate.handoffMessage(for: trimmed)
-            threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
-            threadState.addMiniChatMessage(AssistantMessage(role: .assistant, content: handoffMessage), chatID: chatID)
-            refreshMiniChatLabel(using: cleaned.isEmpty ? trimmed : cleaned)
-            persistMiniChatSession()
-            text = ""
-            composerHeight = ChatComposerInputMetrics.minHeight
-            guard !cleaned.isEmpty else { return }
-            UtilityWindowManager.shared.show(.omega)
-            Task { await orchestrator.submitTask("research: \(cleaned)") }
-            return
-        }
 
         switch selectedOperatingMode {
         case .agent:

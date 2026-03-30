@@ -4,10 +4,10 @@ import Foundation
 
 /// Pure function: parses tool call JSON from LLM output.
 /// Handles multiple formats: standard JSON, Qwen <tool_call> tags, and best-effort repair.
-enum ToolCallParser {
+nonisolated enum ToolCallParser {
 
     /// Parsed tool call from LLM output.
-    struct ParsedToolCall: Sendable {
+    nonisolated struct ParsedToolCall {
         let name: String
         let arguments: [String: Any]
 

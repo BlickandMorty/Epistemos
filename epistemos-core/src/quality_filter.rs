@@ -63,7 +63,11 @@ fn minhash_signature(text: &str) -> Vec<u64> {
 
 /// Estimate Jaccard similarity from two MinHash signatures.
 fn jaccard_similarity(sig_a: &[u64], sig_b: &[u64]) -> f64 {
-    let matches = sig_a.iter().zip(sig_b.iter()).filter(|(a, b)| a == b).count();
+    let matches = sig_a
+        .iter()
+        .zip(sig_b.iter())
+        .filter(|(a, b)| a == b)
+        .count();
     matches as f64 / sig_a.len() as f64
 }
 
@@ -89,7 +93,8 @@ pub fn minhash_dedup(texts: &[String], threshold: f64) -> DedupResult {
     }
 
     // Compute signatures
-    let signatures: Vec<Vec<u64>> = texts.iter()
+    let signatures: Vec<Vec<u64>> = texts
+        .iter()
         .map(|t| minhash_signature(&t.to_lowercase()))
         .collect();
 
@@ -97,9 +102,13 @@ pub fn minhash_dedup(texts: &[String], threshold: f64) -> DedupResult {
     let mut is_dup = vec![false; n];
 
     for i in 0..n {
-        if is_dup[i] { continue; }
+        if is_dup[i] {
+            continue;
+        }
         for j in (i + 1)..n {
-            if is_dup[j] { continue; }
+            if is_dup[j] {
+                continue;
+            }
             let sim = jaccard_similarity(&signatures[i], &signatures[j]);
             if sim >= threshold {
                 is_dup[j] = true;
@@ -111,7 +120,8 @@ pub fn minhash_dedup(texts: &[String], threshold: f64) -> DedupResult {
     let dup_count = n - keep_indices.len();
 
     DedupResult {
-        keep_indices_json: serde_json::to_string(&keep_indices).unwrap_or_else(|_| "[]".to_string()),
+        keep_indices_json: serde_json::to_string(&keep_indices)
+            .unwrap_or_else(|_| "[]".to_string()),
         duplicate_count: dup_count as u32,
         unique_count: keep_indices.len() as u32,
     }
@@ -140,7 +150,11 @@ pub fn score_quality(instruction: &str, response: &str, min_score: f64) -> Quali
     }
 
     // Repetition detection: check for repeated sentences
-    let sentences: Vec<&str> = response.split('.').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+    let sentences: Vec<&str> = response
+        .split('.')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
     if sentences.len() >= 3 {
         let unique_sentences: HashSet<&str> = sentences.iter().copied().collect();
         let repetition_ratio = 1.0 - (unique_sentences.len() as f64 / sentences.len() as f64);
@@ -162,8 +176,13 @@ pub fn score_quality(instruction: &str, response: &str, min_score: f64) -> Quali
     // Check for common failure patterns
     let resp_lower = response.to_lowercase();
     let failure_patterns = [
-        "i cannot", "i can't", "i'm unable", "as an ai",
-        "i don't have access", "error:", "exception:",
+        "i cannot",
+        "i can't",
+        "i'm unable",
+        "as an ai",
+        "i don't have access",
+        "error:",
+        "exception:",
     ];
     for pattern in &failure_patterns {
         if resp_lower.contains(pattern) {

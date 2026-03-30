@@ -436,3 +436,126 @@ Bridges the Omega agent system with the existing knowledge graph (GraphStore).
 **Verification**: BUILD SUCCEEDED, graph-engine 2432/2432 untouched
 
 **Phase Ω14: COMPLETE**
+
+---
+
+# Agent System Implementation Progress
+
+Last updated: 2026-03-29 | Last commit: bed955c6
+
+## Sprint Agent-1: The Living Loop
+- [x] agent_core/Cargo.toml created with all dependencies
+- [x] agent_core/src/lib.rs with module declarations + UniFFI scaffolding
+- [x] agent_core/src/types.rs — Message, ContentBlock (with thinking + signature), StopReason, TokenUsage
+- [x] agent_core/src/provider.rs — AgentProvider trait, MessageStream, StreamEvent enum
+- [x] agent_core/src/storage/vault.rs — VaultBackend trait + VaultStore (tantivy + sqlite)
+- [x] agent_core/src/tools/registry.rs — ToolRegistry, vault_search/read/write/bash handlers
+- [x] agent_core/src/providers/claude.rs — Full SSE state machine with all delta types
+  - [x] thinking: { type: "adaptive" } with effort parameter
+  - [x] signature_delta handling and preservation
+  - [x] interleaved-thinking-2025-05-14 beta header
+  - [x] Server tools: web_search, web_fetch, code_execution
+  - [x] mcp_servers parameter support
+- [x] agent_core/src/error.rs — HTTP retry with exponential backoff + jitter
+- [x] agent_core/src/prompts.rs — TOOL_PREFERENCE_RULES, system prompt builder
+- [x] agent_core/src/session.rs — GLOBAL_SESSIONS registry, CancellationToken, SessionGuard RAII
+- [x] agent_core/src/agent_loop.rs — THE LIVING LOOP
+  - [x] Context bootstrap via vault_search
+  - [x] Thinking block preservation (response_blocks.clone())
+  - [x] Parallel tool execution (futures::try_join_all)
+  - [x] Cancellation support (CancellationToken checked every turn)
+  - [x] Context compaction on threshold breach
+  - [x] Agent-decides termination (stop_reason == end_turn)
+- [x] agent_core/src/bridge.rs — UniFFI exports, AgentConfig::from_ffi()
+- [x] agent_core/src/routing.rs — ConfidenceRouter, HeuristicClassifier
+- [x] Epistemos/Bridge/StreamingDelegate.swift — 120s permission timeout
+- [x] Epistemos/ViewModels/AgentViewModel.swift — .bufferingNewest(256), session ID tracking
+- [x] Epistemos/Views/OmegaPanel.swift — Phase-based rendering, PermissionGateView
+- [x] cargo check passes
+- [x] All verification greps pass
+
+Open integration gaps after Sprint Agent-1:
+- The new Swift files are a thin consumer layer and are not wired into the existing app shell yet.
+- The Swift bridge currently includes fallback shim definitions until generated UniFFI bindings are integrated into the app target.
+- The existing Omega control path still exists elsewhere in the app and has not been cut over yet.
+
+## Sprint Agent-2: Local Agent System
+Session note (2026-03-29):
+- [x] Created and read `docs/sprint-sessions/sprint-agent-2-local.md`
+- [x] Re-read `docs/PROGRESS.md` and `docs/sprint-sessions/sprint-agent-2-local.md` to confirm kickoff state
+- [x] Implemented `Epistemos/LocalAgent/HermesPromptBuilder.swift` with Hermes `<tools>`, `<tool_call>`, and `<tool_response>` formatting
+- [x] Added `EpistemosTests/HermesPromptBuilderTests.swift`
+- [x] Verified Hermes prompt/message assembly with a focused standalone `swiftc` executable check against the real source file
+- [x] Confirmed `HermesPromptBuilder.swift` is compiling in the real Xcode target during focused `xcodebuild` execution
+- [x] Implemented `Epistemos/LocalAgent/LocalToolGrammar.swift` with honest `mlxStructured` vs `omegaSoftGuidance` backend selection
+- [x] Added `EpistemosTests/LocalToolGrammarTests.swift`
+- [x] Verified `LocalToolGrammar.swift` fallback behavior with a focused standalone `swiftc` executable check against the real source file
+- [x] Added `Epistemos/LocalAgent/LocalAgentLoop.swift` and `EpistemosTests/LocalAgentLoopTests.swift`
+- [x] Implemented LocalAgentLoop history trimming, shared Hermes tool-call parsing reuse, tool-response continuation, and max-turn termination
+- [x] Fixed Swift 6 isolation/sendability seams across `HermesPromptBuilder.swift`, `LocalToolGrammar.swift`, `ToolCallParser.swift`, and `ToolSchemaGrammar.swift`
+- [x] Added `Epistemos/LocalAgent/ConfidenceRouter.swift` and `EpistemosTests/ConfidenceRouterTests.swift`
+- [x] Implemented SLM-default / LLM-fallback routing with explicit confidence thresholds, structured-output verifier hooks, privacy-local handling, and clean cloud escalation reasons
+- [x] Added honest local agent capability gating via `LocalTextModelID.canActAsAgent`, `LocalModelSelection.canActAsAgent`, `InferenceState.supportsLocalAgentLoop`, `InferenceState.canRouteToLocalAgentLoop(for:)`, and a `LocalAgentLoopError.unsupportedModel` runtime guard
+- [x] Connected `LocalAgentLoop` to the existing constrained-decoding subsystem through `ConstrainedDecodingService.generateCompiledGrammarOutput(...)`, `LocalAgentLoop.constrainedGenerator(using:)`, and `LocalAgentLoop.liveLoop(...)`
+- [x] Reused `LocalToolGrammar`'s existing `fallbackGrammar` instead of creating a second EBNF compiler for local-agent tool calls
+- [x] Added focused bridge coverage in `EpistemosTests/LocalAgentLoopTests.swift` for both the unavailable and available constrained-decoding paths
+- [x] Wired `LocalAgentLoop.liveLoop(...)` into a real app surface via `SharedGPUBackend` inside `DeviceAgentService`, so Brain 2 now prefers the honest local agent loop for agent-capable local models and falls back to raw local generation for weaker tiers
+- [x] Extended `HermesPromptBuilder.systemPrompt(...)` and `LocalAgentLoop.run(...)` so caller-specific system instructions can flow into the Hermes prompt without bypassing the local loop
+- [x] Added focused integration coverage in `EpistemosTests/DeviceAgentServiceTests.swift` for both the agent-capable path and the weak-model fallback path
+- [x] `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build-for-testing` now passes with the new local-agent files in the real target
+- [x] Sprint Agent-2 verification greps now pass for Hermes tags, grammar markers, loop/history markers, confidence routing, and capability-gate visibility
+- [x] Focused hosted tests no longer hang; after a fresh `build-for-testing`, `xcodebuild test-without-building` completes successfully for the local-agent slice
+- [ ] The local-agent loop now has one live app caller through `DeviceAgentService`, but broader local-agent execution surfaces still have not been cut over
+- [x] Created `docs/sprint-sessions/sprint-agent-3-mcp.md` so the next MCP + computer-use pass has an explicit file map and task order
+- Next task queued: begin Sprint Agent-3 from the verified runtime baseline, keeping the hosted-test nuance documented (`build-for-testing` first, then `test-without-building`)
+
+- [x] Epistemos/LocalAgent/HermesPromptBuilder.swift — Hermes-3 XML format
+- [x] Epistemos/LocalAgent/LocalToolGrammar.swift — mlx-swift-structured Grammar DSL
+- [x] Epistemos/LocalAgent/LocalAgentLoop.swift — Grammar-constrained inference + history trimming
+- [x] Epistemos/LocalAgent/ConfidenceRouter.swift — SLM-default, LLM-fallback
+- [x] canActAsAgent=false for weak local models enforced
+- [x] Verification greps pass
+
+## Sprint Agent-3: MCP + Computer Use
+Session note (2026-03-29):
+- [x] Audited and classified the existing MCP path across `omega-mcp/src/dispatcher.rs`, `omega-mcp/src/registry.rs`, `omega-mcp/src/server.rs`, and `Epistemos/Omega/MCPBridge.swift`
+- [x] Confirmed the current boundary is KEEP/MIGRATE, not REPLACE: Rust owns dispatcher/registry/logger execution surfaces and Swift still hosts some planning metadata
+- [x] Added `omega-mcp/src/catalog.rs` and moved builtin MCP registration onto the Rust side through `registerBuiltinTools()`
+- [x] `OmegaToolRegistry.all` now lazily decodes `builtinToolsJson()`, so the hardcoded 26-tool Swift catalog is gone and app-side planning helpers are driven from the Rust catalog cache
+- [x] Added `omega-mcp/src/vault.rs` with filesystem-backed vault read/write/list/search operations plus canonical-path traversal protection
+- [x] Verified `cargo test --manifest-path omega-mcp/Cargo.toml` passes at 101/101
+- [x] Hardened the AX-first verification path in `Epistemos/Omega/Vision/VisualVerifyLoop.swift`
+- [x] Kept AX snapshots as the first verification path and added screenshot fingerprint fallback only when AX or semantic verification confidence is insufficient
+- [x] Tightened the Brain 2 execution seam in `Epistemos/Omega/Inference/DeviceAgentService.swift`
+- [x] Low-confidence model outputs now escalate instead of silently executing, missing selectors are rejected, and backend metadata is preserved on `DeviceActionResult`
+- [x] Added focused test coverage in `EpistemosTests/DeviceAgentServiceTests.swift` and `EpistemosTests/VisualVerifyLoopTests.swift`
+- [x] Fresh `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build-for-testing` passes after the AX/device updates
+- [x] Fresh focused `xcodebuild test-without-building` passes for HermesPromptBuilder, LocalAgentLoop, LocalToolGrammar, ConfidenceRouter, DeviceAgentService, and VisualVerifyLoop after a preceding `build-for-testing`
+- [x] Focused app verification after the catalog cutover also passes for `ResearchModeTests` and `OmegaAgentTests`
+- [x] Sprint Agent-3 verification greps pass, and fresh Rust verification remains green (`omega-mcp` 101/101, `omega-ax` 12/12)
+- [ ] MCP transport remains in-process only; stdio/HTTP transport is explicitly deferred to Sprint Agent-4 because it belongs with provider lifecycle, auth, and `mcp_servers` integration rather than the computer-use sprint
+- [ ] `agent_core/src/storage/recipe_cache.rs` remains a stub
+- [x] Created the explicit handoff to Sprint Agent-4 so the deferred provider/transport work has a concrete next-session entry point
+- Next task queued: read `docs/sprint-sessions/sprint-agent-4-polish.md` and start the multi-provider/provider-transport pass from `agent_core/src/routing.rs` and `agent_core/src/providers/`
+
+## Sprint Agent-4: Multi-Provider + Polish
+Session note (2026-03-29):
+- [x] Added the Agent-4 handoff file at `docs/sprint-sessions/sprint-agent-4-polish.md`
+- [x] Started Task 1 in `agent_core/src/bridge.rs` by wiring provider resolution through the existing Rust router instead of only raw string matching
+- [x] Added `ProviderRoutePreviewFFI` plus `preview_provider_route(...)` so routed vs forced provider choice is inspectable
+- [x] `run_agent_session(...)` now supports honest `auto` routing for supported Claude routes, Perplexity research routes, and local-with-fallback cases while surfacing unsupported OpenAI/local-only decisions as explicit bridge errors
+- [x] Added 4 bridge routing tests in `agent_core/src/bridge.rs`
+- [x] Added `agent_core/src/providers/perplexity.rs` with a real Sonar streaming client, citations rendering, and minimal compaction support
+- [x] Wired `auto` research routes through the bridge to the Perplexity provider
+- [x] Added focused Perplexity provider tests for finish-reason mapping and citation rendering
+- [x] Verified `cargo test --manifest-path agent_core/Cargo.toml` passes at 12/12 after the routing + Perplexity cut
+- [ ] Swift still defaults to explicit `claude_sonnet`; the new `auto` bridge path is not yet consumed by the app shell
+- [ ] PerplexityProvider has not yet been smoke-tested against a live API session from this repo; current verification is compile/unit-test level
+- Next task queued: implement `agent_core/src/providers/openai.rs`, then decide whether to expose `auto` routing in the Swift shell before or after live provider smoke checks
+
+- [x] agent_core/src/providers/perplexity.rs — Research with citations
+- [ ] agent_core/src/providers/openai.rs — Via rig-core
+- [ ] Full context compaction loop
+- [ ] Metal thinking glow shader for OmegaPanel
+- [ ] Full validation checklist passes
+- [ ] All 2,679+ tests pass

@@ -7,6 +7,7 @@ import Foundation
 // confidence tracking, and ensures no blocked test strings leak in.
 
 @Suite("Research Mode")
+@MainActor
 struct ResearchModeTests {
 
     // MARK: - Tool Registration
@@ -41,8 +42,12 @@ struct ResearchModeTests {
             "createresearchnote", "analyzecontradiction", "scoreevidence"
         ]
         for tool in OmegaToolRegistry.all where researchNames.contains(tool.name) {
-            #expect(!tool.destructive, "Tool \(tool.name) should not be destructive")
-            #expect(!tool.requiresConfirmation, "Tool \(tool.name) should not require confirmation")
+            if tool.destructive {
+                Issue.record("Tool \(tool.name) should not be destructive")
+            }
+            if tool.requiresConfirmation {
+                Issue.record("Tool \(tool.name) should not require confirmation")
+            }
         }
     }
 
@@ -55,10 +60,9 @@ struct ResearchModeTests {
         #expect(block.contains("createresearchnote"))
     }
 
-    @Test("Total tool count is 26 after research additions")
+    @Test("Total tool count reflects the current research and computer-use catalog")
     func totalToolCount() {
-        // 19 original + 7 research = 26
-        #expect(OmegaToolRegistry.all.count == 26)
+        #expect(OmegaToolRegistry.all.count == 32)
     }
 
     // MARK: - Complexity Gate
@@ -99,26 +103,25 @@ struct ResearchModeTests {
         #expect(ResearchComplexityGate.stripPrefix("hello world") == "hello world")
     }
 
-    @Test("Research commands acknowledge Omega handoff in chat surfaces")
-    func researchCommandsAcknowledgeOmegaHandoffInChatSurfaces() throws {
+    @Test("Chat surfaces do not keep a dedicated research handoff path")
+    func chatSurfacesDoNotKeepDedicatedResearchHandoffPath() throws {
         let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let chatState = try loadTextFile("Epistemos/State/ChatState.swift")
 
-        #expect(miniChat.contains("ResearchComplexityGate.handoffMessage("))
-        #expect(chatState.contains("ResearchComplexityGate.handoffMessage("))
-        #expect(miniChat.contains("UtilityWindowManager.shared.show(.omega)"))
-        #expect(chatState.contains("UtilityWindowManager.shared.show(.omega)"))
+        #expect(!miniChat.contains("ResearchComplexityGate.handoffMessage("))
+        #expect(!chatState.contains("ResearchComplexityGate.handoffMessage("))
+        #expect(!chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
     }
 
-    @Test("Chat surfaces route broader research intent through the shared gate")
-    func researchRoutersUseSharedGate() throws {
+    @Test("Chat surfaces do not special-case research phrasing anymore")
+    func chatSurfacesDoNotSpecialCaseResearchPhrasing() throws {
         let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let chatState = try loadTextFile("Epistemos/State/ChatState.swift")
 
-        #expect(miniChat.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
-        #expect(miniChat.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
-        #expect(chatState.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
-        #expect(chatState.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
+        #expect(!miniChat.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
+        #expect(!miniChat.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
+        #expect(!chatState.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
+        #expect(!chatState.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
     }
 
     // MARK: - Evidence Scorer

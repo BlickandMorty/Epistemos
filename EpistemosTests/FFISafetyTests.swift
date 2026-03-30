@@ -266,7 +266,7 @@ struct FFISafetyTests {
         }
         
         // In batch operations, check all allocations succeeded
-        #expect(true) // Test passes if we get here
+        #expect(Bool(true)) // Test passes if we get here
     }
     
     @Test("Search result allocation")

@@ -1,17 +1,17 @@
 // UniFFI-exported free functions.
 // These are the Swift-callable entry points defined in epistemos_core.udl.
 
-use crate::vault_analyzer::mtld;
-use crate::vault_analyzer::token_estimator;
-use crate::vault_analyzer::classifier;
-use crate::vault_analyzer::boilerplate_filter;
-use crate::vault_analyzer::chunker;
-use crate::recovery;
-use crate::quality_filter;
-use crate::skill_engine;
 use crate::auto_tuner::hyperparams;
 use crate::auto_tuner::rank_selector;
+use crate::quality_filter;
+use crate::recovery;
 use crate::scheduler::tier_scheduler;
+use crate::skill_engine;
+use crate::vault_analyzer::boilerplate_filter;
+use crate::vault_analyzer::chunker;
+use crate::vault_analyzer::classifier;
+use crate::vault_analyzer::mtld;
+use crate::vault_analyzer::token_estimator;
 
 // ── Vault Analysis ──────────────────────────────────────────────────────────
 
@@ -77,7 +77,11 @@ pub fn sanitize_and_normalize(input: String) -> Result<String, TextNormalization
         return Err(TextNormalizationError::ContainsReplacementCharacter);
     }
     // Reject BOMs beyond the first scalar — they indicate malformed external text.
-    if input.chars().skip(1).any(|character| character == '\u{FEFF}') {
+    if input
+        .chars()
+        .skip(1)
+        .any(|character| character == '\u{FEFF}')
+    {
         return Err(TextNormalizationError::ContainsMidStringBom);
     }
     use unicode_normalization::UnicodeNormalization;
@@ -115,7 +119,9 @@ pub fn full_sync_fd(fd: i32) -> i32 {
         // SAFETY: fcntl with F_FULLFSYNC is a safe system call on a valid fd.
         // It commands the drive to flush its write cache to stable storage.
         let ret = unsafe { libc::fcntl(fd, libc::F_FULLFSYNC, 0) };
-        if ret != 0 { return -1; }
+        if ret != 0 {
+            return -1;
+        }
         0
     }
     #[cfg(not(target_os = "macos"))]
@@ -145,7 +151,11 @@ pub fn dedup_texts(texts_json: String, threshold: f64) -> quality_filter::DedupR
     quality_filter::dedup_texts(&texts_json, threshold)
 }
 
-pub fn score_training_pair(instruction: String, response: String, min_score: f64) -> quality_filter::QualityScore {
+pub fn score_training_pair(
+    instruction: String,
+    response: String,
+    min_score: f64,
+) -> quality_filter::QualityScore {
     quality_filter::score_training_pair(&instruction, &response, min_score)
 }
 
@@ -186,12 +196,13 @@ pub fn auto_tune(
 // ── Instant Recall (Ω18) ────────────────────────────────────────────────────
 
 use crate::instant_recall;
-use std::sync::Mutex;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 // Global index registry: allows Swift to create/manage multiple indices via handles.
-static RECALL_INDICES: std::sync::LazyLock<Mutex<HashMap<String, instant_recall::InstantRecallIndex>>> =
-    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+static RECALL_INDICES: std::sync::LazyLock<
+    Mutex<HashMap<String, instant_recall::InstantRecallIndex>>,
+> = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
 static RECALL_EMBEDDER: std::sync::LazyLock<instant_recall::TrigramEmbedder> =
     std::sync::LazyLock::new(|| instant_recall::TrigramEmbedder::new(1024));
@@ -329,19 +340,28 @@ mod tests {
     #[test]
     fn sanitize_and_normalize_rejects_null_bytes() {
         let result = sanitize_and_normalize("hello\0world".to_string());
-        assert!(matches!(result, Err(TextNormalizationError::ContainsNullByte)));
+        assert!(matches!(
+            result,
+            Err(TextNormalizationError::ContainsNullByte)
+        ));
     }
 
     #[test]
     fn sanitize_and_normalize_rejects_replacement_characters() {
         let result = sanitize_and_normalize("lost\u{FFFD}data".to_string());
-        assert!(matches!(result, Err(TextNormalizationError::ContainsReplacementCharacter)));
+        assert!(matches!(
+            result,
+            Err(TextNormalizationError::ContainsReplacementCharacter)
+        ));
     }
 
     #[test]
     fn sanitize_and_normalize_rejects_mid_string_bom() {
         let result = sanitize_and_normalize("hello\u{FEFF}world".to_string());
-        assert!(matches!(result, Err(TextNormalizationError::ContainsMidStringBom)));
+        assert!(matches!(
+            result,
+            Err(TextNormalizationError::ContainsMidStringBom)
+        ));
     }
 
     #[test]

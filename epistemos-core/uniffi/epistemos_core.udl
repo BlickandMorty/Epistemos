@@ -135,6 +135,19 @@ namespace epistemos_core {
     );
 };
 
+interface AgentSession {
+    constructor(string session_id, string transcript_root);
+    AgentTurnResult run_scaffold_turn(string user_message);
+    boolean set_provider_api_key(string provider, string api_key);
+    AgentTurnResult run_live_routed_turn(string user_message);
+    AgentTurnResult run_live_provider_turn(string user_message, string provider);
+    sequence<AgentEvent> drain_events();
+    string transcript_path();
+    string transcript_jsonl();
+    string runtime_blueprint_json();
+    string route_objective_json(string objective);
+};
+
 // ── Exported Types ──────────────────────────────────────────────────────────
 
 dictionary AutoTuneConfig {
@@ -231,6 +244,22 @@ dictionary QualityScore {
 dictionary RoutingDecision {
     string adapter_type;
     double confidence;
+};
+
+dictionary AgentEvent {
+    u64 sequence;
+    string phase;
+    string payload;
+    string timestamp;
+};
+
+dictionary AgentTurnResult {
+    string session_id;
+    string stop_reason;
+    string assistant_text;
+    u32 turn_count;
+    u32 emitted_event_count;
+    string transcript_path;
 };
 
 [Error]

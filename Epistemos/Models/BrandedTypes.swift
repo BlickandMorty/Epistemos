@@ -49,7 +49,7 @@ enum NavTab: String, Codable, Sendable, CaseIterable {
         switch self {
         case .home: "Home"
         case .notes: "Notes"
-        case .omega: "Omega"
+        case .omega: "Agent Runtime"
         case .settings: "Settings"
         }
     }

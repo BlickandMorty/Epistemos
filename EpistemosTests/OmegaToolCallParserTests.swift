@@ -2,6 +2,7 @@ import Testing
 @testable import Epistemos
 
 @Suite("ToolCallParser")
+@MainActor
 struct ToolCallParserTests {
 
     // MARK: - JSON Object Parsing

@@ -1,13 +1,111 @@
 import SwiftUI
 
-// MARK: - Omega Panel
+// MARK: - Agent Runtime Panel
 
-/// Top-level Omega agent interface. Shows task input, execution progress, and history.
-struct OmegaPanel: View {
+struct AgentRuntimePermissionRequirements: Equatable, Sendable {
+    let needsAccessibility: Bool
+    let needsScreenRecording: Bool
+    let needsAutomation: Bool
+
+    var requiresAny: Bool {
+        needsAccessibility || needsScreenRecording || needsAutomation
+    }
+
+    static func forContext(taskDescription: String, plannedSteps: [AgentStep]) -> AgentRuntimePermissionRequirements {
+        if !plannedSteps.isEmpty {
+            return fromToolNames(plannedSteps.map(\.toolName))
+        }
+        return fromTaskDescription(taskDescription)
+    }
+
+    private static func fromToolNames(_ toolNames: [String]) -> AgentRuntimePermissionRequirements {
+        let names = Set(toolNames.map { $0.lowercased() })
+        let needsAccessibility = !names.intersection(accessibilityTools).isEmpty
+        let needsScreenRecording = !names.intersection(screenRecordingTools).isEmpty
+        let needsAutomation = !names.intersection(automationTools).isEmpty
+
+        return AgentRuntimePermissionRequirements(
+            needsAccessibility: needsAccessibility,
+            needsScreenRecording: needsScreenRecording,
+            needsAutomation: needsAutomation
+        )
+    }
+
+    private static func fromTaskDescription(_ taskDescription: String) -> AgentRuntimePermissionRequirements {
+        let lower = taskDescription.lowercased()
+        guard !lower.isEmpty else {
+            return AgentRuntimePermissionRequirements(
+                needsAccessibility: false,
+                needsScreenRecording: false,
+                needsAutomation: false
+            )
+        }
+
+        let mentionsScreenCapture = containsAny(lower, matches: [
+            "screenshot", "screen shot", "screen capture", "capture screen",
+            "read the screen", "analyze the screen", "vision", "ocr"
+        ])
+        let mentionsAutomation = containsAny(lower, matches: [
+            "click ", "press ", "type ", "select ", "toggle ", "open menu",
+            "menu bar", "button", "window", "shortcut", "hotkey", "ui automation"
+        ])
+        let mentionsAccessibilityOnly = containsAny(lower, matches: [
+            "ui tree", "ax tree", "accessibility tree"
+        ])
+
+        return AgentRuntimePermissionRequirements(
+            needsAccessibility: mentionsAutomation || mentionsAccessibilityOnly,
+            needsScreenRecording: mentionsScreenCapture,
+            needsAutomation: mentionsAutomation
+        )
+    }
+
+    private static func containsAny(_ text: String, matches: [String]) -> Bool {
+        matches.contains { text.contains($0) }
+    }
+
+    private static let accessibilityTools: Set<String> = [
+        "get_ui_tree", "click_element", "type_text", "press_key"
+    ]
+
+    private static let screenRecordingTools: Set<String> = [
+        "screenshot", "capture_screen", "screen_ocr", "screen_capture"
+    ]
+
+    private static let automationTools: Set<String> = [
+        "click_element", "type_text", "press_key", "run_shortcut"
+    ]
+}
+
+/// Top-level local agent runtime interface. Shows task input, execution progress, and history.
+struct AgentRuntimePanel: View {
     @Environment(OrchestratorState.self) private var orchestrator
 
     @State private var taskInput = ""
     @State private var permissions = OmegaPermissions()
+
+    private var permissionRequirements: AgentRuntimePermissionRequirements {
+        AgentRuntimePermissionRequirements.forContext(
+            taskDescription: orchestrator.currentTaskDescription,
+            plannedSteps: orchestrator.taskGraph.steps
+        )
+    }
+
+    private var shouldShowPermissionBanner: Bool {
+        let requirements = permissionRequirements
+        guard requirements.requiresAny else { return false }
+
+        if requirements.needsAccessibility && !permissions.accessibilityGranted {
+            return true
+        }
+        if requirements.needsScreenRecording && !permissions.screenRecordingGranted {
+            return true
+        }
+        if requirements.needsAutomation && !permissions.automationGranted {
+            return true
+        }
+        return false
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +113,7 @@ struct OmegaPanel: View {
             HStack {
                 Image(systemName: "cpu")
                     .foregroundStyle(.blue)
-                Text("Omega")
+                Text("Agent Runtime")
                     .font(.title2.bold())
                 Spacer()
                 statusBadge
@@ -35,7 +133,7 @@ struct OmegaPanel: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Permission banner (shown when permissions are missing)
-                    if !permissions.allGranted {
+                    if shouldShowPermissionBanner {
                         permissionBanner
                     }
 
@@ -101,6 +199,10 @@ struct OmegaPanel: View {
                         .padding()
                         .background(.red.opacity(0.1))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
+                    if orchestrator.liveRuntime.hasContent {
+                        liveRuntimeView
                     }
 
                     // Execution progress (when active or has results)
@@ -180,9 +282,9 @@ struct OmegaPanel: View {
             Image(systemName: "cpu")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
-            Text("Omega Agent System")
+            Text("Agent Runtime")
                 .font(.headline)
-            Text("Enter a task below. Omega uses local AI to plan multi-step workflows and execute them through specialist agents.")
+            Text("Enter a task below. The local agent runtime uses on-device AI to plan multi-step workflows and execute them through specialist agents.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -205,7 +307,83 @@ struct OmegaPanel: View {
     }
 
     @ViewBuilder
+    private var liveRuntimeView: some View {
+        let currentPhase = orchestrator.liveRuntime.currentPhase
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: currentPhase?.kind.iconName ?? "waveform.path.ecg.rectangle")
+                    .foregroundStyle(liveRuntimePhaseColor(currentPhase?.kind ?? .idle))
+                Text("Live Runtime")
+                    .font(.subheadline.bold())
+                Spacer()
+                if let currentPhase {
+                    Text(currentPhase.kind.title)
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(liveRuntimePhaseColor(currentPhase.kind).opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+
+            if let currentPhase, !currentPhase.detail.isEmpty {
+                Text(currentPhase.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let turn = orchestrator.liveRuntime.lastTurn,
+                      !turn.assistantText.isEmpty {
+                Text(turn.assistantText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !orchestrator.liveRuntime.phaseHistory.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(orchestrator.liveRuntime.phaseHistory.suffix(6))) { phase in
+                            Text(phase.kind.title)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(liveRuntimePhaseColor(phase.kind).opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+            }
+
+            if !orchestrator.liveRuntime.transcriptPath.isEmpty {
+                Text(orchestrator.liveRuntime.transcriptPath)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(liveRuntimePhaseColor(currentPhase?.kind ?? .idle).opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func liveRuntimePhaseColor(_ kind: OmegaLiveRuntimeState.PhaseSnapshot.Kind) -> Color {
+        switch kind {
+        case .idle: .secondary
+        case .planning: .orange
+        case .thinking, .reasoning: .blue
+        case .searching: .teal
+        case .executing: .indigo
+        case .awaitingApproval: .yellow
+        case .responding: .mint
+        case .complete: .green
+        case .failed: .red
+        }
+    }
+
+    @ViewBuilder
     private var permissionBanner: some View {
+        let requirements = permissionRequirements
+
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.shield.fill")
@@ -214,7 +392,7 @@ struct OmegaPanel: View {
                     .font(.subheadline.bold())
             }
 
-            if !permissions.accessibilityGranted {
+            if requirements.needsAccessibility && !permissions.accessibilityGranted {
                 permissionRow(
                     name: "Accessibility",
                     detail: "Required for UI automation and AX tree walking",
@@ -224,7 +402,7 @@ struct OmegaPanel: View {
                 }
             }
 
-            if !permissions.screenRecordingGranted {
+            if requirements.needsScreenRecording && !permissions.screenRecordingGranted {
                 permissionRow(
                     name: "Screen Recording",
                     detail: "Required for screen capture and visual analysis",
@@ -234,7 +412,7 @@ struct OmegaPanel: View {
                 }
             }
 
-            if !permissions.automationGranted {
+            if requirements.needsAutomation && !permissions.automationGranted {
                 VStack(alignment: .leading, spacing: 6) {
                     permissionRow(
                         name: "Automation",

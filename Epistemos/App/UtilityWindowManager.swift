@@ -9,10 +9,19 @@ import SwiftUI
 enum WindowThemeStyler {
     private static let backdropIdentifier = NSUserInterfaceItemIdentifier("EpistemosWindowBackdrop")
 
-    static func themedContentView(host: NSView, uiState: UIState) -> NSView {
+    static func themedContentView(
+        host: NSView,
+        uiState: UIState,
+        cornerRadius: CGFloat? = nil
+    ) -> NSView {
         let container = NSView(frame: host.frame)
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.clear.cgColor
+        if let cornerRadius {
+            container.layer?.cornerRadius = cornerRadius
+            container.layer?.cornerCurve = .continuous
+            container.layer?.masksToBounds = true
+        }
 
         host.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(host)
@@ -93,7 +102,7 @@ enum UtilityPanel: String, CaseIterable {
     var title: String {
         switch self {
         case .notes: "Notes"
-        case .omega: "Omega"
+        case .omega: "Agent Runtime"
         case .settings: "Settings"
         }
     }
@@ -101,7 +110,7 @@ enum UtilityPanel: String, CaseIterable {
     var icon: String {
         switch self {
         case .notes: "pencil.line"
-        case .omega: "cpu"
+        case .omega: "waveform.path.ecg.rectangle"
         case .settings: "gearshape"
         }
     }
@@ -109,7 +118,7 @@ enum UtilityPanel: String, CaseIterable {
     var defaultSize: NSSize {
         switch self {
         case .notes: NSSize(width: 320, height: 600)
-        case .omega: NSSize(width: 480, height: 700)
+        case .omega: NSSize(width: 760, height: 700)
         case .settings: NSSize(width: 900, height: 680)
         }
     }
@@ -117,16 +126,13 @@ enum UtilityPanel: String, CaseIterable {
     var minimumSize: NSSize {
         switch self {
         case .notes: NSSize(width: 400, height: 300)
-        case .omega: NSSize(width: 400, height: 400)
+        case .omega: NSSize(width: 560, height: 400)
         case .settings: NSSize(width: 680, height: 420)
         }
     }
 
     var maximumSize: NSSize? {
-        switch self {
-        case .settings: NSSize(width: 680, height: 10000) // Fixed width, flexible height
-        default: nil
-        }
+        nil
     }
 
     var usesFullWindow: Bool { false }
@@ -153,7 +159,7 @@ enum UtilityPanelChrome {
         panel.isMovableByWindowBackground = true
         panel.hasShadow = true
         panel.backgroundColor = .windowBackgroundColor
-        let toolbar = panel.toolbar ?? NSToolbar(identifier: "OmegaToolbar")
+        let toolbar = panel.toolbar ?? NSToolbar(identifier: "AgentRuntimeToolbar")
         if #unavailable(macOS 15.0) {
             toolbar.showsBaselineSeparator = false
         }
@@ -178,15 +184,15 @@ enum UtilityPanelChrome {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
-        // Ensure proper rounded corners like macOS System Settings
         panel.hasShadow = true
-        panel.backgroundColor = .windowBackgroundColor
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "SettingsToolbar")
         if #unavailable(macOS 15.0) {
             toolbar.showsBaselineSeparator = false
         }
         panel.toolbar = toolbar
-        panel.toolbarStyle = .unifiedCompact
+        panel.toolbarStyle = .unified
     }
 }
 
@@ -274,7 +280,12 @@ final class UtilityWindowManager {
         if let bootstrap = AppBootstrap.shared {
             let view = contentView(for: kind, bootstrap: bootstrap)
             let host = NSHostingView(rootView: view)
-            panel.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)
+            let cornerRadius: CGFloat? = kind == .settings ? 22 : nil
+            panel.contentView = WindowThemeStyler.themedContentView(
+                host: host,
+                uiState: bootstrap.uiState,
+                cornerRadius: cornerRadius
+            )
             WindowThemeStyler.apply(to: panel, uiState: bootstrap.uiState)
         }
 
@@ -288,7 +299,7 @@ final class UtilityWindowManager {
         // ThemedUtilityRoot is a View struct whose body re-reads UIState each render cycle.
         // This ensures background + colorScheme are reactive — plain function calls bake values
         // in at call time and never update when the theme changes.
-        ThemedUtilityRoot(kind: kind)
+        ThemedUtilityRoot(kind: kind, bootstrap: bootstrap)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
     }
@@ -302,12 +313,33 @@ final class UtilityWindowManager {
 private struct ThemedUtilityRoot: View {
     @Environment(UIState.self) private var ui
     let kind: UtilityPanel
+    let bootstrap: AppBootstrap
 
     var body: some View {
         Group {
             switch kind {
             case .notes: NotesBrowserView()
-            case .omega: OmegaPanel()
+            case .omega:
+                switch bootstrap.inferenceState.preferredChatModelSelection {
+                case .cloud:
+                    AgentSessionPanel(viewModel: bootstrap.agentViewModel)
+                case .localQwen(let modelID):
+                    if let model = LocalTextModelID(rawValue: modelID), model.canActAsAgent {
+                        // Agent-capable local models route through Hermes via
+                        // the local inference server — show the full Hermes panel.
+                        AgentSessionPanel(viewModel: bootstrap.agentViewModel)
+                    } else {
+                        AgentModeUnavailableView(
+                            reason: .localModelLacksAgentCapability,
+                            modelName: LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+                        )
+                    }
+                case .appleIntelligence:
+                    AgentModeUnavailableView(
+                        reason: .appleIntelligenceNoAgent,
+                        modelName: "Apple Intelligence"
+                    )
+                }
             case .settings: SettingsView()
             }
         }

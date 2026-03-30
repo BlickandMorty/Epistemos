@@ -10,7 +10,7 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SUPPORTED_PLATFORMS: macosx
-    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
     ENABLE_USER_SCRIPT_SANDBOXING: false
   configs:
     Debug:
@@ -22,6 +22,13 @@ targets:
     platform: macOS
     sources:
       - path: Epistemos
+        excludes:
+          - KnowledgeFusion/MOHAWK/**
+          - Omega/Knowledge/ODIATraceGenerator.swift
+          - Omega/Knowledge/TraceDataMixer.swift
+      - path: build-rust/swift-bindings/omega_mcp.swift
+      - path: build-rust/swift-bindings/omega_ax.swift
+      - path: build-rust/swift-bindings/epistemos_core.swift
     resources:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
@@ -43,19 +50,21 @@ targets:
         ENABLE_PREVIEWS: true
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
         LD_RUNPATH_SEARCH_PATHS:
-          - @executable_path
-          - @executable_path/../Frameworks
-          - @loader_path/../Frameworks
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lepistemos_core
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
+          - "@executable_path"
+          - "@executable_path/../Frameworks"
+          - "@loader_path/../Frameworks"
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lepistemos_core
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
     preBuildScripts:
       - name: Build Rust Engine
-        script: bash "${SRCROOT}/build-rust.sh" && bash "${SRCROOT}/build-epistemos-core.sh"
+        script: bash "${SRCROOT}/build-rust.sh" && bash "${SRCROOT}/build-omega-mcp.sh" && bash "${SRCROOT}/build-omega-ax.sh" && bash "${SRCROOT}/build-epistemos-core.sh"
     postBuildScripts:
       - name: Bundle Runtime Assets
         script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
     dependencies:
+      - package: AXorcist
       - package: GRDB
+      - package: Grape
       - package: HuggingFace
       - package: MLX
         product: MLX
@@ -90,17 +99,24 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
         BUNDLE_LOADER: "$(TEST_HOST)"
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
 
 packages:
+  AXorcist:
+    url: https://github.com/steipete/AXorcist.git
+    from: "0.1.0"
   GRDB:
     url: https://github.com/groue/GRDB.swift.git
     version: 7.10.0
+  Grape:
+    url: https://github.com/SwiftGraphs/Grape
+    from: 1.1.0
   HuggingFace:
     url: https://github.com/huggingface/swift-huggingface.git
     version: 0.9.0
   MLX:
     url: https://github.com/ml-explore/mlx-swift
-    revision: b6e128c41569be1ecc041b9dfc64c3ac602a462c
+    revision: 6ba4827fb82c97d012eec9ab4b2de21f85c3b33d
   MLX-LM:
     url: https://github.com/ml-explore/mlx-swift-lm
     revision: bc3c20ef4644c86f2b347debcfe1efe4308712a6

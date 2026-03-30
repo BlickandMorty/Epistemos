@@ -4,72 +4,116 @@ import Security
 
 // MARK: - Keychain Helper
 // Thin wrapper around the Security framework for storing sensitive strings.
-// Uses the Data Protection keychain (kSecUseDataProtectionKeychain) to avoid
-// legacy keychain ACL dialogs that prompt for the user's login password on
-// every app launch during development.
+// Prefers the Data Protection keychain when available, but falls back to the
+// standard login keychain when the current build/runtime lacks the entitlement
+// required for kSecUseDataProtectionKeychain.
 
 enum Keychain {
     static let service = "app.epistemos"
 
+    private enum Backend: CaseIterable {
+        case dataProtection
+        case legacy
+    }
+
     /// Base query attributes shared by all operations.
-    private static func baseQuery(for key: String) -> [String: Any] {
-        [
+    private static func baseQuery(for key: String, backend: Backend) -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String:                    kSecClassGenericPassword,
             kSecAttrService as String:              service,
             kSecAttrAccount as String:              key,
-            kSecUseDataProtectionKeychain as String: true,
         ]
+        if backend == .dataProtection {
+            query[kSecUseDataProtectionKeychain as String] = true
+        }
+        return query
+    }
+
+    nonisolated static func shouldFallbackToLegacyKeychain(after status: OSStatus) -> Bool {
+        status == errSecMissingEntitlement
+    }
+
+    nonisolated static func backendLabelsForTesting() -> [String] {
+        Backend.allCases.map { backend in
+            switch backend {
+            case .dataProtection:
+                "dataProtection"
+            case .legacy:
+                "legacy"
+            }
+        }
+    }
+
+    private static func save(_ value: String, for key: String, backend: Backend) -> OSStatus {
+        let data = Data(value.utf8)
+        let query = baseQuery(for: key, backend: backend)
+
+        let attrs: [String: Any] = [kSecValueData as String: data]
+        let updateStatus = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+
+        if updateStatus == errSecSuccess {
+            return errSecSuccess
+        }
+        if updateStatus != errSecItemNotFound {
+            return updateStatus
+        }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        return SecItemAdd(addQuery as CFDictionary, nil)
     }
 
     /// Saves a string securely. Returns true on success, false on failure.
     @discardableResult
     static func save(_ value: String, for key: String) -> Bool {
-        let data = Data(value.utf8)
-        let query = baseQuery(for: key)
-
-        // Try updating first
-        let attrs: [String: Any] = [kSecValueData as String: data]
-        let updateStatus = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
-
-        if updateStatus == errSecSuccess {
-            return true
-        } else if updateStatus == errSecItemNotFound {
-            var addQuery = query
-            addQuery[kSecValueData as String] = data
-            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-            if addStatus != errSecSuccess {
-                Log.security.error("Keychain add failed for key '\(key, privacy: .public)': OSStatus \(addStatus)")
-                return false
+        for backend in Backend.allCases {
+            let status = save(value, for: key, backend: backend)
+            if status == errSecSuccess {
+                return true
             }
-            return true
-        } else {
-            Log.security.error("Keychain update failed for key '\(key, privacy: .public)': OSStatus \(updateStatus)")
+            if shouldFallbackToLegacyKeychain(after: status) {
+                continue
+            }
+
+            Log.security.error("Keychain save failed for key '\(key, privacy: .public)': OSStatus \(status)")
             return false
         }
+
+        Log.security.error("Keychain save failed for key '\(key, privacy: .public)': missing entitlement for Data Protection keychain; legacy fallback unavailable")
+        return false
     }
 
     static func load(for key: String) -> String? {
-        var query = baseQuery(for: key)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        for backend in Backend.allCases {
+            var query = baseQuery(for: key, backend: backend)
+            query[kSecReturnData as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitOne
 
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status != errSecSuccess && status != errSecItemNotFound {
+            var result: AnyObject?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            if status == errSecSuccess, let data = result as? Data {
+                return String(data: data, encoding: .utf8)
+            }
+            if status == errSecItemNotFound || shouldFallbackToLegacyKeychain(after: status) {
+                continue
+            }
+
             Log.security.error("Keychain load failed for key '\(key, privacy: .public)': OSStatus \(status)")
+            return nil
         }
-        guard status == errSecSuccess, let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        return nil
     }
 
     static func delete(for key: String) {
-        let query = baseQuery(for: key)
-        let status = SecItemDelete(query as CFDictionary)
-        if status != errSecSuccess &&
-            status != errSecItemNotFound &&
-            status != errSecMissingEntitlement {
-            Log.security.error("Keychain delete failed for key '\(key, privacy: .public)': OSStatus \(status)")
+        for backend in Backend.allCases {
+            let query = baseQuery(for: key, backend: backend)
+            let status = SecItemDelete(query as CFDictionary)
+            if status != errSecSuccess &&
+                status != errSecItemNotFound &&
+                !shouldFallbackToLegacyKeychain(after: status) {
+                Log.security.error("Keychain delete failed for key '\(key, privacy: .public)': OSStatus \(status)")
+            }
         }
     }
 
@@ -93,10 +137,10 @@ enum Keychain {
             }
 
             // Check if already in Data Protection keychain
-            if load(for: key) != nil { continue }
+            if load(for: key, backend: .dataProtection) != nil { continue }
 
             // Save to Data Protection keychain
-            if save(value, for: key) {
+            if save(value, for: key, backend: .dataProtection) == errSecSuccess {
                 // Delete from legacy keychain
                 let deleteQuery: [String: Any] = [
                     kSecClass as String:       kSecClassGenericPassword,
@@ -107,5 +151,16 @@ enum Keychain {
                 Log.security.info("Migrated keychain item '\(key, privacy: .public)' to Data Protection keychain")
             }
         }
+    }
+
+    private static func load(for key: String, backend: Backend) -> String? {
+        var query = baseQuery(for: key, backend: backend)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }

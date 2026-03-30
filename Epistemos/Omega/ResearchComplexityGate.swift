@@ -90,8 +90,8 @@ enum ResearchComplexityGate {
     static func handoffMessage(for query: String) -> String {
         let cleaned = stripPrefix(query)
         guard !cleaned.isEmpty else {
-            return "Add a research question after `/research` to send it to Omega."
+            return "Add a research question after `/research` to send it to the agent runtime."
         }
-        return "Omega is handling this research task in the Omega panel."
+        return "The agent runtime is handling this research task in the Agent Runtime panel."
     }
 }

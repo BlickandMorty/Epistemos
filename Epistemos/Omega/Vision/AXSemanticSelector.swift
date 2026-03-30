@@ -1,4 +1,5 @@
 import Foundation
+import AXorcist
 
 // MARK: - AX Semantic Selector
 
@@ -192,5 +193,25 @@ enum AXSemanticSelector {
         case "AXRole": return element["role"] as? String ?? ""
         default: return element[attribute] as? String ?? ""
         }
+    }
+
+    // MARK: - AXorcist Fuzzy Queries
+
+    /// Find elements using AXorcist's native fuzzy matching.
+    /// This provides a more powerful alternative to XPath-style selectors
+    /// with support for contains, regex, prefix, suffix match types.
+    @MainActor
+    static func resolveWithAXorcist(
+        bundleID: String,
+        role: String? = nil,
+        title: String? = nil,
+        matchType: JSONPathHintComponent.MatchType = .contains
+    ) -> AXResponse {
+        AXorcistBridge.shared.findElements(
+            bundleID: bundleID,
+            role: role,
+            title: title,
+            titleMatch: matchType
+        )
     }
 }

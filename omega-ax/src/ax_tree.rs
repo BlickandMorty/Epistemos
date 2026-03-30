@@ -14,7 +14,7 @@ use std::ffi::c_void;
 /// Returns a snapshot with all elements flattened into a Vec.
 /// If accessibility permission is not granted, returns an empty sparse snapshot.
 pub fn walk_ax_tree(pid: i64) -> AXTreeSnapshot {
-    // Check permission first
+    // SAFETY: AXIsProcessTrusted is a read-only C API that returns the current trust flag.
     let trusted = unsafe { AXIsProcessTrusted() };
     if trusted == 0 {
         return AXTreeSnapshot {
@@ -123,6 +123,7 @@ fn get_string_attr(element: AXUIElementRef, attr_name: &str) -> Option<String> {
 }
 
 fn string_from_cf_type_ref(value: CFTypeRef) -> Option<String> {
+    // SAFETY: AXUIElementCopyAttributeValue returned an owned Create-rule CFTypeRef.
     let cf_value = unsafe { CFType::wrap_under_create_rule(value) };
     string_from_cf_type(&cf_value)
 }
@@ -133,8 +134,10 @@ fn string_from_cf_type(value: &CFType) -> Option<String> {
     }
 
     if let Some(attr_str) = value.downcast::<CFAttributedString>() {
+        // SAFETY: attr_str is a live CFAttributedString; this returns a borrowed CFStringRef.
         let plain_ref = unsafe { CFAttributedStringGetString(attr_str.as_concrete_TypeRef()) };
         if !plain_ref.is_null() {
+            // SAFETY: plain_ref is borrowed from attr_str and remains valid for this scope.
             let plain = unsafe { CFString::wrap_under_get_rule(plain_ref) };
             return non_empty_string(plain.to_string());
         }
@@ -204,6 +207,7 @@ fn get_position(element: AXUIElementRef) -> (f64, f64) {
         )
     };
 
+    // SAFETY: value came from CopyAttributeValue and must be released once after extraction.
     unsafe { CFRelease(value as *const c_void) };
 
     if ok != 0 {
@@ -218,6 +222,7 @@ fn get_size(element: AXUIElementRef) -> (f64, f64) {
     let attr = CFString::new(AX_SIZE);
     let mut value: CFTypeRef = std::ptr::null();
 
+    // SAFETY: We pass valid AX element and attribute refs to a read-only C API.
     let err = unsafe {
         AXUIElementCopyAttributeValue(element, attr.as_CFTypeRef(), &mut value)
     };
@@ -236,6 +241,7 @@ fn get_size(element: AXUIElementRef) -> (f64, f64) {
         )
     };
 
+    // SAFETY: value came from CopyAttributeValue and must be released once after extraction.
     unsafe { CFRelease(value as *const c_void) };
 
     if ok != 0 {
@@ -250,6 +256,7 @@ fn get_children(element: AXUIElementRef) -> Vec<AXUIElementRef> {
     let attr = CFString::new(AX_CHILDREN);
     let mut count: i64 = 0;
 
+    // SAFETY: We pass valid AX element and attribute refs to query child count.
     let err = unsafe {
         AXUIElementGetAttributeValueCount(element, attr.as_CFTypeRef(), &mut count)
     };
@@ -262,6 +269,7 @@ fn get_children(element: AXUIElementRef) -> Vec<AXUIElementRef> {
     let count = count.min(100);
 
     let mut values: CFTypeRef = std::ptr::null();
+    // SAFETY: We pass valid refs and an output pointer to receive the copied children array.
     let err = unsafe {
         AXUIElementCopyAttributeValues(element, attr.as_CFTypeRef(), 0, count, &mut values)
     };
@@ -273,10 +281,12 @@ fn get_children(element: AXUIElementRef) -> Vec<AXUIElementRef> {
     // values is a CFArrayRef. Extract elements as raw pointers.
     // SAFETY: We know these are AXUIElementRef values from the AX API.
     let array_ptr = values as core_foundation::array::CFArrayRef;
+    // SAFETY: array_ptr was returned by AXUIElementCopyAttributeValues and is a valid CFArrayRef.
     let len = unsafe { core_foundation::array::CFArrayGetCount(array_ptr) };
     let mut children = Vec::with_capacity(len as usize);
 
     for i in 0..len {
+        // SAFETY: i is bounded by len from CFArrayGetCount, so this index is in range.
         let child = unsafe { core_foundation::array::CFArrayGetValueAtIndex(array_ptr, i) };
         if !child.is_null() {
             children.push(child as AXUIElementRef);

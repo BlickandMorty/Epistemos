@@ -353,10 +353,10 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("Label(\"Apple Writing Tools\", systemImage: \"apple.intelligence\")"))
         #expect(source.contains("glyph: .miniChat"))
         #expect(source.contains("openMiniChatForCurrentNote()"))
+        #expect(source.contains("Button(action: { notesUI.cycleOutlineFoldMode() })"))
         #expect(!source.contains("Menu(\"Options\")"))
         #expect(!source.contains("formatToolbarMenu"))
         #expect(!source.contains("appleWritingToolsButton"))
-        #expect(!source.contains("noteWorkspaceQuickActions"))
         #expect(source.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
     }
 
@@ -373,12 +373,34 @@ struct NoteEditorLayoutTests {
 
         #expect(toolbarSource.contains("noteChatState.submitToolbarQuery("))
         #expect(toolbarSource.contains(".siriGlow("))
+        #expect(toolbarSource.contains("TextField(\"Ask this note\""))
         #expect(!toolbarSource.contains(".popover("))
         #expect(!toolbarSource.contains("ASCIIFrameAnimationText("))
         #expect(!toolbarSource.contains("ASCIIRippleText("))
+        #expect(!toolbarSource.contains("noteChatAttachmentChip("))
+        #expect(!toolbarSource.contains("toolbarAskStatusLabel"))
         #expect(!source.contains("private var toolbarResponseDropdown"))
         #expect(!source.contains("private var toolbarAskStatusAnimation"))
         #expect(!source.contains("private var toolbarAskStatusBadge"))
+    }
+
+    @Test("visible note toolbar strip stays lean with only preview history and more controls")
+    func visibleNoteToolbarStripStaysLean() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        guard let controlsRange = source.range(of: "private var noteToolbarPrimaryActions: some View"),
+              let nextSectionRange = source.range(of: "private func toolbarIconButton(", range: controlsRange.upperBound..<source.endIndex) else {
+            Issue.record("Failed to isolate noteToolbarPrimaryActions in NoteDetailWorkspaceView.swift")
+            return
+        }
+
+        let controlsSource = String(source[controlsRange.lowerBound..<nextSectionRange.lowerBound])
+
+        #expect(controlsSource.contains("glyph: showPreview ? .edit : .preview"))
+        #expect(controlsSource.contains("glyph: .history"))
+        #expect(controlsSource.contains("moreMenu"))
+        #expect(!controlsSource.contains("outlineFoldButton"))
+        #expect(!controlsSource.contains("glyph: .miniChat"))
+        #expect(!controlsSource.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
     }
 
     @Test("preview reserves the native titlebar inset and falls back higher for tab groups")

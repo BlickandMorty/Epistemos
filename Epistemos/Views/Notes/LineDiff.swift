@@ -6,20 +6,20 @@ import Foundation
 // and produces word-level highlights for modified lines.
 // Uses Swift's CollectionDifference (Myers algorithm) for both line and word diffs.
 
-enum DiffLineKind: Equatable {
+nonisolated enum DiffLineKind: Equatable {
     case unchanged(String)
     case added(String)
     case removed(String)
     case modified(old: String, new: String)
 }
 
-struct DiffStats: Equatable {
+nonisolated struct DiffStats: Equatable {
     let added: Int
     let removed: Int
     let modified: Int
 }
 
-struct LineDiff: Equatable {
+nonisolated struct LineDiff: Equatable {
     let lines: [DiffLineKind]
     let stats: DiffStats
 

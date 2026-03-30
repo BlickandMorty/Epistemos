@@ -7,9 +7,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
     pub name: String,
+    /// Which specialist agent owns this tool (e.g. "safari", "file", "notes", "terminal", "automation").
+    #[serde(default)]
+    pub agent: String,
     pub description: String,
     /// JSON Schema string for argument validation.
     pub input_schema_json: String,
+    /// Example arguments as a JSON string (for prompt construction).
+    #[serde(default)]
+    pub arguments_example: String,
     pub safety: SafetyInfo,
 }
 
