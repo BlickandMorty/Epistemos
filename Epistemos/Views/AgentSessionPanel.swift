@@ -25,30 +25,17 @@ struct AgentSessionPanel: View {
     }
 
     private var panelBackdrop: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(nsColor: .controlBackgroundColor).opacity(0.96),
-                    Color.accentColor.opacity(0.08),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(Color.blue.opacity(0.14))
-                .frame(width: 320, height: 320)
-                .blur(radius: 90)
-                .offset(x: 220, y: -180)
-
-            Circle()
-                .fill(Color.purple.opacity(0.08))
-                .frame(width: 280, height: 280)
-                .blur(radius: 100)
-                .offset(x: -220, y: 220)
-        }
+        LinearGradient(
+            colors: [
+                Color(nsColor: .windowBackgroundColor),
+                Color(nsColor: .controlBackgroundColor).opacity(0.96),
+                Color.accentColor.opacity(0.06),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
         .ignoresSafeArea()
+        .drawingGroup()
     }
 
     private var header: some View {
@@ -143,8 +130,7 @@ struct AgentSessionPanel: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(.ultraThinMaterial)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .fill(Color.primary.opacity(0.06))
             )
             .overlay(
                 Capsule()
@@ -206,8 +192,7 @@ struct AgentSessionPanel: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(.ultraThinMaterial)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .fill(Color.primary.opacity(0.06))
             )
             .overlay(
                 Capsule()
@@ -581,19 +566,10 @@ struct AgentSessionPanel: View {
                 .padding(.vertical, 16)
             }
             .onChange(of: viewModel.contentBlocks.count) { _, _ in
-                withAnimation(.easeOut(duration: 0.18)) {
-                    proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
-                }
+                proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
             }
-            .onChange(of: viewModel.phase) { _, newPhase in
-                // Scroll without animation during live streaming to avoid
-                // stacking dozens of concurrent animations per second.
-                switch newPhase {
-                case .thinking, .responding, .reasoning:
-                    proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
-                default:
-                    break
-                }
+            .onChange(of: viewModel.turnCount) { _, _ in
+                proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
             }
         }
     }
@@ -897,15 +873,11 @@ private struct RuntimeGlassCard<Content: View>: View {
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.ultraThinMaterial)
-                    .glassEffect(
-                        .regular.interactive(),
-                        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    )
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
                     }
-                    .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
             }
     }
 }
@@ -1003,14 +975,10 @@ private struct ResponseBubble: View {
         .padding(16)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .glassEffect(
-                    .regular.interactive(),
-                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                )
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
                 }
         }
     }
@@ -1202,20 +1170,17 @@ private struct ErrorBanner: View {
 private struct PulsingDot: View {
     let tint: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isAnimating = false
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.8)) { timeline in
-            let opacity = reduceMotion ? 1.0 : pulseOpacity(at: timeline.date)
-            Circle()
-                .fill(tint)
-                .frame(width: 7, height: 7)
-                .opacity(opacity)
-        }
-        .frame(width: 7, height: 7)
-    }
-
-    private func pulseOpacity(at date: Date) -> Double {
-        let phase = date.timeIntervalSinceReferenceDate.remainder(dividingBy: 1.6) / 1.6
-        return 0.45 + (0.55 * abs(sin(phase * .pi)))
+        Circle()
+            .fill(tint)
+            .frame(width: 7, height: 7)
+            .opacity(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.4))
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                value: isAnimating
+            )
+            .onAppear { isAnimating = true }
     }
 }

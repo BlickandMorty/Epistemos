@@ -148,13 +148,18 @@ enum SemanticClusterService {
             // AMX-accelerated: cross = -2 * V × C^T  (N×K matrix)
             // dist(i,c) = ||v_i||² + ||c_c||² + cross[i,c]
             var cross = [Float](repeating: 0, count: n * k)
-            cblas_sgemm(
-                CblasRowMajor, CblasNoTrans, CblasTrans,
-                Int32(n), Int32(k), Int32(dim),
-                -2.0, flat, Int32(dim),
-                flatCentroids, Int32(dim),
-                0.0, &cross, Int32(k)
+            // Transpose centroids (K×D → D×K) then multiply V(N×D) * CT(D×K) = cross(N×K).
+            var centroidsT = [Float](repeating: 0, count: dim * k)
+            vDSP_mtrans(flatCentroids, 1, &centroidsT, 1, vDSP_Length(dim), vDSP_Length(k))
+            vDSP_mmul(
+                flat, vDSP_Stride(1),
+                centroidsT, vDSP_Stride(1),
+                &cross, vDSP_Stride(1),
+                vDSP_Length(n), vDSP_Length(k), vDSP_Length(dim)
             )
+            // Scale by -2
+            var negTwo: Float = -2.0
+            vDSP_vsmul(cross, 1, &negTwo, &cross, 1, vDSP_Length(n * k))
 
             // Centroid squared norms
             var centNormsSq = [Float](repeating: 0, count: k)

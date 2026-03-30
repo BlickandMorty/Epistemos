@@ -452,6 +452,10 @@ final class HermesSubprocessManager {
     private(set) var processState: HermesProcessState = .idle
     private(set) var pid: Int32?
 
+    /// Cooldown to prevent rapid relaunch after crash.
+    private var lastCrashDate: Date?
+    private let crashCooldown: TimeInterval = 5.0
+
     // Process internals (access from main actor only)
     private var process: Process?
     private var stdinPipe: Pipe?
@@ -498,7 +502,8 @@ final class HermesSubprocessManager {
         writeHandleLock.unlock()
         guard let handle else { throw HermesSubprocessError.notRunning }
         guard let data = (json + "\n").data(using: .utf8) else { return }
-        handle.write(data)
+        // Use the throwing write(contentsOf:) API to avoid NSException on broken pipe.
+        try handle.write(contentsOf: data)
     }
 
     /// Register a callback invoked for each JSON line received on stdout.
@@ -511,6 +516,14 @@ final class HermesSubprocessManager {
 
     func launch() async throws {
         guard !isRunning else { throw HermesSubprocessError.alreadyRunning }
+
+        // Prevent rapid relaunch after a crash
+        if let lastCrash = lastCrashDate,
+           Date().timeIntervalSince(lastCrash) < crashCooldown {
+            throw HermesSubprocessError.launchFailed(
+                "Hermes crashed recently. Waiting \(Int(crashCooldown))s before retry."
+            )
+        }
 
         // Validate paths
         guard FileManager.default.isExecutableFile(atPath: config.pythonPath) else {
@@ -564,6 +577,7 @@ final class HermesSubprocessManager {
                 }
                 let stderr = self.stderrBuffer
                 self.processState = .crashed(exitCode: exitCode, lastStderr: stderr)
+                self.lastCrashDate = Date()
                 log.error("hermes-agent exited with code \(exitCode)")
                 self.cleanupPipes()
             }

@@ -58,9 +58,11 @@ targets:
     preBuildScripts:
       - name: Build Rust Engine
         script: bash "${SRCROOT}/build-rust.sh" && bash "${SRCROOT}/build-omega-mcp.sh" && bash "${SRCROOT}/build-omega-ax.sh" && bash "${SRCROOT}/build-epistemos-core.sh"
+        basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
         script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
+        basedOnDependencyAnalysis: false
     dependencies:
       - package: AXorcist
       - package: GRDB
