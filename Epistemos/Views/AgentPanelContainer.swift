@@ -5,8 +5,13 @@ import SwiftUI
 /// Tabbed container for the Hermes agent runtime panel.
 /// Provides access to Chat, Skills, and Execution Graph views
 /// all connected to the real Hermes agent system.
+///
+/// When the Graph tab is selected, the FilterEngine switches to agent vault mode
+/// (showing only .idea/.source/.tag nodes from Hermes execution). Switching
+/// back to Chat or Skills restores the human vault filter state.
 struct AgentPanelContainer: View {
     let viewModel: AgentViewModel
+    @Environment(GraphState.self) private var graphState
 
     @State private var selectedTab: AgentPanelTab = .chat
 
@@ -41,8 +46,17 @@ struct AgentPanelContainer: View {
 
     private func tabButton(_ tab: AgentPanelTab) -> some View {
         Button {
+            let previousTab = selectedTab
             withAnimation(.easeInOut(duration: 0.15)) {
                 selectedTab = tab
+            }
+            // Wire vault mode toggle to FilterEngine
+            if tab == .graph && previousTab != .graph {
+                graphState.vaultMode = .agentVault
+                graphState.filter.applyAgentVaultMode()
+            } else if tab != .graph && previousTab == .graph {
+                graphState.vaultMode = .humanVault
+                graphState.filter.applyHumanVaultMode()
             }
         } label: {
             HStack(spacing: 4) {

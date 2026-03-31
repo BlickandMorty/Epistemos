@@ -530,7 +530,7 @@ final class AgentViewModel {
                 ]),
                 "required": .array([.string("query")]),
             ],
-            handler: { [weak self] _ in
+            handler: { _ in
                 // Schema registered; dispatch handled via tool: prefix below
                 return .success(.null)
             }

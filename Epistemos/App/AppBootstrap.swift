@@ -396,6 +396,9 @@ final class AppBootstrap {
             config: epistemosConfig,
             searchIndexProvider: { @MainActor [weak vaultSync] in
                 vaultSync?.searchService
+            },
+            graphMemoryProvider: { @MainActor [weak self] in
+                self?._agentGraphMemory
             }
         )
 
@@ -438,6 +441,7 @@ final class AppBootstrap {
         self._recipeGraphSkills = RecipeGraphSkills(graphStore: graphState.store, mcpBridge: mcpBridge)
         self._ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
         orchestratorState.agentGraphMemory = agentGraphMemory
+        agentViewModel.agentGraphMemory = agentGraphMemory
 
         let startupBookmarkValidation = vaultSync.startupBookmarkValidation()
 
