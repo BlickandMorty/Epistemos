@@ -68,6 +68,23 @@ final class FilterEngine {
         activeEdgeTypes = Set(GraphEdgeType.allCases)
     }
 
+    // MARK: - Vault Mode
+
+    /// The set of node types visible before entering agent vault mode.
+    private var savedNodeTypes: Set<GraphNodeType>?
+
+    /// Apply agent vault mode — show only .idea and .source nodes (the agent's memory graph).
+    func applyAgentVaultMode() {
+        savedNodeTypes = activeNodeTypes
+        activeNodeTypes = [.idea, .source, .tag]
+    }
+
+    /// Restore human vault mode — show all standard node types.
+    func applyHumanVaultMode() {
+        activeNodeTypes = savedNodeTypes ?? Set(GraphNodeType.visibleCases)
+        savedNodeTypes = nil
+    }
+
     // MARK: - Focus Methods
 
     /// Focus on a specific node, showing only it and the provided connected set.

@@ -262,6 +262,17 @@ enum GraphInteractionMode: Equatable {
     case connecting(sourceNodeId: String)
 }
 
+// MARK: - Graph Vault Mode
+
+/// Multi-tenant vault mode for the knowledge graph.
+/// Switches between the user's human vault and the agent's internal memory vault.
+enum GraphVaultMode: String, CaseIterable, Sendable {
+    /// Human vault — the user's notes, sources, and ideas.
+    case humanVault
+    /// Agent vault — the model's internal .idea and .source nodes from Hermes execution.
+    case agentVault
+}
+
 // MARK: - GraphState
 // Observable coordinator that owns the graph engine components (store, filter).
 // Physics and rendering are handled by the Rust engine via Metal.
@@ -271,6 +282,11 @@ enum GraphInteractionMode: Equatable {
 final class GraphState {
     let store = GraphStore()
     let filter = FilterEngine()
+
+    /// Current vault mode — determines which nodes are visible in the Hologram.
+    /// `.humanVault` shows the user's notes; `.agentVault` shows agent-generated
+    /// .idea and .source nodes from Hermes executions.
+    var vaultMode: GraphVaultMode = .humanVault
 
     private static let visualThemeDefaultsKey = "graphVisualTheme"
     private static let visualThemeMigrationDefaultsKey =

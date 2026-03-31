@@ -49,6 +49,8 @@ final class AgentViewModel {
     let costTracker = CostTracker()
     /// Shadow git checkpoints for file-mutating tool calls.
     private let shadowCheckpoint = ShadowGitCheckpoint()
+    /// Agent graph memory — plots Hermes findings as .idea/.source nodes in the knowledge graph.
+    var agentGraphMemory: AgentGraphMemory?
 
     init(
         hermesManager: HermesSubprocessManager? = nil,
@@ -440,6 +442,8 @@ final class AgentViewModel {
             registerSkillDiscoveryTools(on: server)
             registerComputerUseTools(on: server)
             registerRoutingTools(on: server)
+            registerPTYTools(on: server)
+            registerGraphMemoryTools(on: server)
             // Start HTTP transport for large payloads (>50KB)
             _ = server.startHttpTransport()
             mcpServer = server
@@ -1017,7 +1021,7 @@ final class AgentViewModel {
         mutation: AXMutationDetector.MutationResult
     ) -> String {
         // Try to merge into existing JSON object
-        guard var data = jsonResult.data(using: .utf8),
+        guard let data = jsonResult.data(using: .utf8),
               var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             // Not valid JSON — wrap in object
             return "{\"result\":\"\(jsonResult.replacingOccurrences(of: "\"", with: "\\\""))\",\"mutation_detected\":\(mutation.mutated),\"element_count_delta\":\(mutation.elementCountDelta),\"new_window\":\(mutation.newWindowDetected)}"
@@ -1115,6 +1119,197 @@ final class AgentViewModel {
                 ]))
             }
             return result
+        }
+    }
+
+    // MARK: - Native PTY MCP Tools (omega-mcp Rust)
+
+    /// Expose the omega-mcp Rust PTY pool as MCP tools so Hermes terminal
+    /// commands execute in a real macOS ZSH with proper $PATH, nvm, cargo, etc.
+    /// Without this, Python subprocess.run() gets a barren GUI app environment.
+    private func registerPTYTools(on server: EpistemosMCPServer) {
+        // native_pty_spawn — Create a persistent PTY session with real ZSH
+        server.registerTool(
+            name: "native_pty_spawn",
+            description: "Spawn a native macOS pseudo-terminal (PTY) session with the user's real shell environment ($PATH, nvm, cargo, brew). Returns a pty_id for subsequent commands.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "session_id": .dictionary(["type": .string("string"), "description": .string("Session identifier for grouping PTY instances.")]),
+                    "initial_dir": .dictionary(["type": .string("string"), "description": .string("Working directory to start in.")]),
+                ]),
+                "required": .array([.string("session_id")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "native_pty_spawn") { params in
+            let args = Self.anyCodableToDict(params)
+            let sessionId = args["session_id"] as? String ?? UUID().uuidString
+            let initialDir = args["initial_dir"] as? String ?? NSHomeDirectory()
+            let result = ptySpawnSession(sessionId: sessionId, shell: "/bin/zsh", initialDir: initialDir)
+            return .success(.string(CredentialRedactor.redact(result)))
+        }
+
+        // native_pty_run — Execute a command in an existing PTY session
+        server.registerTool(
+            name: "native_pty_run",
+            description: "Execute a shell command in a native macOS PTY session. Inherits user's full shell environment. Returns stdout, exit hint, working directory, and duration.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "pty_id": .dictionary(["type": .string("string"), "description": .string("PTY session ID from native_pty_spawn.")]),
+                    "command": .dictionary(["type": .string("string"), "description": .string("Shell command to execute.")]),
+                    "timeout_ms": .dictionary(["type": .string("number"), "description": .string("Timeout in milliseconds. Defaults to 30000 (30s).")]),
+                ]),
+                "required": .array([.string("pty_id"), .string("command")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "native_pty_run") { params in
+            let args = Self.anyCodableToDict(params)
+            let ptyId = args["pty_id"] as? String ?? ""
+            let command = args["command"] as? String ?? ""
+            let timeoutMs = args["timeout_ms"] as? Int ?? 30_000
+
+            guard !ptyId.isEmpty, !command.isEmpty else {
+                return .error(code: -32602, message: "Missing pty_id or command")
+            }
+
+            let result = ptyExecuteCommand(ptyId: ptyId, command: command, timeoutMs: UInt64(timeoutMs))
+            return .success(.string(CredentialRedactor.redact(result)))
+        }
+
+        // native_pty_close — Close a PTY session
+        server.registerTool(
+            name: "native_pty_close",
+            description: "Close a native PTY session and clean up resources.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "pty_id": .dictionary(["type": .string("string"), "description": .string("PTY session ID to close.")]),
+                ]),
+                "required": .array([.string("pty_id")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "native_pty_close") { params in
+            let args = Self.anyCodableToDict(params)
+            let ptyId = args["pty_id"] as? String ?? ""
+            if !ptyId.isEmpty { ptyCloseSession(ptyId: ptyId) }
+            return .success(.dictionary(["closed": .bool(true)]))
+        }
+    }
+
+    // MARK: - Agent Graph Memory MCP Tools
+
+    /// Register tools that let Hermes write its findings into the native
+    /// SwiftData knowledge graph as .idea and .source nodes, and trigger
+    /// NightBrain's Ebbinghaus decay to prevent memory bloat.
+    private func registerGraphMemoryTools(on server: EpistemosMCPServer) {
+        // record_finding — Write an agent insight into the knowledge graph
+        server.registerTool(
+            name: "record_finding",
+            description: "Record an agent finding as an .idea node in the Epistemos knowledge graph. Creates edges to cited sources and auto-generates tags. Findings are subject to NightBrain Ebbinghaus decay.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "description": .dictionary(["type": .string("string"), "description": .string("What the agent discovered or concluded.")]),
+                    "sources": .dictionary([
+                        "type": .string("array"),
+                        "description": .string("URLs or file paths of sources cited."),
+                        "items": .dictionary(["type": .string("string")]),
+                    ]),
+                    "related_note_ids": .dictionary([
+                        "type": .string("array"),
+                        "description": .string("IDs of existing vault notes this finding relates to."),
+                        "items": .dictionary(["type": .string("string")]),
+                    ]),
+                ]),
+                "required": .array([.string("description")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "record_finding") { [weak self] params in
+            guard let self else { return .error(code: -32603, message: "deallocated") }
+            let args = Self.anyCodableToDict(params)
+            let description = args["description"] as? String ?? ""
+            let sources = args["sources"] as? [String] ?? []
+            let relatedNoteIds = args["related_note_ids"] as? [String] ?? []
+
+            guard !description.isEmpty else {
+                return .error(code: -32602, message: "Missing description")
+            }
+
+            await MainActor.run { [weak self] in
+                guard let self, let graphMemory = self.agentGraphMemory else { return }
+                // Build synthetic AgentStepResults from source URLs
+                var steps: [AgentStepResult] = []
+                for url in sources {
+                    steps.append(AgentStepResult(
+                        stepId: UUID(),
+                        success: true,
+                        outputJson: "{\"url\":\"\(url)\"}",
+                        error: nil,
+                        durationMs: 0,
+                        confidence: 0.8
+                    ))
+                }
+                if steps.isEmpty {
+                    // At least one successful step so recordExecution doesn't bail
+                    steps.append(AgentStepResult.ok("{}", stepId: UUID(), durationMs: 0))
+                }
+                graphMemory.recordExecution(
+                    taskDescription: description,
+                    steps: steps,
+                    relatedNoteIds: relatedNoteIds
+                )
+            }
+
+            return .success(.dictionary([
+                "recorded": .bool(true),
+                "description": .string(String(description.prefix(80))),
+                "source_count": .int(sources.count),
+            ]))
+        }
+
+        // recall_agent_memory — Search the agent's graph memory
+        server.registerTool(
+            name: "recall_agent_memory",
+            description: "Search the agent's long-term knowledge graph for past findings. Returns relevant .idea and .source nodes ranked by relevance with MMR diversity.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "query": .dictionary(["type": .string("string"), "description": .string("Search query.")]),
+                    "limit": .dictionary(["type": .string("integer"), "description": .string("Max results. Defaults to 10.")]),
+                ]),
+                "required": .array([.string("query")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "recall_agent_memory") { [weak self] params in
+            guard let self else { return .error(code: -32603, message: "deallocated") }
+            let args = Self.anyCodableToDict(params)
+            let query = args["query"] as? String ?? ""
+            let limit = args["limit"] as? Int ?? 10
+
+            let results = await MainActor.run { [weak self] () -> [[String: AnyCodableValue]] in
+                guard let self, let graphMemory = self.agentGraphMemory else { return [] }
+                let nodes = graphMemory.recall(query: query, limit: limit)
+                return nodes.map { node in
+                    [
+                        "id": .string(node.id),
+                        "type": .string(node.type.rawValue),
+                        "label": .string(node.label),
+                        "weight": .double(node.weight),
+                        "source_url": node.metadata.url.map { .string($0) } ?? .null,
+                    ]
+                }
+            }
+
+            return .success(.dictionary([
+                "results": .array(results.map { .dictionary($0) }),
+                "count": .int(results.count),
+            ]))
         }
     }
 
