@@ -30,6 +30,17 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
     func execute(step: AgentStep) async throws -> AgentStepResult {
         let start = ContinuousClock.now
 
+        // Pre-flight: ensure macOS Accessibility permission is granted.
+        // Without it, AX queries silently return empty trees and all
+        // element targeting fails with no useful error.
+        guard AXorcistBridge.shared.hasAccessibilityPermissions else {
+            return .fail(
+                "Accessibility permission not granted. Open System Settings → Privacy & Security → Accessibility and enable Epistemos. Without this, the agent cannot see or interact with UI elements.",
+                stepId: step.id,
+                durationMs: 0
+            )
+        }
+
         guard let args = try? JSONSerialization.jsonObject(with: Data(step.argumentsJson.utf8)) as? [String: Any] else {
             return .fail("Invalid arguments JSON", stepId: step.id, durationMs: 0)
         }
@@ -91,16 +102,61 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
     // MARK: - click
 
     /// Click using AXorcist fuzzy match or coordinate fallback.
+    ///
+    /// Multi-strategy targeting when title match fails (stale element / UI redraw):
+    /// 1. Title match via AXorcist fuzzy `.contains`
+    /// 2. Re-query AX tree and retry title match (handles refresh lag)
+    /// 3. Description fallback (element relabeled but description stable)
+    /// 4. Role-based search returning top interactive alternatives so the
+    ///    agent can self-correct on its next turn
     private func executeClick(args: [String: Any]) -> String {
         // Semantic click: find element by title via AXorcist
         if let elementName = args["element"] as? String {
             if let bundleID = resolveBundleID(from: args) {
+                // Strategy 1: Direct title match
                 let response = AXorcistBridge.shared.pressElement(
                     bundleID: bundleID,
                     title: elementName
                 )
                 if case .success = response {
-                    return "{\"success\":true,\"method\":\"AXorcist-press\",\"element\":\"\(elementName)\"}"
+                    return "{\"success\":true,\"method\":\"AXorcist-press\",\"element\":\"\(safeJsonString(elementName))\"}"
+                }
+
+                // Strategy 2: Re-query (AX tree may have refreshed since last call)
+                let retryResponse = AXorcistBridge.shared.pressElement(
+                    bundleID: bundleID,
+                    title: elementName
+                )
+                if case .success = retryResponse {
+                    return "{\"success\":true,\"method\":\"AXorcist-press-retry\",\"element\":\"\(safeJsonString(elementName))\"}"
+                }
+
+                // Strategy 3: Description fallback — UI may have relabeled the
+                // element (e.g. "Submit" → "Submitting...") but the AXDescription
+                // often stays stable.
+                let descResponse = AXorcistBridge.shared.findElements(
+                    bundleID: bundleID,
+                    title: elementName,
+                    titleMatch: .contains,
+                    maxResults: 1
+                )
+                if case .success = descResponse {
+                    // Found by description-based query — try pressing it
+                    let pressDesc = AXorcistBridge.shared.pressElement(
+                        bundleID: bundleID,
+                        title: elementName
+                    )
+                    if case .success = pressDesc {
+                        return "{\"success\":true,\"method\":\"AXorcist-description-fallback\",\"element\":\"\(safeJsonString(elementName))\"}"
+                    }
+                }
+
+                // Strategy 4: Collect nearby interactive alternatives so the
+                // agent can pick the right element on its next turn instead
+                // of failing blind.
+                let alternatives = gatherAlternatives(bundleID: bundleID, originalTitle: elementName)
+                if !alternatives.isEmpty {
+                    return "{\"success\":false,\"error\":\"Element '\(safeJsonString(elementName))' not found (UI may have redrawn). Try one of these instead.\",\"alternatives\":\(alternatives)}"
                 }
             }
 
@@ -119,6 +175,59 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
         }
 
         return "{\"success\":false,\"error\":\"click requires 'element' name or 'x'/'y' coordinates\"}"
+    }
+
+    /// Gather up to 5 interactive elements from the app as click alternatives.
+    /// Returns a JSON array string the agent can inspect to self-correct.
+    private func gatherAlternatives(bundleID: String, originalTitle: String) -> String {
+        let pid = NSWorkspace.shared.runningApplications
+            .first { $0.bundleIdentifier == bundleID }?
+            .processIdentifier ?? -1
+        guard pid > 0 else { return "[]" }
+
+        let treeJson = AXorcistBridge.shared.walkTree(pid: pid)
+        guard let data = treeJson.data(using: .utf8),
+              let tree = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let elements = tree["elements"] as? [[String: Any]] else {
+            return "[]"
+        }
+
+        // Filter to interactive elements with non-empty titles
+        let interactive = elements.filter {
+            ($0["is_interactive"] as? Bool) == true &&
+            !(($0["title"] as? String)?.isEmpty ?? true)
+        }
+
+        // Sort by title similarity to original (Levenshtein-like: shared prefix length)
+        let lowerOriginal = originalTitle.lowercased()
+        let sorted = interactive.sorted { a, b in
+            let aTitle = (a["title"] as? String ?? "").lowercased()
+            let bTitle = (b["title"] as? String ?? "").lowercased()
+            let aScore = aTitle.commonPrefix(with: lowerOriginal).count
+            let bScore = bTitle.commonPrefix(with: lowerOriginal).count
+            return aScore > bScore
+        }
+
+        let top = sorted.prefix(5).map { elem -> [String: Any] in
+            [
+                "title": elem["title"] as? String ?? "",
+                "role": elem["role"] as? String ?? "",
+                "description": elem["description"] as? String ?? "",
+            ]
+        }
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: top),
+              let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            return "[]"
+        }
+        return jsonStr
+    }
+
+    /// Escape a string for safe embedding in JSON string values.
+    private func safeJsonString(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+         .replacingOccurrences(of: "\"", with: "\\\"")
+         .replacingOccurrences(of: "\n", with: "\\n")
     }
 
     // MARK: - type

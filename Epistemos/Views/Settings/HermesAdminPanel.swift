@@ -2,20 +2,22 @@ import SwiftUI
 
 struct HermesAdminPanel: View {
     @Bindable var viewModel: HermesAdminViewModel
-    @State private var selectedTab: AdminTab = .cron
+    @State private var selectedTab: AdminTab = .marketplace
 
     enum AdminTab: String, CaseIterable, Identifiable {
-        case cron = "Cron Jobs"
+        case marketplace = "Marketplace"
+        case skills = "Skills"
         case mcp = "MCP Servers"
         case tools = "Tools"
+        case cron = "Cron Jobs"
         case config = "Config"
-        case skills = "Skills"
         case diagnostics = "Diagnostics"
 
         var id: String { rawValue }
 
         var icon: String {
             switch self {
+            case .marketplace: "storefront"
             case .cron: "clock.arrow.circlepath"
             case .mcp: "server.rack"
             case .tools: "wrench.and.screwdriver"
@@ -75,6 +77,7 @@ struct HermesAdminPanel: View {
                 Divider()
 
                 switch selectedTab {
+                case .marketplace: MarketplaceSection(viewModel: viewModel)
                 case .cron: CronJobsSection(viewModel: viewModel)
                 case .mcp: MCPServersSection(viewModel: viewModel)
                 case .tools: ToolsSection(viewModel: viewModel)
@@ -95,6 +98,185 @@ struct HermesAdminPanel: View {
                 description: Text("The Hermes runtime is not connected. Start an agent session to activate the runtime.")
             )
         }
+    }
+}
+
+// MARK: - Marketplace
+
+private struct MarketplaceSection: View {
+    @Bindable var viewModel: HermesAdminViewModel
+
+    private var installedMCPNames: Set<String> {
+        Set(viewModel.mcpServers.map(\.name))
+    }
+
+    private var featuredSkills: [HubSkillEntry] {
+        let names = Set(viewModel.featuredSkillNames)
+        return viewModel.availableSkills.filter { names.contains($0.name) }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Featured MCP Servers
+                if !viewModel.featuredMCPServers.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Image(systemName: "server.rack")
+                                .foregroundStyle(.blue)
+                            Text("MCP Servers")
+                                .font(.headline)
+                            Spacer()
+                            Text("One-click install")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Text("Extend your agent with tools from the MCP ecosystem")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12),
+                        ], spacing: 12) {
+                            ForEach(viewModel.featuredMCPServers) { server in
+                                MarketplaceMCPCard(
+                                    server: server,
+                                    isInstalled: installedMCPNames.contains(server.name),
+                                    viewModel: viewModel
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Featured Skills
+                if !featuredSkills.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Image(systemName: "sparkles.rectangle.stack")
+                                .foregroundStyle(.purple)
+                            Text("Featured Skills")
+                                .font(.headline)
+                            Spacer()
+                        }
+
+                        Text("Curated skills for common workflows")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(featuredSkills) { skill in
+                            AvailableSkillRow(skill: skill, viewModel: viewModel)
+                                .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Registries
+                if !viewModel.mcpRegistries.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Image(systemName: "globe")
+                                .foregroundStyle(.teal)
+                            Text("Discover More")
+                                .font(.headline)
+                            Spacer()
+                        }
+
+                        Text("Browse community registries for thousands of MCP servers and tools")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(viewModel.mcpRegistries) { registry in
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(registry.name)
+                                        .font(.body.weight(.medium))
+                                    Text(registry.description)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Link(destination: URL(string: registry.url)!) {
+                                    Label("Open", systemImage: "arrow.up.right.square")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                // Empty state
+                if viewModel.featuredMCPServers.isEmpty && featuredSkills.isEmpty {
+                    ContentUnavailableView(
+                        "Marketplace Loading",
+                        systemImage: "storefront",
+                        description: Text("Start an agent session to load the marketplace catalog.")
+                    )
+                }
+            }
+            .padding(20)
+        }
+    }
+}
+
+private struct MarketplaceMCPCard: View {
+    let server: FeaturedMCPServer
+    let isInstalled: Bool
+    let viewModel: HermesAdminViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(server.displayName)
+                    .font(.body.weight(.semibold))
+                    .lineLimit(1)
+                Spacer()
+                if server.isOfficial {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                        .font(.caption)
+                }
+            }
+
+            Text(server.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .frame(maxHeight: .infinity, alignment: .top)
+
+            HStack {
+                Text(server.category)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(.quaternary))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if isInstalled {
+                    Label("Added", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                } else {
+                    Button("Add") {
+                        viewModel.installFeaturedMCPServer(server)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10).fill(.background))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary))
     }
 }
 
@@ -223,10 +405,18 @@ private struct MCPServersSection: View {
     @Bindable var viewModel: HermesAdminViewModel
     @State private var showAddSheet = false
 
+    private var installedNames: Set<String> {
+        Set(viewModel.mcpServers.map(\.name))
+    }
+
+    private var suggestedServers: [FeaturedMCPServer] {
+        viewModel.featuredMCPServers.filter { !installedNames.contains($0.name) }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("\(viewModel.mcpServers.count) servers")
+                Text("\(viewModel.mcpServers.count) active")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -242,11 +432,23 @@ private struct MCPServersSection: View {
             .padding(.vertical, 10)
 
             List {
-                ForEach(viewModel.mcpServers) { server in
-                    MCPServerRow(server: server, viewModel: viewModel)
+                if !viewModel.mcpServers.isEmpty {
+                    Section("Active Servers") {
+                        ForEach(viewModel.mcpServers) { server in
+                            MCPServerRow(server: server, viewModel: viewModel)
+                        }
+                    }
                 }
 
-                if viewModel.mcpServers.isEmpty {
+                if !suggestedServers.isEmpty {
+                    Section("Suggested") {
+                        ForEach(suggestedServers) { server in
+                            SuggestedMCPRow(server: server, viewModel: viewModel)
+                        }
+                    }
+                }
+
+                if viewModel.mcpServers.isEmpty && suggestedServers.isEmpty {
                     ContentUnavailableView(
                         "No MCP Servers",
                         systemImage: "server.rack",
@@ -258,6 +460,45 @@ private struct MCPServersSection: View {
         }
         .sheet(isPresented: $showAddSheet) {
             AddMCPServerSheet(viewModel: viewModel, isPresented: $showAddSheet)
+        }
+    }
+}
+
+private struct SuggestedMCPRow: View {
+    let server: FeaturedMCPServer
+    let viewModel: HermesAdminViewModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(server.displayName)
+                        .font(.body.weight(.medium))
+                    if server.isOfficial {
+                        Text("Official")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.green.opacity(0.15)))
+                            .foregroundStyle(.green)
+                    }
+                }
+                Text(server.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                if let env = server.envHint {
+                    Text("Requires \(env)")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+            }
+            Spacer()
+            Button("Add") {
+                viewModel.installFeaturedMCPServer(server)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
         }
     }
 }
@@ -419,11 +660,37 @@ private struct ConfigSection: View {
 private struct SkillsSection: View {
     @Bindable var viewModel: HermesAdminViewModel
     @State private var showInstallSheet = false
+    @State private var searchText = ""
+    @State private var selectedCategory = "all"
+
+    private var categories: [String] {
+        let cats = Set(viewModel.availableSkills.map(\.category))
+        return ["all"] + cats.sorted()
+    }
+
+    private var filteredSkills: [HubSkillEntry] {
+        var skills = viewModel.availableSkills
+        if selectedCategory != "all" {
+            skills = skills.filter { $0.category == selectedCategory }
+        }
+        if !searchText.isEmpty {
+            let q = searchText.lowercased()
+            skills = skills.filter {
+                $0.name.localizedCaseInsensitiveContains(q) ||
+                $0.description.localizedCaseInsensitiveContains(q) ||
+                $0.tags.contains { $0.localizedCaseInsensitiveContains(q) }
+            }
+        }
+        return skills
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("\(viewModel.installedSkills.count) skills")
+                Text("\(viewModel.installedSkills.count) installed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(viewModel.availableSkillsTotal) available")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -438,58 +705,173 @@ private struct SkillsSection: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
 
-        List {
-            ForEach(viewModel.installedSkills) { skill in
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            Text(skill.name)
-                                .font(.body.weight(.medium))
-                            Text("v\(skill.version)")
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(Color.blue.opacity(0.12)))
-                                .foregroundStyle(.blue)
-                        }
-                        if !skill.description.isEmpty {
-                            Text(skill.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
-                        Text(skill.path)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { skill.enabled },
-                        set: { viewModel.toggleSkill(name: skill.name, enabled: $0) }
-                    ))
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                }
-                .contextMenu {
-                    Button("Remove", role: .destructive) {
-                        viewModel.removeSkill(name: skill.name)
-                    }
-                }
+            // Search + category filter
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search skills...", text: $searchText)
+                    .textFieldStyle(.plain)
             }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
 
-            if viewModel.installedSkills.isEmpty {
-                ContentUnavailableView(
-                    "No Skills Installed",
-                    systemImage: "sparkles.rectangle.stack",
-                    description: Text("Skills extend Hermes with reusable capabilities. Install them via the runtime.")
-                )
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(categories, id: \.self) { cat in
+                        Button {
+                            selectedCategory = cat
+                        } label: {
+                            Text(cat == "all" ? "All" : cat.replacingOccurrences(of: "-", with: " ").capitalized)
+                                .font(.caption.weight(selectedCategory == cat ? .bold : .regular))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule().fill(selectedCategory == cat ? Color.accentColor.opacity(0.15) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
             }
+            .padding(.bottom, 8)
+
+            List {
+                if !viewModel.installedSkills.isEmpty && searchText.isEmpty && selectedCategory == "all" {
+                    Section("Installed") {
+                        ForEach(viewModel.installedSkills) { skill in
+                            InstalledSkillRow(skill: skill, viewModel: viewModel)
+                        }
+                    }
+                }
+
+                let available = filteredSkills.filter { !$0.installed }
+                if !available.isEmpty {
+                    Section("Available (\(available.count))") {
+                        ForEach(available) { skill in
+                            AvailableSkillRow(skill: skill, viewModel: viewModel)
+                        }
+                    }
+                }
+
+                let installed = filteredSkills.filter(\.installed)
+                if !installed.isEmpty && (searchText.isEmpty == false || selectedCategory != "all") {
+                    Section("Installed (\(installed.count))") {
+                        ForEach(installed) { skill in
+                            AvailableSkillRow(skill: skill, viewModel: viewModel)
+                        }
+                    }
+                }
+
+                if filteredSkills.isEmpty && viewModel.installedSkills.isEmpty {
+                    ContentUnavailableView(
+                        "No Skills Found",
+                        systemImage: "sparkles.rectangle.stack",
+                        description: Text("Start an agent session to load the skills catalog.")
+                    )
+                }
             }
             .listStyle(.inset)
         }
         .sheet(isPresented: $showInstallSheet) {
             InstallSkillSheet(viewModel: viewModel, isPresented: $showInstallSheet)
+        }
+    }
+}
+
+private struct InstalledSkillRow: View {
+    let skill: HermesSkillEntry
+    let viewModel: HermesAdminViewModel
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(skill.name)
+                        .font(.body.weight(.medium))
+                    if !skill.version.isEmpty {
+                        Text("v\(skill.version)")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.blue.opacity(0.12)))
+                            .foregroundStyle(.blue)
+                    }
+                }
+                if !skill.description.isEmpty {
+                    Text(skill.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { skill.enabled },
+                set: { viewModel.toggleSkill(name: skill.name, enabled: $0) }
+            ))
+            .toggleStyle(.switch)
+            .controlSize(.small)
+        }
+        .contextMenu {
+            Button("Remove", role: .destructive) {
+                viewModel.removeSkill(name: skill.name)
+            }
+        }
+    }
+}
+
+private struct AvailableSkillRow: View {
+    let skill: HubSkillEntry
+    let viewModel: HermesAdminViewModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(skill.name)
+                        .font(.body.weight(.medium))
+                    Text(skill.sourceLabel)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(sourceColor(skill.source).opacity(0.12)))
+                        .foregroundStyle(sourceColor(skill.source))
+                }
+                if !skill.description.isEmpty {
+                    Text(skill.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                if !skill.tags.isEmpty {
+                    Text(skill.tags.prefix(4).joined(separator: " \u{00B7} "))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer()
+            if skill.installed {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Button("Install") {
+                    viewModel.installSkill(name: skill.name)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
+    }
+
+    private func sourceColor(_ source: String) -> Color {
+        switch source {
+        case "bundled": .green
+        case "optional": .blue
+        case "user": .purple
+        default: .secondary
         }
     }
 }

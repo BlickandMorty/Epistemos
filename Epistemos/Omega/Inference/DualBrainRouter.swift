@@ -63,6 +63,10 @@ final class DualBrainRouter {
             // All UI automation goes to Brain 2
             return .brain2DeviceANE
 
+        case "computer":
+            // Ghost computer use (AX + input simulation) goes to Brain 2
+            return .brain2DeviceANE
+
         case "safari":
             // Safari page inspection → Brain 2, planning/search → Brain 1
             switch step.toolName {

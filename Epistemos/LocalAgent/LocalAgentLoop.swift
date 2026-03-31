@@ -19,6 +19,14 @@ typealias LocalAgentStructuredGenerationHandler = @Sendable (
     _ onToken: @escaping @MainActor (String) -> Void
 ) async throws -> String?
 
+typealias LocalAgentStreamingGeneratorFactory = @Sendable (
+    _ prompt: String,
+    _ systemPrompt: String?,
+    _ maxTokens: Int,
+    _ reasoningMode: LocalReasoningMode,
+    _ modelID: String?
+) async -> AsyncThrowingStream<String, Error>
+
 typealias LocalAgentToolExecutor = @Sendable (
     _ name: String,
     _ argumentsJson: String
@@ -54,6 +62,7 @@ actor LocalAgentLoop {
     }
 
     private let generator: LocalAgentGenerationHandler
+    private let streamingGenerator: LocalAgentStreamingGeneratorFactory?
     private let structuredGenerator: LocalAgentStructuredGenerationHandler?
     private let toolExecutor: LocalAgentToolExecutor
     private let modelID: String?
@@ -63,6 +72,7 @@ actor LocalAgentLoop {
 
     init(
         generator: @escaping LocalAgentGenerationHandler,
+        streamingGenerator: LocalAgentStreamingGeneratorFactory? = nil,
         structuredGenerator: LocalAgentStructuredGenerationHandler? = nil,
         toolExecutor: @escaping LocalAgentToolExecutor,
         modelID: String? = nil,
@@ -71,6 +81,7 @@ actor LocalAgentLoop {
         defaultReasoningMode: LocalReasoningMode = .fast
     ) {
         self.generator = generator
+        self.streamingGenerator = streamingGenerator
         self.structuredGenerator = structuredGenerator
         self.toolExecutor = toolExecutor
         self.modelID = modelID
@@ -139,6 +150,24 @@ actor LocalAgentLoop {
     }
 
     @MainActor
+    static func mlxStreamingGenerator(
+        using modelClient: any LocalConfigurableLLMClient
+    ) -> LocalAgentStreamingGeneratorFactory {
+        let clientBox = MainActorLocalModelClientBox(client: modelClient)
+        return { prompt, systemPrompt, maxTokens, reasoningMode, modelID in
+            await MainActor.run {
+                clientBox.client.stream(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    maxTokens: maxTokens,
+                    reasoningMode: reasoningMode,
+                    modelID: modelID
+                )
+            }
+        }
+    }
+
+    @MainActor
     static func liveLoop(
         using modelClient: any LocalConfigurableLLMClient,
         constrainedDecoding: ConstrainedDecodingService? = nil,
@@ -150,6 +179,7 @@ actor LocalAgentLoop {
     ) -> LocalAgentLoop {
         LocalAgentLoop(
             generator: mlxGenerator(using: modelClient),
+            streamingGenerator: mlxStreamingGenerator(using: modelClient),
             structuredGenerator: constrainedDecoding.map { constrainedGenerator(using: $0) },
             toolExecutor: toolExecutor,
             modelID: modelID,
@@ -159,12 +189,23 @@ actor LocalAgentLoop {
         )
     }
 
+    /// Run the local agent loop.
+    ///
+    /// - Parameters:
+    ///   - reflexMode: When `true` and a `streamingGenerator` is available, tool calls
+    ///     are detected incrementally during token streaming and fired the instant the
+    ///     closing `</tool_call>` tag completes — remaining generation is cancelled.
+    ///   - onTreeMutated: Optional callback for reflex mode. Called after a tool executes;
+    ///     if the UI changed (new window, popup), returns fresh AX tree JSON to inject
+    ///     into the conversation context. Return `nil` if no mutation detected.
     func run(
         objective: String,
         tools: [OmegaToolDefinition],
         maxTurns: Int = 8,
         reasoningMode: LocalReasoningMode? = nil,
         additionalSystemPrompt: String? = nil,
+        reflexMode: Bool = false,
+        onTreeMutated: (@Sendable () async -> String?)? = nil,
         onToken: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         if let modelID,
@@ -181,21 +222,38 @@ actor LocalAgentLoop {
         let historyBudget = max(512, maxTokenBudget - Self.approximateTokenCount(of: systemPrompt))
         var history = [LocalMessage(role: .user, content: objective)]
         var turnCount = 0
+        let useReflex = reflexMode && streamingGenerator != nil
 
         while turnCount < maxTurns {
             turnCount += 1
 
             history = Self.trimHistory(history, targetTokens: historyBudget)
-            let toolPlan = LocalToolGrammar.buildToolCallingPlan(
-                tools: tools,
-                forceThinking: turnCount == 1
-            )
-
             let messages = HermesPromptBuilder.buildMessages(
                 systemPrompt: systemPrompt,
                 history: history
             )
             let promptText = Self.formatChatMLPrompt(messages: messages)
+
+            // ── Reflex path: incremental tool call detection ──
+            if useReflex {
+                let output = try await runReflexTurn(
+                    promptText: promptText,
+                    effectiveReasoningMode: effectiveReasoningMode,
+                    history: &history,
+                    onTreeMutated: onTreeMutated,
+                    onToken: onToken
+                )
+                if let finalOutput = output {
+                    return finalOutput
+                }
+                continue
+            }
+
+            // ── Standard path: generate fully, then parse ──
+            let toolPlan = LocalToolGrammar.buildToolCallingPlan(
+                tools: tools,
+                forceThinking: turnCount == 1
+            )
             let output: String
             if let structuredGenerator,
                let structuredOutput = try await structuredGenerator(
@@ -230,6 +288,80 @@ actor LocalAgentLoop {
         }
 
         throw LocalAgentLoopError.maxTurnsExceeded(maxTurns)
+    }
+
+    // MARK: - Reflex Turn
+
+    /// Execute a single turn using incremental tool call detection.
+    /// Returns `nil` if a tool was executed and the loop should continue,
+    /// or the final stripped response if no tool call was found.
+    private func runReflexTurn(
+        promptText: String,
+        effectiveReasoningMode: LocalReasoningMode,
+        history: inout [LocalMessage],
+        onTreeMutated: (@Sendable () async -> String?)?,
+        onToken: @escaping @MainActor (String) -> Void
+    ) async throws -> String? {
+        guard let streamingGenerator else {
+            preconditionFailure("runReflexTurn called without streamingGenerator")
+        }
+
+        let detector = IncrementalToolCallDetector()
+        var accumulatedOutput = ""
+        var reflexDetection: IncrementalToolCallDetector.Detection?
+
+        let stream = await streamingGenerator(
+            promptText, nil, maxResponseTokens, effectiveReasoningMode, modelID
+        )
+
+        do {
+            for try await chunk in stream {
+                accumulatedOutput.append(chunk)
+                await onToken(chunk)
+                if let detection = detector.feed(chunk) {
+                    reflexDetection = detection
+                    // Breaking exits the for-await loop, which triggers the stream's
+                    // onTermination handler → cancels the MLX generation Task.
+                    break
+                }
+            }
+        } catch is CancellationError {
+            // Expected when we break out or the parent task is cancelled.
+        }
+
+        let output = accumulatedOutput
+
+        if let detection = reflexDetection {
+            // Immediate tool execution — the core latency win.
+            history.append(LocalMessage(role: .assistant, content: output))
+            let result = await toolExecutor(detection.toolCall.name, detection.toolCall.argumentsJson)
+
+            // Check for AX tree mutation (new window, popup, etc.)
+            if let onTreeMutated, let freshTree = await onTreeMutated() {
+                let responseContent = """
+                <tool_response>
+                \(result.resultJson)
+                </tool_response>
+                [UI state changed. Updated AX tree:
+                \(freshTree)]
+                """
+                history.append(LocalMessage(role: .tool, content: responseContent))
+            } else {
+                history.append(Self.toolResponseMessage(for: [result]))
+            }
+            return nil // continue the loop
+        }
+
+        // No tool call detected — check if the full output has one (fallback parse).
+        let toolCalls = Self.parseToolCalls(from: output)
+        if toolCalls.isEmpty {
+            return Self.stripAssistantMeta(from: output)
+        }
+
+        history.append(LocalMessage(role: .assistant, content: output))
+        let toolResults = await executeToolCalls(toolCalls)
+        history.append(Self.toolResponseMessage(for: toolResults))
+        return nil // continue the loop
     }
 
     private func executeToolCalls(_ toolCalls: [ParsedToolCall]) async -> [LocalToolResult] {

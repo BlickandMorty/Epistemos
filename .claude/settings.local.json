@@ -194,7 +194,11 @@
       "Bash(git clone:*)",
       "Bash(codesign -dvvv /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app/Contents/PlugIns/EpistemosTests.xctest)",
       "Bash(xcodegen --version)",
-      "Bash(/tmp/audit_summary.txt:*)"
+      "Bash(/tmp/audit_summary.txt:*)",
+      "Bash(xargs ls:*)",
+      "Bash(find /Users/jojo/Downloads/Epistemos/docs -type f \\\\\\(-name *.md -o -name *.txt \\\\\\))",
+      "Bash(for f:*)",
+      "Bash(chmod +x /Users/jojo/Downloads/Epistemos/scripts/release/release_preflight.sh)"
     ],
     "additionalDirectories": [
       "/tmp"

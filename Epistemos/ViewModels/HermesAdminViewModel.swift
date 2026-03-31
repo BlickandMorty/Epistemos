@@ -16,6 +16,13 @@ final class HermesAdminViewModel {
     var isLoading = false
     var lastError: String?
 
+    // Marketplace state
+    var availableSkills: [HubSkillEntry] = []
+    var availableSkillsTotal = 0
+    var featuredMCPServers: [FeaturedMCPServer] = []
+    var featuredSkillNames: [String] = []
+    var mcpRegistries: [MCPRegistry] = []
+
     var isSubprocessRunning: Bool { hermesManager.isRunning }
 
     // MARK: - Private
@@ -65,6 +72,12 @@ final class HermesAdminViewModel {
             installedSkills = parseSkills(payload["data"])
         case ("skills", "install"), ("skills", "remove"), ("skills", "toggle"):
             refreshSkills()
+            browseHub() // Refresh available list after install/remove
+
+        case ("hub", "browse"):
+            parseHubBrowse(payload["data"])
+        case ("hub", "featured"):
+            parseHubFeatured(payload["data"])
 
         case ("sessions", "list"), ("sessions", "search"):
             break // Sessions handled by AgentViewModel
@@ -168,6 +181,27 @@ final class HermesAdminViewModel {
         sendAdmin(domain: "skills", action: "toggle", extra: ["name": name, "enabled": enabled])
     }
 
+    // MARK: - Marketplace Commands
+
+    func browseHub(query: String = "") {
+        var extra: [String: Any] = [:]
+        if !query.isEmpty { extra["query"] = query }
+        sendAdmin(domain: "hub", action: "browse", extra: extra)
+    }
+
+    func fetchFeatured() {
+        sendAdmin(domain: "hub", action: "featured")
+    }
+
+    /// One-click install a curated MCP server from the featured catalog.
+    func installFeaturedMCPServer(_ server: FeaturedMCPServer) {
+        addMCPServer(
+            name: server.name,
+            command: server.command,
+            args: server.args
+        )
+    }
+
     func checkForUpdates() {
         sendAdmin(domain: "update", action: "check")
     }
@@ -196,6 +230,8 @@ final class HermesAdminViewModel {
         refreshToolsets()
         refreshConfig()
         refreshSkills()
+        browseHub()
+        fetchFeatured()
         checkForUpdates()
         runDiagnostics()
     }
@@ -303,8 +339,64 @@ final class HermesAdminViewModel {
                 path: dict["path"] as? String ?? "",
                 description: dict["description"] as? String ?? "",
                 version: dict["version"] as? String ?? "0.0.0",
-                enabled: dict["enabled"] as? Bool ?? true
+                enabled: dict["enabled"] as? Bool ?? true,
+                tags: dict["tags"] as? [String] ?? []
             )
+        }
+    }
+
+    private func parseHubBrowse(_ data: Any?) {
+        guard let dict = data as? [String: Any] else { return }
+        availableSkillsTotal = dict["total"] as? Int ?? 0
+        guard let skills = dict["skills"] as? [[String: Any]] else { return }
+        availableSkills = skills.compactMap { s in
+            guard let name = s["name"] as? String else { return nil }
+            return HubSkillEntry(
+                name: name,
+                description: s["description"] as? String ?? "",
+                version: s["version"] as? String ?? "",
+                category: s["category"] as? String ?? "other",
+                source: s["source"] as? String ?? "unknown",
+                installed: s["installed"] as? Bool ?? false,
+                tags: s["tags"] as? [String] ?? [],
+                author: s["author"] as? String ?? ""
+            )
+        }
+    }
+
+    private func parseHubFeatured(_ data: Any?) {
+        guard let dict = data as? [String: Any] else { return }
+
+        featuredSkillNames = dict["featured_skills"] as? [String] ?? []
+
+        if let servers = dict["mcp_servers"] as? [[String: Any]] {
+            featuredMCPServers = servers.compactMap { s in
+                guard let name = s["name"] as? String,
+                      let command = s["command"] as? String else { return nil }
+                return FeaturedMCPServer(
+                    name: name,
+                    displayName: s["display_name"] as? String ?? name,
+                    description: s["description"] as? String ?? "",
+                    command: command,
+                    args: s["args"] as? [String] ?? [],
+                    source: s["source"] as? String ?? "community",
+                    category: s["category"] as? String ?? "other",
+                    tags: s["tags"] as? [String] ?? [],
+                    envHint: s["env_hint"] as? String
+                )
+            }
+        }
+
+        if let registries = dict["registries"] as? [[String: Any]] {
+            mcpRegistries = registries.compactMap { r in
+                guard let name = r["name"] as? String,
+                      let url = r["url"] as? String else { return nil }
+                return MCPRegistry(
+                    name: name,
+                    url: url,
+                    description: r["description"] as? String ?? ""
+                )
+            }
         }
     }
 
@@ -383,6 +475,52 @@ struct HermesSkillEntry: Identifiable, Sendable {
     let description: String
     let version: String
     let enabled: Bool
+    let tags: [String]
+}
+
+// MARK: - Marketplace Types
+
+struct HubSkillEntry: Identifiable, Sendable {
+    var id: String { "\(source):\(name)" }
+    let name: String
+    let description: String
+    let version: String
+    let category: String
+    let source: String
+    let installed: Bool
+    let tags: [String]
+    let author: String
+
+    var sourceLabel: String {
+        switch source {
+        case "bundled": "Built-in"
+        case "optional": "Official"
+        case "user": "Custom"
+        default: source.capitalized
+        }
+    }
+}
+
+struct FeaturedMCPServer: Identifiable, Sendable {
+    var id: String { name }
+    let name: String
+    let displayName: String
+    let description: String
+    let command: String
+    let args: [String]
+    let source: String
+    let category: String
+    let tags: [String]
+    let envHint: String?
+
+    var isOfficial: Bool { source == "official" }
+}
+
+struct MCPRegistry: Identifiable, Sendable {
+    var id: String { name }
+    let name: String
+    let url: String
+    let description: String
 }
 
 struct DiagnosticsResult: Sendable {

@@ -15,6 +15,12 @@ final class OrchestratorState {
     let researchPause = ResearchPauseHandler()
     let liveRuntime = OmegaLiveRuntimeState()
 
+    // MARK: - Safety (OpenClaw ports)
+    let loopDetector = ToolLoopDetector()
+    let contextBudget = ContextBudgetManager()
+    let checkpointManager = ExecutionCheckpointManager()
+    let depthLimiter = AgentDepthLimiter()
+
     // MARK: - Planning
     private(set) var planningService: OmegaPlanningService?
 
@@ -50,6 +56,11 @@ final class OrchestratorState {
 
     /// Register all specialist agents and wire the planning service.
     /// Called by AppBootstrap after services are created.
+    // MARK: - Hybrid Action Space (Ω-HAS)
+    let hybridRouter = HybridRouter()
+    let fallbackResolver = FallbackChainResolver()
+    let executionContext = ExecutionContext()
+
     func registerAgents(
         vaultURL: URL?,
         modelContainer: ModelContainer?,
@@ -57,7 +68,9 @@ final class OrchestratorState {
         vaultSync: VaultSyncService? = nil,
         mcpBridge: MCPBridge? = nil,
         constrainedDecoding: ConstrainedDecodingService? = nil,
-        agentGraphMemory: AgentGraphMemory? = nil
+        agentGraphMemory: AgentGraphMemory? = nil,
+        screenCapture: ScreenCaptureService? = nil,
+        perception: Screen2AXFusion? = nil
     ) {
         self.mcpBridge = mcpBridge
         self.agentGraphMemory = agentGraphMemory
@@ -75,6 +88,12 @@ final class OrchestratorState {
             safariAgent.name: safariAgent,
             automationAgent.name: automationAgent,
         ]
+
+        // Register GhostComputerAgent when screen capture is available (Ω-HAS)
+        if let sc = screenCapture {
+            let computerAgent = GhostComputerAgent(screenCapture: sc, perception: perception)
+            agents[computerAgent.name] = computerAgent
+        }
 
         // Wire planning service if TriageService is available
         if let triage = triageService {
@@ -155,6 +174,15 @@ final class OrchestratorState {
     func executePlan() async {
         isExecuting = true
         taskGraph.status = .executing
+        loopDetector.reset()
+        depthLimiter.reset()
+
+        // Begin checkpoint for crash recovery
+        let planId = UUID().uuidString
+        let stepInfos = taskGraph.steps.map { (id: $0.id.uuidString, description: $0.description, toolName: $0.toolName) }
+        if !stepInfos.isEmpty {
+            checkpointManager.begin(planId: planId, objective: currentTaskDescription, steps: stepInfos)
+        }
 
         while !taskGraph.isComplete && !taskGraph.hasFailed {
             let ready = taskGraph.readySteps()
@@ -184,9 +212,15 @@ final class OrchestratorState {
                     taskGraph.status = .executing
                 }
 
-                // Find the assigned agent
-                guard let agent = agents[step.assignedAgent] else {
-                    let message = "Agent '\(step.assignedAgent)' not found"
+                // Inject dependency outputs + execution context into step arguments
+                let enrichedStep = contextualizedStep(step)
+
+                // HybridRouter: re-route to optimal arm (CLI vs GUI) if needed (Ω-HAS)
+                let routedStep = hybridRouter.rerouteIfNeeded(enrichedStep)
+
+                // Find the assigned agent (possibly re-routed)
+                guard let agent = agents[routedStep.assignedAgent] else {
+                    let message = "Agent '\(routedStep.assignedAgent)' not found"
                     let result = AgentStepResult.fail(
                         message,
                         stepId: step.id, durationMs: 0
@@ -195,9 +229,6 @@ final class OrchestratorState {
                     liveRuntime.markFailure(message)
                     continue
                 }
-
-                // Inject dependency outputs into step arguments for chaining
-                let enrichedStep = contextualizedStep(step)
 
                 // Execute with retry logic (reads max from Settings → Omega, exponential backoff 0.2s base)
                 let storedMaxRetries = UserDefaults.standard.integer(forKey: "omega.maxRetries")
@@ -215,15 +246,51 @@ final class OrchestratorState {
                         label: "pre_\(step.toolName)")
                     : nil
 
+                // Depth guard: push before execution, pop after
+                if !depthLimiter.push(agentId: step.assignedAgent) {
+                    let message = "Delegation blocked: depth limit exceeded for \(step.assignedAgent)"
+                    let result = AgentStepResult.fail(message, stepId: step.id, durationMs: 0)
+                    recordAndLog(result, step: step)
+                    liveRuntime.markFailure(message)
+                    taskGraph.status = .failed
+                    break
+                }
+
+                var lastFailedResult: AgentStepResult?
                 for attempt in 0..<maxRetries {
                     if attempt == 0 {
-                        liveRuntime.markExecuting(step: enrichedStep)
+                        liveRuntime.markExecuting(step: routedStep)
+                        checkpointManager.markRunning(stepId: step.id.uuidString)
                     }
 
                     do {
-                        let result = try await agent.execute(step: enrichedStep)
+                        let result = try await agent.execute(step: routedStep)
 
                         if result.success {
+                            // Check for execution loops before proceeding
+                            if let loopDetection = loopDetector.record(
+                                toolName: step.toolName,
+                                argumentsJson: step.argumentsJson,
+                                outputJson: result.outputJson
+                            ) {
+                                let loopResult = AgentStepResult.fail(
+                                    "Execution aborted: \(loopDetection.message)",
+                                    stepId: step.id,
+                                    durationMs: result.durationMs
+                                )
+                                recordAndLog(loopResult, step: step)
+                                liveRuntime.markFailure(loopDetection.message)
+                                taskGraph.status = .failed
+                                break
+                            }
+
+                            // Update checkpoint
+                            checkpointManager.markCompleted(
+                                stepId: step.id.uuidString,
+                                outputJson: result.outputJson,
+                                tokensUsed: 0
+                            )
+
                             // Capture post-action AX snapshot (150ms settle per training guide)
                             if let preSnap = preCaptureSnapshot {
                                 try? await Task.sleep(for: .milliseconds(150))
@@ -247,6 +314,9 @@ final class OrchestratorState {
 
                             recordAndLog(result, step: step)
                             liveRuntime.markStepResult(result, step: step)
+
+                            // Update cross-agent execution context (Ω-HAS)
+                            executionContext.update(from: result, step: routedStep)
 
                             // Update research confidence tracking
                             researchOrchestrator.processResult(
@@ -279,19 +349,48 @@ final class OrchestratorState {
                         if attempt < maxRetries - 1 {
                             try? await Task.sleep(for: .milliseconds(baseDelayMs * UInt64(1 << attempt)))
                         } else {
-                            recordAndLog(result, step: step)
-                            liveRuntime.markFailure(result.error ?? "Step failed")
+                            lastFailedResult = result
                         }
                     } catch {
                         let result = AgentStepResult.fail(error.localizedDescription, stepId: step.id, durationMs: 0)
                         if attempt == maxRetries - 1 {
-                            recordAndLog(result, step: step)
-                            liveRuntime.markFailure(error.localizedDescription)
+                            lastFailedResult = result
                         } else {
                             try? await Task.sleep(for: .milliseconds(baseDelayMs * UInt64(1 << attempt)))
                         }
                     }
                 }
+
+                // Fallback chain: if all retries exhausted, try alternate arm (Ω-HAS)
+                if let failedResult = lastFailedResult {
+                    var fallbackSucceeded = false
+                    if let fallback = fallbackResolver.resolveFallback(
+                        failedStep: routedStep,
+                        failedResult: failedResult
+                    ), let fallbackAgent = agents[fallback.agent] {
+                        let fallbackStep = AgentStep(
+                            id: step.id,
+                            description: "\(step.description) [FALLBACK via \(fallback.agent)/\(fallback.toolName)]",
+                            assignedAgent: fallback.agent,
+                            toolName: fallback.toolName,
+                            argumentsJson: fallback.argumentsJson,
+                            riskLevel: step.riskLevel,
+                            dependsOn: step.dependsOn
+                        )
+                        if let fbResult = try? await fallbackAgent.execute(step: fallbackStep),
+                           fbResult.success {
+                            recordAndLog(fbResult, step: fallbackStep)
+                            liveRuntime.markStepResult(fbResult, step: fallbackStep)
+                            executionContext.update(from: fbResult, step: fallbackStep)
+                            fallbackSucceeded = true
+                        }
+                    }
+                    if !fallbackSucceeded {
+                        recordAndLog(failedResult, step: step)
+                        liveRuntime.markFailure(failedResult.error ?? "Step failed")
+                    }
+                }
+                depthLimiter.pop()
             }
         }
 
@@ -300,8 +399,11 @@ final class OrchestratorState {
         if taskGraph.hasFailed {
             let failure = executionLog.last(where: { !$0.success })?.error ?? "Execution failed"
             liveRuntime.markFailure(failure)
+            // Keep checkpoint on failure so user can resume
         } else if taskGraph.isComplete {
             liveRuntime.markComplete("Execution complete")
+            // Clean up checkpoint on success
+            checkpointManager.finalize()
         }
 
         // Record to knowledge graph (Ω14)
@@ -428,6 +530,7 @@ final class OrchestratorState {
             args = parsed
         }
         args["_context"] = depOutputs
+        args["_execution_context"] = executionContext.toJson()
 
         guard let enrichedData = try? JSONSerialization.data(withJSONObject: args),
               let enrichedJson = String(data: enrichedData, encoding: .utf8) else {
@@ -487,6 +590,7 @@ final class OrchestratorState {
         taskGraph.reset()
         pendingTrajectorySteps.removeAll()
         liveRuntime.reset()
+        executionContext.reset()
     }
 
     // MARK: - Target PID Resolution

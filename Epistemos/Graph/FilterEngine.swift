@@ -20,6 +20,14 @@ final class FilterEngine {
     /// The set of node IDs connected to the focused node (including itself).
     private(set) var focusedConnected: Set<String>?
 
+    // MARK: - Model Profile Filter (v2)
+
+    /// When set, only nodes associated with this model profile's vault are shown.
+    var selectedModelProfileId: String?
+
+    /// The vault identity key to filter by (set when a model profile is activated).
+    var selectedVaultFilter: String?
+
     // MARK: - Computed
 
     /// True if any filter is active (not all types shown, or focused).
@@ -27,6 +35,7 @@ final class FilterEngine {
         activeNodeTypes.count != GraphNodeType.visibleCases.count
             || activeEdgeTypes.count != GraphEdgeType.allCases.count
             || focusedNodeId != nil
+            || selectedModelProfileId != nil
     }
 
     // MARK: - Type Filter Methods
@@ -71,6 +80,20 @@ final class FilterEngine {
     func clearFocus() {
         focusedNodeId = nil
         focusedConnected = nil
+    }
+
+    // MARK: - Model Profile Filter (v2)
+
+    /// Scope the graph to a specific model profile's vault.
+    func setModelFilter(profileId: String?, vaultKey: String?) {
+        selectedModelProfileId = profileId
+        selectedVaultFilter = vaultKey
+    }
+
+    /// Clear model profile filter (show all nodes).
+    func clearModelFilter() {
+        selectedModelProfileId = nil
+        selectedVaultFilter = nil
     }
 
     // MARK: - Visibility Checks

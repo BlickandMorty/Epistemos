@@ -266,8 +266,17 @@ final class KnowledgeFusionViewModel {
                 toolPath: synthResult.trainingFiles[.tool]
             )
 
-            // Use the first available training file
-            guard let (_, dataURL) = synthResult.trainingFiles.first else {
+            // Prefer the composed, IFD-filtered, CAMPUS-sorted training file if it exists.
+            // Falls back to the first available raw synthesis output otherwise.
+            let composedPath = Bundle.main.bundleURL
+                .deletingLastPathComponent()
+                .appendingPathComponent("Epistemos/KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl")
+            let dataURL: URL
+            if FileManager.default.fileExists(atPath: composedPath.path) {
+                dataURL = composedPath
+            } else if let (_, firstFile) = synthResult.trainingFiles.first {
+                dataURL = firstFile
+            } else {
                 lastTrainingError = "No training data files produced"
                 trainingState = .error
                 return

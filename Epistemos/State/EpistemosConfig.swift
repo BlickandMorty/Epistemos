@@ -21,6 +21,7 @@ final class EpistemosConfig {
     @ObservationIgnored @AppStorage("nightbrain.enabled") var nightBrainEnabled = true
     @ObservationIgnored @AppStorage("nightbrain.requiresAC") var nightBrainRequiresAC = true
     @ObservationIgnored @AppStorage("nightbrain.minIdleSeconds") var nightBrainMinIdleSeconds = 300.0
+    @ObservationIgnored @AppStorage("nightbrain.menuBarAgent") var nightBrainMenuBarAgent = false
 
     // MARK: - Allowlist / Blocklist Helpers
 

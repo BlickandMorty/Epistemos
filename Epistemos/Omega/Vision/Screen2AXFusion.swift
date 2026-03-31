@@ -243,6 +243,52 @@ final class Screen2AXFusion {
         return elements.filter { $0["is_interactive"] as? Bool == true }.count
     }
 
+    /// Strip non-interactive and invisible elements from the AX tree JSON.
+    /// Returns a compact JSON with only actionable, visible elements (buttons,
+    /// links, text fields, checkboxes, menus) — typically 5-20x smaller than
+    /// the raw tree, preventing LLM context blowout.
+    ///
+    /// Also strips interactive elements that have no title, description, or
+    /// value — these are invisible spacers/containers that the LLM cannot
+    /// meaningfully target and that waste context tokens.
+    static func filterToInteractive(_ json: String) -> String {
+        guard let data = json.data(using: .utf8),
+              var tree = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let elements = tree["elements"] as? [[String: Any]] else {
+            return json
+        }
+        let interactive = elements.filter { elem in
+            guard elem["is_interactive"] as? Bool == true else { return false }
+
+            // Strip elements with no identifying text — the LLM can't target
+            // an element it can't name, and these are typically invisible
+            // spacers or containers marked interactive by role alone.
+            let title = elem["title"] as? String ?? ""
+            let desc = elem["description"] as? String ?? ""
+            let value = elem["value"] as? String ?? ""
+            let hasIdentity = !title.isEmpty || !desc.isEmpty || !value.isEmpty
+            guard hasIdentity else { return false }
+
+            // Strip offscreen elements (negative position or zero size)
+            // which are hidden but still in the AX tree.
+            if let w = elem["size_width"] as? Double,
+               let h = elem["size_height"] as? Double,
+               w <= 0 || h <= 0 {
+                return false
+            }
+
+            return true
+        }
+        tree["elements"] = interactive
+        tree["element_count"] = interactive.count
+        tree["filtered"] = true
+        guard let output = try? JSONSerialization.data(withJSONObject: tree),
+              let result = String(data: output, encoding: .utf8) else {
+            return json
+        }
+        return result
+    }
+
     private func pidForAppName(_ name: String) -> Int32? {
         let apps = NSWorkspace.shared.runningApplications
         let lowerName = name.lowercased()

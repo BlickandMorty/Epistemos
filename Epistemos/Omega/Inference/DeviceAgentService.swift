@@ -112,9 +112,12 @@ final class DeviceAgentService {
     // MARK: - Prompt Construction
 
     private static func buildResolvePrompt(axTree: String, intent: String) -> String {
-        """
-        AX Tree (JSON):
-        \(axTree.prefix(4000))
+        // Filter to interactive-only elements to prevent context blowout.
+        // A raw AX tree from Safari can be 15,000+ lines; filtered is ~200.
+        let filtered = Screen2AXFusion.filterToInteractive(axTree)
+        return """
+        AX Tree (interactive elements only):
+        \(filtered.prefix(8000))
 
         User intent: \(intent)
 

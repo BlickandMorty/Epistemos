@@ -1,8 +1,11 @@
 import Foundation
 import Observation
+import os
 
 @MainActor @Observable
 final class AgentViewModel {
+    private static let log = Logger(subsystem: "com.epistemos.agent", category: "AgentViewModel")
+
     var phase: AgentPhase = .idle
     var thinkingText = ""
     var responseText = ""
@@ -26,8 +29,26 @@ final class AgentViewModel {
     private var activeContinuation: AsyncStream<AgentStreamEvent>.Continuation?
     private var installedBridgeHandler = false
     private var lastSubmittedPrompt = ""
+    private var lastProviderName = "claude_sonnet"
     var adminViewModel: HermesAdminViewModel?
     private(set) var localInferencePort: Int?
+
+    /// MCP server exposing native Swift tools to Hermes (vault, AX, screen).
+    private var mcpServer: EpistemosMCPServer?
+    /// MCP client for calling Hermes tools from Swift side.
+    private var mcpClient: HermesMCPClient?
+    /// Cron keepalive task — periodically tells bridge to tick the scheduler.
+    private var cronKeepaliveTask: Task<Void, Never>?
+    /// Context budget tracking — triggers compaction when context grows too large.
+    let contextBudget = ContextBudgetManager()
+    /// Loop detection for Hermes agent tool calls (mirrors OrchestratorState's detector).
+    private let hermesLoopDetector = ToolLoopDetector()
+    /// Depth limiting for Hermes delegate/subagent calls.
+    private let hermesDepthLimiter = AgentDepthLimiter()
+    /// Cost tracking in micro-dollars for the current session.
+    let costTracker = CostTracker()
+    /// Shadow git checkpoints for file-mutating tool calls.
+    private let shadowCheckpoint = ShadowGitCheckpoint()
 
     init(
         hermesManager: HermesSubprocessManager? = nil,
@@ -65,6 +86,7 @@ final class AgentViewModel {
     func send(prompt: String, providerName: String = "claude_sonnet") {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        lastProviderName = providerName
 
         if isRunning {
             stop()
@@ -392,9 +414,25 @@ final class AgentViewModel {
 
     private func connectIfNeeded() async throws {
         if !installedBridgeHandler {
+            // Initialize MCP server so Hermes can call back into Swift.
+            let server = EpistemosMCPServer(subprocessManager: hermesManager)
+            registerVaultTools(on: server)
+            registerSkillDiscoveryTools(on: server)
+            // Start HTTP transport for large payloads (>50KB)
+            _ = server.startHttpTransport()
+            mcpServer = server
+
+            // Initialize MCP client so Swift can call Hermes tools.
+            let client = HermesMCPClient(subprocessManager: hermesManager)
+            mcpClient = client
+
             hermesManager.setRequestHandler { [weak self] line in
-                Task { @MainActor [weak self] in
-                    self?.handleHermesBridgeLine(line)
+                // Parse JSON off the main thread to avoid beachball on large payloads
+                Task.detached { [weak self] in
+                    let parsed = Self.parseBridgeLine(line)
+                    await MainActor.run { [weak self] in
+                        self?.routeParsedBridgeLine(line, parsed: parsed)
+                    }
                 }
             }
             installedBridgeHandler = true
@@ -402,6 +440,349 @@ final class AgentViewModel {
 
         if !hermesManager.isRunning {
             try await hermesManager.launch()
+            startCronKeepalive()
+        }
+    }
+
+    /// Parse a bridge line's JSON on any thread (nonisolated).
+    /// Heavy JSON deserialization happens here — never on @MainActor.
+    nonisolated private static func parseBridgeLine(_ line: String) -> [String: Any]? {
+        guard let data = line.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    /// Routes a pre-parsed bridge line to the right handler (on @MainActor).
+    /// - JSON-RPC requests (have "method") → MCP server
+    /// - JSON-RPC responses (have "result"/"error" + "id") → MCP client
+    /// - Bridge events (have "type") → regular event handler
+    private func routeParsedBridgeLine(_ line: String, parsed: [String: Any]?) {
+        guard let raw = parsed else {
+            handleHermesBridgeLine(line)
+            return
+        }
+
+        // JSON-RPC request from Hermes → MCP server
+        if raw["method"] is String, raw["type"] == nil {
+            mcpServer?.handleRequestLine(line)
+            return
+        }
+
+        // JSON-RPC response to our MCP client request
+        if (raw["result"] != nil || raw["error"] != nil),
+           raw["id"] != nil,
+           raw["type"] == nil {
+            mcpClient?.handleIncomingLine(line)
+            return
+        }
+
+        // Regular bridge event
+        handleHermesBridgeLine(line)
+    }
+
+    // MARK: - MCP Vault Tools
+
+    /// Register native vault tools on the MCP server so Hermes can search/read notes.
+    private func registerVaultTools(on server: EpistemosMCPServer) {
+        // Capture vault path on MainActor so handlers can use it off-actor.
+        let vaultPath = AgentRuntimeDefaults.vaultPath
+        server.registerTool(
+            name: "vault_search",
+            description: "Search the Epistemos vault for notes matching a query. Returns titles and paths.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "query": .dictionary([
+                        "type": .string("string"),
+                        "description": .string("Search query"),
+                    ]),
+                    "limit": .dictionary([
+                        "type": .string("integer"),
+                        "description": .string("Max results (default 10)"),
+                    ]),
+                ]),
+                "required": .array([.string("query")]),
+            ],
+            handler: { [weak self] _ in
+                // Schema registered; dispatch handled via tool: prefix below
+                return .success(.null)
+            }
+        )
+        server.registerToolHandler(name: "vault_search") { params in
+            let query: String
+            let limit: Int
+            if case .dictionary(let dict) = params {
+                query = dict["query"].flatMap { if case .string(let s) = $0 { return s } else { return nil } } ?? ""
+                limit = dict["limit"].flatMap { if case .int(let n) = $0 { return n } else { return nil } } ?? 10
+            } else {
+                query = ""
+                limit = 10
+            }
+            guard !query.isEmpty else {
+                return .error(code: -32602, message: "Missing 'query' parameter")
+            }
+
+            // vaultPath captured at registration time above
+            var results = searchVaultFiles(query: query, vaultPath: vaultPath, limit: limit)
+            // Threat scan + sanitize + redact before sending to Hermes context
+            results = results.compactMap { item in
+                guard case .string(let s) = item else { return item }
+                let scan = MemoryThreatScanner.scan(s)
+                if scan.level == .blocked {
+                    return nil  // Drop blocked content entirely
+                }
+                var sanitized = MemoryThreatScanner.sanitize(s)
+                sanitized = CredentialRedactor.redact(sanitized)
+                return .string(sanitized)
+            }
+            // U-curve reorder: place highest-relevance items at head + tail of context
+            results = ContextCompiler.uCurveOrder(results)
+            return .success(.array(results))
+        }
+
+        server.registerTool(
+            name: "vault_read",
+            description: "Read the full content of a note by its vault-relative path.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "path": .dictionary([
+                        "type": .string("string"),
+                        "description": .string("Vault-relative path to the note"),
+                    ]),
+                ]),
+                "required": .array([.string("path")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "vault_read") { params in
+            let notePath: String
+            if case .dictionary(let dict) = params,
+               case .string(let p) = dict["path"] {
+                notePath = p
+            } else {
+                return .error(code: -32602, message: "Missing 'path' parameter")
+            }
+
+            let fullPath = (vaultPath as NSString).appendingPathComponent(notePath)
+            guard FileManager.default.fileExists(atPath: fullPath) else {
+                return .error(code: -32602, message: "Note not found: \(notePath)")
+            }
+            do {
+                var content = try String(contentsOfFile: fullPath, encoding: .utf8)
+                // Clamp to 16K chars to prevent context blowout
+                if content.count > 16_384 {
+                    let half = 8_000
+                    let truncated = content.count - 16_384
+                    content = String(content.prefix(half))
+                        + "\n\n[... \(truncated) chars truncated ...]\n\n"
+                        + String(content.suffix(half))
+                }
+                // Threat scan + sanitize + redact before sending to Hermes context
+                let scan = MemoryThreatScanner.scan(content)
+                if scan.level == .blocked {
+                    return .error(code: -32600, message: "Note blocked: contains prompt injection patterns")
+                }
+                content = MemoryThreatScanner.sanitize(content)
+                content = CredentialRedactor.redact(content)
+                return .success(.string(content))
+            } catch {
+                return .error(code: -32603, message: "Failed to read note: \(error.localizedDescription)")
+            }
+        }
+
+        server.registerTool(
+            name: "vault_list",
+            description: "List note files in the vault, optionally under a path prefix.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "prefix": .dictionary([
+                        "type": .string("string"),
+                        "description": .string("Path prefix to filter (e.g. 'projects/')"),
+                    ]),
+                    "limit": .dictionary([
+                        "type": .string("integer"),
+                        "description": .string("Max files to return (default 50)"),
+                    ]),
+                ]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "vault_list") { params in
+            let prefix: String
+            let limit: Int
+            if case .dictionary(let dict) = params {
+                prefix = dict["prefix"].flatMap { if case .string(let s) = $0 { return s } else { return nil } } ?? ""
+                limit = dict["limit"].flatMap { if case .int(let n) = $0 { return n } else { return nil } } ?? 50
+            } else {
+                prefix = ""
+                limit = 50
+            }
+
+            let searchDir = prefix.isEmpty
+                ? vaultPath
+                : (vaultPath as NSString).appendingPathComponent(prefix)
+
+            guard let enumerator = FileManager.default.enumerator(
+                at: URL(fileURLWithPath: searchDir),
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            ) else {
+                return .success(.array([]))
+            }
+
+            var files: [AnyCodableValue] = []
+            while let url = enumerator.nextObject() as? URL, files.count < limit {
+                guard url.pathExtension == "md" else { continue }
+                let relative = url.path.replacingOccurrences(of: vaultPath + "/", with: "")
+                files.append(.string(relative))
+            }
+            return .success(.array(files))
+        }
+    }
+
+    // MARK: - Native Skill Store (Progressive Disclosure)
+
+    /// Register skill discovery tools so Hermes can progressively discover
+    /// native tools without dumping all 85+ schemas into the prompt.
+    /// Level 0: skill_discover → MMR-scored name+description summaries
+    /// Level 1: skill_schema → full JSON schema for a specific tool
+    private func registerSkillDiscoveryTools(on server: EpistemosMCPServer) {
+        server.registerTool(
+            name: "skill_discover",
+            description: "Search for available native Epistemos tools by intent. Returns name + description summaries (Level 0). Use skill_schema to get the full schema for a specific tool.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "query": .dictionary([
+                        "type": .string("string"),
+                        "description": .string("What you want to do (e.g. 'search notes', 'browse web', 'edit file')"),
+                    ]),
+                    "limit": .dictionary([
+                        "type": .string("integer"),
+                        "description": .string("Max tools to return (default 5)"),
+                    ]),
+                ]),
+                "required": .array([.string("query")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "skill_discover") { params in
+            let query: String
+            let limit: Int
+            if case .dictionary(let dict) = params {
+                query = dict["query"].flatMap { if case .string(let s) = $0 { return s } else { return nil } } ?? ""
+                limit = dict["limit"].flatMap { if case .int(let n) = $0 { return n } else { return nil } } ?? 5
+            } else {
+                return .error(code: -32602, message: "Missing query")
+            }
+            guard !query.isEmpty else {
+                return .error(code: -32602, message: "Empty query")
+            }
+
+            let allTools = OmegaToolRegistry.all
+            // Build scored items for MMR reranking
+            let scored = allTools.map { tool in
+                // Simple relevance: how many query terms appear in name+description
+                let text = "\(tool.name) \(tool.description)".lowercased()
+                let terms = query.lowercased().split(separator: " ")
+                let matchCount = terms.filter { text.contains($0) }.count
+                let relevance = Double(matchCount) / max(1.0, Double(terms.count))
+
+                return MMRReranker.ScoredItem(
+                    item: tool,
+                    relevanceScore: relevance,
+                    textForDiversity: text
+                )
+            }.filter { $0.relevanceScore > 0 }
+
+            // If no keyword matches, fall back to returning all tools sorted by name
+            let results: [OmegaToolDefinition]
+            if scored.isEmpty {
+                results = Array(allTools.prefix(limit))
+            } else {
+                let reranked = MMRReranker.rerank(
+                    items: scored,
+                    query: query,
+                    limit: limit,
+                    lambda: 0.7
+                )
+                results = reranked.map { $0.item }
+            }
+
+            // Level 0: name + agent + description only (no schema)
+            let summaries: [AnyCodableValue] = results.map { tool in
+                .dictionary([
+                    "name": .string(tool.name),
+                    "agent": .string(tool.agent),
+                    "description": .string(tool.description),
+                    "destructive": .bool(tool.destructive),
+                ])
+            }
+            return .success(.dictionary([
+                "tools": .array(summaries),
+                "total_available": .int(allTools.count),
+                "hint": .string("Use skill_schema(name) to get the full input schema for a tool."),
+            ]))
+        }
+
+        server.registerTool(
+            name: "skill_schema",
+            description: "Get the full JSON input schema for a specific native tool. Call skill_discover first to find tool names.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "name": .dictionary([
+                        "type": .string("string"),
+                        "description": .string("Tool name from skill_discover results"),
+                    ]),
+                ]),
+                "required": .array([.string("name")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "skill_schema") { params in
+            let toolName: String
+            if case .dictionary(let dict) = params,
+               case .string(let n) = dict["name"] {
+                toolName = n
+            } else {
+                return .error(code: -32602, message: "Missing 'name' parameter")
+            }
+
+            guard let tool = OmegaToolRegistry.all.first(where: { $0.name == toolName }) else {
+                let available = OmegaToolRegistry.all.map(\.name).joined(separator: ", ")
+                return .error(code: -32602, message: "Unknown tool: \(toolName). Available: \(available)")
+            }
+
+            return .success(.dictionary([
+                "name": .string(tool.name),
+                "agent": .string(tool.agent),
+                "description": .string(tool.description),
+                "inputSchema": .string(tool.schemaJson),
+                "argumentsExample": .string(tool.argumentsExample),
+                "destructive": .bool(tool.destructive),
+                "requiresConfirmation": .bool(tool.requiresConfirmation),
+            ]))
+        }
+    }
+
+    // MARK: - Cron Keepalive
+
+    private func startCronKeepalive() {
+        cronKeepaliveTask?.cancel()
+        cronKeepaliveTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled, let self else { break }
+                guard self.hermesManager.isRunning else { break }
+                // Tick the cron scheduler in the Python subprocess
+                self.sendHermesCommand([
+                    "command": "admin",
+                    "domain": "cron",
+                    "action": "tick",
+                ], handlesRuntimeFailure: false)
+            }
         }
     }
 
@@ -409,13 +790,12 @@ final class AgentViewModel {
         guard let data = line.data(using: .utf8),
               let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = payload["type"] as? String else {
-            if let activeContinuation {
-                activeContinuation.yield(.error(AgentRuntimeError(message: "Invalid Hermes bridge event")))
-                activeContinuation.finish()
-                self.activeContinuation = nil
-            } else {
-                handleError("Invalid Hermes bridge event")
-            }
+            // Non-JSON lines (Python warnings, library output, debug prints)
+            // are NOT fatal — log and ignore. The stdout guard in
+            // epistemos_bridge.py should prevent most of these, but if any
+            // leak through, crashing the session is disproportionate.
+            let preview = String(line.prefix(120))
+            Self.log.warning("Ignoring non-JSON bridge line: \(preview, privacy: .public)")
             return
         }
 
@@ -430,6 +810,9 @@ final class AgentViewModel {
                 localInferencePort = port
             }
             requestSessionList()
+            // Auto-refresh all admin state so MCP servers, cron, skills, and
+            // config are populated immediately when the bridge connects.
+            adminViewModel?.refreshAll()
 
         case "inference_request":
             handleInferenceRequest(payload)
@@ -487,12 +870,59 @@ final class AgentViewModel {
             let name = payload["name"] as? String ?? "tool"
             let inputJSON = payload["input_json"] as? String ?? "{}"
             awaitingPrompt = false
+
+            // Depth limiter: track delegate/subagent tool invocations
+            if name.contains("delegate") || name.contains("subagent") {
+                if !hermesDepthLimiter.push(agentId: id) {
+                    sendHermesCommand([
+                        "command": "interrupt",
+                        "message": "Agent depth limit exceeded (\(hermesDepthLimiter.maxDepth)). Stopping to prevent runaway delegation.",
+                    ])
+                    activeContinuation?.yield(.error(AgentRuntimeError(
+                        message: "Subagent depth limit (\(hermesDepthLimiter.maxDepth)) exceeded"
+                    )))
+                    return
+                }
+            }
+
+            // Shadow git checkpoint for file-mutating tools
+            if name.contains("write") || name.contains("patch") || name.contains("edit") || name.contains("delete") {
+                if let inputData = inputJSON.data(using: .utf8),
+                   let inputDict = try? JSONSerialization.jsonObject(with: inputData) as? [String: Any],
+                   let filePath = inputDict["path"] as? String ?? inputDict["file_path"] as? String {
+                    Task { await shadowCheckpoint.checkpoint(filePath: filePath, message: "\(name): \(filePath)") }
+                }
+            }
+
             activeContinuation?.yield(.toolStarted(id: id, name: name, inputJson: inputJSON))
 
         case "tool_completed":
             let id = payload["id"] as? String ?? UUID().uuidString
+            let name = payload["name"] as? String ?? "tool"
             let result = payload["result"] as? String ?? ""
             let isError = payload["is_error"] as? Bool ?? false
+
+            // Depth limiter: pop when delegate/subagent tool completes
+            if name.contains("delegate") || name.contains("subagent") {
+                hermesDepthLimiter.pop()
+            }
+
+            // Loop detection: record every tool completion and interrupt on loop
+            if let loop = hermesLoopDetector.record(
+                toolName: name,
+                argumentsJson: payload["input_json"] as? String ?? "{}",
+                outputJson: result
+            ) {
+                sendHermesCommand([
+                    "command": "interrupt",
+                    "message": "Loop detected: \(loop.message)",
+                ])
+                activeContinuation?.yield(.error(AgentRuntimeError(
+                    message: "Tool loop detected: \(loop.message)"
+                )))
+                return
+            }
+
             activeContinuation?.yield(.toolCompleted(id: id, result: result, isError: isError))
 
         case "permission_required":
@@ -510,6 +940,22 @@ final class AgentViewModel {
             let inputTokens = payload["input_tokens"] as? Int ?? 0
             let outputTokens = payload["output_tokens"] as? Int ?? 0
             let history = parseSessionHistory(from: payload["history"])
+
+            // Track cost in micro-dollars
+            let model = payload["model"] as? String ?? lastProviderName
+            costTracker.recordTurn(model: model, inputTokens: inputTokens, outputTokens: outputTokens)
+
+            // Track token budget and auto-compact if context is getting large
+            contextBudget.recordTurn(inputTokens: inputTokens, outputTokens: outputTokens)
+            if contextBudget.shouldCompact {
+                // Tell Hermes to compress its context window
+                sendHermesCommand([
+                    "command": "admin",
+                    "domain": "config",
+                    "action": "compact",
+                ], handlesRuntimeFailure: false)
+            }
+
             activeContinuation?.yield(
                 .complete(
                     stopReason: stopReason,
@@ -524,7 +970,15 @@ final class AgentViewModel {
 
         case "error":
             let message = payload["message"] as? String ?? "Hermes bridge error"
-            if let activeContinuation {
+            let recoverable = payload["recoverable"] as? Bool ?? false
+
+            if recoverable, let activeContinuation {
+                // Recoverable error (e.g. tool failure, API retry) — yield the
+                // error as a content block but keep the session alive so the
+                // model can attempt recovery on its next turn.
+                activeContinuation.yield(.textDelta("\n[Error: \(message)]\n"))
+            } else if let activeContinuation {
+                // Fatal bridge error — tear down the session.
                 activeContinuation.yield(.error(AgentRuntimeError(message: message)))
                 activeContinuation.finish()
                 self.activeContinuation = nil
@@ -651,6 +1105,9 @@ final class AgentViewModel {
         awaitingPrompt = false
         isAwaitingApproval = false
         lastSubmittedPrompt = ""
+        hermesLoopDetector.reset()
+        hermesDepthLimiter.reset()
+        costTracker.reset()
     }
 
     private func upsertSession(_ session: AgentSessionSummary) {
@@ -679,9 +1136,14 @@ final class AgentViewModel {
 
     private func parseSessionHistory(from value: Any?) -> [AgentSessionMessage]? {
         guard let rawMessages = value as? [Any] else { return nil }
-        return rawMessages.compactMap { item in
-            guard let payload = item as? [String: Any] else { return nil }
-            return AgentSessionMessage(payload: payload)
+
+        // Repair transcript before parsing: fix orphaned tool_use/tool_result
+        // pairs and duplicate IDs that would corrupt the agent loop.
+        let rawDicts = rawMessages.compactMap { $0 as? [String: Any] }
+        let repaired = TranscriptRepair.repair(messages: rawDicts)
+
+        return repaired.compactMap { payload in
+            AgentSessionMessage(payload: payload)
         }
     }
 
@@ -726,6 +1188,68 @@ final class AgentViewModel {
             }
         }
     }
+}
+
+// MARK: - Vault Search (nonisolated for MCP tool handlers)
+
+/// Simple file-system search: matches query terms against note filenames and content.
+/// Free function so @Sendable MCP tool closures can call it without actor isolation.
+nonisolated private func searchVaultFiles(query: String, vaultPath: String, limit: Int) -> [AnyCodableValue] {
+    let terms = query.lowercased().split(separator: " ").map(String.init)
+    guard !terms.isEmpty else { return [] }
+
+    guard let enumerator = FileManager.default.enumerator(
+        at: URL(fileURLWithPath: vaultPath),
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+
+    struct Match {
+        let path: String
+        let excerpt: String
+        let score: Int
+    }
+
+    var matches: [Match] = []
+    while let url = enumerator.nextObject() as? URL {
+        guard url.pathExtension == "md" else { continue }
+        let relative = url.path.replacingOccurrences(of: vaultPath + "/", with: "")
+        let filename = url.lastPathComponent.lowercased()
+
+        var score = 0
+        for term in terms {
+            if filename.contains(term) { score += 3 }
+        }
+
+        // Quick content scan (first 4KB only for speed)
+        if let handle = try? FileHandle(forReadingFrom: url) {
+            let data = handle.readData(ofLength: 4096)
+            handle.closeFile()
+            if let snippet = String(data: data, encoding: .utf8)?.lowercased() {
+                for term in terms {
+                    if snippet.contains(term) { score += 1 }
+                }
+            }
+        }
+
+        if score > 0 {
+            let excerpt = (try? String(contentsOf: url, encoding: .utf8))?
+                .prefix(200)
+                .replacingOccurrences(of: "\n", with: " ") ?? ""
+            matches.append(Match(path: relative, excerpt: String(excerpt), score: score))
+        }
+    }
+
+    return matches
+        .sorted { $0.score > $1.score }
+        .prefix(limit)
+        .map { match in
+            .dictionary([
+                "path": .string(match.path),
+                "excerpt": .string(match.excerpt),
+                "score": .int(match.score),
+            ])
+        }
 }
 
 enum HermesQuickAction: String, CaseIterable, Identifiable, Sendable {

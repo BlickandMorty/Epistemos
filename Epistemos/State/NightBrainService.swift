@@ -26,12 +26,14 @@ actor NightBrainService {
         case searchIndexPassiveCheckpoint = "search_index_passive_checkpoint"
         case dedupeArtifacts = "dedupe_artifacts"
         case workspaceSnapshotCompaction = "workspace_snapshot_compaction"
+        case memoryDistillation = "memory_distillation"
         case maintenanceLog = "maintenance_log"
     }
 
     private let config: EpistemosConfig
     private let storeProvider: @Sendable () -> EventStore?
     private let searchIndexProvider: @MainActor @Sendable () -> SearchIndexService?
+    private let graphMemoryProvider: @MainActor @Sendable () -> AgentGraphMemory?
     private nonisolated(unsafe) var scheduler: NSBackgroundActivityScheduler?
     private var activityToken: NSObjectProtocol?
     private var currentRunId: Int64?
@@ -39,11 +41,13 @@ actor NightBrainService {
     init(
         config: EpistemosConfig,
         storeProvider: @escaping @Sendable () -> EventStore? = { EventStore.shared },
-        searchIndexProvider: @escaping @MainActor @Sendable () -> SearchIndexService? = { nil }
+        searchIndexProvider: @escaping @MainActor @Sendable () -> SearchIndexService? = { nil },
+        graphMemoryProvider: @escaping @MainActor @Sendable () -> AgentGraphMemory? = { nil }
     ) {
         self.config = config
         self.storeProvider = storeProvider
         self.searchIndexProvider = searchIndexProvider
+        self.graphMemoryProvider = graphMemoryProvider
     }
 
     // MARK: - Config Reads
@@ -201,6 +205,17 @@ actor NightBrainService {
 
         case .workspaceSnapshotCompaction:
             storeProvider()?.compactSnapshots(olderThanDays: 30)
+
+        case .memoryDistillation:
+            let graphMemory = await MainActor.run { graphMemoryProvider() }
+            if let graphMemory {
+                let result = await MainActor.run {
+                    graphMemory.distillMemory()
+                }
+                Self.log.info(
+                    "Memory distillation: decayed \(result.nodesDecayed), GC'd \(result.nodesGarbageCollected) of \(result.totalNodesProcessed)"
+                )
+            }
 
         case .maintenanceLog:
             // No-op: the checkpoint is written by the pipeline loop after every job.

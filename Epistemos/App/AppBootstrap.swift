@@ -419,7 +419,9 @@ final class AppBootstrap {
             triageService: triage,
             vaultSync: vaultSync,
             mcpBridge: mcpBridge,
-            constrainedDecoding: constrainedDecoding
+            constrainedDecoding: constrainedDecoding,
+            screenCapture: screenCapture,
+            perception: screen2AXFusion
         )
 
         // Wire constrained decoding generator (Ω11)

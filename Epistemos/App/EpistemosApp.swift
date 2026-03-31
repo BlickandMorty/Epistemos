@@ -563,6 +563,16 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // Keep the app alive in the background when NightBrain menu bar agent mode is on
+        let menuBarAgent = UserDefaults.standard.bool(forKey: "nightbrain.menuBarAgent")
+        if menuBarAgent {
+            NSApp.setActivationPolicy(.accessory)
+            return false
+        }
+        return false  // macOS default: don't quit on last window close (standard for document apps)
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard showSaveOnQuitDialogEnabled else {
             performTeardown()

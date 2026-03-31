@@ -114,12 +114,32 @@ final class AgentGraphMemory {
     // MARK: - Query Agent Memory
 
     /// Find past agent executions related to a query.
-    /// Uses the graph's fuzzy search to find relevant idea nodes.
+    /// Uses the graph's fuzzy search + MMR reranking for diverse, relevant results.
     func recall(query: String, limit: Int = 10) -> [GraphNodeRecord] {
-        let hits = graphStore.fuzzySearch(query: query, limit: limit)
-        return hits
-            .map { $0.node }
-            .filter { $0.type == .idea }
+        // Fetch 3x candidates so MMR has room to diversify
+        let candidateLimit = min(limit * 3, 50)
+        let hits = graphStore.fuzzySearch(query: query, limit: candidateLimit)
+            .filter { $0.node.type == .idea }
+
+        guard hits.count > limit else {
+            return hits.map(\.node)
+        }
+
+        // MMR rerank: balance relevance (λ=0.7) with diversity
+        let scored = hits.map { hit in
+            MMRReranker.ScoredItem(
+                item: hit.node,
+                relevanceScore: Double(hit.score),
+                textForDiversity: hit.node.label
+            )
+        }
+        let reranked = MMRReranker.rerank(
+            items: scored,
+            query: query,
+            limit: limit,
+            lambda: 0.7
+        )
+        return reranked.map { $0.item }
     }
 
     /// Find all sources cited by a specific execution node.
@@ -242,6 +262,65 @@ final class AgentGraphMemory {
         graphStore.addEdge(edge)
         edgesCreatedThisSession += 1
     }
+
+    // MARK: - Memory Distillation (NightBrain)
+
+    /// Result of a distillation pass — returned for logging.
+    struct DistillationResult: Sendable {
+        let nodesDecayed: Int
+        let nodesGarbageCollected: Int
+        let totalNodesProcessed: Int
+    }
+
+    /// Run Ebbinghaus decay on all agent memory nodes and garbage-collect
+    /// nodes whose strength drops below the threshold.
+    ///
+    /// Matches the Rust Living Vault implementation:
+    /// - `decay_memory_nodes()` — `strength(t) = strength(t₀) × e^(-λ × Δt)`
+    /// - `gc_memory_nodes()` — remove unpinned nodes below threshold
+    ///
+    /// When agent_core UniFFI bindings are available, this should delegate
+    /// to the Rust FFI. For now, the same math runs in Swift.
+    func distillMemory(
+        decayLambda: Double = 0.01,
+        gcThreshold: Double = 0.15
+    ) -> DistillationResult {
+        let now = Date()
+        let allNodes = graphStore.nodes.values.filter { $0.type == .idea || $0.type == .source }
+        var decayedCount = 0
+        var gcIds: [String] = []
+
+        for node in allNodes {
+            let daysSinceUpdate = now.timeIntervalSince(node.updatedAt) / 86400.0
+            guard daysSinceUpdate > 0 else { continue }
+
+            let decayedStrength = node.weight * exp(-decayLambda * daysSinceUpdate)
+            let clampedStrength = max(0, min(1, decayedStrength))
+
+            if !node.isPinned && clampedStrength < gcThreshold {
+                gcIds.append(node.id)
+            } else if clampedStrength != node.weight {
+                var updated = node
+                updated.weight = clampedStrength
+                graphStore.updateNode(updated)
+                decayedCount += 1
+            }
+        }
+
+        // Garbage-collect weak unpinned nodes
+        for id in gcIds {
+            graphStore.removeNode(id)
+        }
+
+        log.info("Distillation: decayed \(decayedCount), GC'd \(gcIds.count) of \(allNodes.count) nodes")
+        return DistillationResult(
+            nodesDecayed: decayedCount,
+            nodesGarbageCollected: gcIds.count,
+            totalNodesProcessed: allNodes.count
+        )
+    }
+
+    // MARK: - Helpers
 
     private func truncateLabel(_ text: String) -> String {
         if text.count <= 80 { return text }
