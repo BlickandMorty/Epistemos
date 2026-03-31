@@ -218,6 +218,13 @@ pub fn pty_active_session_count() -> u32 {
     crate::pty::PtyPool::active_count() as u32
 }
 
+/// Execute a Mixture-of-Agents pool in parallel via Rust's rayon thread pool.
+/// Takes JSON-encoded tasks and config, returns JSON-encoded results with consensus.
+/// Bypasses Python's GIL by running all sub-agent tasks on native threads.
+pub fn moa_execute_pool(tasks_json: String, config_json: String) -> String {
+    crate::moa::moa_execute_pool(&tasks_json, &config_json)
+}
+
 /// Validate that a step's tool is within the agent's allowed toolset.
 /// Returns empty string on success, error message on failure.
 pub fn validate_agent_tool(agent_name: String, tool_name: String) -> String {

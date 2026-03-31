@@ -19,6 +19,7 @@ pub mod catalog;
 pub mod pty;
 pub mod transport;
 pub mod vault;
+pub mod moa;
 
 // Re-export types for UniFFI
 pub use types::{ToolDefinition, ToolResult, ToolCall, ExecutionRecord, SafetyInfo};

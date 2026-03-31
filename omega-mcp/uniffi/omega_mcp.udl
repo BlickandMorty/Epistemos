@@ -81,6 +81,12 @@ namespace omega_mcp {
 
     /// Get active PTY session count.
     u32 pty_active_session_count();
+
+    // ── Mixture-of-Agents (Parallel Rust Pool) ─────────────────────────
+
+    /// Execute N sub-agent tasks in parallel using Rust rayon thread pool.
+    /// Takes JSON-encoded tasks and config, returns JSON with results + consensus.
+    string moa_execute_pool(string tasks_json, string config_json);
 };
 
 // ── MCP Dispatcher (stateful object) ─────────────────────────────────────────
