@@ -391,7 +391,7 @@ pub fn validate_agent_toolset(agents: &[AgentDefinition], step: &TaskStep) -> Re
     Ok(())
 }
 
-/// The 5 specialist agents per the master prompt spec.
+/// The 6 specialist agents per the master prompt spec + Hybrid Action Space.
 pub fn default_agents() -> Vec<AgentDefinition> {
     vec![
         AgentDefinition {
@@ -414,14 +414,20 @@ pub fn default_agents() -> Vec<AgentDefinition> {
         },
         AgentDefinition {
             name: "terminal".to_string(),
-            description: "Shell command execution (allow-listed)".to_string(),
-            tool_names: vec!["run_command"]
+            description: "Shell command execution (ephemeral or persistent PTY)".to_string(),
+            tool_names: vec!["run_command", "run_persistent"]
                 .into_iter().map(String::from).collect(),
         },
         AgentDefinition {
             name: "automation".to_string(),
             description: "Generic macOS automation via AX tree + input simulation".to_string(),
             tool_names: vec!["get_ui_tree", "click_element", "type_text", "press_key", "run_shortcut"]
+                .into_iter().map(String::from).collect(),
+        },
+        AgentDefinition {
+            name: "computer".to_string(),
+            description: "Ghost OS-style macOS computer use via AXorcist accessibility and input simulation".to_string(),
+            tool_names: vec!["see", "click", "type", "scroll", "keys", "screenshot"]
                 .into_iter().map(String::from).collect(),
         },
     ]
@@ -574,11 +580,21 @@ mod tests {
     #[test]
     fn test_default_agents() {
         let agents = default_agents();
-        assert_eq!(agents.len(), 5);
+        assert_eq!(agents.len(), 6);
         assert!(agents.iter().any(|a| a.name == "safari"));
         assert!(agents.iter().any(|a| a.name == "file"));
         assert!(agents.iter().any(|a| a.name == "notes"));
         assert!(agents.iter().any(|a| a.name == "terminal"));
         assert!(agents.iter().any(|a| a.name == "automation"));
+        assert!(agents.iter().any(|a| a.name == "computer"));
+
+        // Verify terminal has both ephemeral and persistent tools
+        let terminal = agents.iter().find(|a| a.name == "terminal").unwrap();
+        assert!(terminal.tool_names.contains(&"run_command".to_string()));
+        assert!(terminal.tool_names.contains(&"run_persistent".to_string()));
+
+        // Verify computer agent has all 6 tools
+        let computer = agents.iter().find(|a| a.name == "computer").unwrap();
+        assert_eq!(computer.tool_names.len(), 6);
     }
 }

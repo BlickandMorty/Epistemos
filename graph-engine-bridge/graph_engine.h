@@ -899,6 +899,20 @@ uint32_t graph_engine_kc_payload_rows(
     uint32_t max_rows
 );
 
+// ── Note Recovery ──────────────────────────────────────────────────────────
+
+/// Detect corruption type in a byte buffer.
+/// Returns a C string: "none", "null_bytes", "bom_marker", "invalid_utf8",
+/// or "truncated_multibyte". Caller must free with recovery_free_string.
+char* recovery_detect(const uint8_t* ptr, uint64_t len);
+
+/// Repair corrupted bytes into valid UTF-8.
+/// Returns a newly allocated C string. Caller must free with recovery_free_string.
+char* recovery_repair(const uint8_t* ptr, uint64_t len);
+
+/// Free a string returned by recovery_detect or recovery_repair.
+void recovery_free_string(char* ptr);
+
 #ifdef __cplusplus
 }
 #endif

@@ -169,6 +169,55 @@ pub fn evaluate_confidence(confidence: f64) -> String {
     }.to_string()
 }
 
+// ── Persistent PTY Exports (Ω-HAS) ────────────────────────────────────────
+
+/// Spawn a persistent PTY shell session.
+/// Returns a JSON with {"pty_id": "..."} on success, or {"error": "..."} on failure.
+pub fn pty_spawn_session(session_id: String, shell: String, initial_dir: String) -> String {
+    let config = crate::pty::PtyConfig {
+        shell: if shell.is_empty() { "/bin/zsh".to_string() } else { shell },
+        initial_dir: if initial_dir.is_empty() { None } else { Some(initial_dir) },
+        cols: 120,
+        rows: 40,
+    };
+    match crate::pty::PtyPool::spawn(&session_id, config) {
+        Ok(pty_id) => serde_json::json!({"pty_id": pty_id}).to_string(),
+        Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
+    }
+}
+
+/// Execute a command in a persistent PTY session.
+/// Returns JSON: {"stdout": "...", "exit_hint": "ok|error(N)|unknown",
+///   "working_dir": "...", "duration_ms": N}
+/// Or: {"error": "..."}
+pub fn pty_execute_command(pty_id: String, command: String, timeout_ms: u64) -> String {
+    let timeout = std::time::Duration::from_millis(timeout_ms.min(120_000));
+    match crate::pty::PtyPool::execute(&pty_id, &command, timeout) {
+        Ok(output) => serde_json::json!({
+            "stdout": output.stdout,
+            "exit_hint": output.exit_hint,
+            "working_dir": output.working_dir,
+            "duration_ms": output.duration_ms,
+        }).to_string(),
+        Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
+    }
+}
+
+/// Close a persistent PTY session.
+pub fn pty_close_session(pty_id: String) {
+    crate::pty::PtyPool::close(&pty_id);
+}
+
+/// Close all PTY sessions for a given session ID (cascade cleanup).
+pub fn pty_close_all(session_id: String) {
+    crate::pty::PtyPool::close_all_for_session(&session_id);
+}
+
+/// Get active PTY session count.
+pub fn pty_active_session_count() -> u32 {
+    crate::pty::PtyPool::active_count() as u32
+}
+
 /// Validate that a step's tool is within the agent's allowed toolset.
 /// Returns empty string on success, error message on failure.
 pub fn validate_agent_tool(agent_name: String, tool_name: String) -> String {

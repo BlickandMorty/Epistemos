@@ -165,9 +165,15 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
         // ── Terminal Agent ────────────────────────────────────────────────
         tool!(
             "run_command", "terminal",
-            "Execute a shell command (allow-listed only)",
+            "Execute a shell command (allow-listed only, ephemeral)",
             r#"{"command": "ls -la"}"#,
             r#"{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}"#
+        ),
+        tool!(
+            "run_persistent", "terminal",
+            "Execute a command in a persistent PTY session. Working directory and environment persist between calls. Supports git, npm, cargo, xcodebuild, and more.",
+            r#"{"command": "git status", "timeout_ms": 30000}"#,
+            r#"{"type":"object","properties":{"command":{"type":"string","description":"Shell command to execute"},"timeout_ms":{"type":"integer","default":30000,"maximum":120000,"description":"Timeout in milliseconds"}},"required":["command"]}"#
         ),
         // ── Automation Agent ──────────────────────────────────────────────
         tool!(

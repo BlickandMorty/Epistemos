@@ -64,6 +64,23 @@ namespace omega_mcp {
 
     /// Evaluate confidence score. Returns action string.
     string evaluate_confidence(double confidence);
+
+    // ── Persistent PTY (Hybrid Action Space) ────────────────────────────
+
+    /// Spawn a persistent PTY session. Returns JSON: {"pty_id": "..."} or {"error": "..."}.
+    string pty_spawn_session(string session_id, string shell, string initial_dir);
+
+    /// Execute a command in a persistent PTY. Returns JSON with stdout, exit_hint, working_dir.
+    string pty_execute_command(string pty_id, string command, u64 timeout_ms);
+
+    /// Close a persistent PTY session.
+    void pty_close_session(string pty_id);
+
+    /// Close all PTY sessions for a given session ID.
+    void pty_close_all(string session_id);
+
+    /// Get active PTY session count.
+    u32 pty_active_session_count();
 };
 
 // ── MCP Dispatcher (stateful object) ─────────────────────────────────────────

@@ -16,6 +16,7 @@ pub mod quality_filter;
 pub mod orchestrator;
 pub mod osascript;
 pub mod catalog;
+pub mod pty;
 pub mod transport;
 pub mod vault;
 

@@ -3,12 +3,15 @@ pub mod bridge;
 pub mod compaction;
 pub mod context_compiler;
 pub mod error;
+pub mod example_bank;
 pub mod prompt_caching;
 pub mod prompts;
 pub mod provider;
+pub mod pty;
 pub mod routing;
 pub mod security;
 pub mod session;
+pub mod skill_router;
 pub mod types;
 pub mod vault_registry;
 

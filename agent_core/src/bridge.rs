@@ -9,6 +9,8 @@ use crate::providers::claude::ClaudeProvider;
 use crate::providers::perplexity::PerplexityProvider;
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
 use crate::session::GlobalSessions;
+use crate::storage::memory_classifier::{classify_memory_operation, MemoryOperation, VaultFact};
+use crate::storage::memory_decay::{batch_decay, collect_garbage, Importance, NodeStrength};
 use crate::storage::vault::VaultStore;
 use crate::tools::registry::ToolRegistry;
 
@@ -306,6 +308,258 @@ pub fn cancel_agent_session(session_id: String) {
 #[uniffi::export]
 pub fn active_session_count() -> u32 {
     GlobalSessions::active_count() as u32
+}
+
+// MARK: - Persistent PTY FFI
+
+#[derive(uniffi::Record)]
+pub struct PtyConfigFFI {
+    pub shell: String,
+    pub initial_dir: Option<String>,
+    pub cols: u16,
+    pub rows: u16,
+}
+
+#[derive(uniffi::Record)]
+pub struct PtyOutputFFI {
+    pub stdout: String,
+    pub exit_hint: String,
+    pub working_dir: String,
+    pub duration_ms: u64,
+}
+
+/// Spawn a persistent PTY shell session tied to the given agent session.
+/// Returns a unique `pty_id` for subsequent `pty_execute` / `pty_close` calls.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn pty_spawn(
+    session_id: String,
+    config: PtyConfigFFI,
+) -> Result<String, AgentErrorFFI> {
+    let pty_config = crate::pty::PtyConfig {
+        shell: config.shell,
+        initial_dir: config.initial_dir,
+        cols: config.cols,
+        rows: config.rows,
+    };
+    tokio::task::spawn_blocking(move || {
+        crate::pty::PtyPool::spawn(&session_id, pty_config)
+    })
+    .await
+    .map_err(|e| AgentErrorFFI::AgentError {
+        message: format!("PTY spawn join error: {e}"),
+    })?
+    .map_err(|e| AgentErrorFFI::AgentError {
+        message: e.to_string(),
+    })
+}
+
+/// Execute a command in a persistent PTY session.
+/// The shell state (working directory, env vars, aliases) persists between calls.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn pty_execute(
+    pty_id: String,
+    command: String,
+    timeout_ms: u64,
+) -> Result<PtyOutputFFI, AgentErrorFFI> {
+    let timeout = std::time::Duration::from_millis(timeout_ms.min(120_000));
+    let output = tokio::task::spawn_blocking(move || {
+        crate::pty::PtyPool::execute(&pty_id, &command, timeout)
+    })
+    .await
+    .map_err(|e| AgentErrorFFI::AgentError {
+        message: format!("PTY execute join error: {e}"),
+    })?
+    .map_err(|e| AgentErrorFFI::AgentError {
+        message: e.to_string(),
+    })?;
+    Ok(PtyOutputFFI {
+        stdout: output.stdout,
+        exit_hint: output.exit_hint,
+        working_dir: output.working_dir,
+        duration_ms: output.duration_ms,
+    })
+}
+
+/// Close a persistent PTY session and terminate its child shell process.
+#[uniffi::export]
+pub fn pty_close(pty_id: String) {
+    crate::pty::PtyPool::close(&pty_id);
+}
+
+/// Get the number of active PTY sessions (diagnostics).
+#[uniffi::export]
+pub fn pty_active_count() -> u32 {
+    crate::pty::PtyPool::active_count() as u32
+}
+
+// MARK: - Living Vault FFI
+
+#[derive(uniffi::Record)]
+pub struct VaultFactFFI {
+    pub file_path: String,
+    pub section: String,
+    pub content: String,
+    pub strength: f64,
+    pub last_accessed_epoch: f64,
+}
+
+#[derive(uniffi::Record)]
+pub struct MemoryOperationFFI {
+    /// One of: "ADD", "UPDATE", "DELETE", "NOOP"
+    pub operation: String,
+    pub target_file: Option<String>,
+    pub target_section: Option<String>,
+    pub reason: Option<String>,
+}
+
+impl From<MemoryOperation> for MemoryOperationFFI {
+    fn from(op: MemoryOperation) -> Self {
+        match op {
+            MemoryOperation::Add => MemoryOperationFFI {
+                operation: "ADD".to_string(),
+                target_file: None,
+                target_section: None,
+                reason: None,
+            },
+            MemoryOperation::Update {
+                target_file,
+                target_section,
+            } => MemoryOperationFFI {
+                operation: "UPDATE".to_string(),
+                target_file: Some(target_file),
+                target_section: Some(target_section),
+                reason: None,
+            },
+            MemoryOperation::Delete {
+                target_file,
+                target_section,
+                reason,
+            } => MemoryOperationFFI {
+                operation: "DELETE".to_string(),
+                target_file: Some(target_file),
+                target_section: Some(target_section),
+                reason: Some(reason),
+            },
+            MemoryOperation::Noop { reason } => MemoryOperationFFI {
+                operation: "NOOP".to_string(),
+                target_file: None,
+                target_section: None,
+                reason: Some(reason),
+            },
+        }
+    }
+}
+
+/// Classify an incoming memory against existing vault facts.
+/// Returns ADD/UPDATE/DELETE/NOOP.
+#[uniffi::export]
+pub fn classify_vault_memory(
+    incoming: String,
+    existing_facts: Vec<VaultFactFFI>,
+) -> MemoryOperationFFI {
+    let facts: Vec<VaultFact> = existing_facts
+        .into_iter()
+        .map(|f| {
+            let last_accessed = chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
+                .unwrap_or_else(chrono::Utc::now);
+            VaultFact::new(f.file_path, f.section, f.content, f.strength, last_accessed)
+        })
+        .collect();
+    classify_memory_operation(&incoming, &facts).into()
+}
+
+#[derive(uniffi::Record)]
+pub struct NodeStrengthFFI {
+    pub strength: f64,
+    pub importance: String,
+    pub decay_rate: f64,
+    pub last_accessed_epoch: f64,
+    pub access_count: u32,
+    pub pinned: bool,
+}
+
+/// Apply Ebbinghaus decay to a batch of memory nodes.
+/// Returns the updated strengths.
+#[uniffi::export]
+pub fn decay_memory_nodes(
+    mut nodes: Vec<NodeStrengthFFI>,
+    now_epoch: f64,
+) -> Vec<NodeStrengthFFI> {
+    let now = chrono::DateTime::from_timestamp(now_epoch as i64, 0)
+        .unwrap_or_else(chrono::Utc::now);
+    let mut internal: Vec<NodeStrength> = nodes
+        .drain(..)
+        .map(|n| {
+            let importance = match n.importance.as_str() {
+                "critical" => Importance::Critical,
+                "high" => Importance::High,
+                "low" => Importance::Low,
+                _ => Importance::Normal,
+            };
+            let last_accessed = chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
+                .unwrap_or_else(chrono::Utc::now);
+            NodeStrength {
+                strength: n.strength,
+                importance,
+                decay_rate: n.decay_rate,
+                last_accessed,
+                access_count: n.access_count,
+                pinned: n.pinned,
+            }
+        })
+        .collect();
+
+    batch_decay(&mut internal, now);
+
+    internal
+        .into_iter()
+        .map(|n| NodeStrengthFFI {
+            strength: n.strength,
+            importance: match n.importance {
+                Importance::Critical => "critical".to_string(),
+                Importance::High => "high".to_string(),
+                Importance::Normal => "normal".to_string(),
+                Importance::Low => "low".to_string(),
+            },
+            decay_rate: n.decay_rate,
+            last_accessed_epoch: n.last_accessed.timestamp() as f64,
+            access_count: n.access_count,
+            pinned: n.pinned,
+        })
+        .collect()
+}
+
+/// Garbage-collect weak memory nodes below the threshold.
+/// Returns the number of nodes removed.
+#[uniffi::export]
+pub fn gc_memory_nodes(
+    nodes: Vec<NodeStrengthFFI>,
+    threshold: f64,
+) -> u32 {
+    let mut internal: Vec<NodeStrength> = nodes
+        .into_iter()
+        .map(|n| {
+            let importance = match n.importance.as_str() {
+                "critical" => Importance::Critical,
+                "high" => Importance::High,
+                "low" => Importance::Low,
+                _ => Importance::Normal,
+            };
+            let last_accessed = chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
+                .unwrap_or_else(chrono::Utc::now);
+            NodeStrength {
+                strength: n.strength,
+                importance,
+                decay_rate: n.decay_rate,
+                last_accessed,
+                access_count: n.access_count,
+                pinned: n.pinned,
+            }
+        })
+        .collect();
+
+    let removed = collect_garbage(&mut internal, threshold);
+    removed.len() as u32
 }
 
 #[cfg(test)]

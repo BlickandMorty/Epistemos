@@ -18,6 +18,7 @@ pub mod retrieval_index;
 pub mod search;
 pub mod simulation;
 pub mod spatial;
+pub mod recovery;
 pub mod types;
 
 #[cfg(test)]
@@ -590,6 +591,21 @@ pub extern "C" fn graph_engine_clear(engine: *mut Engine) {
 
 /// Add a node to the graph.
 /// `uuid`, `label`: null-terminated UTF-8 C strings.
+/// Sanitize a float position value: replace NaN/Inf with a deterministic
+/// fallback based on a hash seed, bounded to [-10000, 10000].
+/// Prevents Metal compute shader timeouts from degenerate geometry.
+#[inline]
+fn sanitize_position(v: f32, seed: u32) -> f32 {
+    if v.is_finite() {
+        v.clamp(-10000.0, 10000.0)
+    } else {
+        // Deterministic pseudo-random fallback from seed
+        let hash = seed.wrapping_mul(2654435761); // Knuth multiplicative hash
+        let normalized = (hash as f32) / (u32::MAX as f32); // 0.0..1.0
+        normalized * 2000.0 - 1000.0 // [-1000, 1000]
+    }
+}
+
 /// `node_type`: 0–6 matching NodeType enum.
 /// `link_count`: number of edges this node has (for radius sizing).
 #[unsafe(no_mangle)]
@@ -606,9 +622,13 @@ pub extern "C" fn graph_engine_add_node(
         ffi_engine!(engine);
         let uuid_str = ffi_cstr!(uuid).to_owned();
         let label_str = ffi_cstr!(label).to_owned();
+        // Sanitize positions: NaN/Inf → deterministic fallback, clamp to bounds
+        let seed = uuid_str.as_bytes().iter().fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
+        let sx = sanitize_position(x, seed);
+        let sy = sanitize_position(y, seed.wrapping_add(1));
         engine
             .graph_mut()
-            .add_node(uuid_str, x, y, node_type, link_count, label_str);
+            .add_node(uuid_str, sx, sy, node_type, link_count, label_str);
     });
 }
 
@@ -626,7 +646,8 @@ pub extern "C" fn graph_engine_add_edge(
         ffi_engine!(engine);
         let src = ffi_cstr!(source_uuid);
         let tgt = ffi_cstr!(target_uuid);
-        engine.graph_mut().add_edge(src, tgt, weight, edge_type);
+        let w = if weight.is_finite() { weight.clamp(0.0, 100.0) } else { 1.0 };
+        engine.graph_mut().add_edge(src, tgt, w, edge_type);
     });
 }
 
@@ -683,7 +704,10 @@ pub extern "C" fn graph_engine_add_nodes_batch(
                     .unwrap_or("")
                     .to_owned()
             };
-            graph.add_node(uuid_str, xs[i], ys[i], types[i], links[i], label_str);
+            let seed = uuid_str.as_bytes().iter().fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
+            let sx = sanitize_position(xs[i], seed);
+            let sy = sanitize_position(ys[i], seed.wrapping_add(1));
+            graph.add_node(uuid_str, sx, sy, types[i], links[i], label_str);
         }
     });
 }

@@ -112,6 +112,8 @@ pub struct SessionGuard {
 
 impl Drop for SessionGuard {
     fn drop(&mut self) {
+        // Cascade-close any PTY sessions tied to this agent session.
+        crate::pty::PtyPool::close_all_for_session(&self.session_id);
         GlobalSessions::remove(&self.session_id);
     }
 }
