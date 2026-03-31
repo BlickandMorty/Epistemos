@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+          components: clippy, rustfmt
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            graph-engine -> target
+            epistemos-core -> target
+            omega-ax -> target
+            omega-mcp -> target
+            agent_core -> target
+          cache-on-failure: true
+
+      # Build Rust crates in dependency order
+      - name: Build graph-engine (static lib, C FFI)
+        run: cd graph-engine && cargo build --target aarch64-apple-darwin --release
+
+      - name: Build epistemos-core (UniFFI dylib)
+        run: cd epistemos-core && cargo build --target aarch64-apple-darwin --release
+
+      - name: Build omega-ax (UniFFI static lib)
+        run: cd omega-ax && cargo build --target aarch64-apple-darwin --release
+
+      - name: Build omega-mcp (UniFFI dylib)
+        run: cd omega-mcp && cargo build --target aarch64-apple-darwin --release
+
+      - name: Build agent_core (UniFFI dylib)
+        run: cd agent_core && cargo build --target aarch64-apple-darwin --release
+
+      # Rust tests
+      - name: Test graph-engine
+        run: cd graph-engine && cargo test --target aarch64-apple-darwin
+
+      - name: Test epistemos-core
+        run: cd epistemos-core && cargo test --target aarch64-apple-darwin
+
+      - name: Test omega-ax
+        run: cd omega-ax && cargo test --target aarch64-apple-darwin
+
+      - name: Test omega-mcp
+        run: cd omega-mcp && cargo test --target aarch64-apple-darwin
+
+      - name: Test agent_core
+        run: cd agent_core && cargo test --target aarch64-apple-darwin
+
+      # Rust lints
+      - name: Clippy (all crates)
+        run: |
+          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+            echo "::group::Clippy $crate"
+            cd "$crate"
+            cargo clippy --target aarch64-apple-darwin -- -D warnings
+            cd ..
+            echo "::endgroup::"
+          done
+
+      - name: Check Rust formatting
+        run: |
+          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+            cd "$crate" && cargo fmt --check && cd ..
+          done
+
+      # Generate Xcode project and build Swift
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate UniFFI bindings
+        run: |
+          bash build-epistemos-core.sh
+          bash build-omega-ax.sh
+          bash build-omega-mcp.sh
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Resolve SPM dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project Epistemos.xcodeproj \
+            -scheme Epistemos \
+            -clonedSourcePackagesDirPath .spm-cache
+        timeout-minutes: 10
+
+      - name: Build Epistemos (Debug)
+        run: |
+          xcodebuild build \
+            -project Epistemos.xcodeproj \
+            -scheme Epistemos \
+            -destination "platform=macOS,arch=arm64" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color
+
+      - name: Run Swift tests
+        run: |
+          xcodebuild test \
+            -project Epistemos.xcodeproj \
+            -scheme Epistemos \
+            -destination "platform=macOS,arch=arm64" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath TestResults.xcresult \
+            | xcpretty --color
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults.xcresult
+          retention-days: 14
+
+      - name: Cache SPM packages
+        uses: actions/cache@v4
+        with:
+          path: .spm-cache
+          key: spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-

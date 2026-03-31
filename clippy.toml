@@ -1,0 +1,4 @@
+msrv = "1.78.0"
+too-many-arguments-threshold = 8
+enum-variant-size-threshold = 512
+too-many-lines-threshold = 150

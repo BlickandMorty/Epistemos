@@ -29,6 +29,7 @@ test_results/
 
 # Rust
 graph-engine/target/
+agent_core/target/
 build-rust/
 
 # Reference repos
@@ -39,6 +40,12 @@ omega-ax/target/
 epistemos-core/target/
 build-rust/
 __pycache__/
+
+# Personal/scratch
+jojo/
+context-essentials.txt
+*.backup
+*.backup.*
 
 # MOHAWK training runtime artifacts
 Epistemos/KnowledgeFusion/MOHAWK/.last_pod_id

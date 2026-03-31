@@ -18,6 +18,7 @@ Use it when you need to know:
 - whether there are crashes, silent failures, race conditions, or fake-success paths
 - whether the branch is actually safe to hand off, merge, or release
 
+h
 This manual combines:
 
 - the repo's `Epistemos Release Audit` skill

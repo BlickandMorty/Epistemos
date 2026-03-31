@@ -1,6 +1,6 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-03-30 | Sprint Omega-6 in progress | Omega-1 verified live, Omega-5 Tasks 1-9 verified, Omega-6 Task 1 verified | Current research source of truth: docs/HERMES_INTEGRATION_RESEARCH.md
+Last updated: 2026-03-30 (late session) | Agent Integration Items 1-15 COMPLETE | Sprint Omega-6 in progress | Current research source of truth: docs/HERMES_INTEGRATION_RESEARCH.md
 
 ## Sprint Agent-1: The Living Loop ✅
 - [x] agent_core crate with all 13 source files
@@ -77,6 +77,38 @@ Last updated: 2026-03-30 | Sprint Omega-6 in progress | Omega-1 verified live, O
 - [x] Task 7: VaultChatMutator.swift — diff staging + approval flow (2026-03-30)
 - [x] Task 8: VaultRegistry.swift / vault_registry.rs — multi-vault identity mapping (2026-03-30)
 - [x] Task 9: Full compilation + integration verification (2026-03-30)
+
+## Agent Integration Session (2026-03-30) ✅
+Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
+
+### Do First Tier ✅
+- [x] Item 6: ToolLoopDetector wired into Hermes bridge tool_completed events (2026-03-30)
+- [x] Item 5: AgentDepthLimiter wired into Hermes bridge tool_started/completed for delegate tools (2026-03-30)
+- [x] Item 15: CredentialRedactor — 9 patterns, wired into vault_search + vault_read (2026-03-30)
+- [x] Item 14: CostTracker — micro-dollar precision, March 2026 pricing, wired into complete events (2026-03-30)
+- [x] Item 8: ContextCompiler — U-curve reordering on vault_search results (2026-03-30)
+
+### Do Second Tier ✅
+- [x] Item 13: MemoryThreatScanner — role hijack + exfiltration + invisible unicode, wired into vault tools (2026-03-30)
+- [x] Item 12: ShadowGitCheckpoint — GIT_DIR/WORK_TREE separation, 10s timeout, auto-checkpoint (2026-03-30)
+- [x] Item 3: NightBrain menu bar agent mode — config + delegate + Settings toggle (2026-03-30)
+- [x] Item 7: Living Vault Rust FFI exports — classify_vault_memory, decay_memory_nodes, gc_memory_nodes (2026-03-30)
+
+### Do Third Tier ✅
+- [x] Item 4: SkillStoreView — 7 categories, search, detail sheet, native + Hermes skills (2026-03-30)
+- [x] Item 9: QLoRATrainer prefers composed train_final.jsonl over raw shards (2026-03-30)
+- [x] Item 1: HTTP/SSE transport via NWListener for MCP payloads >50KB (2026-03-30)
+- [x] Item 2: recovery.rs (7 tests) + HexViewerView with Rust FFI (2026-03-30)
+
+### Gemini Deep Analysis Integration ✅
+- [x] Evaluated 6 proposals from OpenClaw/Hermes comparative analysis (2026-03-30)
+- [x] Accepted: Heartbeat Memory Distillation (Item 20), Sub-Agent Context Scoping (Item 21)
+- [x] Rejected: A2UI (already SwiftUI), PyO3 (wrong direction), Zero-Trust WS (local app), Docker Proxy (deferred)
+- [x] Updated AGENT_INTEGRATION_SESSION_PLAN.md, MASTER_SESSION_PROMPT.md, AGENT_PROGRESS.md
+
+### Do Next Tier (Gemini analysis upgrades) ✅
+- [x] Item 20: NightBrain Heartbeat Memory Distillation — memoryDistillation job in NightBrainService, calls AgentGraphMemory.distillMemory() with Ebbinghaus decay + GC (2026-03-30)
+- [x] Item 21: Sub-Agent Hierarchical Context Scoping — context_scope parameter in delegate_tool.py, 3 role-specific context files (terminal, research, file) in hermes-agent/contexts/ (2026-03-30)
 
 ## Sprint Omega-6: Context Compiler + Graph Visualizer
 - [x] Task 1: context_compiler.rs — prompt DAG with cache-optimal assembly (2026-03-30)

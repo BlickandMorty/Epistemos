@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            graph-engine -> target
+            epistemos-core -> target
+            omega-ax -> target
+            omega-mcp -> target
+            agent_core -> target
+
+      - name: Build all Rust crates (release)
+        run: |
+          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+            cd "$crate"
+            cargo build --target aarch64-apple-darwin --release
+            cd ..
+          done
+
+      - name: Generate UniFFI Swift bindings
+        run: |
+          bash build-epistemos-core.sh
+          bash build-omega-ax.sh
+          bash build-omega-mcp.sh
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Resolve SPM dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project Epistemos.xcodeproj \
+            -scheme Epistemos \
+            -clonedSourcePackagesDirPath .spm-cache
+
+      - name: Build release app bundle
+        run: |
+          xcodebuild archive \
+            -project Epistemos.xcodeproj \
+            -scheme Epistemos \
+            -destination "platform=macOS,arch=arm64" \
+            -archivePath build/Epistemos.xcarchive \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO \
+            | xcpretty --color
+
+      - name: Extract .app from archive
+        run: cp -R build/Epistemos.xcarchive/Products/Applications/Epistemos.app build/
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "Epistemos" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "Epistemos.app" 175 190 \
+            --app-drop-link 425 190 \
+            "build/Epistemos-${{ github.ref_name }}.dmg" \
+            "build/Epistemos.app" || true
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --oneline --pretty=format:"- %s (%h)" HEAD)
+          else
+            CHANGELOG=$(git log --oneline --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: |
+            ## What's Changed
+            ${{ steps.changelog.outputs.changelog }}
+          files: build/Epistemos-${{ github.ref_name }}.dmg
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}

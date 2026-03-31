@@ -1,0 +1,50 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-lint:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            graph-engine -> target
+            epistemos-core -> target
+            omega-ax -> target
+            omega-mcp -> target
+            agent_core -> target
+
+      - name: Clippy (all crates)
+        run: |
+          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+            cd "$crate" && cargo clippy --target aarch64-apple-darwin -- -D warnings && cd ..
+          done
+
+      - name: rustfmt check
+        run: |
+          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+            cd "$crate" && cargo fmt --check && cd ..
+          done
+
+  swift-lint:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: Run SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
