@@ -344,12 +344,10 @@ private struct ThemedUtilityRoot: View {
             case .omega:
                 switch bootstrap.inferenceState.preferredChatModelSelection {
                 case .cloud:
-                    AgentSessionPanel(viewModel: bootstrap.agentViewModel)
+                    AgentPanelContainer(viewModel: bootstrap.agentViewModel)
                 case .localQwen(let modelID):
                     if let model = LocalTextModelID(rawValue: modelID), model.canActAsAgent {
-                        // Agent-capable local models route through Hermes via
-                        // the local inference server — show the full Hermes panel.
-                        AgentSessionPanel(viewModel: bootstrap.agentViewModel)
+                        AgentPanelContainer(viewModel: bootstrap.agentViewModel)
                     } else {
                         AgentModeUnavailableView(
                             reason: .localModelLacksAgentCapability,

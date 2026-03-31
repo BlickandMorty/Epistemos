@@ -443,4 +443,229 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
         default: return UInt16.max
         }
     }
+
+    // MARK: - MCP Tool Adapters (for Hermes bridge)
+    //
+    // Static methods called by EpistemosMCPServer tool handlers.
+    // These use the REAL Screen2AXFusion hybrid perception pipeline
+    // and omega-ax FFI for input simulation — identical codepath
+    // to the OmegaAgent execute() path.
+
+    /// MCP adapter: see — AX-first hybrid perception via Screen2AXFusion.
+    static func mcpSee(args: [String: Any]) async -> String {
+        guard AXorcistBridge.shared.hasAccessibilityPermissions else {
+            return "{\"success\":false,\"error\":\"Accessibility permission not granted. Enable Epistemos in System Settings > Privacy & Security > Accessibility.\"}"
+        }
+
+        // If app_name provided, use full Screen2AXFusion pipeline (AX + Vision OCR fallback)
+        if let appName = args["app_name"] as? String ?? args["app"] as? String {
+            let capture = ScreenCaptureService()
+            let perception = Screen2AXFusion(screenCapture: capture)
+            let result = await perception.perceive(appName: appName)
+            return result.axTreeJson
+        }
+
+        // Otherwise, get frontmost app AX tree
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else {
+            return "{\"success\":false,\"error\":\"No frontmost application\"}"
+        }
+        return AXorcistBridge.shared.walkTree(pid: frontApp.processIdentifier)
+    }
+
+    /// MCP adapter: click — AXorcist semantic targeting + omega-ax CGEvent fallback.
+    static func mcpClick(args: [String: Any]) -> String {
+        guard AXorcistBridge.shared.hasAccessibilityPermissions else {
+            return "{\"success\":false,\"error\":\"Accessibility permission not granted.\"}"
+        }
+
+        // Semantic click by label
+        if let label = args["label"] as? String ?? args["element"] as? String {
+            // Resolve bundle ID from frontmost app or "app" param
+            let bundleID: String?
+            if let appName = args["app"] as? String {
+                bundleID = NSWorkspace.shared.runningApplications
+                    .first { $0.localizedName?.lowercased() == appName.lowercased() }?
+                    .bundleIdentifier
+                    ?? NSWorkspace.shared.runningApplications
+                        .first { $0.localizedName?.lowercased().contains(appName.lowercased()) == true }?
+                        .bundleIdentifier
+            } else {
+                bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            }
+
+            if let bundleID {
+                let response = AXorcistBridge.shared.pressElement(bundleID: bundleID, title: label)
+                if case .success = response {
+                    return "{\"success\":true,\"method\":\"AXorcist-press\",\"element\":\"\(mcpSafeJson(label))\"}"
+                }
+
+                // Retry with fuzzy contains match
+                let fuzzyResponse = AXorcistBridge.shared.findElements(
+                    bundleID: bundleID, title: label, titleMatch: .contains, maxResults: 1
+                )
+                if case .success = fuzzyResponse {
+                    let retryPress = AXorcistBridge.shared.pressElement(bundleID: bundleID, title: label)
+                    if case .success = retryPress {
+                        return "{\"success\":true,\"method\":\"AXorcist-fuzzy\",\"element\":\"\(mcpSafeJson(label))\"}"
+                    }
+                }
+            }
+
+            // Fallback to omega-ax PID-based click
+            if let frontApp = NSWorkspace.shared.frontmostApplication {
+                return clickElementByName(pid: Int64(frontApp.processIdentifier), elementName: label)
+            }
+
+            return "{\"success\":false,\"error\":\"Could not find element '\(mcpSafeJson(label))'\"}"
+        }
+
+        // Coordinate click via omega-ax CGEvent
+        if let x = args["x"] as? Double, let y = args["y"] as? Double {
+            return simulateClick(x: x, y: y)
+        }
+
+        return "{\"success\":false,\"error\":\"click requires 'label' or 'x'/'y' coordinates\"}"
+    }
+
+    /// MCP adapter: type — omega-ax CGEvent keyboard simulation.
+    static func mcpType(args: [String: Any]) -> String {
+        guard let text = args["text"] as? String else {
+            return "{\"success\":false,\"error\":\"Missing 'text' argument\"}"
+        }
+        return simulateTypeText(text: text)
+    }
+
+    /// MCP adapter: keys — Parse key combo string and simulate via CGEvent.
+    static func mcpKeys(args: [String: Any]) -> String {
+        guard let keys = args["keys"] as? String else {
+            return "{\"success\":false,\"error\":\"Missing 'keys' argument\"}"
+        }
+
+        // Parse combo string like "cmd+shift+s" into key + modifiers
+        let parts = keys.lowercased().split(separator: "+").map(String.init)
+        guard let keyName = parts.last else {
+            return "{\"success\":false,\"error\":\"Invalid key combo: \(keys)\"}"
+        }
+
+        let modParts = parts.dropLast()
+        var modFlags: UInt64 = 0
+        for mod in modParts {
+            switch mod {
+            case "cmd", "command": modFlags |= CGEventFlags.maskCommand.rawValue
+            case "shift":          modFlags |= CGEventFlags.maskShift.rawValue
+            case "option", "alt":  modFlags |= CGEventFlags.maskAlternate.rawValue
+            case "ctrl", "control": modFlags |= CGEventFlags.maskControl.rawValue
+            default: break
+            }
+        }
+
+        let keyCode = mcpResolveKeyCode(keyName)
+        guard keyCode != UInt16.max else {
+            return "{\"success\":false,\"error\":\"Unknown key: \(keyName)\"}"
+        }
+
+        return simulateKeyPress(keyCode: keyCode, modifiers: modFlags)
+    }
+
+    /// MCP adapter: scroll — CGEvent scroll wheel simulation.
+    static func mcpScroll(args: [String: Any]) -> String {
+        guard let direction = args["direction"] as? String else {
+            return "{\"success\":false,\"error\":\"Missing 'direction' (up/down/left/right)\"}"
+        }
+
+        let amount = (args["amount"] as? Int) ?? 3
+        var deltaY: Int32 = 0
+        var deltaX: Int32 = 0
+        switch direction.lowercased() {
+        case "up":    deltaY = Int32(amount)
+        case "down":  deltaY = -Int32(amount)
+        case "left":  deltaX = Int32(amount)
+        case "right": deltaX = -Int32(amount)
+        default:
+            return "{\"success\":false,\"error\":\"Invalid direction: \(direction)\"}"
+        }
+
+        guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .line,
+                                   wheelCount: 2, wheel1: deltaY, wheel2: deltaX, wheel3: 0) else {
+            return "{\"success\":false,\"error\":\"Failed to create scroll event\"}"
+        }
+        event.post(tap: .cghidEventTap)
+        return "{\"success\":true,\"direction\":\"\(direction)\",\"amount\":\(amount)}"
+    }
+
+    /// MCP adapter: screenshot — ScreenCaptureKit capture.
+    static func mcpScreenshot(args: [String: Any], screenCapture: ScreenCaptureService?) async -> String {
+        let capture = screenCapture ?? ScreenCaptureService()
+        let target = args["target"] as? String ?? "window"
+
+        let image: CGImage?
+        if target == "screen" {
+            image = await capture.captureFrontmostWindow() // Full screen fallback
+        } else {
+            image = await capture.captureFrontmostWindow()
+        }
+
+        guard let cgImage = image else {
+            return "{\"success\":false,\"error\":\"Screenshot capture failed\"}"
+        }
+
+        let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
+        guard let pngData = bitmapRep.representation(using: .png, properties: [:]) else {
+            return "{\"success\":false,\"error\":\"PNG encoding failed\"}"
+        }
+
+        let base64 = pngData.base64EncodedString()
+        return "{\"success\":true,\"width\":\(cgImage.width),\"height\":\(cgImage.height),\"format\":\"png\",\"data_base64\":\"\(base64)\"}"
+    }
+
+    // MARK: - MCP Static Helpers
+
+    private static func mcpSafeJson(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+         .replacingOccurrences(of: "\"", with: "\\\"")
+         .replacingOccurrences(of: "\n", with: "\\n")
+    }
+
+    private static func mcpResolveKeyCode(_ key: String) -> UInt16 {
+        if let code = UInt16(key) { return code }
+        switch key.lowercased() {
+        case "return", "enter":    return 36
+        case "tab":                return 48
+        case "space":              return 49
+        case "delete", "backspace": return 51
+        case "escape", "esc":      return 53
+        case "up":    return 126; case "down":  return 125
+        case "left":  return 123; case "right": return 124
+        case "home":  return 115; case "end":   return 119
+        case "pageup": return 116; case "pagedown": return 121
+        case "f1":  return 122; case "f2":  return 120; case "f3":  return 99
+        case "f4":  return 118; case "f5":  return 96;  case "f6":  return 97
+        case "f7":  return 98;  case "f8":  return 100; case "f9":  return 101
+        case "f10": return 109; case "f11": return 103; case "f12": return 111
+        default:
+            if key.count == 1, let char = key.lowercased().unicodeScalars.first {
+                return mcpKeyCodeForChar(char)
+            }
+            return UInt16.max
+        }
+    }
+
+    private static func mcpKeyCodeForChar(_ char: Unicode.Scalar) -> UInt16 {
+        switch char {
+        case "a": return 0;  case "b": return 11; case "c": return 8
+        case "d": return 2;  case "e": return 14; case "f": return 3
+        case "g": return 5;  case "h": return 4;  case "i": return 34
+        case "j": return 38; case "k": return 40; case "l": return 37
+        case "m": return 46; case "n": return 45; case "o": return 31
+        case "p": return 35; case "q": return 12; case "r": return 15
+        case "s": return 1;  case "t": return 17; case "u": return 32
+        case "v": return 9;  case "w": return 13; case "x": return 7
+        case "y": return 16; case "z": return 6
+        case "0": return 29; case "1": return 18; case "2": return 19
+        case "3": return 20; case "4": return 21; case "5": return 23
+        case "6": return 22; case "7": return 26; case "8": return 28
+        case "9": return 25
+        default: return UInt16.max
+        }
+    }
 }

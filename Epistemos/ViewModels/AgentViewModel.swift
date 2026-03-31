@@ -195,6 +195,26 @@ final class AgentViewModel {
         phase = .thinking(tokenCount: max(1, thinkingText.count / 4))
     }
 
+    /// Fetch the list of registered tools from Hermes via MCP tools/list.
+    func fetchHermesTools() async -> [HermesToolItem]? {
+        guard let client = mcpClient else { return nil }
+        do {
+            let result = try await client.listTools()
+            guard case .dictionary(let dict) = result,
+                  case .array(let toolsArray) = dict["tools"] else { return nil }
+            return toolsArray.compactMap { item -> HermesToolItem? in
+                guard case .dictionary(let toolDict) = item,
+                      case .string(let name) = toolDict["name"] else { return nil }
+                let desc: String
+                if case .string(let d) = toolDict["description"] { desc = d } else { desc = "" }
+                return HermesToolItem(name: name, description: desc)
+            }
+        } catch {
+            Self.log.error("Failed to fetch Hermes tools: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     private func consume(_ stream: AsyncStream<AgentStreamEvent>) async {
         var thinkingTokens = 0
         var responseTokens = 0
@@ -418,6 +438,7 @@ final class AgentViewModel {
             let server = EpistemosMCPServer(subprocessManager: hermesManager)
             registerVaultTools(on: server)
             registerSkillDiscoveryTools(on: server)
+            registerComputerUseTools(on: server)
             // Start HTTP transport for large payloads (>50KB)
             _ = server.startHttpTransport()
             mcpServer = server
@@ -765,6 +786,158 @@ final class AgentViewModel {
                 "requiresConfirmation": .bool(tool.requiresConfirmation),
             ]))
         }
+    }
+
+    // MARK: - Computer Use MCP Tools
+
+    /// Expose macOS computer use capabilities as MCP tools so Hermes can
+    /// drive the desktop natively via AXorcist + ScreenCaptureKit.
+    private func registerComputerUseTools(on server: EpistemosMCPServer) {
+        // see — AX-first hybrid perception via Screen2AXFusion
+        server.registerTool(
+            name: "computer_see",
+            description: "Get the accessibility tree and screen content of the frontmost macOS application. Returns interactive UI elements that can be clicked, typed into, or scrolled.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "app_name": .dictionary([
+                        "type": .string("string"),
+                        "description": .string("Optional app name or bundle ID to target. Defaults to frontmost app."),
+                    ]),
+                ]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "computer_see") { params in
+            let args = Self.anyCodableToDict(params)
+            let result = await GhostComputerAgent.mcpSee(args: args)
+            return .success(.string(result))
+        }
+
+        // click — AXorcist semantic targeting + omega-ax CGEvent fallback
+        server.registerTool(
+            name: "computer_click",
+            description: "Click a macOS UI element. Prefers semantic targeting by label (uses AXorcist fuzzy match). Falls back to absolute coordinates.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "label": .dictionary([
+                        "type": .string("string"),
+                        "description": .string("Text label of the element to click (fuzzy matched via AXorcist)."),
+                    ]),
+                    "x": .dictionary(["type": .string("number"), "description": .string("Absolute X coordinate.")]),
+                    "y": .dictionary(["type": .string("number"), "description": .string("Absolute Y coordinate.")]),
+                ]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "computer_click") { params in
+            let args = Self.anyCodableToDict(params)
+            let result = await MainActor.run { GhostComputerAgent.mcpClick(args: args) }
+            return .success(.string(result))
+        }
+
+        // type — omega-ax CGEvent keyboard simulation
+        server.registerTool(
+            name: "computer_type",
+            description: "Type text into the currently focused macOS UI element using keyboard simulation.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "text": .dictionary(["type": .string("string"), "description": .string("The text to type.")]),
+                ]),
+                "required": .array([.string("text")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "computer_type") { params in
+            let args = Self.anyCodableToDict(params)
+            let result = await MainActor.run { GhostComputerAgent.mcpType(args: args) }
+            return .success(.string(result))
+        }
+
+        // screenshot — ScreenCaptureKit capture
+        server.registerTool(
+            name: "computer_screenshot",
+            description: "Capture a screenshot of the macOS screen or frontmost window. Returns base64-encoded PNG.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "target": .dictionary(["type": .string("string"), "description": .string("'screen' or 'window'. Defaults to 'window'.")]),
+                ]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "computer_screenshot") { [weak self] params in
+            guard let self else { return .error(code: -32603, message: "Agent deallocated") }
+            let args = Self.anyCodableToDict(params)
+            let result = await GhostComputerAgent.mcpScreenshot(args: args, screenCapture: self.screenCaptureService)
+            return .success(.string(result))
+        }
+
+        // keys — keyboard shortcut simulation
+        server.registerTool(
+            name: "computer_keys",
+            description: "Press a keyboard shortcut on macOS (e.g. 'cmd+c', 'enter', 'cmd+shift+s').",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "keys": .dictionary(["type": .string("string"), "description": .string("Key combo string, e.g. 'cmd+c'.")]),
+                ]),
+                "required": .array([.string("keys")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "computer_keys") { params in
+            let args = Self.anyCodableToDict(params)
+            let result = await MainActor.run { GhostComputerAgent.mcpKeys(args: args) }
+            return .success(.string(result))
+        }
+
+        // scroll — CGEvent scroll wheel simulation
+        server.registerTool(
+            name: "computer_scroll",
+            description: "Scroll in a direction at the current mouse position on macOS.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "direction": .dictionary(["type": .string("string"), "description": .string("'up', 'down', 'left', 'right'.")]),
+                    "amount": .dictionary(["type": .string("number"), "description": .string("Scroll amount. Defaults to 3.")]),
+                ]),
+                "required": .array([.string("direction")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "computer_scroll") { params in
+            let args = Self.anyCodableToDict(params)
+            let result = await MainActor.run { GhostComputerAgent.mcpScroll(args: args) }
+            return .success(.string(result))
+        }
+    }
+
+    /// Screen capture service for computer use tools.
+    private let screenCaptureService = ScreenCaptureService()
+
+    /// Convert AnyCodableValue to [String: Any] for MCP tool handlers.
+    nonisolated private static func anyCodableToDict(_ value: AnyCodableValue) -> [String: Any] {
+        guard case .dictionary(let dict) = value else { return [:] }
+        var result: [String: Any] = [:]
+        for (key, val) in dict {
+            switch val {
+            case .string(let s): result[key] = s
+            case .int(let i): result[key] = i
+            case .double(let d): result[key] = d
+            case .bool(let b): result[key] = b
+            case .null: result[key] = NSNull()
+            case .array(let arr):
+                result[key] = arr.map { item -> Any in
+                    if case .string(let s) = item { return s }
+                    return String(describing: item)
+                }
+            case .dictionary: result[key] = Self.anyCodableToDict(val)
+            }
+        }
+        return result
     }
 
     // MARK: - Cron Keepalive
