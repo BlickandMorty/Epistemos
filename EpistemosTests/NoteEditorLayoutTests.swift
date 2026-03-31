@@ -388,15 +388,16 @@ struct NoteEditorLayoutTests {
     func visibleNoteToolbarStripStaysLean() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         guard let controlsRange = source.range(of: "private var noteToolbarPrimaryActions: some View"),
-              let nextSectionRange = source.range(of: "private func toolbarIconButton(", range: controlsRange.upperBound..<source.endIndex) else {
+              let nextSectionRange = source.range(of: "// MARK: - Wikilink Navigation", range: controlsRange.upperBound..<source.endIndex) else {
             Issue.record("Failed to isolate noteToolbarPrimaryActions in NoteDetailWorkspaceView.swift")
             return
         }
 
         let controlsSource = String(source[controlsRange.lowerBound..<nextSectionRange.lowerBound])
 
-        #expect(controlsSource.contains("glyph: showPreview ? .edit : .preview"))
-        #expect(controlsSource.contains("glyph: .history"))
+        // Uses standard Button + Label (matching main chat's toolbar pattern).
+        #expect(controlsSource.contains("Label("))
+        #expect(controlsSource.contains("Chat History"))
         #expect(controlsSource.contains("moreMenu"))
         #expect(!controlsSource.contains("outlineFoldButton"))
         #expect(!controlsSource.contains("glyph: .miniChat"))

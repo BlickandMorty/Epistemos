@@ -30,7 +30,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var noteChatState: NoteChatState?
     var onPageFlush: ((String, String) -> Void)?
     var graphState: GraphState?
-    var outlineFoldMode: OutlineFoldMode = .auto
+    var outlineFoldMode: OutlineFoldMode = .expanded
 
     static let maxReadableWidth: CGFloat = 720
     static let minHorizontalInset: CGFloat = 60
@@ -237,7 +237,7 @@ extension ProseEditorRepresentable2 {
         var lastTheme: EpistemosTheme = .nativeDefault
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
-        var lastOutlineFoldMode: OutlineFoldMode = .auto
+        var lastOutlineFoldMode: OutlineFoldMode = .expanded
         var lastAvailableWidth: CGFloat = 0
         let scrollOverlayRefreshCoalescer = ScrollWorkCoalescer(
             delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
@@ -814,10 +814,7 @@ extension ProseEditorRepresentable2 {
             }
             guard !isFlushingTokens else { return }
 
-            // Clear active folds on edit — avoid full-document re-enumeration when nothing is folded.
-            if tv.markdownDelegate.hasActiveFolds() {
-                clearAllFolds()
-            }
+            // Fold state preserved during edits — only changes via explicit user toggle or mode switch.
 
             // ── SAVE-CRITICAL ──────────────────────────────────
             let newText = tv.string
@@ -1228,21 +1225,10 @@ extension ProseEditorRepresentable2 {
             let delegate = tv.markdownDelegate
             markdown_clear_all_folds()
 
-            switch mode {
-            case .auto:
-                // H1 always expanded, H2+ always collapsed.
-                // Shows document structure at a glance.
-                for i in 0..<delegate.lineCount {
-                    guard delegate.isHeading(at: i) else { continue }
-                    let level = delegate.headingLevel(at: i) ?? 1
-                    markdown_set_fold(UInt32(i), level >= 2)
-                }
-            case .expanded:
-                // Everything open — regular document view.
-                for i in 0..<delegate.lineCount {
-                    guard delegate.isHeading(at: i) else { continue }
-                    markdown_set_fold(UInt32(i), false)
-                }
+            // Always expanded — clear all folds.
+            for i in 0..<delegate.lineCount {
+                guard delegate.isHeading(at: i) else { continue }
+                markdown_set_fold(UInt32(i), false)
             }
 
             delegate.recomputeHiddenLines(documentText: tv.string)

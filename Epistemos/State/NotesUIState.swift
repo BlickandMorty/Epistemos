@@ -43,13 +43,9 @@ final class NotesUIState {
     /// When true, dims all paragraphs except the one containing the cursor.
     var isFocusMode = false
 
-    // MARK: - Outline Fold Mode
+    // MARK: - Outline Fold Mode (always expanded — auto-collapse removed)
 
-    /// Controls how headers are collapsed when opening a note.
-    /// - `auto`: Collapse all headers if the document has more than 2 headings.
-    /// - `collapsed`: Always collapse all headers.
-    /// - `expanded`: Never collapse headers (all expanded).
-    var outlineFoldMode: OutlineFoldMode = .auto
+    var outlineFoldMode: OutlineFoldMode = .expanded
 
     // MARK: - Folder Expansion
     /// IDs of folders currently expanded in the sidebar.
@@ -92,10 +88,8 @@ final class NotesUIState {
         setActivePageId(nil)
     }
 
-    /// Cycle through outline fold modes: auto → collapsed → expanded → auto
-    func cycleOutlineFoldMode() {
-        outlineFoldMode = outlineFoldMode.next
-    }
+    /// Outline fold mode is always expanded. Cycling is a no-op.
+    func cycleOutlineFoldMode() {}
 
     /// Full reset when switching vaults — clears all page references so
     /// stale editors from the old vault don't linger.
@@ -107,7 +101,7 @@ final class NotesUIState {
         isJournalExpanded = false
         isIdeasExpanded = false
         isFocusMode = false
-        outlineFoldMode = .auto
+        outlineFoldMode = .expanded
     }
 
     private func setActivePageId(_ pageId: String?) {
@@ -120,30 +114,9 @@ final class NotesUIState {
 // MARK: - Outline Fold Mode
 
 enum OutlineFoldMode: String, Sendable {
-    /// Auto: H1 headings always visible/expanded, H2+ collapsed.
-    /// Shows document structure at a glance — like a table of contents.
-    case auto
-    /// Expanded: everything open, like a regular document.
+    /// Expanded: everything open, like a regular document. Auto-collapse removed.
     case expanded
 
-    var next: OutlineFoldMode {
-        switch self {
-        case .auto: .expanded
-        case .expanded: .auto
-        }
-    }
-
-    var label: String {
-        switch self {
-        case .auto: "Auto"
-        case .expanded: "Expanded"
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .auto: "list.bullet.indent"
-        case .expanded: "list.dash"
-        }
-    }
+    var label: String { "Expanded" }
+    var symbolName: String { "list.dash" }
 }

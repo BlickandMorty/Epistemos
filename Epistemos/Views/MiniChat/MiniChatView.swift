@@ -148,7 +148,6 @@ private struct MiniChatThread: View {
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
-
     private var theme: EpistemosTheme { ui.theme }
 
     private var miniChatThread: ChatThread? {
@@ -230,7 +229,6 @@ private struct MiniChatThread: View {
                         }
                     }
                     .onChange(of: threadState.miniChatStreamingText(chatID: chatID)) { _, _ in
-                        // Throttle to ~4fps during streaming (matches ChatView)
                         let now = ContinuousClock.now
                         guard autoFollow.isFollowingBottom,
                               now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
@@ -247,15 +245,14 @@ private struct MiniChatThread: View {
                     }
                 }
             } else {
-                VStack(spacing: 8) {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 28, weight: .light))
-                        .foregroundStyle(theme.mutedForeground.opacity(0.3))
-                    Text("Start a conversation")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.mutedForeground.opacity(0.4))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("Mini Chat")
+                    .font(AppDisplayTypography.font(size: 34))
+                    .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.94 : 0.9))
+                    .shadow(
+                        color: theme.isDark ? theme.fontAccent.opacity(0.12) : .clear,
+                        radius: 8
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1394,7 +1391,11 @@ private struct MiniChatInputBar: View {
             return stored
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Log.pipeline.error("Failed to persist mini chat session \(self.chatID): \(error.localizedDescription)")
+        }
     }
 
     private func cancelStream() {

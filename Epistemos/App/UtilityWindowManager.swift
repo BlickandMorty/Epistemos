@@ -118,7 +118,7 @@ enum UtilityPanel: String, CaseIterable {
     var defaultSize: NSSize {
         switch self {
         case .notes: NSSize(width: 320, height: 600)
-        case .omega: NSSize(width: 760, height: 700)
+        case .omega: NSSize(width: 680, height: 560)
         case .settings: NSSize(width: 900, height: 680)
         }
     }
@@ -126,7 +126,7 @@ enum UtilityPanel: String, CaseIterable {
     var minimumSize: NSSize {
         switch self {
         case .notes: NSSize(width: 400, height: 300)
-        case .omega: NSSize(width: 560, height: 400)
+        case .omega: NSSize(width: 420, height: 320)
         case .settings: NSSize(width: 680, height: 420)
         }
     }
@@ -277,9 +277,31 @@ final class UtilityWindowManager {
 
         panel.center()
 
+        // Ensure the window stays within the visible screen area.
+        if let screen = panel.screen ?? NSScreen.main {
+            let visibleFrame = screen.visibleFrame
+            var frame = panel.frame
+            if frame.maxY > visibleFrame.maxY {
+                frame.origin.y = visibleFrame.maxY - frame.height
+            }
+            if frame.minY < visibleFrame.minY {
+                frame.origin.y = visibleFrame.minY
+            }
+            if frame.maxX > visibleFrame.maxX {
+                frame.origin.x = visibleFrame.maxX - frame.width
+            }
+            if frame.minX < visibleFrame.minX {
+                frame.origin.x = visibleFrame.minX
+            }
+            panel.setFrame(frame, display: false)
+        }
+
         if let bootstrap = AppBootstrap.shared {
             let view = contentView(for: kind, bootstrap: bootstrap)
             let host = NSHostingView(rootView: view)
+            // Prevent SwiftUI content from driving the window size beyond its default.
+            // The content should fill the available space, not push the window to grow.
+            host.sizingOptions = .minSize
             let cornerRadius: CGFloat? = kind == .settings ? 22 : nil
             panel.contentView = WindowThemeStyler.themedContentView(
                 host: host,

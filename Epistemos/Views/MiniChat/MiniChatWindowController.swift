@@ -6,7 +6,7 @@ import SwiftUI
 final class MiniChatWindowController {
     static let shared = MiniChatWindowController()
 
-    private static let minimumContentSize = CGSize(width: 420, height: 520)
+    private static let minimumContentSize = CGSize(width: 320, height: 340)
     private let tabDelegate = MiniChatTabDelegate()
     private var windows: [String: NSWindow] = [:]
     private var observers: [String: any NSObjectProtocol] = [:]
@@ -73,7 +73,7 @@ final class MiniChatWindowController {
         guard let bootstrap = AppBootstrap.shared else { return }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 760),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 560),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -87,7 +87,7 @@ final class MiniChatWindowController {
         window.collectionBehavior = [.moveToActiveSpace]
         window.isReleasedWhenClosed = false
         window.isRestorable = false
-        window.minSize = NSSize(width: 420, height: 520)
+        window.minSize = NSSize(width: 320, height: 340)
         window.maxSize = NSSize(width: 1600, height: 1400)
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-mini-chat-tabs"
@@ -107,6 +107,7 @@ final class MiniChatWindowController {
             .modelContainer(bootstrap.modelContainer)
             .preferredColorScheme(bootstrap.uiState.preferredColorScheme)
         let host = NSHostingView(rootView: view)
+        host.sizingOptions = .minSize
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
         window.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)

@@ -1253,12 +1253,27 @@ final class ChatCoordinator {
     }
 
     private nonisolated static func fileAttachmentSection(for attachment: FileAttachment) -> String? {
-        guard attachment.type == .text || attachment.type == .csv else { return nil }
-        guard let text = loadedTextAttachmentBody(for: attachment) else { return nil }
-        return """
-        Attached file: \(attachment.name)
-        \(text)
-        """
+        switch attachment.type {
+        case .text, .csv:
+            guard let text = loadedTextAttachmentBody(for: attachment) else { return nil }
+            return "Attached file: \(attachment.name)\n\(text)"
+        case .pdf:
+            // For PDFs, attempt to extract text content via the preview (already extracted at attach time).
+            guard let preview = attachment.preview?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !preview.isEmpty else {
+                return "Attached file: \(attachment.name)\n(PDF content could not be extracted as text)"
+            }
+            return "Attached file: \(attachment.name)\n\(preview)"
+        case .image:
+            // Images can't be inlined as text context — note their presence.
+            return "Attached file: \(attachment.name) (image — visual content not available as text)"
+        case .other:
+            // Attempt text extraction as a best effort.
+            if let text = loadedTextAttachmentBody(for: attachment) {
+                return "Attached file: \(attachment.name)\n\(text)"
+            }
+            return nil
+        }
     }
 
     private nonisolated static func loadedTextAttachmentBody(for attachment: FileAttachment) -> String? {
@@ -1291,6 +1306,7 @@ final class ChatCoordinator {
         return nil
     }
 
+
     private nonisolated static func readTextAttachment(at url: URL) -> String? {
         let gainedSecurityScope = url.startAccessingSecurityScopedResource()
         defer {
@@ -1299,12 +1315,36 @@ final class ChatCoordinator {
             }
         }
 
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
-        defer { try? handle.close() }
+        let handle: FileHandle
+        do {
+            handle = try FileHandle(forReadingFrom: url)
+        } catch {
+            Log.pipeline.error("Failed to open file handle for attachment at \(url.path): \(error.localizedDescription)")
+            return nil
+        }
+        defer {
+            do {
+                try handle.close()
+            } catch {
+                Log.pipeline.warning("Failed to close file handle for \(url.path): \(error.localizedDescription)")
+            }
+        }
 
-        guard let data = try? handle.read(upToCount: maxFileAttachmentContextBytes),
-              !data.isEmpty,
-              let decoded = FoundationSafety.decodedText(from: data) else {
+        let data: Data
+        do {
+            guard let readData = try handle.read(upToCount: maxFileAttachmentContextBytes) else {
+                Log.pipeline.warning("Read returned nil for attachment at \(url.path)")
+                return nil
+            }
+            data = readData
+        } catch {
+            Log.pipeline.error("Failed to read attachment data at \(url.path): \(error.localizedDescription)")
+            return nil
+        }
+
+        guard !data.isEmpty else { return nil }
+        guard let decoded = FoundationSafety.decodedText(from: data) else {
+            Log.pipeline.warning("Failed to decode text from attachment at \(url.path) (\(data.count) bytes)")
             return nil
         }
 

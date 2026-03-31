@@ -11,31 +11,22 @@ struct AgentSessionPanel: View {
         ZStack {
             panelBackdrop
 
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 header
-                runtimeHero
                 content
                 promptComposer
             }
             .padding(18)
         }
+        .frame(minWidth: 420, minHeight: 320)
         .task {
             await viewModel.prepareRuntimeIfNeeded()
         }
     }
 
     private var panelBackdrop: some View {
-        LinearGradient(
-            colors: [
-                Color(nsColor: .windowBackgroundColor),
-                Color(nsColor: .controlBackgroundColor).opacity(0.96),
-                Color.accentColor.opacity(0.06),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
-        .drawingGroup()
+        Color(nsColor: .windowBackgroundColor)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var header: some View {
@@ -203,96 +194,6 @@ struct AgentSessionPanel: View {
         .controlSize(.small)
     }
 
-    private var runtimeHero: some View {
-        RuntimeGlassCard(cornerRadius: 26, padding: 18) {
-            HStack(alignment: .top, spacing: 18) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 8) {
-                        RuntimeStatusBadge(
-                            title: runtimeStatusTitle,
-                            systemImage: runtimeStatusIcon,
-                            tint: runtimeTint
-                        )
-
-                        if let session = viewModel.activeSessionSummary {
-                            RuntimeStatusBadge(
-                                title: session.title,
-                                systemImage: "bubble.left.and.bubble.right",
-                                tint: .secondary
-                            )
-
-                            if !session.model.isEmpty {
-                                RuntimeStatusBadge(
-                                    title: session.model,
-                                    systemImage: "cpu",
-                                    tint: .secondary
-                                )
-                            }
-                        }
-                    }
-
-                    Text(runtimeHeroTitle)
-                        .font(.title3.weight(.semibold))
-
-                    Text(runtimeHeroMessage)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    commandShortcutRow
-
-                    if case .failed(let message) = viewModel.phase {
-                        Label(message, systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                            .padding(.top, 2)
-                    }
-                }
-
-                Spacer(minLength: 16)
-
-                VStack(alignment: .trailing, spacing: 10) {
-                    Button {
-                        viewModel.startNewSession()
-                    } label: {
-                        Label("New Session", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-
-                    Button {
-                        viewModel.refreshSessions()
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-            }
-        }
-    }
-
-    private var commandShortcutRow: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                quickCommandButton(.help)
-                quickCommandButton(.tools)
-                quickCommandButton(.context)
-                quickCommandButton(.compact)
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    quickCommandButton(.help)
-                    quickCommandButton(.tools)
-                    quickCommandButton(.context)
-                    quickCommandButton(.compact)
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-
     private var content: some View {
         HStack(alignment: .top, spacing: 16) {
             sessionRail
@@ -452,23 +353,6 @@ struct AgentSessionPanel: View {
         } label: {
             Label(action.title, systemImage: action.systemImage)
         }
-        .help(action.detail)
-    }
-
-    private func quickCommandButton(_ action: HermesQuickAction) -> some View {
-        Button {
-            viewModel.performQuickAction(action)
-        } label: {
-            Label(action.title, systemImage: action.systemImage)
-                .font(.caption.weight(.medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(
-                    Capsule()
-                        .fill(Color.primary.opacity(0.05))
-                )
-        }
-        .buttonStyle(.plain)
         .help(action.detail)
     }
 
@@ -767,44 +651,6 @@ struct AgentSessionPanel: View {
         }
     }
 
-    private var runtimeHeroTitle: String {
-        switch viewModel.phase {
-        case .failed:
-            return "Hermes needs a quick fix before it can run."
-        case .awaitingApproval(let request):
-            return "Hermes is waiting on approval for \(request.toolName)."
-        case .responding:
-            return "Hermes is actively streaming a response."
-        case .thinking, .reasoning, .searching, .executing:
-            return "Hermes is carrying out a live agent turn."
-        case .complete:
-            return viewModel.latestStopReason.isEmpty
-                ? "The latest run completed successfully."
-                : "The latest run completed with \(viewModel.latestStopReason)."
-        case .idle:
-            return viewModel.sessions.isEmpty
-                ? "Start a new Hermes session or send a prompt."
-                : "Pick up where your last Hermes session left off."
-        }
-    }
-
-    private var runtimeHeroMessage: String {
-        switch viewModel.phase {
-        case .failed:
-            return "The runtime now checks bundled assets and the working tree, but it still needs a valid Hermes install and Python environment to boot."
-        case .awaitingApproval:
-            return "Approve or deny the current tool request and Hermes will continue the same session without losing context."
-        case .responding:
-            return "Assistant text, tool steps, and approvals stay in one live transcript so you can follow exactly what the agent is doing."
-        case .thinking, .reasoning, .searching, .executing:
-            return "Sessions persist, tool actions stay visible, and new runs show up in the rail immediately instead of only after completion."
-        case .complete:
-            return "Resume this thread, fork it into a branch, or start a fresh session without leaving the panel."
-        case .idle:
-            return "Your app stays native here, but the cloud agent loop underneath is still Hermes with session persistence, memory nudges, and slash-command behavior."
-        }
-    }
-
     private var runtimeTint: Color {
         switch viewModel.phase {
         case .failed:
@@ -872,12 +718,12 @@ private struct RuntimeGlassCard<Content: View>: View {
             .padding(padding)
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.6))
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
+                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
                     }
-                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
+                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
             }
     }
 }

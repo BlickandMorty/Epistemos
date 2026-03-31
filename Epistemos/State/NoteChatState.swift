@@ -330,14 +330,14 @@ final class NoteChatState {
         let stream: AsyncThrowingStream<String, Error>
         if let reasoning = AppBootstrap.shared?.reasoningLoopService, reasoning.config.enabled {
             stream = reasoning.streamWithReasoning(
-                prompt: fullPrompt, systemPrompt: nil,
+                prompt: fullPrompt, systemPrompt: Self.noteAskSystemPrompt,
                 operation: .ask(query: trimmed),
                 contentLength: noteBody.count, query: trimmed
             )
             log.info("Note chat toolbar: reasoning loop enabled")
         } else {
             stream = triageService.stream(
-                prompt: fullPrompt, systemPrompt: nil,
+                prompt: fullPrompt, systemPrompt: Self.noteAskSystemPrompt,
                 operation: .ask(query: trimmed),
                 contentLength: noteBody.count, query: trimmed
             )
@@ -468,6 +468,13 @@ final class NoteChatState {
         return curated
     }
 
+    private static let noteAskSystemPrompt = """
+        You are a helpful assistant embedded in a note editor. \
+        The user is asking a question about or related to the note they are currently editing. \
+        Answer their question directly and concisely. Do not summarize the note unless explicitly asked. \
+        Focus on the user's specific question.
+        """
+
     private func buildPrompt(
         noteSnippet: String,
         recallContext: String,
@@ -478,20 +485,16 @@ final class NoteChatState {
         sections.reserveCapacity(4)
 
         if !noteSnippet.isEmpty {
-            sections.append("Note content:\n\(noteSnippet)")
+            sections.append("<note>\n\(noteSnippet)\n</note>")
         }
         if !recallContext.isEmpty {
-            sections.append("Related notes from instant recall:\n\(recallContext)")
+            sections.append("<related_notes>\n\(recallContext)\n</related_notes>")
         }
         if !history.isEmpty {
-            sections.append(history)
+            sections.append("<conversation_history>\n\(history)\n</conversation_history>")
         }
 
-        if sections.isEmpty {
-            return query
-        }
-
-        sections.append("User: \(query)")
+        sections.append("Question: \(query)")
         return sections.joined(separator: "\n\n")
     }
 

@@ -1,0 +1,33 @@
+CONTEXT RESTORED AFTER COMPACTION — re-read these rules NOW:
+
+HARD CONSTRAINTS (violations = broken build):
+1. NO SIDECAR for inference. Hermes subprocess is for orchestration ONLY.
+2. REAL APIs ONLY — Anthropic has NO Swift SDK. OpenAI has NO Swift SDK.
+3. API keys in macOS Keychain, NEVER UserDefaults.
+4. PRESERVE THINKING BLOCKS — never strip thinking blocks or signatures from message history.
+5. STREAM EVERYTHING — forward every token to delegate immediately. Never buffer.
+6. AGENT DECIDES TERMINATION — trust stop_reason == "end_turn".
+7. DispatchQueue.main.async in UniFFI callbacks, NEVER .sync (causes deadlock).
+8. Every unsafe block gets // SAFETY: comment.
+9. No try!, no force-unwraps, no print() in production paths.
+10. Use @Observable not ObservableObject. Use Swift Testing (@Test, #expect).
+
+ARCHITECTURE (Epistemos Omega):
+- Rust agent_core: living loop, SSE streaming, tool execution, security, prompt caching, compaction
+- Swift: UI, MLX inference, macOS APIs (AXorcist for AX, ScreenCaptureKit, CGEvent), MCP server
+- Python hermes-agent: cloud orchestration subprocess, skills, memory (spawned via swift-subprocess)
+- MCP: bidirectional peer bridge. Hermes calls Epistemos for macOS tools. Epistemos calls Hermes for cloud orchestration.
+
+KEY FILES:
+- Sprint: docs/sprint-sessions/sprint-omega-1-foundation.md
+- Progress: docs/AGENT_PROGRESS.md
+- Architecture: docs/agent-system/AGENT_ARCHITECTURE.md
+- Hermes research: docs/HERMES_INTEGRATION_RESEARCH.md
+- Agent loop: agent_core/src/agent_loop.rs
+- Claude SSE: agent_core/src/providers/claude.rs
+- Bridge: agent_core/src/bridge.rs
+- MCP: Epistemos/Omega/MCPBridge.swift + omega-mcp/src/dispatcher.rs
+- Computer use: Epistemos/Omega/Inference/DeviceAgentService.swift
+
+CURRENT STATE: Read docs/AGENT_PROGRESS.md for what's done and what's next.
+Before continuing, state: "Context restored. Current sprint: [X]. Next task: [Y]."

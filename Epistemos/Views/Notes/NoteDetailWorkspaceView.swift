@@ -122,17 +122,7 @@ enum NoteToolbarDisplay {
     static let hidesMenuIndicators = true
 }
 
-enum NoteToolbarSurfaceStyle {
-    static let cornerRadius: CGFloat = 16
-    static let horizontalPadding: CGFloat = 8
-    static let verticalPadding: CGFloat = 4
-    static let borderWidth: CGFloat = 0.6
 
-    static func showsBackground(customThemesEnabled: Bool) -> Bool {
-        _ = customThemesEnabled
-        return true
-    }
-}
 
 enum NoteWorkspaceSurfaceStyle {
     static let minimumEditorSize = CGSize(width: 400, height: 300)
@@ -481,7 +471,6 @@ enum NoteToolbarGlyph: Sendable {
     case recovery
     case saveToDisk
     case notesSidebar
-    case outlineFold(OutlineFoldMode)
 
     var symbolName: String? {
         switch self {
@@ -507,8 +496,6 @@ enum NoteToolbarGlyph: Sendable {
             "square.and.arrow.down"
         case .notesSidebar:
             "sidebar.leading"
-        case .outlineFold(let mode):
-            mode.symbolName
         }
     }
 
@@ -524,31 +511,7 @@ enum NoteToolbarGlyph: Sendable {
     }
 }
 
-private struct NoteToolbarIcon: View {
-    let glyph: NoteToolbarGlyph
-    let theme: EpistemosTheme
-    var isActive: Bool = false
 
-    private var color: Color {
-        theme.resolved.foreground.color.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: isActive))
-    }
-
-    var body: some View {
-        Group {
-            if let symbolName = isActive ? glyph.activeSymbolName : glyph.symbolName {
-                Image(systemName: symbolName)
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: NoteToolbarMetrics.iconSide, height: NoteToolbarMetrics.iconSide)
-            } else {
-                EmptyView()
-            }
-        }
-        .foregroundStyle(color)
-        .frame(width: NoteToolbarMetrics.buttonSide, height: NoteToolbarMetrics.buttonSide)
-        .contentShape(Rectangle())
-        .accessibilityHidden(true)
-    }
-}
 
 // MARK: - Note Page Content
 // Self-contained note editor for each page within a tab.
@@ -1007,58 +970,35 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var noteToolbarAskItem: some View {
-        noteToolbarSurface {
-            toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
-        }
-    }
-
-    private func noteToolbarSurface<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        content()
-            .padding(.horizontal, NoteToolbarSurfaceStyle.horizontalPadding)
-            .padding(.vertical, NoteToolbarSurfaceStyle.verticalPadding)
-            .background {
-                if NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: ui.customThemesEnabled) {
-                    Capsule(style: .continuous)
-                        .fill(.thinMaterial)
-                        .overlay {
-                            Capsule(style: .continuous)
-                                .strokeBorder(
-                                    .primary.opacity(ui.isSystemDark ? 0.14 : 0.10),
-                                    lineWidth: NoteToolbarSurfaceStyle.borderWidth
-                                )
-                        }
-                        .overlay {
-                            Capsule(style: .continuous)
-                                .strokeBorder(
-                                    .white.opacity(ui.isSystemDark ? 0.06 : 0.24),
-                                    lineWidth: 0.4
-                                )
-                                .padding(1)
-                        }
-                }
-            }
+        toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
     }
 
     @ViewBuilder
     private var noteToolbarPrimaryActions: some View {
-        toolbarIconButton(
-            glyph: showPreview ? .edit : .preview,
-            isActive: showPreview,
-            help: showPreview ? "Editor (⌘E)" : "Preview (⌘E)"
-        ) {
+        Button {
             togglePreviewMode()
+        } label: {
+            Label(
+                showPreview ? "Editor" : "Preview",
+                systemImage: showPreview
+                    ? (NoteToolbarGlyph.edit.symbolName ?? "pencil")
+                    : (NoteToolbarGlyph.preview.symbolName ?? "eye")
+            )
         }
+        .help(showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)")
 
         if !showPreview {
-            toolbarIconButton(
-                glyph: .history,
-                isActive: showChatSidebar,
-                help: "Chat History"
-            ) {
+            Button {
                 showChatSidebar.toggle()
+            } label: {
+                Label(
+                    "Chat History",
+                    systemImage: showChatSidebar
+                        ? (NoteToolbarGlyph.history.activeSymbolName ?? "bubble.left.fill")
+                        : (NoteToolbarGlyph.history.symbolName ?? "bubble.left")
+                )
             }
+            .help("Chat History")
             .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
                 NoteChatSidebar()
                     .environment(noteChatState)
@@ -1067,19 +1007,6 @@ struct NoteDetailWorkspaceView: View {
         }
 
         moreMenu
-    }
-
-    private func toolbarIconButton(
-        glyph: NoteToolbarGlyph,
-        isActive: Bool = false,
-        help: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            NoteToolbarIcon(glyph: glyph, theme: ui.theme, isActive: isActive)
-        }
-        .buttonStyle(.plain)
-        .help(help)
     }
 
     // MARK: - Wikilink Navigation
@@ -1634,13 +1561,6 @@ struct NoteDetailWorkspaceView: View {
 
             Divider()
 
-            Button(action: { notesUI.cycleOutlineFoldMode() }) {
-                Label(
-                    "Outline: \(notesUI.outlineFoldMode.label)",
-                    systemImage: notesUI.outlineFoldMode.symbolName
-                )
-            }
-
             if !showPreview {
                 Button {
                     openMiniChatForCurrentNote()
@@ -1710,10 +1630,9 @@ struct NoteDetailWorkspaceView: View {
             Divider()
 
         } label: {
-            NoteToolbarIcon(glyph: .more, theme: ui.theme)
+            Label("More", systemImage: NoteToolbarGlyph.more.symbolName ?? "ellipsis.circle")
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(NoteToolbarDisplay.hidesMenuIndicators ? .hidden : .visible)
+        .menuIndicator(.hidden)
         .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
             if let page = pages.first {
                 NoteBacklinksPopover(

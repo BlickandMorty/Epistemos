@@ -756,7 +756,13 @@ final class CloudLLMClient: LLMClientProtocol {
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: CloudLLMError.invalidResponse)
+            }
+        }
 
         return streamSSE(request) { json in
             CloudStreamingParser.openAITextDelta(from: json)
@@ -834,7 +840,13 @@ final class CloudLLMClient: LLMClientProtocol {
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: CloudLLMError.invalidResponse)
+            }
+        }
 
         return streamSSE(request) { json in
             CloudStreamingParser.anthropicTextDelta(from: json)
@@ -920,7 +932,13 @@ final class CloudLLMClient: LLMClientProtocol {
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: CloudLLMError.invalidResponse)
+            }
+        }
 
         return streamSSE(request) { json in
             CloudStreamingParser.googleTextDelta(from: json)

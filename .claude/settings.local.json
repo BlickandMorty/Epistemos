@@ -176,7 +176,25 @@
       "Bash(sysctl -n machdep.cpu.brand_string)",
       "Bash(system_profiler SPHardwareDataType)",
       "Bash(open /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app)",
-      "Bash(/usr/bin/head -100)"
+      "Bash(/usr/bin/head -100)",
+      "Bash(gtimeout 90 xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test-without-building -only-testing:EpistemosTests/HermesPromptBuilderTests)",
+      "Bash(printf 'tools/call handlers: ')",
+      "Bash(printf 'execution logging: ')",
+      "Bash(printf 'catalog module: ')",
+      "Bash(printf 'vault executor: ')",
+      "Bash(printf 'verification path: ')",
+      "Bash(cargo test:*)",
+      "Bash(brew install:*)",
+      "Bash(pdftoppm -v)",
+      "Bash(pdftotext '/Users/jojo/Downloads/release/new agents/Agent Architecture and Implementation Details.pdf' -)",
+      "WebFetch(domain:x.com)",
+      "WebSearch",
+      "Bash(for id:*)",
+      "Bash(/dev/null echo:*)",
+      "Bash(git clone:*)",
+      "Bash(codesign -dvvv /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app/Contents/PlugIns/EpistemosTests.xctest)",
+      "Bash(xcodegen --version)",
+      "Bash(/tmp/audit_summary.txt:*)"
     ],
     "additionalDirectories": [
       "/tmp"
