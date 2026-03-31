@@ -439,6 +439,7 @@ final class AgentViewModel {
             registerVaultTools(on: server)
             registerSkillDiscoveryTools(on: server)
             registerComputerUseTools(on: server)
+            registerRoutingTools(on: server)
             // Start HTTP transport for large payloads (>50KB)
             _ = server.startHttpTransport()
             mcpServer = server
@@ -810,7 +811,8 @@ final class AgentViewModel {
         )
         server.registerToolHandler(name: "computer_see") { params in
             let args = Self.anyCodableToDict(params)
-            let result = await GhostComputerAgent.mcpSee(args: args)
+            var result = await GhostComputerAgent.mcpSee(args: args)
+            result = CredentialRedactor.redact(result)
             return .success(.string(result))
         }
 
@@ -831,10 +833,28 @@ final class AgentViewModel {
             ],
             handler: { _ in .success(.null) }
         )
-        server.registerToolHandler(name: "computer_click") { params in
+        server.registerToolHandler(name: "computer_click") { [weak self] params in
             let args = Self.anyCodableToDict(params)
+            guard let self else { return .error(code: -32603, message: "deallocated") }
+
+            // Turbo-Quant: AXMutationDetector before/after for post-action verification
+            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
+            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
+            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
+
             let result = await MainActor.run { GhostComputerAgent.mcpClick(args: args) }
-            return .success(.string(result))
+
+            // Post-action: detect UI mutation (~1ms cost)
+            var enriched = result
+            if let before, frontPID > 0 {
+                try? await Task.sleep(for: .milliseconds(150)) // UI settle
+                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
+                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
+            }
+
+            enriched = CredentialRedactor.redact(enriched)
+            return .success(.string(enriched))
         }
 
         // type — omega-ax CGEvent keyboard simulation
@@ -850,10 +870,26 @@ final class AgentViewModel {
             ],
             handler: { _ in .success(.null) }
         )
-        server.registerToolHandler(name: "computer_type") { params in
+        server.registerToolHandler(name: "computer_type") { [weak self] params in
             let args = Self.anyCodableToDict(params)
+            guard let self else { return .error(code: -32603, message: "deallocated") }
+
+            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
+            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
+            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
+
             let result = await MainActor.run { GhostComputerAgent.mcpType(args: args) }
-            return .success(.string(result))
+
+            var enriched = result
+            if let before, frontPID > 0 {
+                try? await Task.sleep(for: .milliseconds(150))
+                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
+                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
+            }
+
+            enriched = CredentialRedactor.redact(enriched)
+            return .success(.string(enriched))
         }
 
         // screenshot — ScreenCaptureKit capture
@@ -871,7 +907,8 @@ final class AgentViewModel {
         server.registerToolHandler(name: "computer_screenshot") { [weak self] params in
             guard let self else { return .error(code: -32603, message: "Agent deallocated") }
             let args = Self.anyCodableToDict(params)
-            let result = await GhostComputerAgent.mcpScreenshot(args: args, screenCapture: self.screenCaptureService)
+            var result = await GhostComputerAgent.mcpScreenshot(args: args, screenCapture: self.screenCaptureService)
+            result = CredentialRedactor.redact(result)
             return .success(.string(result))
         }
 
@@ -888,10 +925,26 @@ final class AgentViewModel {
             ],
             handler: { _ in .success(.null) }
         )
-        server.registerToolHandler(name: "computer_keys") { params in
+        server.registerToolHandler(name: "computer_keys") { [weak self] params in
             let args = Self.anyCodableToDict(params)
+            guard let self else { return .error(code: -32603, message: "deallocated") }
+
+            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
+            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
+            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
+
             let result = await MainActor.run { GhostComputerAgent.mcpKeys(args: args) }
-            return .success(.string(result))
+
+            var enriched = result
+            if let before, frontPID > 0 {
+                try? await Task.sleep(for: .milliseconds(150))
+                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
+                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
+            }
+
+            enriched = CredentialRedactor.redact(enriched)
+            return .success(.string(enriched))
         }
 
         // scroll — CGEvent scroll wheel simulation
@@ -908,10 +961,26 @@ final class AgentViewModel {
             ],
             handler: { _ in .success(.null) }
         )
-        server.registerToolHandler(name: "computer_scroll") { params in
+        server.registerToolHandler(name: "computer_scroll") { [weak self] params in
             let args = Self.anyCodableToDict(params)
+            guard let self else { return .error(code: -32603, message: "deallocated") }
+
+            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
+            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
+            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
+
             let result = await MainActor.run { GhostComputerAgent.mcpScroll(args: args) }
-            return .success(.string(result))
+
+            var enriched = result
+            if let before, frontPID > 0 {
+                try? await Task.sleep(for: .milliseconds(150))
+                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
+                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
+            }
+
+            enriched = CredentialRedactor.redact(enriched)
+            return .success(.string(enriched))
         }
     }
 
@@ -938,6 +1007,115 @@ final class AgentViewModel {
             }
         }
         return result
+    }
+
+    /// Append AXMutationDetector results to a JSON tool result string.
+    /// Adds `mutation_detected`, `element_count_delta`, `new_window` fields
+    /// so Hermes knows whether its action actually changed the UI.
+    nonisolated private static func appendMutationInfo(
+        to jsonResult: String,
+        mutation: AXMutationDetector.MutationResult
+    ) -> String {
+        // Try to merge into existing JSON object
+        guard var data = jsonResult.data(using: .utf8),
+              var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            // Not valid JSON — wrap in object
+            return "{\"result\":\"\(jsonResult.replacingOccurrences(of: "\"", with: "\\\""))\",\"mutation_detected\":\(mutation.mutated),\"element_count_delta\":\(mutation.elementCountDelta),\"new_window\":\(mutation.newWindowDetected)}"
+        }
+        dict["mutation_detected"] = mutation.mutated
+        dict["element_count_delta"] = mutation.elementCountDelta
+        dict["new_window"] = mutation.newWindowDetected
+        dict["mutation_latency_ms"] = mutation.latencyMs
+        guard let merged = try? JSONSerialization.data(withJSONObject: dict),
+              let str = String(data: merged, encoding: .utf8) else {
+            return jsonResult
+        }
+        return str
+    }
+
+    // MARK: - Routing & Fallback MCP Tools
+
+    /// Register CLI↔GUI routing hints and fallback chain tools so Hermes
+    /// can make informed execution arm decisions and recover from failures.
+    private func registerRoutingTools(on server: EpistemosMCPServer) {
+        // HybridRouter: Given a task description, recommend CLI vs GUI execution arm
+        server.registerTool(
+            name: "optimal_execution_arm",
+            description: "Given a task description, recommends whether to use CLI (terminal) or GUI (computer/automation) tools. Returns arm, confidence, and reasoning.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "description": .dictionary(["type": .string("string"), "description": .string("The task to classify.")]),
+                ]),
+                "required": .array([.string("description")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "optimal_execution_arm") { params in
+            let args = Self.anyCodableToDict(params)
+            let desc = args["description"] as? String ?? ""
+            let result = await MainActor.run { () -> [String: AnyCodableValue] in
+                let router = HybridRouter()
+                let step = AgentStep(
+                    description: desc,
+                    assignedAgent: "",
+                    toolName: "",
+                    argumentsJson: "{}"
+                )
+                let decision = router.classify(step: step)
+                return [
+                    "arm": .string(decision.arm.rawValue),
+                    "confidence": .double(decision.confidence),
+                    "reasoning": .string(decision.reasoning),
+                    "suggested_agent": decision.suggestedAgent.map { .string($0) } ?? .null,
+                    "suggested_tool": decision.suggestedTool.map { .string($0) } ?? .null,
+                ]
+            }
+            return .success(.dictionary(result))
+        }
+
+        // FallbackChainResolver: When a tool fails, suggest an alternative on the opposite arm
+        server.registerTool(
+            name: "query_fallback",
+            description: "When a tool fails, suggests a fallback on the opposite execution arm (GUI→CLI or CLI→GUI). Returns the fallback agent, tool, and reasoning.",
+            inputSchema: [
+                "type": .string("object"),
+                "properties": .dictionary([
+                    "failed_tool": .dictionary(["type": .string("string"), "description": .string("The tool that failed.")]),
+                    "failed_agent": .dictionary(["type": .string("string"), "description": .string("The agent that failed.")]),
+                    "error": .dictionary(["type": .string("string"), "description": .string("The error message.")]),
+                ]),
+                "required": .array([.string("failed_tool"), .string("failed_agent")]),
+            ],
+            handler: { _ in .success(.null) }
+        )
+        server.registerToolHandler(name: "query_fallback") { params in
+            let args = Self.anyCodableToDict(params)
+            let failedTool = args["failed_tool"] as? String ?? ""
+            let failedAgent = args["failed_agent"] as? String ?? ""
+            let error = args["error"] as? String ?? "Tool execution failed"
+
+            let result = await MainActor.run { () -> MCPToolResult in
+                let resolver = FallbackChainResolver()
+                let step = AgentStep(
+                    description: error,
+                    assignedAgent: failedAgent,
+                    toolName: failedTool,
+                    argumentsJson: "{}"
+                )
+                let failResult = AgentStepResult.fail(error, stepId: step.id, durationMs: 0)
+                guard let fallback = resolver.resolveFallback(failedStep: step, failedResult: failResult) else {
+                    return .error(code: -32600, message: "No fallback available for \(failedAgent)/\(failedTool)")
+                }
+                return .success(.dictionary([
+                    "fallback_agent": .string(fallback.agent),
+                    "fallback_tool": .string(fallback.toolName),
+                    "arguments": .string(fallback.argumentsJson),
+                    "reasoning": .string(fallback.reasoning),
+                ]))
+            }
+            return result
+        }
     }
 
     // MARK: - Cron Keepalive
