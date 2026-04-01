@@ -53,6 +53,8 @@ final class AgentViewModel {
     private let shadowCheckpoint = ShadowGitCheckpoint()
     /// Agent graph memory — plots Hermes findings as .idea/.source nodes in the knowledge graph.
     var agentGraphMemory: AgentGraphMemory?
+    /// Meta-Harness integration: bootstrap packets, trace recording, progress handoff, completion checking.
+    let harnessIntegration = HarnessIntegration()
     /// Speculative PTY pre-warming: pre-spawned PTY session ID, ready for immediate use.
     private var speculativePtyId: String?
     // Fix: [Issue 3 - TCC Permissions] — permission state for agent gate.
@@ -142,12 +144,24 @@ final class AgentViewModel {
         }
         prepareTurnStateForNewPrompt(prompt: trimmed)
 
+        // Harness: record user intent and prepare session context.
+        let sessionId = activeSessionID ?? UUID().uuidString
+        harnessIntegration.recordUserIntent(trimmed)
+        let harnessSystemPrompt = harnessIntegration.prepareSession(
+            sessionId: sessionId,
+            objective: trimmed,
+            workingDirectory: URL(fileURLWithPath: AgentRuntimeDefaults.vaultPath),
+            availableTools: [],
+            activeCapability: "cloud"
+        )
+
         let (stream, continuation) = AsyncStream<AgentStreamEvent>.makeStream(
             bufferingPolicy: .bufferingNewest(256)
         )
         activeContinuation = continuation
 
-        let startPayload = makeStartPayload(prompt: trimmed, providerName: providerName)
+        var startPayload = makeStartPayload(prompt: trimmed, providerName: providerName)
+        startPayload["system_prompt"] = harnessSystemPrompt
 
         currentTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
@@ -365,7 +379,7 @@ final class AgentViewModel {
             case .toolInputStreaming:
                 break
 
-            case .toolStarted(_, let name, let inputJson):
+            case .toolStarted(let id, let name, let inputJson):
                 flushBuffers()
                 phase = .executing(toolName: name)
                 contentBlocks.append(
@@ -376,12 +390,22 @@ final class AgentViewModel {
                         isError: false
                     )
                 )
+                // Harness: record tool start (result captured on completion).
+                _ = id // suppress unused warning — id used for matching in toolCompleted
 
             case .toolCompleted(_, let result, let isError):
                 if let lastIndex = contentBlocks.indices.last,
                    case .toolExecution(let name, let input, _, _) = contentBlocks[lastIndex].kind {
                     contentBlocks[lastIndex] = contentBlocks[lastIndex].replacing(
                         kind: .toolExecution(name: name, input: input, result: result, isError: isError)
+                    )
+                    // Harness: record tool call with result.
+                    harnessIntegration.recordToolCall(
+                        turn: turnCount,
+                        tool: name,
+                        input: input,
+                        output: result ?? (isError ? "error" : ""),
+                        exitCode: isError ? 1 : 0
                     )
                 }
                 phase = .reasoning(tokenCount: max(1, thinkingText.count / 4))
@@ -420,7 +444,18 @@ final class AgentViewModel {
                 isAwaitingApproval = false
                 activeContinuation = nil
 
+                // Harness: save session progress and close traces.
+                harnessIntegration.completeSession(
+                    stopReason: stopReason,
+                    inputTokens: inputTokens,
+                    outputTokens: outputTokens,
+                    turns: turnCount,
+                    accomplishedSummary: lastSubmittedPrompt
+                )
+
             case .error(let error):
+                // Harness: record error event.
+                harnessIntegration.recordError(error.message)
                 handleError(error.message)
             }
         }
@@ -1881,6 +1916,7 @@ final class AgentViewModel {
         hermesLoopDetector.reset()
         hermesDepthLimiter.reset()
         costTracker.reset()
+        harnessIntegration.resetForNewTask()
     }
 
     private func upsertSession(_ session: AgentSessionSummary) {
