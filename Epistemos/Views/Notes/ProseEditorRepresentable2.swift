@@ -204,13 +204,15 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
     static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator2) {
         // NSViewRepresentable guarantees main-thread dismantle for AppKit.
-        // Defensive check: if not on main, dispatch synchronously to avoid data race.
+        // Defensive check: if not on main, dispatch asynchronously.
+        // Using .sync here risks deadlock if the caller already holds
+        // a lock that the main thread is waiting on.
         if Thread.isMainThread {
             MainActor.assumeIsolated {
                 coordinator.handleDismantle()
             }
         } else {
-            DispatchQueue.main.sync {
+            DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     coordinator.handleDismantle()
                 }
@@ -355,9 +357,13 @@ extension ProseEditorRepresentable2 {
             // outside of user editing. Replace storage content to pick up the new text.
             // Guards: skip during AI streaming (isFlushingTokens), IME composition,
             // pending binding sync (debounce window holds unsaved keystrokes).
+            // Fix: [Issue 4 - NSInputAnalytics Crash] — guard on hasPendingBindingSync
+            // instead of bindingSyncTask == nil. During the 300ms debounce window,
+            // hasPendingBindingSync is true even after the task reference is cleared,
+            // preventing external body sync from tearing down the editor mid-keystroke.
             if !isFlushingTokens,
                !tv.hasMarkedText(),
-               bindingSyncTask == nil,
+               !hasPendingBindingSync,
                parent.pageBody != lastSyncedText,
                parent.pageBody != tv.string
             {

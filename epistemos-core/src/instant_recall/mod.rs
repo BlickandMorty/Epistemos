@@ -12,14 +12,32 @@
 //   128 bytes/note × 500K = 64MB, scanned at ~350 GB/s = 0.18ms.
 // HNSW is deferred until vault sizes exceed this threshold.
 
+pub mod butterfly;
 pub mod embedder;
+pub mod fusion;
 pub mod index;
+pub mod kitty;
+pub mod kv_cache_quant;
+pub mod metal_quant;
 pub mod progressive;
 pub mod quantizer;
+pub mod segment;
+pub mod tmac;
+pub mod turbo_quant;
 
+pub use butterfly::ButterflyRotation;
 pub use embedder::TrigramEmbedder;
+pub use fusion::{
+    CrossEncoder, FusedResult, FusionConfig, HybridSearchPipeline, RetrievalHit,
+    RetrievalSource,
+};
 pub use index::{InstantRecallIndex, RecallResult};
+pub use kitty::{KittyBoostMap, KittyConfig, KittyVector};
+pub use kv_cache_quant::{KVPrecision, KVTunerProfile, ProgressiveKVCache};
 pub use quantizer::{hamming_distance, quantize_to_binary};
+pub use segment::{SegmentConfig, SegmentedIndex, SegmentSearchResult};
+pub use tmac::TMacVector;
+pub use turbo_quant::{TurboQuantBits, TurboQuantVector};
 
 /// Configuration for the instant recall system.
 #[derive(Debug, Clone)]

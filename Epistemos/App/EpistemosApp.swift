@@ -122,28 +122,33 @@ private struct LaunchIntegrityGateView<Content: View>: View {
     }
 }
 
-final class CrashReportCollector: NSObject, MXMetricManagerSubscriber {
-    static let shared = CrashReportCollector()
+// MetricKit calls didReceive(_:) on com.apple.metrickit.manager.queue, NOT the
+// main actor. The entire class is nonisolated — it only does file I/O, no UI.
+// Using @unchecked Sendable because NSObject subclass with internal
+// synchronization via serial file ops.
+final class CrashReportCollector: NSObject, @unchecked Sendable, MXMetricManagerSubscriber {
+    nonisolated(unsafe) static let shared = CrashReportCollector()
 
     private let log = Logger(subsystem: "com.epistemos", category: "CrashReportCollector")
     private let maxRetainedReports = 100
-    private let formatter = ISO8601DateFormatter()
-    private var isCollecting = false
 
-    func startCollecting() {
-        guard !isCollecting else { return }
-        isCollecting = true
+    nonisolated override init() {
+        super.init()
+    }
+
+    nonisolated func startCollecting() {
         pruneOldReportsIfNeeded()
         MXMetricManager.shared.add(self)
     }
 
-    func didReceive(_ payloads: [MXDiagnosticPayload]) {
+    nonisolated func didReceive(_ payloads: [MXDiagnosticPayload]) {
+        let formatter = ISO8601DateFormatter()
         do {
             let reportsDir = try reportsDirectory()
             for payload in payloads {
-                saveDiagnostics(payload.crashDiagnostics, type: "crash", dir: reportsDir)
-                saveDiagnostics(payload.hangDiagnostics, type: "hang", dir: reportsDir)
-                saveDiagnostics(payload.diskWriteExceptionDiagnostics, type: "disk_write", dir: reportsDir)
+                saveDiagnostics(payload.crashDiagnostics, type: "crash", dir: reportsDir, formatter: formatter)
+                saveDiagnostics(payload.hangDiagnostics, type: "hang", dir: reportsDir, formatter: formatter)
+                saveDiagnostics(payload.diskWriteExceptionDiagnostics, type: "disk_write", dir: reportsDir, formatter: formatter)
             }
             pruneOldReportsIfNeeded()
         } catch {
@@ -151,7 +156,7 @@ final class CrashReportCollector: NSObject, MXMetricManagerSubscriber {
         }
     }
 
-    private func saveDiagnostics(_ diagnostics: [MXDiagnostic]?, type: String, dir: URL) {
+    private nonisolated func saveDiagnostics(_ diagnostics: [MXDiagnostic]?, type: String, dir: URL, formatter: ISO8601DateFormatter) {
         guard let diagnostics else { return }
 
         for diagnostic in diagnostics {
@@ -166,7 +171,7 @@ final class CrashReportCollector: NSObject, MXMetricManagerSubscriber {
         }
     }
 
-    private func pruneOldReportsIfNeeded() {
+    private nonisolated func pruneOldReportsIfNeeded() {
         do {
             let reportsDir = try reportsDirectory()
             let contents = try FileManager.default.contentsOfDirectory(
@@ -193,7 +198,7 @@ final class CrashReportCollector: NSObject, MXMetricManagerSubscriber {
         }
     }
 
-    private func reportsDirectory() throws -> URL {
+    private nonisolated func reportsDirectory() throws -> URL {
         guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -334,6 +339,10 @@ final class RuntimeIssueMonitor {
                 message: "memory_pressure",
                 metadata: metadata
             )
+            // Concrete action: log the hang-level diagnostic event
+            StructuredDiagnosticLogger().log(
+                .memoryPressure(level: "critical", usedMB: currentMemoryUsageMB())
+            )
         } else if event.contains(.warning) {
             metadata["level"] = "warning"
             RuntimeDiagnostics.record(
@@ -342,10 +351,25 @@ final class RuntimeIssueMonitor {
                 message: "memory_pressure",
                 metadata: metadata
             )
+            StructuredDiagnosticLogger().log(
+                .memoryPressure(level: "warning", usedMB: currentMemoryUsageMB())
+            )
         } else if event.contains(.normal) {
             metadata["level"] = "normal"
             recordLifecycle("memory_pressure_recovered", metadata: metadata)
         }
+    }
+
+    private func currentMemoryUsageMB() -> Int {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let result = withUnsafeMutablePointer(to: &info) { infoPtr in
+            infoPtr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rawPtr in
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), rawPtr, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return 0 }
+        return Int(info.resident_size / (1024 * 1024))
     }
 
     private func recordThermalState() {

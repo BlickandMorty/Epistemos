@@ -17,6 +17,7 @@ pub mod vault_registry;
 
 pub mod providers {
     pub mod claude;
+    pub mod openai;
     pub mod perplexity;
 }
 
@@ -30,9 +31,13 @@ pub mod storage {
     pub mod vault_git;
 }
 
+pub mod shared_memory;
+
 pub mod tools {
+    pub mod chunk_reduce;
     pub mod registry;
     pub mod think;
+    pub mod workspace_search;
 }
 
 uniffi::setup_scaffolding!();

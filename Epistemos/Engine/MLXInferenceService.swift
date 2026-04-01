@@ -135,24 +135,33 @@ nonisolated enum LocalMLXRuntimeTuning {
         return LocalMLXRuntimePolicy(memoryPolicy: memoryPolicy, idleUnloadDelay: idleUnloadDelay)
     }
 
+    /// Hard ceiling on Metal intermediate tensor cache (4GB).
+    /// Prevents unbounded cache growth during long Qwen 27B sessions
+    /// that would otherwise thrash NVMe via unified memory page-out.
+    private static let metalCacheCeiling = 4 * 1024 * 1024 * 1024 // 4 GiB
+
     static func memoryPolicy(
         snapshot: LocalHardwareCapabilitySnapshot,
         conditions: LocalRuntimeConditions
     ) -> LocalMLXMemoryPolicy {
+        // Cache limits sized to hold intermediate tensor working set for the model tier,
+        // capped at metalCacheCeiling. Previous 40-224MB values caused constant alloc/free
+        // churn during 27B inference — matmul intermediates were evicted and reallocated
+        // every op, eventually pushing the footprint into NVMe page-out.
         let base: LocalMLXMemoryPolicy
         switch snapshot.roundedMemoryGB {
         case ..<12:
-            base = LocalMLXMemoryPolicy(memoryLimitBytes: 2_300_000_000, cacheLimitBytes: 40_000_000)
+            base = LocalMLXMemoryPolicy(memoryLimitBytes: 2_300_000_000, cacheLimitBytes: 256_000_000)
         case ..<16:
-            base = LocalMLXMemoryPolicy(memoryLimitBytes: 3_000_000_000, cacheLimitBytes: 52_000_000)
+            base = LocalMLXMemoryPolicy(memoryLimitBytes: 3_000_000_000, cacheLimitBytes: 512_000_000)
         case ..<24:
-            base = LocalMLXMemoryPolicy(memoryLimitBytes: 4_000_000_000, cacheLimitBytes: 64_000_000)
+            base = LocalMLXMemoryPolicy(memoryLimitBytes: 4_000_000_000, cacheLimitBytes: 1_024_000_000)
         case ..<36:
-            base = LocalMLXMemoryPolicy(memoryLimitBytes: 5_750_000_000, cacheLimitBytes: 96_000_000)
+            base = LocalMLXMemoryPolicy(memoryLimitBytes: 5_750_000_000, cacheLimitBytes: 2_048_000_000)
         case ..<64:
-            base = LocalMLXMemoryPolicy(memoryLimitBytes: 8_000_000_000, cacheLimitBytes: 144_000_000)
+            base = LocalMLXMemoryPolicy(memoryLimitBytes: 8_000_000_000, cacheLimitBytes: 3_072_000_000)
         default:
-            base = LocalMLXMemoryPolicy(memoryLimitBytes: 11_000_000_000, cacheLimitBytes: 224_000_000)
+            base = LocalMLXMemoryPolicy(memoryLimitBytes: 11_000_000_000, cacheLimitBytes: 4_096_000_000)
         }
 
         var memoryLimit = base.memoryLimitBytes
@@ -160,12 +169,12 @@ nonisolated enum LocalMLXRuntimeTuning {
 
         if conditions.lowPowerModeEnabled {
             memoryLimit = max(1_800_000_000, Int(Double(memoryLimit) * 0.82))
-            cacheLimit = max(24_000_000, Int(Double(cacheLimit) * 0.65))
+            cacheLimit = max(128_000_000, Int(Double(cacheLimit) * 0.65))
         }
 
         if !conditions.appActive {
             memoryLimit = max(1_600_000_000, Int(Double(memoryLimit) * 0.78))
-            cacheLimit = max(18_000_000, Int(Double(cacheLimit) * 0.60))
+            cacheLimit = max(96_000_000, Int(Double(cacheLimit) * 0.60))
         }
 
         switch conditions.thermalState {
@@ -173,14 +182,17 @@ nonisolated enum LocalMLXRuntimeTuning {
             break
         case .fair:
             memoryLimit = max(1_600_000_000, Int(Double(memoryLimit) * 0.92))
-            cacheLimit = max(18_000_000, Int(Double(cacheLimit) * 0.85))
+            cacheLimit = max(96_000_000, Int(Double(cacheLimit) * 0.85))
         case .serious:
             memoryLimit = max(1_400_000_000, Int(Double(memoryLimit) * 0.74))
-            cacheLimit = max(16_000_000, Int(Double(cacheLimit) * 0.55))
+            cacheLimit = max(64_000_000, Int(Double(cacheLimit) * 0.55))
         case .critical:
             memoryLimit = max(1_200_000_000, Int(Double(memoryLimit) * 0.58))
-            cacheLimit = max(12_000_000, Int(Double(cacheLimit) * 0.40))
+            cacheLimit = max(48_000_000, Int(Double(cacheLimit) * 0.40))
         }
+
+        // Enforce hard ceiling: never exceed 4GB regardless of hardware tier.
+        cacheLimit = min(cacheLimit, metalCacheCeiling)
 
         return LocalMLXMemoryPolicy(memoryLimitBytes: memoryLimit, cacheLimitBytes: cacheLimit)
     }

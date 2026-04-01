@@ -20,6 +20,43 @@ final class FilterEngine {
     /// The set of node IDs connected to the focused node (including itself).
     private(set) var focusedConnected: Set<String>?
 
+    // MARK: - Text Search Filter
+
+    /// Live text search filter — nodes whose label doesn't match are hidden.
+    /// Set from the graph sidebar search field as the user types.
+    var searchFilter: String = ""
+
+    /// Pre-computed set of node IDs that match the current search filter.
+    /// Populated by `applySearchFilter(store:)` — O(1) lookup in isNodeVisible.
+    private(set) var searchMatchedNodeIds: Set<String>?
+
+    /// Whether a text search is active.
+    var hasSearchFilter: Bool { searchMatchedNodeIds != nil }
+
+    /// Recompute the matched node set from the current search text.
+    /// Call this ONCE when the text changes, not per-node in the render loop.
+    func applySearchFilter(store: GraphStore) {
+        let query = searchFilter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else {
+            searchMatchedNodeIds = nil
+            return
+        }
+        var matched = Set<String>()
+        matched.reserveCapacity(store.nodes.count / 4)
+        for (id, node) in store.nodes {
+            if node.label.lowercased().contains(query) {
+                matched.insert(id)
+            }
+        }
+        searchMatchedNodeIds = matched
+    }
+
+    /// Clear the text search filter.
+    func clearSearchFilter() {
+        searchFilter = ""
+        searchMatchedNodeIds = nil
+    }
+
     // MARK: - Model Profile Filter (v2)
 
     /// When set, only nodes associated with this model profile's vault are shown.
@@ -36,6 +73,7 @@ final class FilterEngine {
             || activeEdgeTypes.count != GraphEdgeType.allCases.count
             || focusedNodeId != nil
             || selectedModelProfileId != nil
+            || !searchFilter.isEmpty
     }
 
     // MARK: - Type Filter Methods

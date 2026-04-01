@@ -53,4 +53,14 @@ mkdir -p ../build-rust/swift-bindings/omega_mcpFFI
 cp ../build-rust/swift-bindings/omega_mcpFFI.h ../build-rust/swift-bindings/omega_mcpFFI/ 2>/dev/null || true
 cp ../build-rust/swift-bindings/omega_mcpFFI.modulemap ../build-rust/swift-bindings/omega_mcpFFI/module.modulemap 2>/dev/null || true
 
+# Fix: [Issue 1 - AMFI Binary Signing] — ad-hoc sign all binaries to prevent
+# "Unrecoverable CT signature issue" kernel kills.
+for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
+           target/x86_64-apple-darwin/debug/uniffi_bindgen \
+           target/aarch64-apple-darwin/release/uniffi_bindgen \
+           target/x86_64-apple-darwin/release/uniffi_bindgen; do
+    [ -f "$bin" ] && codesign --force --sign - "$bin"
+done
+codesign --force --sign - ../build-rust/libomega_mcp.dylib
+
 echo "omega-mcp build complete"

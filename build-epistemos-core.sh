@@ -60,4 +60,14 @@ mkdir -p ../build-rust/swift-bindings/epistemos_coreFFI
 cp ../build-rust/swift-bindings/epistemos_coreFFI.h ../build-rust/swift-bindings/epistemos_coreFFI/epistemos_coreFFI.h
 cp ../build-rust/swift-bindings/epistemos_coreFFI.modulemap ../build-rust/swift-bindings/epistemos_coreFFI/module.modulemap
 
+# Fix: [Issue 1 - AMFI Binary Signing] — ad-hoc sign all binaries to prevent
+# "Unrecoverable CT signature issue" kernel kills.
+for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
+           target/x86_64-apple-darwin/debug/uniffi_bindgen \
+           target/aarch64-apple-darwin/release/uniffi_bindgen \
+           target/x86_64-apple-darwin/release/uniffi_bindgen; do
+    [ -f "$bin" ] && codesign --force --sign - "$bin"
+done
+codesign --force --sign - ../build-rust/libepistemos_core.dylib
+
 echo "epistemos-core build complete"

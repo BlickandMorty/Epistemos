@@ -239,6 +239,20 @@ final class HermesAdminViewModel {
     // MARK: - Private Helpers
 
     private func sendAdmin(domain: String, action: String, extra: [String: Any] = [:]) {
+        // If the subprocess isn't running, attempt to launch it first.
+        if !hermesManager.isRunning {
+            lastError = "Agent starting up\u{2026}"
+            Task {
+                await hermesManager.preWarm()
+                // Retry after launch
+                await MainActor.run {
+                    self.lastError = nil
+                    self.sendAdmin(domain: domain, action: action, extra: extra)
+                }
+            }
+            return
+        }
+
         var payload: [String: Any] = [
             "command": "admin",
             "domain": domain,

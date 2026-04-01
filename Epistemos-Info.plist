@@ -16,10 +16,19 @@
 	<string>Epistemos</string>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>Epistemos uses Accessibility to read screen content for Omega desktop automation when you enable it.</string>
+	<!-- Fix: [Issue 3 - TCC Permissions] — Screen Recording usage description -->
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Epistemos uses Screen Recording to capture screenshots for the Omega agent's visual verification loop.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Epistemos uses Apple Events to automate Safari and System Events when you enable Omega desktop control.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Epistemos needs access to your Documents folder to read and manage your knowledge vault.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Epistemos needs access to your Desktop to read files you reference in notes.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Epistemos needs access to Downloads to import files into your vault.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>com.epistemos.openNote</string>

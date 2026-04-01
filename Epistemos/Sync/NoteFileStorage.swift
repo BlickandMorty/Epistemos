@@ -711,7 +711,13 @@ enum NoteFileStorage {
     ///   The file bytes stay on disk and are paged in lazily by the kernel until the UTF-8 decode.
     ///   Use for bulk operations (indexing, hashing, search) where many files are read in a loop.
     ///   Falls back to normal read for small files or network filesystems.
-    nonisolated static func readBody(pageId: String, mapped: Bool = false) -> String {
+    /// Read a note body from disk.
+    /// - Parameter fast: When `true`, skips Rust FFI normalization and BLAKE3 hash
+    ///   verification. Safe because all writes already normalize via `persistStagedBody`.
+    ///   Use `fast: true` for UI-driven reads (editor, sidebar snippets) to avoid
+    ///   blocking the main thread with 2-3s of FFI work.
+    ///   Use `fast: false` for integrity-critical paths (sync, export, indexing).
+    nonisolated static func readBody(pageId: String, mapped: Bool = false, fast: Bool = true) -> String {
         guard isValidPageId(pageId) else { return "" }
         let directory = storageDirectory()
         if let pending = pendingBody(for: pageId, directory: directory) {
@@ -723,6 +729,13 @@ enum NoteFileStorage {
               let text = FoundationSafety.decodedText(from: data) else {
             return migrateLegacyRichTextBody(pageId: pageId)
         }
+
+        // Trust-on-Read: skip expensive Rust FFI (normalization + hash) for UI reads.
+        // All writes go through persistStagedBody which normalizes before disk write.
+        if fast {
+            return text
+        }
+
         guard let normalizedText = normalizedStorageContent(text, pageId: pageId) else {
             return ""
         }
@@ -759,12 +772,21 @@ enum NoteFileStorage {
     /// Read raw file data for a note body. Returns nil if file doesn't exist or pageId is invalid.
     /// Uses mmap by default — ideal for hashing and search indexing where
     /// you only need bytes, not a decoded String.
-    nonisolated static func readBodyData(pageId: String) -> Data? {
+    /// - Parameter fast: When `true`, skips normalization and hash verification.
+    nonisolated static func readBodyData(pageId: String, fast: Bool = true) -> Data? {
         guard isValidPageId(pageId) else { return nil }
         let directory = storageDirectory()
         let url = bodyURL(pageId: pageId, in: directory)
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
-              let text = FoundationSafety.decodedText(from: data) else {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else {
+            return nil
+        }
+
+        // Trust-on-Read: skip FFI for UI-driven reads.
+        if fast {
+            return data
+        }
+
+        guard let text = FoundationSafety.decodedText(from: data) else {
             return nil
         }
         guard normalizedStorageContent(text, pageId: pageId) != nil else {

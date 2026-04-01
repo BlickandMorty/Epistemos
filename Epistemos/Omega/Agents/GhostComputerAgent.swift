@@ -315,7 +315,8 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
 
     // MARK: - screenshot
 
-    /// Capture screenshot via ScreenCaptureKit.
+    /// Capture screenshot via ScreenCaptureKit → SHM bridge.
+    /// Swift owns TCC permissions; pixel data routes through shared memory.
     private func executeScreenshot(args: [String: Any]) async -> String {
         let bundleID: String?
         if let app = args["app"] as? String {
@@ -335,17 +336,30 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
             return "{\"success\":false,\"error\":\"Screenshot capture failed\"}"
         }
 
-        // Encode as base64 PNG
         let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
         guard let pngData = bitmapRep.representation(using: .png, properties: [:]) else {
             return "{\"success\":false,\"error\":\"PNG encoding failed\"}"
         }
 
-        let base64 = pngData.base64EncodedString()
         let width = cgImage.width
         let height = cgImage.height
 
-        return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"data_base64_length\":\(base64.count)}"
+        // Write PNG to shared memory — the agent reads via SHM_REF pointer.
+        if pngData.count > 48 * 1024 {
+            do {
+                let shmRefJson = try ShmWriter.writePayload(
+                    sessionId: "tcc_proxy",
+                    data: pngData,
+                    contentType: "image/png"
+                )
+                return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"shm_ref\":\(shmRefJson)}"
+            } catch {
+                return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"data_base64_length\":\(pngData.count * 4 / 3)}"
+            }
+        }
+
+        let base64 = pngData.base64EncodedString()
+        return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"data_base64\":\"\(base64)\"}"
     }
 
     // MARK: - Helpers
@@ -593,20 +607,28 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
         return "{\"success\":true,\"direction\":\"\(direction)\",\"amount\":\(amount)}"
     }
 
-    /// MCP adapter: screenshot — ScreenCaptureKit capture.
+    /// MCP adapter: screenshot — ScreenCaptureKit capture via TCC Swift Proxy.
+    ///
+    /// The Swift @MainActor layer owns kTCCServiceScreenCapture permissions.
+    /// Pixel data is captured natively, encoded to PNG, and written directly
+    /// into POSIX shared memory via `shm_open`. Only the compact SHM_REF JSON
+    /// pointer travels over the Unix socket — the Python daemon NEVER calls
+    /// macOS TCC APIs or handles raw pixel buffers.
     static func mcpScreenshot(args: [String: Any], screenCapture: ScreenCaptureService?) async -> String {
         let capture = screenCapture ?? ScreenCaptureService()
         let target = args["target"] as? String ?? "window"
 
         let image: CGImage?
         if target == "screen" {
-            image = await capture.captureFrontmostWindow() // Full screen fallback
+            image = await capture.captureDisplay()
+        } else if let app = args["app"] as? String {
+            image = await capture.captureApp(bundleID: app)
         } else {
             image = await capture.captureFrontmostWindow()
         }
 
         guard let cgImage = image else {
-            return "{\"success\":false,\"error\":\"Screenshot capture failed\"}"
+            return "{\"success\":false,\"error\":\"Screenshot capture failed — check Screen Recording permission\"}"
         }
 
         let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
@@ -614,8 +636,28 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
             return "{\"success\":false,\"error\":\"PNG encoding failed\"}"
         }
 
+        let width = cgImage.width
+        let height = cgImage.height
+
+        // Route through SHM for payloads that would exceed the 64KB pipe buffer.
+        // Small screenshots (e.g. tiny windows) pass through inline.
+        if pngData.count > 48 * 1024 {
+            do {
+                let shmRefJson = try ShmWriter.writePayload(
+                    sessionId: "tcc_proxy",
+                    data: pngData,
+                    contentType: "image/png"
+                )
+                return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"shm_ref\":\(shmRefJson)}"
+            } catch {
+                // Fallback to base64 if SHM fails (e.g. in test environments)
+                let base64 = pngData.base64EncodedString()
+                return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"data_base64\":\"\(base64)\"}"
+            }
+        }
+
         let base64 = pngData.base64EncodedString()
-        return "{\"success\":true,\"width\":\(cgImage.width),\"height\":\(cgImage.height),\"format\":\"png\",\"data_base64\":\"\(base64)\"}"
+        return "{\"success\":true,\"width\":\(width),\"height\":\(height),\"format\":\"png\",\"data_base64\":\"\(base64)\"}"
     }
 
     // MARK: - MCP Static Helpers

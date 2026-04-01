@@ -334,14 +334,35 @@ struct HologramSearchSidebar: View {
     @State private var queryResults: [GraphNodeRecord] = []
     @State private var activeQueryLabel: String?
 
+    @State private var debouncedFilterTask: Task<Void, Never>?
+    @State private var graphSearchResults: [GraphNodeRecord] = []
+
     private var queryContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // NL query field
+            // Live search field — filters nodes as you type
             nlQueryField
             Divider().opacity(0.2)
 
-            // Show NL results if available
-            if let result = queryEngine.currentResult {
+            if !queryText.isEmpty {
+                // Show matching nodes from live filter
+                if graphSearchResults.isEmpty {
+                    Text("No matching nodes")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            sectionHeader("\(graphSearchResults.count) match\(graphSearchResults.count == 1 ? "" : "es")")
+                            ForEach(Array(graphSearchResults.prefix(100)), id: \.id) { node in
+                                nodeRow(node)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            } else if let result = queryEngine.currentResult {
                 QueryResultsView(result: result, onSelectNode: onSelectNode)
             } else if let selectedNodeId = graphState.selectedNodeId,
                       let node = graphState.store.nodes[selectedNodeId] {
@@ -382,24 +403,42 @@ struct HologramSearchSidebar: View {
 
     private var nlQueryField: some View {
         HStack(spacing: 8) {
-            Image(systemName: "sparkle.magnifyingglass")
+            Image(systemName: queryText.isEmpty ? "magnifyingglass" : "line.3.horizontal.decrease.circle.fill")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.4))
+                .foregroundStyle(.primary.opacity(queryText.isEmpty ? 0.4 : 0.7))
 
-            TextField("Ask your graph…", text: $queryText)
+            TextField("Filter nodes…", text: $queryText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundStyle(.primary)
+                .onChange(of: queryText) { _, newValue in
+                    // Debounce: update sidebar results after 100ms of no typing
+                    debouncedFilterTask?.cancel()
+                    debouncedFilterTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(100))
+                        guard !Task.isCancelled else { return }
+
+                        let query = newValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        if query.isEmpty {
+                            graphSearchResults = []
+                        } else {
+                            graphSearchResults = graphState.store.nodes.values
+                                .filter { $0.label.lowercased().contains(query) }
+                                .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+                        }
+                    }
+                }
                 .onSubmit {
-                    queryEngine.execute(query: queryText)
+                    // Also support Enter to run NL query engine for advanced queries
+                    if !queryText.isEmpty {
+                        queryEngine.execute(query: queryText)
+                    }
                 }
 
-            if queryEngine.isProcessing {
-                ProgressView()
-                    .controlSize(.small)
-            } else if !queryText.isEmpty {
+            if !queryText.isEmpty {
                 Button {
                     queryText = ""
+                    graphSearchResults = []
                     queryEngine.clear()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -407,6 +446,11 @@ struct HologramSearchSidebar: View {
                         .foregroundStyle(.primary.opacity(0.3))
                 }
                 .buttonStyle(.plain)
+            }
+
+            if queryEngine.isProcessing {
+                ProgressView()
+                    .controlSize(.small)
             }
         }
         .padding(.horizontal, 12)

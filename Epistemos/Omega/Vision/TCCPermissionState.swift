@@ -44,13 +44,53 @@ final class TCCPermissionState {
         log.info("Permissions: \(self.summary)")
     }
 
+    // Fix: [Issue 3 - TCC Permissions] — poll for late user grants after
+    // redirecting to System Settings. Checks every 2 seconds until both
+    // Accessibility and Screen Recording are granted, then stops.
+    private var pollingTask: Task<Void, Never>?
+
+    func startPollingForGrant() {
+        pollingTask?.cancel()
+        pollingTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled, let self else { return }
+                await self.refresh()
+                if self.allRequiredGranted {
+                    self.log.info("All required TCC permissions granted via polling")
+                    return
+                }
+            }
+        }
+    }
+
+    func stopPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+
     /// Prompt the user for accessibility permission.
     /// Opens System Settings → Privacy → Accessibility.
-    nonisolated func requestAccessibility() {
+    // Fix: [Issue 3 - TCC Permissions] — start polling after prompting so we
+    // detect when user grants access in System Settings.
+    func requestAccessibility() {
         // Prompt the system TCC dialog for Accessibility access
         // Use string key directly to avoid concurrency-unsafe global ref
         let options = [String("AXTrustedCheckOptionPrompt"): true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
+        startPollingForGrant()
+    }
+
+    /// Request Screen Recording permission via the native TCC dialog.
+    /// Must be called from the Swift @MainActor layer — the Python daemon
+    /// cannot trigger kTCCServiceScreenCapture natively.
+    // Fix: [Issue 3 - TCC Permissions] — always call CGRequestScreenCaptureAccess()
+    // proactively when preflight reports denied, and start polling for grant.
+    func requestScreenRecording() {
+        if !CGPreflightScreenCaptureAccess() {
+            CGRequestScreenCaptureAccess()
+            startPollingForGrant()
+        }
     }
 
     /// Open System Settings → Privacy → Screen Recording.

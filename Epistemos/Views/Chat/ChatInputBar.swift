@@ -696,17 +696,30 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         }
 
         func textDidBeginEditing(_ notification: Notification) {
-            parent.isFocused = true
+            // Fix: [Issue - Modifying state during view update]
+            // Defer binding mutation to next run loop to avoid re-entrant SwiftUI update.
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.isFocused = true
+            }
         }
 
         func textDidEndEditing(_ notification: Notification) {
-            parent.isFocused = false
+            // Fix: [Issue - Modifying state during view update]
+            // Defer binding mutation to next run loop to avoid re-entrant SwiftUI update.
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.isFocused = false
+            }
         }
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? ChatComposerNativeTextView else { return }
-            if parent.text != textView.string {
-                parent.text = textView.string
+            let newText = textView.string
+            // Defer binding mutation to avoid re-entrant SwiftUI update.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if self.parent.text != newText {
+                    self.parent.text = newText
+                }
             }
             updateHeight(for: textView)
         }
@@ -752,7 +765,10 @@ struct ChatComposerTextEditor: NSViewRepresentable {
             )
 
             if parent.height != clampedHeight {
-                parent.height = clampedHeight
+                // Defer binding mutation to avoid re-entrant SwiftUI update.
+                DispatchQueue.main.async { [weak self] in
+                    self?.parent.height = clampedHeight
+                }
             }
 
             textView.enclosingScrollView?.hasVerticalScroller =

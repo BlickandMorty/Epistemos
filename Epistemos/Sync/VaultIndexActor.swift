@@ -1297,7 +1297,7 @@ actor VaultIndexActor {
 
         var migrated = 0
         for page in pages where page.lastSyncedBodyHash == nil {
-            page.lastSyncedBodyHash = SDPage.bodyHash(NoteFileStorage.readBody(pageId: page.id, mapped: true))
+            page.lastSyncedBodyHash = SDPage.bodyHash(NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: false))
             page.lastSyncedAt = .now
             page.needsVaultSync = false
             migrated += 1

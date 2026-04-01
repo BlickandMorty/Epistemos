@@ -315,7 +315,7 @@ struct HermesExecutionSubgraph: Sendable {
             let nodeId = "node-\(index)"
             var node: HermesGraphNode?
 
-            switch block {
+            switch block.kind {
             case .userPrompt(let text):
                 node = HermesGraphNode(
                     id: nodeId,
@@ -327,6 +327,13 @@ struct HermesExecutionSubgraph: Sendable {
                 node = HermesGraphNode(
                     id: nodeId,
                     label: "Thinking (\(tokenCount) tokens)",
+                    type: .thinking,
+                    detail: String(text.prefix(200))
+                )
+            case .chainOfThought(let text, let tokenCount):
+                node = HermesGraphNode(
+                    id: nodeId,
+                    label: "CoT (\(tokenCount) tokens)",
                     type: .thinking,
                     detail: String(text.prefix(200))
                 )

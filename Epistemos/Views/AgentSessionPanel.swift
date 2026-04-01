@@ -450,10 +450,16 @@ struct AgentSessionPanel: View {
                 .padding(.vertical, 16)
             }
             .onChange(of: viewModel.contentBlocks.count) { _, _ in
-                proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
+                // Fix: [Agent Hang] — debounce scroll to avoid layout thrashing
+                // during rapid token streaming.
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
+                }
             }
             .onChange(of: viewModel.turnCount) { _, _ in
-                proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo("agent-panel-bottom", anchor: .bottom)
+                }
             }
         }
     }
@@ -467,11 +473,20 @@ struct AgentSessionPanel: View {
             }
 
         case .thinking(let tokenCount):
-            ThinkingBubble(
-                title: "Thinking",
-                text: viewModel.thinkingText,
-                tokenCount: tokenCount
-            )
+            if !viewModel.chainOfThoughtText.isEmpty {
+                ChainOfThoughtBubble(
+                    text: viewModel.chainOfThoughtText,
+                    tokenCount: tokenCount,
+                    completed: false
+                )
+            }
+            if !viewModel.thinkingText.isEmpty {
+                ThinkingBubble(
+                    title: "Thinking",
+                    text: viewModel.thinkingText,
+                    tokenCount: tokenCount
+                )
+            }
 
         case .searching(let query):
             StatusRow(
@@ -499,6 +514,13 @@ struct AgentSessionPanel: View {
             )
 
         case .responding:
+            if !viewModel.chainOfThoughtText.isEmpty {
+                ChainOfThoughtBubble(
+                    text: viewModel.chainOfThoughtText,
+                    tokenCount: max(1, viewModel.chainOfThoughtText.count / 4),
+                    completed: true
+                )
+            }
             ResponseBubble(
                 text: viewModel.responseText,
                 isStreaming: true
@@ -518,13 +540,20 @@ struct AgentSessionPanel: View {
 
     @ViewBuilder
     private func renderedBlock(_ block: RenderedBlock) -> some View {
-        switch block {
+        switch block.kind {
         case .userPrompt(let text):
             UserPromptBubble(text: text)
 
         case .thinking(let text, let tokenCount):
             ThinkingBubble(
                 title: "Thinking",
+                text: text,
+                tokenCount: tokenCount,
+                completed: true
+            )
+
+        case .chainOfThought(let text, let tokenCount):
+            ChainOfThoughtBubble(
                 text: text,
                 tokenCount: tokenCount,
                 completed: true
@@ -780,6 +809,72 @@ private struct ThinkingBubble: View {
             }
         }
         .tint(secondary ? .orange : .blue)
+    }
+}
+
+/// Chain-of-thought bubble for distilled reasoning models (<think> blocks).
+/// Renders with a blurred/frosted glass effect and starts collapsed to keep
+/// the agent's internal monologue unobtrusive while still accessible.
+private struct ChainOfThoughtBubble: View {
+    let text: String
+    let tokenCount: Int
+    var completed = false
+
+    @State private var expanded = false
+    @State private var revealText = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            ZStack {
+                Text(text.isEmpty ? "..." : text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.purple.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .strokeBorder(Color.purple.opacity(0.15), lineWidth: 1)
+                            )
+                    )
+                    .blur(radius: revealText ? 0 : 4)
+                    .animation(.easeInOut(duration: 0.3), value: revealText)
+
+                if !revealText {
+                    Button {
+                        revealText = true
+                    } label: {
+                        Label("Reveal reasoning", systemImage: "eye")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if !completed {
+                    PulsingDot(tint: .purple)
+                }
+                Image(systemName: "brain.head.profile")
+                    .font(.caption)
+                    .foregroundStyle(.purple)
+                Text("Chain of Thought")
+                    .font(.caption.bold())
+                Text("~\(tokenCount) tokens")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .tint(.purple)
     }
 }
 

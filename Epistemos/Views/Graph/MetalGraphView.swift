@@ -138,8 +138,9 @@ final class GraphDeferredMetadataDriver {
             phase = .scheduled
             task = Task { @MainActor [weak self] in
                 guard let self else { return }
+                // Fix: [Issue 2 - CPU Spin-loops] — sleep when idle instead of
+                // hot-looping with Task.yield() (was causing 247 wakeups/sec).
                 while true {
-                    await Task.yield()
                     guard !Task.isCancelled else {
                         self.phase = .idle
                         self.rerunRequested = false
@@ -165,6 +166,8 @@ final class GraphDeferredMetadataDriver {
 
                     self.rerunRequested = false
                     self.phase = .scheduled
+                    // Back off when graph is idle — 30s sleep prevents CPU saturation.
+                    try? await Task.sleep(for: .seconds(30))
                 }
             }
         case .scheduled:

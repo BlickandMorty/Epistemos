@@ -2158,25 +2158,32 @@ final class VaultSyncService {
     /// saves (e.g. typing in an external editor) don't trigger 50 reimports.
     private func handleFileSystemChange() {
         fileWatchDebounceTask?.cancel()
-        fileWatchDebounceTask = Task { [weak self] in
+        // Capture what we need before detaching — avoids @MainActor inheritance
+        // so the heavy vault import doesn't block the UI.
+        let vaultURL = self.vaultURL
+        let actor = self.indexActor
+        let searchService = self.searchService
+        let shouldIgnore = shouldIgnoreFileWatcherChange()
+
+        fileWatchDebounceTask = Task.detached(priority: .utility) { [weak self] in
+            let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
             try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled, let self, let vaultURL, let actor = indexActor else { return }
-            guard !shouldIgnoreFileWatcherChange() else {
+            guard !Task.isCancelled, let vaultURL, let actor else { return }
+            guard !shouldIgnore else {
                 log.info("File watcher: skipping self-originated vault change")
                 return
             }
-
             log.info("File watcher: vault changed externally — re-importing")
             do {
                 try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
                 log.info("File watcher: re-import complete")
-                await Self.rebuildInstantRecallIndex(from: actor)
+                await VaultSyncService.rebuildInstantRecallIndex(from: actor)
 
-                // Rebuild graph with new/changed data
-                AppBootstrap.shared?.graphState.needsRefresh = true
-
-                // Refresh ambient manifest
-                AppBootstrap.shared?.refreshAmbientManifest()
+                // Hop back to main actor for UI state updates
+                await MainActor.run {
+                    AppBootstrap.shared?.graphState.needsRefresh = true
+                    AppBootstrap.shared?.refreshAmbientManifest()
+                }
 
                 // Diff-sync FTS5 search index
                 if let svc = searchService {

@@ -6,13 +6,73 @@ use crate::agent_loop::{
 use crate::error::HttpStatusError;
 use crate::provider::AgentProvider;
 use crate::providers::claude::ClaudeProvider;
+use crate::providers::openai::OpenAIProvider;
 use crate::providers::perplexity::PerplexityProvider;
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
 use crate::session::GlobalSessions;
+use crate::shared_memory::{ShmPool, ShmReference};
 use crate::storage::memory_classifier::{classify_memory_operation, MemoryOperation, VaultFact};
 use crate::storage::memory_decay::{batch_decay, collect_garbage, Importance, NodeStrength};
 use crate::storage::vault::VaultStore;
 use crate::tools::registry::ToolRegistry;
+
+// MARK: - FFI Safety Boundary
+//
+// SAFETY: agent_core uses `panic = "unwind"` in release (unlike other crates)
+// specifically so that catch_unwind can intercept panics at the FFI boundary
+// and return typed errors to Swift instead of aborting the macOS process.
+//
+// Every #[uniffi::export] function returning Result MUST use ffi_guard!.
+// Functions returning non-Result types (u32, void) are protected by UniFFI's
+// own panic handler under unwind semantics.
+
+/// Extract a human-readable message from a panic payload.
+/// Uses `std::mem::forget` on the payload after extraction to prevent
+/// re-panicking from Drop implementations on the payload.
+fn panic_payload_to_string(payload: Box<dyn std::any::Any + Send>) -> String {
+    let msg = if let Some(s) = payload.downcast_ref::<&str>() {
+        (*s).to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "unknown panic".to_string()
+    };
+    // SAFETY: Prevent potential re-panic from Drop on the payload.
+    std::mem::forget(payload);
+    msg
+}
+
+/// Guard for synchronous FFI entry points returning Result<T, AgentErrorFFI>.
+/// Wraps the body in catch_unwind and maps panics to AgentErrorFFI.
+macro_rules! ffi_guard_sync {
+    ($body:expr) => {{
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(v) => v,
+            Err(payload) => {
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC at bridge boundary: {}", msg);
+                Err(AgentErrorFFI::AgentError {
+                    message: format!("Rust panic: {}", msg),
+                })
+            }
+        }
+    }};
+}
+
+/// Guard for synchronous FFI entry points returning a non-Result value.
+/// Wraps the body in catch_unwind and returns a safe default on panic.
+macro_rules! ffi_guard_value {
+    ($body:expr, $default:expr) => {{
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(v) => v,
+            Err(payload) => {
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC at bridge boundary: {}", msg);
+                $default
+            }
+        }
+    }};
+}
 
 #[uniffi::export(callback_interface)]
 pub trait AgentEventDelegate: Send + Sync {
@@ -154,7 +214,8 @@ fn resolve_provider_selection_preview(
 ) -> ProviderRoutePreviewFFI {
     let requested = provider_name.trim();
     match requested {
-        "claude_sonnet" | "claude_opus" | "claude_haiku" => preview(
+        "claude_sonnet" | "claude_opus" | "claude_haiku"
+        | "openai" | "openai_gpt4o" | "openai_gpt4o_mini" | "openai_o1" | "openai_o3_mini" => preview(
             requested,
             "forced",
             requested,
@@ -170,6 +231,7 @@ fn resolve_provider_selection_preview(
                         | CloudProvider::ClaudeSonnet
                         | CloudProvider::ClaudeOpus
                         | CloudProvider::Perplexity
+                        | CloudProvider::OpenAI
                 );
                 preview(
                     requested,
@@ -224,6 +286,10 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         "claude_opus" => Ok(Arc::new(ClaudeProvider::opus())),
         "claude_haiku" => Ok(Arc::new(ClaudeProvider::haiku())),
         "perplexity" => Ok(Arc::new(PerplexityProvider::sonar_pro())),
+        "openai" | "openai_gpt4o" => Ok(Arc::new(OpenAIProvider::gpt4o())),
+        "openai_gpt4o_mini" => Ok(Arc::new(OpenAIProvider::gpt4o_mini())),
+        "openai_o1" => Ok(Arc::new(OpenAIProvider::o1())),
+        "openai_o3_mini" => Ok(Arc::new(OpenAIProvider::o3_mini())),
         _ => Err(AgentErrorFFI::AgentError {
             message: format!("Unsupported provider in agent_core bridge: {name}"),
         }),
@@ -262,7 +328,53 @@ pub async fn run_agent_session(
     agent_config: AgentConfigFFI,
     delegate: Box<dyn AgentEventDelegate>,
 ) -> Result<AgentResultFFI, AgentErrorFFI> {
+    // SAFETY: This is the primary agentic loop entry point. A panic anywhere
+    // in the tool registry, HTTP streaming, compaction, or PTY execution would
+    // previously abort the entire macOS process. With panic="unwind" and this
+    // guard, panics are caught and returned as typed AgentErrorFFI to Swift.
+    //
+    // For async FFI: UniFFI's tokio runtime spawns this as a task. We use
+    // tokio::task::spawn + JoinHandle to catch panics from the executor.
+    let session_id_clone = session_id.clone();
+    let handle = tokio::task::spawn(async move {
+        run_agent_session_inner(
+            session_id_clone, objective, provider_name,
+            tool_config, agent_config, delegate,
+        ).await
+    });
+
+    match handle.await {
+        Ok(result) => result,
+        Err(join_error) => {
+            // JoinError means the task panicked or was cancelled
+            let msg = if join_error.is_panic() {
+                let payload = join_error.into_panic();
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC in run_agent_session: {}", msg);
+                format!("Rust panic in agent session: {}", msg)
+            } else {
+                "Agent session task cancelled".to_string()
+            };
+            // Clean up shared memory even on panic
+            ShmPool::cleanup_session(&session_id);
+            GlobalSessions::fail(&session_id, &msg);
+            Err(AgentErrorFFI::AgentError { message: msg })
+        }
+    }
+}
+
+async fn run_agent_session_inner(
+    session_id: String,
+    objective: String,
+    provider_name: String,
+    tool_config: ToolConfig,
+    agent_config: AgentConfigFFI,
+    delegate: Box<dyn AgentEventDelegate>,
+) -> Result<AgentResultFFI, AgentErrorFFI> {
     let (_guard, cancel) = GlobalSessions::register(&session_id);
+
+    // Initialize the shared memory pool (idempotent)
+    ShmPool::init();
 
     let (provider, _route_preview) = resolve_provider_for_session(&objective, &provider_name)?;
 
@@ -279,6 +391,8 @@ pub async fn run_agent_session(
     let result = run_agent_loop(objective, provider, tool_registry, delegate, config, cancel).await;
     match result {
         Ok(result) => {
+            // Clean up shared memory segments for this session
+            ShmPool::cleanup_session(&session_id);
             GlobalSessions::complete(
                 &session_id,
                 result.turns,
@@ -292,6 +406,8 @@ pub async fn run_agent_session(
             })
         }
         Err(error) => {
+            // Clean up shared memory segments even on failure
+            ShmPool::cleanup_session(&session_id);
             GlobalSessions::fail(&session_id, &error.to_string());
             Err(AgentErrorFFI::AgentError {
                 message: error.to_string(),
@@ -341,16 +457,25 @@ pub async fn pty_spawn(
         cols: config.cols,
         rows: config.rows,
     };
-    tokio::task::spawn_blocking(move || {
+    let handle = tokio::task::spawn_blocking(move || {
         crate::pty::PtyPool::spawn(&session_id, pty_config)
-    })
-    .await
-    .map_err(|e| AgentErrorFFI::AgentError {
-        message: format!("PTY spawn join error: {e}"),
-    })?
-    .map_err(|e| AgentErrorFFI::AgentError {
-        message: e.to_string(),
-    })
+    });
+    match handle.await {
+        Ok(Ok(pty_id)) => Ok(pty_id),
+        Ok(Err(e)) => Err(AgentErrorFFI::AgentError { message: e.to_string() }),
+        Err(join_error) => {
+            // JoinError: task panicked or cancelled
+            let msg = if join_error.is_panic() {
+                let payload = join_error.into_panic();
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC in pty_spawn: {}", msg);
+                format!("Rust panic in PTY spawn: {}", msg)
+            } else {
+                "PTY spawn task cancelled".to_string()
+            };
+            Err(AgentErrorFFI::AgentError { message: msg })
+        }
+    }
 }
 
 /// Execute a command in a persistent PTY session.
@@ -362,16 +487,24 @@ pub async fn pty_execute(
     timeout_ms: u64,
 ) -> Result<PtyOutputFFI, AgentErrorFFI> {
     let timeout = std::time::Duration::from_millis(timeout_ms.min(120_000));
-    let output = tokio::task::spawn_blocking(move || {
+    let handle = tokio::task::spawn_blocking(move || {
         crate::pty::PtyPool::execute(&pty_id, &command, timeout)
-    })
-    .await
-    .map_err(|e| AgentErrorFFI::AgentError {
-        message: format!("PTY execute join error: {e}"),
-    })?
-    .map_err(|e| AgentErrorFFI::AgentError {
-        message: e.to_string(),
-    })?;
+    });
+    let output = match handle.await {
+        Ok(Ok(out)) => out,
+        Ok(Err(e)) => return Err(AgentErrorFFI::AgentError { message: e.to_string() }),
+        Err(join_error) => {
+            let msg = if join_error.is_panic() {
+                let payload = join_error.into_panic();
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC in pty_execute: {}", msg);
+                format!("Rust panic in PTY execute: {}", msg)
+            } else {
+                "PTY execute task cancelled".to_string()
+            };
+            return Err(AgentErrorFFI::AgentError { message: msg });
+        }
+    };
     Ok(PtyOutputFFI {
         stdout: output.stdout,
         exit_hint: output.exit_hint,
@@ -457,15 +590,25 @@ pub fn classify_vault_memory(
     incoming: String,
     existing_facts: Vec<VaultFactFFI>,
 ) -> MemoryOperationFFI {
-    let facts: Vec<VaultFact> = existing_facts
-        .into_iter()
-        .map(|f| {
-            let last_accessed = chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
-                .unwrap_or_else(chrono::Utc::now);
-            VaultFact::new(f.file_path, f.section, f.content, f.strength, last_accessed)
-        })
-        .collect();
-    classify_memory_operation(&incoming, &facts).into()
+    ffi_guard_value!(
+        {
+            let facts: Vec<VaultFact> = existing_facts
+                .into_iter()
+                .map(|f| {
+                    let last_accessed = chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
+                        .unwrap_or_else(chrono::Utc::now);
+                    VaultFact::new(f.file_path, f.section, f.content, f.strength, last_accessed)
+                })
+                .collect();
+            classify_memory_operation(&incoming, &facts).into()
+        },
+        MemoryOperationFFI {
+            operation: "NOOP".to_string(),
+            target_file: None,
+            target_section: None,
+            reason: Some("Internal panic during classification".to_string()),
+        }
+    )
 }
 
 #[derive(uniffi::Record)]
@@ -560,6 +703,75 @@ pub fn gc_memory_nodes(
 
     let removed = collect_garbage(&mut internal, threshold);
     removed.len() as u32
+}
+
+// MARK: - Shared Memory FFI
+
+/// Read a payload from shared memory by its reference fields.
+/// Returns the raw bytes as a UTF-8 string (for JSON/text payloads).
+#[uniffi::export]
+pub fn shm_read_payload(
+    segment_name: String,
+    byte_length: u64,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let reference = ShmReference {
+            segment_name,
+            byte_length: byte_length as usize,
+            content_type: String::new(),
+        };
+        let data = ShmPool::read_payload(&reference).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("shm read failed: {e}"),
+        })?;
+        String::from_utf8(data).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("shm payload is not valid UTF-8: {e}"),
+        })
+    })
+}
+
+/// Write raw bytes into a new shared memory segment and return the reference JSON.
+/// Used by the TCC Swift Proxy to write screen capture pixel data into SHM
+/// without routing through the Python daemon (which lacks TCC permissions).
+///
+/// Returns a JSON string like: `{"segment_name":"/ep_tcc_42","byte_length":1234567,"content_type":"image/png"}`
+#[uniffi::export]
+pub fn shm_write_payload(
+    session_id: String,
+    data: Vec<u8>,
+    content_type: String,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        ShmPool::init();
+        let reference =
+            ShmPool::write_payload(&session_id, &data, &content_type).map_err(|e| {
+                AgentErrorFFI::AgentError {
+                    message: format!("shm write failed: {e}"),
+                }
+            })?;
+        serde_json::to_string(&reference).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("shm reference serialization failed: {e}"),
+        })
+    })
+}
+
+/// Clean up all shared memory segments for a given agent session.
+/// Call this from Swift when an agent session ends.
+#[uniffi::export]
+pub fn shm_cleanup_session(session_id: String) -> u32 {
+    ShmPool::cleanup_session(&session_id) as u32
+}
+
+/// Emergency cleanup — unlink ALL tracked segments across all sessions.
+/// Call this from Swift on app termination to prevent zombie shm segments.
+#[uniffi::export]
+pub fn shm_cleanup_all() -> u32 {
+    ShmPool::cleanup_all() as u32
+}
+
+/// Diagnostics: total number of tracked shared memory segments.
+#[uniffi::export]
+pub fn shm_total_segment_count() -> u32 {
+    ShmPool::total_segment_count() as u32
 }
 
 #[cfg(test)]

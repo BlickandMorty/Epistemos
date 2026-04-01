@@ -44,8 +44,9 @@ targets:
         GENERATE_INFOPLIST_FILE: false
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_IDENTITY: "Apple Development"
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 3BNL2669SL
         SWIFT_EMIT_LOC_STRINGS: true
         ENABLE_PREVIEWS: true
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h

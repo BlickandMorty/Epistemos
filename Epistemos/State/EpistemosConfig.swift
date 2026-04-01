@@ -23,6 +23,13 @@ final class EpistemosConfig {
     @ObservationIgnored @AppStorage("nightbrain.minIdleSeconds") var nightBrainMinIdleSeconds = 300.0
     @ObservationIgnored @AppStorage("nightbrain.menuBarAgent") var nightBrainMenuBarAgent = false
 
+    // MARK: - Agent Heartbeat (Background scheduled agent runs)
+    @ObservationIgnored @AppStorage("heartbeat.enabled") var heartbeatEnabled = false
+    @ObservationIgnored @AppStorage("heartbeat.intervalSeconds") var heartbeatIntervalSeconds = 3600.0
+    @ObservationIgnored @AppStorage("heartbeat.requiresAC") var heartbeatRequiresAC = true
+    @ObservationIgnored @AppStorage("heartbeat.prompt") var heartbeatPrompt = "Review my vault for new items. Summarize anything added since last check."
+    @ObservationIgnored @AppStorage("heartbeat.budgetCapMicro") var heartbeatBudgetCapMicro: Int = 500_000
+
     // MARK: - Allowlist / Blocklist Helpers
 
     var allowlist: [String] {

@@ -169,6 +169,7 @@ nonisolated struct GraphFilterSnapshot: Sendable {
     let activeEdgeTypes: Set<GraphEdgeType>
     let focusedNodeId: String?
     let focusedConnected: Set<String>?
+    let searchMatchedNodeIds: Set<String>?
 
     @MainActor
     init(filter: FilterEngine) {
@@ -176,6 +177,7 @@ nonisolated struct GraphFilterSnapshot: Sendable {
         activeEdgeTypes = filter.activeEdgeTypes
         focusedNodeId = filter.focusedNodeId
         focusedConnected = filter.focusedConnected
+        searchMatchedNodeIds = filter.searchMatchedNodeIds
     }
 
     func isNodeVisible(_ node: GraphNodeRecord) -> Bool {

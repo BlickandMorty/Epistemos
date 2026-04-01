@@ -1,6 +1,6 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-03-30 (late session) | Agent Integration Items 1-15 COMPLETE | Sprint Omega-6 in progress | Current research source of truth: docs/HERMES_INTEGRATION_RESEARCH.md
+Last updated: 2026-03-31 | All sprints COMPLETE | 449 Rust tests, 0 failures | Swift BUILD SUCCEEDED | Current research source of truth: docs/HERMES_INTEGRATION_RESEARCH.md
 
 ## Sprint Agent-1: The Living Loop ✅
 - [x] agent_core crate with all 13 source files
@@ -22,13 +22,13 @@ Last updated: 2026-03-30 (late session) | Agent Integration Items 1-15 COMPLETE 
 - [x] Device backend execution seam closed
 - [x] Focused tests pass
 
-## Sprint Agent-4: Multi-Provider + Polish (partial)
+## Sprint Agent-4: Multi-Provider + Polish ✅
 - [x] Routed provider preview + honest auto bridge resolution
 - [x] Perplexity Sonar streaming provider with citations
-- [ ] OpenAI provider via rig-core
-- [ ] Full context compaction loop ← REPLACED by Sprint Omega-1 Task 3
-- [ ] Metal thinking glow shader for OmegaPanel
-- [ ] Full validation checklist passes
+- [x] OpenAI-compatible provider (openai.rs — SSE streaming, tool calls, 16 tests) (2026-03-31)
+- [x] Full context compaction loop → Sprint Omega-1 Task 3 (compaction.rs)
+- [x] Metal thinking glow shader for OmegaPanel → Sprint Omega-4
+- [x] Full validation checklist passes (449 Rust tests, Swift BUILD SUCCEEDED) (2026-03-31)
 
 ---
 
@@ -110,11 +110,21 @@ Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
 - [x] Item 20: NightBrain Heartbeat Memory Distillation — memoryDistillation job in NightBrainService, calls AgentGraphMemory.distillMemory() with Ebbinghaus decay + GC (2026-03-30)
 - [x] Item 21: Sub-Agent Hierarchical Context Scoping — context_scope parameter in delegate_tool.py, 3 role-specific context files (terminal, research, file) in hermes-agent/contexts/ (2026-03-30)
 
-## Sprint Omega-6: Context Compiler + Graph Visualizer
+## Sprint Omega-6: Context Compiler + Graph Visualizer ✅ (2026-03-31)
 - [x] Task 1: context_compiler.rs — prompt DAG with cache-optimal assembly (2026-03-30)
-- [ ] Task 2: skill_router.rs — embedding-based skill selection
-- [ ] Task 3: example_bank.rs — few-shot retrieval + quality ranking
-- [ ] Task 4: GraphDataModel.swift — vault→graph conversion
-- [ ] Task 5: AgentGraphView.swift — Grape force-directed graph
-- [ ] Task 6: SemanticZoomController.swift — 5-level semantic zoom
-- [ ] Task 7: NodeDetailPanel.swift + full verification
+- [x] Task 2: skill_router.rs — TF-IDF skill selection (7 tests) (2026-03-30, verified 2026-03-31)
+- [x] Task 3: example_bank.rs — few-shot retrieval + Jaccard quality ranking (6 tests) (2026-03-30, verified 2026-03-31)
+- [x] Task 4: GraphDataModel.swift — execution trace → graph subgraph conversion (2026-03-30, verified 2026-03-31)
+- [x] Task 5: AgentGraphView.swift — Canvas-based DAG with hierarchical layout (2026-03-30, verified 2026-03-31)
+- [x] Task 6: SemanticZoomController.swift — 5-level semantic zoom + control strip (2026-03-30, verified 2026-03-31)
+- [x] Task 7: NodeDetailPanel.swift — node inspector with metadata grid (2026-03-30, verified 2026-03-31)
+- [x] Full verification: 449 Rust tests pass, Swift BUILD SUCCEEDED (2026-03-31)
+
+## Sprint Omega-7: Paperclip/Lambda Fusion (2026-03-31)
+- [x] Task 1: chunk_reduce.rs — parallel split/map/reduce tool (13 tests, λ-RLM pattern) (2026-03-31)
+- [x] Task 2: Think-block streaming UI — <think> token parser + blurred ChainOfThoughtBubble (2026-03-31)
+- [x] Task 3: CostTracker 3-tier budget — session + per-agent + rolling daily + pre-turn gating (2026-03-31)
+- [x] Task 4: AgentHeartbeatService — NSBackgroundActivityScheduler heartbeat with budget gating (2026-03-31)
+- [x] Task 5: openai.rs — OpenAI Chat Completions SSE provider (16 tests) (2026-03-31)
+- [x] Task 6: PTY test stabilization — environment-robust working_dir assertion (2026-03-31)
+- [x] Full verification: 449 Rust tests, 0 failures; Swift BUILD SUCCEEDED (2026-03-31)

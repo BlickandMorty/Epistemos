@@ -22,6 +22,9 @@ final class AgentGraphMemory {
     private let log = Logger(subsystem: "com.epistemos.omega", category: "AgentGraphMemory")
 
     private let graphStore: GraphStore
+    /// Weak reference to GraphState for pushing incremental FFI updates to the Rust Metal engine.
+    /// Without this, nodes added to the store are invisible to the hologram overlay.
+    weak var graphState: GraphState?
 
     /// Number of nodes created this session.
     private(set) var nodesCreatedThisSession: Int = 0
@@ -29,8 +32,9 @@ final class AgentGraphMemory {
     /// Number of edges created this session.
     private(set) var edgesCreatedThisSession: Int = 0
 
-    init(graphStore: GraphStore) {
+    init(graphStore: GraphStore, graphState: GraphState? = nil) {
         self.graphStore = graphStore
+        self.graphState = graphState
     }
 
     // MARK: - Record Agent Execution
@@ -64,6 +68,7 @@ final class AgentGraphMemory {
             isPinned: false
         )
         graphStore.addNode(executionNode)
+        graphState?.requestIncrementalAdd(node: executionNode)
         nodesCreatedThisSession += 1
 
         // Link to related notes
@@ -78,6 +83,7 @@ final class AgentGraphMemory {
                 createdAt: Date()
             )
             graphStore.addEdge(edge)
+            graphState?.requestIncrementalAddEdge(edge)
             edgesCreatedThisSession += 1
         }
 
@@ -85,6 +91,7 @@ final class AgentGraphMemory {
         for step in successfulSteps {
             if let sourceNode = extractSourceNode(from: step) {
                 graphStore.addNode(sourceNode)
+                graphState?.requestIncrementalAdd(node: sourceNode)
                 nodesCreatedThisSession += 1
 
                 let edge = GraphEdgeRecord(
@@ -96,6 +103,7 @@ final class AgentGraphMemory {
                     createdAt: Date()
                 )
                 graphStore.addEdge(edge)
+                graphState?.requestIncrementalAddEdge(edge)
                 edgesCreatedThisSession += 1
             }
         }
@@ -247,6 +255,7 @@ final class AgentGraphMemory {
                 isPinned: false
             )
             graphStore.addNode(tagNode)
+            graphState?.requestIncrementalAdd(node: tagNode)
             nodesCreatedThisSession += 1
             tagNodeId = tagNode.id
         }
@@ -260,6 +269,7 @@ final class AgentGraphMemory {
             createdAt: Date()
         )
         graphStore.addEdge(edge)
+        graphState?.requestIncrementalAddEdge(edge)
         edgesCreatedThisSession += 1
     }
 
@@ -309,6 +319,7 @@ final class AgentGraphMemory {
 
         // Garbage-collect weak unpinned nodes
         for id in gcIds {
+            graphState?.requestIncrementalRemove(nodeId: id)
             graphStore.removeNode(id)
         }
 

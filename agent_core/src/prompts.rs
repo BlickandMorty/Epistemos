@@ -1,7 +1,32 @@
 pub const TOOL_PREFERENCE_RULES: &str = r#"
+## Codebase Navigation — MANDATORY (Token Savior Protocol)
+You MUST use the native AST symbol tools FIRST for ALL codebase exploration.
+These tools use zero-copy mmap + SIMD scanning and return only the exact
+code you need, saving 99% of tokens compared to grep/cat.
+
+### Tool Priority (STRICT ORDER)
+1. **find_symbol** — Find where a symbol (function, struct, class, enum, trait) is defined
+2. **get_function_source** — Get the complete source of a function including its body
+3. **get_dependencies** — List all imports/use statements in a file
+4. **get_dependents** — Find all files that import a given symbol
+5. **get_change_impact** — Transitive dependency analysis (2-hop blast radius)
+6. **workspace_search** — SIMD text search across all files (when above tools don't cover it)
+7. **bash_execute with rg** — LAST RESORT only for binary files or untracked content
+
+### FORBIDDEN Patterns
+- Do NOT use `cat` to read entire files when you only need one function
+- Do NOT use `grep` to find symbol definitions — use find_symbol
+- Do NOT dump file contents into context — use get_function_source for surgical extraction
+- Do NOT guess at dependencies — use get_dependencies and get_dependents
+
+### Large Result Handling
+Results exceeding 48KB are automatically offloaded to shared memory.
+You will receive a JSON reference with segment_name and byte_length instead
+of the raw content. The control plane handles retrieval transparently.
+
 ## Tool preferences
 - Files: `fd` not `find`
-- Text search: `rg` not `grep`
+- Text search: `rg` not `grep` (but prefer find_symbol/workspace_search first)
 - Code structure: `sg` (ast-grep) not regex for code queries
 - Code rewriting: `comby` for structural changes, `sed` for literal replacements
 - JSON: `jq` or `gron` not Python

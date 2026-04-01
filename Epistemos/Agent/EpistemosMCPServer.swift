@@ -6,7 +6,7 @@ import os
 // to registered macOS tool handlers. Sends responses back via stdin pipe.
 // Mirrors the Rust StdioServer in omega-mcp/src/transport.rs.
 
-private nonisolated(unsafe) let mcpServerLog = Logger(subsystem: "com.epistemos", category: "EpistemosMCPServer")
+nonisolated(unsafe) private let mcpServerLog = Logger(subsystem: "com.epistemos", category: "EpistemosMCPServer")
 
 // MARK: - Types
 

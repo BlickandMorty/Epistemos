@@ -109,6 +109,12 @@ final class AppBootstrap {
     private var _timeMachineService: TimeMachineService?
     var timeMachineService: TimeMachineService { Self.requireInitialized(_timeMachineService, name: "timeMachineService") }
 
+    // MARK: - Infrastructure
+    let supervisor = AppSupervisor()
+    let orphanCleanup = OrphanSubprocessCleanup()
+    private var _paperclipStore: PaperclipStateStore?
+    var paperclipStore: PaperclipStateStore { Self.requireInitialized(_paperclipStore, name: "paperclipStore") }
+
     // MARK: - Cognitive Substrates
     let epistemosConfig = EpistemosConfig()
     private var _ambientCapture: AmbientCaptureService?
@@ -117,6 +123,8 @@ final class AppBootstrap {
     var frictionMonitor: FrictionMonitorService { Self.requireInitialized(_frictionMonitor, name: "frictionMonitor") }
     private var _nightBrain: NightBrainService?
     var nightBrain: NightBrainService { Self.requireInitialized(_nightBrain, name: "nightBrain") }
+    private var _agentHeartbeat: AgentHeartbeatService?
+    var agentHeartbeat: AgentHeartbeatService { Self.requireInitialized(_agentHeartbeat, name: "agentHeartbeat") }
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
@@ -270,12 +278,33 @@ final class AppBootstrap {
         agentVM.adminViewModel = adminVM
         self.agentViewModel = agentVM
 
-        // Pre-warm the Hermes subprocess for cloud model users to avoid cold-start lag.
-        if case .cloud = inference.preferredChatModelSelection {
-            Task.detached(priority: .utility) { [hermesManager] in
-                await hermesManager.preWarm()
-            }
+        // Always pre-warm the Hermes subprocess — the admin panel (tools,
+        // MCP, cron, skills, diagnostics) requires a running subprocess even
+        // when the user hasn't sent a chat message yet.
+        Task.detached(priority: .utility) { [hermesManager] in
+            await hermesManager.preWarm()
         }
+
+        // Start main thread watchdog to detect UI hangs.
+        MainThreadWatchdog.install()
+
+        // Start centralized thermal authority before any inference work.
+        Task { await ThermalGuard.shared.start() }
+
+        // Register supervised children and start OTP-style supervisor.
+        // Order matters — rest_for_one cancels children after the failed index.
+        supervisor.register(ChildSpec(
+            id: "hermesSubprocess",
+            policy: .permanent,
+            restartWindow: 60.0,
+            maxRestarts: 3,
+            factory: { @Sendable [hermesManager] in
+                // Long-running: block until Hermes exits or is cancelled.
+                // runSupervised() is @MainActor-isolated, await handles the hop.
+                try await hermesManager.runSupervised()
+            }
+        ))
+        supervisor.start()
 
         // TriageService routes between Apple Intelligence and local Qwen.
         let triage = TriageService(
@@ -401,6 +430,15 @@ final class AppBootstrap {
                 self?._agentGraphMemory
             }
         )
+        self._agentHeartbeat = AgentHeartbeatService(
+            config: epistemosConfig,
+            hermesManagerProvider: { @MainActor [weak self] in
+                self?.hermesManager
+            },
+            costTrackerProvider: { @MainActor [weak self] in
+                self?.agentViewModel.costTracker
+            }
+        )
 
         if !Self.isRunningTests {
             wireLocalRuntimeLifecycle()
@@ -437,7 +475,7 @@ final class AppBootstrap {
         }
 
         // Initialize knowledge graph integration (Ω14)
-        self._agentGraphMemory = AgentGraphMemory(graphStore: graphState.store)
+        self._agentGraphMemory = AgentGraphMemory(graphStore: graphState.store, graphState: graphState)
         self._recipeGraphSkills = RecipeGraphSkills(graphStore: graphState.store, mcpBridge: mcpBridge)
         self._ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
         orchestratorState.agentGraphMemory = agentGraphMemory
@@ -503,6 +541,13 @@ final class AppBootstrap {
             },
             preparedRetrievalRuntimeConfiguration: preparedModelRegistryState.retrievalRuntimeConfiguration
         )
+
+        // Initialize Paperclip high-frequency state store (SQLite WAL mode)
+        do {
+            self._paperclipStore = try PaperclipStateStore()
+        } catch {
+            Log.app.error("PaperclipStateStore init failed: \(error.localizedDescription)")
+        }
 
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
@@ -603,7 +648,7 @@ final class AppBootstrap {
                     NoteFileStorage.managedBodyPageIds()
                 ),
                 readBodyData: { pageId in
-                    NoteFileStorage.readBodyData(pageId: pageId)
+                    NoteFileStorage.readBodyData(pageId: pageId, fast: false)
                 },
                 eventStoreAvailable: eventStoreAvailable,
                 vaultBookmarkValidation: vaultBookmarkValidation
@@ -710,6 +755,7 @@ final class AppBootstrap {
             guard let self else { return }
 
             await self.nightBrain.start()
+            await self.agentHeartbeat.start()
             await KnowledgeFusionViewModel.shared.loadState()
 
             if self.epistemosConfig.captureEnabled {

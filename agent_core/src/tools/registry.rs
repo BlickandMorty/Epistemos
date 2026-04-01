@@ -119,6 +119,8 @@ impl ToolRegistry {
         self.register_vault_read();
         self.register_vault_write();
         self.register_think_tool();
+        self.register_chunk_reduce();
+        self.register_workspace_search();
         if self.enable_bash {
             self.register_bash_execute();
         }
@@ -253,6 +255,81 @@ impl ToolRegistry {
                 "required": ["query"]
             }),
             handler: Box::new(WebSearchHandler::new()),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_chunk_reduce(&mut self) {
+        use crate::tools::chunk_reduce;
+        self.register(RegisteredTool {
+            name: chunk_reduce::CHUNK_REDUCE_TOOL_NAME.to_string(),
+            description: chunk_reduce::CHUNK_REDUCE_TOOL_DESCRIPTION.to_string(),
+            parameters: serde_json::from_str(chunk_reduce::CHUNK_REDUCE_TOOL_SCHEMA)
+                .unwrap_or_default(),
+            handler: Box::new(chunk_reduce::ChunkReduceHandler),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_workspace_search(&mut self) {
+        use crate::tools::workspace_search;
+        self.register(RegisteredTool {
+            name: workspace_search::WORKSPACE_SEARCH_TOOL_NAME.to_string(),
+            description: workspace_search::WORKSPACE_SEARCH_TOOL_DESCRIPTION.to_string(),
+            parameters: serde_json::from_str(workspace_search::WORKSPACE_SEARCH_TOOL_SCHEMA)
+                .unwrap_or_default(),
+            handler: Box::new(workspace_search::WorkspaceSearchHandler),
+            risk_level: RiskLevel::ReadOnly,
+        });
+        // Token Savior: AST-level symbol tools (replace grep/cat for codebase navigation)
+        self.register_token_savior_tools();
+    }
+
+    fn register_token_savior_tools(&mut self) {
+        use crate::tools::workspace_search;
+
+        self.register(RegisteredTool {
+            name: workspace_search::FIND_SYMBOL_TOOL_NAME.to_string(),
+            description: workspace_search::FIND_SYMBOL_TOOL_DESCRIPTION.to_string(),
+            parameters: serde_json::from_str(workspace_search::FIND_SYMBOL_TOOL_SCHEMA)
+                .unwrap_or_default(),
+            handler: Box::new(workspace_search::FindSymbolHandler),
+            risk_level: RiskLevel::ReadOnly,
+        });
+
+        self.register(RegisteredTool {
+            name: workspace_search::GET_FUNCTION_SOURCE_TOOL_NAME.to_string(),
+            description: workspace_search::GET_FUNCTION_SOURCE_TOOL_DESCRIPTION.to_string(),
+            parameters: serde_json::from_str(workspace_search::GET_FUNCTION_SOURCE_TOOL_SCHEMA)
+                .unwrap_or_default(),
+            handler: Box::new(workspace_search::GetFunctionSourceHandler),
+            risk_level: RiskLevel::ReadOnly,
+        });
+
+        self.register(RegisteredTool {
+            name: workspace_search::GET_DEPENDENCIES_TOOL_NAME.to_string(),
+            description: workspace_search::GET_DEPENDENCIES_TOOL_DESCRIPTION.to_string(),
+            parameters: serde_json::from_str(workspace_search::GET_DEPENDENCIES_TOOL_SCHEMA)
+                .unwrap_or_default(),
+            handler: Box::new(workspace_search::GetDependenciesHandler),
+            risk_level: RiskLevel::ReadOnly,
+        });
+
+        self.register(RegisteredTool {
+            name: workspace_search::GET_DEPENDENTS_TOOL_NAME.to_string(),
+            description: workspace_search::GET_DEPENDENTS_TOOL_DESCRIPTION.to_string(),
+            parameters: serde_json::from_str(workspace_search::GET_DEPENDENTS_TOOL_SCHEMA)
+                .unwrap_or_default(),
+            handler: Box::new(workspace_search::GetDependentsHandler),
+            risk_level: RiskLevel::ReadOnly,
+        });
+
+        self.register(RegisteredTool {
+            name: workspace_search::GET_CHANGE_IMPACT_TOOL_NAME.to_string(),
+            description: workspace_search::GET_CHANGE_IMPACT_TOOL_DESCRIPTION.to_string(),
+            parameters: serde_json::from_str(workspace_search::GET_CHANGE_IMPACT_TOOL_SCHEMA)
+                .unwrap_or_default(),
+            handler: Box::new(workspace_search::GetChangeImpactHandler),
             risk_level: RiskLevel::ReadOnly,
         });
     }

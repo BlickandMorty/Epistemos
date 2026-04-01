@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "token-savior": {
+      "command": "~/.epistemos/mcp-servers/token-savior-venv/bin/token-savior",
+      "env": {
+        "WORKSPACE_ROOTS": "/Users/jojo/Downloads/Epistemos",
+        "TOKEN_SAVIOR_CLIENT": "hermes-epistemos"
+      },
+      "timeout": 120,
+      "connect_timeout": 30
+    }
+  }
+}

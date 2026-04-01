@@ -59,6 +59,39 @@ struct HermesConfig: Sendable {
             env["HERMES_HOME"] = defaultHermesHomeURL().path
         }
 
+        // ── Tool gate environment ──────────────────────────────────────
+        // The hermes-agent tool registry silently drops tools whose
+        // check_fn() returns False.  Ensure the critical gates pass:
+        //
+        //   TERMINAL_ENV=local  → gates terminal, file, and delegate tools
+        //   TAVILY_API_KEY      → gates web_search, web_extract
+        //   EXA_API_KEY         → gates web_search, web_extract (fallback)
+        //
+        // Cascade: explicit env var → Keychain → skip.
+        if env["TERMINAL_ENV"] == nil {
+            env["TERMINAL_ENV"] = "local"
+        }
+        // Set the agent's working directory to the user's home so file
+        // tools can access Documents, Desktop, Downloads, etc.
+        if env["TERMINAL_CWD"] == nil {
+            env["TERMINAL_CWD"] = FileManager.default.homeDirectoryForCurrentUser.path
+        }
+        // Ensure ~/.hermes/ exists — session_search check_fn requires it.
+        let dotHermes = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".hermes", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: dotHermes, withIntermediateDirectories: true, attributes: nil
+        )
+        for keychainMapping in Self.toolGateKeychainMappings {
+            if env[keychainMapping.envVar] == nil || env[keychainMapping.envVar]?.isEmpty == true {
+                if let value = Keychain.load(for: keychainMapping.keychainKey)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                   !value.isEmpty {
+                    env[keychainMapping.envVar] = value
+                }
+            }
+        }
+
         let hermesHomeURL = URL(fileURLWithPath: env["HERMES_HOME"] ?? defaultHermesHomeURL().path)
             .standardizedFileURL
         let pythonPath = env["HERMES_PYTHON_PATH"]
@@ -78,6 +111,19 @@ struct HermesConfig: Sendable {
             environment: env
         )
     }
+
+    // Maps hermes-agent env var names to macOS Keychain keys so tool
+    // check_fn gates pass when the user has stored credentials.
+    struct ToolGateKeychainMapping {
+        let envVar: String
+        let keychainKey: String
+    }
+
+    static let toolGateKeychainMappings: [ToolGateKeychainMapping] = [
+        .init(envVar: "TAVILY_API_KEY", keychainKey: "epistemos.tavily.apiKey"),
+        .init(envVar: "EXA_API_KEY", keychainKey: "epistemos.exa.apiKey"),
+        .init(envVar: "FIRECRAWL_API_KEY", keychainKey: "epistemos.firecrawl.apiKey"),
+    ]
 
     static func defaultHermesHomeURL(fileManager: FileManager = .default) -> URL {
         FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
@@ -476,6 +522,9 @@ final class HermesSubprocessManager {
     private var watchdogTask: Task<Void, Never>?
     private var onRequestReceived: (@Sendable (_ jsonLine: String) -> Void)?
 
+    // Pipe framing — reassembles Content-Length frames and resolves SHM references
+    private let frameAccumulator = ChunkedMCPFrameAccumulator()
+
     // Configuration
     private let config: HermesConfig
 
@@ -660,6 +709,31 @@ final class HermesSubprocessManager {
         try await launch()
     }
 
+    // MARK: - Supervised Lifecycle
+
+    /// Long-running method for OTP-style supervision.
+    /// Launches the subprocess if not running, then suspends until the process exits.
+    /// Throws on abnormal termination so the supervisor can apply restart policy.
+    func runSupervised() async throws {
+        if !isRunning {
+            try await launch()
+        }
+
+        // Wait for process exit by polling state. The terminationHandler
+        // sets processState to .crashed or .stopped on the main actor.
+        while isRunning {
+            try await Task.sleep(for: .seconds(1))
+        }
+
+        // Check exit reason
+        if case .crashed(let exitCode, let stderr) = processState {
+            throw HermesSubprocessError.launchFailed(
+                "hermes-agent exited with code \(exitCode): \(stderr.prefix(512))"
+            )
+        }
+        // .stopped = graceful exit, return normally (transient policy won't restart)
+    }
+
     // MARK: - Watchdog Heartbeat
 
     func startWatchdog(interval: Duration = .seconds(30), timeout: Duration = .seconds(10)) {
@@ -776,6 +850,7 @@ final class HermesSubprocessManager {
     private func startStdoutReader() {
         guard let handle = stdoutPipe?.fileHandleForReading else { return }
         let handler: (@Sendable (String) -> Void)? = onRequestReceived
+        let accumulator = self.frameAccumulator
         handle.readabilityHandler = { @Sendable fileHandle in
             let data = fileHandle.availableData
             guard !data.isEmpty else {
@@ -783,13 +858,15 @@ final class HermesSubprocessManager {
                 fileHandle.readabilityHandler = nil
                 return
             }
-            guard let text = String(data: data, encoding: .utf8) else { return }
-            // Split on newlines — each line is a separate Hermes bridge event.
-            let lines = text.components(separatedBy: "\n")
-            for line in lines {
-                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-                handler?(trimmed)
+            // Feed raw pipe bytes through the frame accumulator, which handles:
+            // 1. Content-Length framed messages (reassembly across chunks)
+            // 2. Line-delimited JSON-RPC (backward compat)
+            // 3. SHM reference resolution (payloads >48KB via shm_open)
+            Task {
+                let messages = await accumulator.feedAndResolve(data)
+                for message in messages {
+                    handler?(message)
+                }
             }
         }
     }
@@ -812,9 +889,18 @@ final class HermesSubprocessManager {
                     self.stderrBuffer = String(self.stderrBuffer.dropFirst(dropCount))
                 }
             }
-            // Log stderr lines for diagnostics
+            // Log stderr lines for diagnostics and parse structured events
             for line in text.components(separatedBy: "\n") where !line.isEmpty {
                 log.debug("hermes-stderr: \(line)")
+                // Surface tool-gate failures to the structured diagnostic logger
+                if line.hasPrefix("[tool-gate]") {
+                    let parts = line.components(separatedBy: ": ")
+                    let toolName = parts.count > 1
+                        ? parts[0].replacingOccurrences(of: "[tool-gate] ", with: "")
+                        : "unknown"
+                    let reason = parts.count > 1 ? parts.dropFirst().joined(separator: ": ") : line
+                    log.warning("Tool gate failure: \(toolName) — \(reason)")
+                }
             }
         }
     }
@@ -836,6 +922,17 @@ final class HermesSubprocessManager {
 
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
+
+        // Reset the frame accumulator so a restarted subprocess starts clean
+        Task { await frameAccumulator.reset() }
+
+        // Clean up any SHM segments created by the TCC Swift Proxy during this
+        // session.  Without this, POSIX shared memory segments leak in the kernel
+        // until app termination.
+        // Note: Rust-side SHM segments (created by agent_core) are tracked in the
+        // Rust ShmPool registry and cleaned via shm_cleanup_all on app exit.
+        // Swift-side segments (created by ShmWriter for screenshots) are cleaned here.
+        ShmWriter.cleanupTccProxySegments()
 
         // Close pipe handles
         try? stdinPipe?.fileHandleForWriting.close()

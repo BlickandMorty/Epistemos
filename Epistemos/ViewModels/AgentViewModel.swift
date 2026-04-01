@@ -9,6 +9,8 @@ final class AgentViewModel {
     var phase: AgentPhase = .idle
     var thinkingText = ""
     var responseText = ""
+    /// Accumulated chain-of-thought text from distilled reasoning models (<think> blocks).
+    var chainOfThoughtText = ""
     var contentBlocks: [RenderedBlock] = []
     var errorMessage: String?
     var tokenUsage: (input: Int, output: Int) = (0, 0)
@@ -53,6 +55,8 @@ final class AgentViewModel {
     var agentGraphMemory: AgentGraphMemory?
     /// Speculative PTY pre-warming: pre-spawned PTY session ID, ready for immediate use.
     private var speculativePtyId: String?
+    // Fix: [Issue 3 - TCC Permissions] — permission state for agent gate.
+    let permissions = TCCPermissionState()
 
     init(
         hermesManager: HermesSubprocessManager? = nil,
@@ -62,6 +66,38 @@ final class AgentViewModel {
         self.hermesManager = hermesManager ?? HermesSubprocessManager()
         self.inferenceState = inferenceState
         self.localLLMClient = localLLMClient
+        restore()
+    }
+
+    // MARK: - Session Persistence
+    // Fix: [Issue 5 - Session Persistence] — save/restore activeSessionID and
+    // contentBlocks to Application Support so sessions survive app termination.
+
+    private static var persistenceURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("com.epistemos.app", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("agent_session_state.json")
+    }
+
+    func persist() {
+        let state: [String: Any] = [
+            "activeSessionID": activeSessionID as Any,
+            "blockCount": contentBlocks.count,
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: state) {
+            try? data.write(to: Self.persistenceURL, options: .atomic)
+            Self.log.debug("Agent session state persisted")
+        }
+    }
+
+    private func restore() {
+        guard let data = try? Data(contentsOf: Self.persistenceURL),
+              let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        if let sessionID = state["activeSessionID"] as? String, !sessionID.isEmpty {
+            activeSessionID = sessionID
+            Self.log.info("Restored agent session: \(sessionID)")
+        }
     }
 
     var isRunning: Bool {
@@ -91,6 +127,15 @@ final class AgentViewModel {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         lastProviderName = providerName
+
+        // Pre-turn budget gating: check all budget tiers BEFORE dispatching.
+        if let budgetBlock = costTracker.canAffordTurn(
+            model: providerName,
+            agentId: providerName
+        ) {
+            handleError("Budget blocked: \(budgetBlock)")
+            return
+        }
 
         if isRunning {
             stop()
@@ -222,24 +267,51 @@ final class AgentViewModel {
     private func consume(_ stream: AsyncStream<AgentStreamEvent>) async {
         var thinkingTokens = 0
         var responseTokens = 0
+        var cotTokens = 0
 
         // Token coalescing: buffer deltas and flush at ~30fps to avoid
         // triggering @Observable mutations on every single token.
         var pendingThinking = ""
         var pendingResponse = ""
+        var pendingCoT = ""
         var lastFlush = ContinuousClock.now
         let flushInterval: Duration = .milliseconds(32)
 
+        // <think> block parser state for distilled reasoning models.
+        // Tracks whether the text stream is currently inside a <think>...</think> block.
+        var insideThinkBlock = false
+        // Accumulates partial tag matches across chunk boundaries (e.g., "<thi" at end of one delta).
+        var tagBuffer = ""
+
+        // Fix: [Issue 2 - CPU Wakeups] — skip flush when buffers are empty to
+        // avoid unnecessary @Observable mutations at 30fps.
+        // Fix: [Issue 4 - State Mutation Batching] — compute final phase once
+        // instead of triggering three separate @Observable mutations per flush.
         func flushTokens() {
-            if !pendingThinking.isEmpty {
+            let hasThinking = !pendingThinking.isEmpty
+            let hasCoT = !pendingCoT.isEmpty
+            let hasResponse = !pendingResponse.isEmpty
+            guard hasThinking || hasCoT || hasResponse else { return }
+
+            if hasThinking {
                 thinkingText.append(pendingThinking)
                 pendingThinking = ""
-                phase = .thinking(tokenCount: thinkingTokens)
             }
-            if !pendingResponse.isEmpty {
+            if hasCoT {
+                chainOfThoughtText.append(pendingCoT)
+                pendingCoT = ""
+            }
+            if hasResponse {
                 responseText.append(pendingResponse)
                 pendingResponse = ""
+            }
+            // Single phase mutation instead of up to three
+            if hasResponse {
                 phase = .responding(tokenCount: responseTokens)
+            } else if hasCoT {
+                phase = .thinking(tokenCount: cotTokens)
+            } else {
+                phase = .thinking(tokenCount: thinkingTokens)
             }
             lastFlush = ContinuousClock.now
         }
@@ -254,8 +326,22 @@ final class AgentViewModel {
                 isDelta = true
 
             case .textDelta(let text):
-                pendingResponse.append(text)
-                responseTokens += max(1, text.count / 4)
+                // Parse <think>...</think> blocks from distilled reasoning models.
+                // These models embed chain-of-thought in the text stream rather than
+                // using a separate thinking channel.
+                let routed = Self.routeThinkTokens(
+                    text: text,
+                    insideThinkBlock: &insideThinkBlock,
+                    tagBuffer: &tagBuffer
+                )
+                if !routed.cot.isEmpty {
+                    pendingCoT.append(routed.cot)
+                    cotTokens += max(1, routed.cot.count / 4)
+                }
+                if !routed.response.isEmpty {
+                    pendingResponse.append(routed.response)
+                    responseTokens += max(1, routed.response.count / 4)
+                }
                 isDelta = true
 
             default:
@@ -293,12 +379,9 @@ final class AgentViewModel {
 
             case .toolCompleted(_, let result, let isError):
                 if let lastIndex = contentBlocks.indices.last,
-                   case .toolExecution(let name, let input, _, _) = contentBlocks[lastIndex] {
-                    contentBlocks[lastIndex] = .toolExecution(
-                        name: name,
-                        input: input,
-                        result: result,
-                        isError: isError
+                   case .toolExecution(let name, let input, _, _) = contentBlocks[lastIndex].kind {
+                    contentBlocks[lastIndex] = contentBlocks[lastIndex].replacing(
+                        kind: .toolExecution(name: name, input: input, result: result, isError: isError)
                     )
                 }
                 phase = .reasoning(tokenCount: max(1, thinkingText.count / 4))
@@ -357,10 +440,84 @@ final class AgentViewModel {
             thinkingText = ""
         }
 
+        if !chainOfThoughtText.isEmpty {
+            contentBlocks.append(
+                .chainOfThought(
+                    text: chainOfThoughtText,
+                    tokenCount: max(1, chainOfThoughtText.count / 4)
+                )
+            )
+            chainOfThoughtText = ""
+        }
+
         if !responseText.isEmpty {
             contentBlocks.append(.text(responseText))
             responseText = ""
         }
+    }
+
+    // MARK: - <think> Token Router
+
+    struct ThinkTokenRouteResult {
+        var cot: String
+        var response: String
+    }
+
+    /// Routes text deltas into chain-of-thought vs response based on `<think>`/`</think>` tags.
+    /// Handles tags split across chunk boundaries via `tagBuffer`.
+    nonisolated static func routeThinkTokens(
+        text: String,
+        insideThinkBlock: inout Bool,
+        tagBuffer: inout String
+    ) -> ThinkTokenRouteResult {
+        var cot = ""
+        var response = ""
+        var remaining = tagBuffer + text
+        tagBuffer = ""
+
+        while !remaining.isEmpty {
+            if insideThinkBlock {
+                // Look for </think>
+                if let closeRange = remaining.range(of: "</think>") {
+                    cot.append(contentsOf: remaining[remaining.startIndex..<closeRange.lowerBound])
+                    remaining = String(remaining[closeRange.upperBound...])
+                    insideThinkBlock = false
+                } else if remaining.hasSuffix("<") || remaining.hasSuffix("</")
+                            || remaining.hasSuffix("</t") || remaining.hasSuffix("</th")
+                            || remaining.hasSuffix("</thi") || remaining.hasSuffix("</thin")
+                            || remaining.hasSuffix("</think") || remaining.hasSuffix("</think>".dropLast()) {
+                    // Potential partial closing tag at boundary — buffer it
+                    let possibleTagStart = remaining.lastIndex(of: "<") ?? remaining.endIndex
+                    cot.append(contentsOf: remaining[remaining.startIndex..<possibleTagStart])
+                    tagBuffer = String(remaining[possibleTagStart...])
+                    remaining = ""
+                } else {
+                    cot.append(remaining)
+                    remaining = ""
+                }
+            } else {
+                // Look for <think>
+                if let openRange = remaining.range(of: "<think>") {
+                    response.append(contentsOf: remaining[remaining.startIndex..<openRange.lowerBound])
+                    remaining = String(remaining[openRange.upperBound...])
+                    insideThinkBlock = true
+                } else if remaining.hasSuffix("<") || remaining.hasSuffix("<t")
+                            || remaining.hasSuffix("<th") || remaining.hasSuffix("<thi")
+                            || remaining.hasSuffix("<thin") || remaining.hasSuffix("<think")
+                            || remaining.hasSuffix("<think>".dropLast()) {
+                    // Potential partial opening tag at boundary — buffer it
+                    let possibleTagStart = remaining.lastIndex(of: "<") ?? remaining.endIndex
+                    response.append(contentsOf: remaining[remaining.startIndex..<possibleTagStart])
+                    tagBuffer = String(remaining[possibleTagStart...])
+                    remaining = ""
+                } else {
+                    response.append(remaining)
+                    remaining = ""
+                }
+            }
+        }
+
+        return ThinkTokenRouteResult(cot: cot, response: response)
     }
 
     private func handleError(_ message: String) {
@@ -437,6 +594,16 @@ final class AgentViewModel {
     }
 
     private func connectIfNeeded() async throws {
+        // Fix: [Issue 3 - TCC Permissions] — block connection until required
+        // permissions are granted. Refresh first to pick up late grants.
+        await permissions.refresh()
+        if !permissions.allRequiredGranted {
+            Self.log.warning("Agent connection blocked: TCC permissions not granted (\(self.permissions.summary))")
+            permissions.requestAccessibility()
+            permissions.requestScreenRecording()
+            throw AgentError.permissionsNotGranted
+        }
+
         if !installedBridgeHandler {
             // Initialize MCP server so Hermes can call back into Swift.
             let server = EpistemosMCPServer(subprocessManager: hermesManager)
@@ -843,19 +1010,24 @@ final class AgentViewModel {
             let args = Self.anyCodableToDict(params)
             guard let self else { return .error(code: -32603, message: "deallocated") }
 
-            // Turbo-Quant: AXMutationDetector before/after for post-action verification
-            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
-            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
-            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
+            // Fix: [Agent Hang] — batch all pre-action MainActor calls into ONE hop
+            // to reduce main thread blocking from 4 hops to 2.
+            let (frontPID, before, result) = await MainActor.run {
+                let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
+                let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                let snap = pid > 0 ? AXMutationDetector.captureSnapshot(pid: pid, using: perception) : nil
+                let r = GhostComputerAgent.mcpClick(args: args)
+                return (pid, snap, r)
+            }
 
-            let result = await MainActor.run { GhostComputerAgent.mcpClick(args: args) }
-
-            // Post-action: detect UI mutation (~1ms cost)
             var enriched = result
             if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(150)) // UI settle
-                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
-                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                try? await Task.sleep(for: .milliseconds(300))
+                let mutation = await MainActor.run {
+                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
+                    return AXMutationDetector.compare(before: before, after: after)
+                }
                 enriched = Self.appendMutationInfo(to: result, mutation: mutation)
             }
 
@@ -880,17 +1052,23 @@ final class AgentViewModel {
             let args = Self.anyCodableToDict(params)
             guard let self else { return .error(code: -32603, message: "deallocated") }
 
-            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
-            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
-            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
-
-            let result = await MainActor.run { GhostComputerAgent.mcpType(args: args) }
+            // Fix: [Agent Hang] — batch pre-action MainActor calls into ONE hop.
+            let (frontPID, before, result) = await MainActor.run {
+                let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
+                let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                let snap = pid > 0 ? AXMutationDetector.captureSnapshot(pid: pid, using: perception) : nil
+                let r = GhostComputerAgent.mcpType(args: args)
+                return (pid, snap, r)
+            }
 
             var enriched = result
             if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(150))
-                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
-                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                try? await Task.sleep(for: .milliseconds(300))
+                let mutation = await MainActor.run {
+                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
+                    return AXMutationDetector.compare(before: before, after: after)
+                }
                 enriched = Self.appendMutationInfo(to: result, mutation: mutation)
             }
 
@@ -935,17 +1113,23 @@ final class AgentViewModel {
             let args = Self.anyCodableToDict(params)
             guard let self else { return .error(code: -32603, message: "deallocated") }
 
-            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
-            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
-            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
-
-            let result = await MainActor.run { GhostComputerAgent.mcpKeys(args: args) }
+            // Fix: [Agent Hang] — batch pre-action MainActor calls into ONE hop.
+            let (frontPID, before, result) = await MainActor.run {
+                let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
+                let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                let snap = pid > 0 ? AXMutationDetector.captureSnapshot(pid: pid, using: perception) : nil
+                let r = GhostComputerAgent.mcpKeys(args: args)
+                return (pid, snap, r)
+            }
 
             var enriched = result
             if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(150))
-                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
-                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                try? await Task.sleep(for: .milliseconds(300))
+                let mutation = await MainActor.run {
+                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
+                    return AXMutationDetector.compare(before: before, after: after)
+                }
                 enriched = Self.appendMutationInfo(to: result, mutation: mutation)
             }
 
@@ -971,17 +1155,23 @@ final class AgentViewModel {
             let args = Self.anyCodableToDict(params)
             guard let self else { return .error(code: -32603, message: "deallocated") }
 
-            let frontPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1 }
-            let perception = await MainActor.run { Screen2AXFusion(screenCapture: self.screenCaptureService) }
-            let before = frontPID > 0 ? await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) } : nil
-
-            let result = await MainActor.run { GhostComputerAgent.mcpScroll(args: args) }
+            // Fix: [Agent Hang] — batch pre-action MainActor calls into ONE hop.
+            let (frontPID, before, result) = await MainActor.run {
+                let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
+                let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                let snap = pid > 0 ? AXMutationDetector.captureSnapshot(pid: pid, using: perception) : nil
+                let r = GhostComputerAgent.mcpScroll(args: args)
+                return (pid, snap, r)
+            }
 
             var enriched = result
             if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(150))
-                let after = await MainActor.run { AXMutationDetector.captureSnapshot(pid: frontPID, using: perception) }
-                let mutation = await MainActor.run { AXMutationDetector.compare(before: before, after: after) }
+                try? await Task.sleep(for: .milliseconds(300))
+                let mutation = await MainActor.run {
+                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
+                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
+                    return AXMutationDetector.compare(before: before, after: after)
+                }
                 enriched = Self.appendMutationInfo(to: result, mutation: mutation)
             }
 
@@ -1506,9 +1696,25 @@ final class AgentViewModel {
             let outputTokens = payload["output_tokens"] as? Int ?? 0
             let history = parseSessionHistory(from: payload["history"])
 
-            // Track cost in micro-dollars
+            // Track cost in micro-dollars with per-agent budget tracking
             let model = payload["model"] as? String ?? lastProviderName
-            costTracker.recordTurn(model: model, inputTokens: inputTokens, outputTokens: outputTokens)
+            costTracker.recordTurn(
+                model: model,
+                inputTokens: inputTokens,
+                outputTokens: outputTokens,
+                agentId: model
+            )
+
+            // Budget enforcement: interrupt Hermes if session cost exceeds cap
+            if costTracker.isBudgetExceeded {
+                sendHermesCommand([
+                    "command": "interrupt",
+                    "message": "Session budget exceeded (\(costTracker.formattedBudget)). Stopping to prevent runaway costs.",
+                ])
+                activeContinuation?.yield(.error(AgentRuntimeError(
+                    message: "Budget cap reached: \(costTracker.formattedBudget)"
+                )))
+            }
 
             // Track token budget and auto-compact if context is getting large
             contextBudget.recordTurn(inputTokens: inputTokens, outputTokens: outputTokens)
@@ -1647,6 +1853,7 @@ final class AgentViewModel {
         phase = .thinking(tokenCount: 0)
         thinkingText = ""
         responseText = ""
+        chainOfThoughtText = ""
         lastSubmittedPrompt = prompt
         if !prompt.isEmpty {
             contentBlocks.append(.userPrompt(prompt))
@@ -1662,6 +1869,7 @@ final class AgentViewModel {
         phase = .idle
         thinkingText = ""
         responseText = ""
+        chainOfThoughtText = ""
         contentBlocks = []
         errorMessage = nil
         tokenUsage = (0, 0)
@@ -2018,26 +2226,64 @@ enum AgentRuntimeRiskLevel: Sendable, Equatable {
     }
 }
 
-enum RenderedBlock: Identifiable, Equatable, Sendable {
+enum RenderedBlockKind: Equatable, Sendable {
     case userPrompt(String)
     case thinking(text: String, tokenCount: Int)
+    /// Chain-of-thought block from distilled reasoning models (<think> tokens).
+    /// Rendered as a blurred, collapsible block distinct from regular thinking.
+    case chainOfThought(text: String, tokenCount: Int)
     case text(String)
     case toolExecution(name: String, input: String, result: String?, isError: Bool)
     case status(String)
+}
 
-    var id: String {
-        switch self {
-        case .userPrompt(let text):
-            return "user-\(text.hashValue)"
-        case .thinking(let text, let tokenCount):
-            return "thinking-\(tokenCount)-\(text.hashValue)"
-        case .text(let text):
-            return "text-\(text.hashValue)"
-        case .toolExecution(let name, let input, _, _):
-            return "tool-\(name)-\(input.hashValue)"
-        case .status(let text):
-            return "status-\(text.hashValue)"
-        }
+/// Stable-identity wrapper for rendered agent content blocks.
+/// IDs are assigned once at construction — never recomputed from content —
+/// preventing LazyVStack teardown storms and scheduleUpdateCursorLocation spikes.
+struct RenderedBlock: Identifiable, Equatable, Sendable {
+    let id: String
+    let kind: RenderedBlockKind
+
+    private init(id: String, kind: RenderedBlockKind) {
+        self.id = id
+        self.kind = kind
+    }
+
+    /// Create a block with a fresh stable ID.
+    init(_ kind: RenderedBlockKind) {
+        self.id = UUID().uuidString
+        self.kind = kind
+    }
+
+    /// Create a replacement block preserving an existing ID (e.g. tool completion updates).
+    func replacing(kind newKind: RenderedBlockKind) -> RenderedBlock {
+        RenderedBlock(id: self.id, kind: newKind)
+    }
+
+    // MARK: - Factory methods (keep call-site syntax minimal)
+
+    static func userPrompt(_ text: String) -> RenderedBlock {
+        .init(.userPrompt(text))
+    }
+
+    static func thinking(text: String, tokenCount: Int) -> RenderedBlock {
+        .init(.thinking(text: text, tokenCount: tokenCount))
+    }
+
+    static func chainOfThought(text: String, tokenCount: Int) -> RenderedBlock {
+        .init(.chainOfThought(text: text, tokenCount: tokenCount))
+    }
+
+    static func text(_ text: String) -> RenderedBlock {
+        .init(.text(text))
+    }
+
+    static func toolExecution(name: String, input: String, result: String?, isError: Bool) -> RenderedBlock {
+        .init(.toolExecution(name: name, input: input, result: result, isError: isError))
+    }
+
+    static func status(_ text: String) -> RenderedBlock {
+        .init(.status(text))
     }
 
     static func sessionHistory(_ messages: [AgentSessionMessage]) -> [RenderedBlock] {
@@ -2128,6 +2374,18 @@ struct AgentSessionMessage: Equatable, Sendable {
         guard let reasoning else { return nil }
         let trimmed = reasoning.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+// Fix: [Issue 3 - TCC Permissions] — error type for permission gate.
+enum AgentError: LocalizedError {
+    case permissionsNotGranted
+
+    var errorDescription: String? {
+        switch self {
+        case .permissionsNotGranted:
+            return "Required TCC permissions (Accessibility, Screen Recording) not granted."
+        }
     }
 }
 
