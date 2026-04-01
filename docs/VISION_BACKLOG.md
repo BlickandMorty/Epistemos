@@ -241,6 +241,125 @@ The app doesn't FEEL like Hermes Agent or OpenClaw because:
 
 ---
 
+## TIER 9: CODE EDITOR & IDE FEATURES (from Architecture Discovery Report)
+
+### 9A. Custom CoreText Code Editor Surface
+- Reject TextKit 2 for code — viewport estimation breaks scroll positioning
+- Custom NSView + CTTypesetter + CTFrame for code rendering
+- Hardware-accelerated glyph rendering, sub-16ms typing latency
+- Line numbers, gutters, minimap in same draw pass
+- **Reference:** Nova, CodeEdit both abandoned NSTextView for this approach
+
+### 9B. Rust Rope Text Storage
+- Replace String-based text storage with Sum-Tree/Rope in Rust
+- O(log N) for all operations (insert, delete, search)
+- Immutable snapshots for concurrent background parsing
+- Zero-copy cursor for Tree-sitter integration
+- **Reference:** Zed, Helix use this pattern
+
+### 9C. Tree-sitter Incremental Parsing
+- Embed Tree-sitter in Rust core for Swift, Rust, Python, Markdown, Web
+- Incremental AST updates in <2ms per keystroke
+- Syntax tokens returned as flat C-array via FFI: `[start_byte, end_byte, token_id]`
+- **Already partially exists** in epistemos-core — needs wiring to code editor surface
+
+### 9D. LSP Supervisor in Rust
+- sourcekit-lsp (Swift), rust-analyzer (Rust), pyright (Python), typescript-language-server (Web)
+- Rust tokio::process supervision — crash detection, auto-restart, graceful degradation
+- Features: diagnostics, hover, go-to-definition, find references, formatting
+- Merge LSP semantic tokens with Tree-sitter syntax tokens (semantic takes priority)
+
+### 9E. BoltFFI for Hot Paths
+- UniFFI for coarse-grained events (file open, config change)
+- BoltFFI or manual C FFI for 120fps hot paths (keystrokes, cursor, syntax tokens)
+- Zero-copy via Apple Silicon UMA — Swift reads Rust memory addresses directly
+- **Benchmark target:** <16ms keystroke-to-frame, <2ms AST update
+
+### 9F. AI-Native Code Context
+- Tree-sitter semantic excerpt generation — don't send entire files to LLM
+- Ascend syntax tree to extract function + enclosing class + dependencies
+- Workspace-aware RAG: sqlite-vec retrieves code chunks + notes, cross-referenced with LSP symbols
+- Merkle-tree hashing for incremental re-indexing (only embed diffs)
+
+---
+
+## TIER 10: CONTROL PLANE ARCHITECTURE (from Deep Research Report)
+
+### 10A. Harness as GUI Control Plane
+The app must become the **GUI control plane** for the agent runtime, not "another chat client."
+- Expose all Hermes/OpenClaw primitives as first-class UI objects:
+  - Profiles/Agents: picker, creation, import/export, isolated workspaces
+  - Sessions: list, search, compaction status, new/reset
+  - Skills: install/manage, "skill used" traces, availability per session
+  - Tools & Approvals: execution stream, approval UI, hardening signals
+  - Schedulers: cron timeline, next-run times, run logs, outputs
+  - Provider Routing: active provider, fallback chain, failover events
+  - Gateways/Channels: connect/disconnect, pairing, webhook toggles
+
+### 10B. MCP as the Spine
+- Hermes (server) ⇄ Harness (client) via MCP
+- Harness runs its own MCP servers: vault filesystem, graph, notes, code artifacts
+- Agent runtime accesses UI-managed resources through MCP protocol
+- Avoids bespoke API that duplicates ecosystem convergence
+
+### 10C. Automated Install + Doctor + Update
+- First-run bootstrap: embedded runtime + dependency install
+- "Doctor" command: runtime health, dependency presence, credential sanity, tool-sandbox check
+- "Update" flow: pull latest + reinstall (like Hermes's `hermes update`)
+- Sandbox choices (local vs Docker) visible and selectable in UI
+
+### 10D. Paperclip "Company OS" Mode
+- Optional mode inside Harness for managing:
+  - Org charts, budgets, governance, heartbeats, role/persona configs, audit logs
+- "If OpenClaw is an employee, Paperclip is the company"
+- Treat as a plugin/mode, not core — MIT licensed, attribution required
+
+---
+
+## TIER 11: ZERO-COPY & PERFORMANCE ENGINEERING (from Typestate Report)
+
+### 11A. Noncopyable FFI Handles
+- Wrap all UniFFI handles in Swift 6 `~Copyable` structs
+- `deinit` calls Rust release function — RAII pattern, zero leaks
+- `consuming func` for state transitions — compile-time enforcement
+- **Already deferred to Phase 13** — but should be reconsidered for critical paths
+
+### 11B. Typestate for Critical Protocols
+- MLX pipeline: `Uninitialized` → `Ready` → `InferenceInProgress` (noncopyable)
+- PTY handle: `Opened` → `Closed` (Rust PhantomData)
+- FoundationModels session: `Active` → `Recycling` → `Closed`
+- **Already deferred to Phase 11** — assess after Phases 1-9 stable
+
+### 11C. Capability-State Tokens
+- `ComputeCapability` token required for inference
+- Low-power state → only issues `QuantizedInferenceCapability`
+- Prevents operations that would fail or drain battery
+- Wire into PowerGuard mode transitions
+
+### 11D. Zero-Copy IPC Patterns
+- Apache Arrow for shared-memory interchange (columnar, relocatable)
+- FlatBuffers for zero-parse structured messages
+- Append-only mmap logs for transcripts, tool traces, graph events
+- UI reads via offsets/slices — only materialize for display
+
+### 11E. Lock-Free Circuit Breaker on Apple Silicon
+- AtomicU64 bit-packed ring with popcount health check
+- `#[repr(align(128))]` for 128-byte L1 cache lines
+- ManagedBuffer for co-located header + element storage
+- **Already deferred to Phase 12** — implement when profiling justifies
+
+### 11F. Performance Benchmark Targets
+| Metric | Target |
+|--------|--------|
+| Typing latency (keyDown → frame swap) | <16ms |
+| File open (100K lines) | <150ms |
+| Idle memory (workspace open) | <150MB |
+| AST update (single char) | <2ms |
+| Tantivy search (10K files) | <10ms |
+| LSP crash recovery | <3s |
+
+---
+
 ## RESEARCH ITEMS (Need Investigation Before Building)
 
 | ID | Topic | Blocker For |
@@ -250,38 +369,75 @@ The app doesn't FEEL like Hermes Agent or OpenClaw because:
 | R10 | Cartesia Metal kernels for Mamba-2 | Custom model training |
 | R14 | LoRA on Mamba-2 via MLX | Knowledge Fusion |
 | R17 | SMAppService App Store distribution | Mac App Store version |
-| NEW | OpenClaw VLM agent loop analysis | Tier 2 coding features |
+| NEW | OpenClaw VLM agent loop analysis | Tier 2 coding, Tier 5 sub-agents |
 | NEW | Hermes v0.6.0 profiles architecture | Tier 1 multi-instance |
 | NEW | Docker-in-app feasibility | Tier 5 isolation |
+| NEW | BoltFFI vs UniFFI hot-path benchmarks | Tier 9 code editor |
+| NEW | CoreText custom NSView patterns (Nova, CodeEdit) | Tier 9 code editor |
+| NEW | Rope data structure evaluation (ropey vs custom) | Tier 9 text storage |
+| NEW | Apache Arrow / FlatBuffers for zero-copy IPC | Tier 11 performance |
+| NEW | Paperclip integration architecture | Tier 10 company OS mode |
+| NEW | OpenCode coding patterns analysis | Tier 2 coding features |
 
 ---
 
 ## EXECUTION ORDER (Recommended)
 
 ```
-IMMEDIATE (This week):
+PHASE A — SHIP-BLOCKING (This week):
   0A Notarization + Sparkle
   0B ResearchPause fix
   0C EmbeddingService hang
 
-NEXT (Agent parity):
+PHASE B — AGENT PARITY (Make it feel like Hermes/OpenClaw):
   1A Merge Hermes v0.6.0
-  1D Restyle agent window (Xcode-inspired)
+  10A Build control plane UI (profiles, sessions, tools, cron, providers)
+  1D Restyle agent window (Xcode-inspired live execution view)
+  10C Automated install + doctor + update flow
+  1B Multi-instance agent profiles
+  1C Fallback provider chains
   1E Skills system Swift integration
-  1B Multi-instance profiles
 
-THEN (Features):
-  2A-2C Code features
-  3A-3C Graph enhancements
-  4A-4C Sidebar overhaul
+PHASE C — KNOWLEDGE HUB (Sidebar overhaul + code):
+  4A Unified notes sidebar (notes + chats + vaults + code + coworker)
+  2A Code streaming to notes
+  2B Code section in sidebar
+  2C Ask bar in code section
+  4B Coworker agent in sidebar
 
-LATER (Advanced):
-  5A-5D Multi-agent system
-  6A-6C Communication channels
-  7A-7E Optimization
-  1F iMessage
+PHASE D — GRAPH CINEMA:
+  3A Black & white theme with glow
+  3B Living graph animation (slow drift)
+  3C Nested perspective layers (cinematic depth)
+
+PHASE E — CODE EDITOR (V2 — after core is stable):
+  9A Custom CoreText code surface
+  9B Rust Rope text storage
+  9C Tree-sitter incremental parsing
+  9D LSP supervisor in Rust
+  9E BoltFFI for hot paths
+  9F AI-native code context
+
+PHASE F — MULTI-AGENT & COMMUNICATION:
+  5A Sub-agent architecture
+  5B Agent personas (JSON profiles)
+  5C Agent self-development (autonomous research pipeline)
+  5D Wake-up summary
+  6A iMessage integration
+  6B Telegram webhook
+  6C Agent email
+  10D Paperclip "company OS" mode
+
+PHASE G — PERFORMANCE HARDENING:
+  7A Stream composition pipeline
+  7B Auth profile rotation
+  10B MCP as spine (standardize on MCP for all IPC)
+  11A-F Zero-copy, typestate, capability tokens
+  Phases 10-13 from MASTER_HARDENING_AND_HARNESS_PLAN
 
 DEFERRED (Research-blocked):
   8A-8B Business features
-  Phases 10-13 from MASTER_HARDENING_AND_HARNESS_PLAN
+  MOHAWK custom model training
+  Mamba Metal kernels
+  CoreML ANE dual-brain
 ```

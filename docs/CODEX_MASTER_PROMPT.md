@@ -141,16 +141,19 @@ Most of the core BEST_OF_CLAW follow-ons are already in the tree. Before startin
 Per-model vaults that compile vault knowledge into structured context files. Lower priority than Tracks A and B but should be scaffolded.
 
 ### Track D: Vision Backlog (from VISION_BACKLOG.md — THE BIG PICTURE)
-Read `docs/VISION_BACKLOG.md` for the complete 8-tier feature inventory covering:
-- Hermes v0.6.0 parity (profiles, fallback chains, MCP server mode)
-- Coding features (code streaming to notes, Xcode-inspired code section)
-- Graph enhancements (black/white theme, living animation, nested perspective layers)
-- Sidebar overhaul (unified knowledge hub with notes + chats + agent vaults + code + coworker agent)
-- Multi-agent system (sub-agents, personas, self-development, wake-up summary)
-- Communication channels (iMessage, Telegram, agent email)
-- Business features (company model training, local outreach)
+Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inventory:
+- **Tier 0:** Ship-blocking (notarization, continuation fix, embedding hang)
+- **Tier 1:** Hermes v0.6.0 parity (profiles, fallback chains, MCP server mode)
+- **Tier 2-4:** Coding features, graph cinema, sidebar overhaul
+- **Tier 5-6:** Multi-agent system, communication channels
+- **Tier 7-8:** Optimization, business features
+- **Tier 9:** Code editor & IDE (CoreText surface, Rust Rope, Tree-sitter, LSP supervisor, BoltFFI)
+- **Tier 10:** Control plane architecture (GUI control plane for agent runtime, MCP spine, doctor/update, Paperclip company OS mode)
+- **Tier 11:** Zero-copy & performance engineering (noncopyable FFI handles, typestate, capability tokens, Arrow/FlatBuffers IPC)
 
-Work on these AFTER Tracks A and B are complete.
+**KEY INSIGHT (from deep research):** The app won't feel like Hermes/OpenClaw until it becomes a **control plane** that exposes their real primitives (profiles, sessions, skills, tools, cron, gateways, hardening). Hermes v0.6.0 + MCP gives the clean backbone.
+
+Work through phases A→G as defined in the execution order at the bottom of VISION_BACKLOG.md.
 
 ## RULES FOR EVERY ACTION
 
