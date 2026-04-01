@@ -34,7 +34,8 @@ You are continuing work on **Epistemos** — a macOS-native cognitive exoskeleto
 10. `docs/EPISTEMOS_FUSED_v3.md` — Complete 8-phase build spec
 11. `docs/epistemos-deep-analysis.md` — Deep architectural analysis
 12. `docs/CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md` — Per-model vault knowledge compilation
-13. `docs/MASTER_SESSION_PROMPT_v2.md` — Five Engines, architecture map, remaining work
+13. `docs/CONTROL_PLANE_RESEARCH.md` — **WHY the app feels disconnected**: become the GUI control plane, MCP as spine, capability→UI surface mapping
+14. `docs/MASTER_SESSION_PROMPT_v2.md` — Five Engines, architecture map, remaining work
 
 ### Verification
 14. `docs/HARDENING_VERIFICATION.md` — 52-item grep checklist

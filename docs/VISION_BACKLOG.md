@@ -431,10 +431,10 @@ The app must become the **GUI control plane** for the agent runtime, not "anothe
 ## EXECUTION ORDER (Recommended)
 
 ```
-PHASE A — SHIP-BLOCKING (This week):
-  0A Notarization + Sparkle
+PHASE A — STABILITY FIXES (This week):
   0B ResearchPause fix
   0C EmbeddingService hang
+  (0A Notarization + Sparkle DEFERRED — do after app is feature-complete)
 
 PHASE B — AGENT PARITY (Make it feel like Hermes/OpenClaw):
   1A Merge Hermes v0.6.0
@@ -482,9 +482,14 @@ PHASE G — PERFORMANCE HARDENING:
   11A-F Zero-copy, typestate, capability tokens
   Phases 10-13 from MASTER_HARDENING_AND_HARNESS_PLAN
 
+PHASE H — RELEASE PREP (After features are complete):
+  0A Notarization + Sparkle auto-update
+  Release preflight, DMG packaging, legal docs
+  Fresh-machine verification
+
 DEFERRED (Research-blocked):
   8A-8B Business features
-  MOHAWK custom model training
-  Mamba Metal kernels
-  CoreML ANE dual-brain
+  MOHAWK custom model training (RunPod funding + R10/R14 research)
+  Mamba Metal kernels (Cartesia Edge or MLX Mamba support)
+  CoreML ANE dual-brain (R2/R3 research)
 ```

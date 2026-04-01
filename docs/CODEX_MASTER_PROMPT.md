@@ -40,7 +40,8 @@ Read every file listed below. Do not skip any. Do not summarize — absorb the f
 11. `docs/EPISTEMOS_FUSED_v3.md` — Complete 8-phase build spec for the full app
 12. `docs/epistemos-deep-analysis.md` — Deep architectural analysis of the entire codebase
 13. `docs/CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md` — Per-model vault knowledge compilation
-14. `docs/VISION_BACKLOG.md` — **COMPLETE 8-tier feature inventory**: Hermes v0.6.0 parity, coding features, graph enhancements, sidebar overhaul, multi-agent system, communication channels, optimization, business features
+14. `docs/VISION_BACKLOG.md` — **COMPLETE 12-tier, 80+ item feature inventory**
+15. `docs/CONTROL_PLANE_RESEARCH.md` — **CRITICAL**: Why the app feels disconnected from Hermes/OpenClaw. The fix: become the GUI control plane. MCP as spine. Capability→UI surface mapping. Executable prompt for full reasoning.
 15. `docs/MASTER_SESSION_PROMPT.md` — Original master session context
 16. `docs/MASTER_SESSION_PROMPT_v2.md` — Updated: Five Engines, anti-drift rules, remaining work tiers, architecture map
 
