@@ -163,7 +163,82 @@ Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inv
 
 **KEY INSIGHT (from deep research):** The app won't feel like Hermes/OpenClaw until it becomes a **control plane** that exposes their real primitives (profiles, sessions, skills, tools, cron, gateways, hardening). Hermes v0.6.0 + MCP gives the clean backbone.
 
-Work through phases A→G as defined in the execution order at the bottom of VISION_BACKLOG.md.
+Work through phases A→H as defined in the execution order at the bottom of VISION_BACKLOG.md.
+
+## MANDATORY POST-PHASE AUDIT PROTOCOL
+
+**After completing EVERY phase (A through H), you MUST run a full audit before starting the next phase.** This is non-negotiable. Skipping audits between phases is how drift compounds into architectural rot.
+
+### Audit Procedure (run after each phase completes)
+
+**Step 1: Build verification**
+```bash
+xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | xcbeautify
+cargo test --manifest-path agent_core/Cargo.toml
+xcodegen generate  # ensure project file is in sync
+```
+
+**Step 2: Hardening verification (grep checklist from HARDENING_VERIFICATION.md)**
+Run ALL grep commands from `docs/HARDENING_VERIFICATION.md`. Every single one. Report any failures.
+
+**Step 3: Zero-corruption verification**
+```bash
+# F_FULLFSYNC present on all durable writes
+grep -rn 'F_FULLFSYNC\|fcntl.*51' --include="*.swift" --include="*.rs" | wc -l
+# No try? on file writes
+grep -rn 'try?' --include="*.swift" Epistemos/Sync/NoteFileStorage.swift | wc -l  # should be 0
+# catch_unwind on all FFI exports
+grep -rn 'ffi_guard_sync!\|ffi_guard_value!\|catch_unwind' --include="*.rs" agent_core/src/bridge.rs | wc -l
+# No force unwraps in production
+grep -rn 'try!\|\.unwrap()' --include="*.swift" Epistemos/ | grep -v Test | grep -v mock | wc -l  # should be 0
+```
+
+**Step 4: Anti-drift verification**
+- [ ] No sidecar processes for inference: `grep -rn 'Process()\|NSTask\|posix_spawn' --include="*.swift" | grep -v test | wc -l` → 0
+- [ ] No fake SDKs: `grep -rn 'import Anthropic\b\|import OpenAI\b' --include="*.swift" | wc -l` → 0
+- [ ] API keys in Keychain only: `grep -rn 'UserDefaults.*[Aa]pi[Kk]ey' --include="*.swift" | wc -l` → 0
+- [ ] @Observable not ObservableObject: `grep -rn 'ObservableObject' --include="*.swift" Epistemos/ | grep -v test | wc -l` → 0
+- [ ] PowerGuard integration intact: `grep -rn 'PowerGuard.shared' --include="*.swift" | wc -l` → should be 10+
+
+**Step 5: Continuation safety verification**
+```bash
+# All CheckedContinuations have cancellation handlers or timeouts
+grep -rn 'withCheckedContinuation\|withCheckedThrowingContinuation' --include="*.swift" Epistemos/ | wc -l
+# Compare against withTaskCancellationHandler count — should be similar
+grep -rn 'withTaskCancellationHandler' --include="*.swift" Epistemos/ | wc -l
+```
+
+**Step 6: Performance spot-check**
+- [ ] MetalGraphView frame skip counter present for 60fps cap
+- [ ] KnowledgeCoreBridge polling uses PowerGuard.ringPollInterval
+- [ ] No new `DispatchQueue.main.sync` calls (deadlock risk)
+- [ ] No new blocking FFI calls on @MainActor
+
+**Step 7: Architectural coherence**
+Re-read these 3 documents and verify no drift from canonical patterns:
+1. `docs/CONTROL_PLANE_RESEARCH.md` — is the app becoming a control plane or drifting back to "chat wrapper"?
+2. `~/Downloads/release/FINAL DOCS/1. CORRUPTION/ZERO_CORRUPTION_SPEC.md` — are new file writes using the atomic protocol?
+3. `~/Downloads/release/FINAL DOCS/3. MUST READS/ANTI_DRIFT_SYSTEM.md` — are the 5 defense layers intact?
+
+**Step 8: Write audit report**
+After each phase audit, append to `docs/AUDIT_LOG.md`:
+```markdown
+## Phase {X} Audit — {date}
+- Build: PASS/FAIL
+- Hardening grep: {N}/{total} passed
+- Zero-corruption: {checklist results}
+- Anti-drift: {checklist results}
+- Continuations: {safe/unsafe count}
+- Performance: {spot-check results}
+- Coherence: {drift detected? what?}
+- Issues found: {list}
+- Issues fixed: {list}
+- VERDICT: PASS — proceed to Phase {X+1} / FAIL — fix before proceeding
+```
+
+**DO NOT START THE NEXT PHASE UNTIL THE AUDIT PASSES.** If any check fails, fix it before moving on. This is how we maintain the "zero-corruption, zero-drift, zero-regression" guarantee.
+
+---
 
 ## ANTI-DRIFT SYSTEM (MANDATORY — Re-read if context compacts)
 

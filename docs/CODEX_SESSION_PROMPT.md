@@ -68,11 +68,21 @@ Defaults: eco mode ON, graph performance mode ON.
 
 ## WHAT TO DO
 
-1. Check `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` for the true next item
-2. Check `docs/AGENT_PROGRESS.md` before treating any BEST_OF_CLAW item as unfinished
+1. Check `docs/VISION_BACKLOG.md` for the current phase (A→H)
+2. Check `docs/AGENT_PROGRESS.md` before treating any item as unfinished
 3. Read all relevant files before editing
 4. Run verification after each task
-5. Update `docs/AGENT_PROGRESS.md` when done
+5. **MANDATORY: After completing each PHASE, run the full 8-step audit** from `docs/CODEX_MASTER_PROMPT.md` §MANDATORY POST-PHASE AUDIT PROTOCOL:
+   - Build + Rust tests
+   - Hardening grep checklist (all 52 items from HARDENING_VERIFICATION.md)
+   - Zero-corruption checks (F_FULLFSYNC, try? audit, catch_unwind coverage)
+   - Anti-drift checks (no sidecars, no fake SDKs, Keychain-only keys)
+   - Continuation safety (cancellation handlers, timeouts)
+   - Performance spot-check (PowerGuard, frame cap, no main-thread blocking)
+   - Architectural coherence (re-read CONTROL_PLANE_RESEARCH.md, ZERO_CORRUPTION_SPEC.md, ANTI_DRIFT_SYSTEM.md)
+   - Write audit report to `docs/AUDIT_LOG.md`
+6. **DO NOT start the next phase until the audit PASSES**
+7. Update `docs/AGENT_PROGRESS.md` when done
 
 ## ANTI-DRIFT RULES (MANDATORY — Re-read if context compacts)
 
