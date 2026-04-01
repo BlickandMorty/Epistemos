@@ -1558,8 +1558,11 @@ final class VaultSyncService {
             }
         }
         restartAutoSaveTimer()
-        startVersionCaptureTimer()
-        startManifestRefreshTimer()
+        // Skip background maintenance timers in eco/low-power mode.
+        if !PowerGuard.shared.shouldDisableBackground {
+            startVersionCaptureTimer()
+            startManifestRefreshTimer()
+        }
         startFileWatcher()
 
         if refreshAmbientManifestImmediately {

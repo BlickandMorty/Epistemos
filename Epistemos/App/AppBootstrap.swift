@@ -278,15 +278,24 @@ final class AppBootstrap {
         agentVM.adminViewModel = adminVM
         self.agentViewModel = agentVM
 
-        // Always pre-warm the Hermes subprocess — the admin panel (tools,
-        // MCP, cron, skills, diagnostics) requires a running subprocess even
-        // when the user hasn't sent a chat message yet.
-        Task.detached(priority: .utility) { [hermesManager] in
-            await hermesManager.preWarm()
+        // Pre-warm the Hermes subprocess only if first-launch setup is complete.
+        // If setup hasn't run yet, the Python venv likely doesn't exist and
+        // pre-warm would fail silently. SetupAssistantView handles installation.
+        let setupComplete = UserDefaults.standard.bool(forKey: "epistemos.setupComplete")
+        if setupComplete && !PowerGuard.shared.shouldDisableBackground {
+            Task.detached(priority: .utility) { [hermesManager] in
+                await hermesManager.preWarm()
+            }
         }
 
-        // Start main thread watchdog to detect UI hangs.
-        MainThreadWatchdog.install()
+        // Start centralized power authority — must be before any subsystem that
+        // checks PowerGuard.shared.currentMode during init.
+        PowerGuard.shared.start()
+
+        // Start main thread watchdog to detect UI hangs (skipped in eco/lowPower).
+        if !PowerGuard.shared.shouldDisableBackground {
+            MainThreadWatchdog.install()
+        }
 
         // Start centralized thermal authority before any inference work.
         Task { await ThermalGuard.shared.start() }
@@ -521,6 +530,24 @@ final class AppBootstrap {
         warmupLayer.pixelFormat = .bgra8Unorm
         Task.detached(priority: .userInitiated) { [warmupLayer] in
             guard let device = MTLCreateSystemDefaultDevice() else { return }
+
+            // Serialize shader compilation through a file lock to prevent flock
+            // contention (errno 35) on Metal's shared shader cache. This avoids
+            // races between the warmup engine and any concurrent Metal clients,
+            // including zombie processes from previous crashed instances.
+            let lockURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("com.epistemos.shader-warmup.lock")
+            let lockFd = open(lockURL.path, O_CREAT | O_RDWR, 0o644)
+            if lockFd >= 0 {
+                flock(lockFd, LOCK_EX)
+            }
+            defer {
+                if lockFd >= 0 {
+                    flock(lockFd, LOCK_UN)
+                    close(lockFd)
+                }
+            }
+
             warmupLayer.device = device
             let devicePtr = Unmanaged.passUnretained(device).toOpaque()
             let layerPtr = Unmanaged.passUnretained(warmupLayer).toOpaque()

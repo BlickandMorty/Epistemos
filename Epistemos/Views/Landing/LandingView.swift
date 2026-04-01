@@ -44,6 +44,51 @@ enum LandingCoordinateSpace {
     static let root = "LandingRoot"
 }
 
+// MARK: - Hermes Setup Banner
+
+/// Inline prompt shown when Hermes reports an auth failure (401, missing API key).
+/// One tap opens Settings so the user can paste their key — no terminal needed.
+private struct HermesSetupBanner: View {
+    let theme: EpistemosTheme
+    let onOpenSettings: () -> Void
+
+    var body: some View {
+        Button(action: onOpenSettings) {
+            HStack(spacing: 10) {
+                Image(systemName: "key.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Cloud API key needed")
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Text("Add your API key in Settings to enable cloud models.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                Spacer(minLength: 8)
+
+                Text("Open Settings")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.08 : 0.06))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(theme.resolved.accent.color.opacity(0.15), lineWidth: 0.5)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: 400)
+    }
+}
+
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 
@@ -229,6 +274,10 @@ struct LandingView: View {
 
     // MARK: - Greeting Content (normal landing state)
 
+    private var hermesAuthFailure: String? {
+        AppBootstrap.shared?.hermesManager.authFailureMessage
+    }
+
     private var greetingContent: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -238,6 +287,15 @@ struct LandingView: View {
             }
             .padding(.horizontal, Spacing.xxl)
             .allowsHitTesting(false)
+
+            if hermesAuthFailure != nil {
+                HermesSetupBanner(theme: theme) {
+                    UtilityWindowManager.shared.show(.settings)
+                    NSApp.activate()
+                }
+                .padding(.top, 16)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
 
             Spacer()
 

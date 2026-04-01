@@ -17,4 +17,20 @@ if [ "${CODE_SIGNING_ALLOWED:-NO}" != "YES" ]; then
 fi
 
 SIGNING_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
-/usr/bin/codesign --force --sign "$SIGNING_IDENTITY" --timestamp=none --generate-entitlement-der "$DEST_DYLIB"
+
+# Strip existing signature first to avoid "slice already exists" errors on re-sign
+/usr/bin/codesign --remove-signature "$DEST_DYLIB" 2>/dev/null || true
+
+# Use the same entitlements as the parent app so the dylib's cdhash
+# matches what TCC/AMFI expect for sandbox inheritance.
+ENTITLEMENTS_FLAG=""
+if [ -n "${CODE_SIGN_ENTITLEMENTS:-}" ] && [ -f "${CODE_SIGN_ENTITLEMENTS}" ]; then
+    ENTITLEMENTS_FLAG="--entitlements ${CODE_SIGN_ENTITLEMENTS}"
+fi
+
+/usr/bin/codesign --force --sign "$SIGNING_IDENTITY" \
+    --timestamp=none \
+    --generate-entitlement-der \
+    --options runtime \
+    $ENTITLEMENTS_FLAG \
+    "$DEST_DYLIB"

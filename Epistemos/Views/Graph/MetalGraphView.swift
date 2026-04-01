@@ -420,6 +420,9 @@ final class MetalGraphNSView: NSView {
 
     private var isEnginePaused = false
 
+    /// Frame skip counter for 60fps cap in low-power mode on ProMotion displays.
+    private var frameSkipCounter: UInt64 = 0
+
     private var isGraphVisible: Bool {
         !isHidden && alphaValue > 0.001 && bounds.width > 0 && bounds.height > 0
     }
@@ -589,6 +592,13 @@ final class MetalGraphNSView: NSView {
         guard !isInvalidated.load(ordering: .relaxed) else { return }
         guard renderNeeded.load(ordering: .relaxed) else { return }
         guard !framePending.load(ordering: .relaxed) else { return }
+
+        // 60fps cap in low-power mode: skip every other frame on ProMotion (120Hz).
+        frameSkipCounter &+= 1
+        if PowerGuard.shared.shouldThrottleRendering && frameSkipCounter % 2 != 0 {
+            return
+        }
+
         framePending.store(true, ordering: .relaxed)
         defer { framePending.store(false, ordering: .relaxed) }
         renderFrame()
@@ -809,11 +819,18 @@ final class MetalGraphNSView: NSView {
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
+
+        // In low-power mode: halve charge strength (less N-body compute) and
+        // shrink charge range so the simulation settles faster and calmer.
+        let throttle = PowerGuard.shared.shouldThrottleRendering
+        let chargeScale: Float = throttle ? 0.5 : 1.0
+        let rangeScale: Float = throttle ? 0.7 : 1.0
+
         graph_engine_set_force_params(
             engine,
             graphState.linkDistance,
-            graphState.chargeStrength,
-            graphState.chargeRange,
+            graphState.chargeStrength * chargeScale,
+            graphState.chargeRange * rangeScale,
             graphState.linkStrength
         )
         needsRender = true
@@ -821,9 +838,17 @@ final class MetalGraphNSView: NSView {
 
     func pushExtendedForceParams() {
         guard let engine, let graphState else { return }
+
+        // In low-power mode: increase velocity decay so nodes lose energy faster
+        // and the simulation reaches equilibrium with fewer ticks.
+        let throttle = PowerGuard.shared.shouldThrottleRendering
+        let decay = throttle
+            ? min(graphState.velocityDecay * 2.0, 0.5)
+            : graphState.velocityDecay
+
         graph_engine_set_extended_force_params(
             engine,
-            graphState.velocityDecay,
+            decay,
             graphState.centerStrength,
             graphState.collisionRadius
         )

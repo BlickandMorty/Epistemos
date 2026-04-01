@@ -93,6 +93,11 @@ actor AgentHeartbeatService {
     // MARK: - Guard Checks
 
     private func canStart() async -> Bool {
+        // Eco/low-power mode disables all background agent runs.
+        guard await !PowerGuard.shared.shouldDisableBackground else {
+            Self.log.debug("AgentHeartbeat: skipped — eco/low-power mode")
+            return false
+        }
         let cfg = await readConfig()
         guard cfg.enabled else {
             Self.log.debug("AgentHeartbeat: disabled in config")

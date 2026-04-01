@@ -1498,7 +1498,7 @@ struct NoteDetailWorkspaceView: View {
         }
         .frame(minHeight: NoteToolbarMetrics.buttonSide)
         .padding(.horizontal, 10)
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
         .background(
             Capsule()
                 .fill(toolbarAskFillColor)

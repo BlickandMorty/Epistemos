@@ -49,8 +49,12 @@ enum DegradationReason: Sendable, CustomStringConvertible {
     case networkDown
     case knowledgeStoreCorrupted
     case thermalThrottling
+    case thermalRecovery
     case crashLoopEscalation(childId: String)
     case supervisorForceDegrade(message: String)
+    case circuitBreakerOpen(domain: String)
+    case circuitBreakerRecovered(domain: String)
+    case contextWindowExhausted
 
     var description: String {
         switch self {
@@ -58,8 +62,12 @@ enum DegradationReason: Sendable, CustomStringConvertible {
         case .networkDown: "network down"
         case .knowledgeStoreCorrupted: "knowledge store corrupted"
         case .thermalThrottling: "thermal throttling"
+        case .thermalRecovery: "thermal recovery"
         case .crashLoopEscalation(let id): "crash loop escalation (\(id))"
         case .supervisorForceDegrade(let msg): "force degrade: \(msg)"
+        case .circuitBreakerOpen(let domain): "circuit breaker open (\(domain))"
+        case .circuitBreakerRecovered(let domain): "circuit breaker recovered (\(domain))"
+        case .contextWindowExhausted: "context window exhausted"
         }
     }
 }
@@ -225,8 +233,12 @@ final class AppSupervisor {
         healthMode == .full || healthMode == .degradedAI
     }
 
-    /// Circuit breaker for inference calls (consumed by AppleIntelligenceService).
-    let inferenceCircuitBreaker = AgentCircuitBreaker(failureThreshold: 3, resetTimeout: 30.0)
+    /// Per-domain circuit breakers — use BreakerRegistry for direct access.
+    let breakers = BreakerRegistry.shared
+
+    /// Legacy accessor for inference breaker (consumed by AppleIntelligenceService).
+    /// Maps to the foundationModels domain breaker.
+    var inferenceCircuitBreaker: AgentCircuitBreaker { breakers.foundationModels }
 
     // MARK: - Child Management
 
@@ -268,15 +280,25 @@ final class AppSupervisor {
         guard supervisorTask == nil else { return }
         Self.log.info("AppSupervisor starting with \(self.childSpecs.count) children")
 
+        // Wire all per-domain breakers to the mode machine
+        breakers.wireModeMachine(modeMachine)
+
         // Start all children
         for spec in childSpecs {
             spawnChild(spec)
         }
 
         // Separate health check loop for subsystem status (network, store, etc.)
+        // Interval adapts to power mode: 30s full, 120s eco, stopped in lowPower.
         healthCheckTask = Task.detached(priority: .utility) { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(self?.healthCheckInterval ?? 30.0))
+                let interval = await PowerGuard.shared.healthCheckInterval
+                guard interval.isFinite else {
+                    // Low-power mode: stop health checks, sleep long and re-check mode
+                    try? await Task.sleep(for: .seconds(60))
+                    continue
+                }
+                try? await Task.sleep(for: .seconds(interval))
                 guard !Task.isCancelled else { break }
                 await self?.performHealthCheck()
             }
@@ -303,7 +325,7 @@ final class AppSupervisor {
             modeMachine.forceDegrade(to: .degradedAI, reason: .thermalThrottling)
         case .nominal, .fair:
             // Attempt recovery — hysteresis will gate this
-            modeMachine.transition(to: .full, reason: nil)
+            modeMachine.transition(to: .full, reason: .thermalRecovery)
         @unknown default:
             break
         }
@@ -534,8 +556,10 @@ final class AppSupervisor {
     // MARK: - Private Checks
 
     private func checkInference() async -> Bool {
-        let isOpen = await inferenceCircuitBreaker.isOpen
-        if isOpen { return false }
+        // Check both inference breakers
+        let fmOpen = await breakers.foundationModels.isOpen
+        let mlxOpen = await breakers.mlx.isOpen
+        if fmOpen && mlxOpen { return false }
 
         let (available, _) = AppleIntelligenceService.shared.checkAvailability()
         if available { return true }

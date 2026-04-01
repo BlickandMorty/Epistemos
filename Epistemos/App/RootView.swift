@@ -278,9 +278,11 @@ struct RootView: View {
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
             if showLandingToolbarControls {
-                settingsToolbarButton
-                landingGreetingToolbarButton
-                historyToolbarButton
+                ControlGroup {
+                    settingsToolbarButton
+                    landingGreetingToolbarButton
+                    historyToolbarButton
+                }
             }
 
             if activeHomeChat {

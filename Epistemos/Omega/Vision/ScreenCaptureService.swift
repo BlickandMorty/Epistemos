@@ -17,6 +17,17 @@ final class ScreenCaptureService {
 
     private let log = Logger(subsystem: "com.epistemos.omega", category: "ScreenCapture")
 
+    /// Wrapper for SCShareableContent that centralizes the call.
+    /// SCShareableContent is an async API that suspends the calling actor,
+    /// so it doesn't block the main thread. The real hang risk is from
+    /// synchronous TCC calls (fixed in TCCPermissionState).
+    private func fetchShareableContent(
+        excludeDesktop: Bool = false,
+        onScreenOnly: Bool = true
+    ) async throws -> SCShareableContent {
+        try await SCShareableContent.excludingDesktopWindows(excludeDesktop, onScreenWindowsOnly: onScreenOnly)
+    }
+
     // MARK: - Streaming Pipeline
 
     /// Active stream (nil when not streaming).
@@ -44,7 +55,13 @@ final class ScreenCaptureService {
     ) async throws {
         guard activeStream == nil else { return }
 
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        // Block streaming in eco/low-power mode — screen capture is a heavy battery drain.
+        guard !PowerGuard.shared.shouldDisableBackground else {
+            log.info("Stream blocked — eco/low-power mode active")
+            return
+        }
+
+        let content = try await fetchShareableContent(excludeDesktop: false, onScreenOnly: true)
 
         let filter: SCContentFilter
         if let bundleID,
@@ -99,6 +116,37 @@ final class ScreenCaptureService {
         log.info("Stream stopped")
     }
 
+    /// Restart ScreenCaptureKit's backing daemon (replayd) and re-establish the stream.
+    /// Call this when capture returns nil frames or ScreenCaptureKit throws after a
+    /// cdhash mismatch / sandbox denial (replayd deny file-read-data).
+    func recoverStream(
+        bundleID: String? = nil,
+        targetFPS: Int = 10,
+        scale: Int = 1
+    ) async {
+        log.warning("Attempting replayd recovery — tearing down stream and restarting")
+        await stopStream()
+
+        // Kick the replayd daemon so it picks up the app's current cdhash.
+        // This is a no-op if the daemon isn't running (it'll start fresh).
+        let uid = getuid()
+        let kickTask = Process()
+        kickTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        kickTask.arguments = ["kickstart", "-k", "gui/\(uid)/com.apple.replayd"]
+        try? kickTask.run()
+        kickTask.waitUntilExit()
+
+        // Brief cooldown for the daemon to re-initialize
+        try? await Task.sleep(for: .milliseconds(500))
+
+        do {
+            try await startStream(bundleID: bundleID, targetFPS: targetFPS, scale: scale)
+            log.info("Stream recovered successfully after replayd restart")
+        } catch {
+            log.error("Stream recovery failed: \(error.localizedDescription)")
+        }
+    }
+
     /// Get the latest frame, waiting up to maxWaitMs if no frame is available yet.
     func awaitFrame(maxWaitMs: Int = 200) async -> CGImage? {
         if let frame = latestFrame { return frame }
@@ -115,7 +163,7 @@ final class ScreenCaptureService {
     /// Capture the frontmost window as a CGImage via ScreenCaptureKit.
     func captureFrontmostWindow() async -> CGImage? {
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            let content = try await fetchShareableContent(excludeDesktop: false, onScreenOnly: true)
 
             // Find the frontmost on-screen window (excluding desktop and menubar)
             guard let window = content.windows
@@ -150,7 +198,7 @@ final class ScreenCaptureService {
     /// Capture a specific display (full screen).
     func captureDisplay(_ display: SCDisplay? = nil) async -> CGImage? {
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            let content = try await fetchShareableContent(excludeDesktop: false, onScreenOnly: true)
 
             guard let targetDisplay = display ?? content.displays.first else {
                 return nil
@@ -177,7 +225,7 @@ final class ScreenCaptureService {
     /// Capture a specific app's windows by bundle ID.
     func captureApp(bundleID: String) async -> CGImage? {
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            let content = try await fetchShareableContent(excludeDesktop: false, onScreenOnly: true)
 
             guard content.applications.contains(where: { $0.bundleIdentifier == bundleID }),
                   let window = content.windows.first(where: {
@@ -195,7 +243,7 @@ final class ScreenCaptureService {
     /// Check if Screen Recording permission is available.
     func hasScreenRecordingPermission() async -> Bool {
         do {
-            _ = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+            _ = try await fetchShareableContent(excludeDesktop: true, onScreenOnly: true)
             return true
         } catch {
             return false
@@ -210,6 +258,10 @@ final class ScreenCaptureService {
 private final class ScreenStreamDelegate: NSObject, SCStreamOutput, @unchecked Sendable {
     private let onFrame: @Sendable (CGImage) -> Void
 
+    /// Reuse a single CIContext across all frames. CIContext creation is expensive
+    /// (~2ms) and was being allocated per-frame, adding unnecessary latency.
+    private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+
     init(onFrame: @escaping @Sendable (CGImage) -> Void) {
         self.onFrame = onFrame
     }
@@ -220,13 +272,12 @@ private final class ScreenStreamDelegate: NSObject, SCStreamOutput, @unchecked S
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
         let ciImage = CIImage(cvPixelBuffer: imageBuffer)
-        let context = CIContext()
         let rect = CGRect(
             x: 0, y: 0,
             width: CVPixelBufferGetWidth(imageBuffer),
             height: CVPixelBufferGetHeight(imageBuffer)
         )
-        guard let cgImage = context.createCGImage(ciImage, from: rect) else { return }
+        guard let cgImage = ciContext.createCGImage(ciImage, from: rect) else { return }
 
         onFrame(cgImage)
     }
@@ -238,12 +289,14 @@ enum ScreenCaptureError: Error, LocalizedError {
     case noDisplay
     case noWindow
     case captureFailed
+    case timeout
 
     var errorDescription: String? {
         switch self {
         case .noDisplay: return "No display available for capture"
         case .noWindow: return "No matching window found"
         case .captureFailed: return "Screen capture failed"
+        case .timeout: return "Screen capture timed out (replayd may be unresponsive)"
         }
     }
 }

@@ -203,6 +203,28 @@ private struct GeneralDetailView: View {
 
     var body: some View {
         Form {
+            Section("Power") {
+                SettingsDescriptionText(
+                    text: "Eco Mode disables background services (NightBrain, agent heartbeat, screen capture, vault maintenance timers, health checks) to save battery. Low Power Mode adds a 60fps render cap and is activated automatically by the system."
+                )
+                Toggle("Eco Mode", isOn: Binding(
+                    get: { PowerGuard.shared.ecoModeEnabled },
+                    set: { PowerGuard.shared.ecoModeEnabled = $0 }
+                ))
+                HStack {
+                    Text("Current mode:")
+                        .foregroundStyle(.secondary)
+                    Text(PowerGuard.shared.currentMode.label)
+                        .fontWeight(.medium)
+                    if PowerGuard.shared.systemLowPowerActive {
+                        Text("(System LPM active)")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .font(.caption)
+            }
+
             Section("Session") {
                 SettingsDescriptionText(
                     text: "Choose how Epistemos restores workspace state and whether it asks for confirmation before quitting with unsaved UI context."

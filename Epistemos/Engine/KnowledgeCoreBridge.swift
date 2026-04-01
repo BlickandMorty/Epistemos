@@ -717,16 +717,36 @@ final class KnowledgeCoreShadowRuntime {
     ) {
         guard pollTaskBox.task == nil else { return }
         pollTaskBox.task = Task(priority: .utility) { [weak self, bridge] in
+            var consecutiveFullBatches = 0
+
             while !Task.isCancelled {
                 let drainStart = DispatchTime.now().uptimeNanoseconds
                 let projection = await bridge.drainProjectedSummaries(limit: maxFramesPerBatch)
                 let drainDurationNs = DispatchTime.now().uptimeNanoseconds &- drainStart
+                let batchCount = projection.summaries.count
+
                 if !projection.summaries.isEmpty {
                     await MainActor.run {
                         self?.applyBatch(projection, drainDurationNs: drainDurationNs)
                     }
                 }
-                try? await Task.sleep(for: frameInterval)
+
+                // Backpressure recovery: if we drained a full batch, the ring may
+                // still have frames queued. Skip the sleep and drain again immediately
+                // to catch up. This prevents ringFull cascades when the consumer falls
+                // behind (e.g. after a main thread hang resolves).
+                if batchCount >= maxFramesPerBatch {
+                    consecutiveFullBatches += 1
+                    // Cap burst drains to avoid starving other tasks
+                    if consecutiveFullBatches <= 8 {
+                        continue
+                    }
+                }
+                consecutiveFullBatches = 0
+
+                // Use slower polling in low-power mode to reduce CPU wake-ups.
+                let effectiveInterval = await PowerGuard.shared.ringPollInterval
+                try? await Task.sleep(for: max(frameInterval, effectiveInterval))
             }
         }
     }

@@ -53,14 +53,20 @@ mkdir -p ../build-rust/swift-bindings/omega_mcpFFI
 cp ../build-rust/swift-bindings/omega_mcpFFI.h ../build-rust/swift-bindings/omega_mcpFFI/ 2>/dev/null || true
 cp ../build-rust/swift-bindings/omega_mcpFFI.modulemap ../build-rust/swift-bindings/omega_mcpFFI/module.modulemap 2>/dev/null || true
 
-# Fix: [Issue 1 - AMFI Binary Signing] — ad-hoc sign all binaries to prevent
-# "Unrecoverable CT signature issue" kernel kills.
+# Ad-hoc sign uniffi_bindgen build tools (prevents AMFI kills during code generation).
 for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
            target/x86_64-apple-darwin/debug/uniffi_bindgen \
            target/aarch64-apple-darwin/release/uniffi_bindgen \
            target/x86_64-apple-darwin/release/uniffi_bindgen; do
     [ -f "$bin" ] && codesign --force --sign - "$bin"
 done
-codesign --force --sign - ../build-rust/libomega_mcp.dylib
+
+# Only ad-hoc sign the staging dylib if NOT running inside Xcode.
+# When Xcode is driving, embed-and-sign-rust-dylib.sh already signed with
+# the real identity + entitlements. Overwriting that with ad-hoc causes a
+# cdhash mismatch that triggers TCC/AMFI rejections at runtime.
+if [ -z "${TARGET_BUILD_DIR:-}" ]; then
+    codesign --force --sign - ../build-rust/libomega_mcp.dylib
+fi
 
 echo "omega-mcp build complete"

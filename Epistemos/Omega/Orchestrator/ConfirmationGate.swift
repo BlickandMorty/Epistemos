@@ -36,8 +36,16 @@ final class ConfirmationGate {
         }
     }
 
-    /// Request confirmation from the user. Suspends until approved or denied.
+    /// How long to wait for user response before auto-denying.
+    private let confirmationTimeout: Duration = .seconds(120)
+
+    /// Request confirmation from the user. Suspends until approved, denied, or timeout.
     func requestConfirmation(for step: AgentStep) async -> Bool {
+        // Cancel any leaked prior continuation before storing a new one
+        let stale = pendingContinuation
+        pendingContinuation = nil
+        stale?.resume(returning: false)
+
         pendingConfirmation = ConfirmationRequest(
             stepId: step.id,
             description: step.description,
@@ -46,8 +54,21 @@ final class ConfirmationGate {
             riskLevel: step.riskLevel
         )
 
-        return await withCheckedContinuation { continuation in
-            pendingContinuation = continuation
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                pendingContinuation = continuation
+
+                // Timeout safety net — auto-deny if user never responds
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: self?.confirmationTimeout ?? .seconds(120))
+                    guard let self, self.pendingContinuation != nil else { return }
+                    self.deny()
+                }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.deny()
+            }
         }
     }
 

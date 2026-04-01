@@ -123,6 +123,14 @@ struct HermesConfig: Sendable {
         .init(envVar: "TAVILY_API_KEY", keychainKey: "epistemos.tavily.apiKey"),
         .init(envVar: "EXA_API_KEY", keychainKey: "epistemos.exa.apiKey"),
         .init(envVar: "FIRECRAWL_API_KEY", keychainKey: "epistemos.firecrawl.apiKey"),
+        // Cloud provider keys — Hermes uses these for inference routing.
+        // The HermesRuntimeRoute clears all provider keys and sets only the
+        // active one, but we need them in the base environment so Hermes
+        // can self-configure when launched without an explicit route.
+        .init(envVar: "OPENROUTER_API_KEY", keychainKey: "epistemos.openrouter.apiKey"),
+        .init(envVar: "ANTHROPIC_API_KEY", keychainKey: "epistemos.anthropic.apiKey"),
+        .init(envVar: "OPENAI_API_KEY", keychainKey: "epistemos.openai.apiKey"),
+        .init(envVar: "GOOGLE_API_KEY", keychainKey: "epistemos.google.apiKey"),
     ]
 
     static func defaultHermesHomeURL(fileManager: FileManager = .default) -> URL {
@@ -498,6 +506,10 @@ final class HermesSubprocessManager {
     private(set) var processState: HermesProcessState = .idle
     private(set) var pid: Int32?
 
+    /// Set when Hermes reports an authentication failure (HTTP 401, missing API key).
+    /// UI observes this to show an inline setup prompt.
+    private(set) var authFailureMessage: String?
+
     /// Cooldown to prevent rapid relaunch after crash.
     private var lastCrashDate: Date?
     private let crashCooldown: TimeInterval = 5.0
@@ -596,6 +608,7 @@ final class HermesSubprocessManager {
 
         processState = .starting
         stderrBuffer = ""
+        authFailureMessage = nil
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: config.pythonPath)
@@ -773,6 +786,7 @@ final class HermesSubprocessManager {
     /// Call from a background task during app init when the user's preferred model is cloud.
     func preWarm() async {
         guard !isRunning else { return }
+        guard !PowerGuard.shared.shouldDisableBackground else { return }
         do {
             try await launch()
         } catch {
@@ -900,6 +914,23 @@ final class HermesSubprocessManager {
                         : "unknown"
                     let reason = parts.count > 1 ? parts.dropFirst().joined(separator: ": ") : line
                     log.warning("Tool gate failure: \(toolName) — \(reason)")
+                }
+
+                // Detect authentication failures — surface to UI for frictionless setup
+                let lowered = line.lowercased()
+                if lowered.contains("401")
+                    || lowered.contains("api_key not set")
+                    || lowered.contains("api key not set")
+                    || lowered.contains("authenticationerror")
+                    || lowered.contains("no cookie auth credentials")
+                    || lowered.contains("openrouter_api_key not set")
+                    || lowered.contains("anthropic_api_key not set")
+                    || lowered.contains("openai_api_key not set") {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.authFailureMessage == nil else { return }
+                        self.authFailureMessage = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        log.warning("Auth failure detected — UI should prompt for API key setup")
+                    }
                 }
             }
         }

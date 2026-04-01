@@ -91,6 +91,8 @@ actor NightBrainService {
     // MARK: - Guard Checks
 
     private func canStart() async -> Bool {
+        // Eco/low-power mode disables all background maintenance.
+        guard await !PowerGuard.shared.shouldDisableBackground else { return false }
         let cfg = await readConfig()
         guard cfg.enabled else { return false }
         if cfg.requiresAC && !Self.isOnACPower() { return false }

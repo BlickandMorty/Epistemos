@@ -7,6 +7,9 @@ import SwiftUI
 
 @Observable
 final class EpistemosConfig {
+    // MARK: - Power Management
+    @ObservationIgnored @AppStorage("epistemos.ecoMode") var ecoModeEnabled = false
+
     // MARK: - Cross-App Capture
     @ObservationIgnored @AppStorage("capture.enabled") var captureEnabled = false
     @ObservationIgnored @AppStorage("capture.ocrFallback") var ocrFallbackEnabled = true

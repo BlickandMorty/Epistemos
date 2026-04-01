@@ -58,7 +58,7 @@ final class HermesMCPClient: @unchecked Sendable {
     private nonisolated(unsafe) weak var subprocessManager: HermesSubprocessManager?
     private let defaultTimeout: Duration
 
-    init(subprocessManager: HermesSubprocessManager, defaultTimeout: Duration = .seconds(30)) {
+    init(subprocessManager: HermesSubprocessManager, defaultTimeout: Duration = .seconds(10)) {
         self.subprocessManager = subprocessManager
         self.defaultTimeout = defaultTimeout
     }
@@ -101,6 +101,7 @@ final class HermesMCPClient: @unchecked Sendable {
                         try manager.writeLine(json)
                         mcpClientLog.debug("MCP request sent: \(method) id=\(requestId)")
                     } catch {
+                        // Remove without error — we resume directly here
                         self.removePending(id: requestId)
                         continuation.resume(throwing: error)
                     }
@@ -109,8 +110,9 @@ final class HermesMCPClient: @unchecked Sendable {
 
             group.addTask {
                 try await Task.sleep(for: effectiveTimeout)
-                self.removePending(id: requestId)
-                throw HermesMCPError.requestTimeout(method: method, timeoutSeconds: effectiveTimeout.totalSeconds)
+                let timeoutError = HermesMCPError.requestTimeout(method: method, timeoutSeconds: effectiveTimeout.totalSeconds)
+                self.removePending(id: requestId, resumingWith: timeoutError)
+                throw timeoutError
             }
 
             // Return whichever finishes first
@@ -148,7 +150,7 @@ final class HermesMCPClient: @unchecked Sendable {
     // MARK: - Convenience Methods
 
     func listTools() async throws -> AnyCodableValue {
-        try await send(method: "tools/list")
+        try await send(method: "tools/list", timeout: .seconds(5))
     }
 
     func callTool(name: String, arguments: [String: AnyCodableValue]) async throws -> AnyCodableValue {
@@ -178,10 +180,18 @@ final class HermesMCPClient: @unchecked Sendable {
         pendingRequests[id] = continuation
     }
 
-    private nonisolated func removePending(id: Int) {
+    /// Remove a pending request, resuming its continuation with the given error if still present.
+    /// This prevents continuation leaks when the timeout fires before a response arrives.
+    private nonisolated func removePending(id: Int, resumingWith error: (any Error)? = nil) {
         lock.lock()
-        defer { lock.unlock() }
-        pendingRequests.removeValue(forKey: id)
+        let continuation = pendingRequests.removeValue(forKey: id)
+        lock.unlock()
+
+        if let continuation, let error {
+            continuation.resume(throwing: error)
+        }
+        // If no error provided and continuation exists, the response handler
+        // will find it already removed and skip — this is the expected race.
     }
 
     nonisolated func handleIncomingLine(_ jsonLine: String) {

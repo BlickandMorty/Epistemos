@@ -651,9 +651,11 @@ nonisolated struct LocalRuntimeConditions: Sendable, Equatable {
     let appActive: Bool
     let thermalState: LocalRuntimeThermalState
 
+    @MainActor
     static func current(appActive: Bool = true) -> LocalRuntimeConditions {
         LocalRuntimeConditions(
-            lowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled,
+            lowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled
+                || PowerGuard.shared.shouldDisableBackground,
             appActive: appActive,
             thermalState: LocalRuntimeThermalState(ProcessInfo.processInfo.thermalState)
         )

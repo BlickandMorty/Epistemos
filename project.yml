@@ -33,6 +33,7 @@ targets:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
       - path: config/model_manifest.json
+      - path: hermes-agent/requirements.txt
     entitlements:
       path: Epistemos/Epistemos.entitlements
     settings:
