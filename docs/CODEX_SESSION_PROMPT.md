@@ -73,8 +73,16 @@ Defaults: eco mode ON, graph performance mode ON.
 4. Run verification after each task
 5. Update `docs/AGENT_PROGRESS.md` when done
 
-## RULES
+## ANTI-DRIFT RULES (MANDATORY — Re-read if context compacts)
 
+### Engineering Philosophy
+- **Zero-copy by default.** Audit every FFI/IPC boundary. UMA = zero-copy achievable.
+- **Typestate over runtime checks.** `~Copyable` in Swift, `PhantomData` in Rust.
+- **Atomic writes or no writes.** temp → F_FULLFSYNC → rename → F_FULLFSYNC parent. Never `try?` on user data.
+- **Lock-free on hot paths.** popcount breakers, atomic cursors, yield-not-block.
+- **Honest capability gating.** Don't fake tool calling on local models.
+
+### Code Rules
 - @Observable not ObservableObject
 - Swift Testing (@Test, #expect)
 - Never block @MainActor with inference
@@ -83,6 +91,17 @@ Defaults: eco mode ON, graph performance mode ON.
 - xcodegen generate after adding files (never edit .xcodeproj)
 - API keys in Keychain, NEVER UserDefaults
 - Stream every token, preserve thinking blocks
+- Every Rust FFI export wrapped in catch_unwind
+- Every unsafe block gets `// SAFETY:` comment
+- F_FULLFSYNC (fcntl 51) for all durable writes — fsync is NOT sufficient on macOS
+
+### Research Grounding (read when making architectural decisions)
+- Zero-corruption: `~/Downloads/release/FINAL DOCS/1. CORRUPTION/ZERO_CORRUPTION_SPEC.md`
+- Living Vault: `~/Downloads/last feature after new agents/LIVING_VAULT_ARCHITECTURE.md`
+- Recursive hardening: `~/Downloads/release/EPISTEMOS_CODEX_RECURSIVE_MASTER_v4.md`
+- Anti-drift: `~/Downloads/release/FINAL DOCS/3. MUST READS/ANTI_DRIFT_SYSTEM.md`
+- Quantization: `~/stateful-rotor-implementation-reference.md`
+- 50+ papers: `~/EPISTEMOS-RESEARCH-REFERENCE.md`
 
 ```bash
 # Build

@@ -53,11 +53,20 @@ Read every file listed below. Do not skip any. Do not summarize — absorb the f
 21. `~/stateful-rotor-implementation-reference.md` — Quantization pipeline, concurrency model, Apple Silicon optimization, Metal kernel patterns
 22. `~/EPISTEMOS-RESEARCH-REFERENCE.md` — Complete 50+ paper research synthesis (rotation matrices, KV cache, search architecture)
 
-### Tier 5: Verification & Operational Protocols
-23. `docs/SESSION_BOOTSTRAP_PROMPT.md` — Lists all harness/hardening files to verify, build commands, Swift 6.2 gotchas
-24. `docs/HARDENING_VERIFICATION.md` — 52-item grep-based verification checklist for all 8 phases
-25. `docs/VERIFICATION_PROTOCOL.md` — Detailed verification steps for each hardening phase
-26. `docs/PERPLEXITY_DEEP_AUDIT_PROMPT.md` — Deep audit prompt for external verification
+### Tier 5: Zero-Corruption, Hardening & Living Vault
+23. `~/Downloads/release/FINAL DOCS/1. CORRUPTION/ZERO_CORRUPTION_SPEC.md` — F_FULLFSYNC, BLAKE3, atomic writes, WAL, Unicode NFC, 7-layer integrity. **BINDING CONTRACT.**
+24. `~/Downloads/release/FINAL DOCS/2. final hardening/reference research/EPISTEMOS_HARDENING_IMPL_GUIDE.md` — Bookmark defense, TextKit2, adversarial filenames, viewport
+25. `~/Downloads/release/FINAL DOCS/3. MUST READS/ANTI_DRIFT_SYSTEM.md` — 5-layer defense against context drift. Post-compaction hooks, sprint sessions, audit prompts
+26. `~/Downloads/release/EPISTEMOS_CODEX_RECURSIVE_MASTER_v4.md` — Recursive hardening prompt: 25-doc scan, gap analysis, REF-01 through REF-16, triage card
+27. `~/Downloads/last feature after new agents/LIVING_VAULT_ARCHITECTURE.md` — Living Vault: diff engine, memory classifier, Ebbinghaus decay, context compiler, multi-vault registry, agent graph visualizer
+28. `~/Downloads/last feature after new agents/sprint-omega-5-living-vault.md` — Sprint tasks for Living Vault implementation
+29. `~/Downloads/last feature after new agents/OPERATOR_MANUAL.md` — 3-prompt operator workflow
+
+### Tier 6: Verification & Operational Protocols
+30. `docs/SESSION_BOOTSTRAP_PROMPT.md` — Lists all harness/hardening files to verify, build commands, Swift 6.2 gotchas
+31. `docs/HARDENING_VERIFICATION.md` — 52-item grep-based verification checklist for all 8 phases
+32. `docs/VERIFICATION_PROTOCOL.md` — Detailed verification steps for each hardening phase
+33. `docs/PERPLEXITY_DEEP_AUDIT_PROMPT.md` — Deep audit prompt for external verification
 
 ### Tier 6: Key Implementation Files (verify these are correct)
 27. `Epistemos/State/PowerGuard.swift` — 3-tier power mode (eco defaults ON)
@@ -154,6 +163,77 @@ Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inv
 **KEY INSIGHT (from deep research):** The app won't feel like Hermes/OpenClaw until it becomes a **control plane** that exposes their real primitives (profiles, sessions, skills, tools, cron, gateways, hardening). Hermes v0.6.0 + MCP gives the clean backbone.
 
 Work through phases A→G as defined in the execution order at the bottom of VISION_BACKLOG.md.
+
+## ANTI-DRIFT SYSTEM (MANDATORY — Re-read if context compacts)
+
+These rules exist because coding agents systematically drift toward simplified implementations. Violating ANY of these is a bug.
+
+### Engineering Philosophy (Non-Negotiable)
+1. **Zero-copy by default.** Every FFI boundary, every IPC path, every buffer: audit for unnecessary copies. Apple Silicon UMA means zero-copy is achievable everywhere — `MTLResourceOptions.storageModeShared`, mmap, shared memory rings.
+2. **Typestate over runtime checks.** When a state transition is critical (model lifecycle, PTY handle, vault connection), enforce it at the type level. Use `~Copyable` in Swift 6, `PhantomData` in Rust.
+3. **Atomic writes or no writes.** File writes use: temp file → `F_FULLFSYNC` → rename → `F_FULLFSYNC` parent dir. Never `try?` on user data writes.
+4. **Lock-free on hot paths.** Circuit breakers use `UInt64.nonzeroBitCount` (single CPU cycle). Ring buffers use atomic cursors. Graph physics yields, never blocks.
+5. **Bit-level where it matters.** `popcount` over array scans. `#[repr(align(128))]` for Apple Silicon L1 cache lines. ManagedBuffer for co-located header + elements.
+6. **Honest capability gating.** If a local model can't do tool calling reliably, don't fake it. If ANE can't run Mamba-2 selective scan, say so.
+7. **Privacy first, cloud opt-in.** All inference local by default. API keys in Keychain, never UserDefaults. No telemetry without consent.
+
+### Builder Reference Patterns (from EPISTEMOS_BUILDER_REFERENCE.md)
+These are the canonical code patterns. Use them VERBATIM — do not reinvent:
+- **REF-01:** Bookmark three-layer defense (validate → resolve → recover)
+- **REF-02:** Hardened file write (temp → F_FULLFSYNC → rename → F_FULLFSYNC parent)
+- **REF-03:** Paste sanitization (strip U+FFFC, limit size, plain text fallback)
+- **REF-04:** IME guard (keyCode 229, hasMarkedText, firstRect override)
+- **REF-05:** AI streaming mutation guard (page ID by value, not reference)
+- **REF-06:** Undo grouping (beginUndoGrouping/endUndoGrouping on every programmatic mutation)
+- **REF-07:** Viewport highlight guard (defer invalidation to next run loop)
+- **REF-08:** FFI catch_unwind (on EVERY `#[uniffi::export]` function)
+- **REF-09:** NaN sanitization + Barnes-Hut θ=0.8 (never O(n²) with 500+ nodes)
+- **REF-10:** Metal render hardening (occlusion gate, drawable nil guard, command buffer error handler)
+- **REF-11:** SwiftData migration safety (lightweight migration, integrity check on launch)
+- **REF-12:** Adversarial filename normalization (NFC ingestion, NFD+casefold paths)
+- **REF-13:** Wikilink parser (spaces, emoji, case-insensitive)
+- **REF-14:** MetricKit crash reporting
+- **REF-15:** Graph node lifecycle (dangling edge cleanup on delete)
+- **REF-16:** Startup integrity check (sample SDPage records, verify bodies)
+
+### Zero-Corruption Layers (from ZERO_CORRUPTION_SPEC.md)
+1. `F_FULLFSYNC` on all durable writes (macOS `fsync` does NOT guarantee flush)
+2. Atomic write protocol (temp → fsync → rename → fsync parent)
+3. BLAKE3 integrity checksums (xattr + DB dual storage)
+4. WAL hardening (synchronous=FULL, integrity_check on launch)
+5. Merkle tree self-healing (future)
+6. Unicode normalization barrier (NFC on ingestion, NFD+casefold for paths)
+7. Recovery snapshots (version capture before destructive ops)
+
+### Research Grounding (read these for deeper context on ANY decision)
+| Topic | Document | Location |
+|-------|----------|----------|
+| Quantization pipeline | `~/stateful-rotor-implementation-reference.md` | ButterflyQuant, TurboQuant, Kitty, PM-KVQ |
+| 50+ paper synthesis | `~/EPISTEMOS-RESEARCH-REFERENCE.md` | Rotation matrices, KV cache, search, Apple Silicon |
+| Zero-copy masterclass | `~/Downloads/unsorted research/Epistemos Zero-Copy Zero-Latency Implementation Masterclass.md` | UMA, mmap, shared memory, FlatBuffers |
+| Self-healing architecture | `~/Downloads/Architecting a Resilient Self-Healing macOS PKM.md` | Circuit breakers, supervision, thermal |
+| Recursive hardening | `~/Downloads/release/EPISTEMOS_CODEX_RECURSIVE_MASTER_v4.md` | 25-doc scan, gap analysis, triage card |
+| Hardening impl guide | `~/Downloads/release/FINAL DOCS/2. final hardening/reference research/EPISTEMOS_HARDENING_IMPL_GUIDE.md` | Bookmark defense, TextKit2, adversarial filenames |
+| Zero-corruption spec | `~/Downloads/release/FINAL DOCS/1. CORRUPTION/ZERO_CORRUPTION_SPEC.md` | F_FULLFSYNC, BLAKE3, Merkle, WAL, Unicode |
+| Living Vault | `~/Downloads/last feature after new agents/LIVING_VAULT_ARCHITECTURE.md` | Vault decay, GC, classifier, git-as-journal |
+| Operator manual | `~/Downloads/last feature after new agents/OPERATOR_MANUAL.md` | 3-prompt workflow, deployment, monitoring |
+| Anti-drift system | `~/Downloads/release/FINAL DOCS/3. MUST READS/ANTI_DRIFT_SYSTEM.md` | 5-layer defense against context drift |
+| Deep diagnostics | `~/Epistemos Deep Diagnostics Custom Logging and Real-Time Self-Healing Architecture.md` | Structured logging, self-healing, runtime diagnostics |
+| Keystroke telemetry | `~/Epistemos Keystroke Telemetry Input-Driven Hardening Runtime Perfection.md` | Input pipeline hardening, IME, paste |
+| Next-gen research mode | `~/Downloads/unsorted research/Epistemos Next-Generation Research Mode Migration Blueprint.md` | Research pipeline, multi-source synthesis |
+
+### Triage Card (Symptom → Root Cause → Fix)
+| User reports... | Root cause | Fix |
+|---|---|---|
+| Notes "disappeared" after OS update | Bookmark revoked | VaultBookmarkValidator (REF-01) |
+| Freeze after sleep/wake | Bookmark resolution on main thread | resolveBookmarkWithTimeout |
+| AI text in wrong note | Callback uses ref not captured ID | Mutation guard (REF-05) |
+| Japanese typing broken | keyCode 229 / firstRect wrong | IME guard (REF-04) |
+| Graph crash on empty vault | Nil engine handle | withEngine guard |
+| GPU timeout / fan spinning | Occlusion gate broken / NaN | Metal hardening (REF-09/10) |
+| EXC_BAD_INSTRUCTION in Rust | Panic crossed FFI | catch_unwind (REF-08) |
+| Silent save failure on full disk | try? swallowing ENOSPC | try? audit (REF-02) |
+| Save succeeded but data gone | fsync doesn't flush on macOS | F_FULLFSYNC |
 
 ## RULES FOR EVERY ACTION
 

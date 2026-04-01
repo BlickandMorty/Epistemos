@@ -241,6 +241,53 @@ The app doesn't FEEL like Hermes Agent or OpenClaw because:
 
 ---
 
+## TIER 8B: LIVING VAULT (from LIVING_VAULT_ARCHITECTURE.md — Sprint Omega-5)
+
+The vault becomes a living cognitive substrate. Every memory change is a diff, not an overwrite.
+
+### 8B-1. Diff Engine (Rust)
+- `agent_core/src/storage/diff_engine.rs` — unified diff via `similar` crate
+- Text diff + JSON tree diff + fuzzy patch application
+- **Sprint task:** Omega-5 Task 1
+
+### 8B-2. Memory Classifier (Rust)
+- `agent_core/src/storage/memory_classifier.rs` — ADD/UPDATE/DELETE/NOOP
+- Embedding similarity (cosine > 0.85) + lightweight LLM classification
+- **Sprint task:** Omega-5 Task 2
+
+### 8B-3. Ebbinghaus Decay (Rust)
+- `agent_core/src/storage/memory_decay.rs` — strength decay + GC sweep
+- `strength(t) = strength(t₀) × e^(-λ × (t - t₀))`
+- Pin/boost/manual delete. Graph shows strength as node opacity.
+
+### 8B-4. Cross-File Propagation
+- When one vault file is patched, scanner checks all references
+- All patches land as one atomic git commit — no belief drift between files
+- Uses tantivy full-text search to find references
+
+### 8B-5. Git as Cognitive Journal
+- Every vault mutation is a git commit with structured message
+- `git log` IS the agent's intellectual history
+- `git revert` undoes a bad memory
+
+### 8B-6. Context Compiler (Rust)
+- `agent_core/src/context_compiler.rs` — prompt DAG assembly
+- Cache-optimal ordering (U-curve aware): tools → system → skills → memory → few-shot → RAG → history → user message
+- Multi-level compression (lossless → near-lossless → LLMLingua → aggressive)
+- Self-improving optimization loop (DSPy/OPRO/EvoPrompt style)
+
+### 8B-7. Multi-Vault Registry
+- Per-model vaults, per-agent vaults, per-user vault
+- Vault switching in UI changes what context compiler draws from
+- Merges with priority: agent > model > personal
+
+### 8B-8. Agent Graph Visualizer
+- 5 zoom levels (cosmic → constellation → solar system → planet → surface)
+- Live state: pulsing active agents, flashing tool edges, token flow particles
+- Phase 1: Grape, Phase 2: Metal instanced, Phase 3: full Metal compute
+
+---
+
 ## TIER 9: CODE EDITOR & IDE FEATURES (from Architecture Discovery Report)
 
 ### 9A. Custom CoreText Code Editor Surface
