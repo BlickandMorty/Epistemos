@@ -339,6 +339,22 @@ struct RuntimeValidationTests {
         #expect(viewModel.contains("case version"))
     }
 
+    @Test("agent runtime prepares harness state before recording intent and runs completion hooks")
+    func agentRuntimeRunsHarnessLifecycleHooksInOrder() throws {
+        let viewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
+
+        let prepareRange = try #require(
+            viewModel.range(of: "let harnessSystemPrompt = harnessIntegration.prepareSession(")
+        )
+        let intentRange = try #require(
+            viewModel.range(of: "harnessIntegration.recordUserIntent(trimmed)")
+        )
+
+        #expect(prepareRange.lowerBound < intentRange.lowerBound)
+        #expect(viewModel.contains("harnessIntegration.recordModelOutput("))
+        #expect(viewModel.contains("await self.harnessIntegration.verifyCompletion("))
+    }
+
     @Test("xcode build graph regenerates and links epistemos core integrity bindings")
     func xcodeBuildGraphRegeneratesEpistemosCoreBindings() throws {
         let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")

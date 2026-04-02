@@ -76,7 +76,7 @@ final class AgentViewModel {
     // contentBlocks to Application Support so sessions survive app termination.
 
     private static var persistenceURL: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         let dir = appSupport.appendingPathComponent("com.epistemos.app", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("agent_session_state.json")
@@ -144,16 +144,16 @@ final class AgentViewModel {
         }
         prepareTurnStateForNewPrompt(prompt: trimmed)
 
-        // Harness: record user intent and prepare session context.
+        // Harness: prepare session first so subsequent lifecycle events have an active session.
         let sessionId = activeSessionID ?? UUID().uuidString
-        harnessIntegration.recordUserIntent(trimmed)
         let harnessSystemPrompt = harnessIntegration.prepareSession(
             sessionId: sessionId,
             objective: trimmed,
             workingDirectory: URL(fileURLWithPath: AgentRuntimeDefaults.vaultPath),
-            availableTools: [],
+            availableTools: activeSessionSummary?.availableTools ?? [],
             activeCapability: "cloud"
         )
+        harnessIntegration.recordUserIntent(trimmed)
 
         let (stream, continuation) = AsyncStream<AgentStreamEvent>.makeStream(
             bufferingPolicy: .bufferingNewest(256)
@@ -404,7 +404,7 @@ final class AgentViewModel {
                         turn: turnCount,
                         tool: name,
                         input: input,
-                        output: result ?? (isError ? "error" : ""),
+                        output: result.isEmpty && isError ? "error" : result,
                         exitCode: isError ? 1 : 0
                     )
                 }
@@ -444,6 +444,16 @@ final class AgentViewModel {
                 isAwaitingApproval = false
                 activeContinuation = nil
 
+                if let output = finalAssistantOutput(history: history) {
+                    harnessIntegration.recordModelOutput(
+                        turn: turnCount,
+                        provider: lastProviderName,
+                        model: activeSessionSummary?.model,
+                        tokensUsed: outputTokens,
+                        content: output
+                    )
+                }
+
                 // Harness: save session progress and close traces.
                 harnessIntegration.completeSession(
                     stopReason: stopReason,
@@ -452,6 +462,16 @@ final class AgentViewModel {
                     turns: turnCount,
                     accomplishedSummary: lastSubmittedPrompt
                 )
+
+                let objective = lastSubmittedPrompt
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let result = await self.harnessIntegration.verifyCompletion(
+                        objective: objective,
+                        workingDirectory: URL(fileURLWithPath: AgentRuntimeDefaults.vaultPath)
+                    )
+                    self.contentBlocks.append(.status("Completion check: \(result.summary)"))
+                }
 
             case .error(let error):
                 // Harness: record error event.
@@ -489,6 +509,27 @@ final class AgentViewModel {
             contentBlocks.append(.text(responseText))
             responseText = ""
         }
+    }
+
+    private func finalAssistantOutput(history: [AgentSessionMessage]?) -> String? {
+        if let history {
+            for message in history.reversed() where message.role == "assistant" {
+                if let content = message.trimmedContent {
+                    return content
+                }
+            }
+        }
+
+        for block in contentBlocks.reversed() {
+            if case .text(let text) = block.kind {
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    return trimmed
+                }
+            }
+        }
+
+        return nil
     }
 
     // MARK: - <think> Token Router
@@ -2143,6 +2184,7 @@ struct AgentSessionSummary: Identifiable, Equatable, Sendable {
     let historyCount: Int
     let isActive: Bool
     let preview: String
+    let availableTools: [String]
     let lastActive: Date?
     private let explicitTitle: String?
 
@@ -2158,6 +2200,12 @@ struct AgentSessionSummary: Identifiable, Equatable, Sendable {
         self.historyCount = payload["history_len"] as? Int ?? 0
         let rawPreview = payload["preview"] as? String ?? ""
         self.preview = rawPreview.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.availableTools = (payload["available_tools"] as? [Any] ?? [])
+            .compactMap { value in
+                guard let raw = value as? String else { return nil }
+                let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
         if let rawTitle = (payload["title"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
            !rawTitle.isEmpty {
