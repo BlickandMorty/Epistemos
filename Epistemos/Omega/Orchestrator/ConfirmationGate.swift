@@ -6,12 +6,16 @@ import Foundation
 /// Low risk → auto-execute (when enabled in settings); Medium → log; High → preview; Critical → explicit confirm.
 @MainActor @Observable
 final class ConfirmationGate {
+    init(timeout: Duration = .seconds(120)) {
+        self.confirmationTimeout = timeout
+    }
 
     /// Pending confirmation request (shown in UI when non-nil).
     var pendingConfirmation: ConfirmationRequest?
 
     /// Continuation awaiting the user's approve/deny decision.
     private var pendingContinuation: CheckedContinuation<Bool, Never>?
+    private var pendingRequestID: UUID?
 
     /// Whether low-risk actions auto-execute. Reads from Settings → Omega.
     private var autoExecuteLowRisk: Bool {
@@ -37,14 +41,15 @@ final class ConfirmationGate {
     }
 
     /// How long to wait for user response before auto-denying.
-    private let confirmationTimeout: Duration = .seconds(120)
+    private let confirmationTimeout: Duration
 
     /// Request confirmation from the user. Suspends until approved, denied, or timeout.
     func requestConfirmation(for step: AgentStep) async -> Bool {
         // Cancel any leaked prior continuation before storing a new one
-        let stale = pendingContinuation
-        pendingContinuation = nil
-        stale?.resume(returning: false)
+        resolvePendingConfirmation(with: false)
+
+        let requestID = UUID()
+        pendingRequestID = requestID
 
         pendingConfirmation = ConfirmationRequest(
             stepId: step.id,
@@ -59,33 +64,39 @@ final class ConfirmationGate {
                 pendingContinuation = continuation
 
                 // Timeout safety net — auto-deny if user never responds
-                Task { @MainActor [weak self] in
+                Task { @MainActor [weak self, requestID] in
                     try? await Task.sleep(for: self?.confirmationTimeout ?? .seconds(120))
-                    guard let self, self.pendingContinuation != nil else { return }
-                    self.deny()
+                    self?.deny(requestID: requestID)
                 }
             }
         } onCancel: {
-            Task { @MainActor [weak self] in
-                self?.deny()
+            Task { @MainActor [weak self, requestID] in
+                self?.deny(requestID: requestID)
             }
         }
     }
 
     /// Called by UI when user approves.
     func approve() {
-        let continuation = pendingContinuation
-        pendingContinuation = nil
-        pendingConfirmation = nil
-        continuation?.resume(returning: true)
+        resolvePendingConfirmation(with: true)
     }
 
     /// Called by UI when user denies.
     func deny() {
+        resolvePendingConfirmation(with: false)
+    }
+
+    private func deny(requestID: UUID) {
+        resolvePendingConfirmation(with: false, requestID: requestID)
+    }
+
+    private func resolvePendingConfirmation(with decision: Bool, requestID: UUID? = nil) {
+        if let requestID, let pendingRequestID, pendingRequestID != requestID { return }
         let continuation = pendingContinuation
         pendingContinuation = nil
+        pendingRequestID = nil
         pendingConfirmation = nil
-        continuation?.resume(returning: false)
+        continuation?.resume(returning: decision)
     }
 }
 
