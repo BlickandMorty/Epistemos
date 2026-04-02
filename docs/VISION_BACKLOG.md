@@ -1377,9 +1377,43 @@ LONG-TERM WATCH:
   GoClaw Lite — reference architecture only, not adopting
   Study their tool implementations and multi-tenant patterns
 
-DEFERRED (Research-blocked):
-  8A-8B Business features
-  MOHAWK custom model training (RunPod funding + R10/R14 research)
-  Mamba Metal kernels (Cartesia Edge or MLX Mamba support)
-  CoreML ANE dual-brain (R2/R3 research)
+DEFERRED — THE ENDGAME (Research-blocked but this is where it all leads):
+
+  MOHAWK HYBRID MODEL — Your Own Custom Model
+    The ultimate form: a Mamba-2/Attention hybrid model trained on YOUR vault,
+    running entirely on YOUR machine. Not a fine-tuned Qwen. A model built
+    from scratch for personal knowledge work.
+
+    What exists today:
+    - MOHAWK training pipeline (generate_epistemos_training_data.py — 1534 lines)
+    - Embodied trajectory generator (generate_embodied_trajectories.py — 2208 lines)
+    - Advanced training data generator (795 lines)
+    - Curriculum sorter, synthetic data generator, experience replay buffer
+    - CSI Safeguard (prevents Goodhart gaming during training)
+    - 16+ composition types in validated training data (JSONL)
+    - QLoRA + KTO alignment pipeline ready
+    - MoLoRA multi-adapter routing (per-app adapters) working
+
+    What's blocked:
+    - R10: Cartesia Metal kernels for Mamba-2 selective scan on Apple Silicon
+    - R14: LoRA fine-tuning on Mamba-2 architecture via MLX
+    - $150-1500 RunPod funding for initial model training run
+    - MLX Mamba support (in progress upstream)
+
+    The architecture when it ships:
+    - 3-tier model: Nano (router, 1B, always pinned) → Base (4B, general) → Expert (8B, cold-loaded)
+    - Mamba-2 backbone with attention layers (best of both: O(n) sequence + global attention)
+    - Trained on: vault content + ODIA traces + synthetic curricula + user feedback (KTO)
+    - Runs entirely on Apple Silicon via MLX — no cloud, no API keys, no subscription
+    - The model IS your second brain — it learned from your notes, your style, your thinking
+
+    This is the big picture. Everything else (graph, Knowledge Brick, agent system,
+    Rust migration) builds toward this: a personal AI that runs on your machine,
+    trained on your knowledge, getting smarter every night.
+
+  OTHER DEFERRED:
+    8A-8B Business features (company model training)
+    Mamba Metal kernels (Cartesia Edge or MLX upstream)
+    CoreML ANE dual-brain path (R2/R3 research)
+    Dual-model memory budget optimization (R3)
 ```
