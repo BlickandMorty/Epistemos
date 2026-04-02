@@ -31,7 +31,7 @@ final class MainThreadWatchdog: Sendable {
 
     /// Retained for process lifetime once installed.
     private static let shared = MainThreadWatchdog()
-    nonisolated(unsafe) private static let sharedLogger = StructuredDiagnosticLogger()
+    nonisolated private static let sharedLogger = StructuredDiagnosticLogger()
 
     /// Install the watchdog. Safe to call from any isolation context.
     static func install() {
@@ -129,7 +129,7 @@ final class StructuredDiagnosticLogger: Sendable {
     private let queue = DispatchQueue(label: "com.epistemos.diagnostics", qos: .utility)
 
     nonisolated init(
-        logDirectory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        logDirectory: URL = FoundationSafety.userApplicationSupportDirectory(fileManager: .default)
             .appendingPathComponent("Epistemos", isDirectory: true)
             .appendingPathComponent("diagnostics", isDirectory: true),
         maxFileSize: Int = 5 * 1024 * 1024 // 5MB
@@ -145,8 +145,8 @@ final class StructuredDiagnosticLogger: Sendable {
 
     nonisolated func log(_ event: DiagnosticEvent) {
         let entry = encodeEvent(event)
-        queue.async { [weak self] in
-            self?.appendLine(entry)
+        queue.async {
+            self.appendLine(entry)
         }
     }
 

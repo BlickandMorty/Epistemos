@@ -387,6 +387,43 @@ struct RuntimeValidationTests {
         #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl"))
     }
 
+    @Test("direct-distribution entitlements keep MLX and Rust FFI allowances wired per config")
+    func directDistributionEntitlementsStayWired() throws {
+        let releaseEntitlements = try loadRepoTextFile("Epistemos/Epistemos.entitlements")
+        let debugEntitlements = try loadRepoTextFile("Epistemos/Epistemos-Debug.entitlements")
+        let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let projectSpec = try loadRepoTextFile("project.yml")
+
+        for key in [
+            "com.apple.security.cs.allow-jit",
+            "com.apple.security.cs.allow-unsigned-executable-memory",
+            "com.apple.security.cs.disable-library-validation"
+        ] {
+            #expect(releaseEntitlements.contains(key))
+            #expect(debugEntitlements.contains(key))
+        }
+
+        #expect(!releaseEntitlements.contains("com.apple.security.app-sandbox"))
+        #expect(debugEntitlements.contains("com.apple.security.app-sandbox"))
+        #expect(project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;"))
+        #expect(project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos-Debug.entitlements;"))
+        #expect(project.contains("CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;"))
+        #expect(project.contains("ENABLE_HARDENED_RUNTIME = YES;"))
+        #expect(projectSpec.contains("CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements"))
+        #expect(projectSpec.contains("CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-Debug.entitlements"))
+        #expect(projectSpec.contains("CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false"))
+        #expect(projectSpec.contains("ENABLE_HARDENED_RUNTIME: true"))
+    }
+
+    @Test("structured diagnostic logger keeps fire-and-forget writes alive")
+    func structuredDiagnosticLoggerRetainsFireAndForgetWrites() throws {
+        let source = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
+
+        #expect(source.contains("queue.async {"))
+        #expect(!source.contains("queue.async { [weak self] in"))
+        #expect(source.contains("self.appendLine(entry)"))
+    }
+
     @Test("Rust build scripts force panic abort under thread sanitizer builds")
     func rustBuildScriptsForcePanicAbortUnderThreadSanitizerBuilds() throws {
         let graphEngine = try loadRepoTextFile("build-rust.sh")

@@ -57,6 +57,13 @@ targets:
           - "@loader_path/../Frameworks"
         OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lepistemos_core
         SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-Debug.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
+          ENABLE_HARDENED_RUNTIME: true
     preBuildScripts:
       - name: Build Rust Engine
         script: bash "${SRCROOT}/build-rust.sh" && bash "${SRCROOT}/build-omega-mcp.sh" && bash "${SRCROOT}/build-omega-ax.sh" && bash "${SRCROOT}/build-epistemos-core.sh"
@@ -98,7 +105,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.tests
         GENERATE_INFOPLIST_FILE: true
         MACOSX_DEPLOYMENT_TARGET: "26.0"
-        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_IDENTITY: "Apple Development"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 3BNL2669SL
         ALWAYS_SEARCH_USER_PATHS: false
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
         BUNDLE_LOADER: "$(TEST_HOST)"

@@ -6,7 +6,8 @@
 	     App Sandbox: DISABLED for debug builds.
 	     Enables Knowledge Fusion Python environment setup (Homebrew, pip, venv)
 	     and Omega agent capabilities without sandbox restrictions.
-	     Release builds use Epistemos.entitlements with sandbox ENABLED.
+	     Release builds use Epistemos.entitlements for the direct-distribution
+	     signing profile with the same hardened runtime allowances.
 	     ═══════════════════════════════════════════════════════════════ -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
