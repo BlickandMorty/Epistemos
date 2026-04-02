@@ -155,6 +155,27 @@ The app has three natural "stances" the user drifts between. No mode is mandator
 - "Temporal" lens: time-axis showing knowledge evolution
 - Each lens is a filter on the same underlying Metal-rendered graph
 
+**Floating panels inside the graph (never leave immersive mode):**
+Every interaction opens a panel that floats inside the constellation. The graph is the workspace.
+
+| Trigger | Panel | Content |
+|---------|-------|---------|
+| Tap note node | Editor panel | Full note editor, same as focused mode |
+| Tap agent diamond | Agent runtime panel | Live tool calls, streaming output, thinking glow, cost |
+| Tap model vault rect | Vault inspector | Knowledge profile, concept index, edit in place |
+| Tap skill hexagon | Skill detail | Description, usage history, enable/disable toggle |
+| Tap code rectangle | Code preview | Syntax-highlighted, read-only or editable |
+| Tap person dot | Entity panel | All notes mentioning this person, relationship map |
+| Tap chat circle | Chat panel | Conversation history, continue chatting inline |
+| ⌘K | Command bar | Floating over graph, same as Knowledge Brick |
+| ⌘, or gear node | Settings panel | Inline settings, same as Knowledge Brick bottom |
+
+- Panels are draggable, resizable, dismissable (click X or Esc)
+- Multiple panels open simultaneously — tile or overlap
+- Knowledge Brick sidebar stays as left anchor (persistent navigation)
+- Graph fills remaining space, panels float within it
+- Contextual Shadows orbit the FOCUSED panel (whichever was last clicked)
+
 **Global hotkey: ⌥Space (Option+Space)**
 - Works from ANY app — summons the ⌘K command bar as a floating overlay
 - Same command bar as in the Knowledge Brick, but system-wide
