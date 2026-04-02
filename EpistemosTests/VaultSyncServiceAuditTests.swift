@@ -1345,4 +1345,70 @@ struct VaultSyncServiceAuditTests {
         #expect(commandLog.value.contains("localsnapshot"))
         #expect(commandLog.value.contains("deletelocalsnapshots 2026-03-01-000001"))
     }
+
+    @Test("power mode changes restart vault maintenance timers when full mode returns")
+    func powerModeChangesRestartVaultMaintenanceTimers() throws {
+        let container = try makeContainer()
+        let defaults = makeIsolatedDefaults()
+        let service = VaultSyncService(modelContainer: container, userDefaults: defaults)
+        let vaultURL = try makeTempDirectory()
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        service.startWatching(
+            vaultURL: vaultURL,
+            refreshAmbientManifestImmediately: false
+        )
+
+        service.handlePowerModeChangeForTesting(.full)
+        let started = service.backgroundMaintenanceTimersStateForTesting()
+        #expect(started.versionCaptureActive)
+        #expect(started.manifestRefreshActive)
+
+        service.handlePowerModeChangeForTesting(.eco)
+        let disabled = service.backgroundMaintenanceTimersStateForTesting()
+        #expect(!disabled.versionCaptureActive)
+        #expect(!disabled.manifestRefreshActive)
+
+        service.handlePowerModeChangeForTesting(.full)
+        let restarted = service.backgroundMaintenanceTimersStateForTesting()
+        #expect(restarted.versionCaptureActive)
+        #expect(restarted.manifestRefreshActive)
+    }
+
+    @Test("eco mode keeps core vault sync active while background maintenance pauses")
+    func ecoModeKeepsCoreVaultSyncActive() throws {
+        let container = try makeContainer()
+        let defaults = makeIsolatedDefaults()
+        let service = VaultSyncService(modelContainer: container, userDefaults: defaults)
+        let vaultURL = try makeTempDirectory()
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        service.autoSaveInterval = 30
+        service.startWatching(
+            vaultURL: vaultURL,
+            refreshAmbientManifestImmediately: false
+        )
+
+        let startedCore = service.vaultCoreSyncStateForTesting()
+        #expect(startedCore.isWatching)
+        #expect(startedCore.autoSaveActive)
+        #expect(startedCore.fileWatcherActive)
+
+        service.handlePowerModeChangeForTesting(.eco)
+
+        let ecoCore = service.vaultCoreSyncStateForTesting()
+        #expect(ecoCore.isWatching)
+        #expect(ecoCore.autoSaveActive)
+        #expect(ecoCore.fileWatcherActive)
+
+        let ecoMaintenance = service.backgroundMaintenanceTimersStateForTesting()
+        #expect(!ecoMaintenance.versionCaptureActive)
+        #expect(!ecoMaintenance.manifestRefreshActive)
+    }
 }

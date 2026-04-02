@@ -217,6 +217,8 @@ final class VaultSyncService {
     private var autoSaveTask: Task<Void, Never>?
     private var versionCaptureTask: Task<Void, Never>?
     private var manifestRefreshTask: Task<Void, Never>?
+    @ObservationIgnored
+    nonisolated(unsafe) private var powerModeObserverTask: Task<Void, Never>?
     private var inFlightDirtySaveTask: Task<Void, Never>?
     private var pendingDirtySaveRequest = false
     private var initialImportCompleted = false
@@ -246,6 +248,11 @@ final class VaultSyncService {
         self.defaults = resolvedDefaults
         self.isIndexing = resolvedDefaults.data(forKey: Self.bookmarkKey) != nil
         self.autoSaveInterval = resolvedDefaults.double(forKey: Self.autoSaveIntervalKey)
+        startObservingPowerModeChangesIfNeeded()
+    }
+
+    deinit {
+        powerModeObserverTask?.cancel()
     }
 
     func setVaultURLForTesting(_ vaultURL: URL?) {
@@ -1558,11 +1565,7 @@ final class VaultSyncService {
             }
         }
         restartAutoSaveTimer()
-        // Skip background maintenance timers in eco/low-power mode.
-        if !PowerGuard.shared.shouldDisableBackground {
-            startVersionCaptureTimer()
-            startManifestRefreshTimer()
-        }
+        applyPowerMode(PowerGuard.shared.currentMode)
         startFileWatcher()
 
         if refreshAmbientManifestImmediately {
@@ -2076,6 +2079,81 @@ final class VaultSyncService {
                 self?.saveAllDirtyPages()
             }
         }
+    }
+
+    private func startObservingPowerModeChangesIfNeeded() {
+        guard powerModeObserverTask == nil else { return }
+
+        powerModeObserverTask = Task.detached(priority: .utility) { [weak self] in
+            let stream = NotificationCenter.default.notifications(
+                named: PowerGuard.modeDidChangeNotification
+            )
+
+            for await notification in stream {
+                guard !Task.isCancelled else { break }
+
+                let mode: PowerMode
+                if let rawValue = notification.userInfo?[PowerGuard.modeUserInfoKey] as? Int,
+                   let observedMode = PowerMode(rawValue: rawValue) {
+                    mode = observedMode
+                } else {
+                    mode = await MainActor.run { PowerGuard.shared.currentMode }
+                }
+
+                await MainActor.run { [weak self] in
+                    self?.applyPowerMode(mode)
+                }
+            }
+        }
+    }
+
+    private func applyPowerMode(_ mode: PowerMode) {
+        guard isWatching else { return }
+
+        if mode.disablesBackground {
+            stopBackgroundMaintenanceTimers()
+            return
+        }
+
+        startBackgroundMaintenanceTimers()
+    }
+
+    private func startBackgroundMaintenanceTimers() {
+        startVersionCaptureTimer()
+        startManifestRefreshTimer()
+    }
+
+    private func stopBackgroundMaintenanceTimers() {
+        versionCaptureTask?.cancel()
+        versionCaptureTask = nil
+        manifestRefreshTask?.cancel()
+        manifestRefreshTask = nil
+    }
+
+    func handlePowerModeChangeForTesting(_ mode: PowerMode) {
+        applyPowerMode(mode)
+    }
+
+    func backgroundMaintenanceTimersStateForTesting() -> (
+        versionCaptureActive: Bool,
+        manifestRefreshActive: Bool
+    ) {
+        (
+            versionCaptureActive: versionCaptureTask != nil,
+            manifestRefreshActive: manifestRefreshTask != nil
+        )
+    }
+
+    func vaultCoreSyncStateForTesting() -> (
+        isWatching: Bool,
+        autoSaveActive: Bool,
+        fileWatcherActive: Bool
+    ) {
+        (
+            isWatching: isWatching,
+            autoSaveActive: autoSaveTask != nil,
+            fileWatcherActive: fileWatcherSource != nil
+        )
     }
 
     /// Periodic manifest refresh (5-minute interval) as safety net for external edits.

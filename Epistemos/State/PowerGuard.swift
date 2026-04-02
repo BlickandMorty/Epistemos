@@ -54,6 +54,8 @@ final class PowerGuard {
     static let shared = PowerGuard()
 
     private static let log = Logger(subsystem: "com.epistemos", category: "PowerGuard")
+    nonisolated static let modeDidChangeNotification = Notification.Name("com.epistemos.powerModeDidChange")
+    nonisolated static let modeUserInfoKey = "modeRawValue"
 
     // MARK: - Observable State
 
@@ -170,5 +172,10 @@ final class PowerGuard {
         guard derived != previous else { return }
         currentMode = derived
         Self.log.notice("Power mode: \(previous.label) → \(derived.label) [\(reason)]")
+        NotificationCenter.default.post(
+            name: Self.modeDidChangeNotification,
+            object: self,
+            userInfo: [Self.modeUserInfoKey: derived.rawValue]
+        )
     }
 }
