@@ -31,24 +31,24 @@ Read every file listed below. Do not skip any. Do not summarize — absorb the f
 4. `docs/AGENT_FUSION_RESEARCH_PROMPT.md` — Research analyzing 8 open-source agent projects (Hermes, GoClaw, Phantom, OpenSwarm, Claw Code, CodeNano, OpenClaw, Hermes IDE)
 4b. **CRITICAL:** Read `1-RESEARCH` section in VISION_BACKLOG.md — Advisory Council findings: minimize orchestration tax, MCP as spine, selective 5-pattern adoption only, the Fusion Penalty, competitive moat = knowledge layer not agent runtime
 5. `docs/BEST_OF_CLAW_AND_OPENCLAW.md` — historical pattern source; many items now implemented, cross-check with `docs/AGENT_PROGRESS.md`
-5. `docs/FUSED_AGENT_ENGINEERING_REPORT.md` — Root cause analysis + upgrade path for the agent system
-6. `docs/HERMES_INTEGRATION_RESEARCH.md` — 40-file deep study of hermes-agent internals
-7. `docs/HERMES_PARITY_REPORT.md` — What hermes-agent can do vs what Epistemos exposes
-8. `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — Step-by-step plan for wiring agent features
-9. `docs/AGENT_DEEP_VERIFICATION_MANUAL.md` — Verification procedures for agent system
-10. `docs/IMPLEMENTATION_PROMPTS.md` — 8 paste-ready implementation prompts (tool gates, auto-discovery, agent loop, skills, iMessage, NightBrain, streams, release)
+6. `docs/FUSED_AGENT_ENGINEERING_REPORT.md` — Root cause analysis + upgrade path for the agent system
+7. `docs/HERMES_INTEGRATION_RESEARCH.md` — 40-file deep study of hermes-agent internals
+8. `docs/HERMES_PARITY_REPORT.md` — What hermes-agent can do vs what Epistemos exposes
+9. `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — Step-by-step plan for wiring agent features
+10. `docs/AGENT_DEEP_VERIFICATION_MANUAL.md` — Verification procedures for agent system
+11. `docs/IMPLEMENTATION_PROMPTS.md` — 8 paste-ready implementation prompts (tool gates, auto-discovery, agent loop, skills, iMessage, NightBrain, streams, release)
 
 ### Tier 3: Architecture, Deep Analysis & Vision
-11. `docs/EPISTEMOS_FUSED_v3.md` — Complete 8-phase build spec for the full app
-12. `docs/epistemos-deep-analysis.md` — Deep architectural analysis of the entire codebase
-13. `docs/CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md` — Per-model vault knowledge compilation
-14. `docs/VISION_BACKLOG.md` — **COMPLETE 12-tier, 80+ item feature inventory**
-15. `docs/CONTROL_PLANE_RESEARCH.md` — **CRITICAL**: Why the app feels disconnected from Hermes/OpenClaw. The fix: become the GUI control plane. MCP as spine. Capability→UI surface mapping. Executable prompt for full reasoning.
-15. `docs/MASTER_SESSION_PROMPT.md` — Original master session context
-16. `docs/MASTER_SESSION_PROMPT_v2.md` — Updated: Five Engines, anti-drift rules, remaining work tiers, architecture map
+12. `docs/EPISTEMOS_FUSED_v3.md` — Complete 8-phase build spec for the full app
+13. `docs/epistemos-deep-analysis.md` — Deep architectural analysis of the entire codebase
+14. `docs/CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md` — Per-model vault knowledge compilation
+15. `docs/VISION_BACKLOG.md` — **COMPLETE 13-tier, 100+ item feature inventory with phases A→I→H**
+16. `docs/CONTROL_PLANE_RESEARCH.md` — **CRITICAL**: Why the app feels disconnected. The fix: GUI control plane. MCP as spine.
+17. `docs/MASTER_SESSION_PROMPT.md` — Original master session context
+18. `docs/MASTER_SESSION_PROMPT_v2.md` — Five Engines, anti-drift rules, architecture map
 
 ### Tier 4: Research Foundation
-16. `~/arc/arc2.md` — PRIMARY: Canonical pattern integrity audit (7 areas: OTP, FSM, breaker, FFI, Foundation Models, ThermalGuard, cross-cutting risks)
+19. `~/arc/arc2.md` — PRIMARY: Canonical pattern integrity audit (7 areas: OTP, FSM, breaker, FFI, Foundation Models, ThermalGuard, cross-cutting risks)
 17. `~/arc/arc6.md` — PRIMARY: Hardening implementation authority
 18. `~/arc/arc7.txt` — Typestate, zero-allocation circuit breakers, noncopyable FFI handles
 19. `~/arc/harn2.txt` — Meta-Harness integration (tripartite architecture, bootstrap packets, completion checkers)
@@ -68,23 +68,24 @@ Read every file listed below. Do not skip any. Do not summarize — absorb the f
 29. `~/Downloads/last feature after new agents/OPERATOR_MANUAL.md` — 3-prompt operator workflow
 
 ### Tier 6: Verification & Operational Protocols
-30. `docs/SESSION_BOOTSTRAP_PROMPT.md` — Lists all harness/hardening files to verify, build commands, Swift 6.2 gotchas
-31. `docs/HARDENING_VERIFICATION.md` — 52-item grep-based verification checklist for all 8 phases
-32. `docs/VERIFICATION_PROTOCOL.md` — Detailed verification steps for each hardening phase
-33. `docs/PERPLEXITY_DEEP_AUDIT_PROMPT.md` — Deep audit prompt for external verification
+34. `docs/SESSION_BOOTSTRAP_PROMPT.md` — Lists all harness/hardening files to verify, build commands, Swift 6.2 gotchas
+35. `docs/HARDENING_VERIFICATION.md` — 52-item grep-based verification checklist for all 8 phases
+36. `docs/VERIFICATION_PROTOCOL.md` — Detailed verification steps for each hardening phase
+37. `docs/PERPLEXITY_DEEP_AUDIT_PROMPT.md` — Deep audit prompt for external verification
 
-### Tier 6: Key Implementation Files (verify these are correct)
-27. `Epistemos/State/PowerGuard.swift` — 3-tier power mode (eco defaults ON)
-28. `Epistemos/State/ThermalGuard.swift` — Centralized thermal authority with continuation parking
-29. `Epistemos/State/AppSupervisor.swift` — OTP supervisor, ModeMachine, BreakerRegistry
-30. `Epistemos/State/TimeoutUtility.swift` — Per-domain circuit breakers, UInt64 bit ring, execute<T>()
-31. `Epistemos/Engine/AppleIntelligenceService.swift` — FoundationModels with breaker pattern
-32. `Epistemos/Agent/HermesMCPClient.swift` — MCP client with timeout fixes
-33. `Epistemos/Agent/HermesSubprocessManager.swift` — Auth detection, keychain mappings
-34. `Epistemos/App/AppBootstrap.swift` — PowerGuard init, shader lock, Hermes gate
-35. `agent_core/src/bridge.rs` — FFI truth boundary, ffi_guard macros
-36. `Epistemos/Views/Graph/MetalGraphView.swift` — 60fps cap, calmer physics, quality level sync
-37. `Epistemos/Graph/GraphState.swift` — Performance mode default, PowerGuard quality override
+### Tier 7: Key Implementation Files (verify these are correct)
+38. `Epistemos/State/PowerGuard.swift` — 3-tier power mode (eco defaults ON)
+39. `Epistemos/State/ThermalGuard.swift` — Centralized thermal authority with continuation parking
+40. `Epistemos/State/AppSupervisor.swift` — OTP supervisor, ModeMachine, BreakerRegistry
+41. `Epistemos/State/TimeoutUtility.swift` — Per-domain circuit breakers, UInt64 bit ring, execute<T>()
+42. `Epistemos/Engine/AppleIntelligenceService.swift` — FoundationModels with breaker pattern
+43. `Epistemos/Agent/HermesMCPClient.swift` — MCP client with timeout fixes
+44. `Epistemos/Agent/HermesSubprocessManager.swift` — Auth detection, keychain mappings
+45. `Epistemos/App/AppBootstrap.swift` — PowerGuard init, shader lock, Hermes gate
+46. `agent_core/src/bridge.rs` — FFI truth boundary, ffi_guard macros
+47. `Epistemos/Views/Graph/MetalGraphView.swift` — 60fps cap, calmer physics, quality level sync
+48. `Epistemos/Graph/GraphState.swift` — Performance mode default, PowerGuard quality override
+49. `Epistemos/Engine/TriageService.swift` — Query routing between providers and local models
 
 ## PHASE 2: FULL AUDIT
 
