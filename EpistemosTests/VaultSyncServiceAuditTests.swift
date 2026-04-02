@@ -1167,6 +1167,114 @@ struct VaultSyncServiceAuditTests {
         }
     }
 
+    @MainActor
+    @Test("async destructive stop snapshots before clearing local data")
+    func asyncDestructiveStopSnapshotsBeforeClearing() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let noteBodiesURL = appSupportURL.appendingPathComponent("note-bodies", isDirectory: true)
+        let styleCacheURL = appSupportURL.appendingPathComponent("style-cache", isDirectory: true)
+        let searchDatabaseURL = appSupportURL.appendingPathComponent("search.sqlite")
+        let recoverySnapshotsURL = root.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: noteBodiesURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: styleCacheURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+        try "stale-search".write(to: searchDatabaseURL, atomically: true, encoding: .utf8)
+        try "stale-style".write(
+            to: styleCacheURL.appendingPathComponent("theme-cache.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let page = SDPage(title: "Snapshot Me Async")
+        page.saveBody("local body")
+        context.insert(page)
+        try context.save()
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL, operation: { @MainActor in
+            NoteFileStorage.writeBody(pageId: page.id, content: "local body")
+
+            service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setSearchDatabaseURLForTesting(searchDatabaseURL)
+            service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+
+            let didClear = await service.stopWatchingAsync(preserveData: false)
+
+            let snapshotDirs = try FileManager.default.contentsOfDirectory(
+                at: recoverySnapshotsURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            #expect(didClear)
+            #expect(snapshotDirs.isEmpty == false)
+            #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+            #expect(!NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(!FileManager.default.fileExists(atPath: searchDatabaseURL.path))
+            #expect(FileManager.default.fileExists(atPath: styleCacheURL.path))
+            let styleCacheContents = try FileManager.default.contentsOfDirectory(
+                at: styleCacheURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            #expect(styleCacheContents.isEmpty)
+        })
+    }
+
+    @MainActor
+    @Test("async destructive stop aborts the clear when the recovery snapshot fails")
+    func asyncDestructiveStopAbortsClearWhenSnapshotFails() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let noteBodiesURL = appSupportURL.appendingPathComponent("note-bodies", isDirectory: true)
+        let snapshotRootFile = root.appendingPathComponent("snapshot-root-file")
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: noteBodiesURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+        try "not-a-directory".write(to: snapshotRootFile, atomically: true, encoding: .utf8)
+
+        let page = SDPage(title: "Keep Me Async")
+        page.saveBody("local body")
+        context.insert(page)
+        try context.save()
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL, operation: { @MainActor in
+            NoteFileStorage.writeBody(pageId: page.id, content: "local body")
+
+            service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setRecoverySnapshotRootURLForTesting(snapshotRootFile)
+
+            let didClear = await service.stopWatchingAsync(preserveData: false)
+
+            let pages = try context.fetch(FetchDescriptor<SDPage>())
+            #expect(!didClear)
+            #expect(pages.count == 1)
+            #expect(NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(service.recoveryIssue != nil)
+            #expect(service.recoveryIssue?.reason.contains("clear was aborted") == true)
+        })
+    }
+
     @Test("destructive stop snapshots SQLite state via consistent backups instead of live file copies")
     func destructiveStopSnapshotsSQLiteStateViaConsistentBackups() async throws {
         let container = try makeRecoveryContainer()

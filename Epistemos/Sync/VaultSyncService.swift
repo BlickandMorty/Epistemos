@@ -179,6 +179,12 @@ final class VaultSyncService {
         let reason: String
     }
 
+    private struct LocalFilesystemStateTargets: Sendable {
+        let noteBodiesURL: URL
+        let searchDatabaseURL: URL?
+        let styleCacheURL: URL?
+    }
+
     private var indexActor: VaultIndexActor?
     private let modelContainer: ModelContainer
     var exportPageOverride: ExportPageOperation?
@@ -405,9 +411,9 @@ final class VaultSyncService {
         initialImportCompleted = false
 
         do {
-            try snapshotLocalState()
+            try await snapshotLocalStateOffMain()
             stopWatching(preserveData: true)
-            clearDerivedLocalStateForRecovery()
+            await clearDerivedLocalStateForRecovery()
             persistVaultSelection(vaultURL)
             startWatching(vaultURL: vaultURL)
             await importTask?.value
@@ -580,12 +586,7 @@ final class VaultSyncService {
         if let appSupportDirectoryURLOverride {
             return appSupportDirectoryURLOverride
         }
-        guard let appSupportBase = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
-            return nil
-        }
+        let appSupportBase = FoundationSafety.userApplicationSupportDirectory(fileManager: .default)
         return appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
     }
 
@@ -608,12 +609,7 @@ final class VaultSyncService {
         if let recoverySnapshotRootURLOverride {
             return recoverySnapshotRootURLOverride
         }
-        guard let appSupportBase = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
-            return nil
-        }
+        let appSupportBase = FoundationSafety.userApplicationSupportDirectory(fileManager: .default)
         return appSupportBase.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
     }
 
@@ -626,9 +622,43 @@ final class VaultSyncService {
     }
 
     private func snapshotLocalState() throws {
-        let fm = FileManager.default
         createAPFSSafetySnapshotIfPossible(reason: "local-state-recovery")
-        guard let snapshotRoot = recoverySnapshotRootURL() else { return }
+        try Self.createRecoverySnapshot(
+            snapshotRoot: recoverySnapshotRootURL(),
+            appSupportURL: appSupportDirectoryURL(),
+            preferencesURL: preferencesFileURL(),
+            sqliteSourceURLs: sqliteDatabaseURLsForSnapshot(),
+            maxCount: Self.recoverySnapshotLimit
+        )
+    }
+
+    private func snapshotLocalStateOffMain() async throws {
+        createAPFSSafetySnapshotIfPossible(reason: "local-state-recovery")
+        let snapshotRoot = recoverySnapshotRootURL()
+        let appSupportURL = appSupportDirectoryURL()
+        let preferencesURL = preferencesFileURL()
+        let sqliteSourceURLs = sqliteDatabaseURLsForSnapshot()
+
+        try await Task.detached(priority: .utility) {
+            try Self.createRecoverySnapshot(
+                snapshotRoot: snapshotRoot,
+                appSupportURL: appSupportURL,
+                preferencesURL: preferencesURL,
+                sqliteSourceURLs: sqliteSourceURLs,
+                maxCount: Self.recoverySnapshotLimit
+            )
+        }.value
+    }
+
+    private nonisolated static func createRecoverySnapshot(
+        snapshotRoot: URL?,
+        appSupportURL: URL?,
+        preferencesURL: URL?,
+        sqliteSourceURLs: [URL],
+        maxCount: Int
+    ) throws {
+        let fm = FileManager.default
+        guard let snapshotRoot else { return }
         try fm.createDirectory(at: snapshotRoot, withIntermediateDirectories: true)
 
         let formatter = DateFormatter()
@@ -639,13 +669,12 @@ final class VaultSyncService {
         )
         try fm.createDirectory(at: snapshotURL, withIntermediateDirectories: true)
 
-        if let appSupportURL = appSupportDirectoryURL(), fm.fileExists(atPath: appSupportURL.path) {
+        if let appSupportURL, fm.fileExists(atPath: appSupportURL.path) {
             let snapshottedAppSupportURL = snapshotURL.appendingPathComponent(
                 appSupportURL.lastPathComponent,
                 isDirectory: true
             )
-            let sqliteSourceURLs = sqliteDatabaseURLsForSnapshot()
-            try Self.copyDirectoryContents(
+            try copyDirectoryContents(
                 at: appSupportURL,
                 to: snapshottedAppSupportURL,
                 skipping: sqliteSourceURLs.filter { $0.deletingLastPathComponent() == appSupportURL }
@@ -653,18 +682,18 @@ final class VaultSyncService {
 
             for databaseURL in sqliteSourceURLs {
                 let destinationURL = snapshottedAppSupportURL.appendingPathComponent(databaseURL.lastPathComponent)
-                try Self.backupSQLiteDatabaseIfPresent(at: databaseURL, to: destinationURL)
+                try backupSQLiteDatabaseIfPresent(at: databaseURL, to: destinationURL)
             }
         }
 
-        if let preferencesURL = preferencesFileURL(), fm.fileExists(atPath: preferencesURL.path) {
+        if let preferencesURL, fm.fileExists(atPath: preferencesURL.path) {
             try fm.copyItem(
                 at: preferencesURL,
                 to: snapshotURL.appendingPathComponent(preferencesURL.lastPathComponent)
             )
         }
 
-        try Self.pruneRecoverySnapshots(in: snapshotRoot, maxCount: Self.recoverySnapshotLimit)
+        try pruneRecoverySnapshots(in: snapshotRoot, maxCount: maxCount)
     }
 
     private func pruneRecoverySnapshotsIfNeeded() {
@@ -684,16 +713,19 @@ final class VaultSyncService {
 
     private func createAPFSSafetySnapshotIfPossible(reason: String) {
         guard let manifestURL = apfsSnapshotManifestURL() else { return }
+        let commandRunner = tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
 
-        do {
-            _ = try Self.createAPFSSafetySnapshot(
-                reason: reason,
-                manifestURL: manifestURL,
-                maxCount: Self.recoverySnapshotLimit,
-                commandRunner: tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
-            )
-        } catch {
-            log.error("Failed to create APFS safety snapshot: \(error.localizedDescription, privacy: .public)")
+        Task.detached(priority: .utility) {
+            do {
+                _ = try Self.createAPFSSafetySnapshot(
+                    reason: reason,
+                    manifestURL: manifestURL,
+                    maxCount: Self.recoverySnapshotLimit,
+                    commandRunner: commandRunner
+                )
+            } catch {
+                Self.backgroundLog.error("Failed to create APFS safety snapshot: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -702,15 +734,18 @@ final class VaultSyncService {
               FileManager.default.fileExists(atPath: manifestURL.path) else {
             return
         }
+        let commandRunner = tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
 
-        do {
-            try Self.pruneAPFSSnapshotManifest(
-                at: manifestURL,
-                maxCount: Self.recoverySnapshotLimit,
-                commandRunner: tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
-            )
-        } catch {
-            log.error("Failed to prune APFS safety snapshots: \(error.localizedDescription, privacy: .public)")
+        Task.detached(priority: .utility) {
+            do {
+                try Self.pruneAPFSSnapshotManifest(
+                    at: manifestURL,
+                    maxCount: Self.recoverySnapshotLimit,
+                    commandRunner: commandRunner
+                )
+            } catch {
+                Self.backgroundLog.error("Failed to prune APFS safety snapshots: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -1239,18 +1274,42 @@ final class VaultSyncService {
         }
     }
 
-    private func clearDerivedLocalStateForRecovery() {
+    private func clearDerivedLocalStateForRecovery() async {
         clearVaultData()
-        _ = NoteFileStorage.removeAllManagedBodies()
-        clearSearchIndexFiles()
-        clearDerivedFilesystemCaches()
         sanitizeTransientSelectionsForVaultRebuild()
         ambientManifest = nil
         AppBootstrap.shared?.ambientManifest = nil
+        await clearLocalFilesystemStateOffMain()
     }
 
-    private func clearSearchIndexFiles() {
-        guard let databaseURL = defaultSearchDatabaseURL() else { return }
+    private func localFilesystemStateTargets() -> LocalFilesystemStateTargets {
+        let appSupportURL = appSupportDirectoryURL()
+        return LocalFilesystemStateTargets(
+            noteBodiesURL: NoteFileStorage.storageDirectory(),
+            searchDatabaseURL: defaultSearchDatabaseURL(),
+            styleCacheURL: appSupportURL?.appendingPathComponent("style-cache", isDirectory: true)
+        )
+    }
+
+    private func clearLocalFilesystemState() {
+        Self.clearLocalFilesystemState(localFilesystemStateTargets())
+    }
+
+    private func clearLocalFilesystemStateOffMain() async {
+        let targets = localFilesystemStateTargets()
+        await Task.detached(priority: .utility) {
+            Self.clearLocalFilesystemState(targets)
+        }.value
+    }
+
+    private nonisolated static func clearLocalFilesystemState(_ targets: LocalFilesystemStateTargets) {
+        _ = NoteFileStorage.removeAllManagedBodies(in: targets.noteBodiesURL)
+        clearSearchIndexFiles(at: targets.searchDatabaseURL)
+        clearDerivedFilesystemCaches(at: targets.styleCacheURL)
+    }
+
+    private nonisolated static func clearSearchIndexFiles(at databaseURL: URL?) {
+        guard let databaseURL else { return }
         let fm = FileManager.default
         let urls = [
             databaseURL,
@@ -1262,9 +1321,9 @@ final class VaultSyncService {
         }
     }
 
-    private func clearDerivedFilesystemCaches() {
+    private nonisolated static func clearDerivedFilesystemCaches(at styleCacheURL: URL?) {
         let fm = FileManager.default
-        if let styleCacheURL = appSupportDirectoryURL()?.appendingPathComponent("style-cache", isDirectory: true),
+        if let styleCacheURL,
            fm.fileExists(atPath: styleCacheURL.path) {
             try? fm.removeItem(at: styleCacheURL)
             try? fm.createDirectory(at: styleCacheURL, withIntermediateDirectories: true)
@@ -1501,6 +1560,42 @@ final class VaultSyncService {
         if isWatching {
             stopWatching()
         }
+        beginWatching(
+            vaultURL: vaultURL,
+            scopeAlreadyAcquired: scopeAlreadyAcquired,
+            refreshAmbientManifestImmediately: refreshAmbientManifestImmediately
+        )
+    }
+
+    @discardableResult
+    func switchToVaultAsync(
+        vaultURL: URL,
+        scopeAlreadyAcquired: Bool = false,
+        refreshAmbientManifestImmediately: Bool = true
+    ) async -> Bool {
+        let interval = Log.vaultPerf.beginInterval("switchToVaultAsync")
+        defer { Log.vaultPerf.endInterval("switchToVaultAsync", interval) }
+
+        if isWatching {
+            let didClear = await stopWatchingAsync(preserveData: false)
+            guard didClear else {
+                return false
+            }
+        }
+
+        beginWatching(
+            vaultURL: vaultURL,
+            scopeAlreadyAcquired: scopeAlreadyAcquired,
+            refreshAmbientManifestImmediately: refreshAmbientManifestImmediately
+        )
+        return true
+    }
+
+    private func beginWatching(
+        vaultURL: URL,
+        scopeAlreadyAcquired: Bool,
+        refreshAmbientManifestImmediately: Bool
+    ) {
         // No clearVaultData() here — incremental import handles stale data.
         // clearVaultData() is only called in stopWatching() (vault switch)
         // and restoreVaultFromBookmark() failure paths.
@@ -1582,20 +1677,7 @@ final class VaultSyncService {
     ///   next launch can do an incremental import (~instant) instead of a full reimport (~13s).
     ///   Pass `false` (default) for vault switches/disconnects to clear stale data.
     func stopWatching(preserveData: Bool = false) {
-        importTask?.cancel()
-        importTask = nil
-        autoSaveTask?.cancel()
-        autoSaveTask = nil
-        versionCaptureTask?.cancel()
-        versionCaptureTask = nil
-        manifestRefreshTask?.cancel()
-        manifestRefreshTask = nil
-        stopFileWatcher()
-        indexActor = nil
-        searchService = nil
-        AppBootstrap.shared?.queryEngine.invalidateRuntime()
-        ambientManifest = nil
-        AppBootstrap.shared?.ambientManifest = nil
+        prepareToStopWatching()
 
         var shouldClearLocalData = !preserveData
         if !preserveData {
@@ -1607,11 +1689,69 @@ final class VaultSyncService {
                 handleSnapshotFailureBeforeDestructiveClear(error)
             }
             if shouldClearLocalData {
-                clearVaultData()
-                SpotlightIndexer.removeAll()
+                clearLocalVaultState()
             }
         }
 
+        finalizeStoppedWatching(preserveData: preserveData)
+    }
+
+    @discardableResult
+    func stopWatchingAsync(preserveData: Bool = false) async -> Bool {
+        if preserveData {
+            stopWatching(preserveData: true)
+            return true
+        }
+
+        prepareToStopWatching()
+
+        var didClearLocalData = true
+        do {
+            try await snapshotLocalStateOffMain()
+        } catch {
+            didClearLocalData = false
+            log.error("Failed to snapshot local state before clear; aborting destructive stop: \(error.localizedDescription, privacy: .public)")
+            handleSnapshotFailureBeforeDestructiveClear(error)
+        }
+        if didClearLocalData {
+            await clearLocalVaultStateOffMain()
+        }
+
+        finalizeStoppedWatching(preserveData: preserveData)
+        return didClearLocalData
+    }
+
+    private func prepareToStopWatching() {
+        importTask?.cancel()
+        importTask = nil
+        autoSaveTask?.cancel()
+        autoSaveTask = nil
+        versionCaptureTask?.cancel()
+        versionCaptureTask = nil
+        manifestRefreshTask?.cancel()
+        manifestRefreshTask = nil
+        stopBackgroundMaintenanceTimers()
+        stopFileWatcher()
+        indexActor = nil
+        searchService = nil
+        AppBootstrap.shared?.queryEngine.invalidateRuntime()
+        ambientManifest = nil
+        AppBootstrap.shared?.ambientManifest = nil
+    }
+
+    private func clearLocalVaultState() {
+        clearVaultData()
+        SpotlightIndexer.removeAll()
+        clearLocalFilesystemState()
+    }
+
+    private func clearLocalVaultStateOffMain() async {
+        clearVaultData()
+        SpotlightIndexer.removeAll()
+        await clearLocalFilesystemStateOffMain()
+    }
+
+    private func finalizeStoppedWatching(preserveData: Bool) {
         if isSecurityScoped, let url = vaultURL {
             url.stopAccessingSecurityScopedResource()
             isSecurityScoped = false
@@ -2681,15 +2821,23 @@ enum VaultConnectionActions {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         notesUI.resetForVaultSwitch()
-        vaultSync.persistVaultSelection(url)
-        vaultSync.startWatching(vaultURL: url)
+        Task { @MainActor in
+            let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
+            if didSwitch {
+                vaultSync.persistVaultSelection(url)
+            }
+        }
     }
 
     static func disconnect(notesUI: NotesUIState, vaultSync: VaultSyncService) {
         notesUI.resetForVaultSwitch()
-        vaultSync.stopWatching()
-        vaultSync.dismissRecoveryIssue()
-        vaultSync.clearPersistedVaultSelection()
-        AppBootstrap.shared?.ambientManifest = nil
+        Task { @MainActor in
+            let didClear = await vaultSync.stopWatchingAsync(preserveData: false)
+            if didClear {
+                vaultSync.dismissRecoveryIssue()
+            }
+            vaultSync.clearPersistedVaultSelection()
+            AppBootstrap.shared?.ambientManifest = nil
+        }
     }
 }

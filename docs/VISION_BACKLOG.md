@@ -107,42 +107,74 @@ The app doesn't FEEL like Hermes Agent or OpenClaw because:
 
 ## TIER 3: GRAPH-FIRST APP (The graph IS the app)
 
-### 3-PRIME. Immersive Graph as Default Landing Experience
-**THE BIG IDEA:** The hologram graph overlay becomes the primary app experience, not a secondary view. On launch, the user is INSIDE their knowledge constellation. Everything happens within the graph.
+### 3-PRIME. Three-Stance App Model (Quick / Focused / Immersive)
 
-**Core behavior:**
-- Launch → fullscreen hologram overlay with the entire vault as floating nodes
-- Tap a note node → floating editor panel opens inside the graph (graph visible behind/around)
+The app has three natural "stances" the user drifts between. No mode is mandatory. The graph is always one keystroke away but never blocking fast work.
+
+**Stance 1: Quick Mode (default on launch)**
+- Home greeting (LiquidGreeting) + shortcut hints — the brand moment
+- Click anywhere → search popover → start typing → done
+- No graph, no overhead. 90% of sessions start and end here.
+- This is the fast path for "open app, capture thought, close"
+
+**Stance 2: Focused Mode**
+- Note open in editor, Knowledge Brick sidebar on the left
+- Traditional macOS layout — editor + sidebar + toolbar
+- No graph visible. For deep writing without distraction.
+- Contextual Shadows appear as ghost cards in the Knowledge Brick margin
+
+**Stance 3: Immersive Mode (⌘G toggle)**
+- Hologram overlay activates on top of current view
+- Entire vault as floating constellation — notes, chats, folders, agents
+- Tap a note node → floating editor panel opens INSIDE the graph
 - Tap a chat node → chat panel floats inside the graph
-- Tap a folder node → cinematic zoom into nested perspective layers
-- Tap an agent node → agent runtime panel opens inside the graph
-- Settings, vaults, sidebar → all rendered as floating panels within the graph world
-- Graph animations continue behind ALL panels — the constellation is always alive
-- Agent work visible as pulsing nodes, tool call particle trails between nodes
+- Tap a folder → cinematic zoom into nested perspective layers
+- Agent work visible as pulsing nodes with particle trails between tool calls
+- Contextual Shadows physically orbit the active panel (semantic gravity)
+- Knowledge Brick sidebar still visible as the left anchor
+- ⌘G again → dismisses overlay, returns to Quick or Focused stance
+- You're NEVER stuck — one keystroke in, one keystroke out
 
-**Toggle: Immersive ↔ Modular mode**
-- Default: Immersive (graph-first)
-- Toggle to "Modular" mode: standard macOS window layout (current notes/sidebar/chat)
-- Modular mode for focused writing without graph distraction
-- Immersive mode re-enters from wherever you left off
+**Graph lenses (within Immersive Mode):**
+- Default lens: all notes, chats, folders
+- "Agents" lens: agent vaults, model nodes, tool nodes, active sessions
+- "Temporal" lens: time-axis showing knowledge evolution
+- Each lens is a filter on the same underlying Metal-rendered graph
 
-**Graph sections / secondary views:**
-- Primary graph: all notes, chats, folders
-- Toggle to "Agents" graph: agent vaults, model nodes, tool nodes, active sessions
-- Toggle to "Temporal" graph: time-axis showing knowledge evolution
-- Each toggle is a lens on the same underlying data
+**Global hotkey: ⌥Space (Option+Space)**
+- Works from ANY app — summons the ⌘K command bar as a floating overlay
+- Same command bar as in the Knowledge Brick, but system-wide
+- Type a note title → teleports to Epistemos with that note open
+- Type "agent: research X" → launches agent task without switching apps
+- Type "capture: [thought]" → saves to vault without opening the app
+- When Epistemos is focused, ⌘K opens the same bar inline
 
-### 3-SHADOW. Contextual Shadows (Real-time semantic suggestions)
-As you type in ANY note (floating panel or modular editor), the 3-5 most semantically related notes glow and drift closer in the graph. Not keyword matches — meaning matches. Uses InstantRecall (<3ms debounced on current paragraph).
+### 3-SHADOW. Contextual Shadows (Real-time semantic gravity)
+As you type in ANY note, the most semantically related notes respond physically. Not a list. Not a sidebar. The graph itself reacts to your thoughts.
 
-**Implementation:**
-- Debounce editor text changes (300ms)
-- Run current paragraph through InstantRecall embedding → top 5 results
-- In immersive mode: matching nodes glow brighter and physically drift toward the active panel
-- In modular mode: render as a subtle sidebar panel with clickable ghost cards
-- Click a shadow → opens that note (in floating panel or new tab)
+**The physics are real:**
+- Debounce editor text (300ms) → embed current paragraph via InstantRecall (<3ms)
+- Top 5 results get a **semantic gravity force** injected into the Metal compute shader
+- Cosine similarity maps to gravitational strength: 0.95 similarity = strong pull, 0.80 = gentle drift
+- Related nodes physically accelerate toward the active editor panel over 500ms (not teleport — smooth force-directed motion)
+- When you stop typing or change topic, the gravity force decays and nodes drift back to equilibrium
+- The existing Barnes-Hut N-body repulsion keeps them from colliding — shadows orbit, they don't pile up
 
-**This is the feature that sells the app in 5 seconds.** User types a thought, related notes from months ago silently appear. "How did it know?"
+**In each stance:**
+- **Immersive (⌘G):** shadows orbit your floating editor panel in the hologram. Grab one → dock it beside your note for side-by-side. The graph is alive and responding to your writing.
+- **Focused:** ghost cards appear in the Knowledge Brick margin panel. Subtle, non-distracting, clickable.
+- **Quick:** shadows don't appear (search popover handles discovery instead)
+
+**Implementation path:**
+1. Add `shadow_force` array to the Rust force simulation (per-node attraction toward a target point)
+2. Swift sends `(target_x, target_y, node_ids[], strengths[])` to Rust via FFI after each InstantRecall query
+3. Rust compute shader applies the force alongside existing N-body + link forces
+4. Nodes with shadow force get a glow intensity boost proportional to similarity
+5. When shadow force is removed, nodes return to natural equilibrium via existing velocity decay
+
+**Why this is unprecedented:** No app has spatial semantic search where the results physically move in a force-directed simulation. Obsidian shows a list. Notion shows a table. Epistemos shows your related knowledge gravitating toward your current thought in real-time 3D space.
+
+**This is the feature that sells the app in 5 seconds.**
 
 ### 3A. Black & White Graph Theme
 - Folders: black (dark mode: white), shade lightens with nesting depth
