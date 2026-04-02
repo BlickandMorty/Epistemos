@@ -261,6 +261,7 @@ struct BackgroundGraphLoadingTests {
         #expect(controllerSource.contains("overlay = HologramOverlay("))
         #expect(controllerSource.contains("let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)"))
         #expect(controllerSource.contains("if !refreshedIncrementally {"))
+        #expect(controllerSource.contains("graphState.shouldSnapNextGlobalRecommitCamera = true"))
         #expect(controllerSource.contains("graphState.requestRecommit()"))
 
         #expect(graphStateSource.contains("guard !isLoaded, !isLoadingGraph else { return }"))
@@ -271,6 +272,7 @@ struct BackgroundGraphLoadingTests {
         #expect(graphStateSource.contains("requestRecommit()"))
 
         #expect(graphViewSource.contains("if let graphState, lastGraphDataVersion != graphState.graphDataVersion {"))
+        #expect(graphViewSource.contains("graph_engine_snap_camera_to_fit(engine)"))
         #expect(graphViewSource.contains("if window != nil, !isCommitted, graphState?.isLoaded == true {"))
     }
 

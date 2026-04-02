@@ -147,6 +147,7 @@ final class HologramController {
                 let refreshInterval = Log.graphPerf.beginInterval("refreshStructuralData")
                 let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
                 if !refreshedIncrementally {
+                    graphState.shouldSnapNextGlobalRecommitCamera = true
                     graphState.requestRecommit()
                 }
                 Log.graphPerf.endInterval("refreshStructuralData", refreshInterval)

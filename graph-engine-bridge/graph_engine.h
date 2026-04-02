@@ -192,6 +192,9 @@ void graph_engine_center_on_node(Engine* engine, const char* uuid);
 /// Zoom to fit all visible nodes.
 void graph_engine_zoom_to_fit(Engine* engine);
 
+/// Snap camera to fit all visible nodes immediately.
+void graph_engine_snap_camera_to_fit(Engine* engine);
+
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
 /// Pause the engine: stop physics thread to free CPU.

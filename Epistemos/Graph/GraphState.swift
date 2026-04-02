@@ -457,6 +457,10 @@ final class GraphState {
 
     func requestRecommit() { graphDataVersion += 1 }
 
+    /// One-shot startup/deferred-refresh hint: the next global recommit should snap the
+    /// camera immediately instead of animating from stale bounds.
+    var shouldSnapNextGlobalRecommitCamera = false
+
     // MARK: - Incremental FFI Updates
 
     /// Nodes added since the last engine commit. MetalGraphView drains these

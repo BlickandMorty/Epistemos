@@ -87,6 +87,12 @@ nonisolated enum GraphInitialRenderBootstrapState: Equatable {
     case renderCommittedGraph
 }
 
+nonisolated enum GraphRecommitCameraAction: Equatable {
+    case pageModeCloseIn
+    case animateGlobalFit
+    case snapGlobalFit
+}
+
 nonisolated func graphInitialRenderBootstrapState(
     isCommitted: Bool,
     isGraphLoaded: Bool
@@ -95,6 +101,16 @@ nonisolated func graphInitialRenderBootstrapState(
         return .renderCommittedGraph
     }
     return isGraphLoaded ? .bootstrapCommit : .awaitingData
+}
+
+nonisolated func graphRecommitCameraAction(
+    isPageMode: Bool,
+    shouldSnapGlobalCamera: Bool
+) -> GraphRecommitCameraAction {
+    if isPageMode {
+        return .pageModeCloseIn
+    }
+    return shouldSnapGlobalCamera ? .snapGlobalFit : .animateGlobalFit
 }
 
 struct GraphNodeHoverHapticState {
@@ -630,6 +646,12 @@ final class MetalGraphNSView: NSView {
         guard let engine, let graphState else { return }
         let store = graphState.store
         let filter = graphState.filter
+        let isPageMode: Bool = {
+            if case .page = graphState.mode { return true }
+            return false
+        }()
+
+        setGraphMode(isPageMode ? 1 : 0)
 
         graph_engine_clear(engine)
 
@@ -651,6 +673,10 @@ final class MetalGraphNSView: NSView {
         // skip for large graphs or when already committed (mid-session recommit).
         let isSmallGraph = graphState.store.nodeCount <= GraphState.staticLayoutThreshold
         let entrance: UInt8 = (isCommitted || (!isSmallGraph && graphState.hasPlayedEntrance)) ? 0 : 1
+        let shouldSnapInitialGlobalCamera = isCommitted == false && {
+            if case .global = graphState.mode { return true }
+            return false
+        }()
         graph_engine_commit(engine, entrance)
         if entrance == 1 {
             graphState.hasPlayedEntrance = true
@@ -661,6 +687,9 @@ final class MetalGraphNSView: NSView {
                 graphState.physicsFrozenVersion += 1
                 graphState.savePhysicsSettings()
             }
+        }
+        if shouldSnapInitialGlobalCamera {
+            graph_engine_snap_camera_to_fit(engine)
         }
 
         // Update static layout flag — physics controls grey out when true.
@@ -695,6 +724,8 @@ final class MetalGraphNSView: NSView {
         lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
         lastLabConfigVersion = graphState.labConfigVersion
         lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
+        lastModeVersion = graphState.modeVersion
+        lastGraphDataVersion = graphState.graphDataVersion
 
         isCommitted = true
         needsRender = true
@@ -1137,11 +1168,19 @@ final class MetalGraphNSView: NSView {
             lastModeVersion = graphState.modeVersion
             setGraphMode(isPageMode ? 1 : 0)
             commitGraphData()
-            if isPageMode {
+            let cameraAction = graphRecommitCameraAction(
+                isPageMode: isPageMode,
+                shouldSnapGlobalCamera: graphState.shouldSnapNextGlobalRecommitCamera
+            )
+            graphState.shouldSnapNextGlobalRecommitCamera = false
+            switch cameraAction {
+            case .pageModeCloseIn:
                 zoomInClose()
-            } else {
+            case .animateGlobalFit:
                 graph_engine_zoom_to_fit(engine)
                 graph_engine_center_camera(engine)
+            case .snapGlobalFit:
+                graph_engine_snap_camera_to_fit(engine)
             }
         }
 
