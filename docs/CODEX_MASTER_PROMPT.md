@@ -55,6 +55,8 @@ Read every file listed below. Do not skip any. Do not summarize — absorb the f
 20. `~/arc/harn3.txt` — Meta-Harness detailed implementation blueprint (trace storage, proposer loop, evaluation strategy)
 21. `~/stateful-rotor-implementation-reference.md` — Quantization pipeline, concurrency model, Apple Silicon optimization, Metal kernel patterns
 22. `~/EPISTEMOS-RESEARCH-REFERENCE.md` — Complete 50+ paper research synthesis (rotation matrices, KV cache, search architecture)
+23. `~/Downloads/files (9)/AGENT_ADVISORY_COUNCIL.md` — 5-expert verdict: orchestration tax, MCP as spine, selective 5-pattern adoption, Fusion Penalty
+24. `~/Downloads/files (9)/UNIFIED_RESEARCH_SYNTHESIS.md` — 8-project fusion analysis: performance budgets, competitive moat = knowledge layer
 
 ### Tier 5: Zero-Corruption, Hardening & Living Vault
 23. `~/Downloads/release/FINAL DOCS/1. CORRUPTION/ZERO_CORRUPTION_SPEC.md` — F_FULLFSYNC, BLAKE3, atomic writes, WAL, Unicode NFC, 7-layer integrity. **BINDING CONTRACT.**
@@ -165,7 +167,9 @@ Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inv
 
 **KEY INSIGHT (from deep research):** The app won't feel like Hermes/OpenClaw until it becomes a **control plane** that exposes their real primitives (profiles, sessions, skills, tools, cron, gateways, hardening). Hermes v0.6.0 + MCP gives the clean backbone.
 
-Work through phases A→H as defined in the execution order at the bottom of VISION_BACKLOG.md.
+Work through phases A→I→H as defined in the execution order at the bottom of VISION_BACKLOG.md.
+
+**PHASE I (Rust Agent Migration) is MANDATORY before Phase H (Release).** The shipped app must be pure Swift + Rust + Metal. No Python subprocess, no venv, no pip. The agent becomes a Rust dylib loaded via UniFFI (5-15MB, <10ms cold start, zero-copy IPC). See VISION_BACKLOG.md Phase I for the 7-step migration plan. GoClaw (Go, 25MB single binary) is used as an architecture reference but we beat it on every metric because Rust has no GC.
 
 **CRITICAL ENGINEERING NOTES:**
 

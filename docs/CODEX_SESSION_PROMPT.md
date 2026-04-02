@@ -45,6 +45,9 @@ You are continuing work on **Epistemos** — a macOS-native cognitive exoskeleto
 16. `~/arc/arc2.md` — 7-area canonical pattern audit
 17. `~/arc/harn2.txt` — Meta-Harness integration blueprint
 18. `~/EPISTEMOS-RESEARCH-REFERENCE.md` — 50+ paper synthesis
+19. `~/Downloads/files (9)/AGENT_ADVISORY_COUNCIL.md` — 5-expert verdict: orchestration tax, selective adoption
+20. `~/Downloads/files (9)/UNIFIED_RESEARCH_SYNTHESIS.md` — 8-project fusion: Fusion Penalty, moat = knowledge layer
+21. `docs/AGENT_FUSION_RESEARCH_PROMPT.md` — 8-project analysis with 20 codebase files
 
 ## CURRENT STATUS
 
@@ -53,18 +56,29 @@ Phases 1-5: Runtime Foundations          ✅ COMPLETE
 Phases 6A-6F: Harness Production Runtime ✅ COMPLETE
 Phase 7A-7G: Harness Lab                 ✅ COMPLETE
 Agent System (Hermes/Omega core sprints) ✅ COMPLETE
-Cloud Knowledge Distillation             ❌ SPEC ONLY / NOT STARTED
-Phases 8-13: Advanced                    🟡 DEFERRED
+Cloud Knowledge Distillation             ✅ WIRED (Codex built + NightBrain integrated)
+Phase A: Provider Overhaul               ❌ NEXT
+Phase B: Graph-First Experience          ❌ NEXT
+Phase C: Agent Parity                    ❌ PLANNED
+Phase D: Knowledge Brick                 ❌ PLANNED
+Phase E: Code Editor                     ❌ PLANNED
+Phase F: Multi-Agent                     ❌ PLANNED
+Phase G: Performance Hardening           ❌ PLANNED
+Phase I: Rust Agent Migration            ❌ PRE-RELEASE MANDATORY
+Phase H: Release                         ❌ AFTER Phase I
 ```
 
 Defaults: eco mode ON, graph performance mode ON.
 
+**CRITICAL:** Phase I (Rust Agent Migration) is MANDATORY before Phase H (Release).
+The shipped app is pure Swift + Rust + Metal. No Python. See VISION_BACKLOG.md Phase I.
+
 ## FOUR WORK TRACKS
 
-**Track A — Verification / Regressions:** confirm current runtime behavior against `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` and `docs/CODEX_HANDOFF.md`
-**Track B — Agent Follow-Ons:** use `docs/AGENT_PROGRESS.md` + `docs/BEST_OF_CLAW_AND_OPENCLAW.md` only for items not already shipped
-**Track C — Cloud Knowledge:** Per-model vaults (per CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md)
-**Track D — Vision Backlog:** `docs/VISION_BACKLOG.md` — Hermes v0.6.0 parity, coding features, graph enhancements, sidebar overhaul, multi-agent, comms channels
+**Track A — Vision Backlog phases A→I→H:** `docs/VISION_BACKLOG.md` — the master execution order
+**Track B — Verification / Regressions:** confirm runtime against `docs/CODEX_HANDOFF.md`
+**Track C — Agent Research:** read `1-RESEARCH` in VISION_BACKLOG.md before any agent work. Advisory council says: minimize orchestration, MCP as spine, knowledge layer is the moat.
+**Track D — Rust Migration:** Phase I in VISION_BACKLOG.md — 7 steps from Python to pure Rust agent
 
 ## WHAT TO DO
 
