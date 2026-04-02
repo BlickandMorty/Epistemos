@@ -169,7 +169,69 @@ As you type in ANY note (floating panel or modular editor), the 3-5 most semanti
 
 ---
 
-## TIER 4: SIDEBAR OVERHAUL
+## TIER 4: THE KNOWLEDGE BRICK (Replaces notes sidebar entirely)
+
+### 4-PRIME. Knowledge Brick — One Sidebar, Everything Lives Here
+
+The current notes sidebar becomes the **Knowledge Brick** — the single surface where all knowledge, conversations, agents, and code live. It starts wider than the current sidebar (~320px default) and has section toggles at the top.
+
+**Three toggle tabs at the top of the brick:**
+- **Notes** — your vault notes, folders, recent edits
+- **Chat** — recent conversations, mini chat inline, agent sessions
+- **Code** — code files, projects, IDE-style file tree
+
+Each tab shows its own content but shares the same search/command bar at the top.
+
+**Sections within each tab:**
+
+**Notes tab:**
+- Recent notes (sorted by last edited)
+- Folders (collapsible tree)
+- Agent Vaults (per-model knowledge directories — editable)
+- Pinned notes
+- Decaying notes (Ebbinghaus strength < 0.3 — "needs review")
+
+**Chat tab:**
+- Recent chats (clickable → opens chat in main area)
+- Active agent sessions (live status, tool calls streaming)
+- Mini chat inline (type here, response appears here — no window switch)
+- Session history searchable
+
+**Code tab:**
+- Project file tree (from workspace/vault)
+- Recent code files
+- Code streamed from agent/chat responses (auto-captured)
+- Syntax-highlighted previews
+
+**The ⌘K Command Bar sits at the TOP of the brick (always visible):**
+- Type anything → results appear as you type:
+  - Note titles → teleport to note
+  - Chat names → open that conversation
+  - "settings:eco" → jump to eco mode toggle
+  - "agent: research transformers" → launches agent task
+  - "@claude summarize week" → agent with vault context
+  - "code: main.swift" → opens code file
+  - Session IDs → resume a specific agent session
+- Command bar is the ONE input that replaces: search, navigation, agent invocation, settings access
+- Keyboard-first: ⌘K opens it, arrow keys navigate results, Enter selects, Esc dismisses
+
+**Mini chat lives INSIDE the brick (Chat tab):**
+- No separate mini chat window needed
+- Type in the chat section → response streams inline
+- Toggle "stream to notes" → response also creates/appends to a note
+- Toggle "stream to code" → code blocks extracted to code section
+- Same capabilities as main chat: model selector, context attachments, recent history
+
+**Isolation between tabs:**
+- Each tab maintains its own scroll position and selection state
+- Switching tabs is instant (no reload, just visibility toggle)
+- Keyboard shortcuts: ⌘1 = Notes, ⌘2 = Chat, ⌘3 = Code
+
+**Width behavior:**
+- Default: ~320px (wider than current sidebar)
+- Draggable edge to resize
+- Collapse to icon-only strip (~48px) with ⌘\
+- Expand to full split (50/50) for focused browsing
 
 ### 4A. Unified Notes Sidebar + Mini Chat
 - Notes sidebar becomes the primary knowledge surface
@@ -614,12 +676,11 @@ PHASE C — AGENT PARITY (Make it feel like Hermes/OpenClaw):
   1C Fallback provider chains
   1E Skills system Swift integration
 
-PHASE D — KNOWLEDGE HUB (Sidebar overhaul + code):
-  4A Unified notes sidebar (notes + chats + vaults + code + coworker)
-  2A Code streaming to notes
-  2B Code section in sidebar
-  2C Ask bar in code section
-  4B Coworker agent in sidebar
+PHASE D — KNOWLEDGE BRICK (The one sidebar that IS the app):
+  4-PRIME Knowledge Brick sidebar (replaces notes sidebar entirely)
+  8C-6  Command bar (Cmd+K) — teleport to anything
+  2A    Code streaming to notes
+  4B    Coworker agent section
 
 PHASE E — CODE EDITOR (V2 — after core is stable):
   9A Custom CoreText code surface

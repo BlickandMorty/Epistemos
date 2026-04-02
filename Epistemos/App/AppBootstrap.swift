@@ -34,6 +34,7 @@ private final class LocalModelRefreshThrottle {
 struct StartupIntegrityReport: Sendable {
     let sampledPageIds: [String]
     let corruptedPageIds: [String]
+    let unrecoverablePageIds: [String]
     let eventStoreAvailable: Bool
     let vaultBookmarkExists: Bool
     let vaultBookmarkReadyForAutomaticRestore: Bool
@@ -42,6 +43,18 @@ struct StartupIntegrityReport: Sendable {
     var shouldBlockAutomaticVaultRestore: Bool {
         !corruptedPageIds.isEmpty || (vaultBookmarkExists && !vaultBookmarkReadyForAutomaticRestore)
     }
+}
+
+struct StartupIntegrityPageSnapshot: Sendable, Equatable {
+    let id: String
+    let filePath: String?
+    let hasInlineBody: Bool
+    let hasMeaningfulMetadata: Bool
+}
+
+struct StartupIntegrityToast: Sendable, Equatable {
+    let message: String
+    let type: ToastType
 }
 
 @MainActor
@@ -606,17 +619,119 @@ final class AppBootstrap {
             bookmarkExists: false,
             isReadyForAutomaticRestore: true,
             failureReason: nil
-        )
+        ),
+        pageSnapshots: [StartupIntegrityPageSnapshot] = [],
+        bodyFileExists: (String) -> Bool = { _ in false },
+        filePathReadable: (String) -> Bool = { _ in false }
     ) -> StartupIntegrityReport {
         let corruptedPageIds = samplePageIds.filter { readBodyData($0) == nil }
+        let unrecoverablePageIds = startupUnrecoverablePageIdsForTesting(
+            pageSnapshots,
+            bodyFileExists: bodyFileExists,
+            filePathReadable: filePathReadable
+        )
         return StartupIntegrityReport(
             sampledPageIds: samplePageIds,
             corruptedPageIds: corruptedPageIds,
+            unrecoverablePageIds: unrecoverablePageIds,
             eventStoreAvailable: eventStoreAvailable,
             vaultBookmarkExists: vaultBookmarkValidation.bookmarkExists,
             vaultBookmarkReadyForAutomaticRestore: vaultBookmarkValidation.isReadyForAutomaticRestore,
             vaultBookmarkFailureReason: vaultBookmarkValidation.failureReason
         )
+    }
+
+    nonisolated static func startupUnrecoverablePageIdsForTesting(
+        _ pageSnapshots: [StartupIntegrityPageSnapshot],
+        bodyFileExists: (String) -> Bool,
+        filePathReadable: (String) -> Bool
+    ) -> [String] {
+        pageSnapshots.compactMap { page in
+            let hasManagedBody = bodyFileExists(page.id)
+            let hasReadableVaultSource = page.filePath.map { filePath in
+                let trimmedPath = filePath.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedPath.isEmpty else { return false }
+                return filePathReadable(trimmedPath)
+            } ?? false
+            guard !hasManagedBody,
+                  !hasReadableVaultSource,
+                  !page.hasInlineBody,
+                  page.hasMeaningfulMetadata else {
+                return nil
+            }
+            return page.id
+        }
+        .sorted()
+    }
+
+    nonisolated static func startupIntegrityToastForTesting(
+        report: StartupIntegrityReport
+    ) -> StartupIntegrityToast? {
+        var segments: [String] = []
+        var type: ToastType = .warning
+
+        if !report.eventStoreAvailable {
+            segments.append("session store is unavailable.")
+            type = .error
+        }
+
+        if let vaultBookmarkFailureReason = report.vaultBookmarkFailureReason {
+            segments.append("\(vaultBookmarkFailureReason) Automatic vault restore was paused.")
+            type = .error
+        }
+
+        let corruptedCount = report.corruptedPageIds.count
+        if corruptedCount > 0 {
+            let noun = corruptedCount == 1 ? "note body" : "note bodies"
+            segments.append(
+                "quarantined \(corruptedCount) corrupted \(noun). Automatic vault restore was paused."
+            )
+            type = .error
+        }
+
+        let unrecoverableCount = report.unrecoverablePageIds.count
+        if unrecoverableCount > 0 {
+            let noun = unrecoverableCount == 1 ? "note" : "notes"
+            segments.append(
+                "found \(unrecoverableCount) \(noun) with no body file or vault source. Review them before editing."
+            )
+        }
+
+        guard !segments.isEmpty else { return nil }
+        return StartupIntegrityToast(
+            message: "Startup integrity warning: \(segments.joined(separator: " "))",
+            type: type
+        )
+    }
+
+    private func startupIntegrityPageSnapshots() -> [StartupIntegrityPageSnapshot] {
+        let context = modelContainer.mainContext
+        guard let pages = try? context.fetch(FetchDescriptor<SDPage>()) else {
+            return []
+        }
+
+        return pages
+            .filter { !$0.isTemplate }
+            .map { page in
+                let titleHasContent = !page.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                let summaryHasContent = !page.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                let hasFrontMatter = !(page.frontMatterData?.isEmpty ?? true)
+                let hasMeaningfulMetadata =
+                    titleHasContent
+                    || summaryHasContent
+                    || !page.tags.isEmpty
+                    || hasFrontMatter
+                    || !page.blockReferences.isEmpty
+                    || page.needsVaultSync
+                    || page.updatedAt.timeIntervalSince(page.createdAt) > 1
+
+                return StartupIntegrityPageSnapshot(
+                    id: page.id,
+                    filePath: page.filePath,
+                    hasInlineBody: !page.body.isEmpty,
+                    hasMeaningfulMetadata: hasMeaningfulMetadata
+                )
+            }
     }
 
     private nonisolated static func shouldDeferLaunchVaultPreloads(
@@ -670,6 +785,7 @@ final class AppBootstrap {
 
         let eventStoreAvailable = EventStore.shared != nil
         let vaultBookmarkValidation = vaultSync.startupBookmarkValidation()
+        let pageSnapshots = startupIntegrityPageSnapshots()
         let report = await Task.detached(priority: .utility) {
             Self.startupIntegrityReportForTesting(
                 samplePageIds: Self.startupIntegritySamplePageIdsForTesting(
@@ -679,35 +795,27 @@ final class AppBootstrap {
                     NoteFileStorage.readBodyData(pageId: pageId, fast: false)
                 },
                 eventStoreAvailable: eventStoreAvailable,
-                vaultBookmarkValidation: vaultBookmarkValidation
+                vaultBookmarkValidation: vaultBookmarkValidation,
+                pageSnapshots: pageSnapshots,
+                bodyFileExists: { pageId in
+                    NoteFileStorage.bodyExists(pageId: pageId)
+                },
+                filePathReadable: { filePath in
+                    FileManager.default.isReadableFile(atPath: filePath)
+                }
             )
         }.value
 
         startupIntegrityReport = report
 
-        if !report.eventStoreAvailable {
-            uiState.showToast(
-                "Startup integrity warning: session store is unavailable.",
-                type: .error
+        if !report.unrecoverablePageIds.isEmpty {
+            Log.persistence.warning(
+                "Startup integrity warning: \(report.unrecoverablePageIds.count, privacy: .public) notes have no managed body or readable vault source"
             )
         }
 
-        if let vaultBookmarkFailureReason = report.vaultBookmarkFailureReason {
-            uiState.showToast(
-                "Startup integrity warning: \(vaultBookmarkFailureReason) Automatic vault restore was paused.",
-                type: .error
-            )
-        }
-
-        if report.shouldBlockAutomaticVaultRestore {
-            let noteCount = report.corruptedPageIds.count
-            if noteCount > 0 {
-                let noun = noteCount == 1 ? "note body" : "note bodies"
-                uiState.showToast(
-                    "Startup integrity check quarantined \(noteCount) corrupted \(noun). Automatic vault restore was paused.",
-                    type: .error
-                )
-            }
+        if let toast = Self.startupIntegrityToastForTesting(report: report) {
+            uiState.showToast(toast.message, type: toast.type)
         }
 
         return report

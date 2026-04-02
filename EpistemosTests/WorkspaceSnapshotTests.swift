@@ -268,6 +268,85 @@ struct StartupIntegrityTests {
         #expect(report.shouldBlockAutomaticVaultRestore)
     }
 
+    @Test("startup integrity report flags notes with no body file inline body or vault source")
+    func startupIntegrityReportFlagsNotesMissingAllBodySources() {
+        let report = AppBootstrap.startupIntegrityReportForTesting(
+            samplePageIds: [],
+            readBodyData: { _ in Data("ok".utf8) },
+            eventStoreAvailable: true,
+            pageSnapshots: [
+                StartupIntegrityPageSnapshot(
+                    id: "orphaned-note",
+                    filePath: nil,
+                    hasInlineBody: false,
+                    hasMeaningfulMetadata: true
+                ),
+                StartupIntegrityPageSnapshot(
+                    id: "managed-note",
+                    filePath: nil,
+                    hasInlineBody: false,
+                    hasMeaningfulMetadata: true
+                ),
+                StartupIntegrityPageSnapshot(
+                    id: "vault-note",
+                    filePath: "/tmp/vault-note.md",
+                    hasInlineBody: false,
+                    hasMeaningfulMetadata: true
+                ),
+                StartupIntegrityPageSnapshot(
+                    id: "legacy-inline",
+                    filePath: nil,
+                    hasInlineBody: true,
+                    hasMeaningfulMetadata: true
+                ),
+                StartupIntegrityPageSnapshot(
+                    id: "fresh-empty",
+                    filePath: nil,
+                    hasInlineBody: false,
+                    hasMeaningfulMetadata: false
+                ),
+            ],
+            bodyFileExists: { pageId in pageId == "managed-note" },
+            filePathReadable: { filePath in filePath == "/tmp/vault-note.md" }
+        )
+
+        #expect(report.unrecoverablePageIds == ["orphaned-note"])
+        #expect(report.shouldBlockAutomaticVaultRestore == false)
+    }
+
+    @Test("startup integrity toast combines severe and unrecoverable warnings")
+    func startupIntegrityToastCombinesWarnings() {
+        let report = AppBootstrap.startupIntegrityReportForTesting(
+            samplePageIds: ["page-a", "page-b"],
+            readBodyData: { pageId in
+                pageId == "page-a" ? Data("ok".utf8) : nil
+            },
+            eventStoreAvailable: false,
+            vaultBookmarkValidation: VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark is stale and must be re-selected."
+            ),
+            pageSnapshots: [
+                StartupIntegrityPageSnapshot(
+                    id: "orphaned-note",
+                    filePath: nil,
+                    hasInlineBody: false,
+                    hasMeaningfulMetadata: true
+                ),
+            ],
+            bodyFileExists: { _ in false },
+            filePathReadable: { _ in false }
+        )
+
+        let toast = AppBootstrap.startupIntegrityToastForTesting(report: report)
+        #expect(toast?.type == .error)
+        #expect(
+            toast?.message
+                == "Startup integrity warning: session store is unavailable. Saved vault bookmark is stale and must be re-selected. Automatic vault restore was paused. quarantined 1 corrupted note body. Automatic vault restore was paused. found 1 note with no body file or vault source. Review them before editing."
+        )
+    }
+
     @Test("initial instant recall seed is skipped when automatic vault restore is ready")
     func initialInstantRecallSeedSkipsWhenAutomaticVaultRestoreIsReady() {
         let validation = VaultBookmarkStartupValidation(
