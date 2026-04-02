@@ -4,10 +4,17 @@ import Testing
 private let isolatedInferenceDefaultsKeys = [
     "epistemos.localRoutingMode",
     "epistemos.preferredLocalTextModelID",
+    "epistemos.preferredChatModelSelection",
 ]
 
 @MainActor
-private func makeIsolatedInferenceState() -> InferenceState {
+private func makeIsolatedInferenceState(
+    keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
+    keychainSave: @escaping (String, String) -> Bool = { value, key in
+        Keychain.save(value, for: key)
+    },
+    keychainDelete: @escaping (String) -> Void = { Keychain.delete(for: $0) }
+) -> InferenceState {
     let defaults = UserDefaults.standard
     let savedValues = isolatedInferenceDefaultsKeys.reduce(into: [String: Any?]()) { partialResult, key in
         partialResult[key] = defaults.object(forKey: key)
@@ -22,7 +29,27 @@ private func makeIsolatedInferenceState() -> InferenceState {
             }
         }
     }
-    return InferenceState()
+    return InferenceState(
+        keychainLoad: keychainLoad,
+        keychainSave: keychainSave,
+        keychainDelete: keychainDelete
+    )
+}
+
+@MainActor
+private func withSavedAPIKey(
+    for provider: CloudModelProvider,
+    _ body: () async throws -> Void
+) async rethrows {
+    let originalValue = Keychain.load(for: provider.apiKeyKeychainKey)
+    defer {
+        if let originalValue {
+            _ = Keychain.save(originalValue, for: provider.apiKeyKeychainKey)
+        } else {
+            Keychain.delete(for: provider.apiKeyKeychainKey)
+        }
+    }
+    try await body()
 }
 
 @Suite("TriageService")
@@ -347,6 +374,36 @@ struct InferencePolicyEngineTests {
                 routingMode: .localOnly,
                 appleAvailable: true,
                 installed: [.qwen35_2B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.reasonCodes.contains(.localModeForced))
+    }
+
+    @Test("local only overrides an explicit Apple chat selection")
+    func localOnlyOverridesExplicitAppleSelection() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .noteChat,
+                intent: .rewrite,
+                contentLength: 180,
+                promptLength: 120,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 90,
+                baseComplexity: 0.25,
+                queryComplexity: 0.04,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                routingMode: .localOnly,
+                appleAvailable: true,
+                preferredChatModelSelection: .appleIntelligence,
+                installed: [.qwen35_4B4Bit]
             )
         )
 
@@ -879,26 +936,137 @@ struct TriageServiceIntegrationTests {
 
     @Test("explicit cloud selection bypasses Apple and local triage for general generation")
     @MainActor func explicitCloudSelectionBypassesAppleAndLocal() async throws {
-        let cloud = TriageIntegrationMockCloudLLMClient()
-        cloud.generateResult = .success("cloud answer")
+        try await withSavedAPIKey(for: .openAI) {
+            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
 
-        let triage = makeService(
-            appleAvailable: true,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
-            selectedChatModel: .cloud(.openAIGPT54),
-            cloudLLMService: cloud
+            let cloud = TriageIntegrationMockCloudLLMClient()
+            cloud.generateResult = .success("cloud answer")
+
+            let triage = makeService(
+                appleAvailable: true,
+                localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+                selectedChatModel: .cloud(.openAIGPT54),
+                cloudLLMService: cloud
+            )
+
+            let result = try await triage.generateGeneral(
+                prompt: "Use the cloud model",
+                systemPrompt: "System",
+                operation: .chatResponse(query: "Use the cloud model"),
+                contentLength: 19
+            )
+
+            #expect(result == "cloud answer")
+            #expect(cloud.generateCalls.count == 1)
+            #expect(triage.lastDecision == .cloud)
+        }
+    }
+
+    @Test("cloud generation fails fast when the selected provider key is missing")
+    @MainActor func cloudGenerationFailsFastWhenProviderKeyIsMissing() async {
+        await withSavedAPIKey(for: .openAI) {
+            Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
+
+            let cloud = TriageIntegrationMockCloudLLMClient()
+            let triage = makeService(
+                appleAvailable: true,
+                localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+                selectedChatModel: .cloud(.openAIGPT54),
+                cloudLLMService: cloud
+            )
+
+            do {
+                _ = try await triage.generateGeneral(
+                    prompt: "Use the cloud model",
+                    systemPrompt: "System",
+                    operation: .chatResponse(query: "Use the cloud model"),
+                    contentLength: 19
+                )
+                Issue.record("Expected missing API key error")
+            } catch let error as CloudLLMError {
+                switch error {
+                case .missingAPIKey(let provider):
+                    #expect(provider == CloudModelProvider.openAI.displayName)
+                default:
+                    Issue.record("Expected missingAPIKey, got \(error)")
+                }
+            } catch {
+                Issue.record("Expected CloudLLMError, got \(error)")
+            }
+
+            #expect(cloud.generateCalls.isEmpty)
+        }
+    }
+
+    @Test("cloud streaming fails fast when the selected provider key is missing")
+    @MainActor func cloudStreamingFailsFastWhenProviderKeyIsMissing() async {
+        await withSavedAPIKey(for: .openAI) {
+            Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
+
+            let cloud = TriageIntegrationMockCloudLLMClient()
+            let triage = makeService(
+                appleAvailable: true,
+                localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+                selectedChatModel: .cloud(.openAIGPT54),
+                cloudLLMService: cloud
+            )
+
+            do {
+                let stream = triage.streamGeneral(
+                    prompt: "Use the cloud model",
+                    systemPrompt: "System",
+                    operation: .chatResponse(query: "Use the cloud model"),
+                    contentLength: 19
+                )
+                for try await _ in stream {
+                    Issue.record("Expected stream to fail before yielding output")
+                }
+                Issue.record("Expected missing API key error")
+            } catch let error as CloudLLMError {
+                switch error {
+                case .missingAPIKey(let provider):
+                    #expect(provider == CloudModelProvider.openAI.displayName)
+                default:
+                    Issue.record("Expected missingAPIKey, got \(error)")
+                }
+            } catch {
+                Issue.record("Expected CloudLLMError, got \(error)")
+            }
+
+            #expect(cloud.streamCalls.isEmpty)
+        }
+    }
+
+    @Test("missing cloud provider keys are cached after the initial miss")
+    @MainActor func missingCloudProviderKeysAreCachedAfterTheInitialMiss() {
+        var loadCounts: [String: Int] = [:]
+        var storedValues: [String: String] = [:]
+        let provider = CloudModelProvider.openAI
+
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                loadCounts[key, default: 0] += 1
+                return storedValues[key]
+            },
+            keychainSave: { value, key in
+                storedValues[key] = value
+                return true
+            },
+            keychainDelete: { key in
+                storedValues.removeValue(forKey: key)
+            }
         )
 
-        let result = try await triage.generateGeneral(
-            prompt: "Use the cloud model",
-            systemPrompt: "System",
-            operation: .chatResponse(query: "Use the cloud model"),
-            contentLength: 19
-        )
+        let startupLoads = loadCounts[provider.apiKeyKeychainKey, default: 0]
+        #expect(startupLoads >= 1)
+        #expect(inference.apiKey(for: provider) == nil)
+        #expect(inference.apiKey(for: provider) == nil)
+        #expect(loadCounts[provider.apiKeyKeychainKey, default: 0] == startupLoads)
 
-        #expect(result == "cloud answer")
-        #expect(cloud.generateCalls.count == 1)
-        #expect(triage.lastDecision == .cloud)
+        #expect(inference.setAPIKey("test-openai-key", for: provider))
+        let loadsAfterSave = loadCounts[provider.apiKeyKeychainKey, default: 0]
+        #expect(inference.apiKey(for: provider) == "test-openai-key")
+        #expect(loadCounts[provider.apiKeyKeychainKey, default: 0] == loadsAfterSave)
     }
 
     @Test("refusal detection is case-insensitive and prefix-bounded")
@@ -1392,6 +1560,34 @@ struct TriageServiceIntegrationTests {
             "first-releasing",
             "second-acquired",
         ])
+    }
+
+    @Test("local mlx request gate drops cancelled waiters before handoff")
+    func localMLXRequestGateDropsCancelledWaiters() async throws {
+        let gate = LocalMLXRequestGate()
+        await gate.acquire()
+
+        let cancelledWaiter = Task {
+            await gate.acquire()
+        }
+
+        try? await Task.sleep(for: .milliseconds(10))
+        cancelledWaiter.cancel()
+        try? await Task.sleep(for: .milliseconds(10))
+
+        await gate.release()
+
+        let thirdWaiter = Task {
+            await gate.acquire()
+            await gate.release()
+            return "acquired"
+        }
+
+        let result = try await withTimeout(seconds: 0.2) {
+            await thirdWaiter.value
+        }
+
+        #expect(result == "acquired")
     }
 
     @Test("thinking mode does not hard-cap long-form local output to 1024 tokens")

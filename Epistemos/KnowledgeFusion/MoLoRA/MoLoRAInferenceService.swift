@@ -112,7 +112,7 @@ final class MoLoRAInferenceService {
             arguments.append(contentsOf: ["--centroids_path", centroids.path])
         }
 
-        let proc = Process()
+        let proc = Process.init()
         proc.executableURL = URL(fileURLWithPath: pythonPath)
         proc.arguments = arguments
 

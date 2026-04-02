@@ -651,11 +651,11 @@ nonisolated struct LocalRuntimeConditions: Sendable, Equatable {
     let appActive: Bool
     let thermalState: LocalRuntimeThermalState
 
-    @MainActor
     static func current(appActive: Bool = true) -> LocalRuntimeConditions {
-        LocalRuntimeConditions(
-            lowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled
-                || PowerGuard.shared.shouldDisableBackground,
+        let systemLPM = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let ecoToggle = UserDefaults.standard.bool(forKey: "epistemos.ecoMode")
+        return LocalRuntimeConditions(
+            lowPowerModeEnabled: systemLPM || ecoToggle,
             appActive: appActive,
             thermalState: LocalRuntimeThermalState(ProcessInfo.processInfo.thermalState)
         )
@@ -825,7 +825,11 @@ final class InferenceState {
     var preferredChatModelSelection: ChatModelSelection = .localQwen(
         LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     )
+    private let keychainLoad: (String) -> String?
+    private let keychainSave: (String, String) -> Bool
+    private let keychainDelete: (String) -> Void
     private(set) var cachedCloudAPIKeys: [CloudModelProvider: String] = [:]
+    private var missingCloudAPIKeyProviders: Set<CloudModelProvider> = []
     private(set) var cloudProviderValidationStates: [CloudModelProvider: CloudProviderValidationState] = [:]
     private(set) var installedLocalTextModelIDs: Set<String> = []
     private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
@@ -838,7 +842,17 @@ final class InferenceState {
     /// Max tokens for user-visible chat responses. 0 = no cap (model default, ~16k).
     var chatOutputTokens: Int = 0
 
-    init() {
+    init(
+        keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
+        keychainSave: @escaping (String, String) -> Bool = { value, key in
+            Keychain.save(value, for: key)
+        },
+        keychainDelete: @escaping (String) -> Void = { Keychain.delete(for: $0) }
+    ) {
+        self.keychainLoad = keychainLoad
+        self.keychainSave = keychainSave
+        self.keychainDelete = keychainDelete
+
         let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
         self.appleIntelligenceAvailable = available
         self.appleIntelligenceUnavailableReason = reason
@@ -895,24 +909,26 @@ final class InferenceState {
             }
 
             for legacyKey in provider.legacyAPIKeyKeychainKeys {
-                guard let legacyValue = Keychain.load(for: legacyKey)?
+                guard let legacyValue = keychainLoad(legacyKey)?
                     .trimmingCharacters(in: .whitespacesAndNewlines),
                       !legacyValue.isEmpty else {
                     continue
                 }
 
                 guard setAPIKey(legacyValue, for: provider) else { break }
-                Keychain.delete(for: legacyKey)
+                keychainDelete(legacyKey)
                 break
             }
         }
     }
 
     private func refreshCachedCloudAPIKeys() {
+        missingCloudAPIKeyProviders.removeAll()
         cachedCloudAPIKeys = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
-            guard let key = Keychain.load(for: provider.apiKeyKeychainKey)?
+            guard let key = keychainLoad(provider.apiKeyKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                   !key.isEmpty else {
+                missingCloudAPIKeyProviders.insert(provider)
                 return
             }
             partialResult[provider] = key
@@ -1067,7 +1083,25 @@ final class InferenceState {
     }
 
     func apiKey(for provider: CloudModelProvider) -> String? {
-        cachedCloudAPIKeys[provider] ?? Keychain.load(for: provider.apiKeyKeychainKey)
+        if let cached = cachedCloudAPIKeys[provider] {
+            return cached
+        }
+        guard !missingCloudAPIKeyProviders.contains(provider) else {
+            return nil
+        }
+        guard let key = keychainLoad(provider.apiKeyKeychainKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !key.isEmpty else {
+            missingCloudAPIKeyProviders.insert(provider)
+            cloudProviderValidationStates[provider] = .missing
+            return nil
+        }
+        cachedCloudAPIKeys[provider] = key
+        if cloudProviderValidationStates[provider] == nil ||
+            cloudProviderValidationStates[provider] == .missing {
+            cloudProviderValidationStates[provider] = .unchecked
+        }
+        return key
     }
 
     func cloudValidationState(for provider: CloudModelProvider) -> CloudProviderValidationState {
@@ -1095,17 +1129,19 @@ final class InferenceState {
     func setAPIKey(_ value: String, for provider: CloudModelProvider) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            Keychain.delete(for: provider.apiKeyKeychainKey)
+            keychainDelete(provider.apiKeyKeychainKey)
             cachedCloudAPIKeys.removeValue(forKey: provider)
+            missingCloudAPIKeyProviders.insert(provider)
             cloudProviderValidationStates[provider] = .missing
             if case .cloud(let model) = preferredChatModelSelection, model.provider == provider {
                 persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
             }
             return true
         }
-        let didSave = Keychain.save(trimmed, for: provider.apiKeyKeychainKey)
+        let didSave = keychainSave(trimmed, provider.apiKeyKeychainKey)
         if didSave {
             cachedCloudAPIKeys[provider] = trimmed
+            missingCloudAPIKeyProviders.remove(provider)
             cloudProviderValidationStates[provider] = .unchecked
         } else {
             cloudProviderValidationStates[provider] = .invalid(

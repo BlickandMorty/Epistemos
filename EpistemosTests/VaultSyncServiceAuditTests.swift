@@ -146,6 +146,7 @@ struct VaultSyncServiceAuditTests {
 
     private let vaultBookmarkKey = "epistemos.vaultBookmark"
     private let lastVaultPathKey = "epistemos.lastVaultPath"
+    private let trustedSuspiciousVaultPathKey = "epistemos.confirmedSuspiciousVaultPath"
 
     private func waitUntil(
         timeout: Duration = .seconds(12),
@@ -304,6 +305,107 @@ struct VaultSyncServiceAuditTests {
 
         #expect(UserDefaults.standard.data(forKey: vaultBookmarkKey) == liveBookmark)
         #expect(UserDefaults.standard.string(forKey: lastVaultPathKey) == livePath)
+    }
+
+    @Test("persist vault selection falls back to a plain bookmark when security scope creation fails")
+    func persistVaultSelectionFallsBackToPlainBookmark() throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let isolatedDefaults = makeIsolatedDefaults()
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setUserDefaultsForTesting(isolatedDefaults)
+        service.setBookmarkDataWriterForTesting { _, options in
+            if options.contains(.withSecurityScope) {
+                throw CocoaError(.fileReadUnknown)
+            }
+            return Data("plain-bookmark".utf8)
+        }
+
+        service.persistVaultSelection(vaultURL)
+
+        #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == Data("plain-bookmark".utf8))
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
+    }
+
+    @Test("persist vault selection clears stale bookmark data when no bookmark can be stored")
+    func persistVaultSelectionClearsStaleBookmarkWhenPersistenceFails() throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let isolatedDefaults = makeIsolatedDefaults()
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        isolatedDefaults.set(Data("stale-bookmark".utf8), forKey: vaultBookmarkKey)
+        service.setUserDefaultsForTesting(isolatedDefaults)
+        service.setBookmarkDataWriterForTesting { _, _ in
+            throw CocoaError(.fileReadUnknown)
+        }
+
+        service.persistVaultSelection(vaultURL)
+
+        #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == nil)
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
+    }
+
+    @Test("persist vault selection stores suspicious-folder trust only for confirmed selections")
+    func persistVaultSelectionStoresSuspiciousFolderTrustOnlyWhenConfirmed() throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let isolatedDefaults = makeIsolatedDefaults()
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        isolatedDefaults.set("/tmp/old-trusted-path", forKey: trustedSuspiciousVaultPathKey)
+        service.setUserDefaultsForTesting(isolatedDefaults)
+        service.setBookmarkDataWriterForTesting { _, _ in
+            Data("bookmark".utf8)
+        }
+
+        service.persistVaultSelection(vaultURL, userConfirmedSuspiciousFolder: true)
+
+        #expect(
+            isolatedDefaults.string(forKey: trustedSuspiciousVaultPathKey)
+                == vaultURL.standardizedFileURL.path
+        )
+
+        service.persistVaultSelection(vaultURL, userConfirmedSuspiciousFolder: false)
+
+        #expect(isolatedDefaults.string(forKey: trustedSuspiciousVaultPathKey) == nil)
+
+        service.clearPersistedVaultSelection()
+
+        #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == nil)
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == nil)
+        #expect(isolatedDefaults.string(forKey: trustedSuspiciousVaultPathKey) == nil)
+    }
+
+    @Test("automatic restore requires suspicious folders to be re-confirmed unless that exact path was trusted")
+    func automaticRestoreRequiresSuspiciousFoldersToBeReconfirmedUnlessTrusted() {
+        let suspiciousURL = URL(fileURLWithPath: "/tmp/fonts", isDirectory: true)
+        let assessment = VaultIndexActor.VaultFolderSelectionAssessment(
+            importableNoteFileCount: 2,
+            otherRegularFileCount: 96,
+            scannedRegularFileCount: 98,
+            reachedScanLimit: false
+        )
+
+        let blockedReason = VaultSyncService.suspiciousVaultRestoreReconfirmationReasonForTesting(
+            resolvedURL: suspiciousURL,
+            assessment: assessment,
+            trustedSuspiciousVaultPath: nil
+        )
+
+        #expect(blockedReason?.contains("must be confirmed again before automatic restore") == true)
+
+        let allowedReason = VaultSyncService.suspiciousVaultRestoreReconfirmationReasonForTesting(
+            resolvedURL: suspiciousURL,
+            assessment: assessment,
+            trustedSuspiciousVaultPath: suspiciousURL.standardizedFileURL.path
+        )
+
+        #expect(allowedReason == nil)
     }
 
     @Test("vault health snapshot counts managed bodies once off main")

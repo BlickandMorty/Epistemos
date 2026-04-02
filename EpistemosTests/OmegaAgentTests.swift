@@ -98,7 +98,7 @@ struct OmegaAgentTests {
     func terminalAgentToolset() {
         let agent = TerminalAgent()
         #expect(agent.name == "terminal")
-        #expect(agent.toolNames == ["run_command"])
+        #expect(agent.toolNames == ["run_command", "run_persistent"])
     }
 
     @Test("TerminalAgent executes allowed command")

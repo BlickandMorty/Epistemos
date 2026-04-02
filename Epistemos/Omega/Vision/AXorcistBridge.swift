@@ -25,8 +25,16 @@ final class AXorcistBridge {
     // MARK: - Permissions
 
     /// Check if accessibility permissions are granted.
-    var hasAccessibilityPermissions: Bool {
-        AXIsProcessTrusted()
+    /// Uses cached result to avoid blocking main thread on every access.
+    /// Refresh via `refreshAccessibilityPermissions()`.
+    private(set) var hasAccessibilityPermissions: Bool = false
+
+    /// Refresh the cached accessibility permission status off the main thread.
+    func refreshAccessibilityPermissions() async {
+        let trusted = await Task.detached(priority: .userInitiated) {
+            AXIsProcessTrusted()
+        }.value
+        hasAccessibilityPermissions = trusted
     }
 
     // MARK: - Tree Walking (omega-ax compatible JSON)

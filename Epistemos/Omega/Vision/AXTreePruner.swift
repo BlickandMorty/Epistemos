@@ -245,17 +245,20 @@ final class AXTreePruner {
         var frame = CGRect.zero
         var posRef: CFTypeRef?
         if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posRef) == .success,
-           let posRef {
+           let posRef,
+           CFGetTypeID(posRef) == AXValueGetTypeID() {
             var point = CGPoint.zero
-            // SAFETY: AX guarantees this is an AXValue when the copy succeeds
-            AXValueGetValue(posRef as! AXValue, .cgPoint, &point)
+            let positionValue = unsafeDowncast(posRef, to: AXValue.self)
+            AXValueGetValue(positionValue, .cgPoint, &point)
             frame.origin = point
         }
         var sizeRef: CFTypeRef?
         if AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeRef) == .success,
-           let sizeRef {
+           let sizeRef,
+           CFGetTypeID(sizeRef) == AXValueGetTypeID() {
             var size = CGSize.zero
-            AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
+            let sizeValue = unsafeDowncast(sizeRef, to: AXValue.self)
+            AXValueGetValue(sizeValue, .cgSize, &size)
             frame.size = size
         }
 

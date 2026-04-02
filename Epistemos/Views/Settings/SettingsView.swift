@@ -351,7 +351,9 @@ private struct GeneralDetailView: View {
         .alert("Reset Everything?", isPresented: $showResetAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Reset", role: .destructive) {
-                AppBootstrap.shared?.resetAllData()
+                Task { @MainActor in
+                    await AppBootstrap.shared?.resetAllData()
+                }
             }
         } message: {
             Text("This will delete all conversations, notes data, local model state, and preferences. Vault files on disk are preserved. This cannot be undone.")

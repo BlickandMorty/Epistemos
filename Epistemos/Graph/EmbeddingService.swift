@@ -27,18 +27,32 @@ nonisolated struct AppleWordEmbeddingLookup: TextEmbeddingLookup {
 }
 
 /// Value-type snapshot of node data for cross-isolation transfer.
-private struct EmbeddingNodeSnapshot: Sendable {
+private nonisolated struct EmbeddingNodeSnapshot: Sendable {
     let id: String
     let text: String
+}
+
+private nonisolated struct EmbeddingBatchPayload: Sendable {
+    let ids: [String]
+    let values: [Float]
+    let dimension: Int
+
+    var isEmpty: Bool {
+        ids.isEmpty || values.isEmpty || dimension <= 0
+    }
+}
+
+private nonisolated struct SendableEngineHandle: @unchecked Sendable {
+    let raw: OpaquePointer
 }
 
 // MARK: - EmbeddingService
 // Generates fallback word embeddings using Apple NLEmbedding and pushes them to the Rust
 // engine while prepared retrieval remains on the Apple fallback path.
 //
-// Heavy computation (NLEmbedding + vector math) runs on a background thread via
-// Task.detached. Only the FFI push hops back to MainActor since the engine pointer
-// is not thread-safe.
+// Heavy computation (NLEmbedding + vector math) and the batched embedding push run
+// on a background detached task. MainActor work is limited to cache/state updates
+// and reading the current engine handle.
 
 @MainActor
 final class EmbeddingService {
@@ -179,29 +193,29 @@ final class EmbeddingService {
             }
 
             guard !Task.isCancelled else { return }
+            let completedEmbeddings = newEmbeddings
+            let payload = Self.makeEmbeddingBatchPayload(from: completedEmbeddings, dimension: dim)
 
-            // Hop back to MainActor for state update + FFI push.
-            // Read the LIVE engine handle from GraphState — never use a captured copy.
-            // If the engine was destroyed, engineHandle will be nil and we skip FFI.
-            await MainActor.run { [weak self] in
-                guard let self, !Task.isCancelled else { return }
+            let engineHandle: SendableEngineHandle? = await MainActor.run { [weak self] in
+                guard let self, !Task.isCancelled else { return nil }
                 self.dimension = dim
-                self.replaceEmbeddingCache(with: newEmbeddings)
+                self.replaceEmbeddingCache(with: completedEmbeddings)
+                guard let engine = self.graphState?.engineHandle else { return nil }
+                return SendableEngineHandle(raw: engine)
+            }
 
-                guard let engine = self.graphState?.engineHandle else { return }
-                guard self.prepareEngineEmbeddingStore(engine, dimension: dim) else { return }
-                for (uuid, vector) in newEmbeddings {
-                    vector.withUnsafeBufferPointer { buf in
-                        guard let base = buf.baseAddress else { return }
-                        uuid.withCString { cUuid in
-                            graph_engine_set_node_embedding(engine, cUuid, base, UInt32(dim))
-                        }
-                    }
-                }
+            guard !Task.isCancelled,
+                  let engineHandle,
+                  !payload.isEmpty,
+                  Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else {
+                return
+            }
 
-                graph_engine_recompute_semantic_neighbors(engine, 8, 0.3)
+            Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
+            graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
 
-                Log.app.info("EmbeddingService: pushed \(newEmbeddings.count) embeddings (dim=\(dim)) to Rust")
+            await MainActor.run {
+                Log.app.info("EmbeddingService: pushed \(completedEmbeddings.count) embeddings (dim=\(dim)) to Rust")
             }
         }
     }
@@ -276,14 +290,55 @@ final class EmbeddingService {
         guard let engine = graphState?.engineHandle else { return }
         guard let firstVector = embeddings.values.first else { return }
         let dim = firstVector.count
-        guard prepareEngineEmbeddingStore(engine, dimension: dim) else { return }
+        let payload = Self.makeEmbeddingBatchPayload(from: embeddings, dimension: dim)
+        guard !payload.isEmpty else { return }
+        let engineHandle = SendableEngineHandle(raw: engine)
 
-        for (blockId, vector) in embeddings {
-            vector.withUnsafeBufferPointer { buf in
-                guard let base = buf.baseAddress else { return }
-                blockId.withCString { cId in
-                    graph_engine_set_node_embedding(engine, cId, base, UInt32(dim))
-                }
+        Task.detached(priority: .utility) {
+            guard Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else { return }
+            Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
+        }
+    }
+
+    private nonisolated static func makeEmbeddingBatchPayload(
+        from embeddings: [String: [Float]],
+        dimension: Int
+    ) -> EmbeddingBatchPayload {
+        guard dimension > 0 else {
+            return EmbeddingBatchPayload(ids: [], values: [], dimension: 0)
+        }
+
+        let ids = embeddings.keys.sorted()
+        var flattened: [Float] = []
+        flattened.reserveCapacity(ids.count * dimension)
+
+        var filteredIDs: [String] = []
+        filteredIDs.reserveCapacity(ids.count)
+
+        for id in ids {
+            guard let vector = embeddings[id], vector.count == dimension else { continue }
+            filteredIDs.append(id)
+            flattened.append(contentsOf: vector)
+        }
+
+        return EmbeddingBatchPayload(ids: filteredIDs, values: flattened, dimension: dimension)
+    }
+
+    private nonisolated static func sendEmbeddingBatch(
+        _ payload: EmbeddingBatchPayload,
+        to engine: OpaquePointer
+    ) {
+        guard !payload.isEmpty else { return }
+        withStableCStringArray(payload.ids) { uuidPtrs in
+            payload.values.withUnsafeBufferPointer { values in
+                guard let valuesBase = values.baseAddress else { return }
+                graph_engine_set_node_embeddings_batch(
+                    engine,
+                    uuidPtrs.baseAddress,
+                    valuesBase,
+                    UInt32(payload.dimension),
+                    UInt32(payload.ids.count)
+                )
             }
         }
     }
@@ -332,7 +387,7 @@ final class EmbeddingService {
         graph_engine_clear_prepared_retrieval_index(engine)
     }
 
-    private func prepareEngineEmbeddingStore(_ engine: OpaquePointer, dimension: Int) -> Bool {
+    private nonisolated static func prepareEngineEmbeddingStore(_ engine: OpaquePointer, dimension: Int) -> Bool {
         guard dimension > 0 else { return false }
         if Int(graph_engine_embedding_dimension(engine)) != dimension {
             return graph_engine_reset_embedding_dimension(engine, UInt32(dimension)) != 0

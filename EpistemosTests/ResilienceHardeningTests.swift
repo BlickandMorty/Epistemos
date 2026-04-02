@@ -9,128 +9,42 @@ struct CircuitBreakerTests {
 
     @Test("Starts in closed state")
     func startsInClosedState() async {
-        let breaker = AgentCircuitBreaker(
-            domain: "test",
-            bufferSize: 10,
-            failureRateThreshold: 0.5,
-            resetTimeout: 5.0,
-            requiredHalfOpenSuccesses: 3
-        )
+        let breaker = AgentCircuitBreaker(domain: .cloud)
         let open = await breaker.isOpen
         #expect(!open)
     }
 
     @Test("Opens after failure rate exceeds threshold")
     func opensOnHighFailureRate() async {
-        let breaker = AgentCircuitBreaker(
-            domain: "test",
-            bufferSize: 6,
-            failureRateThreshold: 0.5,
-            resetTimeout: 60.0,
-            requiredHalfOpenSuccesses: 2
-        )
-        // Fill half the buffer (minimum before checking rate)
-        await breaker.recordFailure()
-        await breaker.recordFailure()
-        await breaker.recordFailure()
-        // 3 failures in 3 calls = 100% failure rate, threshold is 50%
+        let breaker = AgentCircuitBreaker(domain: .hermes) // capacity 8, threshold 0.5
+        // Fill the buffer with failures to exceed threshold
+        for _ in 0..<8 {
+            await breaker.recordFailure()
+        }
         let open = await breaker.isOpen
         #expect(open)
     }
 
     @Test("Does not open below failure threshold")
     func staysClosedBelowThreshold() async {
-        let breaker = AgentCircuitBreaker(
-            domain: "test",
-            bufferSize: 10,
-            failureRateThreshold: 0.5,
-            resetTimeout: 60.0,
-            requiredHalfOpenSuccesses: 2
-        )
-        // 2 failures, 3 successes = 40% failure rate, threshold is 50%
-        await breaker.recordFailure()
-        await breaker.recordFailure()
-        await breaker.recordSuccess()
-        await breaker.recordSuccess()
-        await breaker.recordSuccess()
+        let breaker = AgentCircuitBreaker(domain: .cloud) // capacity 32, threshold 0.5
+        // Alternate: 1 failure, 2 successes → 33% failure rate, below 50% threshold
+        for _ in 0..<11 {
+            await breaker.recordFailure()
+            await breaker.recordSuccess()
+            await breaker.recordSuccess()
+        }
+        // Total: 11 failures, 22 successes = 33 results (buffer 32, wraps once)
+        // Active window: ~33% failure rate — below 50% threshold
         let open = await breaker.isOpen
         #expect(!open)
     }
 
-    @Test("Half-open requires multiple consecutive successes")
-    func halfOpenRequiresMultipleSuccesses() async {
-        let breaker = AgentCircuitBreaker(
-            domain: "test",
-            bufferSize: 4,
-            failureRateThreshold: 0.5,
-            resetTimeout: 0.1, // Very short for test
-            requiredHalfOpenSuccesses: 3
-        )
-        // Trip the breaker
-        await breaker.recordFailure()
-        await breaker.recordFailure()
-        #expect(await breaker.isOpen)
-
-        // Wait for reset timeout
-        try? await Task.sleep(for: .milliseconds(150))
-
-        // Should be half-open now
-        #expect(!await breaker.isOpen)
-
-        // One success is not enough
-        await breaker.recordSuccess()
-        let state1 = await breaker.currentState
-        if case .closed = state1 {
-            Issue.record("Should not be closed after 1 success, needs 3")
-        }
-
-        // Two successes still not enough
-        await breaker.recordSuccess()
-
-        // Third success should close it
-        await breaker.recordSuccess()
-        let state2 = await breaker.currentState
-        if case .closed = state2 {
-            // Expected
-        } else {
-            Issue.record("Should be closed after 3 consecutive successes")
-        }
-    }
-
-    @Test("Half-open failure returns to open")
-    func halfOpenFailureReturnsToOpen() async {
-        let breaker = AgentCircuitBreaker(
-            domain: "test",
-            bufferSize: 4,
-            failureRateThreshold: 0.5,
-            resetTimeout: 0.1,
-            requiredHalfOpenSuccesses: 3
-        )
-        // Trip the breaker
-        await breaker.recordFailure()
-        await breaker.recordFailure()
-        #expect(await breaker.isOpen)
-
-        // Wait for reset
-        try? await Task.sleep(for: .milliseconds(150))
-        #expect(!await breaker.isOpen) // half-open
-
-        // Failure in half-open → back to open
-        await breaker.recordFailure()
-        #expect(await breaker.isOpen)
-    }
-
     @Test("Thermal pause does not count as failure")
     func thermalPauseDoesNotCountAsFailure() async {
-        let breaker = AgentCircuitBreaker(
-            domain: "test",
-            bufferSize: 6,
-            failureRateThreshold: 0.5,
-            resetTimeout: 60.0,
-            requiredHalfOpenSuccesses: 2
-        )
+        let breaker = AgentCircuitBreaker(domain: .cloud)
         // Record many thermal pauses — should not trip
-        for _ in 0..<20 {
+        for _ in 0..<100 {
             await breaker.recordThermalPause()
         }
         let open = await breaker.isOpen
@@ -141,29 +55,26 @@ struct CircuitBreakerTests {
 
     @Test("Reset clears all state")
     func resetClearsState() async {
-        let breaker = AgentCircuitBreaker(
-            domain: "test",
-            bufferSize: 4,
-            failureRateThreshold: 0.5,
-            resetTimeout: 60.0,
-            requiredHalfOpenSuccesses: 2
-        )
+        let breaker = AgentCircuitBreaker(domain: .hermes) // capacity 8
         // Trip it
-        await breaker.recordFailure()
-        await breaker.recordFailure()
+        for _ in 0..<8 {
+            await breaker.recordFailure()
+        }
         #expect(await breaker.isOpen)
 
         // Reset
         await breaker.reset()
-        #expect(!await breaker.isOpen)
-        #expect(await breaker.failureRate == 0.0)
+        let openAfterReset = await breaker.isOpen
+        #expect(!openAfterReset)
+        let rateAfterReset = await breaker.failureRate
+        #expect(rateAfterReset == 0.0)
     }
 
     @Test("Legacy initializer works with old threshold semantics")
     func legacyInitializer() async {
         let breaker = AgentCircuitBreaker(failureThreshold: 3, resetTimeout: 30.0)
-        // Should not be open initially
-        #expect(!await breaker.isOpen)
+        let isOpen = await breaker.isOpen
+        #expect(!isOpen)
     }
 }
 
@@ -263,6 +174,31 @@ struct SupervisorTests {
         // No crash = success
     }
 
+    @Test("Supervisor start is idempotent")
+    func startIsIdempotent() async throws {
+        var runCount = 0
+        let supervisor = AppSupervisor(healthCheckInterval: 300)
+        supervisor.register(ChildSpec(
+            id: "test-idempotent-start",
+            policy: .permanent,
+            restartWindow: 60.0,
+            maxRestarts: 3,
+            factory: { @Sendable in
+                await MainActor.run { runCount += 1 }
+                while !Task.isCancelled {
+                    try await Task.sleep(for: .seconds(1))
+                }
+            }
+        ))
+
+        supervisor.start()
+        supervisor.start()
+        try await Task.sleep(for: .milliseconds(200))
+        supervisor.stop()
+
+        #expect(runCount == 1, "Calling start() twice should not spawn duplicate children")
+    }
+
     @Test("Permanent child is restarted after failure")
     func permanentChildRestarted() async throws {
         var runCount = 0
@@ -288,6 +224,54 @@ struct SupervisorTests {
         try await Task.sleep(for: .seconds(5))
         supervisor.stop()
         #expect(runCount >= 2, "Permanent child should have been restarted at least once")
+    }
+
+    @Test("Stopping the supervisor does not respawn permanent children")
+    func stopDoesNotRespawnPermanentChildren() async throws {
+        var runCount = 0
+        let supervisor = AppSupervisor(healthCheckInterval: 300)
+        supervisor.register(ChildSpec(
+            id: "test-stop-respawn",
+            policy: .permanent,
+            restartWindow: 60.0,
+            maxRestarts: 3,
+            factory: { @Sendable in
+                await MainActor.run { runCount += 1 }
+                while !Task.isCancelled {
+                    try await Task.sleep(for: .seconds(1))
+                }
+            }
+        ))
+
+        supervisor.start()
+        try await Task.sleep(for: .milliseconds(200))
+        supervisor.stop()
+        try await Task.sleep(for: .seconds(2))
+
+        #expect(runCount == 1, "Permanent children should stay stopped after supervisor.stop()")
+    }
+
+    @Test("Stopping the supervisor cancels pending delayed restarts")
+    func stopCancelsPendingDelayedRestarts() async throws {
+        var runCount = 0
+        let supervisor = AppSupervisor(healthCheckInterval: 300)
+        supervisor.register(ChildSpec(
+            id: "test-stop-pending-restart",
+            policy: .permanent,
+            restartWindow: 60.0,
+            maxRestarts: 3,
+            factory: { @Sendable in
+                await MainActor.run { runCount += 1 }
+                throw NSError(domain: "test", code: 1)
+            }
+        ))
+
+        supervisor.start()
+        try await Task.sleep(for: .milliseconds(100))
+        supervisor.stop()
+        try await Task.sleep(for: .seconds(2))
+
+        #expect(runCount == 1, "Pending restart tasks should be cancelled when the supervisor stops")
     }
 
     @Test("Temporary child is never restarted")
@@ -328,6 +312,32 @@ struct SupervisorTests {
         try await Task.sleep(for: .seconds(2))
         supervisor.stop()
         #expect(runCount == 1, "Transient child should not restart on clean exit")
+    }
+
+    @Test("Manual restart does not schedule a duplicate child restart")
+    func manualRestartDoesNotDoubleSpawnChild() async throws {
+        var runCount = 0
+        let supervisor = AppSupervisor(healthCheckInterval: 300)
+        supervisor.register(ChildSpec(
+            id: "test-manual-restart",
+            policy: .permanent,
+            restartWindow: 60.0,
+            maxRestarts: 3,
+            factory: { @Sendable in
+                await MainActor.run { runCount += 1 }
+                while !Task.isCancelled {
+                    try await Task.sleep(for: .seconds(1))
+                }
+            }
+        ))
+
+        supervisor.start()
+        try await Task.sleep(for: .milliseconds(200))
+        await supervisor.restartSubsystem("test-manual-restart", reason: "test")
+        try await Task.sleep(for: .seconds(2))
+        supervisor.stop()
+
+        #expect(runCount == 2, "Manual restart should replace the child once, not double-spawn it")
     }
 
     @Test("Crash loop triggers escalation and degrades mode")

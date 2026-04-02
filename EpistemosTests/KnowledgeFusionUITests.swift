@@ -4,6 +4,47 @@ import Testing
 
 // MARK: - KnowledgeFusionViewModel Tests
 
+private func makeKnowledgeFusionTestAdapter(
+    name: String = "Test Adapter"
+) throws -> (record: AdapterRecord, cleanup: () -> Void) {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("kf-ui-adapter-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+    try Data([0x00]).write(to: directory.appendingPathComponent("adapter_weights.safetensors"))
+    try "{}".write(
+        to: directory.appendingPathComponent("adapter_config.json"),
+        atomically: true,
+        encoding: .utf8
+    )
+
+    let metadataPath = directory.appendingPathComponent("training_metadata.json")
+    let metadataJSON = """
+    {"adapter_type":"knowledge","source_vault":"test","lora_rank":32,"lora_alpha":64,\
+    "target_modules":["q_proj"],"learning_rate":0.00002,"num_examples":100,"num_iters":50,\
+    "training_duration_seconds":30.0,"created_at":"2026-03-23T00:00:00Z","base_model":"test","quality_score":null}
+    """
+    try metadataJSON.write(to: metadataPath, atomically: true, encoding: .utf8)
+
+    let record = AdapterRecord(
+        id: UUID(),
+        name: name,
+        type: .knowledge,
+        adapterPath: directory,
+        metadataPath: metadataPath,
+        sourceVault: "TestVault",
+        createdAt: Date(),
+        qualityScore: nil,
+        isActive: false,
+        baseModel: "Qwen2.5-3B-Instruct-4bit",
+        loraRank: 32,
+        parameterCount: 32 * 4096 * 2,
+        trainingExamples: 500
+    )
+
+    return (record, { try? FileManager.default.removeItem(at: directory) })
+}
+
 @Suite("KnowledgeFusionViewModel")
 struct KnowledgeFusionViewModelTests {
 
@@ -106,5 +147,42 @@ struct KnowledgeFusionViewModelTests {
 
         await vm.deleteAdapter(record)
         #expect(vm.installedAdapters.isEmpty)
+    }
+
+    @Test("Export adapter writes bundle via async view-model path")
+    @MainActor
+    func exportAdapter() async throws {
+        let vm = KnowledgeFusionViewModel()
+        let (record, cleanup) = try makeKnowledgeFusionTestAdapter(name: "Exported")
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kf-vm-export-\(UUID().uuidString)")
+        defer {
+            cleanup()
+            try? FileManager.default.removeItem(at: outputDirectory)
+        }
+
+        let bundleURL = await vm.exportAdapter(record, outputDirectory: outputDirectory)
+
+        #expect(bundleURL != nil)
+        if let bundleURL {
+            #expect(FileManager.default.fileExists(atPath: bundleURL.path))
+            #expect(bundleURL.pathExtension == AdapterExporter.bundleExtension)
+        }
+        #expect(vm.lastTrainingError == nil)
+    }
+
+    @Test("Training history export routes through async view-model export")
+    func trainingHistoryExportUsesAsyncViewModelPath() throws {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: repoRoot.appendingPathComponent("Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("await vm.exportAdapter("))
+        #expect(source.contains("Task {"))
+        #expect(!source.contains("try exporter.export("))
     }
 }

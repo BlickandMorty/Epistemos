@@ -225,6 +225,12 @@ final class ModelProfileManager {
         guard let container = modelContainer else { return }
         let context = ModelContext(container)
         context.insert(profile)
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            log.error(
+                "Failed to persist model profile '\(profile.displayName, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 }

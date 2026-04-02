@@ -1,3 +1,4 @@
+import OSLog
 import SwiftData
 import SwiftUI
 
@@ -93,6 +94,8 @@ private struct HermesSetupBanner: View {
 // Clean landing: liquid glass greeting with shortcut hints.
 
 struct LandingView: View {
+    private static let log = Logger(subsystem: "com.epistemos", category: "LandingView")
+
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(OrchestratorState.self) private var orchestrator
@@ -217,14 +220,11 @@ struct LandingView: View {
         .animation(Motion.smooth, value: showingSearchPopover)
         .onAppear {
             sanitizeStoredOperatingMode()
-            // Check for welcome-back info after workspace restore
-            if let info = AppBootstrap.shared?.workspaceService.welcomeBack, !info.displayText.isEmpty {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(800))
-                    showWelcomeBack = true
-                    // Do NOT auto-dismiss — persist until user interacts (ESC, click, or button)
-                }
-            }
+            scheduleWelcomeBackPresentationIfNeeded()
+        }
+        .onDisappear {
+            welcomeBackDismissTask?.cancel()
+            welcomeBackDismissTask = nil
         }
         .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
             sanitizeStoredOperatingMode()
@@ -617,11 +617,21 @@ struct LandingView: View {
     private func activateLandingSearch(at location: CGPoint? = nil) {
         guard !showingBrief else { return }
         // If no location (e.g. from shortcut), center it roughly
-        tapLocation = location ?? CGPoint(x: 400, y: 300) 
+        tapLocation = location ?? CGPoint(x: 400, y: 300)
         showingSearchPopover = true
         Task { @MainActor in
             await Task.yield()
-            try? await Task.sleep(for: .milliseconds(16))
+            do {
+                try await Task.sleep(for: .milliseconds(16))
+            } catch is CancellationError {
+                return
+            } catch {
+                Self.log.error(
+                    "LandingView: failed to schedule landing search focus: \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
+            guard showingSearchPopover else { return }
             isLandingSearchFocused = true
         }
     }
@@ -647,6 +657,34 @@ struct LandingView: View {
         landingMentionPickerAutofocus = false
         landingReferenceSearch.reset()
         landingContextAttachments = []
+    }
+
+    private func scheduleWelcomeBackPresentationIfNeeded() {
+        guard let info = AppBootstrap.shared?.workspaceService.welcomeBack,
+              !info.displayText.isEmpty else { return }
+
+        welcomeBackDismissTask?.cancel()
+        welcomeBackDismissTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(800))
+            } catch is CancellationError {
+                return
+            } catch {
+                Self.log.error(
+                    "LandingView: failed to schedule welcome-back presentation: \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
+
+            guard AppBootstrap.shared?.workspaceService.welcomeBack != nil else {
+                welcomeBackDismissTask = nil
+                return
+            }
+
+            showWelcomeBack = true
+            welcomeBackDismissTask = nil
+            // Do NOT auto-dismiss — persist until user interacts (ESC, click, or button)
+        }
     }
 
     private func submitLandingSearch() {
@@ -804,6 +842,7 @@ struct LandingView: View {
 
     private func dismissWelcomeBack() {
         welcomeBackDismissTask?.cancel()
+        welcomeBackDismissTask = nil
         showWelcomeBack = false
         AppBootstrap.shared?.workspaceService.welcomeBack = nil
     }
@@ -828,8 +867,22 @@ struct LandingView: View {
             if info.sessionMinutes > 0 { body += "- \(info.sessionMinutes) minutes\n" }
 
             if let pageId = await bootstrap.vaultSync.createPage(title: title, body: body) {
-                try? bootstrap.modelContainer.mainContext.save()
-                try? await Task.sleep(for: .milliseconds(100))
+                do {
+                    try bootstrap.modelContainer.mainContext.save()
+                } catch {
+                    Self.log.error(
+                        "LandingView: failed to save welcome-back summary note: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+                do {
+                    try await Task.sleep(for: .milliseconds(100))
+                } catch is CancellationError {
+                    // Continue opening the created note even if the pacing delay is cancelled.
+                } catch {
+                    Self.log.error(
+                        "LandingView: failed to wait before opening welcome-back summary note: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
                 NoteWindowManager.shared.open(pageId: pageId)
             }
             dismissWelcomeBack()
@@ -944,7 +997,12 @@ struct LandingView: View {
     private func recentChats(limit: Int) -> [SDChat] {
         var descriptor = SDChat.recentChatsDescriptor
         descriptor.fetchLimit = limit
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            Self.log.error("LandingView: failed to fetch recent chats: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 }
 

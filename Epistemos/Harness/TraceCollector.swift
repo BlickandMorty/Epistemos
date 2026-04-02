@@ -194,8 +194,7 @@ actor TraceCollector {
     private var fileHandles: [String: FileHandle] = [:]
 
     init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         self.baseDir = appSupport.appendingPathComponent("com.epistemos.app/traces/production")
     }
 

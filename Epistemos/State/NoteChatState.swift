@@ -580,7 +580,16 @@ final class NoteChatState {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 1
-        guard let sdChat = (try? context.fetch(descriptor))?.first else { return }
+        let sdChat: SDChat
+        do {
+            guard let fetchedChat = try context.fetch(descriptor).first else { return }
+            sdChat = fetchedChat
+        } catch {
+            log.error(
+                "Failed to load persisted note chat for page \(self.pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
         persistedChatId = sdChat.id
         let sorted = sdChat.sortedMessages
         messages = sorted.map {
@@ -598,16 +607,31 @@ final class NoteChatState {
         guard !messages.isEmpty else { return }
 
         let sdChat: SDChat
-        if let existingId = persistedChatId,
-           let existing = try? context.fetch(
-               FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == existingId })
-           ).first {
-            sdChat = existing
-            sdChat.title = noteTitle.isEmpty ? "Untitled" : noteTitle
-            sdChat.updatedAt = .now
-            // Remove old messages and replace
-            for msg in sdChat.messages ?? [] {
-                context.delete(msg)
+        if let existingId = persistedChatId {
+            do {
+                if let existing = try context.fetch(
+                    FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == existingId })
+                ).first {
+                    sdChat = existing
+                    sdChat.title = noteTitle.isEmpty ? "Untitled" : noteTitle
+                    sdChat.updatedAt = .now
+                    for msg in sdChat.messages ?? [] {
+                        context.delete(msg)
+                    }
+                } else {
+                    sdChat = SDChat(
+                        title: noteTitle.isEmpty ? "Untitled" : noteTitle,
+                        chatType: "notes"
+                    )
+                    sdChat.linkedPageId = pageId
+                    context.insert(sdChat)
+                    persistedChatId = sdChat.id
+                }
+            } catch {
+                log.error(
+                    "Failed to fetch existing persisted note chat \(existingId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
             }
         } else {
             sdChat = SDChat(title: noteTitle.isEmpty ? "Untitled" : noteTitle, chatType: "notes")

@@ -84,4 +84,4 @@ Each item maps to a specific audit finding from arc1-arc4.
 3. **Hierarchical supervisor tree**: Current supervisor is flat (one level). A true OTP tree with nested supervisors and one_for_all strategy is deferred until more children are registered.
 4. **Process-level watchdog**: If the entire Rust process aborts (double-panic), there is no launchd/SMAppService restart. Deferred to post-ship.
 5. **Token budget for streaming tool calls**: The token budget guard only works for single-turn `respond(to:)`. Multi-turn tool-calling sessions need per-turn budget checks. Deferred.
-6. **Orphaned Hermes subprocess**: The `OrphanSubprocessCleanup` exists but is not wired into the supervisor's crash loop escalation path. If the supervisor escalates, orphaned Hermes processes may persist.
+6. **Intentional subprocess surfaces remain policy-scoped**: Hermes setup/runtime, audio transcription, and Python-backed training helpers still use managed subprocesses outside the local inference path. Keep auditing them as explicit exceptions rather than treating them as inference-sidecar drift.

@@ -784,14 +784,15 @@ struct ThemePairTests {
         #expect(!messageBubble.contains("reasoningText"))
     }
 
-    @Test("Landing and active chat use the shared plain local model menu")
-    func landingAndActiveChatUseSharedPlainLocalModelMenu() throws {
+    @Test("Landing and active chat use the shared local model menu surface")
+    func landingAndActiveChatUseSharedLocalModelMenu() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
         let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
-        #expect(landingView.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        #expect(landingView.contains("landingInferenceControl"))
+        #expect(landingView.contains("LocalModelToolbarMenu("))
         #expect(rootView.contains("LocalModelToolbarMenu("))
         #expect(rootView.contains("variant: .toolbar"))
         #expect(miniChat.contains("LocalModelToolbarMenu("))
@@ -799,12 +800,12 @@ struct ThemePairTests {
         #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .toolbar)"))
         #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
         #expect(rootView.contains("ASCIIRippleText("))
-        #expect(rootView.contains(".menuStyle(.borderlessButton)"))
+        #expect(rootView.contains("AnchoredPopoverButton("))
         #expect(rootView.contains("inference.setPreferredChatModelSelection(.localQwen(model.id))"))
+        #expect(rootView.contains("Button(\"Open Inference Settings\")"))
         #expect(miniChat.contains("threadState.ensureMiniChatSession(id: chatID)"))
         #expect(miniChat.contains("threadState.upsertMiniChatSession("))
         #expect(!noteWorkspace.contains("Label(\"Local Only\""))
-        #expect(!rootView.contains("AnchoredPopoverButton("))
         #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
         #expect(!rootView.contains("InferenceControlPopoverButton"))
     }
@@ -1125,7 +1126,7 @@ struct ThemePairTests {
         let pbxproj = try loadProjectFile()
         #expect(pbxproj.contains("SWIFT_OBJC_BRIDGING_HEADER = \"Epistemos-Bridging-Header.h\";"))
         #expect(pbxproj.contains("SWIFT_INCLUDE_PATHS = \"$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI"))
-        #expect(pbxproj.contains("\"-L$(PROJECT_DIR)/build-rust\","))
+        #expect(pbxproj.contains("OTHER_LDFLAGS = \"-L$(PROJECT_DIR)/build-rust"))
         #expect(pbxproj.contains("\"@executable_path\","))
         #expect(pbxproj.contains("\"@loader_path/../Frameworks\","))
         #expect(!pbxproj.contains(#"""
@@ -1408,17 +1409,21 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!miniChatWindowController.contains("window.toolbarStyle = .unified\n"))
     }
 
-    @Test("living repo guidance reflects local-only Apple plus Qwen routing")
-    func livingRepoGuidanceReflectsLocalOnlyRouting() throws {
+    @Test("living repo guidance distinguishes live local routing from Hermes cloud plumbing")
+    func livingRepoGuidanceReflectsCurrentRouting() throws {
         let agents = try loadRepoRootTextFile("AGENTS.md")
         let claude = try loadRepoRootTextFile("CLAUDE.md")
         let memory = try loadTextFile("docs/codex-memory.md")
 
-        for source in [agents, claude, memory] {
-            #expect(!source.contains("Cloud (Anthropic/OpenAI)"))
+        for source in [agents, memory] {
             #expect(source.contains("Apple Intelligence"))
             #expect(source.contains("Qwen 3.5"))
+            #expect(source.contains("no cloud fallback in the live app"))
         }
+
+        #expect(claude.contains("cloud API orchestration"))
+        #expect(claude.contains("Anthropic"))
+        #expect(claude.contains("OpenAI"))
     }
 
     @Test("chat thread drops legacy provider metadata fields")

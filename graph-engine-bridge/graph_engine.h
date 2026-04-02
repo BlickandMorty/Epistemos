@@ -343,6 +343,19 @@ void graph_engine_set_node_embedding(
     uint32_t dim
 );
 
+/// Batch-set embedding vectors from parallel UUID and flattened float arrays.
+/// @param uuids Parallel array of node UUIDs.
+/// @param data  Flattened float buffer containing `count * dim` values.
+/// @param dim   Embedding dimension for each node vector.
+/// @param count Number of node embeddings in the batch.
+void graph_engine_set_node_embeddings_batch(
+    Engine* engine,
+    const char* const* uuids,
+    const float* data,
+    uint32_t dim,
+    uint32_t count
+);
+
 /// Clear all stored semantic embeddings and neighbor pairs.
 void graph_engine_clear_embeddings(Engine* engine);
 

@@ -144,6 +144,31 @@ struct LandingExperienceSettingsTests {
     }
 
     @MainActor
+    @Test("UIState fails closed on malformed landing greeting JSON")
+    func uiStateFailsClosedOnMalformedGreetingJSON() {
+        let defaults = UserDefaults.standard
+        let key = LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
+        let previousValue = defaults.object(forKey: key)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        defaults.set(Data("{not-json".utf8), forKey: key)
+
+        let uiState = UIState()
+        #expect(uiState.landingCustomGreetings.isEmpty)
+        let storedData = defaults.data(forKey: key)
+        let sanitizedGreetings = storedData.flatMap {
+            try? JSONDecoder().decode([LandingGreetingEntry].self, from: $0)
+        }
+        #expect(sanitizedGreetings == [])
+    }
+
+    @MainActor
     @Test("UIState migrates the legacy combined greeting toggle into the typewriter toggle")
     func uiStateMigratesLegacyCombinedGreetingToggle() {
         let defaults = UserDefaults.standard

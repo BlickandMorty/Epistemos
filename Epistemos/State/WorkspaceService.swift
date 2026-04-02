@@ -116,7 +116,13 @@ final class WorkspaceService {
         }
 
         let context = modelContainer.mainContext
-        let allPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let allPages: [SDPage]
+        do {
+            allPages = try context.fetch(FetchDescriptor<SDPage>())
+        } catch {
+            Self.log.error("Workspace capture: failed to fetch pages: \(error.localizedDescription, privacy: .public)")
+            allPages = []
+        }
         let wordCountsByPageId = Dictionary(uniqueKeysWithValues: allPages.map { ($0.id, $0.wordCount) })
 
         // Note tabs in tab-bar order
@@ -220,7 +226,14 @@ final class WorkspaceService {
             let descriptor = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.id == pageId }
             )
-            guard (try? context.fetch(descriptor).first) != nil else {
+            let pageExists: Bool
+            do {
+                pageExists = try context.fetch(descriptor).first != nil
+            } catch {
+                Self.log.error("Workspace restore: failed to fetch page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                continue
+            }
+            guard pageExists else {
                 Self.log.info("Workspace restore: skipping deleted page \(pageId, privacy: .public)")
                 continue
             }
@@ -252,7 +265,14 @@ final class WorkspaceService {
             let descriptor = FetchDescriptor<SDChat>(
                 predicate: #Predicate<SDChat> { $0.id == chatId }
             )
-            guard (try? context.fetch(descriptor).first) != nil else {
+            let chatExists: Bool
+            do {
+                chatExists = try context.fetch(descriptor).first != nil
+            } catch {
+                Self.log.error("Workspace restore: failed to fetch chat \(chatId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                continue
+            }
+            guard chatExists else {
                 Self.log.info("Workspace restore: skipping deleted chat \(chatId, privacy: .public)")
                 continue
             }
@@ -275,7 +295,11 @@ final class WorkspaceService {
             HologramController.shared.show()
             // Slight delay to let the overlay initialize before minimizing
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(200))
+                do {
+                    try await Task.sleep(for: .milliseconds(200))
+                } catch {
+                    return
+                }
                 HologramController.shared.minimize()
             }
         case .hidden:
@@ -294,37 +318,48 @@ final class WorkspaceService {
 
     func autoSave() {
         let snapshot = captureSnapshot()
-        guard let data = try? JSONEncoder().encode(snapshot) else {
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(snapshot)
+        } catch {
             Self.log.error("Workspace auto-save: failed to encode snapshot")
             return
         }
 
         let context = modelContainer.mainContext
         let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-        let existing = try? context.fetch(FetchDescriptor(predicate: predicate)).first
-
-        if let existing {
-            existing.snapshotData = data
-            existing.updatedAt = Date()
-        } else {
-            let ws = SDWorkspace(name: "Last Session", isAutoSave: true)
-            ws.snapshotData = data
-            context.insert(ws)
+        let savedWorkspace: SDWorkspace
+        do {
+            if let existing = try context.fetch(FetchDescriptor(predicate: predicate)).first {
+                existing.snapshotData = data
+                existing.updatedAt = Date()
+                savedWorkspace = existing
+            } else {
+                let workspace = SDWorkspace(name: "Last Session", isAutoSave: true)
+                workspace.snapshotData = data
+                context.insert(workspace)
+                savedWorkspace = workspace
+            }
+        } catch {
+            Self.log.error("Workspace auto-save: failed to fetch auto-save workspace: \(error.localizedDescription, privacy: .public)")
+            return
         }
-        do { try context.save() } catch { Self.log.error("Workspace auto-save: context save failed: \(error)") }
+
+        do {
+            try context.save()
+        } catch {
+            Self.log.error("Workspace auto-save: context save failed: \(error)")
+            return
+        }
 
         // Also save snapshot to EventStore for permanent session history
         if let bootstrap = AppBootstrap.shared,
            let snapshotJSON = String(data: data, encoding: .utf8) {
-            let savedWorkspace = existing ?? {
-                let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-                return try? context.fetch(FetchDescriptor(predicate: predicate)).first
-            }()
             EventStore.shared?.saveSnapshot(
                 sessionId: bootstrap.activityTracker.sessionId,
                 snapshotJSON: snapshotJSON,
-                summary: savedWorkspace?.summary ?? "",
-                userNote: savedWorkspace?.userNote ?? ""
+                summary: savedWorkspace.summary,
+                userNote: savedWorkspace.userNote
             )
         }
         Self.log.info("Workspace auto-saved")
@@ -335,12 +370,21 @@ final class WorkspaceService {
 
         let context = modelContainer.mainContext
         let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-        guard let workspace = try? context.fetch(FetchDescriptor(predicate: predicate)).first,
-              !workspace.snapshotData.isEmpty else {
+        let workspace: SDWorkspace?
+        do {
+            workspace = try context.fetch(FetchDescriptor(predicate: predicate)).first
+        } catch {
+            Self.log.error("Workspace auto-restore: failed to fetch auto-save workspace: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        guard let workspace, !workspace.snapshotData.isEmpty else {
             return
         }
 
-        guard let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData) else {
+        let snapshot: WorkspaceSnapshot
+        do {
+            snapshot = try JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData)
+        } catch {
             Self.log.error("Workspace auto-restore: failed to decode snapshot")
             return
         }
@@ -373,7 +417,11 @@ final class WorkspaceService {
         stopAutoSave()
         autoSaveTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(self?.autoSaveInterval ?? 300))
+                do {
+                    try await Task.sleep(for: .seconds(self?.autoSaveInterval ?? 300))
+                } catch {
+                    break
+                }
                 guard !Task.isCancelled, let self else { break }
                 // Only auto-save if there's actual content open
                 let hasWork = !NoteWindowManager.shared.orderedPageIds().isEmpty
@@ -393,14 +441,26 @@ final class WorkspaceService {
     // MARK: - Workspace Diff (changes since last save)
 
     func changesSinceLastSave(for workspace: SDWorkspace) -> WorkspaceDiffSummary {
-        guard !workspace.snapshotData.isEmpty,
-              let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData) else {
+        guard !workspace.snapshotData.isEmpty else {
+            return WorkspaceDiffSummary()
+        }
+        let snapshot: WorkspaceSnapshot
+        do {
+            snapshot = try JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData)
+        } catch {
+            Self.log.error("Workspace diff: failed to decode saved snapshot: \(error.localizedDescription, privacy: .public)")
             return WorkspaceDiffSummary()
         }
 
         let context = modelContainer.mainContext
         var diff = WorkspaceDiffSummary()
-        let currentPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let currentPages: [SDPage]
+        do {
+            currentPages = try context.fetch(FetchDescriptor<SDPage>())
+        } catch {
+            Self.log.error("Workspace diff: failed to fetch current pages: \(error.localizedDescription, privacy: .public)")
+            return WorkspaceDiffSummary()
+        }
         let wordCountsByPageId = Dictionary(uniqueKeysWithValues: currentPages.map { ($0.id, $0.wordCount) })
 
         // Current open note IDs
@@ -437,7 +497,13 @@ final class WorkspaceService {
         }
 
         // Graph node delta
-        let currentNodeCount = (try? context.fetchCount(FetchDescriptor<SDGraphNode>())) ?? 0
+        let currentNodeCount: Int
+        do {
+            currentNodeCount = try context.fetchCount(FetchDescriptor<SDGraphNode>())
+        } catch {
+            Self.log.error("Workspace diff: failed to fetch graph node count: \(error.localizedDescription, privacy: .public)")
+            return diff
+        }
         if let savedAllPageCount = snapshot.totalNoteCount {
             diff.graphNodesAdded = max(0, currentNodeCount - savedAllPageCount)
         }
@@ -449,7 +515,10 @@ final class WorkspaceService {
 
     func saveWorkspace(name: String) {
         let snapshot = captureSnapshot()
-        guard let data = try? JSONEncoder().encode(snapshot) else {
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(snapshot)
+        } catch {
             Self.log.error("Workspace save: failed to encode snapshot for '\(name, privacy: .public)'")
             return
         }
@@ -463,8 +532,14 @@ final class WorkspaceService {
     }
 
     func loadWorkspace(_ workspace: SDWorkspace) {
-        guard !workspace.snapshotData.isEmpty,
-              let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData) else {
+        guard !workspace.snapshotData.isEmpty else {
+            return
+        }
+        let snapshot: WorkspaceSnapshot
+        do {
+            snapshot = try JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData)
+        } catch {
+            Self.log.error("Workspace load: failed to decode snapshot for '\(workspace.name, privacy: .public)': \(error.localizedDescription, privacy: .public)")
             return
         }
         restoreSnapshot(snapshot)
@@ -488,7 +563,12 @@ final class WorkspaceService {
             predicate: predicate,
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
-        return (try? modelContainer.mainContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContainer.mainContext.fetch(descriptor)
+        } catch {
+            Self.log.error("Workspace list: failed to fetch saved workspaces: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     private static func wordCount(from text: String) -> Int {

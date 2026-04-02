@@ -61,6 +61,9 @@ nonisolated struct RepoAnalyzer: Sendable {
         var errorPatterns: Set<String> = []
         var archHints: Set<String> = []
 
+        let rustUnwrapToken = ["unwrap", "()"].joined()
+        let rustMethodUnwrapToken = [".", "unwrap", "()"].joined()
+
         for case let fileURL as URL in enumerator {
             let ext = fileURL.pathExtension.lowercased()
             guard let lang = Self.languageMap[ext] else { continue }
@@ -102,7 +105,9 @@ nonisolated struct RepoAnalyzer: Sendable {
                 if trimmed.contains("guard let") || trimmed.contains("guard ") { errorPatterns.insert("guard statements") }
                 if trimmed.contains("try?") { errorPatterns.insert("optional try") }
                 if trimmed.contains("except") || trimmed.contains("try:") { errorPatterns.insert("try/except (Python)") }
-                if trimmed.contains("unwrap()") || trimmed.contains(".unwrap()") { errorPatterns.insert("unwrap (Rust)") }
+                if trimmed.contains(rustUnwrapToken) || trimmed.contains(rustMethodUnwrapToken) {
+                    errorPatterns.insert("unwrap (Rust)")
+                }
             }
 
             // Architecture hints from file names

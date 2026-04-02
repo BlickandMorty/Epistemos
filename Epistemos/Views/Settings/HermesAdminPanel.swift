@@ -202,12 +202,18 @@ private struct MarketplaceSection: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Link(destination: URL(string: registry.url)!) {
-                                    Label("Open", systemImage: "arrow.up.right.square")
+                                if let destination = URL(string: registry.url) {
+                                    Link(destination: destination) {
+                                        Label("Open", systemImage: "arrow.up.right.square")
+                                            .font(.caption)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                } else {
+                                    Label("Invalid URL", systemImage: "exclamationmark.triangle")
                                         .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
                             }
                             .padding(.vertical, 4)
                         }

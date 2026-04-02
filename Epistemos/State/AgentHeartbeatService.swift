@@ -17,6 +17,8 @@ actor AgentHeartbeatService {
     private let config: EpistemosConfig
     private let hermesManagerProvider: @MainActor @Sendable () -> HermesSubprocessManager?
     private let costTrackerProvider: @MainActor @Sendable () -> CostTracker?
+    private let postDispatchMonitoringWindow: Duration
+    private let postDispatchPollInterval: Duration
     private nonisolated(unsafe) var scheduler: NSBackgroundActivityScheduler?
     private var activityToken: NSObjectProtocol?
     private var runCount: Int = 0
@@ -24,11 +26,15 @@ actor AgentHeartbeatService {
     init(
         config: EpistemosConfig,
         hermesManagerProvider: @escaping @MainActor @Sendable () -> HermesSubprocessManager? = { nil },
-        costTrackerProvider: @escaping @MainActor @Sendable () -> CostTracker? = { nil }
+        costTrackerProvider: @escaping @MainActor @Sendable () -> CostTracker? = { nil },
+        postDispatchMonitoringWindow: Duration = .seconds(30),
+        postDispatchPollInterval: Duration = .milliseconds(250)
     ) {
         self.config = config
         self.hermesManagerProvider = hermesManagerProvider
         self.costTrackerProvider = costTrackerProvider
+        self.postDispatchMonitoringWindow = postDispatchMonitoringWindow
+        self.postDispatchPollInterval = postDispatchPollInterval
     }
 
     // MARK: - Config Reads
@@ -188,12 +194,60 @@ actor AgentHeartbeatService {
             return
         }
 
-        // Wait a reasonable time for the heartbeat to complete.
-        // The actual agent session runs asynchronously; we just need to hold
-        // the activity token long enough for Hermes to process.
-        try? await Task.sleep(for: .seconds(30))
+        let remainedAvailable = await monitorPostDispatchHermesAvailability()
+        guard remainedAvailable else {
+            Self.log.warning("AgentHeartbeat: Hermes disconnected during post-dispatch monitoring")
+            completion(.deferred)
+            return
+        }
 
         completion(.finished)
+    }
+
+    func runHeartbeatForTesting() async -> NSBackgroundActivityScheduler.Result {
+        await withCheckedContinuation { continuation in
+            Task {
+                await self.executeHeartbeat { result in
+                    continuation.resume(returning: result)
+                }
+            }
+        }
+    }
+
+    private func monitorPostDispatchHermesAvailability() async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now + postDispatchMonitoringWindow
+
+        while true {
+            if Task.isCancelled {
+                Self.log.debug("AgentHeartbeat: post-dispatch monitoring cancelled")
+                return false
+            }
+            let running = await MainActor.run {
+                hermesManagerProvider()?.isRunning == true
+            }
+            guard running else {
+                return false
+            }
+            if clock.now >= deadline {
+                return true
+            }
+            do {
+                try await Task.sleep(for: postDispatchPollInterval)
+            } catch is CancellationError {
+                Self.log.debug("AgentHeartbeat: post-dispatch sleep cancelled")
+                return false
+            } catch {
+                Self.log.error(
+                    "AgentHeartbeat: post-dispatch sleep failed — \(error.localizedDescription)"
+                )
+                return false
+            }
+        }
+    }
+
+    func monitorPostDispatchHermesAvailabilityForTesting() async -> Bool {
+        await monitorPostDispatchHermesAvailability()
     }
 
     // MARK: - System Queries

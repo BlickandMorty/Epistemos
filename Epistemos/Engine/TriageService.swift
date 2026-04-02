@@ -170,6 +170,26 @@ nonisolated struct InferencePolicyEngine {
             reasonCodes: &reasonCodes
         )
 
+        if context.routingMode == .localOnly {
+            reasonCodes.insert(.localModeForced)
+            return InferenceRouteDecision(
+                selectedRoute: localRouteKind(
+                    for: localSelection.selection,
+                    context: context
+                ),
+                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                    for: profile,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                ),
+                localSelection: localSelection.selection,
+                reuseWarmModel: localSelection.reuseWarmModel,
+                complexityTier: complexityTier,
+                contextTier: contextTier,
+                reasonCodes: reasonCodes
+            )
+        }
+
         if let explicitRoute = explicitRoute(for: profile, context: context, localSelection: localSelection.selection) {
             return InferenceRouteDecision(
                 selectedRoute: explicitRoute,
@@ -190,26 +210,6 @@ nonisolated struct InferencePolicyEngine {
             for: profile,
             localSelection: localSelection.selection
         ) {
-            return InferenceRouteDecision(
-                selectedRoute: localRouteKind(
-                    for: localSelection.selection,
-                    context: context
-                ),
-                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
-                    for: profile,
-                    complexityTier: complexityTier,
-                    contextTier: contextTier
-                ),
-                localSelection: localSelection.selection,
-                reuseWarmModel: localSelection.reuseWarmModel,
-                complexityTier: complexityTier,
-                contextTier: contextTier,
-                reasonCodes: reasonCodes
-            )
-        }
-
-        if context.routingMode == .localOnly {
-            reasonCodes.insert(.localModeForced)
             return InferenceRouteDecision(
                 selectedRoute: localRouteKind(
                     for: localSelection.selection,
@@ -1324,12 +1324,24 @@ final class TriageService {
         return model
     }
 
+    private func cloudConfigurationError() -> CloudLLMError? {
+        guard let model = selectedCloudModel() else {
+            return .modelRequired
+        }
+        guard let apiKey = inference.apiKey(for: model.provider)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !apiKey.isEmpty else {
+            return .missingAPIKey(model.provider.displayName)
+        }
+        return nil
+    }
+
     private func cloudGenerate(
         prompt: String,
         systemPrompt: String?
     ) async throws -> String {
-        guard selectedCloudModel() != nil else {
-            throw CloudLLMError.modelRequired
+        if let error = cloudConfigurationError() {
+            throw error
         }
         guard let cloudLLMService else {
             throw CloudLLMError.runtimeUnavailable
@@ -1345,9 +1357,9 @@ final class TriageService {
         prompt: String,
         systemPrompt: String?
     ) -> AsyncThrowingStream<String, Error> {
-        guard selectedCloudModel() != nil else {
+        if let error = cloudConfigurationError() {
             return AsyncThrowingStream { continuation in
-                continuation.finish(throwing: CloudLLMError.modelRequired)
+                continuation.finish(throwing: error)
             }
         }
         guard let cloudLLMService else {

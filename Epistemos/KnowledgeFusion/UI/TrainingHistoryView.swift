@@ -122,12 +122,8 @@ struct TrainingHistoryView: View {
         panel.allowedContentTypes = [.data]
         panel.nameFieldStringValue = "\(adapter.name).\(AdapterExporter.bundleExtension)"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        let exporter = AdapterExporter()
-        do {
-            _ = try exporter.export(record: adapter, outputDirectory: url.deletingLastPathComponent())
-        } catch {
-            // Error handled in UI via vm.lastTrainingError
+        Task {
+            _ = await vm.exportAdapter(adapter, outputDirectory: url.deletingLastPathComponent())
         }
     }
 }

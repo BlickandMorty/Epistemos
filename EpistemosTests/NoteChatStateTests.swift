@@ -1,9 +1,16 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Epistemos
 
 @Suite("NoteChatState")
 struct NoteChatStateTests {
+    @MainActor
+    private func makePersistenceContainer() throws -> ModelContainer {
+        let schema = Schema([SDChat.self, SDMessage.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
 
     @Test("init sets pageId and defaults")
     @MainActor func initDefaults() {
@@ -332,7 +339,7 @@ struct NoteChatStateTests {
         }
 
         let capturedPrompt = try #require(llm.lastStreamPrompt)
-        #expect(capturedPrompt.contains("Related notes from instant recall:"))
+        #expect(capturedPrompt.contains("<related_notes>"))
         #expect(capturedPrompt.contains("page-related"))
         #expect(capturedPrompt.contains("Bayesian updating intersects with evidential reasoning"))
         #expect(!capturedPrompt.contains("Current note body duplicate"))
@@ -460,6 +467,46 @@ struct NoteChatStateTests {
         let streamingTaskValue = mirror.children.first(where: { $0.label == "streamingTask" })?.value
         #expect(["nil", "Optional(nil)"].contains(String(describing: streamingTaskValue)))
     }
+
+    @Test("note chat persistence round-trips linked-page history")
+    @MainActor func persistenceRoundTripForLinkedPageHistory() throws {
+        let container = try makePersistenceContainer()
+        let context = ModelContext(container)
+
+        let createdAt = Date(timeIntervalSince1970: 1_234)
+        let state = NoteChatState(pageId: "page-persist")
+        state.messages = [
+            AssistantMessage(
+                id: "msg-user",
+                role: .user,
+                content: "What changed here?",
+                createdAt: createdAt
+            ),
+            AssistantMessage(
+                id: "msg-assistant",
+                role: .assistant,
+                content: "The note now captures the new runtime behavior.",
+                createdAt: createdAt.addingTimeInterval(1)
+            ),
+        ]
+
+        state.persistMessages(context, noteTitle: "Persisted Note")
+
+        let restored = NoteChatState(pageId: "page-persist")
+        restored.loadPersistedMessages(context)
+
+        #expect(restored.messages.count == 2)
+        #expect(restored.messages.map(\.id) == ["msg-user", "msg-assistant"])
+        #expect(restored.messages.map(\.content) == [
+            "What changed here?",
+            "The note now captures the new runtime behavior.",
+        ])
+
+        let chats = try context.fetch(FetchDescriptor<SDChat>())
+        #expect(chats.count == 1)
+        #expect(chats.first?.linkedPageId == "page-persist")
+        #expect(chats.first?.title == "Persisted Note")
+    }
 }
 
 @Suite("DialogueChatState")
@@ -478,6 +525,19 @@ struct DialogueChatStateTests {
         #expect(section.contains("[SUPPORTS] Beta"))
         #expect(section.contains("[QUESTIONS, EXPANDS] Alpha"))
         #expect(section.range(of: "Beta")?.lowerBound ?? section.startIndex < section.range(of: "Alpha")?.lowerBound ?? section.endIndex)
+    }
+
+    @Test("typewriter loop treats sleep cancellation explicitly")
+    func typewriterLoopTreatsSleepCancellationExplicitly() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Epistemos/State/DialogueChatState.swift"),
+            encoding: .utf8
+        )
+
+        #expect(!source.contains("try? await Task.sleep(for: .milliseconds(33))"))
     }
 }
 

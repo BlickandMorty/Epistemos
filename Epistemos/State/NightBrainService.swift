@@ -21,19 +21,53 @@ import os
 actor NightBrainService {
     nonisolated static let log = Logger(subsystem: "com.epistemos", category: "NightBrain")
 
+    enum JobExecutionError: LocalizedError {
+        case missingSearchIndex
+        case missingGraphMemory
+        case missingCloudKnowledgeJob
+
+        var errorDescription: String? {
+            switch self {
+            case .missingSearchIndex:
+                return "NightBrain search index maintenance requires an initialized SearchIndexService"
+            case .missingGraphMemory:
+                return "NightBrain memory distillation requires initialized AgentGraphMemory"
+            case .missingCloudKnowledgeJob:
+                return "NightBrain cloud knowledge distillation requires a configured distillation job"
+            }
+        }
+    }
+
     enum Job: String, CaseIterable, Sendable {
         case eventStoreCheckpointVacuum = "event_store_checkpoint_vacuum"
         case searchIndexPassiveCheckpoint = "search_index_passive_checkpoint"
         case dedupeArtifacts = "dedupe_artifacts"
         case workspaceSnapshotCompaction = "workspace_snapshot_compaction"
         case memoryDistillation = "memory_distillation"
+        case cloudKnowledgeDistillation = "cloud_knowledge_distillation"
         case maintenanceLog = "maintenance_log"
+    }
+
+    enum PipelineResult: Sendable, Equatable {
+        case finished
+        case deferred
+
+        var schedulerResult: NSBackgroundActivityScheduler.Result {
+            switch self {
+            case .finished:
+                return .finished
+            case .deferred:
+                return .deferred
+            }
+        }
     }
 
     private let config: EpistemosConfig
     private let storeProvider: @Sendable () -> EventStore?
     private let searchIndexProvider: @MainActor @Sendable () -> SearchIndexService?
     private let graphMemoryProvider: @MainActor @Sendable () -> AgentGraphMemory?
+    private let hasCloudKnowledgeJob: Bool
+    private let cloudKnowledgeJob: @Sendable () async throws -> Void
     private nonisolated(unsafe) var scheduler: NSBackgroundActivityScheduler?
     private var activityToken: NSObjectProtocol?
     private var currentRunId: Int64?
@@ -42,12 +76,15 @@ actor NightBrainService {
         config: EpistemosConfig,
         storeProvider: @escaping @Sendable () -> EventStore? = { EventStore.shared },
         searchIndexProvider: @escaping @MainActor @Sendable () -> SearchIndexService? = { nil },
-        graphMemoryProvider: @escaping @MainActor @Sendable () -> AgentGraphMemory? = { nil }
+        graphMemoryProvider: @escaping @MainActor @Sendable () -> AgentGraphMemory? = { nil },
+        cloudKnowledgeJob: (@Sendable () async throws -> Void)? = nil
     ) {
         self.config = config
         self.storeProvider = storeProvider
         self.searchIndexProvider = searchIndexProvider
         self.graphMemoryProvider = graphMemoryProvider
+        self.hasCloudKnowledgeJob = cloudKnowledgeJob != nil
+        self.cloudKnowledgeJob = cloudKnowledgeJob ?? { () async throws in }
     }
 
     // MARK: - Config Reads
@@ -121,6 +158,18 @@ actor NightBrainService {
     // MARK: - Pipeline Execution
 
     private func executePipeline(completion: @escaping @Sendable (NSBackgroundActivityScheduler.Result) -> Void) async {
+        let result = await runPipeline(jobOrder: Job.allCases, bypassContinuationChecks: false)
+        completion(result.schedulerResult)
+    }
+
+    func runPipelineForTesting(jobOrder: [Job]) async -> PipelineResult {
+        await runPipeline(jobOrder: jobOrder, bypassContinuationChecks: true)
+    }
+
+    private func runPipeline(
+        jobOrder: [Job],
+        bypassContinuationChecks: Bool
+    ) async -> PipelineResult {
         activityToken = ProcessInfo.processInfo.beginActivity(
             options: [.background, .idleSystemSleepDisabled, .automaticTerminationDisabled],
             reason: "Epistemos Night Brain maintenance"
@@ -134,43 +183,52 @@ actor NightBrainService {
         // Resume state is read from the checkpoint TABLE (not the runs table),
         // so it's durable even if the process crashed between writing a checkpoint
         // and updating the run record.
-        let (runId, alreadyCompleted) = { () -> (Int64?, [String]) in
-            guard let store = storeProvider() else { return (nil, []) }
+        let (store, runId, alreadyCompleted) = { () -> (EventStore?, Int64?, [String]) in
+            guard let store = storeProvider() else { return (nil, nil, []) }
             if let interrupted = store.mostRecentInterruptedRun() {
                 let completed = store.checkpointedJobTypes(runId: interrupted)
                 store.updateNightBrainRun(id: interrupted, status: "running", completedJobs: completed)
-                return (interrupted, completed)
+                return (store, interrupted, completed)
             }
-            return (store.insertNightBrainRun(status: "running", triggerReason: "scheduler"), [])
+            return (store, store.insertNightBrainRun(status: "running", triggerReason: "scheduler"), [])
         }()
 
-        guard let runId else {
-            completion(.deferred)
-            return
+        guard let store, let runId else {
+            return .deferred
         }
         currentRunId = runId
+        defer { currentRunId = nil }
 
         var completedJobs = alreadyCompleted
 
-        for job in Job.allCases {
+        for job in jobOrder {
             if completedJobs.contains(job.rawValue) {
                 continue
             }
 
-            guard await canContinue() else {
-                storeProvider()?.updateNightBrainRun(
+            let shouldContinue = bypassContinuationChecks ? true : await canContinue()
+            guard shouldContinue else {
+                store.updateNightBrainRun(
                     id: runId, status: "interrupted", completedJobs: completedJobs
                 )
-                completion(.deferred)
-                return
+                return .deferred
             }
 
-            await executeJob(job)
+            do {
+                try await executeJob(job, store: store)
+            } catch {
+                Self.log.error(
+                    "NightBrain: job \(job.rawValue, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
+                )
+                store.updateNightBrainRun(
+                    id: runId, status: "interrupted", completedJobs: completedJobs
+                )
+                return .deferred
+            }
             completedJobs.append(job.rawValue)
 
             // Write a checkpoint row for EVERY completed job — this is the
             // durable resume record. The runs table is updated too for query convenience.
-            guard let store = storeProvider() else { continue }
             store.insertCheckpoint(
                 runId: runId, jobType: job.rawValue,
                 data: "{\"completed_at\": \(Date().timeIntervalSince1970)}"
@@ -180,44 +238,52 @@ actor NightBrainService {
             )
         }
 
-        storeProvider()?.updateNightBrainRun(
+        store.updateNightBrainRun(
             id: runId, status: "completed", completedJobs: completedJobs,
             completedAt: Date().timeIntervalSince1970
         )
         Self.log.info("NightBrain: pipeline completed (\(completedJobs.count) jobs)")
-        completion(.finished)
+        return .finished
     }
 
     // MARK: - Job Execution
 
-    private func executeJob(_ job: Job) async {
+    private func executeJob(_ job: Job, store: EventStore) async throws {
         Self.log.info("NightBrain: executing \(job.rawValue, privacy: .public)")
 
         switch job {
         case .eventStoreCheckpointVacuum:
-            storeProvider()?.walCheckpointVacuum()
+            store.walCheckpointVacuum()
             try? await Task.sleep(nanoseconds: 100_000_000)
 
         case .searchIndexPassiveCheckpoint:
-            let searchIndex = await MainActor.run { searchIndexProvider() }
-            try? searchIndex?.passiveCheckpoint()
+            guard let searchIndex = await MainActor.run(body: { searchIndexProvider() }) else {
+                throw JobExecutionError.missingSearchIndex
+            }
+            try searchIndex.passiveCheckpoint()
 
         case .dedupeArtifacts:
-            storeProvider()?.deduplicateArtifacts()
+            store.deduplicateArtifacts()
 
         case .workspaceSnapshotCompaction:
-            storeProvider()?.compactSnapshots(olderThanDays: 30)
+            store.compactSnapshots(olderThanDays: 30)
 
         case .memoryDistillation:
-            let graphMemory = await MainActor.run { graphMemoryProvider() }
-            if let graphMemory {
-                let result = await MainActor.run {
-                    graphMemory.distillMemory()
-                }
-                Self.log.info(
-                    "Memory distillation: decayed \(result.nodesDecayed), GC'd \(result.nodesGarbageCollected) of \(result.totalNodesProcessed)"
-                )
+            guard let graphMemory = await MainActor.run(body: { graphMemoryProvider() }) else {
+                throw JobExecutionError.missingGraphMemory
             }
+            let result = await MainActor.run {
+                graphMemory.distillMemory()
+            }
+            Self.log.info(
+                "Memory distillation: decayed \(result.nodesDecayed), GC'd \(result.nodesGarbageCollected) of \(result.totalNodesProcessed)"
+            )
+
+        case .cloudKnowledgeDistillation:
+            guard hasCloudKnowledgeJob else {
+                throw JobExecutionError.missingCloudKnowledgeJob
+            }
+            try await cloudKnowledgeJob()
 
         case .maintenanceLog:
             // No-op: the checkpoint is written by the pipeline loop after every job.

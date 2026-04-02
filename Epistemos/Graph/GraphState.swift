@@ -520,7 +520,11 @@ final class GraphState {
 
     /// Graph-only runtime render mode. Default remains the polished cinematic path.
     var performanceModeEnabled: Bool = {
-        UserDefaults.standard.bool(forKey: "epistemos.graph.performanceMode")
+        // Default to performance mode on first launch.
+        if UserDefaults.standard.object(forKey: "epistemos.graph.performanceMode") == nil {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: "epistemos.graph.performanceMode")
     }() {
         didSet {
             guard performanceModeEnabled != oldValue else { return }
@@ -535,8 +539,12 @@ final class GraphState {
 
     /// Runtime quality level forwarded to Rust.
     /// 0 = cinematic default, 2 = performance mode.
+    /// Forced to 2 (performance) in eco/lowPower mode regardless of user preference.
     var qualityLevel: UInt8 {
-        get { performanceModeEnabled ? 2 : 0 }
+        get {
+            if PowerGuard.shared.shouldDisableBackground { return 2 }
+            return performanceModeEnabled ? 2 : 0
+        }
         set { performanceModeEnabled = newValue >= 2 }
     }
 

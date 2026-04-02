@@ -29,10 +29,11 @@ private actor ActivityFlagState {
 
 @MainActor @Observable
 final class ActivityTracker {
-    private static let log = Logger(subsystem: "com.epistemos", category: "ActivityTracker")
+    nonisolated private static let log = Logger(subsystem: "com.epistemos", category: "ActivityTracker")
     private static let idleScanDelay: Duration = .seconds(5)
     private static let maxEvents = 2000
     private static let maxTrackedTabs = 10
+    private static let flushFileLabel = "activity tracker cache"
 
     private(set) var events: [ActivityEvent] = []
     private var paragraphHashes: [String: [UInt64]] = [:] // pageId -> [FNV-1a hash per paragraph]
@@ -41,6 +42,16 @@ final class ActivityTracker {
     nonisolated private let activityFlagState = ActivityFlagState()
     private(set) var trackingStartedAt: Date?
     let sessionId = UUID().uuidString
+    private let eventStoreProvider: @MainActor @Sendable () -> EventStore?
+    private let cacheFileURLProvider: @Sendable () -> URL
+
+    init(
+        eventStoreProvider: @escaping @MainActor @Sendable () -> EventStore? = { EventStore.shared },
+        cacheFileURLProvider: @escaping @Sendable () -> URL = ActivityTracker.defaultFlushFileURL
+    ) {
+        self.eventStoreProvider = eventStoreProvider
+        self.cacheFileURLProvider = cacheFileURLProvider
+    }
 
     // MARK: - Lifecycle
 
@@ -61,7 +72,11 @@ final class ActivityTracker {
         // Adaptive scan loop: check idle time, scan only after activity + idle
         scanTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    break
+                }
                 guard !Task.isCancelled, let self else { break }
 
                 // Only scan if user was recently active and is now idle
@@ -210,7 +225,12 @@ final class ActivityTracker {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == targetId }
         )
-        return try? context.fetch(descriptor).first?.title
+        do {
+            return try context.fetch(descriptor).first?.title
+        } catch {
+            Self.log.error("ActivityTracker: failed to fetch page title: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Ring Buffer
@@ -221,34 +241,72 @@ final class ActivityTracker {
         if events.count > Self.maxEvents {
             events.removeFirst(events.count - Self.maxEvents)
         }
-        // Also persist to EventStore if available
-        EventStore.shared?.appendEvent(sessionId: sessionId, kind: kind)
+        guard let eventStore = eventStoreProvider() else {
+            Self.log.error("ActivityTracker: EventStore unavailable; skipping durable event append")
+            return
+        }
+        eventStore.appendEvent(sessionId: sessionId, kind: kind)
     }
 
     /// Flush in-memory events to disk as JSON for crash resilience.
     func flushToDisk() {
         guard !events.isEmpty else { return }
         let eventsCopy = self.events
-        guard let data = try? JSONEncoder().encode(eventsCopy) else { return }
-        let url = Self.flushFileURL
-        try? data.write(to: url, options: .atomic)
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(eventsCopy)
+        } catch {
+            Self.log.error("ActivityTracker: failed to encode events for flush: \(error.localizedDescription)")
+            return
+        }
+        let text: String
+        do {
+            text = try FoundationSafety.utf8String(from: data)
+        } catch {
+            Self.log.error("ActivityTracker: failed to encode flush payload as UTF-8: \(error.localizedDescription)")
+            return
+        }
+        let url = cacheFileURLProvider()
+        guard NoteFileStorage.writeTextAtomically(text, to: url, itemLabel: Self.flushFileLabel) else {
+            Self.log.error("ActivityTracker: durable flush write failed")
+            return
+        }
         Self.log.info("Flushed \(eventsCopy.count) events to disk")
     }
 
     /// Load previously flushed events on startup (crash recovery).
     func loadFlushedEvents() {
-        let url = Self.flushFileURL
-        guard let data = try? Data(contentsOf: url),
-              let loaded = try? JSONDecoder().decode([ActivityEvent].self, from: data) else { return }
-        events = loaded
-        try? FileManager.default.removeItem(at: url)
+        let url = cacheFileURLProvider()
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            return
+        }
+        let loaded: [ActivityEvent]
+        do {
+            loaded = try JSONDecoder().decode([ActivityEvent].self, from: data)
+        } catch {
+            Self.log.error("ActivityTracker: failed to decode flushed events: \(error.localizedDescription)")
+            return
+        }
+        events = Array((loaded + events).suffix(Self.maxEvents))
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            Self.log.error("ActivityTracker: failed to remove flushed event cache: \(error.localizedDescription)")
+        }
         Self.log.info("Recovered \(loaded.count) flushed events")
     }
 
-    private static var flushFileURL: URL {
+    private nonisolated static func defaultFlushFileURL() -> URL {
         let appSupport = FoundationSafety.userApplicationSupportDirectory()
         let dir = appSupport.appendingPathComponent("Epistemos")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            log.error("ActivityTracker: failed to create flush directory: \(error.localizedDescription)")
+        }
         return dir.appendingPathComponent("activity-events-cache.json")
     }
 }

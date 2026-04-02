@@ -34,6 +34,7 @@ final class PipelineService {
     private let inference: InferenceState
     private let eventBus: EventBus
     private var pipelineTask: Task<Void, Never>?
+    private var activeRunID: UUID?
 
     init(
         pipelineState: PipelineState,
@@ -57,20 +58,18 @@ final class PipelineService {
         localReasoningMode: LocalReasoningMode = .fast
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         let _ = (mode, llmService, inference, eventBus)
-        pipelineTask?.cancel()
-        pipelineTask = nil
+        let runID = UUID()
+        supersedeActiveRun(with: runID)
 
         let finisher = FinishOnce()
 
         return AsyncThrowingStream { continuation in
-            continuation.onTermination = { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.pipelineTask?.cancel()
-                }
-            }
-
             let mainTask = Task { @MainActor [weak self] in
                 guard let self else {
+                    if finisher.tryFinish() { continuation.finish() }
+                    return
+                }
+                guard activeRunID == runID, !Task.isCancelled else {
                     if finisher.tryFinish() { continuation.finish() }
                     return
                 }
@@ -92,7 +91,7 @@ final class PipelineService {
                     }
 
                     guard !Task.isCancelled else {
-                        pipelineState.completeProcessing()
+                        completeActiveRunIfNeeded(runID)
                         if finisher.tryFinish() { continuation.finish() }
                         return
                     }
@@ -107,22 +106,53 @@ final class PipelineService {
                             nil
                         )
                     )
-                    pipelineState.completeProcessing()
+                    completeActiveRunIfNeeded(runID)
                     if finisher.tryFinish() { continuation.finish() }
                 } catch is CancellationError {
-                    pipelineState.completeProcessing()
+                    completeActiveRunIfNeeded(runID)
                     if finisher.tryFinish() { continuation.finish() }
                 } catch {
-                    pipelineState.setError(error.localizedDescription)
+                    failActiveRunIfNeeded(runID, error: error.localizedDescription)
                     continuation.yield(.error(error.localizedDescription))
                     if finisher.tryFinish() { continuation.finish() }
                 }
             }
 
-            Task { @MainActor [weak self] in
-                self?.pipelineTask = mainTask
+            pipelineTask = mainTask
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.cancelActiveRunIfNeeded(runID)
+                }
             }
         }
+    }
+
+    private func supersedeActiveRun(with runID: UUID) {
+        pipelineTask?.cancel()
+        pipelineTask = nil
+        activeRunID = runID
+    }
+
+    private func cancelActiveRunIfNeeded(_ runID: UUID) {
+        guard activeRunID == runID else { return }
+        pipelineTask?.cancel()
+        pipelineTask = nil
+        activeRunID = nil
+    }
+
+    private func completeActiveRunIfNeeded(_ runID: UUID) {
+        guard activeRunID == runID else { return }
+        pipelineState.completeProcessing()
+        pipelineTask = nil
+        activeRunID = nil
+    }
+
+    private func failActiveRunIfNeeded(_ runID: UUID, error: String) {
+        guard activeRunID == runID else { return }
+        pipelineState.setError(error)
+        pipelineState.completeProcessing()
+        pipelineTask = nil
+        activeRunID = nil
     }
 
     private func generateDirectStream(

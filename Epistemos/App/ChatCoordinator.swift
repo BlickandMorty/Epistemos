@@ -87,6 +87,52 @@ final class ChatCoordinator {
         self.notesUI = notesUI
     }
 
+    private func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> [T]? {
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            Log.db.error(
+                "ChatCoordinator: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func fetchFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> T? {
+        fetchAll(descriptor, in: context, label: label)?.first
+    }
+
+    private static func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> [T]? {
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            Log.db.error(
+                "ChatCoordinator: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private static func fetchFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> T? {
+        fetchAll(descriptor, in: context, label: label)?.first
+    }
+
     // MARK: - Query Lifecycle
 
     /// Process a user query through the direct local answer path, streaming tokens back to ChatState.
@@ -276,7 +322,11 @@ final class ChatCoordinator {
                     let context = modelContainer.mainContext
                     let predicate = #Predicate<SDChat> { $0.id == chatId }
                     let descriptor = FetchDescriptor<SDChat>(predicate: predicate)
-                    if let sdChat = try? context.fetch(descriptor).first {
+                    if let sdChat = fetchFirst(
+                        descriptor,
+                        in: context,
+                        label: "chat title target \(chatId)"
+                    ) {
                         sdChat.title = cleaned
                         do {
                             try context.save()
@@ -319,7 +369,8 @@ final class ChatCoordinator {
         var includeManifest = includeAllNotesContext
 
         let mentionPattern = #"@\[([^\]]+)\]"#
-        if let regex = try? NSRegularExpression(pattern: mentionPattern) {
+        do {
+            let regex = try NSRegularExpression(pattern: mentionPattern)
             let nsQuery = query as NSString
             let matches = regex.matches(in: query, range: NSRange(location: 0, length: nsQuery.length))
 
@@ -353,6 +404,10 @@ final class ChatCoordinator {
                     }
                 }
             }
+        } catch {
+            Log.pipeline.error(
+                "ChatCoordinator: failed to compile explicit context mention regex: \(error.localizedDescription, privacy: .public)"
+            )
         }
 
         if referencedNotes.isEmpty,
@@ -727,7 +782,11 @@ final class ChatCoordinator {
                     }
                     let context = modelContainer.mainContext
                     let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
-                    guard let chat = try? context.fetch(descriptor).first else { return [] }
+                    guard let chat = self.fetchFirst(
+                        descriptor,
+                        in: context,
+                        label: "attached chat context \(chatID)"
+                    ) else { return [] }
                     return chat.sortedMessages.map { message in
                         AssistantMessage(
                             role: message.role == "user" ? .user : .assistant,
@@ -1106,7 +1165,11 @@ final class ChatCoordinator {
 
         // Latest AI workspace summary
         // Note: Uses direct fetch + filter to avoid #Predicate macro expansion scope issue.
-        let allWorkspaces: [SDWorkspace] = (try? context.fetch(FetchDescriptor<SDWorkspace>())) ?? []
+        let allWorkspaces = fetchAll(
+            FetchDescriptor<SDWorkspace>(),
+            in: context,
+            label: "workspace awareness workspaces"
+        ) ?? []
         if let workspace = allWorkspaces.first(where: { $0.isAutoSave }), !workspace.summary.isEmpty {
             parts.append("[Workspace Summary] \(workspace.summary)")
             if !workspace.userNote.isEmpty {
@@ -1123,7 +1186,11 @@ final class ChatCoordinator {
                 let desc = FetchDescriptor<SDPage>(
                     predicate: #Predicate<SDPage> { $0.id == targetId }
                 )
-                guard let page = try? context.fetch(desc).first else { continue }
+                guard let page = fetchFirst(
+                    desc,
+                    in: context,
+                    label: "workspace awareness page \(targetId)"
+                ) else { continue }
                 let title = page.title.isEmpty ? "Untitled" : page.title
                 if deepContext {
                     let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
@@ -1200,7 +1267,7 @@ final class ChatCoordinator {
                 predicate: #Predicate<SDChat> { $0.updatedAt >= todayStart },
                 sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
             )
-            if let chats = try? context.fetch(chatDesc) {
+            if let chats = fetchAll(chatDesc, in: context, label: "workspace awareness recent chats") {
                 var chatSummaries: [String] = []
                 for chat in chats.prefix(10) {
                     let msgs = chat.sortedMessages
@@ -1376,11 +1443,11 @@ final class ChatCoordinator {
                 let page: SDPage?
                 if let targetId {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
-                    page = try? context.fetch(desc).first
+                    page = fetchFirst(desc, in: context, label: "action tag target page \(targetId)")
                 } else {
                     var desc = FetchDescriptor<SDPage>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
                     desc.fetchLimit = 1
-                    page = try? context.fetch(desc).first
+                    page = fetchFirst(desc, in: context, label: "action tag fallback page")
                 }
                 if let page {
                     let newTags = tags.filter { !page.tags.contains($0) }
@@ -1402,11 +1469,11 @@ final class ChatCoordinator {
                 .replacingOccurrences(of: "]", with: "")
                 .trimmingCharacters(in: .whitespaces)
             let folderDesc = FetchDescriptor<SDFolder>()
-            if let folders = try? context.fetch(folderDesc),
+            if let folders = fetchAll(folderDesc, in: context, label: "action move folders"),
                let folder = folders.first(where: { $0.name.lowercased() == folderName.lowercased() }) {
                 var pageDesc = FetchDescriptor<SDPage>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
                 pageDesc.fetchLimit = 1
-                if let page = try? context.fetch(pageDesc).first {
+                if let page = fetchFirst(pageDesc, in: context, label: "action move target page") {
                     page.folder = folder
                     page.updatedAt = .now
                     executed.append("✅ Moved \(page.title) to \(folder.name)")
@@ -1458,7 +1525,7 @@ final class ChatCoordinator {
         let predicate = #Predicate<SDChat> { $0.id == chatId }
         let descriptor = FetchDescriptor<SDChat>(predicate: predicate)
 
-        if let existing = try? context.fetch(descriptor).first {
+        if let existing = fetchFirst(descriptor, in: context, label: "chat persistence") {
             chat = existing
             chat.updatedAt = .now
         } else {
@@ -1580,7 +1647,11 @@ final class ChatCoordinator {
             )
             // localizedStandardContains is case/diacritic-insensitive but may over-match;
             // filter to exact case-insensitive equality.
-            if let page = try? context.fetch(descriptor).first(where: {
+            if let page = fetchAll(
+                descriptor,
+                in: context,
+                label: "linked page detection"
+            )?.first(where: {
                 $0.title.lowercased() == lower
             }) {
                 return page.id

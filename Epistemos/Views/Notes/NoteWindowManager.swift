@@ -559,7 +559,7 @@ final class NoteWindowManager {
 
     /// Prefer the live editor body for an open note window, then fall back to the persisted body file.
     func currentBody(for pageId: String, mapped: Bool = false) -> String {
-        editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped)
+        editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: !mapped)
     }
 
     private static func findTextView(in view: NSView?) -> NSTextView? {

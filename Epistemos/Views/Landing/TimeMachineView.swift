@@ -306,7 +306,18 @@ struct TimeMachineView: View {
         // Yield to let SwiftUI render the loading state before heavy work.
         Task { @MainActor in
             // Small yield so the spinner becomes visible before the synchronous work blocks.
-            try? await Task.sleep(for: .milliseconds(10))
+            do {
+                try await Task.sleep(for: .milliseconds(10))
+            } catch is CancellationError {
+                isLoading = false
+                return
+            } catch {
+                Log.app.error(
+                    "TimeMachineView: snapshot selection delay failed: \(error.localizedDescription, privacy: .public)"
+                )
+                isLoading = false
+                return
+            }
             guard let service = AppBootstrap.shared?.workspaceService.timeMachineService else {
                 isLoading = false
                 return
@@ -325,15 +336,33 @@ struct TimeMachineView: View {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         let name = "Restored: \(formatter.string(from: state.timestamp))"
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(snapshot)
+        } catch {
+            Log.app.error(
+                "TimeMachineView: failed to encode restored workspace snapshot: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
 
-        let context = AppBootstrap.shared?.modelContainer.mainContext
+        guard let context = AppBootstrap.shared?.modelContainer.mainContext else {
+            Log.app.error("TimeMachineView: missing main context for workspace restore")
+            return
+        }
         let ws = SDWorkspace(name: name, isAutoSave: false)
         ws.snapshotData = data
         ws.summary = state.summary
         ws.userNote = "Restored from Time Machine"
-        context?.insert(ws)
-        try? context?.save()
+        context.insert(ws)
+        do {
+            try context.save()
+        } catch {
+            Log.app.error(
+                "TimeMachineView: failed to persist restored workspace: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
 
         // Load the workspace
         AppBootstrap.shared?.workspaceService.loadWorkspace(ws)
@@ -343,7 +372,17 @@ struct TimeMachineView: View {
     private func dismiss() {
         withAnimation(.easeIn(duration: 0.15)) { appeared = false }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
+            do {
+                try await Task.sleep(for: .milliseconds(150))
+            } catch is CancellationError {
+                return
+            } catch {
+                Log.app.error(
+                    "TimeMachineView: dismiss delay failed: \(error.localizedDescription, privacy: .public)"
+                )
+                isPresented = false
+                return
+            }
             isPresented = false
         }
     }

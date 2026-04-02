@@ -315,7 +315,7 @@ struct NoteWindowManagerTests {
         #expect(panel.isMovableByWindowBackground)
         let toolbar = try #require(panel.toolbar)
         #expect(toolbar.identifier == "SettingsToolbar")
-        #expect(panel.toolbarStyle == .unifiedCompact)
+        #expect(panel.toolbarStyle == .unified)
     }
 
     @MainActor

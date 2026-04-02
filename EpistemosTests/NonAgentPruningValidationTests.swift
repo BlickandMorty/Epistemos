@@ -136,7 +136,7 @@ struct NonAgentPruningValidationTests {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
 
         #expect(source.contains("func currentBody(for pageId: String, mapped: Bool = false) -> String"))
-        #expect(source.contains("editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped)"))
+        #expect(source.contains("editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: !mapped)"))
     }
 
     @Test("workspace and activity surfaces use the shared live-editor-first body helper")

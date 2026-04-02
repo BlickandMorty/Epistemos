@@ -384,9 +384,35 @@ pub fn maybe_offload_to_shm(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, MutexGuard, OnceLock};
+
+    struct ShmTestScope {
+        _guard: MutexGuard<'static, ()>,
+    }
+
+    impl ShmTestScope {
+        fn new() -> Self {
+            static TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+            let guard = TEST_MUTEX
+                .get_or_init(|| Mutex::new(()))
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+
+            ShmPool::cleanup_all();
+            Self { _guard: guard }
+        }
+    }
+
+    impl Drop for ShmTestScope {
+        fn drop(&mut self) {
+            ShmPool::cleanup_all();
+        }
+    }
 
     #[test]
     fn roundtrip_shared_memory() {
+        let _scope = ShmTestScope::new();
         let name = "/epistemos_test_shm_roundtrip";
         let data = b"Hello from shared memory!";
 
@@ -403,6 +429,7 @@ mod tests {
 
     #[test]
     fn shm_reference_serializes() {
+        let _scope = ShmTestScope::new();
         let reference = ShmReference {
             segment_name: "/epistemos_ast_abc123".to_string(),
             byte_length: 65536,
@@ -414,6 +441,7 @@ mod tests {
 
     #[test]
     fn shm_pool_write_and_read_payload() {
+        let _scope = ShmTestScope::new();
         ShmPool::init();
         let data = b"zero-copy payload for the MCP bridge";
         let reference =
@@ -432,6 +460,7 @@ mod tests {
 
     #[test]
     fn shm_pool_cleanup_all() {
+        let _scope = ShmTestScope::new();
         ShmPool::init();
         ShmPool::write_payload("sess_a", b"alpha", "text/plain").expect("write failed");
         ShmPool::write_payload("sess_a", b"bravo", "text/plain").expect("write failed");
@@ -446,6 +475,7 @@ mod tests {
 
     #[test]
     fn shm_pool_unique_segment_names() {
+        let _scope = ShmTestScope::new();
         ShmPool::init();
         let r1 = ShmPool::write_payload("uniq", b"a", "text/plain").expect("write failed");
         let r2 = ShmPool::write_payload("uniq", b"b", "text/plain").expect("write failed");
@@ -455,6 +485,7 @@ mod tests {
 
     #[test]
     fn shm_pool_rejects_oversized_payload() {
+        let _scope = ShmTestScope::new();
         ShmPool::init();
         let huge = vec![0u8; MAX_SEGMENT_SIZE + 1];
         let result = ShmPool::write_payload("oversize", &huge, "application/octet-stream");
@@ -463,6 +494,7 @@ mod tests {
 
     #[test]
     fn maybe_offload_small_payload_passes_through() {
+        let _scope = ShmTestScope::new();
         let small = "x".repeat(1024);
         let result = maybe_offload_to_shm("sess_small", small.clone(), "text/plain");
         assert_eq!(result, small);
@@ -470,6 +502,7 @@ mod tests {
 
     #[test]
     fn maybe_offload_large_payload_returns_shm_reference() {
+        let _scope = ShmTestScope::new();
         ShmPool::init();
         let large = "x".repeat(SHM_OFFLOAD_THRESHOLD + 1);
         let result = maybe_offload_to_shm("sess_large", large, "application/json");

@@ -163,7 +163,18 @@ final class MiniChatWindowController {
     private func activeNoteAttachment(in bootstrap: AppBootstrap) -> ContextAttachment? {
         guard let pageID = bootstrap.notesUI.activePageId else { return nil }
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageID })
-        guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else { return nil }
+        let page: SDPage
+        do {
+            guard let fetched = try bootstrap.modelContainer.mainContext.fetch(descriptor).first else {
+                return nil
+            }
+            page = fetched
+        } catch {
+            Log.pipeline.error(
+                "MiniChatWindowController: failed to fetch active note attachment for \(pageID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
         return ComposerReferenceHelpers.noteAttachment(pageID: page.id, title: page.title)
     }
 }

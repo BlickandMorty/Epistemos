@@ -1,6 +1,9 @@
 import Foundation
 import Observation
+import OSLog
 import SwiftUI
+
+private let vaultRegistryLog = Logger(subsystem: "com.epistemos", category: "VaultRegistry")
 
 nonisolated struct VaultRegistryEntry: Identifiable, Hashable, Sendable {
     var identity: VaultIdentity
@@ -136,8 +139,17 @@ final class VaultRegistry {
 
         var latestDate: Date?
         for case let fileURL as URL in enumerator {
-            guard let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
-                  let modified = values.contentModificationDate else {
+            let modified: Date
+            do {
+                guard let value = try fileURL.resourceValues(forKeys: [.contentModificationDateKey])
+                    .contentModificationDate else {
+                    continue
+                }
+                modified = value
+            } catch {
+                vaultRegistryLog.error(
+                    "VaultRegistry: failed to inspect modification date for \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
                 continue
             }
             if latestDate == nil || modified > latestDate ?? .distantPast {

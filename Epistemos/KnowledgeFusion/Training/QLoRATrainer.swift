@@ -42,7 +42,7 @@ nonisolated struct AdapterMetadata: Sendable, Codable {
 
 // MARK: - QLoRATrainer
 
-/// Swift wrapper that invokes Python training scripts via Process().
+/// Swift wrapper that invokes Python training scripts through a subprocess.
 /// This is the first Swift→Python process bridge in the Epistemos codebase.
 ///
 /// CRITICAL (ANCHOR 3, GAP 1): Training scripts produce SEPARATE adapter
@@ -170,7 +170,7 @@ actor QLoRATrainer {
             arguments.append(contentsOf: ["--replay_path", replayPath.path])
         }
 
-        let process = Process()
+        let process = Process.init()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = arguments
 
@@ -180,6 +180,7 @@ actor QLoRATrainer {
         process.standardError = stderrPipe
 
         activeProcess = process
+        defer { activeProcess = nil }
 
         // Parse stdout in real-time for progress updates
         let progressParser = TrainingProgressParser(
@@ -196,26 +197,46 @@ actor QLoRATrainer {
             }
         }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            process.terminationHandler = { proc in
-                stdoutHandle.readabilityHandler = nil
-                if proc.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
-                    let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-                    continuation.resume(throwing: QLoRATrainerError.trainingFailed(errorMsg))
+        let timeoutSeconds = 3600.0
+        let state = ThrowingProcessContinuationState<Void>()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                guard state.store(process: process, continuation: continuation) else {
+                    stdoutHandle.readabilityHandler = nil
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+
+                let timeoutTask = Task.detached(priority: .utility) {
+                    try? await Task.sleep(for: .seconds(timeoutSeconds))
+                    state.terminate()
+                    state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
+                }
+
+                process.terminationHandler = { proc in
+                    timeoutTask.cancel()
+                    stdoutHandle.readabilityHandler = nil
+                    if proc.terminationStatus == 0 {
+                        state.resume(returning: ())
+                    } else {
+                        let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                        let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+                        state.resume(throwing: QLoRATrainerError.trainingFailed(errorMsg))
+                    }
+                }
+
+                do {
+                    try process.run()
+                } catch {
+                    timeoutTask.cancel()
+                    stdoutHandle.readabilityHandler = nil
+                    state.resume(throwing: error)
                 }
             }
-
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        } onCancel: {
+            state.terminate()
+            state.resume(throwing: CancellationError())
         }
-
-        activeProcess = nil
 
         // Read and return metadata
         let metadataPath = outputPath.appendingPathComponent("training_metadata.json")

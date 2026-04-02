@@ -75,8 +75,7 @@ actor HarnessRegistry {
     private var cachedProductionConfig: HarnessConfig?
 
     init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         self.baseDir = appSupport.appendingPathComponent("com.epistemos.app/harness")
     }
 
@@ -137,6 +136,7 @@ actor HarnessRegistry {
 
     private var labDir: URL { baseDir.appendingPathComponent("lab") }
     private var candidatesDir: URL { labDir.appendingPathComponent("candidates") }
+    var proposalArtifactsDir: URL { labDir.appendingPathComponent("proposals") }
 
     /// Create a new candidate harness directory.
     /// Returns the candidate ID and directory URL.
@@ -221,6 +221,134 @@ actor HarnessRegistry {
         cachedProductionConfig = nil
 
         Self.log.notice("Promoted \(candidateId) as \(newVersion)")
+    }
+
+    // MARK: - Candidate Scores
+
+    /// Save evaluation results for a candidate.
+    /// Creates `scores_{setName}.json` in the candidate directory.
+    func saveCandidateScores(
+        candidateId: String,
+        setName: String,
+        suiteResult: EvalSuiteResult
+    ) throws {
+        let fm = FileManager.default
+        let candidateDir = candidatesDir.appendingPathComponent(candidateId)
+        guard fm.fileExists(atPath: candidateDir.path) else {
+            throw HarnessError.candidateNotFound(candidateId)
+        }
+
+        // Build JSON manually to avoid Swift 6.2 MainActor Codable inference
+        let resultDicts: [[String: Any]] = suiteResult.results.map { r in
+            var d: [String: Any] = [
+                "taskId": r.taskId,
+                "harnessVersion": r.harnessVersion,
+                "passed": r.passed,
+                "score": r.score,
+                "tokenCost": r.tokenCost,
+                "turns": r.turns,
+                "evidence": r.evidence,
+                "timestamp": r.timestamp
+            ]
+            if let tp = r.tracePath { d["tracePath"] = tp.path }
+            return d
+        }
+
+        let payload: [String: Any] = [
+            "harnessVersion": suiteResult.harnessVersion,
+            "setName": setName,
+            "passRate": suiteResult.passRate,
+            "averageScore": suiteResult.averageScore,
+            "averageTokenCost": suiteResult.averageTokenCost,
+            "evaluatedAt": ISO8601DateFormatter().string(from: Date()),
+            "results": resultDicts
+        ]
+
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+        let scoresPath = candidateDir.appendingPathComponent("scores_\(setName).json")
+        try data.write(to: scoresPath)
+    }
+
+    /// Load evaluation scores for a candidate.
+    func loadCandidateScores(candidateId: String, setName: String) -> [String: Any]? {
+        let scoresPath = candidatesDir
+            .appendingPathComponent(candidateId)
+            .appendingPathComponent("scores_\(setName).json")
+        guard let data = try? Data(contentsOf: scoresPath),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return dict
+    }
+
+    // MARK: - Candidate Harness Diff
+
+    /// Generate a unified diff between the production harness and a candidate harness.
+    /// Returns an array of per-file diffs.
+    func diffCandidate(_ candidateId: String) throws -> [HarnessDiff] {
+        let fm = FileManager.default
+        let candidateHarnessDir = candidatesDir.appendingPathComponent(candidateId).appendingPathComponent("harness")
+        guard fm.fileExists(atPath: candidateHarnessDir.path) else {
+            throw HarnessError.candidateNotFound(candidateId)
+        }
+
+        ensureDefaultHarnessExists()
+        let prodDir: URL
+        let currentPath = currentLink.path
+        if let dest = try? fm.destinationOfSymbolicLink(atPath: currentPath) {
+            prodDir = productionDir.appendingPathComponent(dest)
+        } else {
+            prodDir = productionDir.appendingPathComponent("v1.0.0")
+        }
+
+        var diffs: [HarnessDiff] = []
+
+        // Collect all files from both directories
+        let prodFiles = collectFiles(in: prodDir, relativeTo: prodDir)
+        let candFiles = collectFiles(in: candidateHarnessDir, relativeTo: candidateHarnessDir)
+        let allPaths = Set(prodFiles.keys).union(candFiles.keys)
+
+        for path in allPaths.sorted() {
+            let prodContent = prodFiles[path]
+            let candContent = candFiles[path]
+
+            if prodContent == candContent { continue }
+
+            let status: HarnessDiff.Status
+            if prodContent == nil {
+                status = .added
+            } else if candContent == nil {
+                status = .removed
+            } else {
+                status = .modified
+            }
+
+            diffs.append(HarnessDiff(
+                relativePath: path,
+                status: status,
+                productionContent: prodContent,
+                candidateContent: candContent
+            ))
+        }
+
+        return diffs
+    }
+
+    private func collectFiles(in dir: URL, relativeTo base: URL) -> [String: String] {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: dir, includingPropertiesForKeys: [.isRegularFileKey]) else {
+            return [:]
+        }
+        var result: [String: String] = [:]
+        while let url = enumerator.nextObject() as? URL {
+            let isFile = (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false
+            guard isFile else { continue }
+            let relative = url.path.replacingOccurrences(of: base.path + "/", with: "")
+            if let content = try? String(contentsOf: url, encoding: .utf8) {
+                result[relative] = content
+            }
+        }
+        return result
     }
 
     // MARK: - Internal
@@ -384,6 +512,25 @@ extension CandidateAncestry: Codable {
     }
     enum CodingKeys: String, CodingKey {
         case candidateId, parentVersion, createdAt, description
+    }
+}
+
+/// A per-file diff between production and candidate harness.
+struct HarnessDiff: Sendable {
+    enum Status: String, Sendable { case added, removed, modified }
+
+    let relativePath: String
+    let status: Status
+    let productionContent: String?
+    let candidateContent: String?
+
+    /// Human-readable diff summary.
+    nonisolated var summary: String {
+        switch status {
+        case .added: return "+ \(relativePath) (new file)"
+        case .removed: return "- \(relativePath) (removed)"
+        case .modified: return "~ \(relativePath) (modified)"
+        }
     }
 }
 

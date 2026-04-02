@@ -21,6 +21,8 @@ mkdir -p "$KNOWLEDGE_FUSION_DIR/MoLoRA"
 mkdir -p "$KNOWLEDGE_FUSION_DIR/MOHAWK/embodied_data"
 mkdir -p "$AGENT_RUNTIME_DIR"
 
+cp "$SRCROOT/config/model_manifest.json" \
+    "$RESOURCES_DIR/model_manifest.json"
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py" \
     "$KNOWLEDGE_FUSION_DIR/Training/scripts/train_knowledge.py"
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_style.py" \

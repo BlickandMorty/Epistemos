@@ -74,8 +74,13 @@ nonisolated struct LocalMLXRunProfile: Sendable, Equatable {
 }
 
 actor LocalMLXRequestGate {
+    private struct Waiter {
+        let id: UUID
+        let continuation: CheckedContinuation<Bool, Never>
+    }
+
     private var active = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waiters: [Waiter] = []
 
     func acquire() async {
         if !active {
@@ -83,8 +88,24 @@ actor LocalMLXRequestGate {
             return
         }
 
-        await withCheckedContinuation { continuation in
-            waiters.append(continuation)
+        let waiterID = UUID()
+        let acquired = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled {
+                    continuation.resume(returning: false)
+                    return
+                }
+                waiters.append(Waiter(id: waiterID, continuation: continuation))
+            }
+        } onCancel: {
+            Task {
+                await self.cancelWaiter(id: waiterID)
+            }
+        }
+
+        guard acquired else { return }
+        if Task.isCancelled {
+            release()
         }
     }
 
@@ -95,7 +116,13 @@ actor LocalMLXRequestGate {
         }
 
         let next = waiters.removeFirst()
-        next.resume()
+        next.continuation.resume(returning: true)
+    }
+
+    private func cancelWaiter(id: UUID) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
+        let waiter = waiters.remove(at: index)
+        waiter.continuation.resume(returning: false)
     }
 }
 

@@ -193,34 +193,54 @@ actor AudioTranscriber {
     // MARK: - Process Execution
 
     private func runProcess(executable: String, arguments: [String]) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = arguments
+        let timeoutSeconds = 300.0
+        let state = ThrowingProcessContinuationState<String>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let process = Process.init()
+                process.executableURL = URL(fileURLWithPath: executable)
+                process.arguments = arguments
 
-            let stdout = Pipe()
-            let stderr = Pipe()
-            process.standardOutput = stdout
-            process.standardError = stderr
+                let stdout = Pipe()
+                let stderr = Pipe()
+                process.standardOutput = stdout
+                process.standardError = stderr
 
-            process.terminationHandler = { proc in
-                let outputData = stdout.fileHandleForReading.readDataToEndOfFile()
-                let output = String(data: outputData, encoding: .utf8) ?? ""
+                guard state.store(process: process, continuation: continuation) else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
 
-                if proc.terminationStatus == 0 {
-                    continuation.resume(returning: output)
-                } else {
-                    let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
-                    let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-                    continuation.resume(throwing: AudioTranscriberError.processFailed(errorMsg))
+                let timeoutTask = Task.detached(priority: .utility) {
+                    try? await Task.sleep(for: .seconds(timeoutSeconds))
+                    state.terminate()
+                    state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
+                }
+
+                process.terminationHandler = { proc in
+                    timeoutTask.cancel()
+                    let outputData = stdout.fileHandleForReading.readDataToEndOfFile()
+                    let output = String(data: outputData, encoding: .utf8) ?? ""
+
+                    if proc.terminationStatus == 0 {
+                        state.resume(returning: output)
+                    } else {
+                        let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+                        let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+                        state.resume(throwing: AudioTranscriberError.processFailed(errorMsg))
+                    }
+                }
+
+                do {
+                    try process.run()
+                } catch {
+                    timeoutTask.cancel()
+                    state.resume(throwing: error)
                 }
             }
-
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        } onCancel: {
+            state.terminate()
+            state.resume(throwing: CancellationError())
         }
     }
 }

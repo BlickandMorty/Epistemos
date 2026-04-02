@@ -1,16 +1,59 @@
 import Testing
 import Foundation
+import SQLite3
 @testable import Epistemos
 
 // MARK: - Phase 0: EventStore Schema Tests
 
 @Suite("EventStore Cognitive Tables")
 struct EventStoreSchemaTests {
+    private enum EventStoreTestError: Error {
+        case databaseOpenFailed
+        case statementPrepareFailed
+        case statementStepFailed
+    }
 
     private func makeTestStore() -> EventStore? {
         let tempDir = FileManager.default.temporaryDirectory
         let dbURL = tempDir.appendingPathComponent("test-\(UUID().uuidString).sqlite")
         return EventStore(databaseURL: dbURL)
+    }
+
+    private func makeTestStoreWithURL() -> (store: EventStore, url: URL)? {
+        let tempDir = FileManager.default.temporaryDirectory
+        let dbURL = tempDir.appendingPathComponent("test-\(UUID().uuidString).sqlite")
+        guard let store = EventStore(databaseURL: dbURL) else {
+            return nil
+        }
+        return (store, dbURL)
+    }
+
+    private func insertCompletedNightBrainRun(databaseURL: URL, jobsJSON: String) throws {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+              let db else {
+            throw EventStoreTestError.databaseOpenFailed
+        }
+        defer { sqlite3_close(db) }
+
+        let sql = """
+            INSERT INTO night_brain_runs (started_at, completed_at, status, jobs_completed, trigger_reason)
+            VALUES (?, ?, 'completed', ?, 'test');
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            throw EventStoreTestError.statementPrepareFailed
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        let now = Date().timeIntervalSince1970
+        sqlite3_bind_double(stmt, 1, now)
+        sqlite3_bind_double(stmt, 2, now)
+        sqlite3_bind_text(stmt, 3, (jobsJSON as NSString).utf8String, -1, nil)
+
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            throw EventStoreTestError.statementStepFailed
+        }
     }
 
     @Test("Migration creates all four cognitive substrate tables")
@@ -84,6 +127,39 @@ struct EventStoreSchemaTests {
         #expect(runs.first?.jobsCompleted == ["job1", "job2"])
     }
 
+    @Test("Malformed Night Brain jobs JSON fails closed without dropping the run")
+    func malformedNightBrainJobsJSONFailsClosed() throws {
+        guard let setup = makeTestStoreWithURL() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        try insertCompletedNightBrainRun(databaseURL: setup.url, jobsJSON: "{not-json")
+
+        let runs = setup.store.completedNightBrainRuns(limit: 10)
+        #expect(runs.count == 1)
+        #expect(runs.first?.status == "completed")
+        #expect(runs.first?.jobsCompleted == [])
+    }
+
+    @Test("EventStore init fails when the database directory cannot be created")
+    func initFailsWhenDatabaseDirectoryCannotBeCreated() throws {
+        let parentURL = FileManager.default.temporaryDirectory.appendingPathComponent("event-store-parent-\(UUID().uuidString)")
+        try Data("blocked".utf8).write(to: parentURL)
+        defer {
+            do {
+                if FileManager.default.fileExists(atPath: parentURL.path) {
+                    try FileManager.default.removeItem(at: parentURL)
+                }
+            } catch {
+                Issue.record("Failed to clean up temporary EventStore test file: \(error.localizedDescription)")
+            }
+        }
+
+        let databaseURL = parentURL.appendingPathComponent("event-store.sqlite")
+        #expect(EventStore(databaseURL: databaseURL) == nil)
+    }
+
     @Test("No interrupted runs returns nil")
     func noInterruptedRuns() {
         guard let store = makeTestStore() else {
@@ -94,10 +170,70 @@ struct EventStoreSchemaTests {
     }
 }
 
+@Suite("Paperclip State Store")
+struct PaperclipStateStoreTests {
+    private func makeTestStore() throws -> PaperclipStateStore {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("paperclip-store-\(UUID().uuidString)", isDirectory: true)
+        let dbPath = tempDir.appendingPathComponent("paperclip.sqlite").path
+        return try PaperclipStateStore(path: dbPath)
+    }
+
+    @Test("Paperclip store persists quoted tick fields without SQL breakage")
+    func persistsQuotedTickFields() async throws {
+        let store = try makeTestStore()
+
+        let tick = AgentTick(
+            sessionId: "session-'quoted'",
+            agentId: "agent-'quoted'",
+            timestamp: Date(),
+            inputTokens: 11,
+            outputTokens: 17,
+            toolName: "tool-'quoted'",
+            costMicroDollars: 42,
+            turnNumber: 3
+        )
+
+        try await store.recordTick(tick)
+
+        let tokenCount = try await store.sessionTokenCount(sessionId: tick.sessionId)
+        #expect(tokenCount.input == tick.inputTokens)
+        #expect(tokenCount.output == tick.outputTokens)
+
+        let dailyCost = try await store.dailyCost(agentId: tick.agentId)
+        #expect(dailyCost == tick.costMicroDollars)
+    }
+
+    @Test("Paperclip store persists quoted heartbeat payloads without SQL breakage")
+    func persistsQuotedHeartbeatPayloads() async throws {
+        let store = try makeTestStore()
+
+        let heartbeat = CronHeartbeat(
+            agentId: "agent-'quoted'",
+            scheduledAt: Date(),
+            executedAt: Date(),
+            durationMs: 88,
+            success: false,
+            errorMessage: "error-'quoted'"
+        )
+
+        try await store.recordHeartbeat(heartbeat)
+
+        let recent = try await store.recentHeartbeats(agentId: heartbeat.agentId, limit: 1)
+        #expect(recent.count == 1)
+        #expect(recent.first?.agentId == heartbeat.agentId)
+        #expect(recent.first?.errorMessage == heartbeat.errorMessage)
+        #expect(recent.first?.success == false)
+    }
+}
+
 // MARK: - Night Brain Checkpoint Resume Tests
 
 @Suite("Night Brain Checkpoint Resume")
 struct NightBrainCheckpointResumeTests {
+    private enum SampleFailure: Error {
+        case expected
+    }
 
     private func makeTestStore() -> EventStore? {
         let tempDir = FileManager.default.temporaryDirectory
@@ -124,6 +260,213 @@ struct NightBrainCheckpointResumeTests {
         #expect(completed.count == 2)
         #expect(completed.contains("event_store_checkpoint_vacuum"))
         #expect(completed.contains("dedupe_artifacts"))
+    }
+
+    @Test("Night Brain job order includes cloud knowledge distillation before maintenance log")
+    func nightBrainJobOrderIncludesCloudKnowledgeDistillation() {
+        let jobs = NightBrainService.Job.allCases.map(\.rawValue)
+        #expect(jobs.contains("cloud_knowledge_distillation"))
+        #expect(jobs.last == "maintenance_log")
+        if let distillationIndex = jobs.firstIndex(of: "cloud_knowledge_distillation"),
+           let maintenanceIndex = jobs.firstIndex(of: "maintenance_log") {
+            #expect(distillationIndex < maintenanceIndex)
+        }
+    }
+
+    @Test("Failing jobs do not checkpoint or report completion")
+    func failingJobsDoNotCheckpointOrReportCompletion() async {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let service = NightBrainService(
+            config: EpistemosConfig(),
+            storeProvider: { store },
+            cloudKnowledgeJob: { () async throws in
+                throw SampleFailure.expected
+            }
+        )
+
+        let result = await service.runPipelineForTesting(
+            jobOrder: [NightBrainService.Job.cloudKnowledgeDistillation]
+        )
+
+        #expect(result == .deferred)
+        #expect(store.completedNightBrainRuns(limit: 10).isEmpty)
+
+        let runId = store.mostRecentInterruptedRun()
+        #expect(runId != nil)
+        if let runId {
+            #expect(store.checkpointedJobTypes(runId: runId).isEmpty)
+        }
+    }
+
+    @Test("Missing cloud knowledge job does not checkpoint or report completion")
+    func missingCloudKnowledgeJobDoesNotCheckpointOrReportCompletion() async {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let service = NightBrainService(
+            config: EpistemosConfig(),
+            storeProvider: { store }
+        )
+
+        let result = await service.runPipelineForTesting(
+            jobOrder: [NightBrainService.Job.cloudKnowledgeDistillation]
+        )
+
+        #expect(result == .deferred)
+        #expect(store.completedNightBrainRuns(limit: 10).isEmpty)
+
+        let runId = store.mostRecentInterruptedRun()
+        #expect(runId != nil)
+        if let runId {
+            #expect(store.checkpointedJobTypes(runId: runId).isEmpty)
+        }
+    }
+
+    @Test("Missing search index does not checkpoint or report completion")
+    func missingSearchIndexDoesNotCheckpointOrReportCompletion() async {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let service = NightBrainService(
+            config: EpistemosConfig(),
+            storeProvider: { store }
+        )
+
+        let result = await service.runPipelineForTesting(
+            jobOrder: [NightBrainService.Job.searchIndexPassiveCheckpoint]
+        )
+
+        #expect(result == .deferred)
+        #expect(store.completedNightBrainRuns(limit: 10).isEmpty)
+
+        let runId = store.mostRecentInterruptedRun()
+        #expect(runId != nil)
+        if let runId {
+            #expect(store.checkpointedJobTypes(runId: runId).isEmpty)
+        }
+    }
+
+    @Test("Missing graph memory does not checkpoint or report completion")
+    func missingGraphMemoryDoesNotCheckpointOrReportCompletion() async {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let service = NightBrainService(
+            config: EpistemosConfig(),
+            storeProvider: { store }
+        )
+
+        let result = await service.runPipelineForTesting(
+            jobOrder: [NightBrainService.Job.memoryDistillation]
+        )
+
+        #expect(result == .deferred)
+        #expect(store.completedNightBrainRuns(limit: 10).isEmpty)
+
+        let runId = store.mostRecentInterruptedRun()
+        #expect(runId != nil)
+        if let runId {
+            #expect(store.checkpointedJobTypes(runId: runId).isEmpty)
+        }
+    }
+
+    @Test("Night Brain keeps using the initial EventStore for durable checkpoints")
+    func nightBrainRetainsInitialStoreForCheckpointDurability() async {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        final class StoreProviderState: @unchecked Sendable {
+            private let lock = NSLock()
+            nonisolated(unsafe) private var storeProviderCalls = 0
+
+            nonisolated func nextStore(_ store: EventStore) -> EventStore? {
+                lock.lock()
+                defer { lock.unlock() }
+                storeProviderCalls += 1
+                return storeProviderCalls == 1 ? store : nil
+            }
+        }
+
+        let storeProviderState = StoreProviderState()
+        let service = NightBrainService(
+            config: EpistemosConfig(),
+            storeProvider: {
+                storeProviderState.nextStore(store)
+            }
+        )
+
+        let result = await service.runPipelineForTesting(
+            jobOrder: [.maintenanceLog]
+        )
+
+        #expect(result == .finished)
+
+        let completedRuns = store.completedNightBrainRuns(limit: 10)
+        #expect(completedRuns.count == 1)
+        if let completedRun = completedRuns.first {
+            #expect(completedRun.jobsCompleted == [NightBrainService.Job.maintenanceLog.rawValue])
+            #expect(
+                store.checkpointedJobTypes(runId: completedRun.id)
+                == [NightBrainService.Job.maintenanceLog.rawValue]
+            )
+        }
+    }
+
+    @Test("Night Brain store-backed jobs reuse the initial EventStore")
+    func nightBrainStoreBackedJobsReuseInitialStore() async {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        final class StoreProviderState: @unchecked Sendable {
+            private let lock = NSLock()
+            nonisolated(unsafe) private var storeProviderCalls = 0
+
+            nonisolated func nextStore(_ store: EventStore) -> EventStore? {
+                lock.lock()
+                defer { lock.unlock() }
+                storeProviderCalls += 1
+                return store
+            }
+
+            nonisolated func callCount() -> Int {
+                lock.lock()
+                defer { lock.unlock() }
+                return storeProviderCalls
+            }
+        }
+
+        let storeProviderState = StoreProviderState()
+        let service = NightBrainService(
+            config: EpistemosConfig(),
+            storeProvider: {
+                storeProviderState.nextStore(store)
+            }
+        )
+
+        let result = await service.runPipelineForTesting(
+            jobOrder: [
+                .eventStoreCheckpointVacuum,
+                .dedupeArtifacts,
+                .workspaceSnapshotCompaction,
+            ]
+        )
+
+        #expect(result == .finished)
+        #expect(storeProviderState.callCount() == 1)
     }
 
     @Test("Resume skips checkpointed jobs and continues from where it left off")
@@ -155,12 +498,16 @@ struct NightBrainCheckpointResumeTests {
             "search_index_passive_checkpoint",
             "dedupe_artifacts",
             "workspace_snapshot_compaction",
+            "memory_distillation",
+            "cloud_knowledge_distillation",
             "maintenance_log",
         ]
         let remaining = allJobs.filter { !alreadyDone.contains($0) }
         #expect(remaining == [
             "search_index_passive_checkpoint",
             "workspace_snapshot_compaction",
+            "memory_distillation",
+            "cloud_knowledge_distillation",
             "maintenance_log",
         ])
     }
@@ -214,6 +561,137 @@ struct NightBrainCheckpointResumeTests {
     }
 }
 
+@Suite("Agent Heartbeat")
+struct AgentHeartbeatTests {
+    @Test("Heartbeat finishes after Hermes stays available through the monitoring window")
+    @MainActor
+    func heartbeatFinishesWhenHermesStaysAvailable() async throws {
+        let runtime = try await makeHeartbeatRuntime()
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let service = AgentHeartbeatService(
+            config: EpistemosConfig(),
+            hermesManagerProvider: { runtime.manager },
+            postDispatchMonitoringWindow: .milliseconds(200),
+            postDispatchPollInterval: .milliseconds(25)
+        )
+
+        let result = await service.runHeartbeatForTesting()
+
+        #expect(result == .finished)
+        #expect(runtime.manager.isRunning)
+    }
+
+    @Test("Heartbeat defers when Hermes drops during post-dispatch monitoring")
+    @MainActor
+    func heartbeatDefersWhenHermesDropsMidWindow() async throws {
+        let runtime = try await makeHeartbeatRuntime()
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let service = AgentHeartbeatService(
+            config: EpistemosConfig(),
+            hermesManagerProvider: { runtime.manager },
+            postDispatchMonitoringWindow: .milliseconds(400),
+            postDispatchPollInterval: .milliseconds(25)
+        )
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            runtime.manager.terminate()
+        }
+
+        let result = await service.runHeartbeatForTesting()
+
+        #expect(result == .deferred)
+    }
+
+    @Test("Heartbeat monitoring exits promptly when cancelled")
+    @MainActor
+    func heartbeatMonitoringExitsPromptlyWhenCancelled() async throws {
+        let runtime = try await makeHeartbeatRuntime()
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let service = AgentHeartbeatService(
+            config: EpistemosConfig(),
+            hermesManagerProvider: { runtime.manager },
+            postDispatchMonitoringWindow: .seconds(2),
+            postDispatchPollInterval: .milliseconds(25)
+        )
+
+        let monitoringTask = Task {
+            await service.monitorPostDispatchHermesAvailabilityForTesting()
+        }
+
+        try await Task.sleep(for: .milliseconds(75))
+
+        let clock = ContinuousClock()
+        let cancelStarted = clock.now
+        monitoringTask.cancel()
+        let result = await monitoringTask.value
+        let elapsed = cancelStarted.duration(to: clock.now)
+
+        #expect(result == false)
+        #expect(elapsed < .milliseconds(250))
+    }
+
+    @MainActor
+    private func makeHeartbeatRuntime() async throws -> (manager: HermesSubprocessManager, rootURL: URL) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("agent-heartbeat-tests-\(UUID().uuidString)", isDirectory: true)
+        let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+
+        let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+        let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+        let bridgeScript = """
+        #!/usr/bin/env python3
+        import sys
+        import time
+
+        if __name__ == "__main__":
+            for _line in sys.stdin:
+                time.sleep(60)
+        """
+        let runAgentStub = """
+        #!/usr/bin/env python3
+        print("stub")
+        """
+
+        try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+        try Data(runAgentStub.utf8).write(to: runAgentURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+        let pythonPath = fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath
+        let config = HermesConfig(
+            pythonPath: pythonPath,
+            hermesAgentDir: rootURL,
+            model: "test",
+            maxTurns: 1,
+            environment: [
+                "HERMES_HOME": hermesHome.path,
+                "PYTHONUNBUFFERED": "1",
+            ]
+        )
+        let manager = HermesSubprocessManager(config: config)
+        try await manager.launch()
+        return (manager, rootURL)
+    }
+}
+
 // MARK: - Phase 1: Ambient Capture Tests
 
 @Suite("Ambient Capture")
@@ -256,6 +734,11 @@ struct AmbientCaptureTests {
         let input = "This is a normal paragraph about Swift programming"
         let result = AmbientCaptureService.redactSecrets(input)
         #expect(result == input)
+    }
+
+    @Test("Ambient capture compiles all secret redaction patterns")
+    func secretRedactionPatternsAllCompile() {
+        #expect(AmbientCaptureService.secretPatterns.count == 4)
     }
 
     @Test("Stable hash is deterministic")
@@ -622,6 +1105,75 @@ struct NightBrainTests {
     }
 }
 
+@Suite("Activity Tracker", .serialized)
+struct ActivityTrackerTests {
+    private func makeTestStore() -> EventStore? {
+        let tempDir = FileManager.default.temporaryDirectory
+        let dbURL = tempDir.appendingPathComponent("test-\(UUID().uuidString).sqlite")
+        return EventStore(databaseURL: dbURL)
+    }
+
+    private func makeCacheURL() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("activity-tracker-\(UUID().uuidString).json")
+    }
+
+    @MainActor
+    @Test("chat messages append to EventStore durably")
+    func chatMessagesAppendToEventStoreDurably() async throws {
+        let store = try #require(makeTestStore())
+        let cacheURL = makeCacheURL()
+        let tracker = ActivityTracker(
+            eventStoreProvider: { store },
+            cacheFileURLProvider: { cacheURL }
+        )
+
+        let snippet = String(repeating: "a", count: 120)
+        tracker.recordChatMessage(chatId: "chat-1", snippet: snippet)
+
+        var storedEvents: [EventStore.StoredEvent] = []
+        for _ in 0..<20 {
+            storedEvents = store.events(from: .distantPast, to: .now)
+            if storedEvents.count == 1 {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        #expect(storedEvents.count == 1)
+        #expect(storedEvents.first?.kind == "chat_message")
+        #expect(storedEvents.first?.payload.contains(#""chatId":"chat-1""#) == true)
+        #expect(storedEvents.first?.payload.contains(String(repeating: "a", count: 80)) == true)
+    }
+
+    @MainActor
+    @Test("loadFlushedEvents merges recovered cache with current in-memory events")
+    func loadFlushedEventsMergesRecoveredCacheWithCurrentEvents() {
+        let store = makeTestStore()
+        let cacheURL = makeCacheURL()
+
+        let firstTracker = ActivityTracker(
+            eventStoreProvider: { store },
+            cacheFileURLProvider: { cacheURL }
+        )
+        firstTracker.recordChatMessage(chatId: "chat-1", snippet: "first")
+        firstTracker.flushToDisk()
+
+        #expect(FileManager.default.fileExists(atPath: cacheURL.path))
+
+        let secondTracker = ActivityTracker(
+            eventStoreProvider: { store },
+            cacheFileURLProvider: { cacheURL }
+        )
+        secondTracker.recordChatMessage(chatId: "chat-2", snippet: "second")
+        secondTracker.loadFlushedEvents()
+
+        let events = secondTracker.recentEvents(since: .distantPast)
+        #expect(events.count == 2)
+        #expect(!FileManager.default.fileExists(atPath: cacheURL.path))
+    }
+}
+
 // MARK: - Phase 5: Config Tests
 
 @Suite("EpistemosConfig")
@@ -663,5 +1215,18 @@ struct EpistemosConfigTests {
         config.allowlistJSON = "[]"
         config.blocklistJSON = "[]"
         #expect(!config.isBlocked("com.any.app"))
+    }
+
+    @Test("Malformed capture filter JSON fails closed")
+    func malformedCaptureFilterJSONFailsClosed() {
+        let config = EpistemosConfig()
+
+        config.allowlistJSON = "{not-json"
+        config.blocklistJSON = "[]"
+        #expect(config.isBlocked("com.any.app"))
+
+        config.allowlistJSON = "[]"
+        config.blocklistJSON = "{not-json"
+        #expect(config.isBlocked("com.any.app"))
     }
 }

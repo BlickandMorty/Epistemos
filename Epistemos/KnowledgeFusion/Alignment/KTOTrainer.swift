@@ -83,7 +83,7 @@ actor KTOTrainer {
             arguments.append(contentsOf: ["--adapter_path", adapterPath.path])
         }
 
-        let process = Process()
+        let process = Process.init()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = arguments
 
@@ -92,21 +92,41 @@ actor KTOTrainer {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            process.terminationHandler = { proc in
-                if proc.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
-                    let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown"
-                    continuation.resume(throwing: QLoRATrainerError.trainingFailed(errorMsg))
+        let timeoutSeconds = 1800.0
+        let state = ThrowingProcessContinuationState<Void>()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                guard state.store(process: process, continuation: continuation) else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+
+                let timeoutTask = Task.detached(priority: .utility) {
+                    try? await Task.sleep(for: .seconds(timeoutSeconds))
+                    state.terminate()
+                    state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
+                }
+
+                process.terminationHandler = { proc in
+                    timeoutTask.cancel()
+                    if proc.terminationStatus == 0 {
+                        state.resume(returning: ())
+                    } else {
+                        let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                        let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown"
+                        state.resume(throwing: QLoRATrainerError.trainingFailed(errorMsg))
+                    }
+                }
+                do {
+                    try process.run()
+                } catch {
+                    timeoutTask.cancel()
+                    state.resume(throwing: error)
                 }
             }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        } onCancel: {
+            state.terminate()
+            state.resume(throwing: CancellationError())
         }
 
         // Check for "SKIPPED" in output

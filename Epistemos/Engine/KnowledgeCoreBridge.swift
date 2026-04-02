@@ -745,7 +745,7 @@ final class KnowledgeCoreShadowRuntime {
                 consecutiveFullBatches = 0
 
                 // Use slower polling in low-power mode to reduce CPU wake-ups.
-                let effectiveInterval = await PowerGuard.shared.ringPollInterval
+                let effectiveInterval = PowerGuard.shared.ringPollInterval
                 try? await Task.sleep(for: max(frameInterval, effectiveInterval))
             }
         }

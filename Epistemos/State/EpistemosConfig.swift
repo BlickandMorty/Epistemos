@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftUI
 
 // MARK: - Epistemos Config
@@ -7,8 +8,10 @@ import SwiftUI
 
 @Observable
 final class EpistemosConfig {
+    private static let log = Logger(subsystem: "com.epistemos", category: "EpistemosConfig")
+
     // MARK: - Power Management
-    @ObservationIgnored @AppStorage("epistemos.ecoMode") var ecoModeEnabled = false
+    @ObservationIgnored @AppStorage("epistemos.ecoMode") var ecoModeEnabled = true
 
     // MARK: - Cross-App Capture
     @ObservationIgnored @AppStorage("capture.enabled") var captureEnabled = false
@@ -36,20 +39,52 @@ final class EpistemosConfig {
     // MARK: - Allowlist / Blocklist Helpers
 
     var allowlist: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(allowlistJSON.utf8))) ?? [] }
-        set { allowlistJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+        get { decodeBundleList(allowlistJSON, label: "allowlist") ?? [] }
+        set { allowlistJSON = encodeBundleList(newValue) }
     }
 
     var blocklist: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(blocklistJSON.utf8))) ?? [] }
-        set { blocklistJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+        get { decodeBundleList(blocklistJSON, label: "blocklist") ?? [] }
+        set { blocklistJSON = encodeBundleList(newValue) }
     }
 
     func isBlocked(_ bundleId: String) -> Bool {
-        let block = blocklist
+        guard let block = decodeBundleList(blocklistJSON, label: "blocklist") else { return true }
         if block.contains(bundleId) { return true }
-        let allow = allowlist
+        guard let allow = decodeBundleList(allowlistJSON, label: "allowlist") else { return true }
         if !allow.isEmpty && !allow.contains(bundleId) { return true }
         return false
+    }
+
+    private func decodeBundleList(_ json: String, label: String) -> [String]? {
+        do {
+            return try JSONDecoder().decode([String].self, from: Data(json.utf8))
+        } catch {
+            let message: String
+            switch label {
+            case "allowlist":
+                message = "EpistemosConfig: failed to decode capture allowlist JSON"
+            case "blocklist":
+                message = "EpistemosConfig: failed to decode capture blocklist JSON"
+            default:
+                message = "EpistemosConfig: failed to decode capture filter JSON"
+            }
+            Self.log.error("\(message, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private func encodeBundleList(_ values: [String]) -> String {
+        do {
+            let encoded = try JSONEncoder().encode(values)
+            guard let json = String(data: encoded, encoding: .utf8) else {
+                Self.log.error("EpistemosConfig: failed to encode capture filter JSON as UTF-8 text")
+                return "[]"
+            }
+            return json
+        } catch {
+            Self.log.error("EpistemosConfig: failed to encode capture filter JSON: \(error.localizedDescription, privacy: .public)")
+            return "[]"
+        }
     }
 }

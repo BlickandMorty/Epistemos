@@ -117,7 +117,13 @@ struct ProseEditorView: View {
         page.title = syncedTitle
         page.updatedAt = .now
         page.needsVaultSync = true
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            log.error(
+                "ProseEditorView: failed to save synced note title for \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
         renamePageFile(page.id, syncedTitle)
         return true
     }
@@ -150,13 +156,17 @@ struct ProseEditorView: View {
     var body: some View {
         let flush: (String, String) -> Void = { oldPageId, currentText in
             guard !oldPageId.isEmpty else { return }
+            _ = NoteFileStorage.scheduleWriteBody(pageId: oldPageId, content: currentText)
+            scheduleBlockMirrorSync(pageId: oldPageId, body: currentText)
             let desc = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.id == oldPageId }
             )
-            if let oldPage = try? modelContext.fetch(desc).first {
+            do {
+                guard let oldPage = try modelContext.fetch(desc).first else {
+                    Self.log.error("ProseEditorView: failed to fetch flushed page \(oldPageId, privacy: .public)")
+                    return
+                }
                 oldPage.applyInteractiveDerivedState(from: currentText)
-                _ = NoteFileStorage.scheduleWriteBody(pageId: oldPageId, content: currentText)
-                scheduleBlockMirrorSync(pageId: oldPageId, body: currentText)
                 Self.syncNoteTitleIfNeeded(
                     from: currentText,
                     for: oldPage,
@@ -165,7 +175,11 @@ struct ProseEditorView: View {
                     vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
                 }
                 oldPage.needsVaultSync = true
-                try? modelContext.save()
+                saveModelContext(reason: "flush for page \(oldPageId)")
+            } catch {
+                Self.log.error(
+                    "ProseEditorView: failed to fetch flushed page \(oldPageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
 
@@ -252,7 +266,7 @@ struct ProseEditorView: View {
             }
             lastPersistedBody = currentBody
             page.needsVaultSync = true
-            try? modelContext.save()
+            saveModelContext(reason: "flushIfNeeded for page \(pageId)")
         }
     }
 
@@ -269,7 +283,7 @@ struct ProseEditorView: View {
 
     private func repairOrphanedInlineAIResponseIfNeeded() {
         guard NoteWindowManager.shared.editorBody(for: page.id) == nil else { return }
-        let persistedBody = NoteFileStorage.readBody(pageId: page.id, mapped: false)
+        let persistedBody = NoteFileStorage.readBody(pageId: page.id, mapped: false, fast: true)
         let sanitizedBody = Self.stripOrphanedInlineAIResponse(in: persistedBody, page: page)
         guard sanitizedBody != persistedBody else { return }
 
@@ -280,7 +294,7 @@ struct ProseEditorView: View {
         bodyText = sanitizedBody
         lastPersistedBody = sanitizedBody
         page.needsVaultSync = true
-        try? modelContext.save()
+        saveModelContext(reason: "orphaned inline AI repair for page \(pageId)")
     }
 
     // MARK: - Debounced Save
@@ -320,7 +334,7 @@ struct ProseEditorView: View {
             // Persist dirty flag AFTER file write. This ensures loadBody() returns
             // the new content if @Query refetch triggers view re-evaluation.
             page.needsVaultSync = true
-            try? modelContext.save()
+            saveModelContext(reason: "debounced save for page \(pageId)")
         }
     }
 
@@ -355,15 +369,10 @@ struct ProseEditorView: View {
         )
         // Step 2: Only if exact match fails, scan for case-insensitive match.
         let lowered = trimmed.lowercased()
-        let existing: SDPage? = (try? modelContext.fetch(exactDesc))?.first ?? {
-            let allDesc = FetchDescriptor<SDPage>()
-            guard let pages = try? modelContext.fetch(allDesc) else { return nil }
-            return pages.first(where: { $0.title.lowercased() == lowered })
-        }()
-
-        if let existing {
+        switch existingPageForWikilink(exactDescriptor: exactDesc, loweredTitle: lowered, title: trimmed) {
+        case .found(let existing):
             navigateToPage(existing)
-        } else {
+        case .notFound:
             // Create new page for dangling wikilink — stay in same window
             Task {
                 if let newId = await vaultSync.createPage(title: trimmed) {
@@ -374,6 +383,8 @@ struct ProseEditorView: View {
                     }
                 }
             }
+        case .failed:
+            return
         }
     }
 
@@ -397,7 +408,16 @@ struct ProseEditorView: View {
         let descriptor = FetchDescriptor<SDBlock>(
             predicate: #Predicate<SDBlock> { $0.id == blockId }
         )
-        guard let block = try? modelContext.fetch(descriptor).first else { return }
+        let block: SDBlock
+        do {
+            guard let fetchedBlock = try modelContext.fetch(descriptor).first else { return }
+            block = fetchedBlock
+        } catch {
+            Self.log.error(
+                "ProseEditorView: failed to fetch block reference \(blockId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
         // Skip if block is on the current page
         guard block.pageId != page.id else { return }
 
@@ -406,11 +426,59 @@ struct ProseEditorView: View {
         let pageDesc = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == targetPageId }
         )
-        let title = (try? modelContext.fetch(pageDesc).first)?.title ?? "Untitled"
+        let title: String
+        do {
+            title = try modelContext.fetch(pageDesc).first?.title ?? "Untitled"
+        } catch {
+            Self.log.error(
+                "ProseEditorView: failed to fetch block target page \(targetPageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            title = "Untitled"
+        }
         if let navState {
             navState.push(pageId: block.pageId, title: title)
         } else {
             NoteWindowManager.shared.open(pageId: block.pageId)
+        }
+    }
+
+    private enum WikilinkLookupResult {
+        case found(SDPage)
+        case notFound
+        case failed
+    }
+
+    private func existingPageForWikilink(
+        exactDescriptor: FetchDescriptor<SDPage>,
+        loweredTitle: String,
+        title: String
+    ) -> WikilinkLookupResult {
+        do {
+            if let existing = try modelContext.fetch(exactDescriptor).first {
+                return .found(existing)
+            }
+
+            let allPages = try modelContext.fetch(FetchDescriptor<SDPage>())
+            if let match = allPages.first(where: { $0.title.lowercased() == loweredTitle }) {
+                return .found(match)
+            }
+
+            return .notFound
+        } catch {
+            Self.log.error(
+                "ProseEditorView: failed to fetch wikilink target \(title, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return .failed
+        }
+    }
+
+    private func saveModelContext(reason: String) {
+        do {
+            try modelContext.save()
+        } catch {
+            Self.log.error(
+                "ProseEditorView: failed to save \(reason, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 }

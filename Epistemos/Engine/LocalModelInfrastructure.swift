@@ -107,8 +107,7 @@ nonisolated struct LocalModelPaths: Sendable, Equatable {
     let rootDirectory: URL
 
     static func defaultRootDirectory(fileManager: FileManager = .default) -> URL {
-        let applicationSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        let applicationSupport = FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
         return applicationSupport
             .appendingPathComponent("Epistemos", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)

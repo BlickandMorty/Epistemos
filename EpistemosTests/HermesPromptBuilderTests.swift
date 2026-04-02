@@ -14,7 +14,7 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("</tool_call>"))
         #expect(prompt.contains("<tool_response>"))
         #expect(prompt.contains("</tool_response>"))
-        #expect(prompt.contains("\"name\" : \"vault_search\""))
+        #expect(prompt.contains("\"name\":\"vault_search\""))
         #expect(prompt.contains("Semantic plus keyword hybrid search"))
     }
 
@@ -62,8 +62,8 @@ struct HermesPromptBuilderTests {
 
         let prompt = HermesPromptBuilder.systemPrompt(tools: [malformedTool])
 
-        #expect(prompt.contains("\"name\" : \"broken_tool\""))
-        #expect(prompt.contains("\"parameters\" : {"))
+        #expect(prompt.contains("\"name\":\"broken_tool\""))
+        #expect(prompt.contains("\"parameters\":{"))
     }
 
     @Test("system prompt carries direct-response guidance when no tools exist")

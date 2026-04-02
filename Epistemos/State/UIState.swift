@@ -1,9 +1,12 @@
 import AppKit
 import Foundation
 import Observation
+import OSLog
 import SwiftData
 import SwiftUI
 import UserNotifications
+
+private let landingGreetingLog = Logger(subsystem: "com.epistemos", category: "LandingGreeting")
 
 enum LandingGreetingSourceMode: String, CaseIterable, Codable, Sendable {
     case defaultsOnly
@@ -122,7 +125,16 @@ enum LandingGreetingResolver {
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 20
-        guard let pages = try? context.fetch(descriptor), !pages.isEmpty else { return [] }
+        let pages: [SDPage]
+        do {
+            pages = try context.fetch(descriptor)
+        } catch {
+            landingGreetingLog.error(
+                "LandingGreetingResolver: failed to fetch recent pages: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
+        guard !pages.isEmpty else { return [] }
 
         var insights: [LandingGreetingPhrase] = []
 
@@ -159,13 +171,19 @@ enum LandingGreetingResolver {
         }
 
         // Workspace summary insight (already cached — zero cost)
-        if let ws = try? context.fetch(
-            FetchDescriptor<SDWorkspace>(predicate: #Predicate<SDWorkspace> { $0.isAutoSave == true })
-        ).first, !ws.summary.isEmpty, ws.summary.count < 120 {
-            insights.append(LandingGreetingPhrase(
-                text: ws.summary.lowercased(),
-                durationSeconds: 3.6
-            ))
+        do {
+            if let ws = try context.fetch(
+                FetchDescriptor<SDWorkspace>(predicate: #Predicate<SDWorkspace> { $0.isAutoSave == true })
+            ).first, !ws.summary.isEmpty, ws.summary.count < 120 {
+                insights.append(LandingGreetingPhrase(
+                    text: ws.summary.lowercased(),
+                    durationSeconds: 3.6
+                ))
+            }
+        } catch {
+            landingGreetingLog.error(
+                "LandingGreetingResolver: failed to fetch workspace summary: \(error.localizedDescription, privacy: .public)"
+            )
         }
 
         return insights
@@ -224,6 +242,8 @@ enum LandingGreetingAnimationPolicy {
 
 @MainActor @Observable
 final class UIState {
+    private static let log = Logger(subsystem: "com.epistemos", category: "UIState")
+
     // MARK: - Theme
 
     static let themePairDefaultsKey = "epistemos.theme.pair"
@@ -371,12 +391,20 @@ final class UIState {
         }
         if let storedGreetings = UserDefaults.standard.data(
             forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
-        ),
-            let decodedGreetings = try? JSONDecoder().decode(
-                [LandingGreetingEntry].self,
-                from: storedGreetings
-            ) {
-            landingCustomGreetings = decodedGreetings
+        ) {
+            do {
+                landingCustomGreetings = try JSONDecoder().decode(
+                    [LandingGreetingEntry].self,
+                    from: storedGreetings
+                )
+            } catch {
+                Self.log.error(
+                    "UIState: failed to decode custom landing greetings: \(error.localizedDescription, privacy: .public)"
+                )
+                UserDefaults.standard.removeObject(
+                    forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
+                )
+            }
         }
         let legacyGreetingAnimationEnabled: Bool? = if UserDefaults.standard.object(
             forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
@@ -537,7 +565,16 @@ final class UIState {
         toastMessage = message
         toastType = type
         toastDismissTask = Task {
-            try? await Task.sleep(for: .seconds(type == .error ? 5 : 3))
+            do {
+                try await Task.sleep(for: .seconds(type == .error ? 5 : 3))
+            } catch is CancellationError {
+                return
+            } catch {
+                Self.log.error(
+                    "UIState: toast dismissal sleep failed: \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
             guard !Task.isCancelled else { return }
             self.toastMessage = nil
         }
@@ -565,7 +602,13 @@ final class UIState {
             return
         }
 
-        guard let encodedGreetings = try? JSONEncoder().encode(landingCustomGreetings) else {
+        let encodedGreetings: Data
+        do {
+            encodedGreetings = try JSONEncoder().encode(landingCustomGreetings)
+        } catch {
+            Self.log.error(
+                "UIState: failed to encode custom landing greetings: \(error.localizedDescription, privacy: .public)"
+            )
             UserDefaults.standard.removeObject(
                 forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
             )

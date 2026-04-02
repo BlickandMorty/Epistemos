@@ -406,10 +406,11 @@ nonisolated enum RuntimeDiagnostics {
             at: sessionURL,
             fileManager: fileManager
         )
+        let isSessionStart = record.message == "session_started"
 
         let launchMetadata: [String: String]
         let startedAt: String
-        if record.message == "session_started" {
+        if isSessionStart {
             launchMetadata = record.metadata.filter { $0.key != "sessionID" }
             startedAt = record.timestamp
             currentSessionLaunchMetadata = launchMetadata
@@ -419,11 +420,17 @@ nonisolated enum RuntimeDiagnostics {
             startedAt = existing?.startedAt ?? record.timestamp
         }
 
-        var severityCounts = existing?.severityCounts ?? [:]
-        severityCounts[record.severity.rawValue, default: 0] += 1
+        var severityCounts: [String: Int]
+        if isSessionStart {
+            severityCounts = [record.severity.rawValue: 1]
+        } else {
+            severityCounts = existing?.severityCounts ?? [:]
+            severityCounts[record.severity.rawValue, default: 0] += 1
+        }
 
-        var lifecycleEvents = existing?.lifecycleEvents ?? []
-        if record.category == "Diagnostics",
+        var lifecycleEvents = isSessionStart ? [] : (existing?.lifecycleEvents ?? [])
+        if !isSessionStart,
+           record.category == "Diagnostics",
            record.message == "lifecycle_event" {
             let name = record.metadata["name"] ?? "unknown"
             let metadata = record.metadata.filter { $0.key != "name" && $0.key != "sessionID" }
@@ -442,7 +449,11 @@ nonisolated enum RuntimeDiagnostics {
         let latestIssueFingerprint: String?
         let latestIssueCategory: String?
         let latestIssueMessage: String?
-        if record.severity.isIssueSeverity {
+        if isSessionStart {
+            latestIssueFingerprint = nil
+            latestIssueCategory = nil
+            latestIssueMessage = nil
+        } else if record.severity.isIssueSeverity {
             latestIssueFingerprint = fingerprint(for: record)
             latestIssueCategory = record.category
             latestIssueMessage = record.message
@@ -453,7 +464,9 @@ nonisolated enum RuntimeDiagnostics {
         }
 
         let endedAt: String?
-        if record.category == "Diagnostics", record.message == "session_ended" {
+        if isSessionStart {
+            endedAt = nil
+        } else if record.category == "Diagnostics", record.message == "session_ended" {
             endedAt = record.timestamp
         } else {
             endedAt = existing?.endedAt

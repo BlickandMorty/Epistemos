@@ -197,10 +197,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }()
 
     nonisolated var resolved: ResolvedTheme {
-        guard let resolved = Self.resolvedCache[self] else {
-            preconditionFailure("Missing resolved theme cache for \(self)")
-        }
-        return resolved
+        Self.resolvedCache[self] ?? buildResolved()
     }
 
     var displayName: String {

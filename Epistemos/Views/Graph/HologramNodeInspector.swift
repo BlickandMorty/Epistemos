@@ -213,7 +213,16 @@ struct HologramNodeInspector: View {
     private func debouncedEditorSave(pageId: String, text: String) {
         editorSaveTask?.cancel()
         editorSaveTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1))
+            do {
+                try await Task.sleep(for: .seconds(1))
+            } catch is CancellationError {
+                return
+            } catch {
+                Log.notes.error(
+                    "HologramNodeInspector: editor debounce failed for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
             guard !Task.isCancelled else { return }
             guard text != lastPersistedBody else { return }
             await NoteFileStorage.writeBodyAsync(pageId: pageId, content: text)
@@ -227,19 +236,39 @@ struct HologramNodeInspector: View {
         let desc = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
-        if let page = try? modelContext.fetch(desc).first {
-            page.applyInteractiveDerivedState(from: body)
-            if let modelContainer = AppBootstrap.shared?.modelContainer {
-                Task {
-                    await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                        pageId: pageId,
-                        body: body,
-                        modelContainer: modelContainer
-                    )
-                }
+        let page: SDPage
+        do {
+            guard let fetchedPage = try modelContext.fetch(desc).first else {
+                Log.notes.warning(
+                    "HologramNodeInspector: no page found while marking dirty for \(String(pageId.prefix(8)), privacy: .public)"
+                )
+                return
             }
-            page.needsVaultSync = true
-            try? modelContext.save()
+            page = fetchedPage
+        } catch {
+            Log.notes.error(
+                "HologramNodeInspector: failed to fetch page \(String(pageId.prefix(8)), privacy: .public) for dirty mark: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+
+        page.applyInteractiveDerivedState(from: body)
+        if let modelContainer = AppBootstrap.shared?.modelContainer {
+            Task {
+                await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                    pageId: pageId,
+                    body: body,
+                    modelContainer: modelContainer
+                )
+            }
+        }
+        page.needsVaultSync = true
+        do {
+            try modelContext.save()
+        } catch {
+            Log.notes.error(
+                "HologramNodeInspector: failed to save dirty page \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 

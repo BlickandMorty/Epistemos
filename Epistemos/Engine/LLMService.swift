@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 // MARK: - LLMClientProtocol
 
@@ -424,20 +425,29 @@ extension CloudModelProvider {
 
 @MainActor
 final class CloudLLMClient: LLMClientProtocol {
+    private static let log = Logger(subsystem: "com.epistemos.llm", category: "CloudLLMClient")
+
     private let inference: InferenceState
     private let urlSession: URLSession
+    private let knowledgeProfileStore: KnowledgeProfileStore
 
     init(
         inference: InferenceState,
-        urlSession: URLSession = .shared
+        urlSession: URLSession = .shared,
+        knowledgeProfileStore: KnowledgeProfileStore = KnowledgeProfileStore()
     ) {
         self.inference = inference
         self.urlSession = urlSession
+        self.knowledgeProfileStore = knowledgeProfileStore
     }
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
         let model = try selectedCloudModel()
         let apiKey = try apiKey(for: model.provider)
+        let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
+            from: systemPrompt,
+            modelID: model.vendorModelID
+        )
 
         switch model.provider {
         case .openAI:
@@ -445,7 +455,7 @@ final class CloudLLMClient: LLMClientProtocol {
                 model: model,
                 apiKey: apiKey,
                 prompt: prompt,
-                systemPrompt: systemPrompt,
+                systemPrompt: resolvedSystemPrompt,
                 maxTokens: maxTokens
             )
         case .anthropic:
@@ -453,7 +463,7 @@ final class CloudLLMClient: LLMClientProtocol {
                 model: model,
                 apiKey: apiKey,
                 prompt: prompt,
-                systemPrompt: systemPrompt,
+                systemPrompt: resolvedSystemPrompt,
                 maxTokens: maxTokens
             )
         case .google:
@@ -461,46 +471,67 @@ final class CloudLLMClient: LLMClientProtocol {
                 model: model,
                 apiKey: apiKey,
                 prompt: prompt,
-                systemPrompt: systemPrompt,
+                systemPrompt: resolvedSystemPrompt,
                 maxTokens: maxTokens
             )
         }
     }
 
     func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
-        do {
-            let model = try selectedCloudModel()
-            let apiKey = try apiKey(for: model.provider)
+        AsyncThrowingStream { continuation in
+            let task = Task { @MainActor [weak self] in
+                guard let self else {
+                    continuation.finish()
+                    return
+                }
 
-            switch model.provider {
-            case .openAI:
-                return streamOpenAI(
-                    model: model,
-                    apiKey: apiKey,
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    maxTokens: maxTokens
-                )
-            case .anthropic:
-                return streamAnthropic(
-                    model: model,
-                    apiKey: apiKey,
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    maxTokens: maxTokens
-                )
-            case .google:
-                return streamGoogle(
-                    model: model,
-                    apiKey: apiKey,
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    maxTokens: maxTokens
-                )
+                do {
+                    let model = try self.selectedCloudModel()
+                    let apiKey = try self.apiKey(for: model.provider)
+                    let resolvedSystemPrompt = await self.knowledgeAwareSystemPrompt(
+                        from: systemPrompt,
+                        modelID: model.vendorModelID
+                    )
+
+                    let upstream: AsyncThrowingStream<String, Error>
+                    switch model.provider {
+                    case .openAI:
+                        upstream = self.streamOpenAI(
+                            model: model,
+                            apiKey: apiKey,
+                            prompt: prompt,
+                            systemPrompt: resolvedSystemPrompt,
+                            maxTokens: maxTokens
+                        )
+                    case .anthropic:
+                        upstream = self.streamAnthropic(
+                            model: model,
+                            apiKey: apiKey,
+                            prompt: prompt,
+                            systemPrompt: resolvedSystemPrompt,
+                            maxTokens: maxTokens
+                        )
+                    case .google:
+                        upstream = self.streamGoogle(
+                            model: model,
+                            apiKey: apiKey,
+                            prompt: prompt,
+                            systemPrompt: resolvedSystemPrompt,
+                            maxTokens: maxTokens
+                        )
+                    }
+
+                    for try await token in upstream {
+                        continuation.yield(token)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
             }
-        } catch {
-            return AsyncThrowingStream { continuation in
-                continuation.finish(throwing: error)
+
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
@@ -563,6 +594,21 @@ final class CloudLLMClient: LLMClientProtocol {
             throw CloudLLMError.missingAPIKey(provider.displayName)
         }
         return value
+    }
+
+    private func knowledgeAwareSystemPrompt(from systemPrompt: String?, modelID: String) async -> String? {
+        do {
+            return try await knowledgeProfileStore.augmentedSystemPrompt(
+                existingPrompt: systemPrompt,
+                modelID: modelID,
+                budget: .full
+            )
+        } catch {
+            Self.log.error(
+                "Failed to load model vault prompt context for \(modelID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return systemPrompt
+        }
     }
 
     private func testModelConnection(

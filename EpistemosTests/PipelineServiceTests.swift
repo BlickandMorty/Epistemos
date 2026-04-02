@@ -40,8 +40,12 @@ final class MockLLMClient: LLMClientProtocol {
         let tokens = streamTokens
         let error = streamError
         return AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 for token in tokens {
+                    guard !Task.isCancelled else {
+                        continuation.finish()
+                        return
+                    }
                     continuation.yield(token)
                     try? await Task.sleep(for: .milliseconds(5))
                 }
@@ -51,6 +55,7 @@ final class MockLLMClient: LLMClientProtocol {
                     continuation.finish()
                 }
             }
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -504,6 +509,67 @@ struct PipelineContractTests {
 
         #expect(receivedText)
         #expect(!receivedCompleted)
+    }
+
+    @Test("Terminating an older stream does not cancel the newest pipeline run")
+    @MainActor func olderStreamTerminationDoesNotCancelNewestRun() async {
+        let mock = MockLLMClient()
+        mock.streamTokens = (0..<80).map { "old-\($0) " }
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let firstStream = pipeline.run(
+            query: "first",
+            mode: .api
+        )
+
+        let firstConsumer = Task { @MainActor in
+            do {
+                for try await _ in firstStream {
+                }
+            } catch {
+            }
+        }
+
+        try? await Task.sleep(for: .milliseconds(30))
+        mock.streamTokens = (0..<8).map { "new-\($0) " }
+
+        var secondCompleted = false
+        let secondStream = pipeline.run(
+            query: "second",
+            mode: .api
+        )
+
+        let secondConsumer = Task { @MainActor in
+            do {
+                for try await event in secondStream {
+                    if case .completed = event {
+                        secondCompleted = true
+                    }
+                }
+            } catch {
+            }
+        }
+
+        _ = await firstConsumer.result
+        _ = await secondConsumer.result
+
+        #expect(secondCompleted)
+        #expect(!pipelineState.isProcessing)
+        #expect(pipelineState.currentError == nil)
     }
 
     @Test("Pipeline emits completed event with DualMessage")
@@ -1562,7 +1628,9 @@ struct ChatStateLocalMessageTests {
         await Task.yield()
 
         #expect(!omegaPanelShown)
-        #expect(chatState.messages.isEmpty)
+        #expect(chatState.messages.count == 1)
+        #expect(chatState.messages.last?.role == .user)
+        #expect(chatState.messages.last?.content == "/research transformer attention")
         #expect(orchestrator.currentTaskDescription.isEmpty)
     }
 

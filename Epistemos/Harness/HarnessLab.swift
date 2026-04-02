@@ -47,6 +47,7 @@ struct EvalTask: Sendable {
     let taskType: HarnessTaskType
     let verification: EvalVerification
     let initialStatePath: URL?
+    let allowNetwork: Bool
     let metadata: EvalTaskMetadata
 
     /// Load an EvalTask from a JSON dictionary (manual deserialization to avoid
@@ -71,6 +72,8 @@ struct EvalTask: Sendable {
             initialStatePath = nil
         }
 
+        let allowNetwork = dict["allowNetwork"] as? Bool ?? false
+
         let metadata = EvalTaskMetadata.parse(dict["metadata"] as? [String: Any])
 
         return EvalTask(
@@ -79,6 +82,7 @@ struct EvalTask: Sendable {
             taskType: taskType,
             verification: verification,
             initialStatePath: initialStatePath,
+            allowNetwork: allowNetwork,
             metadata: metadata
         )
     }
@@ -239,6 +243,9 @@ actor TaskSuite {
         if let path = task.initialStatePath {
             dict["initialStatePath"] = path.path
         }
+        if task.allowNetwork {
+            dict["allowNetwork"] = true
+        }
 
         let data = try JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted, .sortedKeys])
         let filePath = dir.appendingPathComponent("\(task.id).json")
@@ -289,11 +296,20 @@ struct EvalSuiteResult: Sendable {
 
 /// Runs candidate harnesses against the task suite in isolation.
 /// Developer-only — never invoked on the production hot path.
+///
+/// Responsibilities:
+///   - Execute verification for each task with per-task timeout and failure isolation
+///   - Persist results as scores.json in the candidate directory via HarnessRegistry
+///   - Record evaluation traces for observability
+///   - Report safe failures without crashing the evaluation loop
 actor EvaluationRunner {
     private static let log = Logger(subsystem: "com.epistemos", category: "EvalRunner")
 
     private let registry: HarnessRegistry
     private let taskSuite: TaskSuite
+
+    /// Per-task timeout in seconds. Tasks exceeding this are marked as failed.
+    let perTaskTimeout: TimeInterval = 120
 
     init(registry: HarnessRegistry, taskSuite: TaskSuite) {
         self.registry = registry
@@ -301,6 +317,7 @@ actor EvaluationRunner {
     }
 
     /// Evaluate a candidate harness against the search set.
+    /// Results are persisted to the candidate directory as scores.json.
     func evaluateCandidate(
         candidateId: String,
         maxConcurrent: Int = 1
@@ -308,65 +325,156 @@ actor EvaluationRunner {
         let tasks = await taskSuite.searchSet
         Self.log.info("Evaluating \(candidateId) against \(tasks.count) search tasks")
 
-        var results: [EvalResult] = []
+        let results = await evaluateTasks(tasks, candidateId: candidateId)
+        let suiteResult = EvalSuiteResult(harnessVersion: candidateId, results: results)
 
-        for task in tasks {
-            let result = await evaluateSingleTask(
-                task: task,
-                candidateId: candidateId
-            )
-            results.append(result)
-        }
+        // Persist scores to candidate directory
+        await persistScores(suiteResult, candidateId: candidateId, setName: "search")
 
-        return EvalSuiteResult(
-            harnessVersion: candidateId,
-            results: results
-        )
+        return suiteResult
     }
 
     /// Evaluate against the held-out test set (post-promotion gate).
+    /// Results are persisted alongside search set scores.
     func evaluateHeldOut(
         candidateId: String
     ) async -> EvalSuiteResult {
         let tasks = await taskSuite.testSet
         Self.log.info("Evaluating \(candidateId) against \(tasks.count) held-out tasks")
 
-        var results: [EvalResult] = []
-        for task in tasks {
-            let result = await evaluateSingleTask(task: task, candidateId: candidateId)
-            results.append(result)
-        }
-        return EvalSuiteResult(harnessVersion: candidateId, results: results)
+        let results = await evaluateTasks(tasks, candidateId: candidateId)
+        let suiteResult = EvalSuiteResult(harnessVersion: candidateId, results: results)
+
+        await persistScores(suiteResult, candidateId: candidateId, setName: "held_out")
+
+        return suiteResult
     }
 
-    /// Evaluate a single task with verification.
+    // MARK: - Batch Evaluation
+
+    private func evaluateTasks(_ tasks: [EvalTask], candidateId: String) async -> [EvalResult] {
+        var results: [EvalResult] = []
+        for task in tasks {
+            // Check cancellation — allows foreground work to preempt evaluation
+            guard !Task.isCancelled else {
+                Self.log.info("Evaluation cancelled after \(results.count)/\(tasks.count) tasks")
+                break
+            }
+
+            // Thermal backpressure — pause if the machine is overheating
+            do {
+                try await ThermalGuard.shared.acquireClearance()
+            } catch {
+                Self.log.warning("Thermal clearance denied, stopping evaluation: \(error.localizedDescription)")
+                break
+            }
+
+            let result = await evaluateSingleTaskSafely(task: task, candidateId: candidateId)
+            results.append(result)
+
+            // Yield to let foreground work proceed between tasks
+            await Task.yield()
+        }
+        return results
+    }
+
+    /// Wraps single-task evaluation with error isolation.
+    /// Any unexpected error is caught and reported as a failed result rather than
+    /// aborting the entire evaluation run.
+    private func evaluateSingleTaskSafely(
+        task: EvalTask,
+        candidateId: String
+    ) async -> EvalResult {
+        do {
+            return try await withThrowingTaskGroup(of: EvalResult.self) { group in
+                group.addTask {
+                    await self.evaluateSingleTask(task: task, candidateId: candidateId)
+                }
+
+                // Timeout watchdog
+                group.addTask {
+                    try await Task.sleep(for: .seconds(self.perTaskTimeout + 5))
+                    return EvalResult(
+                        taskId: task.id,
+                        harnessVersion: candidateId,
+                        passed: false,
+                        score: 0.0,
+                        tokenCost: 0,
+                        turns: 0,
+                        tracePath: nil,
+                        evidence: "Evaluation timed out after \(Int(self.perTaskTimeout))s",
+                        timestamp: ISO8601DateFormatter().string(from: Date())
+                    )
+                }
+
+                // Return whichever finishes first
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
+        } catch {
+            Self.log.error("Task \(task.id) evaluation failed with error: \(error.localizedDescription)")
+            return EvalResult(
+                taskId: task.id,
+                harnessVersion: candidateId,
+                passed: false,
+                score: 0.0,
+                tokenCost: 0,
+                turns: 0,
+                tracePath: nil,
+                evidence: "Evaluation error: \(error.localizedDescription)",
+                timestamp: ISO8601DateFormatter().string(from: Date())
+            )
+        }
+    }
+
+    /// Evaluate a single task with sandboxed verification.
+    /// Phase 8: Uses volatile project root, sanitized environment, and sandbox-exec isolation.
     private func evaluateSingleTask(
         task: EvalTask,
         candidateId: String
     ) async -> EvalResult {
         Self.log.info("Evaluating task \(task.id) with candidate \(candidateId)")
 
-        // Phase 8 will add real isolated subprocess execution.
-        // For now, run verification directly if the task has a command-based check.
         let startTime = ContinuousClock.now
+
+        // Create volatile project root for isolation
+        let volatileRoot: VolatileProjectRoot
+        do {
+            volatileRoot = try VolatileProjectRoot.create(initialStatePath: task.initialStatePath)
+        } catch {
+            return EvalResult(
+                taskId: task.id, harnessVersion: candidateId, passed: false, score: 0.0,
+                tokenCost: 0, turns: 0, tracePath: nil,
+                evidence: "Failed to create volatile root: \(error.localizedDescription)",
+                timestamp: ISO8601DateFormatter().string(from: Date())
+            )
+        }
+        defer { volatileRoot.cleanup() }
+
         let verificationResult: (passed: Bool, evidence: String, exitCode: Int?)
 
         switch task.verification {
         case .commandExitZero(let command):
-            let result = await runCommand(
-                "/bin/sh", arguments: ["-c", command],
-                at: URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
-                timeout: 120
+            let result = await sandboxedRunCommand(
+                command,
+                volatileRoot: volatileRoot.rootURL,
+                allowNetwork: task.allowNetwork,
+                timeout: perTaskTimeout
             )
             verificationResult = (
                 result.exitCode == 0,
-                result.exitCode == 0 ? "Command succeeded" : "Exit code \(result.exitCode): \(String(result.stderr.suffix(200)))",
+                result.exitCode == 0 ? "Command succeeded (sandboxed)" : "Exit code \(result.exitCode): \(String(result.stderr.suffix(500)))",
                 Int(result.exitCode)
             )
 
         case .filesExist(let paths):
+            // File existence checks run against the volatile root
             let fm = FileManager.default
-            let missing = paths.filter { !fm.fileExists(atPath: $0) }
+            let missing = paths.filter { path in
+                let absolutePath = path.hasPrefix("/") ? path : volatileRoot.rootURL.appendingPathComponent(path).path
+                return !fm.fileExists(atPath: absolutePath)
+            }
             if missing.isEmpty {
                 verificationResult = (true, "All \(paths.count) files exist", nil)
             } else {
@@ -374,16 +482,17 @@ actor EvaluationRunner {
             }
 
         case .outputPattern(let command, let pattern):
-            let result = await runCommand(
-                "/bin/sh", arguments: ["-c", command],
-                at: URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
-                timeout: 120
+            let result = await sandboxedRunCommand(
+                command,
+                volatileRoot: volatileRoot.rootURL,
+                allowNetwork: task.allowNetwork,
+                timeout: perTaskTimeout
             )
             let combined = result.stdout + result.stderr
             if combined.range(of: pattern, options: .regularExpression) != nil {
-                verificationResult = (true, "Pattern matched in output", Int(result.exitCode))
+                verificationResult = (true, "Pattern matched in output (sandboxed)", Int(result.exitCode))
             } else {
-                verificationResult = (false, "Pattern not found in output", Int(result.exitCode))
+                verificationResult = (false, "Pattern not found in output (exit \(result.exitCode))", Int(result.exitCode))
             }
 
         case .llmJudge, .humanReview:
@@ -391,6 +500,9 @@ actor EvaluationRunner {
         }
 
         let elapsed = ContinuousClock.now - startTime
+        let durationMs = Int(elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000)
+
+        Self.log.info("Task \(task.id): \(verificationResult.passed ? "PASS" : "FAIL") (\(durationMs)ms, sandboxed)")
 
         return EvalResult(
             taskId: task.id,
@@ -404,6 +516,22 @@ actor EvaluationRunner {
             timestamp: ISO8601DateFormatter().string(from: Date())
         )
     }
+
+    // MARK: - Result Persistence
+
+    /// Persist evaluation scores to the candidate directory as JSON.
+    private func persistScores(_ suiteResult: EvalSuiteResult, candidateId: String, setName: String) async {
+        do {
+            try await registry.saveCandidateScores(
+                candidateId: candidateId,
+                setName: setName,
+                suiteResult: suiteResult
+            )
+            Self.log.info("Persisted \(setName) scores for \(candidateId): \(suiteResult.results.count) results, pass rate \(String(format: "%.0f", suiteResult.passRate * 100))%")
+        } catch {
+            Self.log.error("Failed to persist scores for \(candidateId): \(error.localizedDescription)")
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -412,6 +540,11 @@ actor EvaluationRunner {
 
 /// Manages the human-reviewed promotion of candidate harnesses to production.
 /// No auto-promote — every promotion requires explicit developer approval.
+///
+/// The promotion flow:
+///   1. `generateProposal()` — evaluates candidate, generates diff + scorecard + regression report
+///   2. `saveProposalArtifact()` — persists the proposal to disk for human review
+///   3. `executePromotion()` — applies the promotion after explicit developer approval
 actor PromotionPipeline {
     private static let log = Logger(subsystem: "com.epistemos", category: "Promotion")
 
@@ -443,6 +576,15 @@ actor PromotionPipeline {
 
         let improvement = candidateResults.averageScore - baselineResults.averageScore
 
+        // Generate unified diff between production and candidate harness
+        let diffs: [HarnessDiff]
+        do {
+            diffs = try await registry.diffCandidate(candidateId)
+        } catch {
+            Self.log.error("Failed to generate diff for \(candidateId): \(error.localizedDescription)")
+            diffs = []
+        }
+
         let verdict: PromotionVerdict
         if !regressions.isEmpty {
             verdict = .rejected(reason: "Regressions detected: \(regressions.map(\.taskId).joined(separator: ", "))")
@@ -457,10 +599,28 @@ actor PromotionPipeline {
             candidateResults: candidateResults,
             baselineResults: baselineResults,
             regressions: regressions,
+            diffs: diffs,
             improvement: improvement,
             verdict: verdict,
             timestamp: ISO8601DateFormatter().string(from: Date())
         )
+    }
+
+    /// Persist the promotion proposal as a human-readable Markdown review artifact.
+    /// Returns the file URL where the proposal was saved.
+    func saveProposalArtifact(_ proposal: PromotionProposal) async throws -> URL {
+        let markdown = formatProposalMarkdown(proposal)
+
+        let proposalDir = await registry.proposalArtifactsDir
+        let fm = FileManager.default
+        try fm.createDirectory(at: proposalDir, withIntermediateDirectories: true)
+
+        let filename = "proposal_\(proposal.candidateId)_\(proposal.timestamp.prefix(10)).md"
+        let filePath = proposalDir.appendingPathComponent(filename)
+        try markdown.write(to: filePath, atomically: true, encoding: .utf8)
+
+        Self.log.info("Saved promotion proposal: \(filePath.path)")
+        return filePath
     }
 
     /// Execute promotion after human approval.
@@ -477,6 +637,107 @@ actor PromotionPipeline {
         )
         Self.log.notice("Promoted \(candidateId) → \(newVersion) by \(approvedBy)")
     }
+
+    // MARK: - Scorecard Formatting
+
+    /// Format the proposal as a Markdown document for human review.
+    private nonisolated func formatProposalMarkdown(_ proposal: PromotionProposal) -> String {
+        var md = """
+        # Promotion Proposal: \(proposal.candidateId)
+
+        **Generated:** \(proposal.timestamp)
+        **Verdict:** \(verdictString(proposal.verdict))
+
+        ## Scorecard
+
+        | Metric | Baseline | Candidate | Delta |
+        |--------|----------|-----------|-------|
+        | Pass Rate | \(pct(proposal.baselineResults.passRate)) | \(pct(proposal.candidateResults.passRate)) | \(delta(proposal.candidateResults.passRate - proposal.baselineResults.passRate)) |
+        | Avg Score | \(String(format: "%.2f", proposal.baselineResults.averageScore)) | \(String(format: "%.2f", proposal.candidateResults.averageScore)) | \(delta(proposal.improvement)) |
+        | Avg Token Cost | \(proposal.baselineResults.averageTokenCost) | \(proposal.candidateResults.averageTokenCost) | \(proposal.candidateResults.averageTokenCost - proposal.baselineResults.averageTokenCost) |
+
+        """
+
+        // Per-task results
+        md += "\n## Per-Task Results\n\n"
+        md += "| Task | Baseline | Candidate | Status |\n"
+        md += "|------|----------|-----------|--------|\n"
+
+        let baselineByTask = Dictionary(grouping: proposal.baselineResults.results, by: \.taskId)
+        for result in proposal.candidateResults.results {
+            let baseScore = baselineByTask[result.taskId]?.first?.score
+            let baseStr = baseScore.map { String(format: "%.2f", $0) } ?? "n/a"
+            let status = result.passed ? "PASS" : "FAIL"
+            md += "| \(result.taskId) | \(baseStr) | \(String(format: "%.2f", result.score)) | \(status) |\n"
+        }
+
+        // Regressions
+        if !proposal.regressions.isEmpty {
+            md += "\n## Regressions\n\n"
+            for reg in proposal.regressions {
+                md += "- **\(reg.taskId)**: \(String(format: "%.2f", reg.baselineScore)) → \(String(format: "%.2f", reg.candidateScore)) (\(delta(reg.delta)))\n"
+            }
+        }
+
+        // File diffs
+        if !proposal.diffs.isEmpty {
+            md += "\n## Harness File Changes\n\n"
+            for diff in proposal.diffs {
+                md += "### \(diff.summary)\n\n"
+                if let prod = diff.productionContent, let cand = diff.candidateContent {
+                    md += "```diff\n--- production/\(diff.relativePath)\n+++ candidate/\(diff.relativePath)\n"
+                    md += Self.simpleLineDiff(old: prod, new: cand)
+                    md += "```\n\n"
+                } else if let cand = diff.candidateContent {
+                    md += "```\n\(cand)\n```\n\n"
+                } else {
+                    md += "(file removed)\n\n"
+                }
+            }
+        }
+
+        md += "\n---\n*Review this proposal carefully. Promotion requires explicit `executePromotion()` call.*\n"
+        return md
+    }
+
+    /// Simple line-by-line diff (not a real unified diff algorithm, but sufficient for small harness files).
+    private nonisolated static func simpleLineDiff(old: String, new: String) -> String {
+        let oldLines = old.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        let newLines = new.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+
+        var result = ""
+        let maxLen = max(oldLines.count, newLines.count)
+        for i in 0..<maxLen {
+            let oldLine = i < oldLines.count ? oldLines[i] : nil
+            let newLine = i < newLines.count ? newLines[i] : nil
+
+            if oldLine == newLine {
+                result += " \(oldLine ?? "")\n"
+            } else {
+                if let ol = oldLine { result += "-\(ol)\n" }
+                if let nl = newLine { result += "+\(nl)\n" }
+            }
+        }
+        return result
+    }
+
+    private nonisolated func verdictString(_ verdict: PromotionVerdict) -> String {
+        switch verdict {
+        case .readyForReview: return "READY FOR REVIEW"
+        case .rejected(let reason): return "REJECTED — \(reason)"
+        }
+    }
+
+    private nonisolated func pct(_ value: Double) -> String {
+        String(format: "%.0f%%", value * 100)
+    }
+
+    private nonisolated func delta(_ value: Double) -> String {
+        let sign = value >= 0 ? "+" : ""
+        return "\(sign)\(String(format: "%.1f", value * 100))%"
+    }
+
+    // MARK: - Regression Detection
 
     private nonisolated func findRegressions(
         baseline: EvalSuiteResult,
@@ -511,6 +772,7 @@ struct PromotionProposal: Sendable {
     let candidateResults: EvalSuiteResult
     let baselineResults: EvalSuiteResult
     let regressions: [RegressionReport]
+    let diffs: [HarnessDiff]
     let improvement: Double
     let verdict: PromotionVerdict
     let timestamp: String
@@ -526,6 +788,269 @@ struct RegressionReport: Sendable {
     let baselineScore: Double
     let candidateScore: Double
     let delta: Double
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MARK: - Proposer Orchestrator (Phase 7E)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Invokes a coding agent as a subprocess to propose harness improvements
+/// based on trace analysis. Developer-only, never runs autonomously.
+///
+/// Flow:
+///   1. Materialize traces to filesystem (via TraceMaterializer)
+///   2. Write a skill prompt describing what to inspect and propose
+///   3. Spawn the agent subprocess with filesystem access to traces + registry
+///   4. Capture proposer output (proposed diffs, diagnostics)
+///   5. Create a candidate harness from the proposal
+///   6. Clean up materialized traces
+///
+/// Rules (enforced by the skill prompt):
+///   - Never modify held-out tasks
+///   - Never hardcode answers or task-specific hacks
+///   - Proposals must be general improvements to the harness
+actor ProposerOrchestrator {
+    private static let log = Logger(subsystem: "com.epistemos", category: "Proposer")
+
+    private let registry: HarnessRegistry
+    private let traceStore: TraceStoreIndex
+    private let materializer: TraceMaterializer
+
+    /// The agent command to invoke (e.g., "claude" for Claude Code CLI).
+    let agentCommand: String
+
+    /// Maximum time the proposer subprocess is allowed to run.
+    let timeout: TimeInterval
+
+    init(
+        registry: HarnessRegistry,
+        traceStore: TraceStoreIndex,
+        agentCommand: String = "claude",
+        timeout: TimeInterval = 600
+    ) {
+        self.registry = registry
+        self.traceStore = traceStore
+        self.materializer = TraceMaterializer(traceStore: traceStore)
+        self.agentCommand = agentCommand
+        self.timeout = timeout
+    }
+
+    /// Run the proposer agent to generate a harness improvement proposal.
+    /// Returns the proposer's raw output and the candidate ID if one was created.
+    func runProposer(
+        targetVersion: String,
+        description: String = "Automated harness improvement proposal"
+    ) async throws -> ProposerResult {
+        Self.log.info("Starting proposer run for harness \(targetVersion)")
+
+        // Step 1: Materialize traces
+        let tracesRoot = try await materializer.materialize(harnessVersion: targetVersion)
+        defer { Task { await materializer.cleanup() } }
+
+        // Step 2: Build the skill prompt
+        let prompt = buildSkillPrompt(
+            targetVersion: targetVersion,
+            tracesRoot: tracesRoot
+        )
+
+        // Step 3: Write the prompt to a temp file for the agent
+        let promptFile = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("epistemos_proposer_prompt_\(UUID().uuidString).md")
+        try prompt.write(to: promptFile, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: promptFile) }
+
+        // Step 4: Invoke the agent subprocess
+        let output = await runAgentSubprocess(promptFile: promptFile)
+
+        // Step 5: Log the output
+        let logFile = try await saveProposerLog(output: output, targetVersion: targetVersion)
+
+        Self.log.info("Proposer run complete: \(output.stdout.count) bytes stdout, exit \(output.exitCode)")
+
+        return ProposerResult(
+            exitCode: output.exitCode,
+            stdout: output.stdout,
+            stderr: output.stderr,
+            logFile: logFile,
+            tracesRoot: tracesRoot
+        )
+    }
+
+    // MARK: - Skill Prompt
+
+    private func buildSkillPrompt(
+        targetVersion: String,
+        tracesRoot: URL
+    ) -> String {
+        """
+        # Epistemos Harness Improvement Proposal
+
+        You are analyzing agent session traces to propose improvements to the Epistemos \
+        agent harness (system prompts, tool policies, completion checkers).
+
+        ## Your Task
+
+        1. Read the trace summary at: \(tracesRoot.path)/summary.json
+        2. Examine session traces in the session subdirectories (events.jsonl files)
+        3. Identify patterns: failures, wasted tokens, unnecessary tool calls, \
+           completion check mismatches
+        4. Propose specific, actionable changes to the harness
+
+        ## Current Harness Version: \(targetVersion)
+
+        ## Rules (NON-NEGOTIABLE)
+
+        - Do NOT modify held-out evaluation tasks
+        - Do NOT hardcode answers to specific tasks
+        - Do NOT propose task-specific hacks — changes must generalize
+        - Focus on system prompt improvements, tool policy adjustments, and \
+          completion checker tuning
+        - Every proposal must be a general improvement, not a narrow fix
+
+        ## Output Format
+
+        Write your proposals as a structured Markdown document with:
+        - **Diagnosis**: What patterns did you find in the traces?
+        - **Proposals**: Numbered list of changes with rationale
+        - **Expected Impact**: What should improve and by how much?
+
+        Keep the output under 2000 words. Be specific and actionable.
+        """
+    }
+
+    // MARK: - Subprocess Execution
+
+    private nonisolated func runAgentSubprocess(promptFile: URL) async -> ProcessResult {
+        let state = ProcessContinuationState<ProcessResult>()
+        let cancellationResult = ProcessResult(
+            exitCode: -1,
+            stdout: "",
+            stderr: "Cancelled proposer agent"
+        )
+
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                DispatchQueue.global(qos: .utility).async { [agentCommand, timeout] in
+                    let process = Process.init()
+
+                    // Try to find the agent command
+                    let resolvedCommand = Self.resolveAgentCommand(agentCommand)
+                    process.executableURL = URL(fileURLWithPath: resolvedCommand)
+                    process.arguments = ["--print", "--input-file", promptFile.path]
+
+                    let stdoutPipe = Pipe()
+                    let stderrPipe = Pipe()
+                    process.standardOutput = stdoutPipe
+                    process.standardError = stderrPipe
+
+                    guard state.store(process: process, continuation: continuation) else {
+                        continuation.resume(returning: cancellationResult)
+                        return
+                    }
+
+                    let timer = DispatchSource.makeTimerSource(queue: .global())
+                    timer.schedule(deadline: .now() + timeout)
+                    timer.setEventHandler { process.terminate() }
+                    timer.resume()
+
+                    process.terminationHandler = { proc in
+                        timer.cancel()
+
+                        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+
+                        state.resume(returning: ProcessResult(
+                            exitCode: proc.terminationStatus,
+                            stdout: String(data: stdoutData, encoding: .utf8) ?? "",
+                            stderr: String(data: stderrData, encoding: .utf8) ?? ""
+                        ))
+                    }
+
+                    do {
+                        try process.run()
+                    } catch {
+                        timer.cancel()
+                        state.resume(returning: ProcessResult(
+                            exitCode: -1,
+                            stdout: "",
+                            stderr: "Failed to launch proposer agent: \(error.localizedDescription)"
+                        ))
+                    }
+                }
+            }
+        } onCancel: {
+            state.terminate()
+            state.resume(returning: cancellationResult)
+        }
+    }
+
+    /// Resolve the agent command to a full path.
+    private nonisolated static func resolveAgentCommand(_ command: String) -> String {
+        let candidates = [
+            "/usr/local/bin/\(command)",
+            "/opt/homebrew/bin/\(command)",
+            "\(NSHomeDirectory())/.local/bin/\(command)",
+            "\(NSHomeDirectory())/.npm-global/bin/\(command)",
+        ]
+        let fm = FileManager.default
+        for candidate in candidates where fm.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+        return command // Fall back to PATH resolution
+    }
+
+    // MARK: - Logging
+
+    private func saveProposerLog(output: ProcessResult, targetVersion: String) async throws -> URL {
+        let logsDir = await registry.proposalArtifactsDir.appendingPathComponent("proposer_logs")
+        let fm = FileManager.default
+        try fm.createDirectory(at: logsDir, withIntermediateDirectories: true)
+
+        let timestamp = ISO8601DateFormatter().string(from: Date()).prefix(19).replacingOccurrences(of: ":", with: "-")
+        let filename = "proposer_\(targetVersion)_\(timestamp).md"
+        let logFile = logsDir.appendingPathComponent(filename)
+
+        var content = """
+        # Proposer Run Log
+
+        **Target Version:** \(targetVersion)
+        **Timestamp:** \(ISO8601DateFormatter().string(from: Date()))
+        **Exit Code:** \(output.exitCode)
+        **Agent Command:** \(agentCommand)
+
+        ## Stdout
+
+        ```
+        \(output.stdout)
+        ```
+
+        """
+
+        if !output.stderr.isEmpty {
+            content += """
+
+            ## Stderr
+
+            ```
+            \(output.stderr)
+            ```
+            """
+        }
+
+        try content.write(to: logFile, atomically: true, encoding: .utf8)
+        return logFile
+    }
+}
+
+/// Result from a proposer agent run.
+struct ProposerResult: Sendable {
+    let exitCode: Int32
+    let stdout: String
+    let stderr: String
+    let logFile: URL
+    let tracesRoot: URL
+
+    var succeeded: Bool { exitCode == 0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -637,6 +1162,15 @@ actor TraceStoreIndex {
         guard let pool = dbPool else { throw TraceStoreError.notOpen }
         return try pool.read { db in
             try TraceIndexRow.fetchAll(db, sql: "SELECT * FROM trace_index WHERE harnessVersion = ? ORDER BY timestamp", arguments: [version])
+        }
+    }
+
+    /// Get all distinct harness versions in the index.
+    func distinctHarnessVersions() throws -> [String] {
+        guard let pool = dbPool else { throw TraceStoreError.notOpen }
+        return try pool.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT DISTINCT harnessVersion FROM trace_index ORDER BY harnessVersion")
+            return rows.compactMap { $0["harnessVersion"] as String? }
         }
     }
 
@@ -832,4 +1366,180 @@ struct TraceIndexRow: Sendable {
 
 enum TraceStoreError: Error {
     case notOpen
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MARK: - Trace Materialization Engine (Phase 7G)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Extracts indexed trace data from JSONL files into a temporary filesystem
+/// hierarchy suitable for grep/cat-style access by the ProposerOrchestrator.
+///
+/// Output layout:
+/// ```
+/// /tmp/epistemos_lab_traces/
+///   harness_v1.0.0/
+///     session_abc123/
+///       events.jsonl           ← all events for that session
+///     session_def456/
+///       events.jsonl
+///     summary.json             ← per-version summary stats
+///   harness_v1.1.0-candidate_001/
+///     ...
+/// ```
+///
+/// The materialized traces are temporary — call `cleanup()` after the
+/// proposer has finished reading them. Never persist these beyond a
+/// single proposer run.
+actor TraceMaterializer {
+    private static let log = Logger(subsystem: "com.epistemos", category: "TraceMaterializer")
+
+    private let traceStore: TraceStoreIndex
+    private let baseDir: URL
+
+    /// The root directory where materialized traces are written.
+    var materializedRoot: URL { baseDir }
+
+    init(traceStore: TraceStoreIndex, baseDir: URL? = nil) {
+        self.traceStore = traceStore
+        self.baseDir = baseDir ?? URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("epistemos_lab_traces")
+    }
+
+    /// Materialize all traces for a specific harness version.
+    /// Returns the directory containing the materialized files.
+    func materialize(harnessVersion: String) async throws -> URL {
+        let versionDir = baseDir.appendingPathComponent(sanitizeDirName(harnessVersion))
+        let fm = FileManager.default
+        try fm.createDirectory(at: versionDir, withIntermediateDirectories: true)
+
+        // Query all trace index rows for this version
+        let rows = try await traceStore.traces(forVersion: harnessVersion)
+        Self.log.info("Materializing \(rows.count) trace events for \(harnessVersion)")
+
+        // Group by session
+        let bySession = Dictionary(grouping: rows, by: \.sessionId)
+
+        var sessionSummaries: [[String: Any]] = []
+
+        for (sessionId, sessionRows) in bySession {
+            let sessionDir = versionDir.appendingPathComponent("session_\(sanitizeDirName(sessionId))")
+            try fm.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+
+            // Extract original JSONL lines from source files
+            var lines: [String] = []
+            let rowsByFile = Dictionary(grouping: sessionRows, by: \.filePath)
+
+            for (filePath, fileRows) in rowsByFile {
+                guard let content = try? String(contentsOfFile: filePath, encoding: .utf8) else {
+                    Self.log.warning("Source file missing: \(filePath)")
+                    continue
+                }
+                let allLines = content.components(separatedBy: "\n")
+                for row in fileRows.sorted(by: { $0.lineOffset < $1.lineOffset }) {
+                    guard row.lineOffset < allLines.count else { continue }
+                    let line = allLines[row.lineOffset]
+                    if !line.isEmpty { lines.append(line) }
+                }
+            }
+
+            // Write the session's events.jsonl
+            let eventsFile = sessionDir.appendingPathComponent("events.jsonl")
+            let content = lines.joined(separator: "\n")
+            try content.write(to: eventsFile, atomically: true, encoding: .utf8)
+
+            // Build session summary
+            let eventTypes = Dictionary(grouping: sessionRows, by: \.eventType)
+                .mapValues(\.count)
+            let totalTokens = sessionRows.compactMap(\.tokenCost).reduce(0, +)
+            let outcomes = sessionRows.compactMap(\.outcome)
+            let passed = outcomes.filter { $0 == "passed" }.count
+            let failed = outcomes.filter { $0 == "failed" }.count
+
+            var summary: [String: Any] = [
+                "sessionId": sessionId,
+                "eventCount": sessionRows.count,
+                "linesMaterialized": lines.count,
+                "totalTokenCost": totalTokens,
+                "eventTypes": eventTypes,
+            ]
+            if !outcomes.isEmpty {
+                summary["passed"] = passed
+                summary["failed"] = failed
+            }
+            sessionSummaries.append(summary)
+        }
+
+        // Write version-level summary.json
+        let versionSummary: [String: Any] = [
+            "harnessVersion": harnessVersion,
+            "sessionCount": bySession.count,
+            "totalEvents": rows.count,
+            "materializedAt": ISO8601DateFormatter().string(from: Date()),
+            "sessions": sessionSummaries
+        ]
+        let summaryData = try JSONSerialization.data(withJSONObject: versionSummary, options: [.prettyPrinted, .sortedKeys])
+        try summaryData.write(to: versionDir.appendingPathComponent("summary.json"))
+
+        Self.log.info("Materialized \(rows.count) events across \(bySession.count) sessions → \(versionDir.path)")
+        return versionDir
+    }
+
+    /// Materialize traces for all harness versions that have indexed data.
+    /// Returns the root directory containing all version subdirectories.
+    func materializeAll() async throws -> URL {
+        let fm = FileManager.default
+        try fm.createDirectory(at: baseDir, withIntermediateDirectories: true)
+
+        // Get distinct harness versions from the index
+        let versions = try await traceStore.distinctHarnessVersions()
+
+        for version in versions {
+            _ = try await materialize(harnessVersion: version)
+        }
+
+        let root = self.baseDir
+        Self.log.info("Materialized traces for \(versions.count) harness versions → \(root.path)")
+        return baseDir
+    }
+
+    /// Remove all materialized trace files.
+    func cleanup() {
+        let root = self.baseDir
+        do {
+            let fm = FileManager.default
+            if fm.fileExists(atPath: root.path) {
+                try fm.removeItem(at: root)
+                Self.log.info("Cleaned up materialized traces at \(root.path)")
+            }
+        } catch {
+            Self.log.warning("Failed to clean up materialized traces: \(error.localizedDescription)")
+        }
+    }
+
+    /// Check if materialized traces exist.
+    func hasMaterializedTraces() -> Bool {
+        FileManager.default.fileExists(atPath: baseDir.path)
+    }
+
+    /// Disk usage of materialized traces in bytes.
+    func materializedDiskUsage() -> Int64 {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: baseDir, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        var total: Int64 = 0
+        while let url = enumerator.nextObject() as? URL {
+            if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                total += Int64(size)
+            }
+        }
+        return total
+    }
+
+    // MARK: - Private
+
+    /// Sanitize a string for use as a directory name.
+    private nonisolated func sanitizeDirName(_ name: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        return String(name.unicodeScalars.map { allowed.contains($0) ? Character($0) : "_" })
+    }
 }

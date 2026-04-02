@@ -28,7 +28,42 @@ actor VaultIndexActor {
         let nonVaultPageCount: Int
     }
 
+    struct VaultFolderSelectionAssessment: Sendable, Equatable {
+        let importableNoteFileCount: Int
+        let otherRegularFileCount: Int
+        let scannedRegularFileCount: Int
+        let reachedScanLimit: Bool
+
+        var shouldConfirmSelection: Bool {
+            if importableNoteFileCount == 0 {
+                return otherRegularFileCount >= 32
+            }
+            return otherRegularFileCount >= max(64, importableNoteFileCount * 8)
+        }
+
+        var confirmationMessage: String {
+            let scanScope =
+                reachedScanLimit
+                ? "in the first \(scannedRegularFileCount) files Epistemos checked"
+                : "in this folder"
+
+            if importableNoteFileCount == 0 {
+                return """
+                Epistemos did not find any Markdown or plain-text note files \(scanScope). \
+                This folder may not actually be a notes vault.
+                """
+            }
+
+            return """
+            Epistemos found only \(importableNoteFileCount) note file\(importableNoteFileCount == 1 ? "" : "s") \
+            but \(otherRegularFileCount) other file\(otherRegularFileCount == 1 ? "" : "s") \(scanScope). \
+            If this is not really your notes workspace, switching to it can make the app look empty or noisy.
+            """
+        }
+    }
+
     private let log = Logger(subsystem: "com.epistemos", category: "VaultIndex")
+    nonisolated private static let staticLog = Logger(subsystem: "com.epistemos", category: "VaultIndex")
     nonisolated static let spotlightIndexDateKey = "epistemos.lastSpotlightIndexDate"
     nonisolated private static let excludedDirs: Set<String> = [
         "node_modules", ".git", ".build", "Pods", "DerivedData", ".svn", ".venv", "venv",
@@ -43,6 +78,101 @@ actor VaultIndexActor {
 
     func setSearchService(_ service: SearchIndexService) {
         self.searchService = service
+    }
+
+    private func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> [T]? {
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            log.error(
+                "VaultIndex: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func fetchFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> T? {
+        fetchAll(descriptor, label: label)?.first
+    }
+
+    private func fetchCount<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> Int? {
+        do {
+            return try modelContext.fetchCount(descriptor)
+        } catch {
+            log.error(
+                "VaultIndex: failed to fetch count for \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func saveContext(_ label: String) throws {
+        do {
+            try modelContext.save()
+        } catch {
+            log.error(
+                "VaultIndex: failed to save \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
+    }
+
+    private nonisolated static func isRegularFile(_ fileURL: URL, label: String) -> Bool {
+        do {
+            return try fileURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true
+        } catch {
+            staticLog.error(
+                "VaultIndex: failed to inspect \(label, privacy: .public) at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+    }
+
+    private nonisolated static func contentModificationDate(
+        for fileURL: URL,
+        label: String,
+        logWhenMissing: Bool = true
+    ) -> Date? {
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            if logWhenMissing {
+                staticLog.error(
+                    "VaultIndex: missing \(label, privacy: .public) at \(fileURL.path, privacy: .public) while reading modification date"
+                )
+            }
+            return nil
+        }
+
+        do {
+            return try fileURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        } catch {
+            staticLog.error(
+                "VaultIndex: failed to read modification date for \(label, privacy: .public) at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private nonisolated static func mappedFileData(
+        at fileURL: URL,
+        label: String
+    ) -> Data? {
+        do {
+            return try Data(contentsOf: fileURL, options: .mappedIfSafe)
+        } catch {
+            staticLog.error(
+                "VaultIndex: failed to read \(label, privacy: .public) at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
     }
 
     nonisolated static func shouldSkipDescendants(for name: String) -> Bool {
@@ -76,6 +206,70 @@ actor VaultIndexActor {
             count += 1
         }
         return count
+    }
+
+    nonisolated static func vaultFolderSelectionAssessment(
+        for url: URL,
+        scanLimit: Int = 256
+    ) -> VaultFolderSelectionAssessment {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path), fm.isReadableFile(atPath: url.path) else {
+            return VaultFolderSelectionAssessment(
+                importableNoteFileCount: 0,
+                otherRegularFileCount: 0,
+                scannedRegularFileCount: 0,
+                reachedScanLimit: false
+            )
+        }
+
+        guard let enumerator = fm.enumerator(
+            at: url,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return VaultFolderSelectionAssessment(
+                importableNoteFileCount: 0,
+                otherRegularFileCount: 0,
+                scannedRegularFileCount: 0,
+                reachedScanLimit: false
+            )
+        }
+
+        var importableNoteFileCount = 0
+        var otherRegularFileCount = 0
+        var scannedRegularFileCount = 0
+        var reachedScanLimit = false
+
+        for case let fileURL as URL in enumerator {
+            let name = fileURL.lastPathComponent
+            if shouldSkipDescendants(for: name) {
+                enumerator.skipDescendants()
+                continue
+            }
+
+            guard Self.isRegularFile(fileURL, label: "vault selection candidate") else {
+                continue
+            }
+
+            scannedRegularFileCount += 1
+            if isImportableNoteFile(fileURL) {
+                importableNoteFileCount += 1
+            } else {
+                otherRegularFileCount += 1
+            }
+
+            if scannedRegularFileCount >= scanLimit {
+                reachedScanLimit = true
+                break
+            }
+        }
+
+        return VaultFolderSelectionAssessment(
+            importableNoteFileCount: importableNoteFileCount,
+            otherRegularFileCount: otherRegularFileCount,
+            scannedRegularFileCount: scannedRegularFileCount,
+            reachedScanLimit: reachedScanLimit
+        )
     }
 
     nonisolated static func isModificationDate(_ lhs: Date?, newerThan rhs: Date?) -> Bool {
@@ -198,14 +392,9 @@ actor VaultIndexActor {
                 diskPaths.insert(filePath)
 
                 // Get file modification date
-                let fileModDate: Date
-                if let resourceValues = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
-                   let modDate = resourceValues.contentModificationDate {
-                    fileModDate = modDate
-                } else {
-                    // Can't read mod date — treat as changed to be safe
-                    fileModDate = .distantFuture
-                }
+                let fileModDate =
+                    Self.contentModificationDate(for: fileURL, label: "vault import file")
+                    ?? .distantFuture
 
                 // Pre-check readability to count unreadable files separately.
                 guard fm.isReadableFile(atPath: filePath) else {
@@ -260,7 +449,7 @@ actor VaultIndexActor {
                 }
 
                 if changeCount > 0 && changeCount.isMultiple(of: batchSize) {
-                    try modelContext.save()
+                    try saveContext("vault import batch progress")
                     log.info("Vault import progress: \(changeCount, privacy: .public) changes")
                 }
             }
@@ -284,7 +473,7 @@ actor VaultIndexActor {
         }
 
         if changeCount > 0 || deleteCount > 0 {
-            try modelContext.save()
+            try saveContext("vault import final changes")
         }
 
         // Synthesize folders from subfolder paths.
@@ -298,18 +487,24 @@ actor VaultIndexActor {
         }
 
         // Diagnostic: compare disk file count only against vault-backed note pages.
-        let currentPages = (try? modelContext.fetch(FetchDescriptor<SDPage>())) ?? []
-        let comparableCounts = Self.comparableVaultPageCounts(pages: currentPages, in: url)
-        log.info(
-            "Vault import complete: \(diskPaths.count) files on disk, \(comparableCounts.uniqueTrackedVaultPathCount) tracked vault pages in DB → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted, \(unreadableCount) unreadable, \(comparableCounts.nonVaultPageCount) non-vault pages, \(comparableCounts.duplicateTrackedPathCount) duplicate tracked paths"
-        )
-        if completedScan &&
-            deleteMissingFiles &&
-            diskPaths.count != comparableCounts.uniqueTrackedVaultPathCount
-        {
-            log.warning(
-                "Vault import mismatch: \(diskPaths.count) disk files vs \(comparableCounts.uniqueTrackedVaultPathCount) tracked DB paths (delta: \(comparableCounts.uniqueTrackedVaultPathCount - diskPaths.count), tracked pages: \(comparableCounts.trackedVaultPageCount), non-vault pages: \(comparableCounts.nonVaultPageCount), duplicate tracked paths: \(comparableCounts.duplicateTrackedPathCount))"
+        if let currentPages = fetchAll(
+            FetchDescriptor<SDPage>(),
+            label: "current vault pages for import diagnostics"
+        ) {
+            let comparableCounts = Self.comparableVaultPageCounts(pages: currentPages, in: url)
+            log.info(
+                "Vault import complete: \(diskPaths.count) files on disk, \(comparableCounts.uniqueTrackedVaultPathCount) tracked vault pages in DB → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted, \(unreadableCount) unreadable, \(comparableCounts.nonVaultPageCount) non-vault pages, \(comparableCounts.duplicateTrackedPathCount) duplicate tracked paths"
             )
+            if completedScan &&
+                deleteMissingFiles &&
+                diskPaths.count != comparableCounts.uniqueTrackedVaultPathCount
+            {
+                log.warning(
+                    "Vault import mismatch: \(diskPaths.count) disk files vs \(comparableCounts.uniqueTrackedVaultPathCount) tracked DB paths (delta: \(comparableCounts.uniqueTrackedVaultPathCount - diskPaths.count), tracked pages: \(comparableCounts.trackedVaultPageCount), non-vault pages: \(comparableCounts.nonVaultPageCount), duplicate tracked paths: \(comparableCounts.duplicateTrackedPathCount))"
+                )
+            }
+        } else {
+            log.warning("Vault import complete, but tracked page diagnostics were unavailable")
         }
     }
 
@@ -336,12 +531,11 @@ actor VaultIndexActor {
         // Pre-load existing folders so we don't create duplicates on incremental import
         var foldersByPath: [String: SDFolder] = [:]
         let existingFolderDescriptor = FetchDescriptor<SDFolder>()
-        if let existingFolders = try? modelContext.fetch(existingFolderDescriptor) {
-            for folder in existingFolders {
-                let path = folder.relativePath
-                if !path.isEmpty {
-                    foldersByPath[path] = folder
-                }
+        let existingFolders = try modelContext.fetch(existingFolderDescriptor)
+        for folder in existingFolders {
+            let path = folder.relativePath
+            if !path.isEmpty {
+                foldersByPath[path] = folder
             }
         }
 
@@ -380,7 +574,7 @@ actor VaultIndexActor {
             folder.isCollection = true
         }
 
-        try modelContext.save()
+        try saveContext("synthesized folders from subfolders")
         log.info(
             "Synthesized \(foldersByPath.count) folders from \(uniquePaths.count) unique directory paths"
         )
@@ -417,7 +611,7 @@ actor VaultIndexActor {
         let orphans = allPages.filter { $0.subfolder != nil && $0.folder == nil }
         guard !orphans.isEmpty else {
             if subfolderFixed > 0 {
-                try modelContext.save()
+                try saveContext("repair orphaned folder subfolder updates")
                 log.info("Repair: set subfolder on \(subfolderFixed) pages (no folder wiring needed)")
             }
             return
@@ -452,7 +646,7 @@ actor VaultIndexActor {
         }
 
         if repaired > 0 || subfolderFixed > 0 {
-            try modelContext.save()
+            try saveContext("repair orphaned folder relationships")
             log.info("Repair: fixed \(subfolderFixed) missing subfolders, wired \(repaired) orphaned pages to folders")
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: vaultFoldersRepairedNotification, object: nil)
@@ -467,7 +661,7 @@ actor VaultIndexActor {
     func reindexFile(at url: URL, vaultURL: URL) throws -> Bool {
         let changed = try upsertPage(from: url, vaultURL: vaultURL)
         if changed {
-            try modelContext.save()
+            try saveContext("single file reindex")
             log.debug("Re-indexed: \(url.lastPathComponent, privacy: .public)")
         }
         return changed
@@ -526,7 +720,7 @@ actor VaultIndexActor {
         // Persist filePath back to the store so subsequent exports use the same path.
         // Without this save, the filePath only exists in the background actor's memory
         // and the mainContext never sees it — causing duplicate file creation.
-        try modelContext.save()
+        try saveContext("exported page file path")
         upsertSearchIndex(page: page, body: body)
 
         log.debug("Exported: \(fileURL.lastPathComponent, privacy: .public)")
@@ -568,7 +762,7 @@ actor VaultIndexActor {
         guard FileManager.default.fileExists(atPath: oldURL.path) else { return }
         try FileManager.default.moveItem(at: oldURL, to: newURL)
         page.filePath = newURL.path
-        try modelContext.save()
+        try saveContext("renamed page file")
         log.info("Renamed page file: \(oldURL.lastPathComponent, privacy: .public) → \(newURL.lastPathComponent, privacy: .public)")
     }
 
@@ -594,12 +788,12 @@ actor VaultIndexActor {
                 AppBootstrap.shared?.instantRecallService.removeNote(noteId: pageId)
             }
             let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
-            if let insight = try? modelContext.fetch(insightDesc).first {
+            if let insight = fetchFirst(insightDesc, label: "note insight for deleted file \(pageId)") {
                 modelContext.delete(insight)
             }
             modelContext.delete(page)
         }
-        try modelContext.save()
+        try saveContext("deleted file removal")
         log.debug("Removed deleted file from index: \(url.lastPathComponent, privacy: .public)")
     }
 
@@ -622,7 +816,12 @@ actor VaultIndexActor {
 
         let content: String
         do {
-            let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+            guard let data = Self.mappedFileData(
+                at: fileURL,
+                label: "vault note file"
+            ) else {
+                return false
+            }
             if let decoded = FoundationSafety.decodedText(from: data) {
                 content = decoded
             } else if let latin1 = String(data: data, encoding: .isoLatin1) {
@@ -667,8 +866,15 @@ actor VaultIndexActor {
             // the user edited in-app after the last auto-save export. Preserve their
             // edits by skipping the body overwrite — only update metadata from vault.
             let noteBodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(page.id).md")
-            let noteBodyModDate = (try? noteBodyURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-            let vaultModDate = (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            let noteBodyModDate = Self.contentModificationDate(
+                for: noteBodyURL,
+                label: "managed note body",
+                logWhenMissing: false
+            )
+            let vaultModDate = Self.contentModificationDate(
+                for: fileURL,
+                label: "vault note file"
+            )
             let noteBodyIsNewer = Self.isModificationDate(noteBodyModDate, newerThan: vaultModDate)
 
             // Only preserve in-app body if it's non-empty. A zero-byte note-body
@@ -743,12 +949,20 @@ actor VaultIndexActor {
                 let idDescriptor = FetchDescriptor<SDPage>(
                     predicate: #Predicate { $0.id == savedId }
                 )
-                let existingWithId = (try? modelContext.fetch(idDescriptor)) ?? []
-                let isOwnedByAnotherFile = existingWithId.contains { $0.filePath != filePath }
-                if isOwnedByAnotherFile {
-                    log.info("Duplicate file detected for page \(savedId, privacy: .public) — assigning new ID")
+                if let existingWithId = fetchAll(
+                    idDescriptor,
+                    label: "existing page by restored ID \(savedId)"
+                ) {
+                    let isOwnedByAnotherFile = existingWithId.contains { $0.filePath != filePath }
+                    if isOwnedByAnotherFile {
+                        log.info("Duplicate file detected for page \(savedId, privacy: .public) — assigning new ID")
+                    } else {
+                        page.id = savedId
+                    }
                 } else {
-                    page.id = savedId
+                    log.warning(
+                        "Restored ID collision check failed for \(savedId, privacy: .public); keeping generated page ID for \(fileURL.lastPathComponent, privacy: .public)"
+                    )
                 }
             }
 
@@ -788,7 +1002,7 @@ actor VaultIndexActor {
 
     nonisolated static func decodedBodyFromReadableVaultFile(at fileURL: URL) -> String? {
         guard FileManager.default.isReadableFile(atPath: fileURL.path),
-              let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe) else {
+              let data = Self.mappedFileData(at: fileURL, label: "readable vault body preview") else {
             return nil
         }
 
@@ -957,14 +1171,14 @@ actor VaultIndexActor {
     /// All page (id, updatedAt) pairs for diff sync.
     func allPageTimestamps() -> [(id: String, updatedAt: Date)] {
         let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = try? modelContext.fetch(descriptor) else { return [] }
+        guard let pages = fetchAll(descriptor, label: "all page timestamps") else { return [] }
         return pages.map { ($0.id, $0.updatedAt) }
     }
 
     /// Full page data for a single page (used by diff sync provider).
     func fullPageData(for pageId: String) -> (title: String, body: String, tags: String, updatedAt: Date)? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? modelContext.fetch(descriptor).first else { return nil }
+        guard let page = fetchFirst(descriptor, label: "full page data for \(pageId)") else { return nil }
         return (page.title, page.loadBody(mapped: true), page.tags.joined(separator: " "), page.updatedAt)
     }
 
@@ -973,7 +1187,7 @@ actor VaultIndexActor {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
         )
-        guard let pages = try? modelContext.fetch(descriptor) else { return [] }
+        guard let pages = fetchAll(descriptor, label: "pages for search index rebuild") else { return [] }
         return pages.map { ($0.id, $0.title, $0.loadBody(mapped: true), $0.tags.joined(separator: " "), $0.updatedAt) }
     }
 
@@ -1021,7 +1235,9 @@ actor VaultIndexActor {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 200
-        guard let pages = try? modelContext.fetch(descriptor) else { return nil }
+        guard let pages = fetchAll(descriptor, label: "vault context pages"), !pages.isEmpty else {
+            return nil
+        }
 
         // ── 4. Score each page by relevance ─────────────────────────────
         struct ScoredPage {
@@ -1084,7 +1300,7 @@ actor VaultIndexActor {
 
         // Build folder list for action instructions
         let folderDescriptor = FetchDescriptor<SDFolder>(sortBy: [SortDescriptor(\.sortOrder)])
-        let folderNames = (try? modelContext.fetch(folderDescriptor))?.map(\.name) ?? []
+        let folderNames = fetchAll(folderDescriptor, label: "folder names for vault context")?.map(\.name) ?? []
 
         let actionInstructions = """
 
@@ -1110,7 +1326,9 @@ actor VaultIndexActor {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
 
-        guard let pages = try? modelContext.fetch(descriptor), !pages.isEmpty else { return nil }
+        guard let pages = fetchAll(descriptor, label: "ambient manifest pages"), !pages.isEmpty else {
+            return nil
+        }
 
         let entries: [VaultManifest.ManifestEntry] = pages.map { page in
             VaultManifest.ManifestEntry(
@@ -1143,7 +1361,9 @@ actor VaultIndexActor {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
 
-        guard let pages = try? modelContext.fetch(descriptor), !pages.isEmpty else { return nil }
+        guard let pages = fetchAll(descriptor, label: "vault manifest pages"), !pages.isEmpty else {
+            return nil
+        }
 
         let entries: [VaultManifest.ManifestEntry] = pages.map { page in
             VaultManifest.ManifestEntry(
@@ -1190,7 +1410,7 @@ actor VaultIndexActor {
             let descriptor = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.id == id }
             )
-            if let page = try? modelContext.fetch(descriptor).first {
+            if let page = fetchFirst(descriptor, label: "note body for \(id)") {
                 results.append(VaultManifest.NoteBody(
                     pageId: page.id, title: page.title, body: page.loadBody(mapped: true)
                 ))
@@ -1207,7 +1427,7 @@ actor VaultIndexActor {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 200
-        guard let pages = try? modelContext.fetch(descriptor) else { return [] }
+        guard let pages = fetchAll(descriptor, label: "notes by title query") else { return [] }
         return pages.filter { $0.title.lowercased().contains(q) }.prefix(8).map { page in
             VaultManifest.ManifestEntry(
                 pageId: page.id,
@@ -1235,7 +1455,10 @@ actor VaultIndexActor {
         )
         descriptor.fetchLimit = 1000
 
-        let changedPageCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+        let changedPageCount = fetchCount(
+            descriptor,
+            label: "spotlight changed page count"
+        ) ?? 0
         return SpotlightReindexSnapshot(
             lastIndexDate: lastIndexDate,
             changedPageCount: changedPageCount,
@@ -1260,7 +1483,10 @@ actor VaultIndexActor {
         // Safety cap: don't try to index more than 1000 at once
         descriptor.fetchLimit = 1000
 
-        guard let pages = try? modelContext.fetch(descriptor), !pages.isEmpty else {
+        guard let pages = fetchAll(descriptor, label: "spotlight reindex pages") else {
+            return
+        }
+        guard !pages.isEmpty else {
             log.info("Spotlight: no pages changed since last index")
             return
         }
@@ -1326,7 +1552,7 @@ actor VaultIndexActor {
         guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
 
         let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = try? modelContext.fetch(descriptor) else { return }
+        guard let pages = fetchAll(descriptor, label: "hybrid sync migration pages") else { return }
 
         var migrated = 0
         for page in pages where page.lastSyncedBodyHash == nil {
@@ -1337,7 +1563,11 @@ actor VaultIndexActor {
         }
 
         if migrated > 0 {
-            try? modelContext.save()
+            do {
+                try saveContext("hybrid sync migration")
+            } catch {
+                return
+            }
         }
 
         UserDefaults.standard.set(true, forKey: migrationKey)
@@ -1351,12 +1581,16 @@ actor VaultIndexActor {
         guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
 
         let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = try? modelContext.fetch(descriptor) else { return }
+        guard let pages = fetchAll(descriptor, label: "inline body migration pages") else { return }
 
         for page in pages {
             page.updatedAt = .distantPast
         }
-        try? modelContext.save()
+        do {
+            try saveContext("inline body migration")
+        } catch {
+            return
+        }
 
         UserDefaults.standard.set(true, forKey: migrationKey)
         log.info("Inline body migration: reset \(pages.count) page timestamps for re-import")

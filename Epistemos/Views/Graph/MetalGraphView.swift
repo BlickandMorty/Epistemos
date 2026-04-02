@@ -420,6 +420,7 @@ final class MetalGraphNSView: NSView {
     private var metalLayer: CAMetalLayer?
     private nonisolated(unsafe) var backingPropertiesObserver: (any NSObjectProtocol)?
     private nonisolated(unsafe) var occlusionObserver: (any NSObjectProtocol)?
+    private nonisolated(unsafe) var powerModeObserver: (any NSObjectProtocol)?
 
     /// Frame coalescing: prevents queuing multiple render dispatches.
     /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
@@ -484,6 +485,7 @@ final class MetalGraphNSView: NSView {
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastLiteModeVersion: Int = -1
+    var lastPushedQualityLevel: UInt8 = 255
     var lastVisualThemeVersion: Int = -1
     var lastSemanticForceConfigVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
@@ -585,7 +587,35 @@ final class MetalGraphNSView: NSView {
         graphState?.engineHandle = engine
         graphState?.isWarmed = true
 
+        refreshPowerModeObserver()
         startDisplayLink()
+    }
+
+    private func refreshPowerModeObserver() {
+        if let powerModeObserver {
+            NotificationCenter.default.removeObserver(powerModeObserver)
+            self.powerModeObserver = nil
+        }
+
+        powerModeObserver = NotificationCenter.default.addObserver(
+            forName: PowerGuard.modeDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.applyPowerModeGraphOverrides()
+            }
+        }
+    }
+
+    private func applyPowerModeGraphOverrides() {
+        guard let engine, let graphState else { return }
+        lastLiteModeVersion = graphState.liteModeVersion
+        lastPushedQualityLevel = graphState.qualityLevel
+        graph_engine_set_quality_level(engine, graphState.qualityLevel)
+        pushForceParams()
+        pushExtendedForceParams()
+        needsRender = true
     }
 
     // MARK: - Display Link
@@ -1063,11 +1093,15 @@ final class MetalGraphNSView: NSView {
             pushExtendedForceParams()
         }
 
-        // Sync visual theme when changed.
-        if let graphState, lastLiteModeVersion != graphState.liteModeVersion {
-            lastLiteModeVersion = graphState.liteModeVersion
-            graph_engine_set_quality_level(engine, graphState.qualityLevel)
-            needsRender = true
+        // Sync quality level when user toggles or PowerGuard forces performance mode.
+        if let graphState {
+            let currentQL = graphState.qualityLevel
+            if lastLiteModeVersion != graphState.liteModeVersion || lastPushedQualityLevel != currentQL {
+                lastLiteModeVersion = graphState.liteModeVersion
+                lastPushedQualityLevel = currentQL
+                graph_engine_set_quality_level(engine, currentQL)
+                needsRender = true
+            }
         }
 
         // Sync visual theme when changed.
@@ -1809,6 +1843,9 @@ final class MetalGraphNSView: NSView {
         }
         if let occlusionObserver {
             NotificationCenter.default.removeObserver(occlusionObserver)
+        }
+        if let powerModeObserver {
+            NotificationCenter.default.removeObserver(powerModeObserver)
         }
         // Inline display-link stop — can't call @MainActor stopDisplayLink() from nonisolated deinit.
         // Safe: no other references exist during deallocation.
