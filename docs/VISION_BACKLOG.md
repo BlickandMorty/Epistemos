@@ -339,6 +339,55 @@ Each tab shows its own content but shares the same search/command bar at the top
 - Collapse to icon-only strip (~48px) with ⌘\
 - Expand to full split (50/50) for focused browsing
 
+### 4-ENGINEERING. Knowledge Brick & Floating Panel Isolation (Canonical Engineering Spec)
+
+**Problem:** Cramming notes + chat + code + settings + agent panels into one SwiftUI view hierarchy will lag. The current notes sidebar already shows layout cost. Adding more content without isolation guarantees frame drops.
+
+**Principle: render only the active tab. Inactive tabs do not exist in the view tree.**
+
+**Recommended architecture (Codex: research and validate the best approach before implementing):**
+
+| Component | Recommended Technology | Rationale |
+|-----------|----------------------|-----------|
+| Knowledge Brick container | NSView (AppKit) | Single hosting view swap, no SwiftUI TabView overhead |
+| Each tab content (Notes/Chat/Code) | Separate NSHostingView, swapped in/out | Only active tab in view tree — zero layout cost for hidden tabs |
+| Tab switcher | NSSegmentedControl (native) | Consistent with macOS HIG, no custom SwiftUI segment rebuild |
+| Tab state persistence | @Observable models per tab | Scroll position, selection state survive tab switch without keeping view alive |
+| ⌘K command bar | NSPanel (borderless floating window) | Own window, own view tree, no layout interference with sidebar or graph |
+| ⌥Space global overlay | NSPanel + NSEvent.addGlobalMonitorForEvents | System-wide hotkey, floating panel over all apps |
+| Floating graph panels (immersive) | NSPanel per panel instance | True OS-level window isolation, native drag/resize, composited by window server |
+| Metal graph | NSView with CAMetalLayer (existing) | Own render pipeline, unaffected by panel count or sidebar state |
+| Settings panel | NSHostingView in sidebar (inline) | Same swap mechanism as tab content — no separate window |
+
+**Why NSPanel for floating panels:**
+- Each panel has its own view tree, own layout pass — no cross-panel interference
+- Native dragging, resizing, minimize for free
+- Window server composites panels over the Metal graph — zero GPU overhead from panels
+- This is exactly how Xcode inspectors, Instruments detail views, and Final Cut floating panels work
+- NOT SwiftUI overlays (which share the parent view's layout pass and cause frame drops)
+
+**Why NSHostingView swap instead of SwiftUI TabView:**
+- SwiftUI TabView keeps all tabs in memory and computes layout for hidden tabs
+- NSHostingView swap removes inactive tabs from the view hierarchy entirely
+- Reconstruct from @Observable model on tab switch — scroll position, selection all restored
+- Same pattern as GraphRenderWakeSignature (store state separately, render from it on demand)
+
+**Performance guarantees:**
+- 10 floating panels open in immersive mode → graph still renders at 120fps
+- Knowledge Brick tab switch → <16ms (single NSHostingView swap)
+- ⌘K command bar appears → <8ms (NSPanel makeKeyAndOrderFront)
+- Each component is independently profiled — no shared layout bottleneck
+
+**IMPORTANT FOR CODEX:** This is a recommended starting architecture based on AppKit best practices. Before implementing, research:
+1. Whether NSHostingView swap causes any SwiftUI state loss that @Observable doesn't cover
+2. Whether NSPanel compositing has any interaction with Metal's CAMetalLayer presentDrawable
+3. Whether there's a better pattern for floating panels in macOS 26 (SwiftUI Scene? WindowGroup?)
+4. Profile the current notes sidebar to identify the exact source of lag before assuming it's view hierarchy size
+5. Consider whether LazyVStack inside each tab eliminates enough overhead to stay pure SwiftUI
+6. Research how CodeEdit and Nova handle their sidebar panel architecture
+
+**The goal is zero-compromise: 120fps graph + responsive sidebar + instant command bar + N floating panels, all isolated.**
+
 ### 4-SETTINGS. Inline Settings Panel (Kill Separate Window)
 - Gear icon at bottom of Knowledge Brick expands inline settings
 - Quick toggles at top: eco mode, model selector, theme, graph quality

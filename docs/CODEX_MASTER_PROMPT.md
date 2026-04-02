@@ -165,6 +165,8 @@ Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inv
 
 Work through phases A→H as defined in the execution order at the bottom of VISION_BACKLOG.md.
 
+**CRITICAL ENGINEERING NOTE:** When implementing Phase B (graph-first) and Phase D (Knowledge Brick), read the `4-ENGINEERING` section in VISION_BACKLOG.md first. It specifies isolation architecture (NSPanel floating panels, NSHostingView tab swapping, @Observable state persistence) to prevent layout interference and frame drops. Research the best implementation approach before building — the spec provides a recommended starting point, not a rigid mandate. Profile first, then decide.
+
 ## MANDATORY POST-PHASE AUDIT PROTOCOL
 
 **After completing EVERY phase (A through H), you MUST run a full audit before starting the next phase.** This is non-negotiable. Skipping audits between phases is how drift compounds into architectural rot.
