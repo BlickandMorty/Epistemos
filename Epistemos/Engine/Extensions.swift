@@ -1,6 +1,34 @@
 import Foundation
 
 nonisolated enum FoundationSafety {
+    static func isRunningTests(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        processInfoEnvironment["XCTestConfigurationFilePath"] != nil
+    }
+
+    static func runtimeApplicationSupportDirectory(
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier
+    ) -> URL {
+        let directory: URL
+        if isRunningTests(processInfoEnvironment: processInfoEnvironment) {
+            directory = fileManager.temporaryDirectory
+                .appendingPathComponent("Epistemos-TestRuntime", isDirectory: true)
+                .appendingPathComponent(String(processIdentifier), isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
+        } else {
+            directory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? fileManager.temporaryDirectory.appendingPathComponent(
+                    "Application Support",
+                    isDirectory: true
+                )
+        }
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.standardizedFileURL
+    }
+
     static func regularExpression(
         pattern: String,
         options: NSRegularExpression.Options = []
@@ -24,11 +52,7 @@ nonisolated enum FoundationSafety {
     static func userApplicationSupportDirectory(
         fileManager: FileManager = .default
     ) -> URL {
-        fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? fileManager.temporaryDirectory.appendingPathComponent(
-                "Application Support",
-                isDirectory: true
-            )
+        runtimeApplicationSupportDirectory(fileManager: fileManager)
     }
 
     static func utf8String(from data: Data) throws -> String {

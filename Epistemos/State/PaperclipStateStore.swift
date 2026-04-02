@@ -12,8 +12,6 @@ import SQLite3
 // WAL mode delivers 70K-100K writes/sec vs SwiftData's ORM overhead.
 // The Swift actor serializes concurrent writes naturally — no explicit mutex needed.
 
-nonisolated(unsafe) private let paperclipLog = Logger(subsystem: "com.epistemos.state", category: "PaperclipStore")
-
 // MARK: - Agent Tick Record
 
 struct AgentTick: Sendable {
@@ -39,6 +37,10 @@ struct CronHeartbeat: Sendable {
 // MARK: - PaperclipStateStore Actor
 
 actor PaperclipStateStore {
+    private static let logger = Logger(
+        subsystem: "com.epistemos.state",
+        category: "PaperclipStore"
+    )
 
     private var db: OpaquePointer?
     private let path: String
@@ -106,7 +108,7 @@ actor PaperclipStateStore {
         """
         sqlite3_exec(dbPtr, createSQL, nil, nil, &errorMsg)
 
-        paperclipLog.info("PaperclipStateStore opened at \(storePath)")
+        Self.logger.info("PaperclipStateStore opened at \(storePath)")
     }
 
     /// Explicitly close the database. Call before releasing the actor.
@@ -218,7 +220,7 @@ actor PaperclipStateStore {
         let cutoff = Date().addingTimeInterval(TimeInterval(-retentionDays * 86400)).timeIntervalSince1970
         try exec("DELETE FROM agent_ticks WHERE timestamp < \(cutoff);")
         try exec("DELETE FROM cron_heartbeats WHERE executed_at < \(cutoff);")
-        paperclipLog.info("Pruned data older than \(retentionDays) days")
+        Self.logger.info("Pruned data older than \(retentionDays) days")
     }
 
     // MARK: - Helpers
@@ -239,10 +241,8 @@ actor PaperclipStateStore {
     }
 
     private static func defaultPath() -> String {
-        let support = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!.appendingPathComponent("Epistemos")
+        let support = FoundationSafety.userApplicationSupportDirectory()
+            .appendingPathComponent("Epistemos")
         return support.appendingPathComponent("paperclip_state.db").path
     }
 }

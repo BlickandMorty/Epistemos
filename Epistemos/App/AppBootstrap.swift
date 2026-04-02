@@ -195,10 +195,11 @@ final class AppBootstrap {
         let schema = Schema(EpistemosSchema.models)
         let container: ModelContainer
         let dbError: Error?
+        let usesInMemoryModelStore = Self.isRunningTests
         do {
             container = try ModelContainer(
                 for: schema,
-                configurations: ModelConfiguration(isStoredInMemoryOnly: false)
+                configurations: ModelConfiguration(isStoredInMemoryOnly: usesInMemoryModelStore)
             )
             dbError = nil
         } catch {

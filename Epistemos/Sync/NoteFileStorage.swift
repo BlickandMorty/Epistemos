@@ -624,11 +624,7 @@ enum NoteFileStorage {
     /// Cached after first access — the directory is created once and never changes.
     private nonisolated static let _storageDirectory: URL = {
         let fm = FileManager.default
-        guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            let fallback = fm.temporaryDirectory.appendingPathComponent("Epistemos/note-bodies", isDirectory: true)
-            try? fm.createDirectory(at: fallback, withIntermediateDirectories: true)
-            return fallback
-        }
+        let appSupport = FoundationSafety.userApplicationSupportDirectory(fileManager: fm)
         let dir = appSupport.appendingPathComponent("Epistemos/note-bodies", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir

@@ -146,12 +146,8 @@ actor SearchIndexService {
                 configuration: Self.databaseConfiguration()
             )
         } else {
-            guard let appSupportBase = FileManager.default.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask
-            ).first else {
-                throw SearchIndexError.noAppSupportDirectory
-            }
-            let appSupport = appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
+            let appSupport = FoundationSafety.userApplicationSupportDirectory(fileManager: .default)
+                .appendingPathComponent("Epistemos", isDirectory: true)
             try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
             resolvedDatabaseURL = appSupport.appendingPathComponent("search.sqlite")
             dbPool = try DatabasePool(

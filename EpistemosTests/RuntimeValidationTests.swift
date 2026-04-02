@@ -149,6 +149,18 @@ struct RuntimeValidationTests {
         #expect(AppBootstrap.shared === second)
     }
 
+
+    @Test("test hosts route application support paths into a temporary runtime root")
+    func testHostsRouteApplicationSupportPathsIntoTemporaryRuntimeRoot() {
+        let appSupport = FoundationSafety.userApplicationSupportDirectory().standardizedFileURL
+        let tempRoot = FileManager.default.temporaryDirectory.standardizedFileURL
+        let noteBodies = NoteFileStorage.storageDirectory().standardizedFileURL
+
+        #expect(appSupport.path.hasPrefix(tempRoot.path))
+        #expect(appSupport.lastPathComponent == "Application Support")
+        #expect(noteBodies.path.hasPrefix(appSupport.path))
+        #expect(noteBodies.path.contains("/Epistemos/note-bodies"))
+    }
     @MainActor
     @Test("thinking operating mode sanitizes unsupported chat model selections")
     func thinkingOperatingModeSanitizesUnsupportedSelections() async {
