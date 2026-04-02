@@ -67,6 +67,7 @@ struct DeviceAgentServiceTests {
         service.setBackend(
             StubDeviceBackend(
                 name: "StubGPU",
+                usesANE: false,
                 output: #"{"selector":"//AXButton[@AXTitle='Run']","action":"AXPress","confidence":0.94}"#
             )
         )
@@ -88,6 +89,7 @@ struct DeviceAgentServiceTests {
         service.setBackend(
             StubDeviceBackend(
                 name: "StubGPU",
+                usesANE: false,
                 output: #"{"selector":"//AXButton[@AXTitle='Run']","action":"AXPress","confidence":0.41}"#
             )
         )
@@ -107,6 +109,7 @@ struct DeviceAgentServiceTests {
         service.setBackend(
             StubDeviceBackend(
                 name: "StubGPU",
+                usesANE: false,
                 output: #"{"action":"AXPress","confidence":0.95}"#
             )
         )
@@ -117,6 +120,32 @@ struct DeviceAgentServiceTests {
                 userIntent: "Press Run."
             )
         }
+    }
+
+    @MainActor
+    @Test("dual brain only reports active with a dedicated ANE backend")
+    func dualBrainRequiresDedicatedANEBackend() {
+        let hardwareTier = HardwareTierManager(tier: .pro32, aneAvailable: true, metalGPUAvailable: true)
+        let deviceAgent = DeviceAgentService(hardwareTier: hardwareTier)
+        let router = DualBrainRouter(hardwareTier: hardwareTier, deviceAgent: deviceAgent)
+
+        deviceAgent.setBackend(
+            StubDeviceBackend(
+                name: "SharedGPU",
+                usesANE: false,
+                output: #"{"selector":"//AXButton","action":"AXPress","confidence":0.9}"#
+            )
+        )
+        #expect(!router.isDualBrainActive)
+
+        deviceAgent.setBackend(
+            StubDeviceBackend(
+                name: "DedicatedANE",
+                usesANE: true,
+                output: #"{"selector":"//AXButton","action":"AXPress","confidence":0.9}"#
+            )
+        )
+        #expect(router.isDualBrainActive)
     }
 }
 
@@ -195,7 +224,7 @@ private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
 
 private struct StubDeviceBackend: DeviceInferenceBackend {
     let name: String
-    let usesANE: Bool = false
+    let usesANE: Bool
     let output: String
 
     func generate(prompt: String, systemPrompt: String, maxTokens: Int) async throws -> String {

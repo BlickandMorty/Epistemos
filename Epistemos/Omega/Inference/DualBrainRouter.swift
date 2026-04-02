@@ -20,7 +20,7 @@ final class DualBrainRouter {
     let deviceAgent: DeviceAgentService
 
     /// Whether dual-brain mode is active (Brain 2 has a dedicated backend).
-    var isDualBrainActive: Bool { deviceAgent.isReady && hardwareTier.supportsDualModel }
+    var isDualBrainActive: Bool { deviceAgent.isReady && deviceAgent.isANEDedicated && hardwareTier.supportsDualModel }
 
     /// Routing statistics for the current session.
     private(set) var brain1Count: Int = 0
