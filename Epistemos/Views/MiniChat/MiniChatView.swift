@@ -96,7 +96,19 @@ struct MiniChatView: View {
 
     private func loadMiniChatSessionIfNeeded() {
         let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
-        if let chat = try? modelContext.fetch(descriptor).first {
+        let chat: SDChat?
+        do {
+            chat = try modelContext.fetch(descriptor).first
+        } catch {
+            Log.pipeline.error(
+                "MiniChatView: failed to fetch persisted mini chat \(chatID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            threadState.ensureMiniChatSession(id: chatID)
+            applyInitialContextAttachmentIfNeeded()
+            return
+        }
+
+        if let chat {
             let current = threadState.miniChatSession(id: chatID)
             let needsRestore = current == nil
                 || current?.messages.isEmpty == true
@@ -783,6 +795,27 @@ private struct MiniChatInputBar: View {
         }
     }
 
+    private func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> [T]? {
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            Log.pipeline.error(
+                "MiniChatView: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func fetchFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> T? {
+        fetchAll(descriptor, label: label)?.first
+    }
+
     private var composerAttachmentChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
@@ -842,7 +875,7 @@ private struct MiniChatInputBar: View {
     private func activePage() -> SDPage? {
         guard let pageId = explicitScopedPageID else { return nil }
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        return try? modelContext.fetch(descriptor).first
+        return fetchFirst(descriptor, label: "active mini chat page \(pageId)")
     }
 
     // MARK: - Vault Search
@@ -855,7 +888,7 @@ private struct MiniChatInputBar: View {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 200
-        guard let pages = try? modelContext.fetch(descriptor) else { return [] }
+        guard let pages = fetchAll(descriptor, label: "mini chat vault search pages") else { return [] }
         return MiniChatVaultSearch.snippets(
             query: query,
             activeId: explicitScopedPageID,
@@ -1112,7 +1145,10 @@ private struct MiniChatInputBar: View {
                                     return thread.messages
                                 }
                                 let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
-                                guard let chat = try? modelContext.fetch(descriptor).first else { return [] }
+                                guard let chat = fetchFirst(
+                                    descriptor,
+                                    label: "mini chat attached chat \(chatID)"
+                                ) else { return [] }
                                 return chat.sortedMessages.map { message in
                                     AssistantMessage(
                                         role: message.role == "user" ? .user : .assistant,
@@ -1247,7 +1283,7 @@ private struct MiniChatInputBar: View {
                 .replacingOccurrences(of: "]", with: "")
                 .trimmingCharacters(in: .whitespaces)
             let folderDescriptor = FetchDescriptor<SDFolder>()
-            if let folders = try? modelContext.fetch(folderDescriptor),
+            if let folders = fetchAll(folderDescriptor, label: "mini chat move folders"),
                let folder = folders.first(where: { $0.name.lowercased() == folderName.lowercased() }) {
                 page.folder = folder
                 page.updatedAt = .now
@@ -1341,7 +1377,7 @@ private struct MiniChatInputBar: View {
     private func recentChats() -> [SDChat] {
         var descriptor = SDChat.recentChatsDescriptor
         descriptor.fetchLimit = 20
-        return (try? modelContext.fetch(descriptor)) ?? []
+        return fetchAll(descriptor, label: "recent mini chats") ?? []
     }
 
     private func refreshMiniChatLabel(using prompt: String) {
@@ -1359,7 +1395,7 @@ private struct MiniChatInputBar: View {
 
         let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
         let chat: SDChat
-        if let existing = try? modelContext.fetch(descriptor).first {
+        if let existing = fetchFirst(descriptor, label: "persisted mini chat session \(chatID)") {
             chat = existing
         } else {
             let created = SDChat(title: thread.label, chatType: thread.pageId == nil ? "chat" : "notes")

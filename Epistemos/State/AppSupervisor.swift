@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import os
 
 // MARK: - Restart Policy (OTP semantics)
@@ -204,7 +205,7 @@ final class ModeMachine {
 /// sliding-window restart intensity, exponential backoff with jitter,
 /// and escalation.
 ///
-/// NOT a polling loop. Each child is a structured Task whose lifecycle
+/// NOT a timer-driven health loop. Each child is a structured Task whose lifecycle
 /// is monitored via TaskGroup. Failures trigger restart logic with
 /// backoff, and crash loops escalate to app-level degradation.
 @MainActor @Observable
@@ -221,6 +222,11 @@ final class AppSupervisor {
 
     private(set) var lastHealthCheck: Date = .distantPast
     private(set) var subsystemStatus: [String: Bool] = [:]
+    private var networkMonitor: NWPathMonitor?
+    private let networkMonitorQueue = DispatchQueue(
+        label: "com.epistemos.AppSupervisor.NetworkMonitor"
+    )
+    private var networkReachable = true
 
     // UI convenience (unchanged public API)
     var isAIAvailable: Bool {
@@ -251,8 +257,12 @@ final class AppSupervisor {
     /// Active child tasks, keyed by child ID.
     private var childTasks: [String: Task<Void, Never>] = [:]
 
-    /// Supervisor lifecycle task.
-    private var supervisorTask: Task<Void, Never>?
+    /// Pending delayed restart tasks, keyed by child ID.
+    private var pendingRestartTasks: [String: Task<Void, Never>] = [:]
+
+    /// Monotonic generation counter per child ID.
+    /// Stale child exits are ignored if their generation no longer matches.
+    private var childGenerations: [String: Int] = [:]
 
     /// Health check task (lightweight, separate from supervision).
     private var healthCheckTask: Task<Void, Never>?
@@ -261,6 +271,7 @@ final class AppSupervisor {
     private var thermalObserverTask: Task<Void, Never>?
 
     private let healthCheckInterval: TimeInterval
+    private var isRunning = false
 
     init(healthCheckInterval: TimeInterval = 30.0) {
         self.healthCheckInterval = healthCheckInterval
@@ -277,11 +288,16 @@ final class AppSupervisor {
     // MARK: - Lifecycle
 
     func start() {
-        guard supervisorTask == nil else { return }
+        guard !isRunning else { return }
+        isRunning = true
+        for spec in childSpecs {
+            restartHistory[spec.id] = []
+        }
         Self.log.info("AppSupervisor starting with \(self.childSpecs.count) children")
 
         // Wire all per-domain breakers to the mode machine
         breakers.wireModeMachine(modeMachine)
+        startNetworkMonitor()
 
         // Start all children
         for spec in childSpecs {
@@ -295,10 +311,28 @@ final class AppSupervisor {
                 let interval = await PowerGuard.shared.healthCheckInterval
                 guard interval.isFinite else {
                     // Low-power mode: stop health checks, sleep long and re-check mode
-                    try? await Task.sleep(for: .seconds(60))
+                    do {
+                        try await Task.sleep(for: .seconds(60))
+                    } catch is CancellationError {
+                        break
+                    } catch {
+                        await MainActor.run {
+                            Self.log.error("Health check cooldown sleep failed: \(error.localizedDescription)")
+                        }
+                        break
+                    }
                     continue
                 }
-                try? await Task.sleep(for: .seconds(interval))
+                do {
+                    try await Task.sleep(for: .seconds(interval))
+                } catch is CancellationError {
+                    break
+                } catch {
+                    await MainActor.run {
+                        Self.log.error("Health check loop sleep failed: \(error.localizedDescription)")
+                    }
+                    break
+                }
                 guard !Task.isCancelled else { break }
                 await self?.performHealthCheck()
             }
@@ -332,21 +366,31 @@ final class AppSupervisor {
     }
 
     func stop() {
+        guard isRunning else { return }
+        isRunning = false
+
         // Cancel all children
+        for id in childTasks.keys {
+            invalidateChildGeneration(id)
+        }
         for (id, task) in childTasks {
             task.cancel()
             Self.log.info("Cancelled child: \(id)")
         }
         childTasks.removeAll()
+        for task in pendingRestartTasks.values {
+            task.cancel()
+        }
+        pendingRestartTasks.removeAll()
 
         healthCheckTask?.cancel()
         healthCheckTask = nil
 
+        networkMonitor?.cancel()
+        networkMonitor = nil
+
         thermalObserverTask?.cancel()
         thermalObserverTask = nil
-
-        supervisorTask?.cancel()
-        supervisorTask = nil
 
         Self.log.info("AppSupervisor stopped")
     }
@@ -355,20 +399,38 @@ final class AppSupervisor {
 
     /// Spawn a child task and monitor it for failure.
     private func spawnChild(_ spec: ChildSpec) {
+        guard isRunning else { return }
         let childId = spec.id
+        pendingRestartTasks.removeValue(forKey: childId)?.cancel()
+        let generation = nextChildGeneration(for: childId)
         subsystemStatus[childId] = true
 
         let task = Task.detached(priority: .medium) { [weak self] in
             do {
                 try await spec.factory()
                 // Clean exit
-                await self?.handleChildExit(spec: spec, abnormal: false, error: nil)
+                await self?.handleChildExit(
+                    spec: spec,
+                    generation: generation,
+                    abnormal: false,
+                    error: nil
+                )
             } catch is CancellationError {
                 // Cooperative cancellation — not a failure
-                await self?.handleChildExit(spec: spec, abnormal: false, error: nil)
+                await self?.handleChildExit(
+                    spec: spec,
+                    generation: generation,
+                    abnormal: false,
+                    error: nil
+                )
             } catch {
                 // Abnormal termination
-                await self?.handleChildExit(spec: spec, abnormal: true, error: error)
+                await self?.handleChildExit(
+                    spec: spec,
+                    generation: generation,
+                    abnormal: true,
+                    error: error
+                )
             }
         }
 
@@ -376,8 +438,13 @@ final class AppSupervisor {
     }
 
     /// Handle a child exiting, applying OTP restart semantics.
-    private func handleChildExit(spec: ChildSpec, abnormal: Bool, error: Error?) {
+    private func handleChildExit(spec: ChildSpec, generation: Int, abnormal: Bool, error: Error?) {
         let childId = spec.id
+
+        guard childGenerations[childId] == generation else {
+            Self.log.info("Ignoring stale exit for child '\(childId)' generation \(generation)")
+            return
+        }
 
         if let error {
             Self.log.error("Child '\(childId)' failed: \(error.localizedDescription)")
@@ -386,6 +453,12 @@ final class AppSupervisor {
         }
 
         childTasks.removeValue(forKey: childId)
+        pendingRestartTasks.removeValue(forKey: childId)?.cancel()
+
+        guard isRunning else {
+            subsystemStatus[childId] = false
+            return
+        }
 
         let shouldRestart: Bool
         switch spec.policy {
@@ -456,11 +529,24 @@ final class AppSupervisor {
 
         subsystemStatus[spec.id] = false
 
-        Task.detached(priority: .medium) { [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
+        pendingRestartTasks[spec.id]?.cancel()
+        let restartTask = Task.detached(priority: .medium) { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch is CancellationError {
+                return
+            } catch {
+                await MainActor.run {
+                    Self.log.error(
+                        "Scheduled restart sleep failed for '\(spec.id)': \(error.localizedDescription)"
+                    )
+                }
+                return
+            }
             guard !Task.isCancelled else { return }
-            await self?.spawnChild(spec)
+            await self?.executeScheduledRestart(spec)
         }
+        pendingRestartTasks[spec.id] = restartTask
     }
 
     // MARK: - Escalation
@@ -473,11 +559,14 @@ final class AppSupervisor {
         )
 
         subsystemStatus[spec.id] = false
+        AppBootstrap.shared?.orphanCleanup.cleanupAll()
 
         // rest_for_one: cancel all children registered AFTER the failed child
         if let failedIndex = childSpecs.firstIndex(where: { $0.id == spec.id }) {
             let dependents = childSpecs.suffix(from: childSpecs.index(after: failedIndex))
             for dependent in dependents {
+                pendingRestartTasks.removeValue(forKey: dependent.id)?.cancel()
+                invalidateChildGeneration(dependent.id)
                 if let task = childTasks.removeValue(forKey: dependent.id) {
                     task.cancel()
                     subsystemStatus[dependent.id] = false
@@ -503,6 +592,7 @@ final class AppSupervisor {
         Self.log.notice("Manual restart of '\(name)': \(reason)")
 
         // Cancel existing task if running
+        pendingRestartTasks.removeValue(forKey: name)?.cancel()
         if let task = childTasks.removeValue(forKey: name) {
             task.cancel()
         }
@@ -515,7 +605,13 @@ final class AppSupervisor {
 
         case "hermesSubprocess":
             if let hermes = AppBootstrap.shared?.hermesManager {
-                try? await hermes.restart()
+                do {
+                    try await hermes.restart()
+                    subsystemStatus["hermesSubprocess"] = true
+                } catch {
+                    subsystemStatus["hermesSubprocess"] = false
+                    Self.log.error("Manual Hermes restart failed: \(error.localizedDescription)")
+                }
             }
 
         default:
@@ -538,7 +634,7 @@ final class AppSupervisor {
         let inferenceOK = await checkInference()
         subsystemStatus["inference"] = inferenceOK
 
-        let networkOK = await checkNetwork()
+        let networkOK = checkNetwork()
         subsystemStatus["network"] = networkOK
 
         let storeOK = checkKnowledgeStore()
@@ -571,19 +667,36 @@ final class AppSupervisor {
         return false
     }
 
-    private nonisolated func checkNetwork() async -> Bool {
-        do {
-            let url = URL(string: "https://api.anthropic.com")!
-            var request = URLRequest(url: url, timeoutInterval: 5.0)
-            request.httpMethod = "HEAD"
-            let (_, response) = try await URLSession.shared.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse {
-                return httpResponse.statusCode < 500
+    private func startNetworkMonitor() {
+        guard networkMonitor == nil else { return }
+
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            let reachable = path.status == .satisfied
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let didChange = self.networkReachable != reachable
+                self.networkReachable = reachable
+                self.subsystemStatus["network"] = reachable
+
+                guard didChange else { return }
+                Self.log.info("Network path reachable: \(reachable, privacy: .public)")
+                let inferenceOK = self.subsystemStatus["inference"] ?? true
+                let storeOK = self.subsystemStatus["knowledgeStore"] ?? true
+                let (newMode, reason) = self.deriveMode(
+                    inferenceOK: inferenceOK,
+                    networkOK: reachable,
+                    storeOK: storeOK
+                )
+                self.modeMachine.transition(to: newMode, reason: reason)
             }
-            return true
-        } catch {
-            return false
         }
+        networkMonitor = monitor
+        monitor.start(queue: networkMonitorQueue)
+    }
+
+    private func checkNetwork() -> Bool {
+        networkReachable
     }
 
     private func checkKnowledgeStore() -> Bool {
@@ -613,5 +726,21 @@ final class AppSupervisor {
         let networkOK = subsystemStatus["network"] ?? true
         let storeOK = subsystemStatus["knowledgeStore"] ?? true
         return deriveMode(inferenceOK: inferenceOK, networkOK: networkOK, storeOK: storeOK)
+    }
+
+    private func executeScheduledRestart(_ spec: ChildSpec) {
+        pendingRestartTasks.removeValue(forKey: spec.id)
+        guard isRunning else { return }
+        spawnChild(spec)
+    }
+
+    private func nextChildGeneration(for childId: String) -> Int {
+        let next = (childGenerations[childId] ?? 0) + 1
+        childGenerations[childId] = next
+        return next
+    }
+
+    private func invalidateChildGeneration(_ childId: String) {
+        _ = nextChildGeneration(for: childId)
     }
 }

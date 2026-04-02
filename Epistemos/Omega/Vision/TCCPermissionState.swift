@@ -37,8 +37,15 @@ final class TCCPermissionState {
     }
 
     /// Refresh all permission statuses.
+    /// Performs blocking TCC calls off the main thread to prevent UI hangs.
     func refresh() async {
-        accessibility = AXIsProcessTrusted() ? .granted : .denied
+        // AXIsProcessTrusted() is a synchronous IPC call to tccd.
+        // NEVER call it on the main thread — it can block for 1-3 seconds.
+        let trusted = await Task.detached(priority: .userInitiated) {
+            AXIsProcessTrusted()
+        }.value
+        accessibility = trusted ? .granted : .denied
+
         screenRecording = await checkScreenRecording()
         automation = .unknown // Automation status can't be checked directly
         log.info("Permissions: \(self.summary)")
@@ -52,8 +59,11 @@ final class TCCPermissionState {
     func startPollingForGrant() {
         pollingTask?.cancel()
         pollingTask = Task { @MainActor [weak self] in
+            // Poll every 5 seconds — TCC state changes are rare, no need to hammer.
+            // Previous 2s interval was causing main thread pressure from
+            // AXIsProcessTrusted() IPC round-trips stacking up.
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: .seconds(5))
                 guard !Task.isCancelled, let self else { return }
                 await self.refresh()
                 if self.allRequiredGranted {
@@ -74,23 +84,26 @@ final class TCCPermissionState {
     // Fix: [Issue 3 - TCC Permissions] — start polling after prompting so we
     // detect when user grants access in System Settings.
     func requestAccessibility() {
-        // Prompt the system TCC dialog for Accessibility access
-        // Use string key directly to avoid concurrency-unsafe global ref
-        let options = [String("AXTrustedCheckOptionPrompt"): true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        // Prompt the system TCC dialog for Accessibility access.
+        // AXIsProcessTrustedWithOptions is synchronous IPC — run off main thread.
+        Task.detached(priority: .userInitiated) {
+            let options = [String("AXTrustedCheckOptionPrompt"): true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        }
         startPollingForGrant()
     }
 
     /// Request Screen Recording permission via the native TCC dialog.
     /// Must be called from the Swift @MainActor layer — the Python daemon
     /// cannot trigger kTCCServiceScreenCapture natively.
-    // Fix: [Issue 3 - TCC Permissions] — always call CGRequestScreenCaptureAccess()
-    // proactively when preflight reports denied, and start polling for grant.
     func requestScreenRecording() {
-        if !CGPreflightScreenCaptureAccess() {
-            CGRequestScreenCaptureAccess()
-            startPollingForGrant()
+        // CGPreflight/RequestScreenCaptureAccess are synchronous IPC — run off main thread.
+        Task.detached(priority: .userInitiated) {
+            if !CGPreflightScreenCaptureAccess() {
+                CGRequestScreenCaptureAccess()
+            }
         }
+        startPollingForGrant()
     }
 
     /// Open System Settings → Privacy → Screen Recording.
@@ -116,11 +129,23 @@ final class TCCPermissionState {
 
     // MARK: - Private
 
+    /// Check screen recording permission with a 5-second timeout.
+    /// SCShareableContent can block indefinitely if replayd is in a bad state.
     private func checkScreenRecording() async -> TCCStatus {
-        do {
+        let fetchTask = Task { @MainActor () -> TCCStatus in
             _ = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
             return .granted
+        }
+        let timeoutTask = Task {
+            try await Task.sleep(for: .seconds(5))
+            fetchTask.cancel()
+        }
+        do {
+            let result = try await fetchTask.value
+            timeoutTask.cancel()
+            return result
         } catch {
+            timeoutTask.cancel()
             return .denied
         }
     }

@@ -93,9 +93,7 @@ enum ProgressStore {
     private static let log = Logger(subsystem: "com.epistemos", category: "ProgressStore")
 
     private static var sessionsDir: URL {
-        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            return URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("com.epistemos.app/sessions")
-        }
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         return appSupport.appendingPathComponent("com.epistemos.app/sessions")
     }
 

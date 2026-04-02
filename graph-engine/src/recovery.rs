@@ -161,7 +161,10 @@ mod tests {
 
     #[test]
     fn bom_detected() {
-        assert_eq!(detect(&[0xEF, 0xBB, 0xBF, b'H', b'i']), CorruptionType::BomMarker);
+        assert_eq!(
+            detect(&[0xEF, 0xBB, 0xBF, b'H', b'i']),
+            CorruptionType::BomMarker
+        );
     }
 
     #[test]

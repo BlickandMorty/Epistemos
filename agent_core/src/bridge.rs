@@ -316,7 +316,16 @@ pub fn preview_provider_route(
     objective: String,
     provider_name: String,
 ) -> ProviderRoutePreviewFFI {
-    resolve_provider_selection_preview(&objective, &provider_name)
+    ffi_guard_value!(
+        resolve_provider_selection_preview(&objective, &provider_name),
+        ProviderRoutePreviewFFI {
+            requested_provider: provider_name,
+            resolution_kind: "error".to_string(),
+            effective_provider: String::new(),
+            routing_summary: "Internal panic during route preview".to_string(),
+            supported: false,
+        }
+    )
 }
 
 #[uniffi::export(async_runtime = "tokio")]
@@ -418,12 +427,12 @@ async fn run_agent_session_inner(
 
 #[uniffi::export]
 pub fn cancel_agent_session(session_id: String) {
-    GlobalSessions::cancel(&session_id);
+    ffi_guard_value!(GlobalSessions::cancel(&session_id), ());
 }
 
 #[uniffi::export]
 pub fn active_session_count() -> u32 {
-    GlobalSessions::active_count() as u32
+    ffi_guard_value!(GlobalSessions::active_count() as u32, 0)
 }
 
 // MARK: - Persistent PTY FFI
@@ -516,13 +525,13 @@ pub async fn pty_execute(
 /// Close a persistent PTY session and terminate its child shell process.
 #[uniffi::export]
 pub fn pty_close(pty_id: String) {
-    crate::pty::PtyPool::close(&pty_id);
+    ffi_guard_value!(crate::pty::PtyPool::close(&pty_id), ());
 }
 
 /// Get the number of active PTY sessions (diagnostics).
 #[uniffi::export]
 pub fn pty_active_count() -> u32 {
-    crate::pty::PtyPool::active_count() as u32
+    ffi_guard_value!(crate::pty::PtyPool::active_count() as u32, 0)
 }
 
 // MARK: - Living Vault FFI
@@ -628,48 +637,53 @@ pub fn decay_memory_nodes(
     mut nodes: Vec<NodeStrengthFFI>,
     now_epoch: f64,
 ) -> Vec<NodeStrengthFFI> {
-    let now = chrono::DateTime::from_timestamp(now_epoch as i64, 0)
-        .unwrap_or_else(chrono::Utc::now);
-    let mut internal: Vec<NodeStrength> = nodes
-        .drain(..)
-        .map(|n| {
-            let importance = match n.importance.as_str() {
-                "critical" => Importance::Critical,
-                "high" => Importance::High,
-                "low" => Importance::Low,
-                _ => Importance::Normal,
-            };
-            let last_accessed = chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
+    ffi_guard_value!(
+        {
+            let now = chrono::DateTime::from_timestamp(now_epoch as i64, 0)
                 .unwrap_or_else(chrono::Utc::now);
-            NodeStrength {
-                strength: n.strength,
-                importance,
-                decay_rate: n.decay_rate,
-                last_accessed,
-                access_count: n.access_count,
-                pinned: n.pinned,
-            }
-        })
-        .collect();
+            let mut internal: Vec<NodeStrength> = nodes
+                .drain(..)
+                .map(|n| {
+                    let importance = match n.importance.as_str() {
+                        "critical" => Importance::Critical,
+                        "high" => Importance::High,
+                        "low" => Importance::Low,
+                        _ => Importance::Normal,
+                    };
+                    let last_accessed = chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
+                        .unwrap_or_else(chrono::Utc::now);
+                    NodeStrength {
+                        strength: n.strength,
+                        importance,
+                        decay_rate: n.decay_rate,
+                        last_accessed,
+                        access_count: n.access_count,
+                        pinned: n.pinned,
+                    }
+                })
+                .collect();
 
-    batch_decay(&mut internal, now);
+            batch_decay(&mut internal, now);
 
-    internal
-        .into_iter()
-        .map(|n| NodeStrengthFFI {
-            strength: n.strength,
-            importance: match n.importance {
-                Importance::Critical => "critical".to_string(),
-                Importance::High => "high".to_string(),
-                Importance::Normal => "normal".to_string(),
-                Importance::Low => "low".to_string(),
-            },
-            decay_rate: n.decay_rate,
-            last_accessed_epoch: n.last_accessed.timestamp() as f64,
-            access_count: n.access_count,
-            pinned: n.pinned,
-        })
-        .collect()
+            internal
+                .into_iter()
+                .map(|n| NodeStrengthFFI {
+                    strength: n.strength,
+                    importance: match n.importance {
+                        Importance::Critical => "critical".to_string(),
+                        Importance::High => "high".to_string(),
+                        Importance::Normal => "normal".to_string(),
+                        Importance::Low => "low".to_string(),
+                    },
+                    decay_rate: n.decay_rate,
+                    last_accessed_epoch: n.last_accessed.timestamp() as f64,
+                    access_count: n.access_count,
+                    pinned: n.pinned,
+                })
+                .collect()
+        },
+        Vec::new()
+    )
 }
 
 /// Garbage-collect weak memory nodes below the threshold.
@@ -679,6 +693,8 @@ pub fn gc_memory_nodes(
     nodes: Vec<NodeStrengthFFI>,
     threshold: f64,
 ) -> u32 {
+    ffi_guard_value!(
+    {
     let mut internal: Vec<NodeStrength> = nodes
         .into_iter()
         .map(|n| {
@@ -703,6 +719,9 @@ pub fn gc_memory_nodes(
 
     let removed = collect_garbage(&mut internal, threshold);
     removed.len() as u32
+    },
+    0
+    )
 }
 
 // MARK: - Shared Memory FFI
@@ -758,20 +777,20 @@ pub fn shm_write_payload(
 /// Call this from Swift when an agent session ends.
 #[uniffi::export]
 pub fn shm_cleanup_session(session_id: String) -> u32 {
-    ShmPool::cleanup_session(&session_id) as u32
+    ffi_guard_value!(ShmPool::cleanup_session(&session_id) as u32, 0)
 }
 
 /// Emergency cleanup — unlink ALL tracked segments across all sessions.
 /// Call this from Swift on app termination to prevent zombie shm segments.
 #[uniffi::export]
 pub fn shm_cleanup_all() -> u32 {
-    ShmPool::cleanup_all() as u32
+    ffi_guard_value!(ShmPool::cleanup_all() as u32, 0)
 }
 
 /// Diagnostics: total number of tracked shared memory segments.
 #[uniffi::export]
 pub fn shm_total_segment_count() -> u32 {
-    ShmPool::total_segment_count() as u32
+    ffi_guard_value!(ShmPool::total_segment_count() as u32, 0)
 }
 
 #[cfg(test)]

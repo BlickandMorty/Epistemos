@@ -48,6 +48,12 @@ struct HermesConfig: Sendable {
         fileManager: FileManager = .default
     ) -> HermesConfig {
         var env = ProcessInfo.processInfo.environment
+        let homePath = normalizedHomeDirectoryPath(fileManager: fileManager)
+        env["HOME"] = homePath
+        if env["USERPROFILE"] == nil || env["USERPROFILE"]?.isEmpty == true {
+            env["USERPROFILE"] = homePath
+        }
+        env["PATH"] = normalizedExecutablePath(existingPath: env["PATH"])
         env["PYTHONUNBUFFERED"] = "1"
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         env["PYTHONHASHSEED"] = "0"
@@ -56,7 +62,7 @@ struct HermesConfig: Sendable {
 
         // Ensure Hermes has an app-scoped home with persistent learning state.
         if env["HERMES_HOME"] == nil {
-            env["HERMES_HOME"] = defaultHermesHomeURL().path
+            env["HERMES_HOME"] = defaultHermesHomeURL(fileManager: fileManager).path
         }
 
         // ── Tool gate environment ──────────────────────────────────────
@@ -68,18 +74,21 @@ struct HermesConfig: Sendable {
         //   EXA_API_KEY         → gates web_search, web_extract (fallback)
         //
         // Cascade: explicit env var → Keychain → skip.
+        if env["HERMES_ENV_TYPE"] == nil {
+            env["HERMES_ENV_TYPE"] = "local"
+        }
         if env["TERMINAL_ENV"] == nil {
-            env["TERMINAL_ENV"] = "local"
+            env["TERMINAL_ENV"] = env["HERMES_ENV_TYPE"] ?? "local"
         }
         // Set the agent's working directory to the user's home so file
         // tools can access Documents, Desktop, Downloads, etc.
         if env["TERMINAL_CWD"] == nil {
-            env["TERMINAL_CWD"] = FileManager.default.homeDirectoryForCurrentUser.path
+            env["TERMINAL_CWD"] = homePath
         }
         // Ensure ~/.hermes/ exists — session_search check_fn requires it.
-        let dotHermes = FileManager.default.homeDirectoryForCurrentUser
+        let dotHermes = URL(fileURLWithPath: homePath, isDirectory: true)
             .appendingPathComponent(".hermes", isDirectory: true)
-        try? FileManager.default.createDirectory(
+        try? fileManager.createDirectory(
             at: dotHermes, withIntermediateDirectories: true, attributes: nil
         )
         for keychainMapping in Self.toolGateKeychainMappings {
@@ -92,7 +101,9 @@ struct HermesConfig: Sendable {
             }
         }
 
-        let hermesHomeURL = URL(fileURLWithPath: env["HERMES_HOME"] ?? defaultHermesHomeURL().path)
+        let hermesHomeURL = URL(
+            fileURLWithPath: env["HERMES_HOME"] ?? defaultHermesHomeURL(fileManager: fileManager).path
+        )
             .standardizedFileURL
         let pythonPath = env["HERMES_PYTHON_PATH"]
             ?? preferredPythonPath(hermesHomeURL: hermesHomeURL)
@@ -123,6 +134,8 @@ struct HermesConfig: Sendable {
         .init(envVar: "TAVILY_API_KEY", keychainKey: "epistemos.tavily.apiKey"),
         .init(envVar: "EXA_API_KEY", keychainKey: "epistemos.exa.apiKey"),
         .init(envVar: "FIRECRAWL_API_KEY", keychainKey: "epistemos.firecrawl.apiKey"),
+        .init(envVar: "BROWSERBASE_API_KEY", keychainKey: "epistemos.browserbase.apiKey"),
+        .init(envVar: "BROWSERBASE_PROJECT_ID", keychainKey: "epistemos.browserbase.projectID"),
         // Cloud provider keys — Hermes uses these for inference routing.
         // The HermesRuntimeRoute clears all provider keys and sets only the
         // active one, but we need them in the base environment so Hermes
@@ -137,6 +150,38 @@ struct HermesConfig: Sendable {
         FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
             .appendingPathComponent("Epistemos", isDirectory: true)
             .appendingPathComponent("Hermes", isDirectory: true)
+    }
+
+    static func normalizedHomeDirectoryPath(fileManager: FileManager = .default) -> String {
+        fileManager.homeDirectoryForCurrentUser.standardizedFileURL.path
+    }
+
+    static func normalizedExecutablePath(existingPath: String?) -> String {
+        let preferred = [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ]
+
+        var components: [String] = []
+        for component in preferred {
+            if !components.contains(component) {
+                components.append(component)
+            }
+        }
+
+        if let existingPath {
+            for rawComponent in existingPath.split(separator: ":") {
+                let component = String(rawComponent)
+                guard !component.isEmpty, !components.contains(component) else { continue }
+                components.append(component)
+            }
+        }
+
+        return components.joined(separator: ":")
     }
 
     static func resolveHermesAgentDirectory(
@@ -320,6 +365,27 @@ struct HermesConfig: Sendable {
         ]
     }
 
+    private static func looksLikeLegacyBootstrapConfig(_ contents: String) -> Bool {
+        let normalized = contents.trimmingCharacters(in: .whitespacesAndNewlines)
+        if legacyBootstrapConfigs().contains(where: {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines) == normalized
+        }) {
+            return true
+        }
+
+        let markers = [
+            #"default: "anthropic/claude-sonnet-4-6""#,
+            "timeout: 180",
+            "lifetime_seconds: 300",
+            "memory_char_limit: 2200",
+            "user_char_limit: 1375",
+            "nudge_interval: 10",
+            "flush_min_turns: 6",
+        ]
+
+        return markers.allSatisfy { normalized.contains($0) }
+    }
+
     func ensureHermesHomeScaffold(fileManager: FileManager = .default) throws {
         try fileManager.createDirectory(
             at: hermesHomeURL,
@@ -340,10 +406,7 @@ struct HermesConfig: Sendable {
         }
 
         let currentContents = try String(contentsOf: configURL, encoding: .utf8)
-        let normalizedCurrent = currentContents.trimmingCharacters(in: .whitespacesAndNewlines)
-        let shouldUpgrade = Self.legacyBootstrapConfigs().contains {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines) == normalizedCurrent
-        }
+        let shouldUpgrade = Self.looksLikeLegacyBootstrapConfig(currentContents)
         if shouldUpgrade {
             try Data(desiredContents.utf8).write(to: configURL, options: .atomic)
         }
@@ -460,9 +523,12 @@ struct HermesHealthResult: Sendable {
     let pythonVersion: String?
     let hermesAgentFound: Bool
     let hermesImportable: Bool
+    let bridgeResponsive: Bool
     let errorDetail: String?
 
-    var isHealthy: Bool { pythonAvailable && hermesAgentFound && hermesImportable }
+    var isHealthy: Bool {
+        pythonAvailable && hermesAgentFound && hermesImportable && bridgeResponsive
+    }
 }
 
 // MARK: - Process State
@@ -513,6 +579,7 @@ final class HermesSubprocessManager {
     /// Cooldown to prevent rapid relaunch after crash.
     private var lastCrashDate: Date?
     private let crashCooldown: TimeInterval = 5.0
+    private var intentionalTerminationInFlight = false
 
     // Process internals (access from main actor only)
     private var process: Process?
@@ -528,20 +595,37 @@ final class HermesSubprocessManager {
     // Stderr buffer for crash diagnostics
     private var stderrBuffer: String = ""
     private let stderrBufferMaxLength = 8192
+    private let stderrBufferLock = NSLock()
+    @ObservationIgnored
+    private nonisolated(unsafe) var stderrBufferSnapshot: String = ""
 
     // Monitoring
     private var stderrDrainTask: Task<Void, Never>?
     private var watchdogTask: Task<Void, Never>?
-    private var onRequestReceived: (@Sendable (_ jsonLine: String) -> Void)?
+    private let watchdogPingLock = NSLock()
+    @ObservationIgnored
+    private nonisolated(unsafe) var pendingWatchdogPingIDs: Set<Int> = []
+    private var nextWatchdogPingID: Int = -1
+    private let requestHandlerLock = NSLock()
+    @ObservationIgnored
+    private nonisolated(unsafe) var onRequestReceived: (@Sendable (_ jsonLine: String) -> Void)?
+    private let disconnectHandlerLock = NSLock()
+    @ObservationIgnored
+    private nonisolated(unsafe) var onDisconnect: (@Sendable () -> Void)?
 
     // Pipe framing — reassembles Content-Length frames and resolves SHM references
     private let frameAccumulator = ChunkedMCPFrameAccumulator()
 
     // Configuration
     private let config: HermesConfig
+    private let orphanCleanupProvider: @MainActor @Sendable () -> OrphanSubprocessCleanup?
 
-    init(config: HermesConfig) {
+    init(
+        config: HermesConfig,
+        orphanCleanupProvider: @escaping @MainActor @Sendable () -> OrphanSubprocessCleanup? = { AppBootstrap.shared?.orphanCleanup }
+    ) {
         self.config = config
+        self.orphanCleanupProvider = orphanCleanupProvider
     }
 
     convenience init() {
@@ -570,13 +654,23 @@ final class HermesSubprocessManager {
     /// Register a callback invoked for each JSON line received on stdout.
     /// The callback fires on a background queue — dispatch to main if needed.
     func setRequestHandler(_ handler: @escaping @Sendable (_ jsonLine: String) -> Void) {
-        self.onRequestReceived = handler
+        requestHandlerLock.lock()
+        onRequestReceived = handler
+        requestHandlerLock.unlock()
+    }
+
+    /// Register a callback invoked whenever the subprocess disconnects or is terminated.
+    /// Use this to fail pending requests immediately instead of waiting for timeouts.
+    func setDisconnectHandler(_ handler: @escaping @Sendable () -> Void) {
+        disconnectHandlerLock.lock()
+        onDisconnect = handler
+        disconnectHandlerLock.unlock()
     }
 
     // MARK: - Lifecycle
 
     func launch() async throws {
-        guard !isRunning else { throw HermesSubprocessError.alreadyRunning }
+        guard !isRunning, process == nil else { throw HermesSubprocessError.alreadyRunning }
 
         // Prevent rapid relaunch after a crash
         if let lastCrash = lastCrashDate,
@@ -607,16 +701,19 @@ final class HermesSubprocessManager {
         }
 
         processState = .starting
+        intentionalTerminationInFlight = false
         stderrBuffer = ""
+        setStderrBufferSnapshot("")
         authFailureMessage = nil
 
-        let proc = Process()
+        let proc = Process.init()
         proc.executableURL = URL(fileURLWithPath: config.pythonPath)
         proc.arguments = config.launchArguments
         proc.currentDirectoryURL = config.hermesAgentDir
         proc.environment = config.environment
 
-        // Set process group so we can kill the entire group on shutdown
+        // Foundation.Process doesn't create a dedicated process group here.
+        // Descendant cleanup is handled by OrphanSubprocessCleanup when needed.
         proc.qualityOfService = .userInitiated
 
         // Create pipes
@@ -632,12 +729,17 @@ final class HermesSubprocessManager {
             let exitCode = terminatedProcess.terminationStatus
             DispatchQueue.main.async {
                 guard let self else { return }
+                AppBootstrap.shared?.orphanCleanup.untrack(pid_t(terminatedProcess.processIdentifier))
                 self.pid = nil
-                if case .stopped = self.processState {
-                    // Graceful stop — do nothing, already in correct state
+                self.stderrPipe?.fileHandleForReading.readabilityHandler = nil
+                let stderr = self.captureTerminationStderr()
+                if self.intentionalTerminationInFlight {
+                    self.intentionalTerminationInFlight = false
+                    self.processState = .stopped
+                    self.stderrBuffer = stderr
+                    self.cleanupPipes()
                     return
                 }
-                let stderr = self.stderrBuffer
                 self.processState = .crashed(exitCode: exitCode, lastStderr: stderr)
                 self.lastCrashDate = Date()
                 log.error("hermes-agent exited with code \(exitCode)")
@@ -658,6 +760,7 @@ final class HermesSubprocessManager {
         self.stderrPipe = stderr
         self.pid = proc.processIdentifier
         self.processState = .running
+        AppBootstrap.shared?.orphanCleanup.track(proc)
 
         // Publish write handle for thread-safe access
         publishWriteHandle(stdin.fileHandleForWriting)
@@ -670,13 +773,20 @@ final class HermesSubprocessManager {
 
     func terminate() {
         guard let proc = process, proc.isRunning else {
+            intentionalTerminationInFlight = false
             processState = .stopped
             cleanupPipes()
             return
         }
 
-        processState = .stopped
+        intentionalTerminationInFlight = true
         log.info("Terminating hermes-agent pid=\(proc.processIdentifier)")
+
+        if let orphanCleanup = orphanCleanupProvider() {
+            orphanCleanup.cleanupProcessTree(rootPID: pid_t(proc.processIdentifier))
+            log.info("Sent termination to Hermes process tree rooted at \(proc.processIdentifier)")
+            return
+        }
 
         // Graceful: SIGTERM
         proc.terminate()
@@ -693,32 +803,11 @@ final class HermesSubprocessManager {
                 kill(capturedPid, SIGKILL)
             }
         }
-
-        cleanupPipes()
-    }
-
-    /// Terminate the entire process group (kills child processes too).
-    func terminateProcessGroup() {
-        guard let proc = process else { return }
-        let pgid = proc.processIdentifier
-        processState = .stopped
-        // Send SIGTERM to the process group (negative PID)
-        kill(-pgid, SIGTERM)
-        log.info("Sent SIGTERM to process group \(pgid)")
-
-        Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .seconds(5))
-            // Force-kill process group if still alive
-            kill(-pgid, SIGKILL)
-        }
-
-        cleanupPipes()
     }
 
     func restart() async throws {
         terminate()
-        // Give process time to exit
-        try await Task.sleep(for: .milliseconds(500))
+        try await waitForProcessExit()
         try await launch()
     }
 
@@ -751,6 +840,7 @@ final class HermesSubprocessManager {
 
     func startWatchdog(interval: Duration = .seconds(30), timeout: Duration = .seconds(10)) {
         watchdogTask?.cancel()
+        clearAllWatchdogPings()
         watchdogTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: interval)
@@ -760,16 +850,33 @@ final class HermesSubprocessManager {
                 let running = await MainActor.run { self.isRunning }
                 guard running else { continue }
 
-                // Send MCP ping
+                let pingID = await MainActor.run { self.makeNextWatchdogPingID() }
+                self.registerWatchdogPing(id: pingID)
                 let pingRequest = """
-                {"jsonrpc":"2.0","method":"ping","params":{},"id":"watchdog_\(Int.random(in: 1000...9999))"}
+                {"jsonrpc":"2.0","method":"ping","params":{},"id":\(pingID)}
                 """
                 do {
                     try self.writeLine(pingRequest)
                 } catch {
+                    self.clearWatchdogPing(id: pingID)
                     log.warning("Watchdog: failed to send ping — \(error.localizedDescription)")
                     await MainActor.run { self.terminate() }
                     break
+                }
+
+                let deadline = ContinuousClock.now + timeout
+                while self.hasPendingWatchdogPing(id: pingID) {
+                    guard !Task.isCancelled else {
+                        self.clearWatchdogPing(id: pingID)
+                        return
+                    }
+                    if ContinuousClock.now >= deadline {
+                        self.clearWatchdogPing(id: pingID)
+                        log.warning("Watchdog: ping response timed out; terminating Hermes")
+                        await MainActor.run { self.terminate() }
+                        return
+                    }
+                    try? await Task.sleep(for: .milliseconds(50))
                 }
             }
         }
@@ -778,6 +885,7 @@ final class HermesSubprocessManager {
     func stopWatchdog() {
         watchdogTask?.cancel()
         watchdogTask = nil
+        clearAllWatchdogPings()
     }
 
     // MARK: - Pre-warm
@@ -823,6 +931,7 @@ final class HermesSubprocessManager {
 
         // Check hermes-agent importability
         var hermesImportable = false
+        var bridgeResponsive = false
         var errorDetail: String?
         if pythonAvailable && hermesFound {
             let result = await Self.runQuickCommand(
@@ -839,7 +948,13 @@ final class HermesSubprocessManager {
                 ]
             )
             hermesImportable = result?.trimmingCharacters(in: .whitespacesAndNewlines) == "OK"
-            if !hermesImportable {
+            if hermesImportable {
+                if let bridgeProbeFailure = await Self.probeBridgeResponsiveness(config: cfg) {
+                    errorDetail = "Hermes bridge probe failed: \(bridgeProbeFailure)"
+                } else {
+                    bridgeResponsive = true
+                }
+            } else {
                 errorDetail = result ?? "import check produced no output"
             }
         } else if !pythonAvailable {
@@ -853,6 +968,7 @@ final class HermesSubprocessManager {
             pythonVersion: pythonVersion?.trimmingCharacters(in: .whitespacesAndNewlines),
             hermesAgentFound: hermesFound,
             hermesImportable: hermesImportable,
+            bridgeResponsive: bridgeResponsive,
             errorDetail: errorDetail
         )
         cachedHealthResult = result
@@ -863,9 +979,8 @@ final class HermesSubprocessManager {
 
     private func startStdoutReader() {
         guard let handle = stdoutPipe?.fileHandleForReading else { return }
-        let handler: (@Sendable (String) -> Void)? = onRequestReceived
         let accumulator = self.frameAccumulator
-        handle.readabilityHandler = { @Sendable fileHandle in
+        handle.readabilityHandler = { @Sendable [weak self] fileHandle in
             let data = fileHandle.availableData
             guard !data.isEmpty else {
                 // EOF — process likely exited
@@ -876,10 +991,12 @@ final class HermesSubprocessManager {
             // 1. Content-Length framed messages (reassembly across chunks)
             // 2. Line-delimited JSON-RPC (backward compat)
             // 3. SHM reference resolution (payloads >48KB via shm_open)
-            Task {
+            Task { [weak self] in
                 let messages = await accumulator.feedAndResolve(data)
+                guard let self else { return }
                 for message in messages {
-                    handler?(message)
+                    self.recordWatchdogResponseIfNeeded(message)
+                    self.currentRequestHandler()?(message)
                 }
             }
         }
@@ -893,45 +1010,11 @@ final class HermesSubprocessManager {
                 fileHandle.readabilityHandler = nil
                 return
             }
-            guard let text = String(data: data, encoding: .utf8) else { return }
+            guard let self, let text = String(data: data, encoding: .utf8) else { return }
+            self.appendToStderrBufferSnapshot(text)
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.stderrBuffer.append(text)
-                // Cap buffer size
-                if self.stderrBuffer.count > self.stderrBufferMaxLength {
-                    let dropCount = self.stderrBuffer.count - self.stderrBufferMaxLength
-                    self.stderrBuffer = String(self.stderrBuffer.dropFirst(dropCount))
-                }
-            }
-            // Log stderr lines for diagnostics and parse structured events
-            for line in text.components(separatedBy: "\n") where !line.isEmpty {
-                log.debug("hermes-stderr: \(line)")
-                // Surface tool-gate failures to the structured diagnostic logger
-                if line.hasPrefix("[tool-gate]") {
-                    let parts = line.components(separatedBy: ": ")
-                    let toolName = parts.count > 1
-                        ? parts[0].replacingOccurrences(of: "[tool-gate] ", with: "")
-                        : "unknown"
-                    let reason = parts.count > 1 ? parts.dropFirst().joined(separator: ": ") : line
-                    log.warning("Tool gate failure: \(toolName) — \(reason)")
-                }
-
-                // Detect authentication failures — surface to UI for frictionless setup
-                let lowered = line.lowercased()
-                if lowered.contains("401")
-                    || lowered.contains("api_key not set")
-                    || lowered.contains("api key not set")
-                    || lowered.contains("authenticationerror")
-                    || lowered.contains("no cookie auth credentials")
-                    || lowered.contains("openrouter_api_key not set")
-                    || lowered.contains("anthropic_api_key not set")
-                    || lowered.contains("openai_api_key not set") {
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, self.authFailureMessage == nil else { return }
-                        self.authFailureMessage = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                        log.warning("Auth failure detected — UI should prompt for API key setup")
-                    }
-                }
+                self.consumeStderrText(text)
             }
         }
     }
@@ -945,9 +1028,11 @@ final class HermesSubprocessManager {
     private func cleanupPipes() {
         // Clear thread-safe write handle first
         publishWriteHandle(nil)
+        intentionalTerminationInFlight = false
 
         watchdogTask?.cancel()
         watchdogTask = nil
+        clearAllWatchdogPings()
         stderrDrainTask?.cancel()
         stderrDrainTask = nil
 
@@ -974,28 +1059,273 @@ final class HermesSubprocessManager {
         stdoutPipe = nil
         stderrPipe = nil
         process = nil
+        notifyDisconnect()
     }
 
-    private static func runQuickCommand(_ executable: String, arguments: [String]) async -> String? {
-        await withCheckedContinuation { continuation in
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: executable)
-            proc.arguments = arguments
-            let pipe = Pipe()
-            proc.standardOutput = pipe
-            proc.standardError = Pipe() // discard stderr
+    private func waitForProcessExit(timeout: Duration = .seconds(6)) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while process != nil {
+            if ContinuousClock.now >= deadline {
+                throw HermesSubprocessError.terminationTimeout
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+    }
 
-            proc.terminationHandler = { _ in
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                let output = String(data: data, encoding: .utf8)
-                continuation.resume(returning: output)
+    private func captureTerminationStderr() -> String {
+        drainRemainingStderr()
+        return currentStderrBufferSnapshot()
+    }
+
+    private func drainRemainingStderr() {
+        guard let handle = stderrPipe?.fileHandleForReading else { return }
+        while true {
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            guard let text = String(data: data, encoding: .utf8) else { continue }
+            appendToStderrBufferSnapshot(text)
+            consumeStderrText(text)
+        }
+    }
+
+    private func consumeStderrText(_ text: String) {
+        stderrBuffer.append(text)
+        if stderrBuffer.count > stderrBufferMaxLength {
+            let dropCount = stderrBuffer.count - stderrBufferMaxLength
+            stderrBuffer = String(stderrBuffer.dropFirst(dropCount))
+        }
+
+        for line in text.components(separatedBy: "\n") where !line.isEmpty {
+            log.debug("hermes-stderr: \(line)")
+            if line.hasPrefix("[tool-gate]") {
+                let parts = line.components(separatedBy: ": ")
+                let toolName = parts.count > 1
+                    ? parts[0].replacingOccurrences(of: "[tool-gate] ", with: "")
+                    : "unknown"
+                let reason = parts.count > 1 ? parts.dropFirst().joined(separator: ": ") : line
+                log.warning("Tool gate failure: \(toolName) — \(reason)")
             }
 
-            do {
-                try proc.run()
-            } catch {
-                continuation.resume(returning: nil)
+            let lowered = line.lowercased()
+            if lowered.contains("401")
+                || lowered.contains("api_key not set")
+                || lowered.contains("api key not set")
+                || lowered.contains("authenticationerror")
+                || lowered.contains("no cookie auth credentials")
+                || lowered.contains("openrouter_api_key not set")
+                || lowered.contains("anthropic_api_key not set")
+                || lowered.contains("openai_api_key not set") {
+                if authFailureMessage == nil {
+                    authFailureMessage = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                    log.warning("Auth failure detected — UI should prompt for API key setup")
+                }
             }
+        }
+    }
+
+    private nonisolated func currentRequestHandler() -> (@Sendable (_ jsonLine: String) -> Void)? {
+        requestHandlerLock.lock()
+        let handler = onRequestReceived
+        requestHandlerLock.unlock()
+        return handler
+    }
+
+    private nonisolated func currentDisconnectHandler() -> (@Sendable () -> Void)? {
+        disconnectHandlerLock.lock()
+        let handler = onDisconnect
+        disconnectHandlerLock.unlock()
+        return handler
+    }
+
+    private nonisolated func notifyDisconnect() {
+        currentDisconnectHandler()?()
+    }
+
+    private func makeNextWatchdogPingID() -> Int {
+        defer { nextWatchdogPingID -= 1 }
+        return nextWatchdogPingID
+    }
+
+    private nonisolated func registerWatchdogPing(id: Int) {
+        watchdogPingLock.lock()
+        pendingWatchdogPingIDs.insert(id)
+        watchdogPingLock.unlock()
+    }
+
+    @discardableResult
+    private nonisolated func clearWatchdogPing(id: Int) -> Bool {
+        watchdogPingLock.lock()
+        let removed = pendingWatchdogPingIDs.remove(id) != nil
+        watchdogPingLock.unlock()
+        return removed
+    }
+
+    private nonisolated func hasPendingWatchdogPing(id: Int) -> Bool {
+        watchdogPingLock.lock()
+        let contains = pendingWatchdogPingIDs.contains(id)
+        watchdogPingLock.unlock()
+        return contains
+    }
+
+    private nonisolated func clearAllWatchdogPings() {
+        watchdogPingLock.lock()
+        pendingWatchdogPingIDs.removeAll(keepingCapacity: false)
+        watchdogPingLock.unlock()
+    }
+
+    private nonisolated func recordWatchdogResponseIfNeeded(_ jsonLine: String) {
+        guard let data = jsonLine.data(using: .utf8),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              payload["result"] != nil || payload["error"] != nil else {
+            return
+        }
+
+        if let id = payload["id"] as? Int, id < 0 {
+            clearWatchdogPing(id: id)
+            return
+        }
+        if let idNumber = payload["id"] as? NSNumber {
+            let id = idNumber.intValue
+            if id < 0 {
+                clearWatchdogPing(id: id)
+            }
+        }
+    }
+
+    private nonisolated func appendToStderrBufferSnapshot(_ text: String) {
+        stderrBufferLock.lock()
+        stderrBufferSnapshot.append(text)
+        if stderrBufferSnapshot.count > stderrBufferMaxLength {
+            let dropCount = stderrBufferSnapshot.count - stderrBufferMaxLength
+            stderrBufferSnapshot = String(stderrBufferSnapshot.dropFirst(dropCount))
+        }
+        stderrBufferLock.unlock()
+    }
+
+    private nonisolated func currentStderrBufferSnapshot() -> String {
+        stderrBufferLock.lock()
+        let snapshot = stderrBufferSnapshot
+        stderrBufferLock.unlock()
+        return snapshot
+    }
+
+    private nonisolated func setStderrBufferSnapshot(_ value: String) {
+        stderrBufferLock.lock()
+        stderrBufferSnapshot = value
+        stderrBufferLock.unlock()
+    }
+
+    private static func runQuickCommand(
+        _ executable: String,
+        arguments: [String],
+        timeout: Duration = .seconds(5)
+    ) async -> String? {
+        final class QuickCommandState: @unchecked Sendable {
+            private let lock = NSLock()
+            nonisolated(unsafe) private var process: Process?
+            nonisolated(unsafe) private var continuation: CheckedContinuation<String?, Never>?
+            nonisolated(unsafe) private var resumed = false
+
+            nonisolated func store(process: Process, continuation: CheckedContinuation<String?, Never>) -> Bool {
+                lock.lock()
+                defer { lock.unlock() }
+                guard !resumed else { return false }
+                self.process = process
+                self.continuation = continuation
+                return true
+            }
+
+            nonisolated func terminate() {
+                lock.lock()
+                let process = self.process
+                lock.unlock()
+                process?.terminate()
+            }
+
+            nonisolated func resume(with value: String?) {
+                let continuation: CheckedContinuation<String?, Never>?
+                lock.lock()
+                guard !resumed else {
+                    lock.unlock()
+                    return
+                }
+                resumed = true
+                continuation = self.continuation
+                self.continuation = nil
+                self.process = nil
+                lock.unlock()
+                continuation?.resume(returning: value)
+            }
+        }
+
+        let state = QuickCommandState()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let proc = Process.init()
+                proc.executableURL = URL(fileURLWithPath: executable)
+                proc.arguments = arguments
+                let pipe = Pipe()
+                proc.standardOutput = pipe
+                proc.standardError = Pipe() // discard stderr
+
+                guard state.store(process: proc, continuation: continuation) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let timeoutTask = Task.detached(priority: .utility) {
+                    try? await Task.sleep(for: timeout)
+                    state.terminate()
+                    state.resume(with: nil)
+                }
+
+                proc.terminationHandler = { _ in
+                    timeoutTask.cancel()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let output = String(data: data, encoding: .utf8)
+                    state.resume(with: output)
+                }
+
+                do {
+                    try proc.run()
+                } catch {
+                    timeoutTask.cancel()
+                    state.resume(with: nil)
+                }
+            }
+        } onCancel: {
+            state.terminate()
+            state.resume(with: nil)
+        }
+    }
+
+    private static func probeBridgeResponsiveness(
+        config: HermesConfig,
+        timeout: Duration = .seconds(5)
+    ) async -> String? {
+        let manager = await MainActor.run {
+            HermesSubprocessManager(config: config)
+        }
+        let client = HermesMCPClient(
+            subprocessManager: manager,
+            defaultTimeout: timeout
+        )
+
+        do {
+            try await manager.launch()
+            await MainActor.run {
+                client.attach()
+            }
+            _ = try await client.ping()
+            await MainActor.run {
+                manager.terminate()
+            }
+            return nil
+        } catch {
+            await MainActor.run {
+                manager.terminate()
+            }
+            return error.localizedDescription
         }
     }
 }

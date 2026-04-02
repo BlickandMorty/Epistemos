@@ -94,6 +94,40 @@ enum HologramOverlayHostedViewBuilder {
     }
 }
 
+@MainActor
+private final class ObservationChangeWaiter {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var hasResumed = false
+
+    func wait(observe: () -> Void) async {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+                self.hasResumed = false
+                withObservationTracking {
+                    observe()
+                } onChange: { [weak self] in
+                    Task { @MainActor [weak self] in
+                        self?.resumeIfNeeded()
+                    }
+                }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.resumeIfNeeded()
+            }
+        }
+    }
+
+    private func resumeIfNeeded() {
+        guard !hasResumed else { return }
+        hasResumed = true
+        let continuation = continuation
+        self.continuation = nil
+        continuation?.resume()
+    }
+}
+
 // MARK: - HologramOverlay
 // Full-screen borderless NSWindow that renders the knowledge graph
 // on top of a heavy frosted-glass blur. Triggered by a global hotkey.
@@ -704,19 +738,21 @@ final class HologramOverlay {
 
     // MARK: - Inspector Position Tracking
 
+    @MainActor
+    private func waitForObservedChange(_ observe: () -> Void) async {
+        let waiter = ObservationChangeWaiter()
+        await waiter.wait(observe: observe)
+    }
+
     private func startInspectorPositionTracking() {
         inspectorPositionTask?.cancel()
         inspectorRepositionTask?.cancel()
         inspectorPositionTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 guard let s = self else { return }
-                await withCheckedContinuation { continuation in
-                    withObservationTracking {
-                        _ = s.graphState.selectedNodeScreenPoint
-                        _ = s.inspectorState.inspectorMode
-                    } onChange: {
-                        continuation.resume()
-                    }
+                await s.waitForObservedChange {
+                    _ = s.graphState.selectedNodeScreenPoint
+                    _ = s.inspectorState.inspectorMode
                 }
                 guard !Task.isCancelled, let s = self else { return }
                 s.scheduleInspectorReposition()
@@ -820,12 +856,8 @@ final class HologramOverlay {
         selectionObserverTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 guard let s = self else { return }
-                await withCheckedContinuation { continuation in
-                    withObservationTracking {
-                        _ = s.graphState.selectedNodeId
-                    } onChange: {
-                        continuation.resume()
-                    }
+                await s.waitForObservedChange {
+                    _ = s.graphState.selectedNodeId
                 }
                 guard !Task.isCancelled, let s = self else { return }
                 if s.graphState.selectedNodeId != nil && s.isMinimized {

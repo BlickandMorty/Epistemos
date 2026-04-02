@@ -10,6 +10,8 @@ import FoundationModels
 
 @MainActor
 final class AppleIntelligenceService {
+    private static let log = Logger(subsystem: "com.epistemos.ai", category: "AppleIntelligenceService")
+
     static let shared = AppleIntelligenceService()
 
     /// Session recycle interval — Foundation Models sessions accumulate context;
@@ -23,53 +25,35 @@ final class AppleIntelligenceService {
     }
     #endif
     private var _cachedSessionStorage: AnyObject?
+    private var _cachedSessionSystemPrompt: String?
     private var _sessionCreatedAt: Date = .distantPast
+    private let knowledgeProfileStore = KnowledgeProfileStore()
 
     private init() {}
 
     func generate(prompt: String, systemPrompt: String? = nil) async throws -> String {
-        // Check circuit breaker before attempting inference
-        if let supervisor = AppBootstrap.shared?.supervisor,
-           await supervisor.inferenceCircuitBreaker.isOpen {
-            throw AppleIntelligenceError.unavailable("Inference circuit breaker is open — too many recent failures. Will auto-reset.")
-        }
+        let breaker = BreakerRegistry.shared.foundationModels
+        let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(from: systemPrompt)
 
         // Thermal clearance: park if thermal pressure is high, cancel if critical.
-        // ThermalError is distinct from inference failure — don't trip the breaker.
+        // ThermalError is distinct from inference failure — the breaker's
+        // isNeutral() classification handles this automatically.
         do {
             try await ThermalGuard.shared.acquireClearance()
-        } catch is ThermalError {
-            // Record thermal pause (NOT a failure) so the breaker stays closed
-            if let supervisor = AppBootstrap.shared?.supervisor {
-                await supervisor.inferenceCircuitBreaker.recordThermalPause()
-            }
-            throw AppleIntelligenceError.unavailable("Inference blocked by thermal pressure.")
+        } catch let error as ThermalError {
+            await breaker.recordThermalPause()
+            throw error
         }
 
-        do {
-            let result: String
+        // Route through the FoundationModels circuit breaker.
+        // execute<T>() handles: open rejection, success/failure recording,
+        // neutral error classification (thermal, cancellation, context exhaustion).
+        return try await breaker.execute {
             if #available(macOS 26.0, *) {
-                result = try await generateWithFoundationModels(prompt: prompt, systemPrompt: systemPrompt)
+                return try await self.generateWithFoundationModels(prompt: prompt, systemPrompt: resolvedSystemPrompt)
             } else {
                 throw AppleIntelligenceError.unavailable("Apple Intelligence requires macOS 26 or later.")
             }
-            // Record success to close circuit breaker
-            if let supervisor = AppBootstrap.shared?.supervisor {
-                await supervisor.inferenceCircuitBreaker.recordSuccess()
-            }
-            return result
-        } catch is ThermalError {
-            // Thermal errors during inference are not the API's fault
-            if let supervisor = AppBootstrap.shared?.supervisor {
-                await supervisor.inferenceCircuitBreaker.recordThermalPause()
-            }
-            throw AppleIntelligenceError.unavailable("Inference interrupted by thermal pressure.")
-        } catch {
-            // Real inference failure — record against circuit breaker
-            if let supervisor = AppBootstrap.shared?.supervisor {
-                await supervisor.inferenceCircuitBreaker.recordFailure()
-            }
-            throw error
         }
     }
 
@@ -101,15 +85,18 @@ final class AppleIntelligenceService {
         let session: LanguageModelSession
         let now = Date()
         let needsRecycle = now.timeIntervalSince(_sessionCreatedAt) > sessionRecycleInterval
-        if let cached = _cachedSession, !needsRecycle, systemPrompt == nil {
+        let normalizedSystemPrompt = Self.normalizedSystemPrompt(systemPrompt)
+        let needsPromptRefresh = normalizedSystemPrompt != _cachedSessionSystemPrompt
+        if let cached = _cachedSession, !needsRecycle, !needsPromptRefresh {
             session = cached
         } else {
-            if let systemPrompt, !systemPrompt.isEmpty {
-                session = LanguageModelSession(instructions: systemPrompt)
+            if let normalizedSystemPrompt {
+                session = LanguageModelSession(instructions: normalizedSystemPrompt)
             } else {
                 session = LanguageModelSession()
             }
             _cachedSession = session
+            _cachedSessionSystemPrompt = normalizedSystemPrompt
             _sessionCreatedAt = now
         }
 
@@ -132,6 +119,7 @@ final class AppleIntelligenceService {
                         freshSession = LanguageModelSession(instructions: "Previous context: " + summary)
                     }
                     _cachedSession = freshSession
+                    _cachedSessionSystemPrompt = normalizedSystemPrompt
                     _sessionCreatedAt = Date()
                     let content: String = try await withTimeout(seconds: 30.0) {
                         let response = try await freshSession.respond(to: prompt)
@@ -152,8 +140,14 @@ final class AppleIntelligenceService {
         } catch let error as LanguageModelSession.GenerationError {
             if case .exceededContextWindowSize = error {
                 // Context window blown — force recycle and retry once
-                let freshSession = LanguageModelSession()
+                let freshSession: LanguageModelSession
+                if let normalizedSystemPrompt {
+                    freshSession = LanguageModelSession(instructions: normalizedSystemPrompt)
+                } else {
+                    freshSession = LanguageModelSession()
+                }
                 _cachedSession = freshSession
+                _cachedSessionSystemPrompt = normalizedSystemPrompt
                 _sessionCreatedAt = Date()
                 let content: String = try await withTimeout(seconds: 30.0) {
                     let response = try await freshSession.respond(to: prompt)
@@ -166,6 +160,27 @@ final class AppleIntelligenceService {
         #else
         throw AppleIntelligenceError.unavailable("FoundationModels framework not available on this build machine.")
         #endif
+    }
+
+    private func knowledgeAwareSystemPrompt(from systemPrompt: String?) async -> String? {
+        do {
+            return try await knowledgeProfileStore.augmentedSystemPrompt(
+                existingPrompt: systemPrompt,
+                modelID: "apple-intelligence",
+                budget: .compact
+            )
+        } catch {
+            Self.log.error(
+                "Failed to load Apple Intelligence model vault prompt context: \(error.localizedDescription, privacy: .public)"
+            )
+            return systemPrompt
+        }
+    }
+
+    private nonisolated static func normalizedSystemPrompt(_ systemPrompt: String?) -> String? {
+        guard let systemPrompt else { return nil }
+        let trimmed = systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     /// Summarize transcript using a separate session to preserve context continuity.
@@ -232,14 +247,15 @@ final class AppleIntelligenceService {
     }
 }
 
-enum AppleIntelligenceError: LocalizedError {
+enum AppleIntelligenceError: LocalizedError, CircuitBreakerIgnorable, Sendable {
     case unavailable(String)
 
-    var errorDescription: String? {
+    nonisolated var errorDescription: String? {
         switch self {
         case .unavailable(let reason): "Apple Intelligence unavailable: \(reason)"
         }
     }
+
+    /// Unavailability is a precondition check, not a provider failure.
+    nonisolated var isCircuitBreakerNeutral: Bool { true }
 }
-
-

@@ -83,7 +83,11 @@ final class WorkspaceSummaryService {
         }
         autoSummaryTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: interval)
+                do {
+                    try await Task.sleep(for: interval)
+                } catch {
+                    break
+                }
                 guard !Task.isCancelled else { break }
                 guard let self else { break }
                 // Skip if minimized or no windows open
@@ -273,17 +277,32 @@ final class WorkspaceSummaryService {
 
     private func storeSummary(_ text: String) {
         let context = modelContainer.mainContext
-        guard let workspace = try? context.fetch(FetchDescriptor<SDWorkspace>())
-            .first(where: { $0.isAutoSave }) else { return }
+        let workspaces: [SDWorkspace]
+        do {
+            workspaces = try context.fetch(FetchDescriptor<SDWorkspace>())
+        } catch {
+            Self.log.error("Summary storage fetch failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        guard let workspace = workspaces.first(where: { $0.isAutoSave }) else { return }
         workspace.summary = text
         workspace.lastSummaryAt = Date()
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Self.log.error("Summary storage save failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     private func fetchAutoSaveLastSummaryAt() -> Date? {
         let context = modelContainer.mainContext
-        return try? context.fetch(FetchDescriptor<SDWorkspace>())
-            .first(where: { $0.isAutoSave })?.lastSummaryAt
+        do {
+            return try context.fetch(FetchDescriptor<SDWorkspace>())
+                .first(where: { $0.isAutoSave })?.lastSummaryAt
+        } catch {
+            Self.log.error("Summary timestamp fetch failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     private func fetchPageTitle(pageId: String) -> String? {
@@ -291,6 +310,11 @@ final class WorkspaceSummaryService {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == targetId }
         )
-        return try? modelContainer.mainContext.fetch(descriptor).first?.title
+        do {
+            return try modelContainer.mainContext.fetch(descriptor).first?.title
+        } catch {
+            Self.log.error("Summary page-title fetch failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 }

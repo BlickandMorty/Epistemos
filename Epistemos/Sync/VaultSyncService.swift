@@ -110,8 +110,10 @@ private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> (path: String, bodyHash: String)?
     typealias TMUtilCommandRunner = @Sendable ([String]) throws -> String
+    typealias BookmarkDataWriter = @Sendable (URL, URL.BookmarkCreationOptions) throws -> Data
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
+    fileprivate nonisolated static let trustedSuspiciousVaultPathKey = "epistemos.confirmedSuspiciousVaultPath"
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
     fileprivate nonisolated static let testDefaultsSuitePrefix = "com.epistemos.tests.VaultSyncService."
     fileprivate nonisolated static let skipRestoreEnvironmentKey = "EPISTEMOS_SKIP_VAULT_RESTORE"
@@ -194,6 +196,7 @@ final class VaultSyncService {
     private var recoverySnapshotRootURLOverride: URL?
     private var managedBodyCountProvider: (@Sendable () -> Int)?
     private var tmutilCommandRunnerOverride: TMUtilCommandRunner?
+    private var bookmarkDataWriterOverride: BookmarkDataWriter?
     private var defaults = UserDefaults.standard
 
     private(set) var vaultURL: URL?
@@ -261,6 +264,134 @@ final class VaultSyncService {
         powerModeObserverTask?.cancel()
     }
 
+    private func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> [T]? {
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            log.error(
+                "VaultSyncService: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func fetchFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> T? {
+        fetchAll(descriptor, in: context, label: label)?.first
+    }
+
+    private func fetchCount<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> Int? {
+        do {
+            return try context.fetchCount(descriptor)
+        } catch {
+            log.error(
+                "VaultSyncService: failed to fetch count for \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private nonisolated static func fetchBackgroundAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> [T]? {
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            backgroundLog.error(
+                "VaultSyncService: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private nonisolated static func fetchBackgroundFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> T? {
+        fetchBackgroundAll(descriptor, in: context, label: label)?.first
+    }
+
+    private nonisolated static func fetchBackgroundCount<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> Int? {
+        do {
+            return try context.fetchCount(descriptor)
+        } catch {
+            backgroundLog.error(
+                "VaultSyncService: failed to fetch count for \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private nonisolated static func mappedFileData(at url: URL, label: String) -> Data? {
+        do {
+            return try Data(contentsOf: url, options: .mappedIfSafe)
+        } catch {
+            backgroundLog.error(
+                "VaultSyncService: failed to read \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private nonisolated static func removeItemIfPresent(at url: URL, label: String) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path) else { return }
+        do {
+            try fm.removeItem(at: url)
+        } catch {
+            backgroundLog.error(
+                "VaultSyncService: failed to remove \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
+    private nonisolated static func recreateDirectory(at url: URL, label: String) {
+        let fm = FileManager.default
+        removeItemIfPresent(at: url, label: label)
+        do {
+            try fm.createDirectory(at: url, withIntermediateDirectories: true)
+        } catch {
+            backgroundLog.error(
+                "VaultSyncService: failed to create \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
+    private nonisolated static func sleepHandlingCancellation(
+        for duration: Duration,
+        label: String
+    ) async -> Bool {
+        do {
+            try await Task.sleep(for: duration)
+            return true
+        } catch is CancellationError {
+            return false
+        } catch {
+            backgroundLog.error(
+                "VaultSyncService: failed during \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+    }
+
     func setVaultURLForTesting(_ vaultURL: URL?) {
         self.vaultURL = vaultURL
     }
@@ -298,6 +429,10 @@ final class VaultSyncService {
 
     func setTMUtilCommandRunnerForTesting(_ runner: TMUtilCommandRunner?) {
         tmutilCommandRunnerOverride = runner
+    }
+
+    func setBookmarkDataWriterForTesting(_ writer: BookmarkDataWriter?) {
+        bookmarkDataWriterOverride = writer
     }
 
     func setUserDefaultsForTesting(_ userDefaults: UserDefaults) {
@@ -338,11 +473,37 @@ final class VaultSyncService {
         )
     }
 
+    nonisolated static func suspiciousVaultRestoreReconfirmationReasonForTesting(
+        resolvedURL: URL,
+        assessment: VaultIndexActor.VaultFolderSelectionAssessment,
+        trustedSuspiciousVaultPath: String?
+    ) -> String? {
+        suspiciousVaultRestoreReconfirmationReason(
+            resolvedURL: resolvedURL,
+            assessment: assessment,
+            trustedSuspiciousVaultPath: trustedSuspiciousVaultPath
+        )
+    }
+
     private func exportPage(pageId: String, to vaultURL: URL) async throws -> (path: String, bodyHash: String)? {
         if let exportPageOverride {
             return try await exportPageOverride(pageId, vaultURL)
         }
         return try await indexActor?.exportPage(pageId: pageId, to: vaultURL)
+    }
+
+    private func makeBookmarkData(
+        for url: URL,
+        options: URL.BookmarkCreationOptions
+    ) throws -> Data {
+        if let bookmarkDataWriterOverride {
+            return try bookmarkDataWriterOverride(url, options)
+        }
+        return try url.bookmarkData(
+            options: options,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
     }
 
     func dismissRecoveryIssue() {
@@ -354,26 +515,46 @@ final class VaultSyncService {
         isIndexing = false
     }
 
-    func persistVaultSelection(_ url: URL) {
-        do {
-            let bookmark = try url.bookmarkData(
-                options: .withSecurityScope,
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            defaults.set(bookmark, forKey: Self.bookmarkKey)
-        } catch {
-            log.error(
-                "Failed to persist vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-        }
+    func persistVaultSelection(_ url: URL, userConfirmedSuspiciousFolder: Bool = false) {
         defaults.set(url.path, forKey: Self.lastVaultPathKey)
+        let standardizedPath = url.standardizedFileURL.path
+        var didPersistBookmark = false
+
+        do {
+            let bookmark = try makeBookmarkData(for: url, options: .withSecurityScope)
+            defaults.set(bookmark, forKey: Self.bookmarkKey)
+            didPersistBookmark = true
+        } catch {
+            do {
+                let bookmark = try makeBookmarkData(for: url, options: [])
+                defaults.set(bookmark, forKey: Self.bookmarkKey)
+                didPersistBookmark = true
+                log.warning(
+                    """
+                    Falling back to a plain vault bookmark for \(url.path, privacy: .public) \
+                    after security-scoped persistence failed: \(error.localizedDescription, privacy: .public)
+                    """
+                )
+            } catch {
+                defaults.removeObject(forKey: Self.bookmarkKey)
+                log.error(
+                    "Failed to persist vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
+        if didPersistBookmark && userConfirmedSuspiciousFolder {
+            defaults.set(standardizedPath, forKey: Self.trustedSuspiciousVaultPathKey)
+        } else {
+            defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
+        }
         recoveryIssue = nil
     }
 
     func clearPersistedVaultSelection() {
         defaults.removeObject(forKey: Self.bookmarkKey)
         defaults.removeObject(forKey: Self.lastVaultPathKey)
+        defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
     }
 
     func shouldRunBodyCleanup(candidateVaultURL: URL?) async -> Bool {
@@ -462,7 +643,11 @@ final class VaultSyncService {
         }.value
 
         let context = modelContainer.mainContext
-        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let pages = fetchAll(
+            FetchDescriptor<SDPage>(),
+            in: context,
+            label: "vault health pages"
+        ) ?? []
         let comparableCounts = comparableVaultCounts(
             pages: pages,
             resolvedVaultURL: resolvedVaultURL
@@ -498,7 +683,11 @@ final class VaultSyncService {
             }
         let localBodyFileCount = managedBodyCountProvider?() ?? NoteFileStorage.managedBodyCount()
         let context = modelContainer.mainContext
-        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let pages = fetchAll(
+            FetchDescriptor<SDPage>(),
+            in: context,
+            label: "current vault health pages"
+        ) ?? []
         let comparableCounts = comparableVaultCounts(
             pages: pages,
             resolvedVaultURL: resolvedVaultURL
@@ -925,7 +1114,7 @@ final class VaultSyncService {
     }
 
     private nonisolated static func isSQLiteDatabaseFile(at url: URL) -> Bool {
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+        guard let data = mappedFileData(at: url, label: "SQLite signature probe"),
               data.count >= 16 else {
             return false
         }
@@ -1050,7 +1239,7 @@ final class VaultSyncService {
     }
 
     private nonisolated static func runTMUtilCommand(_ arguments: [String]) throws -> String {
-        let process = Process()
+        let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tmutil")
         process.arguments = arguments
 
@@ -1317,7 +1506,7 @@ final class VaultSyncService {
             URL(fileURLWithPath: databaseURL.path + "-wal"),
         ]
         for url in urls where fm.fileExists(atPath: url.path) {
-            try? fm.removeItem(at: url)
+            removeItemIfPresent(at: url, label: "search index file")
         }
     }
 
@@ -1325,8 +1514,7 @@ final class VaultSyncService {
         let fm = FileManager.default
         if let styleCacheURL,
            fm.fileExists(atPath: styleCacheURL.path) {
-            try? fm.removeItem(at: styleCacheURL)
-            try? fm.createDirectory(at: styleCacheURL, withIntermediateDirectories: true)
+            recreateDirectory(at: styleCacheURL, label: "style cache directory")
         }
     }
 
@@ -1386,6 +1574,22 @@ final class VaultSyncService {
             }
             log.warning("\(reason, privacy: .public)")
         }
+    }
+
+    private nonisolated static func suspiciousVaultRestoreReconfirmationReason(
+        resolvedURL: URL,
+        assessment: VaultIndexActor.VaultFolderSelectionAssessment,
+        trustedSuspiciousVaultPath: String?
+    ) -> String? {
+        guard assessment.shouldConfirmSelection else { return nil }
+        let standardizedPath = resolvedURL.standardizedFileURL.path
+        guard trustedSuspiciousVaultPath == standardizedPath else {
+            return """
+            Saved vault folder must be confirmed again before automatic restore. \
+            \(assessment.confirmationMessage)
+            """
+        }
+        return nil
     }
 
     // MARK: - Lifecycle
@@ -1533,6 +1737,27 @@ final class VaultSyncService {
                     "Failed to refresh stale vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
             }
+        }
+
+        let trustedSuspiciousVaultPath = defaults.string(forKey: Self.trustedSuspiciousVaultPathKey)
+        let selectionAssessment = await Task.detached(priority: .utility) {
+            VaultIndexActor.vaultFolderSelectionAssessment(for: url)
+        }.value
+        if let reason = Self.suspiciousVaultRestoreReconfirmationReason(
+            resolvedURL: url,
+            assessment: selectionAssessment,
+            trustedSuspiciousVaultPath: trustedSuspiciousVaultPath
+        ) {
+            if usedSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+            defaults.removeObject(forKey: Self.bookmarkKey)
+            defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
+            handleRestoreFailure(
+                reason: reason,
+                bookmarkExists: false
+            )
+            return
         }
 
         // Pass scopeAlreadyAcquired=true so startWatching doesn't double-acquire.
@@ -1994,7 +2219,9 @@ final class VaultSyncService {
 
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard (try? context.fetch(descriptor).first) != nil else { return nil }
+        guard fetchFirst(descriptor, in: context, label: "page save preflight") != nil else {
+            return nil
+        }
 
         preparePageForExport(pageId: pageId, context: context)
         scheduleVersionCaptureIfNeeded(pageId: pageId, context: context)
@@ -2014,7 +2241,8 @@ final class VaultSyncService {
 
                 await MainActor.run {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                    if let page = try? context.fetch(desc).first, let result = exportResult {
+                    if let result = exportResult,
+                       let page = self.fetchFirst(desc, in: context, label: "saved page sync tracking") {
                         let currentHash = SDPage.bodyHash(
                             self.latestAvailableBody(for: page, pageId: pageId)
                         )
@@ -2052,7 +2280,9 @@ final class VaultSyncService {
         NoteFileStorage.requestFlush(pageId: pageId)
 
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? context.fetch(descriptor).first else { return }
+        guard let page = fetchFirst(descriptor, in: context, label: "page export preparation") else {
+            return
+        }
 
         let currentBody = latestAvailableBody(for: page, pageId: pageId)
         guard let stagedBody = NoteFileStorage.stageBodyForImmediateRead(
@@ -2105,7 +2335,7 @@ final class VaultSyncService {
         let dirtyDescriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.needsVaultSync == true || $0.lastSyncedBodyHash == nil }
         )
-        guard let dirtyPages = try? context.fetch(dirtyDescriptor),
+        guard let dirtyPages = fetchAll(dirtyDescriptor, in: context, label: "dirty pages"),
               !dirtyPages.isEmpty else {
             log.info("No dirty pages to save")
             return nil
@@ -2165,7 +2395,9 @@ final class VaultSyncService {
             for export in successfulExports {
                 let pid = export.pageId
                 let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pid })
-                guard let page = try? batch.context.fetch(desc).first else { continue }
+                guard let page = fetchFirst(desc, in: batch.context, label: "dirty page sync tracking") else {
+                    continue
+                }
 
                 let currentHash = SDPage.bodyHash(
                     latestAvailableBody(for: page, pageId: pid)
@@ -2214,7 +2446,10 @@ final class VaultSyncService {
 
         autoSaveTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(interval))
+                guard await Self.sleepHandlingCancellation(
+                    for: .seconds(interval),
+                    label: "auto-save timer"
+                ) else { return }
                 guard !Task.isCancelled else { return }
                 self?.saveAllDirtyPages()
             }
@@ -2301,7 +2536,10 @@ final class VaultSyncService {
         manifestRefreshTask?.cancel()
         manifestRefreshTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(300))
+                guard await Self.sleepHandlingCancellation(
+                    for: .seconds(300),
+                    label: "manifest refresh timer"
+                ) else { return }
                 guard !Task.isCancelled else { return }
                 guard self != nil else { return }
                 AppBootstrap.shared?.refreshAmbientManifest()
@@ -2386,9 +2624,12 @@ final class VaultSyncService {
         let searchService = self.searchService
         let shouldIgnore = shouldIgnoreFileWatcherChange()
 
-        fileWatchDebounceTask = Task.detached(priority: .utility) { [weak self] in
+        fileWatchDebounceTask = Task.detached(priority: .utility) {
             let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
-            try? await Task.sleep(for: .seconds(2))
+            guard await Self.sleepHandlingCancellation(
+                for: .seconds(2),
+                label: "file watcher debounce"
+            ) else { return }
             guard !Task.isCancelled, let vaultURL, let actor else { return }
             guard !shouldIgnore else {
                 log.info("File watcher: skipping self-originated vault change")
@@ -2429,7 +2670,9 @@ final class VaultSyncService {
     func captureVersionIfNeeded(pageId: String) {
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? context.fetch(descriptor).first else { return }
+        guard let page = fetchFirst(descriptor, in: context, label: "version capture page") else {
+            return
+        }
         let currentBody = NoteWindowManager.shared.editorBody(for: pageId) ?? page.loadBody()
         guard !currentBody.isEmpty else { return }
 
@@ -2440,7 +2683,10 @@ final class VaultSyncService {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         versionDesc.fetchLimit = 1
-        if let latest = try? context.fetch(versionDesc).first, latest.body == currentBody { return }
+        if let latest = fetchFirst(versionDesc, in: context, label: "latest captured version"),
+           latest.body == currentBody {
+            return
+        }
 
         let version = SDPageVersion(pageId: pageId, title: page.title, body: currentBody, wordCount: page.wordCount)
         context.insert(version)
@@ -2464,7 +2710,9 @@ final class VaultSyncService {
 
     private func versionCaptureSnapshot(pageId: String, context: ModelContext) -> VersionCaptureSnapshot? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? context.fetch(descriptor).first else { return nil }
+        guard let page = fetchFirst(descriptor, in: context, label: "version capture snapshot page") else {
+            return nil
+        }
         let currentBody = latestAvailableBody(for: page, pageId: pageId)
         guard !currentBody.isEmpty else { return nil }
         return VersionCaptureSnapshot(
@@ -2488,7 +2736,13 @@ final class VaultSyncService {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         versionDesc.fetchLimit = 1
-        if let latest = try? context.fetch(versionDesc).first, latest.body == snapshot.body { return }
+        if let latest = fetchBackgroundFirst(
+            versionDesc,
+            in: context,
+            label: "latest background captured version"
+        ), latest.body == snapshot.body {
+            return
+        }
 
         let version = SDPageVersion(
             pageId: snapshot.pageId,
@@ -2519,7 +2773,8 @@ final class VaultSyncService {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         desc.fetchOffset = Self.maxVersionsPerPage
-        guard let old = try? context.fetch(desc), !old.isEmpty else { return }
+        guard let old = fetchBackgroundAll(desc, in: context, label: "old page versions"),
+              !old.isEmpty else { return }
         for version in old { context.delete(version) }
         do {
             try context.save()
@@ -2539,7 +2794,11 @@ final class VaultSyncService {
         let context = ModelContext(modelContainer)
         context.autosaveEnabled = false
         let countDesc = FetchDescriptor<SDPageVersion>()
-        guard let totalCount = try? context.fetchCount(countDesc),
+        guard let totalCount = fetchBackgroundCount(
+            countDesc,
+            in: context,
+            label: "all page versions"
+        ),
               totalCount > Self.maxTotalVersions else { return }
 
         let excess = totalCount - Self.maxTotalVersions
@@ -2547,7 +2806,11 @@ final class VaultSyncService {
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
         oldestDesc.fetchLimit = excess
-        guard let oldest = try? context.fetch(oldestDesc), !oldest.isEmpty else { return }
+        guard let oldest = fetchBackgroundAll(
+            oldestDesc,
+            in: context,
+            label: "oldest page versions"
+        ), !oldest.isEmpty else { return }
         for version in oldest { context.delete(version) }
         do {
             try context.save()
@@ -2562,7 +2825,10 @@ final class VaultSyncService {
         versionCaptureTask?.cancel()
         versionCaptureTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(600))
+                guard await Self.sleepHandlingCancellation(
+                    for: .seconds(600),
+                    label: "version capture timer"
+                ) else { return }
                 guard !Task.isCancelled, let self else { return }
                 self.autoCaptureVersions()
             }
@@ -2575,7 +2841,11 @@ final class VaultSyncService {
         let dirtyDescriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.needsVaultSync == true || $0.lastSyncedBodyHash == nil }
         )
-        guard let dirtyPages = try? context.fetch(dirtyDescriptor),
+        guard let dirtyPages = fetchAll(
+            dirtyDescriptor,
+            in: context,
+            label: "auto-capture dirty pages"
+        ),
               !dirtyPages.isEmpty else { return }
         for page in dirtyPages {
             scheduleVersionCaptureIfNeeded(pageId: page.id, context: context)
@@ -2747,7 +3017,7 @@ final class VaultSyncService {
 
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? context.fetch(descriptor).first else { return }
+        guard let page = fetchFirst(descriptor, in: context, label: "page move") else { return }
 
         let normalizedSubfolder: String? = {
             guard let subfolder else { return nil }
@@ -2811,6 +3081,29 @@ final class VaultSyncService {
 
 @MainActor
 enum VaultConnectionActions {
+    static func connectSelectedVault(
+        url: URL,
+        vaultSync: VaultSyncService,
+        beforeSwitch: @escaping @MainActor () -> Void = {}
+    ) {
+        Task { @MainActor in
+            let assessment = await Task.detached(priority: .utility) {
+                VaultIndexActor.vaultFolderSelectionAssessment(for: url)
+            }.value
+
+            guard shouldProceedWithVaultSelection(url: url, assessment: assessment) else { return }
+
+            beforeSwitch()
+            let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
+            if didSwitch {
+                vaultSync.persistVaultSelection(
+                    url,
+                    userConfirmedSuspiciousFolder: assessment.shouldConfirmSelection
+                )
+            }
+        }
+    }
+
     static func selectVaultFolder(notesUI: NotesUIState, vaultSync: VaultSyncService) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -2820,12 +3113,8 @@ enum VaultConnectionActions {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        notesUI.resetForVaultSwitch()
-        Task { @MainActor in
-            let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
-            if didSwitch {
-                vaultSync.persistVaultSelection(url)
-            }
+        connectSelectedVault(url: url, vaultSync: vaultSync) {
+            notesUI.resetForVaultSwitch()
         }
     }
 
@@ -2839,5 +3128,20 @@ enum VaultConnectionActions {
             vaultSync.clearPersistedVaultSelection()
             AppBootstrap.shared?.ambientManifest = nil
         }
+    }
+
+    private static func shouldProceedWithVaultSelection(
+        url: URL,
+        assessment: VaultIndexActor.VaultFolderSelectionAssessment
+    ) -> Bool {
+        guard assessment.shouldConfirmSelection else { return true }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "This Folder May Not Be a Notes Vault"
+        alert.informativeText = assessment.confirmationMessage
+        alert.addButton(withTitle: "Use Folder")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 }

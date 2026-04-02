@@ -213,25 +213,13 @@ impl PtyPool {
                     exit_code = code_str.parse().ok();
                 }
 
-                // Parse working directory from __EPPWD__ marker.
-                if let Some(pwd_pos) = clean.find("__EPPWD__") {
-                    let after_pwd = &clean[pwd_pos + 9..];
-                    if let Some(nl) = after_pwd.find('\n') {
-                        let wd = after_pwd[..nl].trim();
-                        if !wd.is_empty() {
-                            working_dir = wd.to_string();
-                        }
-                    } else {
-                        // PWD may be the last thing, no newline yet.
-                        let wd = after_pwd.trim();
-                        if !wd.is_empty() && !wd.contains("__EP") {
-                            working_dir = wd.to_string();
-                        }
-                    }
+                let parsed_working_dir = extract_working_dir(&clean);
+                if let Some(parsed_working_dir) = parsed_working_dir.clone() {
+                    working_dir = parsed_working_dir;
                 }
 
                 // If we have both sentinel and PWD, we're done.
-                if clean.contains("__EPPWD__") {
+                if parsed_working_dir.is_some() {
                     break;
                 }
             }
@@ -531,6 +519,19 @@ fn extract_command_output(clean: &str, command: &str, sentinel: &str) -> String 
         .to_string()
 }
 
+fn extract_working_dir(clean: &str) -> Option<String> {
+    clean
+        .lines()
+        .rev()
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix("__EPPWD__")
+                .map(str::trim)
+                .filter(|wd| !wd.is_empty() && !wd.contains("$(") && !wd.contains("__EP"))
+                .map(ToOwned::to_owned)
+        })
+}
+
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
@@ -658,5 +659,19 @@ mod tests {
         let input = "\x1b[?2004lhello\x1b[0m world\r\n";
         let clean = strip_ansi(input);
         assert_eq!(clean, "hello world\n");
+    }
+
+    #[test]
+    fn test_extract_working_dir_ignores_echoed_marker() {
+        let clean = r#"pwd
+__eec=$?; echo "__EPSENT123__0"; echo "__EPPWD__$(pwd)"
+/tmp
+__EPSENT123__0
+__EPPWD__/private/tmp"#;
+
+        assert_eq!(
+            extract_working_dir(clean),
+            Some("/private/tmp".to_string())
+        );
     }
 }

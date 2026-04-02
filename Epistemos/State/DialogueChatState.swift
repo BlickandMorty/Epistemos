@@ -834,7 +834,16 @@ final class DialogueChatState {
         typewriterTask = Task { @MainActor [weak self] in
             while let self, self.revealedCharCount < (self.messages.last?.text.count ?? 0) {
                 self.revealedCharCount += 1
-                try? await Task.sleep(for: .milliseconds(33))
+                do {
+                    try await Task.sleep(for: .milliseconds(33))
+                } catch is CancellationError {
+                    return
+                } catch {
+                    Log.pipeline.error(
+                        "DialogueChatState: typewriter pacing failed: \(error.localizedDescription, privacy: .public)"
+                    )
+                    return
+                }
             }
         }
     }

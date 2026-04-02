@@ -13,6 +13,17 @@ private struct StubTextEmbeddingLookup: TextEmbeddingLookup {
     }
 }
 
+private struct SlowTextEmbeddingLookup: TextEmbeddingLookup {
+    let dimension: Int
+    let delay: TimeInterval
+    let vector: [Float]
+
+    func vector(for token: String) -> [Float]? {
+        Thread.sleep(forTimeInterval: delay)
+        return vector
+    }
+}
+
 @MainActor
 private struct StubPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
     let lookup: any TextEmbeddingLookup
@@ -565,6 +576,35 @@ struct BlockEmbeddingTests {
 
         #expect(engine.semanticEmbeddingDimension() == 2)
         #expect(engine.semanticEmbeddingCount() == 2)
+    }
+
+    @Test("computeAndPush does not block MainActor while fallback embeddings are computed")
+    func computeAndPushDoesNotBlockMainActor() async {
+        let service = EmbeddingService(
+            embeddingLookup: SlowTextEmbeddingLookup(
+                dimension: 2,
+                delay: 0.2,
+                vector: [1, 0]
+            )
+        )
+
+        let store = GraphStore()
+        store.addNode(makeNode(id: "alpha-node", label: "alpha"))
+        store.addNode(makeNode(id: "beta-node", label: "beta"))
+        store.addNode(makeNode(id: "gamma-node", label: "gamma"))
+
+        let clock = ContinuousClock()
+        let start = clock.now
+        service.computeAndPush(store: store)
+        let elapsed = clock.now - start
+
+        #expect(elapsed < .milliseconds(150), "computeAndPush blocked MainActor for \(elapsed)")
+
+        await service.waitForPendingComputationForTesting()
+
+        let snapshot = service.embeddingCacheDebugSnapshot()
+        #expect(snapshot.entryCount == 3)
+        #expect(service.dimension == 2)
     }
 
     @Test("fallback semantic search requires a populated Rust store with a matching dimension")

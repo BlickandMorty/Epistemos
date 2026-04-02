@@ -215,14 +215,14 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(state.semanticClusterVersion == 1)
     }
 
-    @Test("Performance mode defaults to off")
-    func performanceModeDefaultsOff() {
+    @Test("Performance mode defaults to on")
+    func performanceModeDefaultsOn() {
         clearPhysicsDefaults()
 
         let state = GraphState()
 
-        #expect(!state.performanceModeEnabled)
-        #expect(state.qualityLevel == 0)
+        #expect(state.performanceModeEnabled)
+        #expect(state.qualityLevel == 2)
     }
 
     @Test("Performance mode persists and restores")
@@ -230,6 +230,7 @@ struct GraphPhysicsSettingsAuditTests {
         clearPhysicsDefaults()
 
         let state = GraphState()
+        state.performanceModeEnabled = false
         state.performanceModeEnabled = true
 
         #expect(UserDefaults.standard.bool(forKey: performanceModeKey))

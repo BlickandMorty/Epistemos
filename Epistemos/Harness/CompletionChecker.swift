@@ -194,49 +194,65 @@ func runCommand(
     at workingDirectory: URL,
     timeout: TimeInterval = 60
 ) async -> ProcessResult {
-    await withCheckedContinuation { continuation in
-        DispatchQueue.global(qos: .utility).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [executable] + arguments
-            process.currentDirectoryURL = workingDirectory
+    let state = ProcessContinuationState<ProcessResult>()
+    let cancellationResult = ProcessResult(
+        exitCode: -1,
+        stdout: "",
+        stderr: "Cancelled \(executable)"
+    )
 
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
+    return await withTaskCancellationHandler {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let process = Process.init()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = [executable] + arguments
+                process.currentDirectoryURL = workingDirectory
 
-            // Timeout watchdog
-            let timer = DispatchSource.makeTimerSource(queue: .global())
-            timer.schedule(deadline: .now() + timeout)
-            timer.setEventHandler {
-                process.terminate()
+                let stdoutPipe = Pipe()
+                let stderrPipe = Pipe()
+                process.standardOutput = stdoutPipe
+                process.standardError = stderrPipe
+
+                guard state.store(process: process, continuation: continuation) else {
+                    continuation.resume(returning: cancellationResult)
+                    return
+                }
+
+                let timer = DispatchSource.makeTimerSource(queue: .global())
+                timer.schedule(deadline: .now() + timeout)
+                timer.setEventHandler {
+                    process.terminate()
+                }
+                timer.resume()
+
+                process.terminationHandler = { proc in
+                    timer.cancel()
+
+                    let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                    let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+
+                    state.resume(returning: ProcessResult(
+                        exitCode: proc.terminationStatus,
+                        stdout: String(data: stdoutData, encoding: .utf8) ?? "",
+                        stderr: String(data: stderrData, encoding: .utf8) ?? ""
+                    ))
+                }
+
+                do {
+                    try process.run()
+                } catch {
+                    timer.cancel()
+                    state.resume(returning: ProcessResult(
+                        exitCode: -1,
+                        stdout: "",
+                        stderr: "Failed to launch \(executable): \(error.localizedDescription)"
+                    ))
+                }
             }
-            timer.resume()
-
-            do {
-                try process.run()
-                process.waitUntilExit()
-            } catch {
-                timer.cancel()
-                continuation.resume(returning: ProcessResult(
-                    exitCode: -1,
-                    stdout: "",
-                    stderr: "Failed to launch \(executable): \(error.localizedDescription)"
-                ))
-                return
-            }
-
-            timer.cancel()
-
-            let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-            let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-
-            continuation.resume(returning: ProcessResult(
-                exitCode: process.terminationStatus,
-                stdout: String(data: stdoutData, encoding: .utf8) ?? "",
-                stderr: String(data: stderrData, encoding: .utf8) ?? ""
-            ))
         }
+    } onCancel: {
+        state.terminate()
+        state.resume(returning: cancellationResult)
     }
 }

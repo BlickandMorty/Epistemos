@@ -11,8 +11,6 @@ import os
 // the interceptor never grows beyond its fixed capacity regardless
 // of how long the reasoning chain runs.
 
-nonisolated(unsafe) private let cotLog = Logger(subsystem: "com.epistemos.bridge", category: "CoTInterceptor")
-
 // MARK: - Ring Buffer
 
 struct TokenRingBuffer: @unchecked Sendable {
@@ -66,6 +64,7 @@ enum TokenClassification: Sendable {
 // MARK: - CoT Stream Interceptor
 
 actor CoTStreamInterceptor {
+    private static let logger = Logger(subsystem: "com.epistemos.bridge", category: "CoTInterceptor")
 
     // Fixed-size ring buffer for think-block tokens.
     // Capacity = max expected CoT length at ~4 bytes/token.
@@ -96,7 +95,7 @@ actor CoTStreamInterceptor {
         if tokenID == thinkStartTokenID {
             isInThinkBlock = true
             thinkBlockCount += 1
-            cotLog.debug("Think block #\(self.thinkBlockCount) started")
+            Self.logger.debug("Think block #\(self.thinkBlockCount) started")
             return .thinkToken
         }
 
@@ -104,7 +103,7 @@ actor CoTStreamInterceptor {
         if tokenID == thinkEndTokenID && isInThinkBlock {
             isInThinkBlock = false
             let tokens = thinkRingBuffer.drainAll()
-            cotLog.debug("Think block #\(self.thinkBlockCount) complete: \(tokens.count) tokens")
+            Self.logger.debug("Think block #\(self.thinkBlockCount) complete: \(tokens.count) tokens")
             return .thinkBlockComplete(tokens: tokens)
         }
 

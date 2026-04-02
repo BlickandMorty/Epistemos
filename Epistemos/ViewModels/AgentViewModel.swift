@@ -24,6 +24,7 @@ final class AgentViewModel {
     private var currentTask: Task<Void, Never>?
     private var streamTask: Task<Void, Never>?
     private let hermesManager: HermesSubprocessManager
+    private let knowledgeProfileStore: KnowledgeProfileStore
     private let inferenceState: InferenceState?
     private var localLLMClient: (any LLMClientProtocol)?
     private var awaitingPrompt = false
@@ -63,9 +64,11 @@ final class AgentViewModel {
     init(
         hermesManager: HermesSubprocessManager? = nil,
         inferenceState: InferenceState? = nil,
-        localLLMClient: (any LLMClientProtocol)? = nil
+        localLLMClient: (any LLMClientProtocol)? = nil,
+        knowledgeProfileStore: KnowledgeProfileStore = KnowledgeProfileStore()
     ) {
         self.hermesManager = hermesManager ?? HermesSubprocessManager()
+        self.knowledgeProfileStore = knowledgeProfileStore
         self.inferenceState = inferenceState
         self.localLLMClient = localLLMClient
         restore()
@@ -78,7 +81,13 @@ final class AgentViewModel {
     private static var persistenceURL: URL {
         let appSupport = FoundationSafety.userApplicationSupportDirectory()
         let dir = appSupport.appendingPathComponent("com.epistemos.app", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            Self.log.error(
+                "AgentViewModel: failed to create persistence directory: \(error.localizedDescription, privacy: .public)"
+            )
+        }
         return dir.appendingPathComponent("agent_session_state.json")
     }
 
@@ -87,18 +96,61 @@ final class AgentViewModel {
             "activeSessionID": activeSessionID as Any,
             "blockCount": contentBlocks.count,
         ]
-        if let data = try? JSONSerialization.data(withJSONObject: state) {
-            try? data.write(to: Self.persistenceURL, options: .atomic)
+        do {
+            let data = try JSONSerialization.data(withJSONObject: state)
+            try data.write(to: Self.persistenceURL, options: .atomic)
             Self.log.debug("Agent session state persisted")
+        } catch {
+            Self.log.error(
+                "AgentViewModel: failed to persist session state: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
     private func restore() {
-        guard let data = try? Data(contentsOf: Self.persistenceURL),
-              let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        let persistenceURL = Self.persistenceURL
+        guard FileManager.default.fileExists(atPath: persistenceURL.path) else { return }
+
+        let data: Data
+        do {
+            data = try Data(contentsOf: persistenceURL)
+        } catch {
+            Self.log.error(
+                "AgentViewModel: failed to restore session state: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+
+        let json: Any
+        do {
+            json = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            Self.log.error(
+                "AgentViewModel: failed to restore session state: \(error.localizedDescription, privacy: .public)"
+            )
+            removeCorruptPersistedState(at: persistenceURL)
+            return
+        }
+
+        guard let state = json as? [String: Any] else {
+            Self.log.error("AgentViewModel: failed to restore session state: persistence payload was not a dictionary")
+            removeCorruptPersistedState(at: persistenceURL)
+            return
+        }
+
         if let sessionID = state["activeSessionID"] as? String, !sessionID.isEmpty {
             activeSessionID = sessionID
             Self.log.info("Restored agent session: \(sessionID)")
+        }
+    }
+
+    private func removeCorruptPersistedState(at url: URL) {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            Self.log.error(
+                "AgentViewModel: failed to remove corrupt session state: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
@@ -161,12 +213,16 @@ final class AgentViewModel {
         activeContinuation = continuation
 
         var startPayload = makeStartPayload(prompt: trimmed, providerName: providerName)
-        startPayload["system_prompt"] = harnessSystemPrompt
+        let modelVaultID = resolvedModelVaultID()
 
         currentTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             do {
                 try await self.connectIfNeeded()
+                startPayload["system_prompt"] = await self.knowledgeAwareHermesSystemPrompt(
+                    harnessSystemPrompt,
+                    modelVaultID: modelVaultID
+                )
                 self.sendHermesCommand(startPayload)
             } catch {
                 self.handleError(error.localizedDescription)
@@ -669,6 +725,39 @@ final class AgentViewModel {
         }
     }
 
+    private func resolvedModelVaultID() -> String? {
+        guard let inferenceState else { return nil }
+
+        switch inferenceState.preferredChatModelSelection {
+        case .appleIntelligence:
+            return "apple-intelligence"
+        case .localQwen(let modelID):
+            return modelID
+        case .cloud(let model):
+            return model.vendorModelID
+        }
+    }
+
+    private func knowledgeAwareHermesSystemPrompt(
+        _ harnessSystemPrompt: String,
+        modelVaultID: String?
+    ) async -> String {
+        guard let modelVaultID else { return harnessSystemPrompt }
+
+        do {
+            return try await knowledgeProfileStore.augmentedSystemPrompt(
+                existingPrompt: harnessSystemPrompt,
+                modelID: modelVaultID,
+                budget: .full
+            ) ?? harnessSystemPrompt
+        } catch {
+            Self.log.error(
+                "Failed to load Hermes model vault prompt context for \(modelVaultID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return harnessSystemPrompt
+        }
+    }
+
     private func connectIfNeeded() async throws {
         // Fix: [Issue 3 - TCC Permissions] — block connection until required
         // permissions are granted. Refresh first to pick up late grants.
@@ -705,6 +794,9 @@ final class AgentViewModel {
                         self?.routeParsedBridgeLine(line, parsed: parsed)
                     }
                 }
+            }
+            hermesManager.setDisconnectHandler { [weak client] in
+                client?.cancelAll()
             }
             installedBridgeHandler = true
         }

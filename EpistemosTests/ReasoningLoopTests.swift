@@ -485,6 +485,56 @@ struct RuntimeDiagnosticsTests {
         #expect(lifecycleNames.contains("app_became_active"))
     }
 
+    @Test("session snapshot resets endedAt and issue state when a new session starts")
+    func sessionSnapshotResetsWhenNewSessionStarts() throws {
+        let root = try makeTempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let firstStart = Date(timeIntervalSince1970: 1_711_631_296)
+        RuntimeDiagnostics.recordSessionStart(
+            metadata: ["pid": "111"],
+            baseDirectory: root,
+            now: firstStart
+        )
+        RuntimeDiagnostics.recordLifecycleEvent(
+            "app_became_active",
+            metadata: ["windowCount": "2"],
+            baseDirectory: root,
+            now: firstStart.addingTimeInterval(1)
+        )
+        recordRepeatedVaultIssues(
+            baseDirectory: root,
+            now: firstStart.addingTimeInterval(2)
+        )
+        RuntimeDiagnostics.recordSessionEnd(
+            reason: "test_shutdown",
+            baseDirectory: root,
+            now: firstStart.addingTimeInterval(3)
+        )
+
+        let secondStart = firstStart.addingTimeInterval(10)
+        RuntimeDiagnostics.recordSessionStart(
+            metadata: ["pid": "222", "version": "2.0.0"],
+            baseDirectory: root,
+            now: secondStart
+        )
+
+        let sessionURL = try RuntimeDiagnostics.currentSessionURL(baseDirectory: root)
+        let session = try loadJSONObject(at: sessionURL)
+        let startedAt = try #require(session["startedAt"] as? String)
+        #expect(startedAt.hasPrefix("2024-03-28T13:08:26"))
+        #expect(session["endedAt"] as? String == nil)
+        #expect(session["latestIssueMessage"] as? String == nil)
+
+        let severityCounts = try #require(session["severityCounts"] as? [String: Int])
+        #expect(severityCounts["info"] == 1)
+        #expect(severityCounts["warning"] == nil)
+        #expect(severityCounts["fault"] == nil)
+
+        let lifecycleEvents = try #require(session["lifecycleEvents"] as? [[String: Any]])
+        #expect(lifecycleEvents.isEmpty)
+    }
+
     private func recordRepeatedVaultIssues(baseDirectory: URL, now: Date) {
         for severity in [RuntimeDiagnosticSeverity.warning, .fault] {
             RuntimeDiagnostics.record(

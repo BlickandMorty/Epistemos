@@ -34,13 +34,10 @@ targets:
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
       - path: config/model_manifest.json
       - path: hermes-agent/requirements.txt
-    entitlements:
-      path: Epistemos/Epistemos.entitlements
     settings:
       base:
         PRODUCT_NAME: Epistemos
         PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app
-        CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
         INFOPLIST_FILE: Epistemos-Info.plist
         GENERATE_INFOPLIST_FILE: false
         MACOSX_DEPLOYMENT_TARGET: "26.0"

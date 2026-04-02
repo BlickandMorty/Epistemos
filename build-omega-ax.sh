@@ -43,6 +43,7 @@ mkdir -p ../build-rust/swift-bindings
 cargo run --bin uniffi_bindgen -- generate \
     uniffi/omega_ax.udl \
     --language swift \
+    --no-format \
     --out-dir ../build-rust/swift-bindings/ 2>/dev/null || true
 
 # Patch generated Swift for SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor compatibility

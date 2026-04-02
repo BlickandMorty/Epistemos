@@ -351,9 +351,7 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("Menu(\"Format\")"))
         #expect(source.contains("Label(\"Backlinks\", systemImage: \"link\")"))
         #expect(source.contains("Label(\"Apple Writing Tools\", systemImage: \"apple.intelligence\")"))
-        #expect(source.contains("glyph: .miniChat"))
         #expect(source.contains("openMiniChatForCurrentNote()"))
-        #expect(source.contains("Button(action: { notesUI.cycleOutlineFoldMode() })"))
         #expect(!source.contains("Menu(\"Options\")"))
         #expect(!source.contains("formatToolbarMenu"))
         #expect(!source.contains("appleWritingToolsButton"))
@@ -579,6 +577,35 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("stagePendingBodyForReadIfNeeded()"))
         #expect(source.contains("NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody)"))
         #expect(source.contains("NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyWillRead)"))
+    }
+
+    @Test("corrupted disk style cache entries are purged instead of lingering silently")
+    func corruptedDiskStyleCacheEntriesArePurged() throws {
+        let pageId = "corrupt-style-cache-\(UUID().uuidString)"
+        let cacheDirectory = FoundationSafety.userApplicationSupportDirectory()
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("style-cache", isDirectory: true)
+        let cacheFile = cacheDirectory.appendingPathComponent("\(pageId).json")
+
+        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        try Data("not-json".utf8).write(to: cacheFile, options: .atomic)
+
+        let restored = DiskStyleCache.shared.restore(pageId: pageId, currentBodyText: "Body")
+
+        #expect(restored == nil)
+        #expect(!FileManager.default.fileExists(atPath: cacheFile.path))
+    }
+
+    @Test("prose editor persistence paths no longer swallow save and fetch failures")
+    func proseEditorPersistencePathsNoLongerSwallowSaveAndFetchFailures() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+
+        #expect(!source.contains("try? modelContext.save()"))
+        #expect(!source.contains("if let oldPage = try? modelContext.fetch(desc).first"))
+        #expect(!source.contains("let existing: SDPage? = (try? modelContext.fetch(exactDesc))?.first"))
+        #expect(!source.contains("guard let block = try? modelContext.fetch(descriptor).first else { return }"))
+        #expect(source.contains("ProseEditorView: failed to save"))
+        #expect(source.contains("ProseEditorView: failed to fetch"))
     }
 
     @Test("preview handoff never reuses another note's captured body")

@@ -3,9 +3,8 @@ import SwiftUI
 // MARK: - Setup Assistant
 
 /// First-run setup wizard that guides the user through essential configuration.
-/// Shows automatically on first launch and keeps the initial path focused on the
-/// core note-thinking app rather than deferred Omega/agent setup.
-/// Steps: 1) Welcome → 2) Vault → 3) Local Model (optional) → 4) Done
+/// Shows automatically on first launch.
+/// Steps: 1) Welcome → 2) Vault → 3) Local Model (optional) → 4) Agent Runtime → 5) Done
 struct SetupAssistantView: View {
     private static let stepTransition = Animation.spring(response: 0.35, dampingFraction: 0.85)
 
@@ -13,6 +12,7 @@ struct SetupAssistantView: View {
     @Environment(InferenceState.self) private var inference
 
     @State private var currentStep: SetupStep = .welcome
+    @State private var hermesSetup = HermesSetupService()
 
     let onComplete: () -> Void
 
@@ -35,13 +35,14 @@ struct SetupAssistantView: View {
                 case .welcome: welcomeStep
                 case .vault: vaultStep
                 case .model: modelStep
+                case .agentRuntime: agentRuntimeStep
                 case .done: doneStep
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 40)
         }
-        .frame(width: 520, height: 420)
+        .frame(width: 520, height: 480)
     }
 
     // MARK: - Welcome
@@ -151,22 +152,129 @@ struct SetupAssistantView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                Button("Skip") { withAnimation(Self.stepTransition) { currentStep = .done } }
+                Button("Skip") { withAnimation(Self.stepTransition) { currentStep = .agentRuntime } }
                     .buttonStyle(.bordered)
                 if !hasModel {
                     Button("Open Settings → Inference") {
                         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                        // User will install from settings, then come back
                     }
                     .buttonStyle(.borderedProminent)
                 }
                 if hasModel {
-                    Button("Next") { withAnimation(Self.stepTransition) { currentStep = .done } }
+                    Button("Next") { withAnimation(Self.stepTransition) { currentStep = .agentRuntime } }
                         .buttonStyle(.borderedProminent)
                 }
             }
         }
         .padding(.vertical, 24)
+    }
+
+    // MARK: - Agent Runtime
+
+    @ViewBuilder
+    private var agentRuntimeStep: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "terminal.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(.orange)
+            Text("Agent Runtime")
+                .font(.title2.bold())
+            Text("Epistemos uses a Python-based agent for cloud AI, tool use, and deep research. Setting up the runtime takes about a minute.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Spacer()
+
+            // Status display
+            Group {
+                switch hermesSetup.state {
+                case .idle:
+                    EmptyView()
+                case .ready:
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(hermesSetup.wasAlreadySetUp ? "Agent runtime already configured" : "Agent runtime installed successfully")
+                                .font(.subheadline.bold())
+                            if let version = hermesSetup.pythonVersion {
+                                Text(version)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(.green.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                case .failed(let reason):
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.yellow)
+                            Text("Setup issue")
+                                .font(.subheadline.bold())
+                        }
+                        Text(reason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Text("You can retry from Settings later. The app works fine for notes without the agent.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding()
+                    .background(.yellow.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                default:
+                    VStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text(hermesSetup.state.displayMessage)
+                            .font(.subheadline)
+                        if !hermesSetup.detailMessage.isEmpty {
+                            Text(hermesSetup.detailMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding()
+                }
+            }
+
+            Spacer()
+
+            HStack(spacing: 12) {
+                if hermesSetup.state.isTerminal {
+                    Button("Next") {
+                        withAnimation(Self.stepTransition) { currentStep = .done }
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else if hermesSetup.state == .idle {
+                    Button("Skip") {
+                        withAnimation(Self.stepTransition) { currentStep = .done }
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    // Setup in progress — show skip but not prominent
+                    Button("Skip") {
+                        withAnimation(Self.stepTransition) { currentStep = .done }
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding(.vertical, 24)
+        .task {
+            guard hermesSetup.state == .idle else { return }
+            await hermesSetup.runSetup()
+            // Auto-advance on success after a brief pause
+            if hermesSetup.state == .ready {
+                try? await Task.sleep(for: .seconds(1.5))
+                withAnimation(Self.stepTransition) { currentStep = .done }
+            }
+        }
     }
 
     // MARK: - Done
@@ -183,6 +291,7 @@ struct SetupAssistantView: View {
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault", done: vaultSync.vaultURL != nil)
                 statusRow("Local AI", done: !inference.installedLocalTextModelIDs.isEmpty)
+                statusRow("Agent Runtime", done: hermesSetup.state == .ready)
             }
 
             Text("You can change any of these in Settings at any time.")
@@ -221,8 +330,7 @@ struct SetupAssistantView: View {
         panel.prompt = "Use as Vault"
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        vaultSync.persistVaultSelection(url)
-        vaultSync.startWatching(vaultURL: url)
+        VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)
     }
 }
 
@@ -232,7 +340,8 @@ enum SetupStep: Int, CaseIterable, Comparable {
     case welcome = 0
     case vault = 1
     case model = 2
-    case done = 3
+    case agentRuntime = 3
+    case done = 4
 
     static func < (lhs: SetupStep, rhs: SetupStep) -> Bool {
         lhs.rawValue < rhs.rawValue

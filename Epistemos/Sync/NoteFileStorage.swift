@@ -256,6 +256,96 @@ enum NoteFileStorage {
         return isValidPageId(pageId) ? pageId : nil
     }
 
+    private nonisolated static func isMissingFileError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain,
+           nsError.code == CocoaError.fileNoSuchFile.rawValue
+            || nsError.code == CocoaError.fileReadNoSuchFile.rawValue {
+            return true
+        }
+        if nsError.domain == NSPOSIXErrorDomain, nsError.code == ENOENT {
+            return true
+        }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+            return isMissingFileError(underlying)
+        }
+        return false
+    }
+
+    private nonisolated static func createDirectoryIfNeeded(_ url: URL, label: String) {
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        } catch {
+            logger.error("Failed to create \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private nonisolated static func readTextIfPresent(from url: URL, label: String) -> String? {
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            guard !isMissingFileError(error) else { return nil }
+            logger.error("Failed to read \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private nonisolated static func readDataIfPresent(
+        from url: URL,
+        options: Data.ReadingOptions = [],
+        label: String
+    ) -> Data? {
+        do {
+            return try Data(contentsOf: url, options: options)
+        } catch {
+            guard !isMissingFileError(error) else { return nil }
+            logger.error("Failed to read \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private nonisolated static func directoryContentsIfPresent(
+        at url: URL,
+        options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles],
+        label: String
+    ) -> [URL] {
+        do {
+            return try FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: nil,
+                options: options
+            )
+        } catch {
+            guard !isMissingFileError(error) else { return [] }
+            logger.error("Failed to enumerate \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
+
+    private nonisolated static func removeItemIfPresent(at url: URL, label: String) {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            guard !isMissingFileError(error) else { return }
+            logger.error("Failed to remove \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private nonisolated static func closeFileHandle(_ handle: FileHandle, label: String) {
+        do {
+            try handle.close()
+        } catch {
+            logger.error("Failed to close \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private nonisolated static func integrityArtifactURLs(pageId: String, in directory: URL) -> [URL] {
+        [
+            integrityURL(pageId: pageId, in: directory),
+            legacyIntegrityURL(pageId: pageId, in: directory),
+        ]
+    }
+
     private nonisolated static func legacyIntegrityHash(for content: String) -> String {
         let digest = SHA256.hash(data: Data(content.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
@@ -277,7 +367,7 @@ enum NoteFileStorage {
     }
 
     private nonisolated static func storedIntegrityReference(from url: URL) -> String? {
-        guard let raw = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        guard let raw = readTextIfPresent(from: url, label: url.lastPathComponent) else { return nil }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -444,8 +534,9 @@ enum NoteFileStorage {
         }
         guard persistHash(hash, pageId: pageId, directory: directory) else {
             logger.error("Failed to persist integrity hash for \(pageId, privacy: .private)")
-            try? FileManager.default.removeItem(at: integrityURL(pageId: pageId, in: directory))
-            try? FileManager.default.removeItem(at: legacyIntegrityURL(pageId: pageId, in: directory))
+            for url in integrityArtifactURLs(pageId: pageId, in: directory) {
+                removeItemIfPresent(at: url, label: url.lastPathComponent)
+            }
             return false
         }
         return true
@@ -460,7 +551,7 @@ enum NoteFileStorage {
         persistHashXAttr(hash, bodyURL: bodyURL(pageId: pageId, in: directory))
         let legacyURL = legacyIntegrityURL(pageId: pageId, in: directory)
         if FileManager.default.fileExists(atPath: legacyURL.path) {
-            try? FileManager.default.removeItem(at: legacyURL)
+            removeItemIfPresent(at: legacyURL, label: legacyURL.lastPathComponent)
         }
         return true
     }
@@ -517,14 +608,14 @@ enum NoteFileStorage {
         do {
             let fh = try FileHandle(forWritingTo: tmpURL)
             guard Self.performFullSync(fh.fileDescriptor) else {
-                try? fh.close()
-                try? FileManager.default.removeItem(at: tmpURL)
+                closeFileHandle(fh, label: tmpURL.lastPathComponent)
+                removeItemIfPresent(at: tmpURL, label: tmpURL.lastPathComponent)
                 logger.error("F_FULLFSYNC failed for temp file — aborting write for \(itemLabel)")
                 return false
             }
-            try fh.close()
+            closeFileHandle(fh, label: tmpURL.lastPathComponent)
         } catch {
-            try? FileManager.default.removeItem(at: tmpURL)
+            removeItemIfPresent(at: tmpURL, label: tmpURL.lastPathComponent)
             logger.error("Failed to sync temp file for \(itemLabel): \(error.localizedDescription)")
             return false
         }
@@ -539,7 +630,7 @@ enum NoteFileStorage {
         if result != 0 {
             let err = String(cString: strerror(errno))
             logger.error("Atomic rename failed for \(itemLabel): \(err)")
-            try? FileManager.default.removeItem(at: tmpURL)
+            removeItemIfPresent(at: tmpURL, label: tmpURL.lastPathComponent)
             return false
         }
 
@@ -577,8 +668,14 @@ enum NoteFileStorage {
 
     private nonisolated static func migrateLegacyRichTextBody(pageId: String) -> String {
         let url = legacyRichTextURL(pageId: pageId)
-        guard FileManager.default.fileExists(atPath: url.path),
-              let content = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) else {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return ""
+        }
+        let content: NSAttributedString
+        do {
+            content = try NSAttributedString(url: url, options: [:], documentAttributes: nil)
+        } catch {
+            logger.error("Failed to load legacy rich text for \(pageId, privacy: .private): \(error.localizedDescription, privacy: .public)")
             return ""
         }
 
@@ -604,7 +701,7 @@ enum NoteFileStorage {
         }
         guard didPersist else { return "" }
 
-        try? FileManager.default.removeItem(at: url)
+        removeItemIfPresent(at: url, label: url.lastPathComponent)
         logger.notice("Migrated legacy RTFD note to markdown storage for \(pageId, privacy: .private)")
         return body
     }
@@ -626,7 +723,7 @@ enum NoteFileStorage {
         let fm = FileManager.default
         let appSupport = FoundationSafety.userApplicationSupportDirectory(fileManager: fm)
         let dir = appSupport.appendingPathComponent("Epistemos/note-bodies", isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        createDirectoryIfNeeded(dir, label: dir.path)
         return dir
     }()
 
@@ -635,7 +732,7 @@ enum NoteFileStorage {
             storageDirectoryOverride = url
         }
         if let url {
-            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            createDirectoryIfNeeded(url, label: url.path)
         }
     }
 
@@ -648,7 +745,7 @@ enum NoteFileStorage {
         operation: () throws -> T
     ) rethrows -> T {
         if let url {
-            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            createDirectoryIfNeeded(url, label: url.path)
         }
         storageOverrideScope.wait()
         let previousOverride = currentStorageDirectoryOverride()
@@ -679,7 +776,7 @@ enum NoteFileStorage {
         operation: @MainActor @Sendable @escaping () async throws -> T
     ) async rethrows -> T {
         if let url {
-            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            createDirectoryIfNeeded(url, label: url.path)
         }
         await waitForStorageOverrideScope()
         let previousOverride = currentStorageDirectoryOverride()
@@ -697,7 +794,7 @@ enum NoteFileStorage {
 
     nonisolated static func storageDirectory() -> URL {
         let dir = currentStorageDirectoryOverride() ?? _storageDirectory
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        createDirectoryIfNeeded(dir, label: dir.path)
         return dir
     }
 
@@ -713,7 +810,7 @@ enum NoteFileStorage {
     ///   Use `fast: true` for UI-driven reads (editor, sidebar snippets) to avoid
     ///   blocking the main thread with 2-3s of FFI work.
     ///   Use `fast: false` for integrity-critical paths (sync, export, indexing).
-    nonisolated static func readBody(pageId: String, mapped: Bool = false, fast: Bool = true) -> String {
+    nonisolated static func readBody(pageId: String, mapped: Bool = false, fast: Bool = false) -> String {
         guard isValidPageId(pageId) else { return "" }
         let directory = storageDirectory()
         if let pending = pendingBody(for: pageId, directory: directory) {
@@ -721,7 +818,7 @@ enum NoteFileStorage {
         }
         let url = bodyURL(pageId: pageId, in: directory)
         let options: Data.ReadingOptions = mapped ? .mappedIfSafe : []
-        guard let data = try? Data(contentsOf: url, options: options),
+        guard let data = readDataIfPresent(from: url, options: options, label: url.lastPathComponent),
               let text = FoundationSafety.decodedText(from: data) else {
             return migrateLegacyRichTextBody(pageId: pageId)
         }
@@ -756,7 +853,7 @@ enum NoteFileStorage {
         guard isValidPageId(pageId) else { return nil }
         let url = bodyURL(pageId: pageId, in: storageDirectory())
         let options: Data.ReadingOptions = mapped ? .mappedIfSafe : []
-        return try? Data(contentsOf: url, options: options)
+        return readDataIfPresent(from: url, options: options, label: url.lastPathComponent)
     }
 
     nonisolated static func bodyFileURL(pageId: String) -> URL? {
@@ -769,11 +866,11 @@ enum NoteFileStorage {
     /// Uses mmap by default — ideal for hashing and search indexing where
     /// you only need bytes, not a decoded String.
     /// - Parameter fast: When `true`, skips normalization and hash verification.
-    nonisolated static func readBodyData(pageId: String, fast: Bool = true) -> Data? {
+    nonisolated static func readBodyData(pageId: String, fast: Bool = false) -> Data? {
         guard isValidPageId(pageId) else { return nil }
         let directory = storageDirectory()
         let url = bodyURL(pageId: pageId, in: directory)
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else {
+        guard let data = readDataIfPresent(from: url, options: .mappedIfSafe, label: url.lastPathComponent) else {
             return nil
         }
 
@@ -880,11 +977,11 @@ enum NoteFileStorage {
         var removed: [String] = []
 
         mutationQueue.performSync {
-            guard let contents = try? FileManager.default.contentsOfDirectory(
+            let contents = directoryContentsIfPresent(
                 at: storageURL,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            ) else {
+                label: storageURL.path
+            )
+            guard !contents.isEmpty else {
                 return
             }
 
@@ -893,12 +990,8 @@ enum NoteFileStorage {
                 guard !validIds.contains(pageId) else { continue }
                 do {
                     try FileManager.default.removeItem(at: fileURL)
-                    let sidecarURLs = [
-                        integrityURL(pageId: pageId, in: storageURL),
-                        legacyIntegrityURL(pageId: pageId, in: storageURL),
-                    ]
-                    for sidecarURL in sidecarURLs where FileManager.default.fileExists(atPath: sidecarURL.path) {
-                        try? FileManager.default.removeItem(at: sidecarURL)
+                    for sidecarURL in integrityArtifactURLs(pageId: pageId, in: storageURL) {
+                        removeItemIfPresent(at: sidecarURL, label: sidecarURL.lastPathComponent)
                     }
                     removed.append(pageId)
                 } catch {
@@ -914,13 +1007,7 @@ enum NoteFileStorage {
 
     nonisolated static func managedBodyPageIds(in directory: URL? = nil) -> [String] {
         let storageURL = directory ?? storageDirectory()
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: storageURL,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        ) else {
-            return []
-        }
+        let contents = directoryContentsIfPresent(at: storageURL, label: storageURL.path)
 
         return contents.compactMap(managedBodyPageId(for:)).sorted()
     }
@@ -939,11 +1026,11 @@ enum NoteFileStorage {
         var removed: [String] = []
 
         mutationQueue.performSync {
-            guard let contents = try? FileManager.default.contentsOfDirectory(
+            let contents = directoryContentsIfPresent(
                 at: storageURL,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            ) else {
+                label: storageURL.path
+            )
+            guard !contents.isEmpty else {
                 return
             }
 
@@ -951,12 +1038,8 @@ enum NoteFileStorage {
                 guard let pageId = managedBodyPageId(for: fileURL) else { continue }
                 do {
                     try FileManager.default.removeItem(at: fileURL)
-                    let sidecarURLs = [
-                        integrityURL(pageId: pageId, in: storageURL),
-                        legacyIntegrityURL(pageId: pageId, in: storageURL),
-                    ]
-                    for sidecarURL in sidecarURLs where FileManager.default.fileExists(atPath: sidecarURL.path) {
-                        try? FileManager.default.removeItem(at: sidecarURL)
+                    for sidecarURL in integrityArtifactURLs(pageId: pageId, in: storageURL) {
+                        removeItemIfPresent(at: sidecarURL, label: sidecarURL.lastPathComponent)
                     }
                     removed.append(pageId)
                 } catch {
@@ -972,9 +1055,11 @@ enum NoteFileStorage {
 
     private nonisolated static func removeManagedFiles(pageId: String, in directory: URL) {
         removeHashXAttr(pageId: pageId, in: directory)
-        try? FileManager.default.removeItem(at: directory.appendingPathComponent("\(pageId).md"))
-        try? FileManager.default.removeItem(at: integrityURL(pageId: pageId, in: directory))
-        try? FileManager.default.removeItem(at: legacyIntegrityURL(pageId: pageId, in: directory))
+        let bodyFileURL = directory.appendingPathComponent("\(pageId).md")
+        removeItemIfPresent(at: bodyFileURL, label: bodyFileURL.lastPathComponent)
+        for url in integrityArtifactURLs(pageId: pageId, in: directory) {
+            removeItemIfPresent(at: url, label: url.lastPathComponent)
+        }
     }
 
     private nonisolated static func existingHashURL(pageId: String, in directory: URL) -> URL {

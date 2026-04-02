@@ -21,7 +21,7 @@ final class PythonEnvironmentManager {
 
     var state: SetupState = .unknown
 
-    /// Path to the venv's python3 binary. Use this for all Process() calls.
+    /// Path to the venv's python3 binary. Use this for all subprocess invocations.
     var pythonPath: String {
         venvBinDir.appendingPathComponent("python3").path
     }
@@ -254,7 +254,7 @@ final class PythonEnvironmentManager {
         for path in candidates {
             if FileManager.default.isExecutableFile(atPath: path) {
                 // Verify version is 3.10+
-                if let version = try? runProcessCaptureSync(executable: path, arguments: ["--version"]) {
+                if let version = try? await runProcessCapture(executable: path, arguments: ["--version"]) {
                     // "Python 3.12.13" → extract minor version
                     let parts = version.trimmingCharacters(in: .whitespacesAndNewlines)
                         .replacingOccurrences(of: "Python ", with: "")
@@ -288,9 +288,12 @@ final class PythonEnvironmentManager {
         throw PythonEnvError.noPythonFound
     }
 
-    private func findSystemPython() throws -> String {
+    private func findSystemPython() async throws -> String {
         // Use `which python3` to find the user's active Python (respects PATH, pyenv, etc.)
-        if let whichPath = try? runProcessCaptureSync(executable: "/usr/bin/env", arguments: ["which", "python3"]) {
+        if let whichPath = try? await runProcessCapture(
+            executable: "/usr/bin/env",
+            arguments: ["which", "python3"]
+        ) {
             let trimmed = whichPath.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty, FileManager.default.isExecutableFile(atPath: trimmed),
                !trimmed.contains("Xcode.app") { // Skip Xcode's ancient Python 3.9
@@ -320,19 +323,6 @@ final class PythonEnvironmentManager {
         throw PythonEnvError.noPythonFound
     }
 
-    private func runProcessCaptureSync(executable: String, arguments: [String]) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return String(data: data, encoding: .utf8) ?? ""
-    }
-
     private func verifyMLXImport() async -> Bool {
         do {
             let output = try await runProcessCapture(
@@ -347,57 +337,154 @@ final class PythonEnvironmentManager {
 
     @discardableResult
     private func runProcess(executable: String, arguments: [String]) async throws -> Int32 {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = arguments
-            process.standardOutput = FileHandle.nullDevice
-            let stderrPipe = Pipe()
-            process.standardError = stderrPipe
+        let execution = try await executeProcess(
+            executable: executable,
+            arguments: arguments,
+            captureStdout: false,
+            captureStderr: true
+        )
 
-            do {
-                try process.run()
-                process.waitUntilExit()
-                if process.terminationStatus == 0 {
-                    continuation.resume(returning: process.terminationStatus)
-                } else {
-                    let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                    let stderrText = String(data: stderrData, encoding: .utf8)?
-                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                    let cmd = ([executable] + arguments).joined(separator: " ")
-                    let detail = stderrText.isEmpty ? cmd : "\(cmd)\n\(stderrText.prefix(500))"
-                    continuation.resume(throwing: PythonEnvError.processExitCode(process.terminationStatus, detail: detail))
-                }
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        guard execution.terminationStatus == 0 else {
+            let stderrText = execution.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cmd = ([executable] + arguments).joined(separator: " ")
+            let detail = stderrText.isEmpty ? cmd : "\(cmd)\n\(stderrText.prefix(500))"
+            throw PythonEnvError.processExitCode(execution.terminationStatus, detail: detail)
         }
+
+        return execution.terminationStatus
     }
 
     private func runProcessCapture(executable: String, arguments: [String]) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = arguments
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-
-            do {
-                try process.run()
-                process.waitUntilExit()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                let output = String(data: data, encoding: .utf8) ?? ""
-                if process.terminationStatus == 0 {
-                    continuation.resume(returning: output)
-                } else {
-                    let cmd = ([executable] + arguments).joined(separator: " ")
-                    continuation.resume(throwing: PythonEnvError.processExitCode(process.terminationStatus, detail: cmd))
-                }
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        let execution = try await executeProcess(
+            executable: executable,
+            arguments: arguments,
+            captureStdout: true,
+            captureStderr: false
+        )
+        guard execution.terminationStatus == 0 else {
+            let cmd = ([executable] + arguments).joined(separator: " ")
+            throw PythonEnvError.processExitCode(execution.terminationStatus, detail: cmd)
         }
+        return execution.stdout
+    }
+
+    private nonisolated func executeProcess(
+        executable: String,
+        arguments: [String],
+        captureStdout: Bool,
+        captureStderr: Bool
+    ) async throws -> PythonProcessExecution {
+        let timeoutSeconds = 120.0
+        let state = ThrowingProcessContinuationState<PythonProcessExecution>()
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.global(qos: .utility).async {
+                    let process = Process.init()
+                    process.executableURL = URL(fileURLWithPath: executable)
+                    process.arguments = arguments
+
+                    let stdoutPipe = captureStdout ? Pipe() : nil
+                    let stderrPipe = captureStderr ? Pipe() : nil
+                    process.standardOutput = stdoutPipe ?? FileHandle.nullDevice
+                    process.standardError = stderrPipe ?? FileHandle.nullDevice
+
+                    let stdoutCapture = PythonProcessOutputCapture()
+                    let stderrCapture = PythonProcessOutputCapture()
+                    let stdoutHandle = stdoutPipe?.fileHandleForReading
+                    let stderrHandle = stderrPipe?.fileHandleForReading
+
+                    stdoutHandle?.readabilityHandler = { handle in
+                        let data = handle.availableData
+                        guard !data.isEmpty else {
+                            handle.readabilityHandler = nil
+                            return
+                        }
+                        stdoutCapture.append(data)
+                    }
+                    stderrHandle?.readabilityHandler = { handle in
+                        let data = handle.availableData
+                        guard !data.isEmpty else {
+                            handle.readabilityHandler = nil
+                            return
+                        }
+                        stderrCapture.append(data)
+                    }
+
+                    guard state.store(process: process, continuation: continuation) else {
+                        stdoutHandle?.readabilityHandler = nil
+                        stderrHandle?.readabilityHandler = nil
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
+
+                    let timeoutTask = Task.detached(priority: .utility) {
+                        try? await Task.sleep(for: .seconds(timeoutSeconds))
+                        state.terminate()
+                        state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
+                    }
+
+                    process.terminationHandler = { proc in
+                        timeoutTask.cancel()
+                        stdoutHandle?.readabilityHandler = nil
+                        stderrHandle?.readabilityHandler = nil
+                        if let stdoutHandle {
+                            stdoutCapture.consumeRemainder(from: stdoutHandle)
+                        }
+                        if let stderrHandle {
+                            stderrCapture.consumeRemainder(from: stderrHandle)
+                        }
+
+                        state.resume(returning: PythonProcessExecution(
+                            terminationStatus: proc.terminationStatus,
+                            stdout: stdoutCapture.stringValue(),
+                            stderr: stderrCapture.stringValue()
+                        ))
+                    }
+
+                    do {
+                        try process.run()
+                    } catch {
+                        timeoutTask.cancel()
+                        stdoutHandle?.readabilityHandler = nil
+                        stderrHandle?.readabilityHandler = nil
+                        state.resume(throwing: error)
+                    }
+                }
+            }
+        } onCancel: {
+            state.terminate()
+            state.resume(throwing: CancellationError())
+        }
+    }
+}
+
+private struct PythonProcessExecution: Sendable {
+    let terminationStatus: Int32
+    let stdout: String
+    let stderr: String
+}
+
+private final class PythonProcessOutputCapture: Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var data = Data()
+
+    nonisolated func append(_ chunk: Data) {
+        guard !chunk.isEmpty else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        data.append(chunk)
+    }
+
+    nonisolated func consumeRemainder(from handle: FileHandle) {
+        append(handle.readDataToEndOfFile())
+    }
+
+    nonisolated func stringValue() -> String {
+        lock.lock()
+        let snapshot = data
+        lock.unlock()
+        return String(data: snapshot, encoding: .utf8) ?? ""
     }
 }
 

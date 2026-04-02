@@ -1,5 +1,6 @@
 import Foundation
 import SQLite3
+import SwiftData
 import Testing
 
 @testable import Epistemos
@@ -117,6 +118,35 @@ struct WorkspaceSnapshotTests {
             let decoded = try JSONDecoder().decode(GraphOverlaySnapshot.self, from: data)
             #expect(decoded.visibility == visibility)
         }
+    }
+}
+
+@Suite("WorkspaceService Persistence", .serialized)
+struct WorkspaceServicePersistenceTests {
+    @MainActor
+    private func makeModelContainer() throws -> ModelContainer {
+        try ModelContainer(
+            for: Schema(EpistemosSchema.models),
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+    }
+
+    @MainActor
+    @Test("autoSave reuses the existing auto-save workspace instead of creating duplicates")
+    func autoSaveReusesExistingAutoSaveWorkspace() throws {
+        let container = try makeModelContainer()
+        let service = WorkspaceService(modelContainer: container)
+        let context = container.mainContext
+
+        service.autoSave()
+        service.autoSave()
+
+        let workspaces = try context.fetch(FetchDescriptor<SDWorkspace>())
+            .filter(\.isAutoSave)
+
+        #expect(workspaces.count == 1)
+        #expect(workspaces.first?.name == "Last Session")
+        #expect(!(workspaces.first?.snapshotData.isEmpty ?? true))
     }
 }
 

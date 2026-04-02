@@ -13,12 +13,12 @@ pub mod forces;
 pub mod knowledge_core;
 pub mod markdown;
 pub mod quadtree;
+pub mod recovery;
 pub mod renderer;
 pub mod retrieval_index;
 pub mod search;
 pub mod simulation;
 pub mod spatial;
-pub mod recovery;
 pub mod types;
 
 #[cfg(test)]
@@ -623,7 +623,10 @@ pub extern "C" fn graph_engine_add_node(
         let uuid_str = ffi_cstr!(uuid).to_owned();
         let label_str = ffi_cstr!(label).to_owned();
         // Sanitize positions: NaN/Inf → deterministic fallback, clamp to bounds
-        let seed = uuid_str.as_bytes().iter().fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
+        let seed = uuid_str
+            .as_bytes()
+            .iter()
+            .fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
         let sx = sanitize_position(x, seed);
         let sy = sanitize_position(y, seed.wrapping_add(1));
         engine
@@ -646,7 +649,11 @@ pub extern "C" fn graph_engine_add_edge(
         ffi_engine!(engine);
         let src = ffi_cstr!(source_uuid);
         let tgt = ffi_cstr!(target_uuid);
-        let w = if weight.is_finite() { weight.clamp(0.0, 100.0) } else { 1.0 };
+        let w = if weight.is_finite() {
+            weight.clamp(0.0, 100.0)
+        } else {
+            1.0
+        };
         engine.graph_mut().add_edge(src, tgt, w, edge_type);
     });
 }
@@ -704,7 +711,10 @@ pub extern "C" fn graph_engine_add_nodes_batch(
                     .unwrap_or("")
                     .to_owned()
             };
-            let seed = uuid_str.as_bytes().iter().fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
+            let seed = uuid_str
+                .as_bytes()
+                .iter()
+                .fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
             let sx = sanitize_position(xs[i], seed);
             let sy = sanitize_position(ys[i], seed.wrapping_add(1));
             graph.add_node(uuid_str, sx, sy, types[i], links[i], label_str);
@@ -1529,6 +1539,44 @@ pub extern "C" fn graph_engine_set_node_embedding(
         let slice = unsafe { std::slice::from_raw_parts(data, dim as usize) };
         if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
             engine.embedding_store.set(idx as u32, slice);
+        }
+    });
+}
+
+/// Batch-set embedding vectors from parallel UUID and flattened float arrays.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_node_embeddings_batch(
+    engine: *mut Engine,
+    uuids: *const *const c_char,
+    data: *const f32,
+    dim: u32,
+    count: u32,
+) {
+    ffi_catch_unwind!("graph_engine_set_node_embeddings_batch", {
+        ffi_engine!(engine);
+        let count = count as usize;
+        let dim = dim as usize;
+        if count == 0 || dim == 0 || uuids.is_null() || data.is_null() {
+            return;
+        }
+
+        let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+        let values = unsafe { std::slice::from_raw_parts(data, count * dim) };
+
+        for i in 0..count {
+            let uuid_str = if uuid_ptrs[i].is_null() {
+                ""
+            } else {
+                unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+                    .to_str()
+                    .unwrap_or("")
+            };
+
+            if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
+                let start = i * dim;
+                let end = start + dim;
+                engine.embedding_store.set(idx as u32, &values[start..end]);
+            }
         }
     });
 }

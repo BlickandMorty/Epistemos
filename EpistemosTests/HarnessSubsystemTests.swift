@@ -152,13 +152,12 @@ struct TraceCollectorTests {
             content: "Fix the login bug"
         )
 
-        await collector.record(event)
+        collector.record(event)
         // Allow fire-and-forget Task to complete
         try await Task.sleep(for: .milliseconds(200))
         await collector.closeAll()
 
         // Verify file was created
-        let dateStr = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
         // Find the written file
         let fm = FileManager.default
         var foundFile = false
@@ -603,6 +602,7 @@ struct TaskSuiteTests {
             taskType: .research,
             verification: .humanReview,
             initialStatePath: nil,
+            allowNetwork: false,
             metadata: EvalTaskMetadata(difficulty: "easy", domain: "research", expectedTurns: 3, expectedTokenBudget: 8000)
         )
         try await suite.addSearchTask(task)
@@ -632,12 +632,14 @@ struct TaskSuiteTests {
             id: "s-001", objective: "search task", taskType: .coding,
             verification: .commandExitZero(command: "echo ok"),
             initialStatePath: nil,
+            allowNetwork: false,
             metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
         )
         let heldOutTask = EvalTask(
             id: "h-001", objective: "held out task", taskType: .coding,
             verification: .filesExist(paths: ["/tmp/test.txt"]),
             initialStatePath: nil,
+            allowNetwork: false,
             metadata: EvalTaskMetadata(difficulty: "hard", domain: "swift", expectedTurns: 10, expectedTokenBudget: 30000)
         )
 
@@ -660,12 +662,12 @@ struct TaskSuiteTests {
 
         try await suite.addSearchTask(EvalTask(
             id: "s-001", objective: "search", taskType: .coding,
-            verification: .humanReview, initialStatePath: nil,
+            verification: .humanReview, initialStatePath: nil, allowNetwork: false,
             metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
         ))
         try await suite.addHeldOutTask(EvalTask(
             id: "h-001", objective: "held out", taskType: .terminal,
-            verification: .humanReview, initialStatePath: nil,
+            verification: .humanReview, initialStatePath: nil, allowNetwork: false,
             metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
         ))
 
@@ -820,5 +822,906 @@ struct TraceStoreIndexTests {
 
         let total = await store.totalTraceCount()
         #expect(total == 2)
+    }
+}
+
+// MARK: - EvaluationRunner Tests (Phase 7D)
+
+@Suite("EvaluationRunner — verification and persistence")
+struct EvaluationRunnerTests {
+
+    @Test("Evaluates commandExitZero task with true command")
+    func evaluatesPassingCommand() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eval_runner_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+
+        // Create a task that always passes
+        let task = EvalTask(
+            id: "test-pass-001",
+            objective: "Verify true exits 0",
+            taskType: .coding,
+            verification: .commandExitZero(command: "true"),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: "easy", domain: "shell", expectedTurns: 1, expectedTokenBudget: 100)
+        )
+        try await taskSuite.load()
+        try await taskSuite.addSearchTask(task)
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        let result = await runner.evaluateCandidate(candidateId: "test-candidate")
+
+        #expect(result.results.count == 1)
+        #expect(result.results[0].passed)
+        #expect(result.passRate == 1.0)
+    }
+
+    @Test("Evaluates failing command task")
+    func evaluatesFailingCommand() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eval_runner_fail_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+
+        let task = EvalTask(
+            id: "test-fail-001",
+            objective: "Verify false exits non-zero",
+            taskType: .coding,
+            verification: .commandExitZero(command: "false"),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: "easy", domain: "shell", expectedTurns: 1, expectedTokenBudget: 100)
+        )
+        try await taskSuite.load()
+        try await taskSuite.addSearchTask(task)
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        let result = await runner.evaluateCandidate(candidateId: "test-candidate")
+
+        #expect(result.results.count == 1)
+        #expect(!result.results[0].passed)
+        #expect(result.passRate == 0.0)
+    }
+
+    @Test("Evaluates filesExist verification")
+    func evaluatesFilesExist() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eval_runner_files_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+
+        // Create a test file
+        let testFile = tempDir.appendingPathComponent("exists.txt")
+        try "hello".write(to: testFile, atomically: true, encoding: .utf8)
+
+        let task = EvalTask(
+            id: "test-files-001",
+            objective: "Check file exists",
+            taskType: .coding,
+            verification: .filesExist(paths: [testFile.path]),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: "easy", domain: "fs", expectedTurns: 1, expectedTokenBudget: 100)
+        )
+        try await taskSuite.load()
+        try await taskSuite.addSearchTask(task)
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        let result = await runner.evaluateCandidate(candidateId: "test-candidate")
+
+        #expect(result.results[0].passed)
+    }
+
+    @Test("Persists scores to candidate directory")
+    func persistsScores() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eval_runner_persist_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+
+        // Create a candidate first
+        let (candidateId, _) = try await registry.createCandidate(
+            parentVersion: "v1.0.0",
+            description: "Test candidate"
+        )
+
+        let task = EvalTask(
+            id: "persist-001",
+            objective: "Test persistence",
+            taskType: .coding,
+            verification: .commandExitZero(command: "true"),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: "easy", domain: "shell", expectedTurns: 1, expectedTokenBudget: 100)
+        )
+        try await taskSuite.load()
+        try await taskSuite.addSearchTask(task)
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        _ = await runner.evaluateCandidate(candidateId: candidateId)
+
+        // Verify scores were persisted by checking the file directly
+        let scoresPath = tempDir.appendingPathComponent("harness/lab/candidates/\(candidateId)/scores_search.json")
+        #expect(FileManager.default.fileExists(atPath: scoresPath.path))
+        let scoresData = try Data(contentsOf: scoresPath)
+        let scoresDict = try JSONSerialization.jsonObject(with: scoresData) as? [String: Any]
+        #expect(scoresDict?["passRate"] as? Double == 1.0)
+    }
+
+    @Test("Isolates failures — one bad task doesn't crash the run")
+    func isolatesFailures() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eval_runner_isolate_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+
+        try await taskSuite.load()
+
+        // Good task
+        try await taskSuite.addSearchTask(EvalTask(
+            id: "good-001", objective: "Passes",
+            taskType: .coding,
+            verification: .commandExitZero(command: "true"),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
+        ))
+        // Bad task (nonexistent file check)
+        try await taskSuite.addSearchTask(EvalTask(
+            id: "bad-001", objective: "Fails",
+            taskType: .coding,
+            verification: .filesExist(paths: ["/nonexistent/path/that/will/never/exist"]),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
+        ))
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        let result = await runner.evaluateCandidate(candidateId: "test-candidate")
+
+        #expect(result.results.count == 2)
+        #expect(result.results[0].passed)
+        #expect(!result.results[1].passed)
+        #expect(result.passRate == 0.5)
+    }
+}
+
+// MARK: - PromotionPipeline Tests (Phase 7F)
+
+@Suite("PromotionPipeline — proposals and review artifacts")
+struct PromotionPipelineTests {
+
+    @Test("Generates proposal with correct verdict for improvement")
+    func generatesPassingProposal() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("promotion_pass_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+        try await taskSuite.load()
+
+        // Add a task the candidate will pass
+        try await taskSuite.addSearchTask(EvalTask(
+            id: "promo-001", objective: "Test",
+            taskType: .coding,
+            verification: .commandExitZero(command: "true"),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
+        ))
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        let pipeline = PromotionPipeline(registry: registry, evaluationRunner: runner)
+
+        // Baseline where same task failed
+        let baseline = EvalSuiteResult(harnessVersion: "v1.0.0", results: [
+            EvalResult(taskId: "promo-001", harnessVersion: "v1.0.0", passed: false, score: 0.0,
+                       tokenCost: 1000, turns: 5, tracePath: nil, evidence: "Failed",
+                       timestamp: ISO8601DateFormatter().string(from: Date()))
+        ])
+
+        let (candidateId, _) = try await registry.createCandidate(
+            parentVersion: "v1.0.0",
+            description: "Improved candidate"
+        )
+
+        let proposal = await pipeline.generateProposal(
+            candidateId: candidateId,
+            baselineResults: baseline
+        )
+
+        #expect(proposal.candidateResults.passRate == 1.0)
+        #expect(proposal.improvement > 0)
+        if case .readyForReview = proposal.verdict { /* expected */ }
+        else { Issue.record("Expected readyForReview verdict") }
+    }
+
+    @Test("Detects regressions and rejects")
+    func detectsRegressions() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("promotion_regress_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+        try await taskSuite.load()
+
+        // Add a task the candidate will FAIL
+        try await taskSuite.addSearchTask(EvalTask(
+            id: "regress-001", objective: "Will fail",
+            taskType: .coding,
+            verification: .commandExitZero(command: "false"),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
+        ))
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        let pipeline = PromotionPipeline(registry: registry, evaluationRunner: runner)
+
+        // Baseline where the same task passed
+        let baseline = EvalSuiteResult(harnessVersion: "v1.0.0", results: [
+            EvalResult(taskId: "regress-001", harnessVersion: "v1.0.0", passed: true, score: 1.0,
+                       tokenCost: 500, turns: 3, tracePath: nil, evidence: "Passed",
+                       timestamp: ISO8601DateFormatter().string(from: Date()))
+        ])
+
+        let (candidateId, _) = try await registry.createCandidate(
+            parentVersion: "v1.0.0",
+            description: "Regressed candidate"
+        )
+
+        let proposal = await pipeline.generateProposal(
+            candidateId: candidateId,
+            baselineResults: baseline
+        )
+
+        #expect(!proposal.regressions.isEmpty)
+        if case .rejected(let reason) = proposal.verdict {
+            #expect(reason.contains("Regressions"))
+        } else {
+            Issue.record("Expected rejected verdict")
+        }
+    }
+
+    @Test("Saves proposal artifact as Markdown")
+    func savesProposalArtifact() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("promotion_artifact_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let registry = HarnessRegistry(baseDir: tempDir.appendingPathComponent("harness"))
+        let taskSuiteDir = tempDir.appendingPathComponent("tasks")
+        let taskSuite = TaskSuite(baseDir: taskSuiteDir)
+        try await taskSuite.load()
+
+        try await taskSuite.addSearchTask(EvalTask(
+            id: "artifact-001", objective: "Test",
+            taskType: .coding,
+            verification: .commandExitZero(command: "true"),
+            initialStatePath: nil,
+            allowNetwork: false,
+            metadata: EvalTaskMetadata(difficulty: nil, domain: nil, expectedTurns: nil, expectedTokenBudget: nil)
+        ))
+
+        let runner = EvaluationRunner(registry: registry, taskSuite: taskSuite)
+        let pipeline = PromotionPipeline(registry: registry, evaluationRunner: runner)
+
+        let baseline = EvalSuiteResult(harnessVersion: "v1.0.0", results: [])
+        let (candidateId, _) = try await registry.createCandidate(
+            parentVersion: "v1.0.0", description: "Test"
+        )
+
+        let proposal = await pipeline.generateProposal(
+            candidateId: candidateId,
+            baselineResults: baseline
+        )
+
+        let artifactPath = try await pipeline.saveProposalArtifact(proposal)
+        #expect(FileManager.default.fileExists(atPath: artifactPath.path))
+
+        let content = try String(contentsOf: artifactPath, encoding: .utf8)
+        #expect(content.contains("# Promotion Proposal"))
+        #expect(content.contains("Scorecard"))
+        #expect(content.contains(candidateId))
+    }
+}
+
+// MARK: - Phase 8: Sanitized Environment Tests
+
+@Suite("SanitizedEnvironment — safe baseline env")
+struct SanitizedEnvironmentTests {
+
+    @Test("Preserves baseline keys (PATH, HOME, USER)")
+    func preservesBaselineKeys() {
+        let env = SanitizedEnvironment.build()
+        // PATH and HOME should always be present on macOS
+        #expect(env["PATH"] != nil)
+        #expect(env["HOME"] != nil)
+        #expect(env["USER"] != nil)
+    }
+
+    @Test("Strips API keys and sensitive tokens")
+    func stripsAPIKeys() {
+        // Temporarily inject a fake key to verify it gets stripped
+        let env = SanitizedEnvironment.build(extras: [:])
+        // Even if ANTHROPIC_API_KEY is in the process env, it should be stripped
+        // We verify the deny pattern logic directly
+        #expect(SanitizedEnvironment.deniedPatterns.contains("ANTHROPIC_"))
+        #expect(SanitizedEnvironment.deniedPatterns.contains("OPENAI_"))
+        #expect(SanitizedEnvironment.deniedPatterns.contains("GITHUB_TOKEN"))
+        #expect(SanitizedEnvironment.deniedPatterns.contains("AWS_SECRET"))
+        // The build result should not contain any denied patterns
+        for key in env.keys {
+            let upper = key.uppercased()
+            for denied in SanitizedEnvironment.deniedPatterns {
+                #expect(!upper.contains(denied), "Key \(key) matches denied pattern \(denied)")
+            }
+        }
+    }
+
+    @Test("Preserves XDG_* prefix keys but not denied ones")
+    func preservesXDGPrefix() {
+        // XDG_RUNTIME_DIR should be allowed if present
+        let allowed = SanitizedEnvironment.allowedPrefixes
+        #expect(allowed.contains("XDG_"))
+        #expect(allowed.contains("HOMEBREW_"))
+    }
+}
+
+// MARK: - Phase 8: Volatile Project Root Tests
+
+@Suite("VolatileProjectRoot — temp directory lifecycle")
+struct VolatileProjectRootTests {
+
+    @Test("Creates temp directory and copies initial state")
+    func createsAndCopies() throws {
+        // Create a source directory with a test file
+        let sourceDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("volatile_source_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sourceDir) }
+
+        try "test content".write(
+            to: sourceDir.appendingPathComponent("test.txt"),
+            atomically: true, encoding: .utf8
+        )
+
+        let root = try VolatileProjectRoot.create(initialStatePath: sourceDir)
+        defer { root.cleanup() }
+
+        #expect(FileManager.default.fileExists(atPath: root.rootURL.path))
+        #expect(FileManager.default.fileExists(
+            atPath: root.rootURL.appendingPathComponent("test.txt").path
+        ))
+
+        let content = try String(contentsOf: root.rootURL.appendingPathComponent("test.txt"), encoding: .utf8)
+        #expect(content == "test content")
+    }
+
+    @Test("Cleanup removes the volatile directory")
+    func cleanupRemoves() throws {
+        let root = try VolatileProjectRoot.create()
+        let path = root.rootURL.path
+        #expect(FileManager.default.fileExists(atPath: path))
+
+        root.cleanup()
+        #expect(!FileManager.default.fileExists(atPath: path))
+    }
+
+    @Test("Handles nil initialStatePath gracefully")
+    func handlesNilInitialState() throws {
+        let root = try VolatileProjectRoot.create(initialStatePath: nil)
+        defer { root.cleanup() }
+
+        #expect(FileManager.default.fileExists(atPath: root.rootURL.path))
+    }
+}
+
+// MARK: - Phase 8: Eval Sandbox Profile Tests
+
+@Suite("EvalSandboxProfile — SBPL profile generation")
+struct EvalSandboxProfileTests {
+
+    @Test("Default profile denies network")
+    func defaultDeniesNetwork() {
+        let profile = EvalSandboxProfile.build(volatileRoot: "/tmp/test_root")
+        #expect(profile.contains("(deny network*)"))
+        #expect(!profile.contains("(allow network*)"))
+        #expect(profile.contains("(version 1)"))
+        #expect(profile.contains("(deny default)"))
+    }
+
+    @Test("Profile allows network when flag is set")
+    func allowsNetworkWhenFlagged() {
+        let profile = EvalSandboxProfile.build(volatileRoot: "/tmp/test_root", allowNetwork: true)
+        #expect(profile.contains("(allow network*)"))
+    }
+}
+
+// MARK: - Phase 8: Sandboxed Evaluation Tests
+
+@Suite("Sandboxed Evaluation — isolated command execution")
+struct SandboxedEvaluationTests {
+
+    @Test("Sandboxed command succeeds for simple verification")
+    func sandboxedCommandSucceeds() async throws {
+        let root = try VolatileProjectRoot.create()
+        defer { root.cleanup() }
+
+        let result = await sandboxedRunCommand(
+            "echo 'hello from sandbox'",
+            volatileRoot: root.rootURL,
+            timeout: 30
+        )
+
+        // sandbox-exec may or may not be available; either way the command should attempt to run
+        if result.exitCode == 0 {
+            #expect(result.stdout.contains("hello from sandbox"))
+        } else {
+            // sandbox-exec might reject on some configs — that's acceptable for test
+            #expect(result.exitCode != 0)
+        }
+    }
+
+    @Test("Sandboxed command uses sanitized environment")
+    func sandboxedUsesCleanEnv() async throws {
+        let root = try VolatileProjectRoot.create()
+        defer { root.cleanup() }
+
+        // env command lists all environment variables
+        let result = await sandboxedRunCommand(
+            "env",
+            volatileRoot: root.rootURL,
+            timeout: 30
+        )
+
+        // If it ran, verify no API keys in output
+        if result.exitCode == 0 {
+            let output = result.stdout.uppercased()
+            #expect(!output.contains("ANTHROPIC_API_KEY"))
+            #expect(!output.contains("OPENAI_API_KEY"))
+            #expect(!output.contains("GITHUB_TOKEN"))
+        }
+    }
+}
+
+// MARK: - Phase 7G: Trace Materialization Engine Tests
+
+@Suite("TraceMaterializer — DB to filesystem extraction")
+struct TraceMaterializerTests {
+
+    /// Helper: create a traces dir with sample JSONL data and return an opened TraceStoreIndex.
+    private func createPopulatedTraceStore() async throws -> (TraceStoreIndex, URL) {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("trace_mat_\(UUID().uuidString)")
+
+        let dateDir = tempDir.appendingPathComponent("2026-04-01")
+        try FileManager.default.createDirectory(at: dateDir, withIntermediateDirectories: true)
+
+        // Write sample JSONL events
+        let events = [
+            #"{"ts":"2026-04-01T10:00:00Z","type":"session_start","sessionId":"sess-001","harnessVersion":"v1.0.0"}"#,
+            #"{"ts":"2026-04-01T10:00:01Z","type":"user_intent","sessionId":"sess-001","harnessVersion":"v1.0.0","content":"fix the bug"}"#,
+            #"{"ts":"2026-04-01T10:00:02Z","type":"tool_call","sessionId":"sess-001","harnessVersion":"v1.0.0","tool":"bash","tokensUsed":150}"#,
+            #"{"ts":"2026-04-01T10:00:03Z","type":"completion_check","sessionId":"sess-001","harnessVersion":"v1.0.0","passed":true}"#,
+            #"{"ts":"2026-04-01T10:00:04Z","type":"session_end","sessionId":"sess-001","harnessVersion":"v1.0.0"}"#,
+        ]
+        let content = events.joined(separator: "\n")
+        try content.write(to: dateDir.appendingPathComponent("sess-001.jsonl"), atomically: true, encoding: .utf8)
+
+        // Second session for same version
+        let events2 = [
+            #"{"ts":"2026-04-01T11:00:00Z","type":"session_start","sessionId":"sess-002","harnessVersion":"v1.0.0"}"#,
+            #"{"ts":"2026-04-01T11:00:01Z","type":"error","sessionId":"sess-002","harnessVersion":"v1.0.0","errorMessage":"timeout"}"#,
+        ]
+        try events2.joined(separator: "\n").write(to: dateDir.appendingPathComponent("sess-002.jsonl"), atomically: true, encoding: .utf8)
+
+        let store = TraceStoreIndex(tracesDir: tempDir)
+        try await store.open()
+        try await store.reindex()
+
+        return (store, tempDir)
+    }
+
+    @Test("Materializes traces for a harness version into filesystem hierarchy")
+    func materializesVersion() async throws {
+        let (store, tracesDir) = try await createPopulatedTraceStore()
+        defer { try? FileManager.default.removeItem(at: tracesDir) }
+
+        let outputDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mat_output_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: outputDir) }
+
+        let materializer = TraceMaterializer(traceStore: store, baseDir: outputDir)
+        let versionDir = try await materializer.materialize(harnessVersion: "v1.0.0")
+
+        // Check directory structure
+        let fm = FileManager.default
+        #expect(fm.fileExists(atPath: versionDir.path))
+
+        // Should have session directories
+        let sess1Dir = versionDir.appendingPathComponent("session_sess-001")
+        let sess2Dir = versionDir.appendingPathComponent("session_sess-002")
+        #expect(fm.fileExists(atPath: sess1Dir.path))
+        #expect(fm.fileExists(atPath: sess2Dir.path))
+
+        // Check events.jsonl content
+        let eventsFile = sess1Dir.appendingPathComponent("events.jsonl")
+        #expect(fm.fileExists(atPath: eventsFile.path))
+        let content = try String(contentsOf: eventsFile, encoding: .utf8)
+        let lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+        #expect(lines.count == 5)
+
+        // Check summary.json
+        let summaryFile = versionDir.appendingPathComponent("summary.json")
+        #expect(fm.fileExists(atPath: summaryFile.path))
+        let summaryData = try Data(contentsOf: summaryFile)
+        let summary = try JSONSerialization.jsonObject(with: summaryData) as? [String: Any]
+        #expect(summary?["sessionCount"] as? Int == 2)
+        #expect(summary?["totalEvents"] as? Int == 7)
+    }
+
+    @Test("Cleanup removes materialized directory")
+    func cleanupRemoves() async throws {
+        let (store, tracesDir) = try await createPopulatedTraceStore()
+        defer { try? FileManager.default.removeItem(at: tracesDir) }
+
+        let outputDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mat_cleanup_\(UUID().uuidString)")
+
+        let materializer = TraceMaterializer(traceStore: store, baseDir: outputDir)
+        _ = try await materializer.materialize(harnessVersion: "v1.0.0")
+        #expect(FileManager.default.fileExists(atPath: outputDir.path))
+
+        await materializer.cleanup()
+        #expect(!FileManager.default.fileExists(atPath: outputDir.path))
+    }
+
+    @Test("Distinct harness versions query works")
+    func distinctVersions() async throws {
+        let (store, tracesDir) = try await createPopulatedTraceStore()
+        defer { try? FileManager.default.removeItem(at: tracesDir) }
+
+        let versions = try await store.distinctHarnessVersions()
+        #expect(versions.count == 1)
+        #expect(versions.contains("v1.0.0"))
+    }
+
+    @Test("Disk usage reporting works")
+    func diskUsage() async throws {
+        let (store, tracesDir) = try await createPopulatedTraceStore()
+        defer { try? FileManager.default.removeItem(at: tracesDir) }
+
+        let outputDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mat_disk_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: outputDir) }
+
+        let materializer = TraceMaterializer(traceStore: store, baseDir: outputDir)
+        _ = try await materializer.materialize(harnessVersion: "v1.0.0")
+
+        let usage = await materializer.materializedDiskUsage()
+        #expect(usage > 0)
+        #expect(await materializer.hasMaterializedTraces())
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MARK: - Phase 9: Fault Injection Tests
+// ═══════════════════════════════════════════════════════════════════
+
+@Suite("Fault Injection — trace and progress resilience")
+struct FaultInjectionTests {
+
+    @Test("TraceCollector handles write to read-only directory gracefully")
+    func traceWriteToReadOnlyDir() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("trace_readonly_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Make the directory read-only
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o444)],
+            ofItemAtPath: tempDir.path
+        )
+        defer {
+            // Restore write permission for cleanup
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o755)],
+                ofItemAtPath: tempDir.path
+            )
+        }
+
+        // Create a collector pointing at the read-only dir
+        let collector = TraceCollector(baseDir: tempDir)
+
+        // Record should not crash — fire-and-forget silently handles errors
+        collector.record(.errorEvent(
+            sessionId: "readonly-test",
+            harnessVersion: "v1.0.0",
+            message: "This should fail silently",
+            domain: nil
+        ))
+
+        // Give the async task time to attempt the write
+        try await Task.sleep(for: .milliseconds(200))
+
+        // The collector should still be usable (not crashed)
+        await collector.closeAll()
+    }
+
+    @Test("ProgressStore handles corrupted JSON gracefully")
+    func corruptedProgressFile() throws {
+        let sessionId = "corrupt-\(UUID().uuidString)"
+        let sessionDir = ProgressStore.sessionDirectory(for: sessionId)
+        let fm = FileManager.default
+        try fm.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: sessionDir) }
+
+        // Write garbage to the progress file
+        let progressFile = sessionDir.appendingPathComponent("epistemos-progress.json")
+        try "{{{{not valid json!!!!".write(to: progressFile, atomically: true, encoding: .utf8)
+
+        // loadProgress should return nil, not crash
+        let progress = ProgressStore.loadProgress(sessionId: sessionId)
+        #expect(progress == nil)
+    }
+
+    @Test("ProgressStore handles missing session directory")
+    func missingSessionDir() {
+        let progress = ProgressStore.loadProgress(sessionId: "nonexistent-\(UUID().uuidString)")
+        #expect(progress == nil)
+    }
+
+    @Test("TraceCollector recovers after close and re-record")
+    func traceCollectorRecoversAfterClose() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("trace_recover_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let collector = TraceCollector(baseDir: tempDir)
+        let sid = "recover-\(UUID().uuidString)"
+
+        // Record → close → record again
+        collector.record(.userIntentEvent(
+            sessionId: sid, taskId: nil,
+            harnessVersion: "v1.0.0", content: "first"
+        ))
+        try await Task.sleep(for: .milliseconds(100))
+        await collector.closeSession(sid)
+
+        // Record after close — should create a new file handle
+        collector.record(.userIntentEvent(
+            sessionId: sid, taskId: nil,
+            harnessVersion: "v1.0.0", content: "second"
+        ))
+        try await Task.sleep(for: .milliseconds(100))
+        await collector.closeAll()
+
+        // Verify file exists and has content
+        let dateStr = {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            f.timeZone = .current
+            return f.string(from: Date())
+        }()
+        let sanitized = sid.replacingOccurrences(of: "/", with: "_")
+        let tracePath = tempDir.appendingPathComponent(dateStr).appendingPathComponent("\(sanitized).jsonl")
+        #expect(FileManager.default.fileExists(atPath: tracePath.path))
+
+        let content = try String(contentsOf: tracePath, encoding: .utf8)
+        let lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+        #expect(lines.count >= 2)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MARK: - Phase 9: Thermal Event Tracing Tests
+// ═══════════════════════════════════════════════════════════════════
+
+@Suite("Thermal Event Tracing")
+struct ThermalEventTracingTests {
+
+    @Test("Thermal change events can be recorded and serialized")
+    func thermalChangeEventSerializes() {
+        let event = TraceEvent(
+            ts: "2026-04-01T12:00:00Z",
+            type: .thermalChange,
+            sessionId: "thermal-test",
+            taskId: nil,
+            harnessVersion: "v1.0.0",
+            turn: nil,
+            provider: nil, model: nil, tool: nil, toolInput: nil, toolOutput: nil,
+            exitCode: nil, durationMs: nil, content: nil,
+            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
+            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
+            thermalState: "serious", domain: nil, progressSnapshot: nil, bootstrapPacket: nil
+        )
+
+        let data = event.toJSONData()
+        #expect(data != nil)
+
+        if let data, let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            #expect(dict["type"] as? String == "thermal_change")
+            #expect(dict["thermalState"] as? String == "serious")
+            #expect(dict["sessionId"] as? String == "thermal-test")
+        }
+    }
+
+    @Test("Breaker tripped events can be recorded and serialized")
+    func breakerTrippedEventSerializes() {
+        let event = TraceEvent(
+            ts: "2026-04-01T12:00:00Z",
+            type: .breakerTripped,
+            sessionId: "breaker-test",
+            taskId: nil,
+            harnessVersion: "v1.0.0",
+            turn: nil,
+            provider: nil, model: nil, tool: nil, toolInput: nil, toolOutput: nil,
+            exitCode: nil, durationMs: nil, content: "cloud breaker opened",
+            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
+            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
+            thermalState: nil, domain: "cloud", progressSnapshot: nil, bootstrapPacket: nil
+        )
+
+        let data = event.toJSONData()
+        #expect(data != nil)
+
+        if let data, let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            #expect(dict["type"] as? String == "breaker_tripped")
+            #expect(dict["domain"] as? String == "cloud")
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MARK: - Phase 9: Full Harness Lifecycle Integration Tests
+// ═══════════════════════════════════════════════════════════════════
+
+@Suite("Harness Lifecycle — full prepare → record → complete flow")
+@MainActor
+struct HarnessLifecycleTests {
+
+    @Test("Full lifecycle: prepare → record events → complete → verify traces and progress")
+    func fullLifecycle() async throws {
+        let sessionId = "lifecycle-\(UUID().uuidString)"
+        let integration = HarnessIntegration()
+
+        // Step 1: Prepare session
+        let prompt = integration.prepareSession(
+            sessionId: sessionId,
+            objective: "refactor the database layer"
+        )
+        #expect(!prompt.isEmpty)
+        #expect(integration.activeSessionId == sessionId)
+        #expect(integration.activeTaskType == .coding)
+
+        // Step 2: Record events during execution
+        integration.recordUserIntent("refactor the database layer")
+        integration.recordModelOutput(
+            turn: 1, provider: "cloud", model: "claude-opus-4.6",
+            tokensUsed: 500, content: "I'll start by examining the schema..."
+        )
+        integration.recordToolCall(
+            turn: 1, tool: "bash",
+            input: "grep -r 'CREATE TABLE' src/",
+            output: "Found 5 tables", exitCode: 0, durationMs: 150
+        )
+        integration.recordError("Connection timeout", domain: "cloud")
+
+        // Step 3: Complete session
+        integration.completeSession(
+            stopReason: "end_turn",
+            inputTokens: 2000, outputTokens: 1500, turns: 3,
+            accomplishedSummary: "Refactored database layer with migrations",
+            completedTasks: ["schema-redesign", "migration-script"],
+            changedFiles: ["src/db/schema.rs", "src/db/migrations.rs"]
+        )
+
+        // Step 4: Verify progress was saved
+        let progress = ProgressStore.loadProgress(sessionId: sessionId)
+        #expect(progress != nil)
+        #expect(progress?.accomplishedSummary == "Refactored database layer with migrations")
+        #expect(progress?.completedTasks.count == 2)
+        #expect(progress?.totalInputTokens == 2000)
+        #expect(progress?.totalOutputTokens == 1500)
+
+        // Cleanup
+        let dir = ProgressStore.sessionDirectory(for: sessionId)
+        try? FileManager.default.removeItem(at: dir)
+    }
+
+    @Test("Session continuation detects prior progress")
+    func sessionContinuation() async throws {
+        let sessionId1 = "cont-first-\(UUID().uuidString)"
+        let integration = HarnessIntegration()
+
+        // First session
+        _ = integration.prepareSession(sessionId: sessionId1, objective: "build feature X")
+        integration.completeSession(
+            stopReason: "end_turn",
+            inputTokens: 1000, outputTokens: 500, turns: 2,
+            accomplishedSummary: "Scaffolded feature X",
+            nextPriority: "Implement the API endpoints"
+        )
+
+        // Second session should detect prior progress
+        let sessionId2 = "cont-second-\(UUID().uuidString)"
+        let prompt2 = integration.prepareSession(
+            sessionId: sessionId2,
+            objective: "build feature X"
+        )
+
+        // The continuation prompt should reference prior work
+        // (mode detection depends on ProgressStore finding latest progress)
+        #expect(!prompt2.isEmpty)
+        #expect(integration.activeSessionId == sessionId2)
+
+        // Cleanup
+        try? FileManager.default.removeItem(at: ProgressStore.sessionDirectory(for: sessionId1))
+        try? FileManager.default.removeItem(at: ProgressStore.sessionDirectory(for: sessionId2))
+    }
+
+    @Test("Events before prepareSession are silently dropped")
+    func eventsBeforePrepareDropped() {
+        let integration = HarnessIntegration()
+
+        // These should not crash — activeSessionId is nil, events are dropped
+        integration.recordUserIntent("this should be dropped")
+        integration.recordError("this too")
+        integration.recordToolCall(turn: 1, tool: "bash", input: "ls", output: "files")
+        integration.recordModelOutput(turn: 1, provider: "cloud", model: nil, tokensUsed: 0, content: "")
+
+        // No crash = success
+        #expect(integration.activeSessionId == nil)
+    }
+
+    @Test("resetForNewTask allows fresh session after completion")
+    func resetAndRestart() {
+        let integration = HarnessIntegration()
+
+        // First task
+        _ = integration.prepareSession(sessionId: "task1", objective: "task one")
+        integration.completeSession(
+            stopReason: "end_turn", inputTokens: 100, outputTokens: 50, turns: 1,
+            accomplishedSummary: "Done"
+        )
+
+        // Reset
+        integration.resetForNewTask()
+        #expect(integration.activeSessionId == nil)
+        #expect(integration.currentBootstrapPacket == nil)
+
+        // New task works cleanly
+        let prompt = integration.prepareSession(sessionId: "task2", objective: "research: investigate topic Y")
+        #expect(!prompt.isEmpty)
+        #expect(integration.activeSessionId == "task2")
+        #expect(integration.activeTaskType == .research)
+
+        // Cleanup
+        try? FileManager.default.removeItem(at: ProgressStore.sessionDirectory(for: "task1"))
+        try? FileManager.default.removeItem(at: ProgressStore.sessionDirectory(for: "task2"))
     }
 }

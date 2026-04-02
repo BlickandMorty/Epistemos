@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftData
 
 // MARK: - Notes Agent
@@ -7,6 +8,7 @@ import SwiftData
 /// Uses the existing VaultSyncService and SwiftData ModelContainer to create/edit/search notes.
 @MainActor
 final class NotesAgent: OmegaAgent, Sendable {
+    private let log = Logger(subsystem: "com.epistemos", category: "NotesAgent")
     let name = "notes"
     let description = "Epistemos note operations: create, edit, search, and organize notes"
     let toolNames = ["create_note", "edit_note", "search_notes", "list_notes",
@@ -40,7 +42,20 @@ final class NotesAgent: OmegaAgent, Sendable {
     }
 
     private func executeInternal(step: AgentStep, container: ModelContainer) async throws -> String {
-        guard let args = try? JSONSerialization.jsonObject(with: Data(step.argumentsJson.utf8)) as? [String: Any] else {
+        let argsObject: Any
+        do {
+            argsObject = try JSONSerialization.jsonObject(with: Data(step.argumentsJson.utf8))
+        } catch {
+            log.error(
+                "NotesAgent: failed to parse step arguments for \(step.toolName, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw NotesAgentError.invalidArguments
+        }
+
+        guard let args = argsObject as? [String: Any] else {
+            log.error(
+                "NotesAgent: failed to parse step arguments for \(step.toolName, privacy: .public): root JSON was not an object"
+            )
             throw NotesAgentError.invalidArguments
         }
 
@@ -74,6 +89,40 @@ final class NotesAgent: OmegaAgent, Sendable {
 
         default:
             throw NotesAgentError.unknownTool(step.toolName)
+        }
+    }
+
+    private func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> [T]? {
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            log.error(
+                "NotesAgent: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func fetchFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        in context: ModelContext,
+        label: String
+    ) -> T? {
+        fetchAll(descriptor, in: context, label: label)?.first
+    }
+
+    private func saveContext(_ context: ModelContext, label: String) throws {
+        do {
+            try context.save()
+        } catch {
+            log.error(
+                "NotesAgent: failed to save \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw NotesAgentError.operationFailed("Failed to save \(label)")
         }
     }
 
@@ -115,7 +164,9 @@ final class NotesAgent: OmegaAgent, Sendable {
             page.title.localizedStandardContains(query) && !page.isArchived
         }
         let descriptor = FetchDescriptor<SDPage>(predicate: predicate, sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
-        let pages = (try? context.fetch(descriptor)) ?? []
+        guard let pages = fetchAll(descriptor, in: context, label: "note search") else {
+            throw NotesAgentError.operationFailed("Failed to search notes")
+        }
         let items = pages.prefix(20).map { p in
             "{\"pageId\":\(jsonEscape(p.id)),\"title\":\(jsonEscape(p.title))}"
         }
@@ -129,7 +180,9 @@ final class NotesAgent: OmegaAgent, Sendable {
         }
         var descriptor = FetchDescriptor<SDPage>(predicate: predicate, sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
         descriptor.fetchLimit = 50
-        let pages = (try? context.fetch(descriptor)) ?? []
+        guard let pages = fetchAll(descriptor, in: context, label: "note listing") else {
+            throw NotesAgentError.operationFailed("Failed to list notes")
+        }
         let items = pages.map { p in
             "{\"pageId\":\(jsonEscape(p.id)),\"title\":\(jsonEscape(p.title)),\"emoji\":\(jsonEscape(p.emoji)),\"updatedAt\":\(jsonEscape(ISO8601DateFormatter().string(from: p.updatedAt)))}"
         }
@@ -145,7 +198,7 @@ final class NotesAgent: OmegaAgent, Sendable {
         let context = container.mainContext
         let predicate = #Predicate<SDPage> { page in page.id == noteId }
         let descriptor = FetchDescriptor<SDPage>(predicate: predicate)
-        guard let page = (try? context.fetch(descriptor))?.first else {
+        guard let page = fetchFirst(descriptor, in: context, label: "note edit") else {
             throw NotesAgentError.operationFailed("Note '\(noteId)' not found")
         }
 
@@ -154,7 +207,7 @@ final class NotesAgent: OmegaAgent, Sendable {
             page.wordCount = body.split(separator: " ").count
             page.updatedAt = .now
             page.needsVaultSync = true
-            try? context.save()
+            try saveContext(context, label: "edited note")
         }
 
         return "{\"success\":true,\"action\":\"edit_note\",\"pageId\":\(jsonEscape(page.id)),\"title\":\(jsonEscape(page.title))}"
@@ -177,18 +230,19 @@ final class NotesAgent: OmegaAgent, Sendable {
         let snippetBody = "> \(text)\n> -- [\(sourceTitle)](\(sourceUrl))\n\n"
 
         if let noteId = sessionNoteId {
-            // Append to existing session note
-            let context = modelContainer?.mainContext
+            guard let context = modelContainer?.mainContext else {
+                throw NotesAgentError.serviceUnavailable("Model context")
+            }
             let predicate = #Predicate<SDPage> { page in page.id == noteId }
             let descriptor = FetchDescriptor<SDPage>(predicate: predicate)
-            if let page = (try? context?.fetch(descriptor))?.first {
+            if let page = fetchFirst(descriptor, in: context, label: "snippet session note") {
                 NoteFileStorage.requestFlush(pageId: noteId)
                 let existingBody = page.loadBody()
                 page.saveBody(existingBody + snippetBody)
                 page.wordCount = (existingBody + snippetBody).split(separator: " ").count
                 page.updatedAt = .now
                 page.needsVaultSync = true
-                try? context?.save()
+                try saveContext(context, label: "snippet session note")
                 NoteFileStorage.notifyBodyChanged(pageId: noteId)
                 return "{\"success\":true,\"action\":\"collectsnippet\",\"sessionNoteId\":\(jsonEscape(noteId)),\"sourceUrl\":\(jsonEscape(sourceUrl)),\"sourceTitle\":\(jsonEscape(sourceTitle)),\"text\":\(jsonEscape(text))}"
             }
@@ -219,10 +273,12 @@ final class NotesAgent: OmegaAgent, Sendable {
         let citationLine = "- \(authors)\(date.isEmpty ? "" : " (\(date))"). [\(title)](\(url))\n"
 
         if let noteId = sessionNoteId {
-            let context = modelContainer?.mainContext
+            guard let context = modelContainer?.mainContext else {
+                throw NotesAgentError.serviceUnavailable("Model context")
+            }
             let predicate = #Predicate<SDPage> { page in page.id == noteId }
             let descriptor = FetchDescriptor<SDPage>(predicate: predicate)
-            if let page = (try? context?.fetch(descriptor))?.first {
+            if let page = fetchFirst(descriptor, in: context, label: "citation session note") {
                 NoteFileStorage.requestFlush(pageId: noteId)
                 var body = page.loadBody()
                 // Deduplicate by URL
@@ -237,7 +293,7 @@ final class NotesAgent: OmegaAgent, Sendable {
                 page.saveBody(body)
                 page.updatedAt = .now
                 page.needsVaultSync = true
-                try? context?.save()
+                try saveContext(context, label: "citation session note")
                 NoteFileStorage.notifyBodyChanged(pageId: noteId)
                 return "{\"success\":true,\"action\":\"savecitation\",\"sessionNoteId\":\(jsonEscape(noteId))}"
             }
@@ -374,9 +430,16 @@ final class NotesAgent: OmegaAgent, Sendable {
     // MARK: - Helpers
 
     private func jsonEscape(_ s: String) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: [s]),
-           let arr = String(data: data, encoding: .utf8) {
-            return String(arr.dropFirst().dropLast())
+        do {
+            let data = try JSONSerialization.data(withJSONObject: [s])
+            if let arr = String(data: data, encoding: .utf8) {
+                return String(arr.dropFirst().dropLast())
+            }
+            log.error("NotesAgent: failed to encode JSON string because UTF-8 conversion returned nil")
+        } catch {
+            log.error(
+                "NotesAgent: failed to encode JSON string: \(error.localizedDescription, privacy: .public)"
+            )
         }
         let escaped = s.replacingOccurrences(of: "\\", with: "\\\\")
                        .replacingOccurrences(of: "\"", with: "\\\"")

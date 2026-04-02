@@ -70,6 +70,9 @@ final class HermesMCPClient: @unchecked Sendable {
         subprocessManager?.setRequestHandler { [weak self] jsonLine in
             self?.handleIncomingLine(jsonLine)
         }
+        subprocessManager?.setDisconnectHandler { [weak self] in
+            self?.cancelAll()
+        }
     }
 
     /// Send an MCP request and await the response.
@@ -94,17 +97,24 @@ final class HermesMCPClient: @unchecked Sendable {
 
         return try await withThrowingTaskGroup(of: AnyCodableValue.self) { group in
             group.addTask {
-                try await withCheckedThrowingContinuation { continuation in
-                    self.registerPending(id: requestId, continuation: continuation)
+                try await withTaskCancellationHandler {
+                    try await withCheckedThrowingContinuation { continuation in
+                        guard !Task.isCancelled else {
+                            continuation.resume(throwing: CancellationError())
+                            return
+                        }
 
-                    do {
-                        try manager.writeLine(json)
-                        mcpClientLog.debug("MCP request sent: \(method) id=\(requestId)")
-                    } catch {
-                        // Remove without error — we resume directly here
-                        self.removePending(id: requestId)
-                        continuation.resume(throwing: error)
+                        self.registerPending(id: requestId, continuation: continuation)
+
+                        do {
+                            try manager.writeLine(json)
+                            mcpClientLog.debug("MCP request sent: \(method) id=\(requestId)")
+                        } catch {
+                            self.removePending(id: requestId, resumingWith: error)
+                        }
                     }
+                } onCancel: {
+                    self.removePending(id: requestId, resumingWith: CancellationError())
                 }
             }
 
@@ -226,7 +236,7 @@ final class HermesMCPClient: @unchecked Sendable {
     }
 
     /// Cancel all pending requests (call on disconnect).
-    func cancelAll() {
+    nonisolated func cancelAll() {
         lock.lock()
         let pending = pendingRequests
         pendingRequests.removeAll()
@@ -235,6 +245,12 @@ final class HermesMCPClient: @unchecked Sendable {
         for (_, continuation) in pending {
             continuation.resume(throwing: HermesMCPError.notConnected)
         }
+    }
+
+    var pendingRequestCountForTesting: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return pendingRequests.count
     }
 }
 

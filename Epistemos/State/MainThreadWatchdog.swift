@@ -14,19 +14,65 @@ import os
 // main thread hangs without being blocked by them.
 
 final class MainThreadWatchdog: Sendable {
-    static let log = Logger(subsystem: "com.epistemos", category: "MainThreadWatchdog")
+    nonisolated private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "MainThreadWatchdog"
+    )
 
     private let threshold: TimeInterval
     private let checkInterval: TimeInterval
+    private let hangCoalescingDelay: TimeInterval
+    private let hangEmissionQueue = DispatchQueue(
+        label: "com.epistemos.watchdog.hang-emission",
+        qos: .utility
+    )
     private let state = OSAllocatedUnfairLock(initialState: WatchdogState())
 
     /// Callback fired when a hang is detected. Receives the hang duration in milliseconds.
     /// Set before calling start().
     nonisolated(unsafe) var onHangDetected: (@Sendable (_ durationMs: Int) -> Void)?
 
+    struct HangBurstEmission: Sendable {
+        let durationMs: Int
+        let sampleCount: Int
+    }
+
+    struct HangBurstTracker: Sendable {
+        private(set) var pendingDurationMs: Int?
+        private(set) var pendingSampleCount = 0
+        private(set) var sequence: UInt64 = 0
+
+        nonisolated mutating func recordHangSample(durationMs: Int) -> UInt64 {
+            pendingDurationMs = max(pendingDurationMs ?? 0, durationMs)
+            pendingSampleCount += 1
+            sequence &+= 1
+            return sequence
+        }
+
+        nonisolated mutating func drainIfSequenceMatches(
+            _ expectedSequence: UInt64
+        ) -> HangBurstEmission? {
+            guard sequence == expectedSequence,
+                  let durationMs = pendingDurationMs else { return nil }
+            let emission = HangBurstEmission(
+                durationMs: durationMs,
+                sampleCount: pendingSampleCount
+            )
+            pendingDurationMs = nil
+            pendingSampleCount = 0
+            return emission
+        }
+
+        nonisolated mutating func invalidate() {
+            pendingDurationMs = nil
+            pendingSampleCount = 0
+            sequence &+= 1
+        }
+    }
+
     private struct WatchdogState {
         var timer: DispatchSourceTimer?
-        var consecutiveHangs: Int = 0
+        var hangBurstTracker = HangBurstTracker()
     }
 
     /// Retained for process lifetime once installed.
@@ -41,9 +87,14 @@ final class MainThreadWatchdog: Sendable {
         shared.start()
     }
 
-    init(threshold: TimeInterval = 0.5, checkInterval: TimeInterval = 1.0) {
+    init(
+        threshold: TimeInterval = 0.5,
+        checkInterval: TimeInterval = 1.0,
+        hangCoalescingDelay: TimeInterval = 0.1
+    ) {
         self.threshold = threshold
         self.checkInterval = checkInterval
+        self.hangCoalescingDelay = hangCoalescingDelay
     }
 
     func start() {
@@ -71,6 +122,7 @@ final class MainThreadWatchdog: Sendable {
         state.withLock { s in
             s.timer?.cancel()
             s.timer = nil
+            s.hangBurstTracker.invalidate()
         }
     }
 
@@ -84,25 +136,43 @@ final class MainThreadWatchdog: Sendable {
             let deltaMs = Int((pongTime - sendTime) / 1_000_000)
 
             if deltaMs > thresholdMs {
-                let consecutive = self.state.withLock { s in
-                    s.consecutiveHangs += 1
-                    return s.consecutiveHangs
+                let sequence = self.state.withLock { s in
+                    s.hangBurstTracker.recordHangSample(durationMs: deltaMs)
                 }
-                Self.log.warning(
-                    "Main thread hang detected: \(deltaMs)ms (threshold: \(thresholdMs)ms, consecutive: \(consecutive))"
+                self.scheduleHangBurstEmission(
+                    expectedSequence: sequence,
+                    thresholdMs: thresholdMs
                 )
-                self.onHangDetected?(deltaMs)
             } else {
-                self.state.withLock { s in
-                    s.consecutiveHangs = 0
-                }
+                return
             }
+        }
+    }
+
+    private nonisolated func scheduleHangBurstEmission(
+        expectedSequence: UInt64,
+        thresholdMs: Int
+    ) {
+        hangEmissionQueue.asyncAfter(deadline: .now() + hangCoalescingDelay) { [weak self] in
+            guard let self else { return }
+            guard let emission = self.state.withLock({
+                $0.hangBurstTracker.drainIfSequenceMatches(expectedSequence)
+            }) else { return }
+
+            let sampleSummary = emission.sampleCount > 1
+                ? ", coalesced samples: \(emission.sampleCount)"
+                : ""
+            Self.log.warning(
+                "Main thread hang detected: \(emission.durationMs)ms (threshold: \(thresholdMs)ms\(sampleSummary))"
+            )
+            self.onHangDetected?(emission.durationMs)
         }
     }
 
     deinit {
         state.withLock { s in
             s.timer?.cancel()
+            s.hangBurstTracker.invalidate()
         }
     }
 }
@@ -118,11 +188,20 @@ enum DiagnosticEvent {
     case bridgeError(line: String, error: String)
     case subprocessCrash(pid: Int32, exitCode: Int32)
     case tccDenied(service: String, bundle: String)
-    case memoryPressure(level: String, usedMB: Int)
+    case memoryPressure(
+        level: String,
+        usedMB: Int,
+        pressureSource: String,
+        memoryScope: String,
+        isAppActive: Bool
+    )
 }
 
 final class StructuredDiagnosticLogger: Sendable {
-    static let log = Logger(subsystem: "com.epistemos", category: "Diagnostics")
+    nonisolated private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "Diagnostics"
+    )
 
     private let logFileURL: URL
     private let maxFileSize: Int
@@ -137,10 +216,7 @@ final class StructuredDiagnosticLogger: Sendable {
         self.logFileURL = logDirectory.appendingPathComponent("events.jsonl")
         self.maxFileSize = maxFileSize
 
-        // Ensure directory exists
-        try? FileManager.default.createDirectory(
-            at: logDirectory, withIntermediateDirectories: true, attributes: nil
-        )
+        ensureLogDirectoryExists()
     }
 
     nonisolated func log(_ event: DiagnosticEvent) {
@@ -153,8 +229,21 @@ final class StructuredDiagnosticLogger: Sendable {
     /// Export the last N diagnostic events as a JSON array string
     /// suitable for pasting into a Claude session.
     nonisolated func exportRecent(limit: Int = 200) -> String {
-        guard let data = try? Data(contentsOf: logFileURL),
-              let text = String(data: data, encoding: .utf8) else {
+        guard FileManager.default.fileExists(atPath: self.logFileURL.path) else {
+            return "[]"
+        }
+        let text: String
+        do {
+            let data = try Data(contentsOf: self.logFileURL)
+            guard let decoded = String(data: data, encoding: .utf8) else {
+                Self.log.error("Structured diagnostics: failed to decode recent events as UTF-8 text")
+                return "[]"
+            }
+            text = decoded
+        } catch {
+            Self.log.error(
+                "Structured diagnostics: failed to load recent events: \(error.localizedDescription, privacy: .public)"
+            )
             return "[]"
         }
         let lines = text.components(separatedBy: "\n")
@@ -192,40 +281,93 @@ final class StructuredDiagnosticLogger: Sendable {
             dict["event"] = "tcc_denied"
             dict["service"] = service
             dict["bundle"] = bundle
-        case .memoryPressure(let level, let usedMB):
+        case .memoryPressure(
+            let level,
+            let usedMB,
+            let pressureSource,
+            let memoryScope,
+            let isAppActive
+        ):
             dict["event"] = "memory_pressure"
             dict["level"] = level
             dict["used_mb"] = usedMB
+            dict["pressure_source"] = pressureSource
+            dict["memory_scope"] = memoryScope
+            dict["app_active"] = isAppActive
         }
 
-        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]),
-              let json = String(data: data, encoding: .utf8) else {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])
+            guard let json = String(data: data, encoding: .utf8) else {
+                Self.log.error("Structured diagnostics: failed to encode event JSON as UTF-8 text")
+                return "{\"event\":\"encode_error\"}"
+            }
+            return json
+        } catch {
+            Self.log.error("Structured diagnostics: failed to encode event: \(error.localizedDescription, privacy: .public)")
             return "{\"event\":\"encode_error\"}"
         }
-        return json
     }
 
     private nonisolated func appendLine(_ line: String) {
         let entry = (line + "\n").data(using: .utf8) ?? Data()
+        ensureLogDirectoryExists()
 
-        // Rotate if file exceeds max size
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: logFileURL.path),
-           let size = attrs[.size] as? Int,
-           size > maxFileSize {
-            let rotatedURL = logFileURL.deletingPathExtension()
-                .appendingPathExtension("prev.jsonl")
-            try? FileManager.default.removeItem(at: rotatedURL)
-            try? FileManager.default.moveItem(at: logFileURL, to: rotatedURL)
-        }
-
-        if FileManager.default.fileExists(atPath: logFileURL.path) {
-            if let handle = try? FileHandle(forWritingTo: logFileURL) {
-                handle.seekToEndOfFile()
-                handle.write(entry)
-                handle.closeFile()
+        do {
+            if try shouldRotateLogFile() {
+                try rotateLogFile()
             }
-        } else {
-            try? entry.write(to: logFileURL)
+
+            if FileManager.default.fileExists(atPath: self.logFileURL.path) {
+                let handle = try FileHandle(forWritingTo: self.logFileURL)
+                defer {
+                    do {
+                        try handle.close()
+                    } catch {
+                        Self.log.error(
+                            "Structured diagnostics: failed to close log file handle: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
+                }
+                _ = try handle.seekToEnd()
+                try handle.write(contentsOf: entry)
+            } else {
+                try entry.write(to: self.logFileURL)
+            }
+        } catch {
+            Self.log.error("Structured diagnostics: failed to append log entry: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    private nonisolated func ensureLogDirectoryExists() {
+        do {
+            try FileManager.default.createDirectory(
+                at: self.logFileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+        } catch {
+            Self.log.error(
+                "Structured diagnostics: failed to create log directory at \(self.logFileURL.deletingLastPathComponent().path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
+    private nonisolated func shouldRotateLogFile() throws -> Bool {
+        guard FileManager.default.fileExists(atPath: self.logFileURL.path) else {
+            return false
+        }
+        let attrs = try FileManager.default.attributesOfItem(atPath: self.logFileURL.path)
+        let size = attrs[.size] as? Int ?? 0
+        return size > self.maxFileSize
+    }
+
+    private nonisolated func rotateLogFile() throws {
+        let rotatedURL = self.logFileURL.deletingPathExtension()
+            .appendingPathExtension("prev.jsonl")
+        if FileManager.default.fileExists(atPath: rotatedURL.path) {
+            try FileManager.default.removeItem(at: rotatedURL)
+        }
+        try FileManager.default.moveItem(at: self.logFileURL, to: rotatedURL)
     }
 }

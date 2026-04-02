@@ -13,7 +13,7 @@ import os
 // receive SIGTERM within 500ms. This prevents zombie processes from
 // accumulating across restarts.
 
-nonisolated(unsafe) private let cleanupLog = Logger(subsystem: "com.epistemos.state", category: "SubprocessCleanup")
+private let cleanupLog = Logger(subsystem: "com.epistemos.state", category: "SubprocessCleanup")
 
 @MainActor
 final class OrphanSubprocessCleanup {
@@ -27,7 +27,11 @@ final class OrphanSubprocessCleanup {
     /// Whether cleanup has already run (prevent double-cleanup).
     private var didCleanup = false
 
-    init() {
+    init(processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment) {
+        guard processInfoEnvironment["XCTestConfigurationFilePath"] == nil else {
+            cleanupLog.info("Skipping subprocess signal handlers under tests")
+            return
+        }
         registerTerminationHandlers()
     }
 
@@ -66,31 +70,18 @@ final class OrphanSubprocessCleanup {
         guard !didCleanup else { return }
         didCleanup = true
 
-        cleanupLog.info("Cleaning up \(self.trackedPIDs.count) tracked subprocesses")
+        let trackedProcessTreePIDs = snapshotTrackedProcessTreePIDs()
+        cleanupLog.info("Cleaning up \(trackedProcessTreePIDs.count) tracked subprocesses")
 
-        // Phase 1: Send SIGTERM to all tracked PIDs
-        for pid in trackedPIDs {
-            kill(pid, SIGTERM)
-        }
-
-        // Phase 2: Terminate Process objects directly
-        for process in trackedProcesses where process.isRunning {
-            process.terminate()
-        }
-
-        // Phase 3: Give 500ms for graceful shutdown, then SIGKILL stragglers
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.5) { [trackedPIDs] in
-            for pid in trackedPIDs {
-                // Check if still alive
-                if kill(pid, 0) == 0 {
-                    cleanupLog.warning("Force-killing straggler PID \(pid)")
-                    kill(pid, SIGKILL)
-                }
-            }
-        }
+        terminateProcessTree(trackedProcessTreePIDs)
 
         trackedProcesses.removeAll()
         trackedPIDs.removeAll()
+    }
+
+    /// Terminate a process and any descendants that are still attached to it.
+    func cleanupProcessTree(rootPID: pid_t) {
+        terminateProcessTree(processTreePIDs(rootPID: rootPID))
     }
 
     // MARK: - Private
@@ -130,6 +121,58 @@ final class OrphanSubprocessCleanup {
         _sigIntSource = sigIntSource
 
         cleanupLog.info("Subprocess cleanup handlers registered")
+    }
+
+    private func terminateProcessTree(_ processTreePIDs: Set<pid_t>) {
+        for pid in processTreePIDs {
+            kill(pid, SIGTERM)
+        }
+
+        for process in trackedProcesses where process.isRunning {
+            process.terminate()
+        }
+
+        let logger = cleanupLog
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.5) { [processTreePIDs, logger] in
+            for pid in processTreePIDs where kill(pid, 0) == 0 {
+                logger.warning("Force-killing straggler PID \(pid)")
+                kill(pid, SIGKILL)
+            }
+        }
+    }
+
+    private func snapshotTrackedProcessTreePIDs() -> Set<pid_t> {
+        trackedPIDs.reduce(into: Set<pid_t>()) { result, pid in
+            result.formUnion(processTreePIDs(rootPID: pid))
+        }
+    }
+
+    private func processTreePIDs(rootPID: pid_t) -> Set<pid_t> {
+        guard rootPID > 0 else { return [] }
+
+        var result: Set<pid_t> = []
+        var stack: [pid_t] = [rootPID]
+        while let pid = stack.popLast() {
+            guard pid > 0, result.insert(pid).inserted else { continue }
+            stack.append(contentsOf: childPIDs(of: pid))
+        }
+        return result
+    }
+
+    private func childPIDs(of parentPID: pid_t) -> [pid_t] {
+        var capacity = 8
+        while true {
+            var buffer = Array(repeating: pid_t(0), count: capacity)
+            let bufferSize = buffer.count * MemoryLayout<pid_t>.stride
+            let childCount = Int(proc_listchildpids(parentPID, &buffer, Int32(bufferSize)))
+            guard childCount > 0 else { return [] }
+
+            if childCount < capacity {
+                return Array(buffer.prefix(childCount))
+            }
+
+            capacity *= 2
+        }
     }
 
     // Hold strong references to dispatch sources

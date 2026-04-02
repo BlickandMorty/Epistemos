@@ -22,7 +22,7 @@ struct KFProgress: Sendable {
 // MARK: - KnowledgeFusionViewModel
 
 /// @Observable state class bridging all Phase 1-6 actors to SwiftUI.
-/// Follows Epistemos pattern: @MainActor @Observable (never ObservableObject).
+/// Follows Epistemos pattern: @MainActor @Observable (never the legacy observable-object protocol).
 @MainActor @Observable
 final class KnowledgeFusionViewModel {
 
@@ -446,6 +446,21 @@ final class KnowledgeFusionViewModel {
             installedAdapters = await registry.listAdapters()
         } catch {
             lastTrainingError = error.localizedDescription
+        }
+    }
+
+    @discardableResult
+    func exportAdapter(_ record: AdapterRecord, outputDirectory: URL) async -> URL? {
+        lastTrainingError = nil
+
+        do {
+            let exporter = AdapterExporter()
+            return try await Task.detached(priority: .utility) {
+                try exporter.export(record: record, outputDirectory: outputDirectory)
+            }.value
+        } catch {
+            lastTrainingError = error.localizedDescription
+            return nil
         }
     }
 

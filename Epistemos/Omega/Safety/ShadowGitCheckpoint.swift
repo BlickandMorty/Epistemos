@@ -18,9 +18,7 @@ actor ShadowGitCheckpoint {
     private let checkpointsRoot: URL
 
     init() {
-        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            preconditionFailure("Application Support directory unavailable")
-        }
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         checkpointsRoot = appSupport.appendingPathComponent("Epistemos/checkpoints", isDirectory: true)
     }
 
@@ -81,7 +79,7 @@ actor ShadowGitCheckpoint {
         let headFile = gitDir.appendingPathComponent("HEAD")
         if !fm.fileExists(atPath: headFile.path) {
             // Initialize bare-ish repo
-            let process = Process()
+            let process = Process.init()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
             process.arguments = ["init", "--bare", gitDir.path]
             process.environment = ["GIT_DIR": gitDir.path, "GIT_WORK_TREE": workTree]
@@ -114,7 +112,7 @@ actor ShadowGitCheckpoint {
 
     private func runGit(args: [String], gitDir: URL, workTree: String) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let process = Process()
+            let process = Process.init()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
             process.arguments = args
             process.environment = [

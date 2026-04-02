@@ -57,6 +57,38 @@ final class NoteInsightService {
         isIndexing = false
     }
 
+    private nonisolated static func fetchInsightRecord(
+        pageId: String,
+        context: ModelContext,
+        operation: String
+    ) throws -> SDNoteInsight? {
+        let targetPageId = pageId
+        do {
+            return try context.fetch(
+                FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == targetPageId })
+            ).first
+        } catch {
+            Self.log.error(
+                "\(operation, privacy: .public) fetch failed for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
+    }
+
+    private nonisolated static func persistContext(
+        _ context: ModelContext,
+        operation: String
+    ) throws {
+        do {
+            try context.save()
+        } catch {
+            Self.log.error(
+                "\(operation, privacy: .public) save failed: \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
+    }
+
     private nonisolated static func runReindex(container: ModelContainer) -> (analyzed: Int, total: Int) {
         let start = CFAbsoluteTimeGetCurrent()
         let context = ModelContext(container)
@@ -74,9 +106,11 @@ final class NoteInsightService {
                 let hash = SDNoteInsight.hash(of: body)
 
                 let targetPageId = page.id
-                let existing = try? context.fetch(
-                    FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == targetPageId })
-                ).first
+                let existing = try Self.fetchInsightRecord(
+                    pageId: targetPageId,
+                    context: context,
+                    operation: "Note insight reindex"
+                )
 
                 if let existing, existing.contentHash == hash {
                     skipped += 1
@@ -99,10 +133,10 @@ final class NoteInsightService {
 
                 analyzed += 1
                 if analyzed % 50 == 0 {
-                    try? context.save()
+                    try Self.persistContext(context, operation: "Note insight reindex checkpoint")
                 }
             }
-            try? context.save()
+            try Self.persistContext(context, operation: "Note insight reindex final")
 
             let phase1Time = CFAbsoluteTimeGetCurrent() - start
             Self.log.info("Phase 1 complete: \(analyzed) notes (\(skipped) skipped) in \(String(format: "%.1f", phase1Time))s")
@@ -112,7 +146,7 @@ final class NoteInsightService {
 
             let phase2Start = CFAbsoluteTimeGetCurrent()
             try computeRelatedness(context: context)
-            try? context.save()
+            try Self.persistContext(context, operation: "Note insight relatedness recompute")
 
             let totalTime = CFAbsoluteTimeGetCurrent() - start
             let phase2Time = CFAbsoluteTimeGetCurrent() - phase2Start
@@ -138,7 +172,16 @@ final class NoteInsightService {
             defer { Task { @MainActor [weak self] in self?.finishReanalyzeTask(pageId: targetId, token: taskToken) } }
 
             // Debounce: wait 500ms so rapid autosaves coalesce
-            try? await Task.sleep(for: .milliseconds(500))
+            do {
+                try await Task.sleep(for: .milliseconds(500))
+            } catch is CancellationError {
+                return
+            } catch {
+                Self.log.error(
+                    "Re-analyze debounce failed for \(String(targetId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
             guard !Task.isCancelled else { return }
 
             let context = ModelContext(container)
@@ -147,9 +190,16 @@ final class NoteInsightService {
             let body = NoteFileStorage.readBody(pageId: targetId)
             let hash = SDNoteInsight.hash(of: body)
 
-            let existing = try? context.fetch(
-                FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == targetId })
-            ).first
+            let existing: SDNoteInsight?
+            do {
+                existing = try Self.fetchInsightRecord(
+                    pageId: targetId,
+                    context: context,
+                    operation: "Note insight re-analyze"
+                )
+            } catch {
+                return
+            }
 
             if let existing, existing.contentHash == hash { return }
 
@@ -192,7 +242,16 @@ final class NoteInsightService {
         relatednessTask?.cancel()
         let container = modelContainer
         relatednessTask = Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .milliseconds(300))
+            do {
+                try await Task.sleep(for: .milliseconds(300))
+            } catch is CancellationError {
+                return
+            } catch {
+                Self.log.error(
+                    "Relatedness debounce failed: \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
             guard !Task.isCancelled else { return }
 
             let context = ModelContext(container)
@@ -209,10 +268,15 @@ final class NoteInsightService {
 
     /// Fetch cached insight for a note. Returns nil if not yet analyzed.
     nonisolated func fetchInsight(pageId: String, context: ModelContext) -> SDNoteInsight? {
-        let targetId = pageId
-        return try? context.fetch(
-            FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == targetId })
-        ).first
+        do {
+            return try Self.fetchInsightRecord(
+                pageId: pageId,
+                context: context,
+                operation: "Note insight fetch"
+            )
+        } catch {
+            return nil
+        }
     }
 
     func debugPendingReanalyzeTaskCount() -> Int {

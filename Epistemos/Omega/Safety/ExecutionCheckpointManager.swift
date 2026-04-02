@@ -54,11 +54,11 @@ final class ExecutionCheckpointManager {
     private var activeCheckpoint: PlanCheckpoint?
 
     init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         checkpointDir = appSupport
             .appendingPathComponent("Epistemos", isDirectory: true)
             .appendingPathComponent("checkpoints", isDirectory: true)
-        try? FileManager.default.createDirectory(at: checkpointDir, withIntermediateDirectories: true)
+        ensureCheckpointDirectory()
     }
 
     // MARK: - Lifecycle
@@ -132,7 +132,7 @@ final class ExecutionCheckpointManager {
     func finalize() {
         guard let cp = activeCheckpoint else { return }
         let fileURL = checkpointDir.appendingPathComponent("\(cp.planId).json")
-        try? FileManager.default.removeItem(at: fileURL)
+        removeCheckpointFile(at: fileURL, label: "finalized checkpoint")
         activeCheckpoint = nil
         checkpointLog.info("Checkpoint finalized and removed: \(cp.planId)")
     }
@@ -141,19 +141,12 @@ final class ExecutionCheckpointManager {
 
     /// Find all incomplete checkpoints from prior sessions.
     func findIncompleteCheckpoints() -> [PlanCheckpoint] {
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: checkpointDir,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: .skipsHiddenFiles
-        ) else { return [] }
+        let files = checkpointFiles()
 
         return files
             .filter { $0.pathExtension == "json" }
             .compactMap { url -> PlanCheckpoint? in
-                guard let data = try? Data(contentsOf: url),
-                      let cp = try? JSONDecoder().decode(PlanCheckpoint.self, from: data) else {
-                    return nil
-                }
+                guard let cp = loadCheckpoint(at: url, removeMalformed: true) else { return nil }
                 return cp.isComplete ? nil : cp
             }
             .sorted { $0.lastUpdated > $1.lastUpdated }
@@ -162,10 +155,7 @@ final class ExecutionCheckpointManager {
     /// Resume from a checkpoint — returns steps that still need execution.
     func resume(planId: String) -> PlanCheckpoint? {
         let fileURL = checkpointDir.appendingPathComponent("\(planId).json")
-        guard let data = try? Data(contentsOf: fileURL),
-              let cp = try? JSONDecoder().decode(PlanCheckpoint.self, from: data) else {
-            return nil
-        }
+        guard let cp = loadCheckpoint(at: fileURL, removeMalformed: true) else { return nil }
         activeCheckpoint = cp
         checkpointLog.info("Resuming checkpoint: \(planId), \(cp.steps.filter { $0.status == .pending || $0.status == .failed }.count) steps remaining")
         return cp
@@ -173,18 +163,12 @@ final class ExecutionCheckpointManager {
 
     /// Clean up checkpoints older than the given interval.
     func pruneOld(olderThan interval: TimeInterval = 7 * 24 * 3600) {
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: checkpointDir,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: .skipsHiddenFiles
-        ) else { return }
-
+        let files = checkpointFiles()
         let cutoff = Date().addingTimeInterval(-interval)
         for url in files {
-            guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
-                  let modified = values.contentModificationDate,
+            guard let modified = checkpointModificationDate(for: url),
                   modified < cutoff else { continue }
-            try? FileManager.default.removeItem(at: url)
+            removeCheckpointFile(at: url, label: "expired checkpoint")
             checkpointLog.debug("Pruned old checkpoint: \(url.lastPathComponent)")
         }
     }
@@ -196,8 +180,13 @@ final class ExecutionCheckpointManager {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
 
-        guard let data = try? encoder.encode(checkpoint) else {
-            checkpointLog.error("Failed to encode checkpoint")
+        let data: Data
+        do {
+            data = try encoder.encode(checkpoint)
+        } catch {
+            checkpointLog.error(
+                "ExecutionCheckpoint: failed to encode checkpoint \(checkpoint.planId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
             return
         }
 
@@ -213,7 +202,72 @@ final class ExecutionCheckpointManager {
             try FileManager.default.moveItem(at: tmpURL, to: fileURL)
         } catch {
             checkpointLog.error("Failed to persist checkpoint: \(error.localizedDescription)")
-            try? FileManager.default.removeItem(at: tmpURL)
+            removeCheckpointFile(at: tmpURL, label: "checkpoint temp file")
+        }
+    }
+
+    private func ensureCheckpointDirectory() {
+        do {
+            try FileManager.default.createDirectory(
+                at: checkpointDir,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            checkpointLog.error(
+                "ExecutionCheckpoint: failed to create checkpoint directory: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
+    private func checkpointFiles() -> [URL] {
+        do {
+            return try FileManager.default.contentsOfDirectory(
+                at: checkpointDir,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: .skipsHiddenFiles
+            )
+        } catch {
+            checkpointLog.error(
+                "ExecutionCheckpoint: failed to list checkpoint directory: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
+    }
+
+    private func loadCheckpoint(at fileURL: URL, removeMalformed: Bool) -> PlanCheckpoint? {
+        do {
+            let data = try Data(contentsOf: fileURL)
+            return try JSONDecoder().decode(PlanCheckpoint.self, from: data)
+        } catch {
+            checkpointLog.error(
+                "ExecutionCheckpoint: failed to decode checkpoint \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            if removeMalformed {
+                removeCheckpointFile(at: fileURL, label: "malformed checkpoint")
+            }
+            return nil
+        }
+    }
+
+    private func checkpointModificationDate(for url: URL) -> Date? {
+        do {
+            return try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        } catch {
+            checkpointLog.error(
+                "ExecutionCheckpoint: failed to inspect checkpoint modification date for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func removeCheckpointFile(at url: URL, label: String) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            checkpointLog.error(
+                "ExecutionCheckpoint: failed to remove \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import CryptoKit
+import os
 
 // MARK: - DiskStyleCache
 // Persists scroll position and selection per page to disk so they survive app restarts.
@@ -13,6 +14,7 @@ import CryptoKit
 @MainActor
 final class DiskStyleCache {
     static let shared = DiskStyleCache()
+    private static let log = Logger(subsystem: "com.epistemos", category: "DiskStyleCache")
 
     nonisolated struct CacheEntry: Codable, Sendable {
         let bodyHash: String
@@ -28,17 +30,16 @@ final class DiskStyleCache {
     private let maxFiles = 200
 
     private init() {
-        guard let appSupportBase = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first else {
-            // Fallback to temp directory if Application Support is unavailable
-            cacheDir = FileManager.default.temporaryDirectory.appendingPathComponent("epistemos-style-cache", isDirectory: true)
-            try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-            return
-        }
-        let appSupport = appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
+            .appendingPathComponent("Epistemos", isDirectory: true)
         cacheDir = appSupport.appendingPathComponent("style-cache", isDirectory: true)
-        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to create cache directory: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     // MARK: - Save
@@ -52,8 +53,13 @@ final class DiskStyleCache {
             lastOpenedAt: Date.now.timeIntervalSinceReferenceDate
         )
         let url = cacheDir.appendingPathComponent("\(pageId).json")
-        if let data = try? JSONEncoder().encode(entry) {
-            try? data.write(to: url, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(entry)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to write cache entry for \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
@@ -61,11 +67,31 @@ final class DiskStyleCache {
 
     func restore(pageId: String, currentBodyText: String) -> CacheEntry? {
         let url = cacheDir.appendingPathComponent("\(pageId).json")
-        guard let data = try? Data(contentsOf: url),
-              let entry = try? JSONDecoder().decode(CacheEntry.self, from: data)
-        else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to read cache entry for \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+
+        let entry: CacheEntry
+        do {
+            entry = try JSONDecoder().decode(CacheEntry.self, from: data)
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to decode cache entry for \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            removeCacheFile(at: url, reason: "corrupt cache entry for \(pageId)")
+            return nil
+        }
+
         guard entry.bodyHash == Self.bodyHash(currentBodyText) else {
-            try? FileManager.default.removeItem(at: url)
+            removeCacheFile(at: url, reason: "stale cache entry for \(pageId)")
             return nil
         }
         return entry
@@ -75,27 +101,43 @@ final class DiskStyleCache {
 
     func evictIfNeeded() {
         let fm = FileManager.default
-        guard let files = try? fm.contentsOfDirectory(
-            at: cacheDir, includingPropertiesForKeys: [.contentModificationDateKey]
-        ) else { return }
+        let files: [URL]
+        do {
+            files = try fm.contentsOfDirectory(
+                at: cacheDir,
+                includingPropertiesForKeys: [.contentModificationDateKey]
+            )
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to enumerate cache directory: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
         guard files.count > maxFiles else { return }
 
         let sorted = files.sorted { a, b in
-            let dateA = (try? a.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-            let dateB = (try? b.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            let dateA = modificationDate(for: a)
+            let dateB = modificationDate(for: b)
             return dateA < dateB
         }
         for file in sorted.prefix(files.count - maxFiles) {
-            try? fm.removeItem(at: file)
+            removeCacheFile(at: file, reason: "cache eviction")
         }
     }
 
     func clearAll() {
         let fm = FileManager.default
-        guard let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)
-        else { return }
+        let files: [URL]
+        do {
+            files = try fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to enumerate cache directory for clearAll: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
         for file in files {
-            try? fm.removeItem(at: file)
+            removeCacheFile(at: file, reason: "clearAll")
         }
     }
 
@@ -104,5 +146,26 @@ final class DiskStyleCache {
     private nonisolated static func bodyHash(_ text: String) -> String {
         let digest = SHA256.hash(data: Data(text.utf8))
         return digest.prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func modificationDate(for url: URL) -> Date {
+        do {
+            return try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to read modification date for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return .distantPast
+        }
+    }
+
+    private func removeCacheFile(at url: URL, reason: String) {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            Self.log.error(
+                "DiskStyleCache: failed to remove \(reason, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 }

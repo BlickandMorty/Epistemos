@@ -93,7 +93,6 @@ final class TimeMachineService {
         )
 
         // 2. Reconstruct note content via SDPageVersion (nearest version before date)
-        let context = modelContainer.mainContext
         if let snapshot {
             for tab in snapshot.openNoteTabs {
                 let pageId = tab.rootPageId
@@ -102,7 +101,7 @@ final class TimeMachineService {
                     predicate: #Predicate<SDPageVersion> { $0.pageId == pageId && $0.createdAt <= targetDate },
                     sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
                 )
-                let version = try? context.fetch(versionDesc).first
+                let version = fetchFirst(versionDesc, label: "note version")
                 let title = version?.title ?? tab.breadcrumbs.first?.title ?? "Untitled"
 
                 // Word count priority: snapshot-stored > version record > current file fallback
@@ -144,20 +143,19 @@ final class TimeMachineService {
             predicate: #Predicate<SDChat> { $0.createdAt <= chatDate },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
-        if let chats = try? context.fetch(chatDesc) {
-            for chat in chats.prefix(20) {
-                let chatId = chat.id
-                let msgDesc = FetchDescriptor<SDMessage>(
-                    predicate: #Predicate<SDMessage> { $0.chat?.id == chatId && $0.createdAt <= chatDate }
-                )
-                let msgCount = (try? context.fetchCount(msgDesc)) ?? 0
-                state.chatSnapshots.append(ChatSnapshot(
-                    id: chat.id,
-                    title: chat.title,
-                    messageCount: msgCount,
-                    lastMessageDate: chat.updatedAt <= date ? chat.updatedAt : nil
-                ))
-            }
+        let chats = fetchAll(chatDesc, label: "chats")
+        for chat in chats.prefix(20) {
+            let chatId = chat.id
+            let msgDesc = FetchDescriptor<SDMessage>(
+                predicate: #Predicate<SDMessage> { $0.chat?.id == chatId && $0.createdAt <= chatDate }
+            )
+            let msgCount = fetchCount(msgDesc, label: "chat message count")
+            state.chatSnapshots.append(ChatSnapshot(
+                id: chat.id,
+                title: chat.title,
+                messageCount: msgCount,
+                lastMessageDate: chat.updatedAt <= date ? chat.updatedAt : nil
+            ))
         }
 
         // 4. Graph stats from SDGraphNode/Edge created before date
@@ -168,8 +166,8 @@ final class TimeMachineService {
         let edgeDesc = FetchDescriptor<SDGraphEdge>(
             predicate: #Predicate<SDGraphEdge> { $0.createdAt <= graphDate }
         )
-        state.graphStats.nodeCount = (try? context.fetchCount(nodeDesc)) ?? 0
-        state.graphStats.edgeCount = (try? context.fetchCount(edgeDesc)) ?? 0
+        state.graphStats.nodeCount = fetchCount(nodeDesc, label: "node count")
+        state.graphStats.edgeCount = fetchCount(edgeDesc, label: "edge count")
 
         Self.log.info("TimeMachine: reconstructed state at \(date, privacy: .public) — \(state.noteSnapshots.count) notes, \(state.chatSnapshots.count) chats, \(state.graphStats.nodeCount) nodes")
         return state
@@ -227,23 +225,30 @@ final class TimeMachineService {
 
     func computeDiff(from pastState: HistoricalState) -> StateDiff {
         var diff = StateDiff()
-        let context = modelContainer.mainContext
-
         // Current note state
-        let currentPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let currentPages = fetchAll(FetchDescriptor<SDPage>(), label: "current pages")
         let noteDiff = computeNoteDiff(from: pastState, currentPages: currentPages)
         diff.addedNotes = noteDiff.addedTitles
         diff.removedNotes = noteDiff.removedTitles
         diff.modifiedNotes = noteDiff.modifiedNotes
 
         // Chat delta
-        let currentChatCount = (try? context.fetchCount(FetchDescriptor<SDChat>())) ?? 0
+        let currentChatCount = fetchCount(
+            FetchDescriptor<SDChat>(),
+            label: "current chat count"
+        )
         diff.addedChats = max(0, currentChatCount - pastState.chatSnapshots.count)
         diff.removedChats = max(0, pastState.chatSnapshots.count - currentChatCount)
 
         // Graph delta
-        let currentNodeCount = (try? context.fetchCount(FetchDescriptor<SDGraphNode>())) ?? 0
-        let currentEdgeCount = (try? context.fetchCount(FetchDescriptor<SDGraphEdge>())) ?? 0
+        let currentNodeCount = fetchCount(
+            FetchDescriptor<SDGraphNode>(),
+            label: "current graph node count"
+        )
+        let currentEdgeCount = fetchCount(
+            FetchDescriptor<SDGraphEdge>(),
+            label: "current graph edge count"
+        )
         diff.graphNodeDelta = currentNodeCount - pastState.graphStats.nodeCount
         diff.graphEdgeDelta = currentEdgeCount - pastState.graphStats.edgeCount
 
@@ -704,6 +709,42 @@ final class TimeMachineService {
         let upperBound = min(pastCount, currentCount)
         guard upperBound > 64 else { return upperBound }
         return max(64, upperBound / 8)
+    }
+
+    private func fetchFirst<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> T? {
+        do {
+            return try modelContainer.mainContext.fetch(descriptor).first
+        } catch {
+            Self.log.error("TimeMachine: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> [T] {
+        do {
+            return try modelContainer.mainContext.fetch(descriptor)
+        } catch {
+            Self.log.error("TimeMachine: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
+
+    private func fetchCount<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        label: String
+    ) -> Int {
+        do {
+            return try modelContainer.mainContext.fetchCount(descriptor)
+        } catch {
+            Self.log.error("TimeMachine: failed to fetch \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return 0
+        }
     }
 
     // MARK: - Session Timeline

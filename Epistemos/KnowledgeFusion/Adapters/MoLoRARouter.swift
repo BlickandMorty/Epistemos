@@ -19,9 +19,9 @@ final class MoLoRARouter {
     /// Path to router centroids (computed by train_router.py).
     /// When available, enables AdaFuse decide-once routing via MoLoRAInferenceService.
     var centroidsPath: URL? {
-        let path = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+        let path = FoundationSafety.userApplicationSupportDirectory()
             .appendingPathComponent("Epistemos/MoLoRA/router_centroids.safetensors")
-        guard let path, FileManager.default.fileExists(atPath: path.path) else { return nil }
+        guard FileManager.default.fileExists(atPath: path.path) else { return nil }
         return path
     }
 

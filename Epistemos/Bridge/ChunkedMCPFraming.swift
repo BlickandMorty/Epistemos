@@ -14,9 +14,8 @@ import os
 // shm_open and sends a compact ShmReference JSON over the pipe instead.
 // This accumulator detects those references and resolves them via FFI.
 
-nonisolated(unsafe) private let framingLog = Logger(subsystem: "com.epistemos.bridge", category: "MCPFraming")
-
 actor ChunkedMCPFrameAccumulator {
+    private static let logger = Logger(subsystem: "com.epistemos.bridge", category: "MCPFraming")
 
     // MARK: - State
 
@@ -39,7 +38,7 @@ actor ChunkedMCPFrameAccumulator {
 
         // Safety: prevent unbounded memory growth
         if buffer.count > maxBufferSize {
-            framingLog.error("MCP buffer exceeded \(self.maxBufferSize) bytes, flushing")
+            Self.logger.error("MCP buffer exceeded \(self.maxBufferSize) bytes, flushing")
             buffer.removeAll()
             expectedLength = nil
             return []
@@ -78,7 +77,7 @@ actor ChunkedMCPFrameAccumulator {
             // We have an expected length — check if we've accumulated enough
             if let expected = expectedLength {
                 guard expected <= maxMessageSize else {
-                    framingLog.error("MCP message too large: \(expected) bytes")
+                    Self.logger.error("MCP message too large: \(expected) bytes")
                     expectedLength = nil
                     buffer.removeAll()
                     break
@@ -167,23 +166,23 @@ actor ChunkedMCPFrameAccumulator {
 
         // Validate segment name format to prevent arbitrary shm_open calls
         guard segmentName.hasPrefix("/ep_") else {
-            framingLog.warning("SHM reference with unexpected segment name: \(segmentName)")
+            Self.logger.warning("SHM reference with unexpected segment name: \(segmentName)")
             return message
         }
 
-        framingLog.info("Resolving SHM reference: \(segmentName) (\(byteLength) bytes)")
+        Self.logger.info("Resolving SHM reference: \(segmentName) (\(byteLength) bytes)")
 
         #if canImport(agent_core)
         do {
             let payload = try shmReadPayload(segmentName: segmentName, byteLength: UInt64(byteLength))
-            framingLog.info("SHM resolved: \(segmentName) → \(payload.count) chars")
+            Self.logger.info("SHM resolved: \(segmentName) → \(payload.count) chars")
             return payload
         } catch {
-            framingLog.error("SHM read failed for \(segmentName): \(error.localizedDescription)")
+            Self.logger.error("SHM read failed for \(segmentName): \(error.localizedDescription)")
             return message
         }
         #else
-        framingLog.warning("SHM reference detected but agent_core bindings unavailable")
+        Self.logger.warning("SHM reference detected but agent_core bindings unavailable")
         return message
         #endif
     }
@@ -254,6 +253,8 @@ private func posixShmUnlink(_ name: UnsafePointer<CChar>) -> Int32 {
 }
 
 enum ShmWriter {
+    private static let logger = Logger(subsystem: "com.epistemos.bridge", category: "MCPFraming")
+
     /// Atomic counter matching Rust SEGMENT_COUNTER — starts at 10000 to avoid
     /// collisions with Rust-allocated segments (which start at 0).
     private static let counter = OSAllocatedUnfairLock(initialState: UInt64(10000))
@@ -327,7 +328,7 @@ enum ShmWriter {
         // Track for lifecycle cleanup.
         registry.withLock { $0.append(segmentName) }
 
-        framingLog.info("SHM write: \(segmentName) (\(data.count) bytes, \(contentType))")
+        Self.logger.info("SHM write: \(segmentName) (\(data.count) bytes, \(contentType))")
 
         // Return the SHM reference as JSON — matches Rust ShmReference struct.
         return "{\"segment_name\":\"\(segmentName)\",\"byte_length\":\(data.count),\"content_type\":\"\(contentType)\"}"
@@ -351,7 +352,7 @@ enum ShmWriter {
             unlink(name)
         }
         if !segments.isEmpty {
-            framingLog.info("SHM cleanup: unlinked \(segments.count) tcc_proxy segments")
+            Self.logger.info("SHM cleanup: unlinked \(segments.count) tcc_proxy segments")
         }
     }
 }

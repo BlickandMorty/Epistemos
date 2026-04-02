@@ -27,10 +27,17 @@ final class EventStore: Sendable {
 
     init?(databaseURL url: URL) {
         self.databaseURL = url
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        } catch {
+            Self.log.error(
+                "EventStore: failed to create database directory at \(url.deletingLastPathComponent().path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
         var dbPtr: OpaquePointer?
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         guard sqlite3_open_v2(url.path, &dbPtr, flags, nil) == SQLITE_OK,
@@ -61,6 +68,7 @@ final class EventStore: Sendable {
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(dbPtr, "PRAGMA quick_check;", -1, &stmt, nil) == SQLITE_OK else {
                 Self.log.error("EventStore: could not prepare quick_check")
+                sqlite3_close(dbPtr)
                 return nil
             }
             defer { sqlite3_finalize(stmt) }
@@ -485,7 +493,7 @@ final class EventStore: Sendable {
 
     nonisolated func updateNightBrainRun(id: Int64, status: String, completedJobs: [String], completedAt: Double? = nil) {
         withDatabaseRead { db in
-            let jobsJSON = (try? String(data: JSONEncoder().encode(completedJobs), encoding: .utf8)) ?? "[]"
+            let jobsJSON = Self.encodeCompletedJobs(completedJobs)
             var stmt: OpaquePointer?
             let sql = "UPDATE night_brain_runs SET status = ?, jobs_completed = ?, completed_at = ? WHERE id = ?;"
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
@@ -573,10 +581,11 @@ final class EventStore: Sendable {
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let completedAtRaw = sqlite3_column_double(stmt, 2)
                 let jobsJSON = String(cString: sqlite3_column_text(stmt, 4))
-                let jobs = (try? JSONDecoder().decode([String].self, from: Data(jobsJSON.utf8))) ?? []
+                let runId = sqlite3_column_int64(stmt, 0)
+                let jobs = Self.decodeCompletedJobs(jobsJSON, runId: runId)
                 let triggerPtr = sqlite3_column_text(stmt, 5)
                 results.append(NightBrainRunRecord(
-                    id: sqlite3_column_int64(stmt, 0),
+                    id: runId,
                     startedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
                     completedAt: completedAtRaw > 0 ? Date(timeIntervalSince1970: completedAtRaw) : nil,
                     status: String(cString: sqlite3_column_text(stmt, 3)),
@@ -691,21 +700,70 @@ final class EventStore: Sendable {
     }()
 
     nonisolated private static func encodePayload(_ dict: [String: String]) -> String {
-        (try? String(data: payloadEncoder.encode(dict), encoding: .utf8)) ?? "{}"
+        do {
+            let data = try payloadEncoder.encode(dict)
+            guard let payload = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode event payload as UTF-8 text")
+                return "{}"
+            }
+            return payload
+        } catch {
+            Self.log.error("EventStore: failed to encode event payload: \(error.localizedDescription, privacy: .public)")
+            return "{}"
+        }
     }
 
     nonisolated private static func encodeNoteEditedPayload(pageId: String, title: String, changed: Int, total: Int) -> String {
-        // Build JSON with proper numeric types using JSONSerialization
-        let dict: [String: Any] = ["pageId": pageId, "title": title, "changedParagraphs": changed, "totalParagraphs": total]
-        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]) else { return "{}" }
-        return String(data: data, encoding: .utf8) ?? "{}"
+        do {
+            let payloadObject: [String: Any] = [
+                "changedParagraphs": changed,
+                "pageId": pageId,
+                "title": title,
+                "totalParagraphs": total,
+            ]
+            let data = try JSONSerialization.data(withJSONObject: payloadObject, options: [.sortedKeys])
+            guard let payload = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode note_edited payload as UTF-8 text")
+                return "{}"
+            }
+            return payload
+        } catch {
+            Self.log.error("EventStore: failed to encode note_edited payload: \(error.localizedDescription, privacy: .public)")
+            return "{}"
+        }
     }
 
     private static var databaseURL: URL {
         let appSupport = FoundationSafety.userApplicationSupportDirectory()
         let dir = appSupport.appendingPathComponent("Epistemos")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("event-store.sqlite")
+    }
+
+    nonisolated private static func encodeCompletedJobs(_ completedJobs: [String]) -> String {
+        do {
+            let data = try payloadEncoder.encode(completedJobs)
+            guard let payload = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode Night Brain jobs_completed payload as UTF-8 text")
+                return "[]"
+            }
+            return payload
+        } catch {
+            Self.log.error(
+                "EventStore: failed to encode Night Brain jobs_completed payload: \(error.localizedDescription, privacy: .public)"
+            )
+            return "[]"
+        }
+    }
+
+    nonisolated private static func decodeCompletedJobs(_ jobsJSON: String, runId: Int64) -> [String] {
+        do {
+            return try JSONDecoder().decode([String].self, from: Data(jobsJSON.utf8))
+        } catch {
+            Self.log.error(
+                "EventStore: failed to decode Night Brain jobs_completed payload for run \(runId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
     }
 
     private nonisolated static func excludeLiveDatabaseFilesFromBackup(_ databaseURL: URL) throws {
@@ -725,7 +783,9 @@ final class EventStore: Sendable {
     private nonisolated static func excludeParentDirectoryFromSpotlight(_ databaseURL: URL) throws {
         let markerURL = databaseURL.deletingLastPathComponent().appendingPathComponent(".metadata_never_index")
         if !FileManager.default.fileExists(atPath: markerURL.path) {
-            FileManager.default.createFile(atPath: markerURL.path, contents: Data())
+            guard FileManager.default.createFile(atPath: markerURL.path, contents: Data()) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
         }
     }
 }

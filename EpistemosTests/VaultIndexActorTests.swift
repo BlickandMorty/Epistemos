@@ -230,6 +230,67 @@ struct VaultIndexActorTests {
         #expect(!VaultIndexActor.isModificationDate(newer, newerThan: nil))
     }
 
+    @Test("vault folder selection assessment leaves empty folders alone")
+    func vaultFolderSelectionAssessmentLeavesEmptyFoldersAlone() throws {
+        let root = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let assessment = VaultIndexActor.vaultFolderSelectionAssessment(for: root)
+
+        #expect(assessment.importableNoteFileCount == 0)
+        #expect(assessment.otherRegularFileCount == 0)
+        #expect(assessment.shouldConfirmSelection == false)
+    }
+
+    @Test("vault folder selection assessment preserves text and markdown note vaults")
+    func vaultFolderSelectionAssessmentPreservesTextAndMarkdownVaults() throws {
+        let root = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        for name in ["Note A.md", "Note B.markdown", "Journal.txt", "Ideas.txt"] {
+            try "body".write(
+                to: root.appendingPathComponent(name),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        for index in 0..<6 {
+            try Data().write(to: root.appendingPathComponent("Attachment-\(index).png"))
+        }
+
+        let assessment = VaultIndexActor.vaultFolderSelectionAssessment(for: root)
+
+        #expect(assessment.importableNoteFileCount == 4)
+        #expect(assessment.otherRegularFileCount == 6)
+        #expect(assessment.shouldConfirmSelection == false)
+    }
+
+    @Test("vault folder selection assessment flags asset-heavy folders with only a few note files")
+    func vaultFolderSelectionAssessmentFlagsAssetHeavyFolders() throws {
+        let root = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try "notes".write(
+            to: root.appendingPathComponent("Vault Readme.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "notes".write(
+            to: root.appendingPathComponent("Scratchpad.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        for index in 0..<96 {
+            try Data().write(to: root.appendingPathComponent("Font-\(index).otf"))
+        }
+
+        let assessment = VaultIndexActor.vaultFolderSelectionAssessment(for: root)
+
+        #expect(assessment.importableNoteFileCount == 2)
+        #expect(assessment.otherRegularFileCount == 96)
+        #expect(assessment.shouldConfirmSelection)
+    }
+
     @Test("allPagesForRebuild excludes archived and template pages")
     func allPagesForRebuildFilters() async throws {
         let container = try makeContainer()

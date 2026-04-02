@@ -514,18 +514,14 @@ struct NoteStorageIntegrationTests {
         
         // File should exist even if empty
         let fileManager = FileManager.default
-        let noteBodiesDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("Epistemos/note-bodies")
-        let fileURL = noteBodiesDir?.appendingPathComponent("\(pageId).md")
-        
-        if let url = fileURL {
-            let exists = fileManager.fileExists(atPath: url.path)
-            #expect(exists, "Empty note file should still exist")
-            
-            if exists {
-                let data = fileManager.contents(atPath: url.path)
-                #expect(data != nil && data?.count == 0, "File should be empty (0 bytes)")
-            }
+        let fileURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+
+        let exists = fileManager.fileExists(atPath: fileURL.path)
+        #expect(exists, "Empty note file should still exist")
+
+        if exists {
+            let data = fileManager.contents(atPath: fileURL.path)
+            #expect(data != nil && data?.count == 0, "File should be empty (0 bytes)")
         }
     }
     

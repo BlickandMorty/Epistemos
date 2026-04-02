@@ -27,6 +27,27 @@ struct HermesConfigTests {
         #expect(config.launchArguments.contains(config.bridgeScriptURL.path))
     }
 
+    @Test("Config exports local tool gate environment")
+    func exportsLocalToolGateEnvironment() {
+        let config = HermesConfig.resolve()
+        let expectedHome = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let dotHermes = URL(fileURLWithPath: expectedHome, isDirectory: true)
+            .appendingPathComponent(".hermes", isDirectory: true)
+
+        #expect(config.environment["HOME"] == expectedHome)
+        #expect(config.environment["HERMES_ENV_TYPE"] == "local")
+        #expect(config.environment["TERMINAL_ENV"] == "local")
+        #expect((config.environment["PATH"] ?? "").contains("/usr/local/bin"))
+        #expect(FileManager.default.fileExists(atPath: dotHermes.path))
+    }
+
+    @Test("Tool gate keychain mappings include Browserbase credentials")
+    func toolGateMappingsIncludeBrowserbaseCredentials() {
+        let envVars = Set(HermesConfig.toolGateKeychainMappings.map(\.envVar))
+        #expect(envVars.contains("BROWSERBASE_API_KEY"))
+        #expect(envVars.contains("BROWSERBASE_PROJECT_ID"))
+    }
+
     @Test("Bootstrap config enables Hermes learning defaults")
     func bootstrapConfigEnablesLearningDefaults() {
         let contents = HermesConfig.defaultBootstrapConfig()
@@ -249,6 +270,250 @@ struct HermesConfigTests {
     }
 }
 
+@MainActor
+@Suite("StartupAutoDiscovery", .serialized)
+struct StartupAutoDiscoveryTests {
+    @Test("Config parser understands env style provider tables and tool tables")
+    func parseConfigValuesUnderstandsCommonLayouts() {
+        let contents = """
+        OPENAI_API_KEY = "sk-openai"
+
+        [providers.anthropic]
+        api_key = "sk-ant"
+
+        [tools.tavily]
+        api_key = "tvly-test"
+
+        [services.browserbase]
+        project_id = "bb-project"
+        """
+
+        let values = StartupAutoDiscovery.parseConfigValues(contents)
+
+        #expect(values["OPENAI_API_KEY"] == "sk-openai")
+        #expect(values["providers.anthropic.api_key"] == "sk-ant")
+        #expect(values["tools.tavily.api_key"] == "tvly-test")
+        #expect(values["services.browserbase.project_id"] == "bb-project")
+    }
+
+    @Test("Discovery prefers environment without clobbering an existing keychain value")
+    func discoveryPrefersEnvironmentWithoutClobberingKeychain() throws {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: tempRoot)
+        }
+
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+
+        let configURL = tempRoot.appendingPathComponent("config.toml")
+        try Data("OPENAI_API_KEY = \"sk-config\"\n".utf8).write(to: configURL, options: .atomic)
+
+        var fakeKeychain = [
+            "epistemos.openai.apiKey": "sk-keychain",
+        ]
+
+        let report = StartupAutoDiscovery.perform(
+            environment: [
+                "OPENAI_API_KEY": "sk-env",
+                "PATH": "/usr/bin:/bin",
+            ],
+            fileManager: .default,
+            homeDirectoryURL: tempRoot,
+            localModelRootURL: tempRoot.appendingPathComponent("Models", isDirectory: true),
+            configFileURLs: [configURL],
+            readFile: { try? String(contentsOf: $0, encoding: .utf8) },
+            keychainLoad: { fakeKeychain[$0] },
+            keychainSave: { value, key in
+                fakeKeychain[key] = value
+                return true
+            }
+        )
+
+        let openAIStatus = try #require(
+            report.credentialStatuses.first(where: { $0.envVar == "OPENAI_API_KEY" })
+        )
+        #expect(openAIStatus.source == .environment)
+        #expect(fakeKeychain["epistemos.openai.apiKey"] == "sk-keychain")
+    }
+
+    @Test("Discovery imports config keys and reports optional tool and model availability")
+    func discoveryImportsConfigKeysAndReportsOptionalAvailability() throws {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let homeURL = tempRoot.appendingPathComponent("home", isDirectory: true)
+        let configDirectory = homeURL
+            .appendingPathComponent(".config", isDirectory: true)
+            .appendingPathComponent("epistemos", isDirectory: true)
+        let configURL = configDirectory.appendingPathComponent("config.toml")
+        let browserBinDirectory = homeURL.appendingPathComponent("bin", isDirectory: true)
+        let localModelRoot = tempRoot.appendingPathComponent("Models", isDirectory: true)
+        let localModelURL = localModelRoot
+            .appendingPathComponent("retriever", isDirectory: true)
+            .appendingPathComponent("prepared-index.mlx", isDirectory: true)
+        let huggingFaceModelURL = homeURL
+            .appendingPathComponent(".cache", isDirectory: true)
+            .appendingPathComponent("huggingface", isDirectory: true)
+            .appendingPathComponent("hub", isDirectory: true)
+            .appendingPathComponent("models--mlx-community--Qwen3.5-4B-4bit", isDirectory: true)
+
+        defer {
+            try? FileManager.default.removeItem(at: tempRoot)
+        }
+
+        try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: browserBinDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: localModelURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: huggingFaceModelURL, withIntermediateDirectories: true)
+
+        let configContents = """
+        [providers.google]
+        api_key = "gsk-config"
+
+        [tools.exa]
+        api_key = "exa-config"
+
+        [services.browserbase]
+        api_key = "bb-key"
+        project_id = "bb-project"
+        """
+        try Data(configContents.utf8).write(to: configURL, options: .atomic)
+
+        try makeExecutable(at: browserBinDirectory.appendingPathComponent("agent-browser"))
+
+        var fakeKeychain: [String: String] = [:]
+        let report = StartupAutoDiscovery.perform(
+            environment: [
+                "PATH": browserBinDirectory.path,
+            ],
+            fileManager: .default,
+            homeDirectoryURL: homeURL,
+            localModelRootURL: localModelRoot,
+            configFileURLs: [configURL],
+            readFile: { try? String(contentsOf: $0, encoding: .utf8) },
+            keychainLoad: { fakeKeychain[$0] },
+            keychainSave: { value, key in
+                fakeKeychain[key] = value
+                return true
+            }
+        )
+
+        let googleStatus = try #require(
+            report.credentialStatuses.first(where: { $0.envVar == "GOOGLE_API_KEY" })
+        )
+        let exaStatus = try #require(
+            report.credentialStatuses.first(where: { $0.envVar == "EXA_API_KEY" })
+        )
+        let browserbaseStatus = try #require(
+            report.credentialStatuses.first(where: { $0.envVar == "BROWSERBASE_PROJECT_ID" })
+        )
+
+        #expect(googleStatus.source == .configFile)
+        #expect(exaStatus.source == .configFile)
+        #expect(browserbaseStatus.source == .configFile)
+        #expect(fakeKeychain["epistemos.google.apiKey"] == "gsk-config")
+        #expect(fakeKeychain["epistemos.exa.apiKey"] == "exa-config")
+        #expect(fakeKeychain["epistemos.browserbase.apiKey"] == "bb-key")
+        #expect(fakeKeychain["epistemos.browserbase.projectID"] == "bb-project")
+        #expect(report.browserToolAvailable)
+        #expect(report.dotHermesCreated)
+        #expect(FileManager.default.fileExists(atPath: report.dotHermesURL.path))
+        #expect(report.localModelDirectories == [localModelURL.standardizedFileURL])
+        #expect(report.huggingFaceModelDirectories == [huggingFaceModelURL.standardizedFileURL])
+    }
+
+    @Test("Discovery report deduplicates repeated credential mappings")
+    func discoveryReportDeduplicatesRepeatedCredentialMappings() {
+        let report = StartupAutoDiscovery.perform(
+            environment: [
+                "PATH": "/usr/bin:/bin",
+            ],
+            fileManager: .default,
+            homeDirectoryURL: FileManager.default.temporaryDirectory,
+            localModelRootURL: FileManager.default.temporaryDirectory,
+            configFileURLs: [],
+            readFile: { _ in nil },
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true }
+        )
+
+        #expect(report.missingCredentialEnvVars.count == Set(report.missingCredentialEnvVars).count)
+        #expect(report.credentialStatuses.count == Set(report.credentialStatuses.map(\.envVar)).count)
+        #expect(report.missingCredentialEnvVars.filter { $0 == "BROWSERBASE_API_KEY" }.count == 1)
+        #expect(report.missingCredentialEnvVars.filter { $0 == "BROWSERBASE_PROJECT_ID" }.count == 1)
+    }
+
+    @Test("Bootstrap skips live auto-discovery when running under tests")
+    @MainActor func bootstrapSkipsLiveAutoDiscoveryUnderTests() {
+        var discoverCalled = false
+
+        let report = AppBootstrap.startupAutoDiscoveryReportForTesting(isRunningTests: true) {
+            discoverCalled = true
+            return StartupAutoDiscovery.perform(
+                environment: ["OPENAI_API_KEY": "sk-live"],
+                fileManager: .default,
+                homeDirectoryURL: FileManager.default.temporaryDirectory,
+                localModelRootURL: FileManager.default.temporaryDirectory,
+                configFileURLs: [],
+                readFile: { _ in nil },
+                keychainLoad: { _ in "sk-keychain" },
+                keychainSave: { _, _ in true }
+            )
+        }
+
+        #expect(!discoverCalled)
+        #expect(report.credentialStatuses.allSatisfy { $0.source == .missing })
+        #expect(!report.browserToolAvailable)
+        #expect(!report.dotHermesCreated)
+        #expect(report.localModelDirectories.isEmpty)
+        #expect(report.huggingFaceModelDirectories.isEmpty)
+    }
+
+    @Test("Bootstrap still performs auto-discovery outside tests")
+    @MainActor func bootstrapRunsAutoDiscoveryOutsideTests() {
+        let expected = StartupAutoDiscoveryReport(
+            credentialStatuses: [
+                .init(
+                    envVar: "OPENAI_API_KEY",
+                    keychainKey: "epistemos.openai.apiKey",
+                    source: .environment,
+                    origin: nil
+                ),
+            ],
+            browserToolAvailable: true,
+            dotHermesCreated: true,
+            dotHermesURL: URL(fileURLWithPath: "/tmp/.hermes", isDirectory: true),
+            localModelDirectories: [URL(fileURLWithPath: "/tmp/models", isDirectory: true)],
+            huggingFaceModelDirectories: []
+        )
+        var discoverCalled = false
+
+        let report = AppBootstrap.startupAutoDiscoveryReportForTesting(isRunningTests: false) {
+            discoverCalled = true
+            return expected
+        }
+
+        #expect(discoverCalled)
+        #expect(report == expected)
+    }
+
+    @Test("Auto-discovery helpers avoid silent filesystem and fallback search index failures")
+    func autoDiscoveryHelpersAvoidSilentFilesystemFailures() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Epistemos/App/AppBootstrap.swift"),
+            encoding: .utf8
+        )
+
+        #expect(!source.contains("try? fileManager.createDirectory(at: dotHermesURL, withIntermediateDirectories: true)"))
+        #expect(!source.contains("guard let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey]),"))
+        #expect(!source.contains("guard let contents = try? fileManager.contentsOfDirectory("))
+        #expect(!source.contains("vaultSync.searchService ?? (try? SearchIndexService())"))
+    }
+}
+
 private func makeHermesRuntime(at root: URL) throws {
     try FileManager.default.createDirectory(
         at: root,
@@ -262,6 +527,80 @@ private func makeHermesRuntime(at root: URL) throws {
         to: root.appendingPathComponent("epistemos_bridge.py"),
         options: .atomic
     )
+}
+
+private func makeExecutable(at url: URL) throws {
+    try Data("#!/bin/sh\nexit 0\n".utf8).write(to: url, options: .atomic)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755],
+        ofItemAtPath: url.path
+    )
+}
+
+private func makeHealthCheckRuntime(respondsToPing: Bool) throws -> (config: HermesConfig, rootURL: URL) {
+    let fm = FileManager.default
+    let rootURL = fm.temporaryDirectory
+        .appendingPathComponent("hermes-health-check-\(UUID().uuidString)", isDirectory: true)
+    let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+    let adapterDirectory = rootURL.appendingPathComponent("acp_adapter", isDirectory: true)
+    try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+    try fm.createDirectory(at: adapterDirectory, withIntermediateDirectories: true)
+
+    let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+    let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+    let adapterInitURL = adapterDirectory.appendingPathComponent("__init__.py")
+    let adapterSessionURL = adapterDirectory.appendingPathComponent("session.py")
+
+    let bridgeScript: String
+    if respondsToPing {
+        bridgeScript = """
+        #!/usr/bin/env python3
+        import json
+        import sys
+
+        if __name__ == "__main__":
+            for line in sys.stdin:
+                request = json.loads(line)
+                response = {
+                    "jsonrpc": "2.0",
+                    "result": {"ok": True},
+                    "id": request.get("id"),
+                }
+                print(json.dumps(response), flush=True)
+        """
+    } else {
+        bridgeScript = """
+        #!/usr/bin/env python3
+        import sys
+        import time
+
+        if __name__ == "__main__":
+            for _line in sys.stdin:
+                time.sleep(60)
+        """
+    }
+
+    try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+    try Data("# stub runtime\n".utf8).write(to: runAgentURL, options: .atomic)
+    try Data("".utf8).write(to: adapterInitURL, options: .atomic)
+    try Data("# stub session module\n".utf8).write(to: adapterSessionURL, options: .atomic)
+    try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+    try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+    let resolvedPython = HermesConfig.resolve().pythonPath
+    let pythonPath = fm.isExecutableFile(atPath: resolvedPython) ? resolvedPython : "/usr/bin/python3"
+    let config = HermesConfig(
+        pythonPath: pythonPath,
+        hermesAgentDir: rootURL,
+        model: "test",
+        maxTurns: 1,
+        environment: [
+            "HERMES_HOME": hermesHome.path,
+            "PYTHONUNBUFFERED": "1",
+        ]
+    )
+    return (config, rootURL)
 }
 
 // MARK: - HermesProcessState Tests
@@ -310,6 +649,7 @@ struct HermesHealthResultTests {
             pythonVersion: "Python 3.12.0",
             hermesAgentFound: true,
             hermesImportable: true,
+            bridgeResponsive: true,
             errorDetail: nil
         )
         #expect(result.isHealthy)
@@ -322,6 +662,7 @@ struct HermesHealthResultTests {
             pythonVersion: nil,
             hermesAgentFound: true,
             hermesImportable: false,
+            bridgeResponsive: false,
             errorDetail: "Python not found"
         )
         #expect(!result.isHealthy)
@@ -334,9 +675,50 @@ struct HermesHealthResultTests {
             pythonVersion: "Python 3.12.0",
             hermesAgentFound: false,
             hermesImportable: false,
+            bridgeResponsive: false,
             errorDetail: "hermes-agent not found"
         )
         #expect(!result.isHealthy)
+    }
+
+    @Test("Health check requires a live bridge round trip")
+    func healthCheckRequiresLiveBridgeRoundTrip() async throws {
+        let runtime = try makeHealthCheckRuntime(respondsToPing: false)
+        defer {
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let result = await HermesSubprocessManager.healthCheck(
+            config: runtime.config,
+            forceRefresh: true
+        )
+
+        #expect(result.pythonAvailable)
+        #expect(result.hermesAgentFound)
+        #expect(result.hermesImportable)
+        #expect(!result.bridgeResponsive)
+        #expect(!result.isHealthy)
+        #expect(result.errorDetail?.contains("bridge probe failed") == true)
+    }
+
+    @Test("Health check reports healthy when the bridge answers ping")
+    func healthCheckReportsHealthyWhenBridgeResponds() async throws {
+        let runtime = try makeHealthCheckRuntime(respondsToPing: true)
+        defer {
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let result = await HermesSubprocessManager.healthCheck(
+            config: runtime.config,
+            forceRefresh: true
+        )
+
+        #expect(result.pythonAvailable)
+        #expect(result.hermesAgentFound)
+        #expect(result.hermesImportable)
+        #expect(result.bridgeResponsive)
+        #expect(result.isHealthy)
+        #expect(result.errorDetail == nil)
     }
 }
 
@@ -446,6 +828,602 @@ struct HermesMCPClientTests {
             // Expected: hermesAgentNotFound
         }
     }
+
+    @Test("Cancelled send removes pending request")
+    @MainActor
+    func cancelledSendRemovesPendingRequest() async throws {
+        let runtime = try await makeIdleRuntime()
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let client = HermesMCPClient(
+            subprocessManager: runtime.manager,
+            defaultTimeout: .seconds(60)
+        )
+
+        let sendTask = Task {
+            try await client.send(method: "ping")
+        }
+
+        try await Task.sleep(for: .milliseconds(150))
+        sendTask.cancel()
+
+        do {
+            _ = try await sendTask.value
+            Issue.record("Expected send task to be cancelled")
+        } catch is CancellationError {
+            // Expected.
+        } catch {
+            Issue.record("Expected CancellationError, got \(error.localizedDescription)")
+        }
+
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(client.pendingRequestCountForTesting == 0)
+    }
+
+    @Test("Pending requests fail immediately when Hermes disconnects")
+    @MainActor
+    func disconnectCancelsPendingRequest() async throws {
+        let runtime = try await makeIdleRuntime()
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let client = HermesMCPClient(
+            subprocessManager: runtime.manager,
+            defaultTimeout: .seconds(60)
+        )
+        client.attach()
+
+        let sendTask = Task {
+            try await client.send(method: "ping")
+        }
+
+        try await Task.sleep(for: .milliseconds(150))
+        runtime.manager.terminate()
+
+        do {
+            _ = try await withThrowingTaskGroup(of: AnyCodableValue.self) { group in
+                group.addTask { try await sendTask.value }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(2))
+                    throw TimeoutError(seconds: 2)
+                }
+                let result = try await group.next()
+                group.cancelAll()
+                return try #require(result)
+            }
+            Issue.record("Expected disconnect to fail the pending request")
+        } catch let error as HermesMCPError {
+            if case .notConnected = error {
+                // Expected.
+            } else {
+                Issue.record("Expected notConnected, got \(error.localizedDescription)")
+            }
+        } catch {
+            Issue.record("Expected HermesMCPError.notConnected, got \(error.localizedDescription)")
+        }
+
+        #expect(client.pendingRequestCountForTesting == 0)
+    }
+
+    @Test("Request handler registered after launch still receives stdout lines")
+    @MainActor
+    func requestHandlerRegisteredAfterLaunchReceivesStdout() async throws {
+        let runtime = try await makeEchoRuntime()
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let receivedTask = Task<String, Never> {
+            await withCheckedContinuation { continuation in
+                runtime.manager.setRequestHandler { line in
+                    continuation.resume(returning: line)
+                }
+            }
+        }
+
+        try runtime.manager.writeLine("{\"type\":\"ping\"}")
+
+        let received = try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask { await receivedTask.value }
+            group.addTask {
+                try await Task.sleep(for: .seconds(2))
+                throw TimeoutError(seconds: 2)
+            }
+            let line = try await group.next()
+            group.cancelAll()
+            return try #require(line)
+        }
+
+        #expect(received.contains("\"bridge_event\""))
+        #expect(received.contains("\"value\":\"ok\""))
+    }
+
+    @Test("Fast Hermes crashes preserve the last stderr line for diagnostics")
+    @MainActor
+    func fastCrashPreservesLastStderrLine() async throws {
+        let marker = "hermes-crash-marker"
+        let runtime = try await makeCrashRuntime(stderrLine: marker)
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        for _ in 0..<100 {
+            if case .crashed(let exitCode, let lastStderr) = runtime.manager.processState {
+                #expect(exitCode == 7)
+                #expect(lastStderr.contains(marker))
+                return
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        Issue.record("Timed out waiting for Hermes to crash")
+    }
+
+    @Test("Terminate keeps relaunch blocked until Hermes actually exits")
+    @MainActor
+    func terminateKeepsRelaunchBlockedUntilExit() async throws {
+        let runtime = try await makeSlowTerminateRuntime(graceDelaySeconds: 1.0)
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        runtime.manager.terminate()
+
+        do {
+            try await runtime.manager.launch()
+            Issue.record("Expected relaunch to stay blocked while Hermes is still terminating")
+        } catch let error as HermesSubprocessError {
+            if case .alreadyRunning = error {
+                // Expected.
+            } else {
+                Issue.record("Expected alreadyRunning, got \(error.localizedDescription)")
+            }
+        } catch {
+            Issue.record("Expected HermesSubprocessError.alreadyRunning, got \(error.localizedDescription)")
+        }
+
+        for _ in 0..<150 {
+            if case .stopped = runtime.manager.processState {
+                #expect(runtime.manager.pid == nil)
+                return
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        Issue.record("Timed out waiting for Hermes to finish terminating")
+    }
+
+    @Test("Restart waits for graceful Hermes shutdown before relaunching")
+    @MainActor
+    func restartWaitsForGracefulShutdown() async throws {
+        let runtime = try await makeSlowTerminateRuntime(graceDelaySeconds: 1.0)
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        let originalPid = try #require(runtime.manager.pid)
+        try await runtime.manager.restart()
+        let restartedPid = try #require(runtime.manager.pid)
+
+        #expect(runtime.manager.isRunning)
+        #expect(restartedPid != originalPid)
+    }
+
+    @Test("Terminate cleans up Hermes descendant processes")
+    @MainActor
+    func terminateCleansUpHermesDescendants() async throws {
+        let runtime = try await makeTreeTerminateRuntime()
+        defer {
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        #expect(kill(runtime.childPID, 0) == 0)
+
+        runtime.manager.terminate()
+
+        for _ in 0..<75 {
+            if kill(runtime.childPID, 0) != 0 {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        #expect(kill(runtime.childPID, 0) != 0)
+    }
+
+    @Test("Watchdog terminates Hermes when ping responses stop")
+    @MainActor
+    func watchdogTerminatesHungHermes() async throws {
+        let runtime = try await makeIdleRuntime()
+        defer {
+            runtime.manager.stopWatchdog()
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        runtime.manager.startWatchdog(interval: .milliseconds(100), timeout: .milliseconds(200))
+
+        for _ in 0..<150 {
+            if case .stopped = runtime.manager.processState {
+                #expect(runtime.manager.pid == nil)
+                return
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        Issue.record("Timed out waiting for watchdog to terminate hung Hermes")
+    }
+
+    @Test("Watchdog keeps Hermes alive when ping responses arrive")
+    @MainActor
+    func watchdogKeepsResponsiveHermesAlive() async throws {
+        let runtime = try await makePingRuntime()
+        defer {
+            runtime.manager.stopWatchdog()
+            runtime.manager.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        runtime.manager.startWatchdog(interval: .milliseconds(100), timeout: .milliseconds(200))
+        try await Task.sleep(for: .milliseconds(700))
+
+        #expect(runtime.manager.isRunning)
+        #expect(runtime.manager.pid != nil)
+    }
+
+    @MainActor
+    private func makeIdleRuntime() async throws -> (manager: HermesSubprocessManager, rootURL: URL) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("hermes-mcp-client-tests-\(UUID().uuidString)", isDirectory: true)
+        let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+
+        let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+        let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+        let bridgeScript = """
+        #!/usr/bin/env python3
+        import sys
+        import time
+
+        if __name__ == "__main__":
+            for _line in sys.stdin:
+                time.sleep(60)
+        """
+        let runAgentStub = """
+        #!/usr/bin/env python3
+        print("stub")
+        """
+
+        try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+        try Data(runAgentStub.utf8).write(to: runAgentURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+        let pythonPath = fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath
+        let config = HermesConfig(
+            pythonPath: pythonPath,
+            hermesAgentDir: rootURL,
+            model: "test",
+            maxTurns: 1,
+            environment: [
+                "HERMES_HOME": hermesHome.path,
+                "PYTHONUNBUFFERED": "1",
+            ]
+        )
+        let manager = HermesSubprocessManager(config: config)
+        try await manager.launch()
+        return (manager, rootURL)
+    }
+
+    @MainActor
+    private func makeEchoRuntime() async throws -> (manager: HermesSubprocessManager, rootURL: URL) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("hermes-mcp-handler-tests-\(UUID().uuidString)", isDirectory: true)
+        let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+
+        let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+        let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+        let bridgeScript = """
+        #!/usr/bin/env python3
+        import sys
+
+        if __name__ == "__main__":
+            for _line in sys.stdin:
+                print('{"type":"bridge_event","value":"ok"}', flush=True)
+        """
+        let runAgentStub = """
+        #!/usr/bin/env python3
+        print("stub")
+        """
+
+        try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+        try Data(runAgentStub.utf8).write(to: runAgentURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+        let pythonPath = fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath
+        let config = HermesConfig(
+            pythonPath: pythonPath,
+            hermesAgentDir: rootURL,
+            model: "test",
+            maxTurns: 1,
+            environment: [
+                "HERMES_HOME": hermesHome.path,
+                "PYTHONUNBUFFERED": "1",
+            ]
+        )
+        let manager = HermesSubprocessManager(config: config)
+        try await manager.launch()
+        return (manager, rootURL)
+    }
+
+    @MainActor
+    private func makeCrashRuntime(stderrLine: String) async throws -> (manager: HermesSubprocessManager, rootURL: URL) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("hermes-mcp-crash-tests-\(UUID().uuidString)", isDirectory: true)
+        let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+
+        let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+        let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+        let bridgeScript = """
+        #!/usr/bin/env python3
+        import sys
+
+        if __name__ == "__main__":
+            print(\(String(reflecting: stderrLine)), file=sys.stderr, flush=True)
+            raise SystemExit(7)
+        """
+        let runAgentStub = """
+        #!/usr/bin/env python3
+        print("stub")
+        """
+
+        try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+        try Data(runAgentStub.utf8).write(to: runAgentURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+        let pythonPath = fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath
+        let config = HermesConfig(
+            pythonPath: pythonPath,
+            hermesAgentDir: rootURL,
+            model: "test",
+            maxTurns: 1,
+            environment: [
+                "HERMES_HOME": hermesHome.path,
+                "PYTHONUNBUFFERED": "1",
+            ]
+        )
+        let manager = HermesSubprocessManager(config: config)
+        try await manager.launch()
+        return (manager, rootURL)
+    }
+
+    @MainActor
+    private func makeSlowTerminateRuntime(graceDelaySeconds: Double) async throws -> (manager: HermesSubprocessManager, rootURL: URL) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("hermes-mcp-slow-terminate-tests-\(UUID().uuidString)", isDirectory: true)
+        let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+
+        let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+        let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+        let bridgeScript = """
+        #!/usr/bin/env python3
+        import signal
+        import sys
+        import time
+
+        def handle_term(_signum, _frame):
+            time.sleep(\(graceDelaySeconds))
+            raise SystemExit(0)
+
+        signal.signal(signal.SIGTERM, handle_term)
+
+        if __name__ == "__main__":
+            while True:
+                time.sleep(0.1)
+        """
+        let runAgentStub = """
+        #!/usr/bin/env python3
+        print("stub")
+        """
+
+        try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+        try Data(runAgentStub.utf8).write(to: runAgentURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+        let pythonPath = fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath
+        let config = HermesConfig(
+            pythonPath: pythonPath,
+            hermesAgentDir: rootURL,
+            model: "test",
+            maxTurns: 1,
+            environment: [
+                "HERMES_HOME": hermesHome.path,
+                "PYTHONUNBUFFERED": "1",
+            ]
+        )
+        let manager = HermesSubprocessManager(config: config)
+        try await manager.launch()
+        return (manager, rootURL)
+    }
+
+    @MainActor
+    private func makePingRuntime() async throws -> (manager: HermesSubprocessManager, rootURL: URL) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("hermes-mcp-ping-tests-\(UUID().uuidString)", isDirectory: true)
+        let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+
+        let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+        let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+        let bridgeScript = """
+        #!/usr/bin/env python3
+        import json
+        import sys
+
+        if __name__ == "__main__":
+            for line in sys.stdin:
+                request = json.loads(line)
+                response = {
+                    "jsonrpc": "2.0",
+                    "result": {"ok": True},
+                    "id": request.get("id"),
+                }
+                print(json.dumps(response), flush=True)
+        """
+        let runAgentStub = """
+        #!/usr/bin/env python3
+        print("stub")
+        """
+
+        try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+        try Data(runAgentStub.utf8).write(to: runAgentURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+        let pythonPath = fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath
+        let config = HermesConfig(
+            pythonPath: pythonPath,
+            hermesAgentDir: rootURL,
+            model: "test",
+            maxTurns: 1,
+            environment: [
+                "HERMES_HOME": hermesHome.path,
+                "PYTHONUNBUFFERED": "1",
+            ]
+        )
+        let manager = HermesSubprocessManager(config: config)
+        try await manager.launch()
+        return (manager, rootURL)
+    }
+
+    @MainActor
+    private func makeTreeTerminateRuntime() async throws -> (
+        manager: HermesSubprocessManager,
+        childPID: pid_t,
+        rootURL: URL
+    ) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("hermes-mcp-tree-terminate-tests-\(UUID().uuidString)", isDirectory: true)
+        let hermesHome = rootURL.appendingPathComponent("home", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: hermesHome, withIntermediateDirectories: true)
+
+        let bridgeURL = rootURL.appendingPathComponent("epistemos_bridge.py")
+        let runAgentURL = rootURL.appendingPathComponent("run_agent.py")
+        let childPIDURL = rootURL.appendingPathComponent("child.pid")
+        let bridgeScript = """
+        #!/usr/bin/env python3
+        import json
+        import pathlib
+        import signal
+        import subprocess
+        import sys
+        import time
+
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+
+        if __name__ == "__main__":
+            for line in sys.stdin:
+                payload = json.loads(line)
+                pid_file = pathlib.Path(payload["pid_file"])
+                child = subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-c",
+                        "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)",
+                    ],
+                )
+                pid_file.write_text(str(child.pid), encoding="utf-8")
+                while True:
+                    time.sleep(0.1)
+        """
+        let runAgentStub = """
+        #!/usr/bin/env python3
+        print("stub")
+        """
+
+        try Data(bridgeScript.utf8).write(to: bridgeURL, options: .atomic)
+        try Data(runAgentStub.utf8).write(to: runAgentURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeURL.path)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: runAgentURL.path)
+
+        let pythonPath = fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath
+        let cleanup = OrphanSubprocessCleanup(
+            processInfoEnvironment: ["XCTestConfigurationFilePath": "1"]
+        )
+        let config = HermesConfig(
+            pythonPath: pythonPath,
+            hermesAgentDir: rootURL,
+            model: "test",
+            maxTurns: 1,
+            environment: [
+                "HERMES_HOME": hermesHome.path,
+                "PYTHONUNBUFFERED": "1",
+            ]
+        )
+        let manager = HermesSubprocessManager(
+            config: config,
+            orphanCleanupProvider: { cleanup }
+        )
+        try await manager.launch()
+        try manager.writeLine("{\"type\":\"bootstrap\",\"pid_file\":\(String(reflecting: childPIDURL.path))}")
+
+        let childPID = try await withThrowingTaskGroup(of: pid_t.self) { group in
+            group.addTask {
+                for _ in 0..<100 {
+                    if let text = try? String(contentsOf: childPIDURL, encoding: .utf8),
+                       let rawPID = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                        let pid = pid_t(rawPID)
+                        return pid
+                    }
+                    try await Task.sleep(for: .milliseconds(20))
+                }
+                throw TimeoutError(seconds: 2)
+            }
+            return try await group.next()!
+        }
+
+        return (manager, childPID, rootURL)
+    }
 }
 
 // MARK: - EpistemosMCPServer Tests
@@ -510,6 +1488,107 @@ struct HermesSubprocessErrorTests {
     }
 }
 
+@Suite("OrphanSubprocessCleanup")
+struct OrphanSubprocessCleanupTests {
+    @Test("cleanupAll terminates tracked descendant processes")
+    @MainActor
+    func cleanupAllTerminatesTrackedDescendants() async throws {
+        let runtime = try await makeProcessTreeRuntime()
+        let cleanup = OrphanSubprocessCleanup(
+            processInfoEnvironment: ["XCTestConfigurationFilePath": "1"]
+        )
+        defer {
+            cleanup.untrack(pid_t(runtime.process.processIdentifier))
+            runtime.process.terminate()
+            try? FileManager.default.removeItem(at: runtime.rootURL)
+        }
+
+        cleanup.track(runtime.process)
+        #expect(kill(runtime.childPID, 0) == 0)
+
+        cleanup.cleanupAll()
+
+        for _ in 0..<100 {
+            if kill(runtime.childPID, 0) != 0 {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        #expect(kill(runtime.childPID, 0) != 0)
+    }
+
+    @MainActor
+    private func makeProcessTreeRuntime() async throws -> (process: Process, childPID: pid_t, rootURL: URL) {
+        let fm = FileManager.default
+        let rootURL = fm.temporaryDirectory
+            .appendingPathComponent("orphan-cleanup-tests-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: rootURL, withIntermediateDirectories: true)
+
+        let pidFileURL = rootURL.appendingPathComponent("child.pid")
+        let scriptURL = rootURL.appendingPathComponent("spawn_tree.py")
+        let script = """
+        #!/usr/bin/env python3
+        import pathlib
+        import signal
+        import subprocess
+        import sys
+        import time
+
+        pid_file = pathlib.Path(sys.argv[1])
+        child = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)",
+            ],
+            start_new_session=True,
+        )
+        pid_file.write_text(str(child.pid), encoding="utf-8")
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        time.sleep(30)
+        """
+        try Data(script.utf8).write(to: scriptURL, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: fm.isExecutableFile(atPath: "/usr/bin/python3")
+            ? "/usr/bin/python3"
+            : HermesConfig.resolve().pythonPath)
+        process.arguments = [scriptURL.path, pidFileURL.path]
+        process.currentDirectoryURL = rootURL
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try process.run()
+
+        for _ in 0..<100 {
+            if let childPID = try? readChildPID(from: pidFileURL), childPID > 0 {
+                return (process, childPID, rootURL)
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        process.terminate()
+        throw NSError(
+            domain: "OrphanSubprocessCleanupTests",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for spawned child PID"]
+        )
+    }
+
+    private func readChildPID(from fileURL: URL) throws -> pid_t {
+        let raw = try String(contentsOf: fileURL, encoding: .utf8)
+        guard let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw NSError(
+                domain: "OrphanSubprocessCleanupTests",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid child PID contents"]
+            )
+        }
+        return pid
+    }
+}
+
 @Suite("Hermes Agent Sessions")
 struct HermesAgentSessionTests {
     @Test("Bridge session payload parses into a summary")
@@ -520,6 +1599,7 @@ struct HermesAgentSessionTests {
             "model": "gpt-4.1-mini",
             "history_len": 7,
             "is_active": true,
+            "available_tools": ["read_file", "terminal"],
             "title": "auth refactor",
             "preview": "Help me refactor the auth module please",
             "last_active": 123.0,
@@ -534,6 +1614,7 @@ struct HermesAgentSessionTests {
         #expect(summary.model == "gpt-4.1-mini")
         #expect(summary.historyCount == 7)
         #expect(summary.isActive)
+        #expect(summary.availableTools == ["read_file", "terminal"])
         #expect(summary.title == "auth refactor")
         #expect(summary.preview == "Help me refactor the auth module please")
         #expect(summary.lastActive?.timeIntervalSince1970 == 123.0)
@@ -564,11 +1645,11 @@ struct HermesAgentSessionTests {
         let blocks = RenderedBlock.sessionHistory(messages)
 
         #expect(blocks.count == 4)
-        #expect(blocks[0] == .userPrompt("hello"))
-        #expect(blocks[1] == .thinking(text: "Restore the saved context first.", tokenCount: 8))
-        #expect(blocks[2] == .text("hi there"))
+        #expect(blocks[0].kind == .userPrompt("hello"))
+        #expect(blocks[1].kind == .thinking(text: "Restore the saved context first.", tokenCount: 8))
+        #expect(blocks[2].kind == .text("hi there"))
         #expect(
-            blocks[3] == .toolExecution(
+            blocks[3].kind == .toolExecution(
                 name: "search_files",
                 input: "",
                 result: "Found 3 matches",

@@ -127,7 +127,7 @@ private struct LaunchIntegrityGateView<Content: View>: View {
 // Using @unchecked Sendable because NSObject subclass with internal
 // synchronization via serial file ops.
 final class CrashReportCollector: NSObject, @unchecked Sendable, MXMetricManagerSubscriber {
-    nonisolated(unsafe) static let shared = CrashReportCollector()
+    static let shared = CrashReportCollector()
 
     private let log = Logger(subsystem: "com.epistemos", category: "CrashReportCollector")
     private let maxRetainedReports = 100
@@ -199,14 +199,7 @@ final class CrashReportCollector: NSObject, @unchecked Sendable, MXMetricManager
     }
 
     private nonisolated func reportsDirectory() throws -> URL {
-        guard let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
-            throw CocoaError(.fileNoSuchFile)
-        }
-
-        let directory = appSupport
+        let directory = FoundationSafety.userApplicationSupportDirectory()
             .appendingPathComponent("Epistemos", isDirectory: true)
             .appendingPathComponent("crash_reports", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -218,6 +211,42 @@ final class CrashReportCollector: NSObject, @unchecked Sendable, MXMetricManager
 final class RuntimeIssueMonitor {
     static let shared = RuntimeIssueMonitor()
 
+    enum MemoryPressureLevel: String, Sendable {
+        case warning
+        case critical
+    }
+
+    enum MemoryPressureTransition: Sendable, Equatable {
+        case entered(MemoryPressureLevel)
+        case recovered(from: MemoryPressureLevel)
+    }
+
+    struct MemoryPressureTracker: Sendable {
+        private(set) var activeLevel: MemoryPressureLevel?
+
+        mutating func transition(
+            for event: DispatchSource.MemoryPressureEvent
+        ) -> MemoryPressureTransition? {
+            if event.contains(.critical) {
+                return enter(.critical)
+            }
+            if event.contains(.warning) {
+                return enter(.warning)
+            }
+            if event.contains(.normal), let activeLevel {
+                self.activeLevel = nil
+                return .recovered(from: activeLevel)
+            }
+            return nil
+        }
+
+        private mutating func enter(_ level: MemoryPressureLevel) -> MemoryPressureTransition? {
+            guard activeLevel != level else { return nil }
+            activeLevel = level
+            return .entered(level)
+        }
+    }
+
     private struct ObserverToken {
         let center: NotificationCenter
         let token: NSObjectProtocol
@@ -225,6 +254,7 @@ final class RuntimeIssueMonitor {
 
     private var observerTokens: [ObserverToken] = []
     private var memoryPressureSource: DispatchSourceMemoryPressure?
+    private var memoryPressureTracker = MemoryPressureTracker()
     private var started = false
 
     private init() {}
@@ -263,6 +293,7 @@ final class RuntimeIssueMonitor {
 
         memoryPressureSource?.cancel()
         memoryPressureSource = nil
+        memoryPressureTracker = MemoryPressureTracker()
 
         recordLifecycle("monitor_stopped", metadata: ["reason": reason])
         RuntimeDiagnostics.recordSessionEnd(
@@ -329,33 +360,35 @@ final class RuntimeIssueMonitor {
     }
 
     private func recordMemoryPressure(_ event: DispatchSource.MemoryPressureEvent) {
-        var metadata = currentEnvironmentMetadata()
+        guard let transition = memoryPressureTracker.transition(for: event) else { return }
 
-        if event.contains(.critical) {
-            metadata["level"] = "critical"
+        var metadata = currentEnvironmentMetadata()
+        metadata["pressureSource"] = "dispatch_source"
+        metadata["memoryScope"] = "process_resident"
+        let residentMB = currentMemoryUsageMB()
+        metadata["residentMB"] = String(residentMB)
+
+        switch transition {
+        case .entered(let level):
+            metadata["level"] = level.rawValue
             RuntimeDiagnostics.record(
-                .fault,
-                category: "Diagnostics",
-                message: "memory_pressure",
-                metadata: metadata
-            )
-            // Concrete action: log the hang-level diagnostic event
-            StructuredDiagnosticLogger().log(
-                .memoryPressure(level: "critical", usedMB: currentMemoryUsageMB())
-            )
-        } else if event.contains(.warning) {
-            metadata["level"] = "warning"
-            RuntimeDiagnostics.record(
-                .warning,
+                level == .critical ? .fault : .warning,
                 category: "Diagnostics",
                 message: "memory_pressure",
                 metadata: metadata
             )
             StructuredDiagnosticLogger().log(
-                .memoryPressure(level: "warning", usedMB: currentMemoryUsageMB())
+                .memoryPressure(
+                    level: level.rawValue,
+                    usedMB: residentMB,
+                    pressureSource: "dispatch_source",
+                    memoryScope: "process_resident",
+                    isAppActive: NSApp.isActive
+                )
             )
-        } else if event.contains(.normal) {
+        case .recovered(let previousLevel):
             metadata["level"] = "normal"
+            metadata["recoveredFrom"] = previousLevel.rawValue
             recordLifecycle("memory_pressure_recovered", metadata: metadata)
         }
     }
@@ -649,6 +682,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         RuntimeIssueMonitor.shared.stop(reason: "application_teardown")
         guard let bootstrap = AppBootstrap.shared else { return }
         bootstrap.activityTracker.stopTracking()
+        bootstrap.activityTracker.flushToDisk()
         bootstrap.workspaceSummaryService.stopAutoSummaryLoop()
         bootstrap.workspaceService.stopAutoSave()
         bootstrap.workspaceService.autoSave()

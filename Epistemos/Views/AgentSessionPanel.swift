@@ -1111,17 +1111,12 @@ private struct ErrorBanner: View {
 private struct PulsingDot: View {
     let tint: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isAnimating = false
 
     var body: some View {
         Circle()
             .fill(tint)
             .frame(width: 7, height: 7)
-            .opacity(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.4))
-            .animation(
-                reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
-                value: isAnimating
-            )
-            .onAppear { isAnimating = true }
+            .opacity(reduceMotion ? 1.0 : 0.96)
+            .breathe(amplitude: 0.08, period: 1.6)
     }
 }

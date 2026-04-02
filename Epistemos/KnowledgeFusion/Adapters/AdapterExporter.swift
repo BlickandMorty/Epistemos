@@ -142,7 +142,7 @@ nonisolated struct AdapterExporter: Sendable {
     }
 
     private func createZip(from sourceDir: URL, to destination: URL) throws {
-        let process = Process()
+        let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-c", "-k", "--sequesterRsrc", sourceDir.path, destination.path]
 
@@ -155,7 +155,7 @@ nonisolated struct AdapterExporter: Sendable {
     }
 
     private func extractZip(from zipPath: URL, to destination: URL) throws {
-        let process = Process()
+        let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-x", "-k", zipPath.path, destination.path]
 

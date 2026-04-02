@@ -66,18 +66,8 @@ final class EmbodiedCaptureService {
         let filename = "\(label)_\(Int(Date().timeIntervalSince1970 * 1000)).png"
         let path = screenshotsDirectory.appendingPathComponent(filename)
 
-        // Use macOS screencapture for the main display
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        process.arguments = ["-x", "-C", path.path]
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            return process.terminationStatus == 0 ? path.path : nil
-        } catch {
-            return nil
-        }
+        let succeeded = await captureScreenshotOffMain(at: path)
+        return succeeded ? path.path : nil
     }
 
     // MARK: - Full Snapshot (AX + Screenshot)
@@ -153,9 +143,12 @@ final class EmbodiedCaptureService {
         let outputPath = outputDirectory.appendingPathComponent("embodied_trajectories.jsonl")
 
         if FileManager.default.fileExists(atPath: outputPath.path) {
+            guard let lineData = line.data(using: .utf8) else {
+                throw CocoaError(.fileWriteInapplicableStringEncoding)
+            }
             let handle = try FileHandle(forWritingTo: outputPath)
             handle.seekToEndOfFile()
-            handle.write(line.data(using: .utf8)!)
+            handle.write(lineData)
             handle.closeFile()
         } else {
             try line.write(to: outputPath, atomically: true, encoding: .utf8)
@@ -211,6 +204,22 @@ final class EmbodiedCaptureService {
         let title = element["title"] as? String ?? ""
         let desc = element["description"] as? String ?? ""
         return "\(role)|\(title)|\(desc)"
+    }
+
+    private nonisolated func captureScreenshotOffMain(at path: URL) async -> Bool {
+        await Task.detached(priority: .utility) {
+            let process = Process.init()
+            process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            process.arguments = ["-x", "-C", path.path]
+
+            do {
+                try process.run()
+                process.waitUntilExit()
+                return process.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }.value
     }
 }
 

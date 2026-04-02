@@ -596,10 +596,7 @@ struct NotesSidebar: View {
             // Deferred rebuild: VaultIndexActor may still be wiring folder relationships
             // when the sidebar first appears. Rebuild again after context merge settles.
             // 200ms is enough for SwiftData background→main context merge.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(200))
-                rebuildCache()
-            }
+            scheduleDeferredRebuild(after: .milliseconds(200), source: "sidebar appear")
         }
         .onChange(of: allPages.count) { setNeedsRebuild() }
         .onChange(of: allFolders.count) { setNeedsRebuild() }
@@ -608,10 +605,7 @@ struct NotesSidebar: View {
             // Delay to allow SwiftData's background-to-main context merge to complete.
             // The notification fires from VaultIndexActor (background ModelActor) — the main
             // context @Query results may not have updated yet when the notification arrives.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(200))
-                rebuildCache()
-            }
+            scheduleDeferredRebuild(after: .milliseconds(200), source: "vault folder repair")
         }
         .alert(pageDeleteAlertTitle, isPresented: showPageDeleteAlert) {
             Button("Delete", role: .destructive) { performPageDelete() }
@@ -1060,21 +1054,63 @@ struct NotesSidebar: View {
 
     // MARK: - SwiftData Helpers
 
+    private func scheduleDeferredRebuild(after delay: Duration, source: String) {
+        Task { @MainActor in
+            do {
+                try await Task.sleep(for: delay)
+            } catch is CancellationError {
+                return
+            } catch {
+                Log.notes.error(
+                    "NotesSidebar: deferred rebuild delay failed for \(source, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
+            rebuildCache()
+        }
+    }
+
     private func fetchPage(_ id: String) -> SDPage? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            Log.notes.error(
+                "NotesSidebar: failed to fetch page \(String(id.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
     }
 
     private func fetchFolder(_ id: String) -> SDFolder? {
         let descriptor = FetchDescriptor<SDFolder>(predicate: #Predicate { $0.id == id })
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            Log.notes.error(
+                "NotesSidebar: failed to fetch folder \(String(id.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
     }
 
-    private func saveSidebarChanges(rebuild: Bool = true) {
-        try? modelContext.save()
+    @discardableResult
+    private func saveSidebarChanges(rebuild: Bool = true, reason: String = "sidebar changes") -> Bool {
+        do {
+            try modelContext.save()
+        } catch {
+            Log.notes.error(
+                "NotesSidebar: failed to save \(reason, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            if rebuild {
+                setNeedsRebuild()
+            }
+            return false
+        }
         if rebuild {
             setNeedsRebuild()
         }
+        return true
     }
 
     private func applyDeletePlan(_ plan: NotesSidebarDeletePlan) {
@@ -1181,7 +1217,7 @@ struct NotesSidebar: View {
                 page.title = sanitized
                 page.updatedAt = .now
                 page.needsVaultSync = true
-                try? modelContext.save()
+                _ = saveSidebarChanges(rebuild: false, reason: "page rename")
                 // Rename the vault .md file to match the new title
                 vaultSync.renamePageFile(pageId: id, newTitle: sanitized)
                 setNeedsRebuild()
@@ -1373,8 +1409,14 @@ struct NotesSidebar: View {
         let pageId = page.id
         let insightDesc = FetchDescriptor<SDNoteInsight>(
             predicate: #Predicate { $0.pageId == pageId })
-        if let insight = try? modelContext.fetch(insightDesc).first {
-            modelContext.delete(insight)
+        do {
+            if let insight = try modelContext.fetch(insightDesc).first {
+                modelContext.delete(insight)
+            }
+        } catch {
+            Log.notes.error(
+                "NotesSidebar: failed to fetch note insight for deleted page \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
         modelContext.delete(page)
     }

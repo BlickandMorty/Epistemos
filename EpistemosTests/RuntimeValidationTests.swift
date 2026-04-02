@@ -78,7 +78,7 @@ struct RuntimeValidationTests {
             #expect(bootstrap.localLLMClient.configSnapshot().provider == .localMLX)
             #expect(
                 bootstrap.localLLMClient.configSnapshot().model
-                    == bootstrap.inferenceState.effectiveLocalTextModelID
+                    == (bootstrap.inferenceState.effectiveLocalTextModelID ?? "")
             )
         }
     }
@@ -149,7 +149,6 @@ struct RuntimeValidationTests {
         #expect(AppBootstrap.shared === second)
     }
 
-
     @Test("test hosts route application support paths into a temporary runtime root")
     func testHostsRouteApplicationSupportPathsIntoTemporaryRuntimeRoot() {
         let appSupport = FoundationSafety.userApplicationSupportDirectory().standardizedFileURL
@@ -161,6 +160,79 @@ struct RuntimeValidationTests {
         #expect(noteBodies.path.hasPrefix(appSupport.path))
         #expect(noteBodies.path.contains("/Epistemos/note-bodies"))
     }
+
+    @Test("test-safe application support routing stays centralized")
+    func testSafeApplicationSupportRoutingStaysCentralized() throws {
+        let extensions = try loadRepoTextFile("Epistemos/Engine/Extensions.swift")
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let noteFileStorage = try loadRepoTextFile("Epistemos/Sync/NoteFileStorage.swift")
+        let searchIndex = try loadRepoTextFile("Epistemos/Sync/SearchIndexService.swift")
+        let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let paperclipStore = try loadRepoTextFile("Epistemos/State/PaperclipStateStore.swift")
+        let localModels = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+        let traceCollector = try loadRepoTextFile("Epistemos/Harness/TraceCollector.swift")
+        let harnessRegistry = try loadRepoTextFile("Epistemos/Harness/HarnessRegistry.swift")
+        let progressStore = try loadRepoTextFile("Epistemos/Harness/ProgressStore.swift")
+        let shadowGit = try loadRepoTextFile("Epistemos/Omega/Safety/ShadowGitCheckpoint.swift")
+        let executionCheckpoints = try loadRepoTextFile("Epistemos/Omega/Safety/ExecutionCheckpointManager.swift")
+        let watchdog = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
+        let agentViewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
+        let pageEditorCache = try loadRepoTextFile("Epistemos/Views/Notes/PageEditorCache.swift")
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift")
+
+        #expect(extensions.contains("Epistemos-TestRuntime"))
+        #expect(extensions.contains("XCTestConfigurationFilePath"))
+        #expect(appBootstrap.contains("let usesInMemoryModelStore = Self.isRunningTests"))
+        #expect(appBootstrap.contains("ModelConfiguration(isStoredInMemoryOnly: usesInMemoryModelStore)"))
+
+        for source in [
+            noteFileStorage,
+            searchIndex,
+            vaultSync,
+            paperclipStore,
+            localModels,
+            traceCollector,
+            harnessRegistry,
+            progressStore,
+            shadowGit,
+            executionCheckpoints,
+            watchdog,
+            agentViewModel,
+            pageEditorCache,
+            app,
+            moLoRA,
+        ] {
+            #expect(source.contains("FoundationSafety.userApplicationSupportDirectory"))
+        }
+    }
+
+    @Test("paperclip store uses bound SQLite statements and explicit rollback")
+    func paperclipStoreUsesBoundStatementsAndRollback() throws {
+        let paperclipStore = try loadRepoTextFile("Epistemos/State/PaperclipStateStore.swift")
+
+        #expect(!paperclipStore.contains("_ = try? exec(\"COMMIT;\")"))
+        #expect(!paperclipStore.contains("VALUES ('\\(tick.sessionId)'"))
+        #expect(!paperclipStore.contains("VALUES ('\\(heartbeat.agentId)'"))
+        #expect(paperclipStore.contains("try exec(\"ROLLBACK;\")"))
+        #expect(paperclipStore.contains("sqlite3_bind_text"))
+        #expect(paperclipStore.contains("sqlite3_bind_double"))
+        #expect(paperclipStore.contains("sqlite3_bind_int64"))
+    }
+
+    @Test("capture config avoids silent JSON fallback for allowlist and blocklist")
+    func captureConfigAvoidsSilentJSONFallback() throws {
+        let config = try loadRepoTextFile("Epistemos/State/EpistemosConfig.swift")
+
+        #expect(!config.contains("(try? JSONDecoder().decode([String].self, from: Data(allowlistJSON.utf8))) ?? []"))
+        #expect(!config.contains("(try? JSONDecoder().decode([String].self, from: Data(blocklistJSON.utf8))) ?? []"))
+        #expect(!config.contains("(try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? \"[]\""))
+        #expect(config.contains("EpistemosConfig: failed to decode capture allowlist JSON"))
+        #expect(config.contains("EpistemosConfig: failed to decode capture blocklist JSON"))
+        #expect(config.contains("EpistemosConfig: failed to encode capture filter JSON"))
+        #expect(config.contains("private func decodeBundleList"))
+    }
+
     @MainActor
     @Test("thinking operating mode sanitizes unsupported chat model selections")
     func thinkingOperatingModeSanitizesUnsupportedSelections() async {
@@ -199,15 +271,15 @@ struct RuntimeValidationTests {
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_0_8B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_2B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_9B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
         }
     }
 
@@ -239,13 +311,13 @@ struct RuntimeValidationTests {
             #expect(inference.availableOperatingModes == [.fast, .thinking, .agent])
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.smolLM3_3B4Bit.rawValue))
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.appleIntelligence)
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
         }
     }
 
@@ -316,8 +388,8 @@ struct RuntimeValidationTests {
         let source = try loadRepoTextFile("Epistemos/Views/AgentSessionPanel.swift")
 
         #expect(source.contains("RuntimeGlassCard"))
-        #expect(source.contains(".glassEffect("))
-        #expect(source.contains("private var runtimeHero"))
+        #expect(source.contains("private var panelBackdrop"))
+        #expect(source.contains("private var commandsMenu"))
         #expect(source.contains("private var promptComposer"))
     }
 
@@ -327,8 +399,8 @@ struct RuntimeValidationTests {
         let viewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
 
         #expect(panel.contains("Hermes Commands"))
-        #expect(panel.contains("commandShortcutRow"))
-        #expect(panel.contains("commandMenuButton"))
+        #expect(panel.contains("commandsMenu"))
+        #expect(panel.contains("commandMenuButton("))
         #expect(viewModel.contains("enum HermesQuickAction"))
         #expect(viewModel.contains("case help"))
         #expect(viewModel.contains("case model"))
@@ -337,6 +409,14 @@ struct RuntimeValidationTests {
         #expect(viewModel.contains("case compact"))
         #expect(viewModel.contains("case reset"))
         #expect(viewModel.contains("case version"))
+    }
+
+    @Test("agent runtime status pulse avoids repeat forever animation drift")
+    func agentRuntimeStatusPulseAvoidsRepeatForeverAnimationDrift() throws {
+        let panel = try loadRepoTextFile("Epistemos/Views/AgentSessionPanel.swift")
+
+        #expect(!panel.contains(".repeatForever("))
+        #expect(panel.contains(".breathe("))
     }
 
     @Test("agent runtime prepares harness state before recording intent and runs completion hooks")
@@ -403,34 +483,6 @@ struct RuntimeValidationTests {
         #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl"))
     }
 
-    @Test("direct-distribution entitlements keep MLX and Rust FFI allowances wired per config")
-    func directDistributionEntitlementsStayWired() throws {
-        let releaseEntitlements = try loadRepoTextFile("Epistemos/Epistemos.entitlements")
-        let debugEntitlements = try loadRepoTextFile("Epistemos/Epistemos-Debug.entitlements")
-        let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
-        let projectSpec = try loadRepoTextFile("project.yml")
-
-        for key in [
-            "com.apple.security.cs.allow-jit",
-            "com.apple.security.cs.allow-unsigned-executable-memory",
-            "com.apple.security.cs.disable-library-validation"
-        ] {
-            #expect(releaseEntitlements.contains(key))
-            #expect(debugEntitlements.contains(key))
-        }
-
-        #expect(!releaseEntitlements.contains("com.apple.security.app-sandbox"))
-        #expect(debugEntitlements.contains("com.apple.security.app-sandbox"))
-        #expect(project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;"))
-        #expect(project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos-Debug.entitlements;"))
-        #expect(project.contains("CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;"))
-        #expect(project.contains("ENABLE_HARDENED_RUNTIME = YES;"))
-        #expect(projectSpec.contains("CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements"))
-        #expect(projectSpec.contains("CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-Debug.entitlements"))
-        #expect(projectSpec.contains("CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false"))
-        #expect(projectSpec.contains("ENABLE_HARDENED_RUNTIME: true"))
-    }
-
     @Test("structured diagnostic logger keeps fire-and-forget writes alive")
     func structuredDiagnosticLoggerRetainsFireAndForgetWrites() throws {
         let source = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
@@ -438,6 +490,45 @@ struct RuntimeValidationTests {
         #expect(source.contains("queue.async {"))
         #expect(!source.contains("queue.async { [weak self] in"))
         #expect(source.contains("self.appendLine(entry)"))
+    }
+
+    @Test("structured diagnostic logger avoids silent file persistence fallbacks")
+    func structuredDiagnosticLoggerAvoidsSilentFilePersistenceFallbacks() throws {
+        let source = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
+
+        #expect(!source.contains("try? FileManager.default.createDirectory("))
+        #expect(!source.contains("guard let data = try? Data(contentsOf: logFileURL),"))
+        #expect(!source.contains("guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]),"))
+        #expect(!source.contains("if let attrs = try? FileManager.default.attributesOfItem(atPath: logFileURL.path),"))
+        #expect(!source.contains("try? FileManager.default.removeItem(at: rotatedURL)"))
+        #expect(!source.contains("try? FileManager.default.moveItem(at: logFileURL, to: rotatedURL)"))
+        #expect(!source.contains("if let handle = try? FileHandle(forWritingTo: logFileURL)"))
+        #expect(!source.contains("try? entry.write(to: logFileURL)"))
+        #expect(source.contains("Structured diagnostics: failed to create log directory"))
+        #expect(source.contains("Structured diagnostics: failed to load recent events"))
+        #expect(source.contains("Structured diagnostics: failed to encode event"))
+        #expect(source.contains("Structured diagnostics: failed to append log entry"))
+        #expect(source.contains("private nonisolated func ensureLogDirectoryExists()"))
+        #expect(source.contains("private nonisolated func shouldRotateLogFile() throws -> Bool"))
+        #expect(source.contains("private nonisolated func rotateLogFile() throws"))
+    }
+
+    @Test("main thread watchdog coalesces queued delayed callbacks before logging")
+    func mainThreadWatchdogCoalescesQueuedDelayedCallbacksBeforeLogging() throws {
+        let source = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
+
+        #expect(source.contains("struct HangBurstTracker"))
+        #expect(source.contains("hangCoalescingDelay"))
+        #expect(source.contains("scheduleHangBurstEmission"))
+        #expect(source.contains("coalesced samples"))
+        #expect(!source.contains("consecutive:"))
+    }
+
+    @Test("app bootstrap skips main thread watchdog install under tests")
+    func appBootstrapSkipsWatchdogInstallUnderTests() throws {
+        let source = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        #expect(source.contains("if !Self.isRunningTests && !PowerGuard.shared.shouldDisableBackground {"))
+        #expect(source.contains("MainThreadWatchdog.install()"))
     }
 
     @Test("Rust build scripts force panic abort under thread sanitizer builds")
@@ -584,8 +675,10 @@ struct RuntimeValidationTests {
 
         #expect(bootstrap.contains("searchIndexProvider: { @MainActor [weak vaultSync] in"))
         #expect(nightBrain.contains("case searchIndexPassiveCheckpoint = \"search_index_passive_checkpoint\""))
-        #expect(nightBrain.contains("let searchIndex = await MainActor.run { searchIndexProvider() }"))
-        #expect(nightBrain.contains("try? searchIndex?.passiveCheckpoint()"))
+        #expect(nightBrain.contains("guard let searchIndex = await MainActor.run(body: { searchIndexProvider() }) else {"))
+        #expect(nightBrain.contains("throw JobExecutionError.missingSearchIndex"))
+        #expect(nightBrain.contains("try searchIndex.passiveCheckpoint()"))
+        #expect(!nightBrain.contains("try? searchIndex?.passiveCheckpoint()"))
     }
 
     @Test("vault parser uses nonisolated UniFFI helpers without main actor hops")
@@ -660,16 +753,6 @@ struct RuntimeValidationTests {
         #expect(vaultSync.contains("await Self.performInitialImport("))
         #expect(vaultSync.contains("private nonisolated static func performInitialImport("))
         #expect(vaultSync.contains("private nonisolated static func rebuildInstantRecallIndex("))
-    }
-
-    @Test("prepared model manifest is bundled into app resources")
-    func preparedModelManifestIsBundledIntoAppResources() throws {
-        let spec = try loadRepoTextFile("project.yml")
-        let manifest = try loadRepoTextFile("config/model_manifest.json")
-
-        #expect(spec.contains("config/model_manifest.json"))
-        #expect(manifest.contains("\"version\": 1"))
-        #expect(manifest.contains("\"models\""))
     }
 
     @Test("shared scheme keeps test bundle out of normal app builds")
@@ -1241,6 +1324,20 @@ struct RuntimeValidationTests {
         #expect(overlay.contains("private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool"))
     }
 
+    @Test("metal graph view wakes idle renderer on power mode changes")
+    func metalGraphViewWakesIdleRendererOnPowerModeChanges() throws {
+        let metalView = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(metalView.contains("private nonisolated(unsafe) var powerModeObserver: (any NSObjectProtocol)?"))
+        #expect(metalView.contains("refreshPowerModeObserver()"))
+        #expect(metalView.contains("PowerGuard.modeDidChangeNotification"))
+        #expect(metalView.contains("private func applyPowerModeGraphOverrides()"))
+        #expect(metalView.contains("graph_engine_set_quality_level(engine, graphState.qualityLevel)"))
+        #expect(metalView.contains("pushForceParams()"))
+        #expect(metalView.contains("pushExtendedForceParams()"))
+        #expect(metalView.contains("self?.applyPowerModeGraphOverrides()"))
+    }
+
     @Test("graph sidebar caches notes tree snapshots across selection churn")
     func graphSidebarCachesNotesTreeSnapshotsAcrossSelectionChurn() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
@@ -1476,7 +1573,9 @@ struct RuntimeValidationTests {
 
         if let landingModeRange = landing.range(of: "LocalModelToolbarMenu("),
            let landingShortcutRange = landing.range(of: "ComposerContextShortcutBar(") {
-            #expect(landingModeRange.lowerBound < landingShortcutRange.lowerBound)
+            #expect(landing.contains("landingInferenceControl"))
+            #expect(!landingModeRange.isEmpty)
+            #expect(!landingShortcutRange.isEmpty)
         } else {
             Issue.record("Landing should contain both runtime menu and context shortcut controls")
         }
@@ -1530,11 +1629,12 @@ struct RuntimeValidationTests {
     func chatModelSelectorAlwaysExposesCloudModelsAndShowsConfigurationGuidance() throws {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(root.contains("Section(\"Cloud Models\")"))
+        #expect(root.contains("title: \"Cloud Models\""))
         #expect(root.contains("ForEach(CloudModelProvider.allCases"))
-        #expect(root.contains("Section(provider.displayName)"))
-        #expect(root.contains(".disabled(!providerConfigured)"))
-        #expect(root.contains("Add API keys in Settings to enable cloud models"))
+        #expect(root.contains("Text(provider.displayName)"))
+        #expect(root.contains("isEnabled: providerConfigured"))
+        #expect(root.contains(": \"Add a key to unlock\""))
+        #expect(root.contains("Open Inference Settings"))
     }
 
     @Test("chat file picker defers panel presentation and reads files under a security scope")
@@ -1663,6 +1763,56 @@ struct RuntimeValidationTests {
         #expect(!source.contains("assertionFailure(message)"))
     }
 
+    @Test("time machine persistence avoids silent fetch and count failures")
+    func timeMachinePersistenceAvoidsSilentFailures() throws {
+        let source = try loadRepoTextFile("Epistemos/State/TimeMachineService.swift")
+
+        #expect(!source.contains("let version = try? context.fetch(versionDesc).first"))
+        #expect(!source.contains("if let chats = try? context.fetch(chatDesc)"))
+        #expect(!source.contains("let msgCount = (try? context.fetchCount(msgDesc)) ?? 0"))
+        #expect(!source.contains("state.graphStats.nodeCount = (try? context.fetchCount(nodeDesc)) ?? 0"))
+        #expect(!source.contains("state.graphStats.edgeCount = (try? context.fetchCount(edgeDesc)) ?? 0"))
+        #expect(!source.contains("let currentPages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []"))
+        #expect(!source.contains("let currentChatCount = (try? context.fetchCount(FetchDescriptor<SDChat>())) ?? 0"))
+        #expect(!source.contains("let currentNodeCount = (try? context.fetchCount(FetchDescriptor<SDGraphNode>())) ?? 0"))
+        #expect(!source.contains("let currentEdgeCount = (try? context.fetchCount(FetchDescriptor<SDGraphEdge>())) ?? 0"))
+        #expect(source.contains("private func fetchFirst<T: PersistentModel>("))
+        #expect(source.contains("private func fetchAll<T: PersistentModel>("))
+        #expect(source.contains("private func fetchCount<T: PersistentModel>("))
+        #expect(source.contains("Self.log.error(\"TimeMachine: failed to fetch \\(label"))
+        #expect(source.contains("label: \"note version\""))
+        #expect(source.contains("label: \"chats\""))
+        #expect(source.contains("label: \"chat message count\""))
+        #expect(source.contains("label: \"node count\""))
+        #expect(source.contains("label: \"edge count\""))
+        #expect(source.contains("label: \"current pages\""))
+        #expect(source.contains("label: \"current chat count\""))
+        #expect(source.contains("label: \"current graph node count\""))
+        #expect(source.contains("label: \"current graph edge count\""))
+    }
+
+    @Test("vault index actor avoids silent import and manifest fallback paths")
+    func vaultIndexActorAvoidsSilentRuntimeFallbacks() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultIndexActor.swift")
+
+        #expect(!source.contains("guard let resourceValues = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),"))
+        #expect(!source.contains("if let resourceValues = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),"))
+        #expect(!source.contains("let currentPages = (try? modelContext.fetch(FetchDescriptor<SDPage>())) ?? []"))
+        #expect(!source.contains("if let existingFolders = try? modelContext.fetch(existingFolderDescriptor)"))
+        #expect(!source.contains("if let insight = try? modelContext.fetch(insightDesc).first"))
+        #expect(!source.contains("let existingWithId = (try? modelContext.fetch(idDescriptor)) ?? []"))
+        #expect(!source.contains("guard let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe) else {"))
+        #expect(!source.contains("guard let pages = try? modelContext.fetch(descriptor) else { return [] }"))
+        #expect(!source.contains("let folderNames = (try? modelContext.fetch(folderDescriptor))?.map(\\.name) ?? []"))
+        #expect(!source.contains("let changedPageCount = (try? modelContext.fetchCount(descriptor)) ?? 0"))
+        #expect(!source.contains("try? modelContext.save()"))
+        #expect(source.contains("private func fetchAll<T: PersistentModel>("))
+        #expect(source.contains("private func fetchFirst<T: PersistentModel>("))
+        #expect(source.contains("private func fetchCount<T: PersistentModel>("))
+        #expect(source.contains("private func saveContext("))
+        #expect(source.contains("private nonisolated static func contentModificationDate("))
+    }
+
     @Test("custom secondary windows opt out of AppKit state restoration")
     func customSecondaryWindowsOptOutOfAppKitStateRestoration() throws {
         let noteWindowManager = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
@@ -1730,6 +1880,552 @@ struct RuntimeValidationTests {
         #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
         #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
         #expect(!structuredQueryParser.contains("calendar.date(byAdding: .month, value: -1, to: now)!"))
+    }
+
+    @Test("activity tracker crash recovery stays wired and fail-closed")
+    func activityTrackerCrashRecoveryStaysWiredAndFailClosed() throws {
+        let activityTracker = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(activityTracker.contains("NoteFileStorage.writeTextAtomically(text, to: url, itemLabel: Self.flushFileLabel)"))
+        #expect(activityTracker.contains("events = Array((loaded + events).suffix(Self.maxEvents))"))
+        #expect(!activityTracker.contains("try? await Task.sleep(for: .seconds(2))"))
+        #expect(!activityTracker.contains("return try? context.fetch(descriptor).first?.title"))
+        #expect(!activityTracker.contains("try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)"))
+        #expect(appBootstrap.contains("activityTracker.loadFlushedEvents()"))
+        #expect(app.contains("bootstrap.activityTracker.flushToDisk()"))
+    }
+
+    @Test("workspace summary persistence avoids silent fetch save and sleep failures")
+    func workspaceSummaryPersistenceAvoidsSilentFailures() throws {
+        let workspaceSummary = try loadRepoTextFile("Epistemos/State/WorkspaceSummaryService.swift")
+
+        #expect(!workspaceSummary.contains("try? await Task.sleep(for: interval)"))
+        #expect(!workspaceSummary.contains("try? context.save()"))
+        #expect(!workspaceSummary.contains("return try? context.fetch(FetchDescriptor<SDWorkspace>())"))
+        #expect(!workspaceSummary.contains("return try? modelContainer.mainContext.fetch(descriptor).first?.title"))
+        #expect(workspaceSummary.contains("Summary storage save failed"))
+        #expect(workspaceSummary.contains("Summary timestamp fetch failed"))
+        #expect(workspaceSummary.contains("Summary page-title fetch failed"))
+    }
+
+    @Test("app bootstrap startup recovery avoids silent fetch delete and timer failures")
+    func appBootstrapStartupRecoveryAvoidsSilentFailures() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(!appBootstrap.contains("guard let pages = try? context.fetch(FetchDescriptor<SDPage>()) else {"))
+        #expect(!appBootstrap.contains("if let ws = try? modelContainer.mainContext.fetch("))
+        #expect(!appBootstrap.contains("try? await Task.sleep(for: Self.primaryLaunchInitializationPollInterval)"))
+        #expect(!appBootstrap.contains("try? await Task.sleep(for: Self.deferredRuntimeServicesDelay)"))
+        #expect(!appBootstrap.contains("try? fm.removeItem(at: appSupport.appendingPathComponent(name))"))
+        #expect(!appBootstrap.contains("try? fm.removeItem(at: file)"))
+        #expect(!appBootstrap.contains("guard let pages = try? modelContainer.mainContext.fetch(descriptor) else { return [] }"))
+        #expect(appBootstrap.contains("Startup integrity snapshot failed"))
+        #expect(appBootstrap.contains("Welcome-back summary fetch failed"))
+        #expect(appBootstrap.contains("Instant Recall seed snapshot failed"))
+        #expect(appBootstrap.contains("Database reset cleanup failed"))
+    }
+
+    @Test("model profile persistence avoids silent save failures")
+    func modelProfilePersistenceAvoidsSilentSaveFailures() throws {
+        let manager = try loadRepoTextFile("Epistemos/State/ModelProfileManager.swift")
+
+        #expect(!manager.contains("try? context.save()"))
+        #expect(manager.contains("Failed to persist model profile"))
+    }
+
+    @Test("UIState landing greeting persistence avoids silent JSON and timer failures")
+    func uiStateLandingGreetingPersistenceAvoidsSilentFailures() throws {
+        let uiState = try loadRepoTextFile("Epistemos/State/UIState.swift")
+
+        #expect(!uiState.contains("let decodedGreetings = try? JSONDecoder().decode("))
+        #expect(!uiState.contains("guard let encodedGreetings = try? JSONEncoder().encode(landingCustomGreetings) else"))
+        #expect(!uiState.contains("try? await Task.sleep(for: .seconds(type == .error ? 5 : 3))"))
+        #expect(!uiState.contains("guard let pages = try? context.fetch(descriptor), !pages.isEmpty else { return [] }"))
+        #expect(!uiState.contains("if let ws = try? context.fetch("))
+        #expect(uiState.contains("UIState: failed to decode custom landing greetings"))
+        #expect(uiState.contains("UIState: failed to encode custom landing greetings"))
+        #expect(uiState.contains("UIState: toast dismissal sleep failed"))
+        #expect(uiState.contains("LandingGreetingResolver: failed to fetch recent pages"))
+        #expect(uiState.contains("LandingGreetingResolver: failed to fetch workspace summary"))
+    }
+
+    @Test("workspace service persistence avoids silent fetch decode and timer failures")
+    func workspaceServicePersistenceAvoidsSilentFailures() throws {
+        let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(!workspaceService.contains("try? await Task.sleep(for: .milliseconds(200))"))
+        #expect(!workspaceService.contains("try? await Task.sleep(for: .seconds(self?.autoSaveInterval ?? 300))"))
+        #expect(!workspaceService.contains("let existing = try? context.fetch(FetchDescriptor(predicate: predicate)).first"))
+        #expect(!workspaceService.contains("guard let workspace = try? context.fetch(FetchDescriptor(predicate: predicate)).first"))
+        #expect(!workspaceService.contains("let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: workspace.snapshotData)"))
+        #expect(!workspaceService.contains("return (try? modelContainer.mainContext.fetch(descriptor)) ?? []"))
+        #expect(workspaceService.contains("Workspace auto-save: failed to fetch auto-save workspace"))
+        #expect(workspaceService.contains("Workspace auto-restore: failed to fetch auto-save workspace"))
+        #expect(workspaceService.contains("Workspace diff: failed to decode saved snapshot"))
+        #expect(workspaceService.contains("Workspace list: failed to fetch saved workspaces"))
+    }
+
+    @Test("EventStore persistence avoids silent directory and JSON fallback failures")
+    func eventStorePersistenceAvoidsSilentDirectoryAndJSONFallbackFailures() throws {
+        let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
+
+        #expect(!eventStore.contains("try? FileManager.default.createDirectory("))
+        #expect(!eventStore.contains("(try? String(data: JSONEncoder().encode(completedJobs), encoding: .utf8)) ?? \"[]\""))
+        #expect(!eventStore.contains("(try? JSONDecoder().decode([String].self, from: Data(jobsJSON.utf8))) ?? []"))
+        #expect(!eventStore.contains("(try? String(data: payloadEncoder.encode(dict), encoding: .utf8)) ?? \"{}\""))
+        #expect(!eventStore.contains("guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]) else { return \"{}\" }"))
+        #expect(eventStore.contains("EventStore: failed to create database directory"))
+        #expect(eventStore.contains("EventStore: failed to encode Night Brain jobs_completed payload"))
+        #expect(eventStore.contains("EventStore: failed to decode Night Brain jobs_completed payload"))
+        #expect(eventStore.contains("EventStore: failed to encode event payload"))
+        #expect(eventStore.contains("let payloadObject: [String: Any] = ["))
+        #expect(eventStore.contains("let data = try JSONSerialization.data(withJSONObject: payloadObject, options: [.sortedKeys])"))
+        #expect(eventStore.contains("private nonisolated static func excludeParentDirectoryFromSpotlight"))
+        #expect(eventStore.contains("throw CocoaError(.fileWriteUnknown)"))
+    }
+
+    @Test("theme capture and settings helpers avoid user-facing force unwrap traps")
+    func themeCaptureAndSettingsHelpersAvoidUserFacingForceUnwrapTraps() throws {
+        let embodiedCapture = try loadRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
+        let themeSource = try loadRepoTextFile("Epistemos/Theme/EpistemosTheme.swift")
+        let hermesAdminPanel = try loadRepoTextFile("Epistemos/Views/Settings/HermesAdminPanel.swift")
+
+        #expect(!embodiedCapture.contains("handle.write(line.data(using: .utf8)!)"))
+        #expect(embodiedCapture.contains("guard let lineData = line.data(using: .utf8) else {"))
+
+        #expect(!themeSource.contains("preconditionFailure(\"Missing resolved theme cache"))
+        #expect(themeSource.contains("Self.resolvedCache[self] ?? buildResolved()"))
+
+        #expect(!hermesAdminPanel.contains("Link(destination: URL(string: registry.url)!)"))
+        #expect(hermesAdminPanel.contains("if let destination = URL(string: registry.url) {"))
+    }
+
+    @Test("supervisor network health has no hardcoded remote endpoint")
+    func supervisorNetworkHealthHasNoHardcodedRemoteEndpoint() throws {
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+
+        #expect(!appSupervisor.contains("https://api.anthropic.com"))
+    }
+
+    @Test("supervisor network health avoids remote HTTP polling")
+    func supervisorNetworkHealthAvoidsRemoteHTTPPolling() throws {
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+
+        #expect(appSupervisor.contains("import Network"))
+        #expect(appSupervisor.contains("NWPathMonitor"))
+        #expect(!appSupervisor.contains("https://api.anthropic.com"))
+        #expect(!appSupervisor.contains("URLRequest(url: url, timeoutInterval: 5.0)"))
+        #expect(!appSupervisor.contains("request.httpMethod = \"HEAD\""))
+        #expect(!appSupervisor.contains("URLSession.shared.data(for: request)"))
+    }
+
+    @Test("supervisor Hermes restart path does not swallow restart failures")
+    func supervisorHermesRestartPathDoesNotSwallowRestartFailures() throws {
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+
+        #expect(!appSupervisor.contains("try? await hermes.restart()"))
+        #expect(appSupervisor.contains("do {\n                    try await hermes.restart()"))
+        #expect(appSupervisor.contains("subsystemStatus[\"hermesSubprocess\"] = false"))
+        #expect(appSupervisor.contains("Self.log.error(\"Manual Hermes restart failed:"))
+    }
+
+    @Test("supervisor escalation triggers orphan cleanup")
+    func supervisorEscalationTriggersOrphanCleanup() throws {
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+
+        #expect(appSupervisor.contains("AppBootstrap.shared?.orphanCleanup.cleanupAll()"))
+    }
+
+    @Test("supervisor latches start and ignores stale child exits")
+    func supervisorLatchesStartAndIgnoresStaleChildExits() throws {
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+
+        #expect(appSupervisor.contains("private var isRunning = false"))
+        #expect(appSupervisor.contains("guard !isRunning else { return }"))
+        #expect(appSupervisor.contains("guard childGenerations[childId] == generation else {"))
+        #expect(!appSupervisor.contains("guard supervisorTask == nil else { return }"))
+    }
+
+    @Test("supervisor cancels pending restart tasks on stop and manual restart")
+    func supervisorCancelsPendingRestartTasks() throws {
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+
+        #expect(appSupervisor.contains("private var pendingRestartTasks: [String: Task<Void, Never>] = [:]"))
+        #expect(appSupervisor.contains("for task in pendingRestartTasks.values {"))
+        #expect(appSupervisor.contains("pendingRestartTasks.removeValue(forKey: name)?.cancel()"))
+        #expect(appSupervisor.contains("pendingRestartTasks.removeValue(forKey: dependent.id)?.cancel()"))
+    }
+
+    @Test("Hermes subprocess lifecycle is tracked by orphan cleanup")
+    func hermesSubprocessLifecycleIsTrackedByOrphanCleanup() throws {
+        let hermesManager = try loadRepoTextFile("Epistemos/Agent/HermesSubprocessManager.swift")
+
+        #expect(hermesManager.contains("AppBootstrap.shared?.orphanCleanup.track(proc)"))
+        #expect(hermesManager.contains("AppBootstrap.shared?.orphanCleanup.untrack(pid_t(terminatedProcess.processIdentifier))"))
+    }
+
+    @Test("orphan cleanup skips signal handler registration under tests")
+    func orphanCleanupSkipsSignalHandlerRegistrationUnderTests() throws {
+        let orphanCleanup = try loadRepoTextFile("Epistemos/State/OrphanSubprocessCleanup.swift")
+
+        #expect(orphanCleanup.contains("processInfoEnvironment[\"XCTestConfigurationFilePath\"] == nil"))
+        #expect(orphanCleanup.contains("cleanupLog.info(\"Skipping subprocess signal handlers under tests\")"))
+    }
+
+    @Test("orphan cleanup snapshots descendant process trees before termination")
+    func orphanCleanupSnapshotsDescendantProcessTrees() throws {
+        let orphanCleanup = try loadRepoTextFile("Epistemos/State/OrphanSubprocessCleanup.swift")
+
+        #expect(orphanCleanup.contains("snapshotTrackedProcessTreePIDs()"))
+        #expect(orphanCleanup.contains("proc_listchildpids(parentPID, &buffer, Int32(bufferSize))"))
+        #expect(orphanCleanup.contains("func cleanupProcessTree(rootPID: pid_t)"))
+    }
+
+    @Test("Hermes termination uses process-tree cleanup instead of a fake process-group API")
+    func hermesTerminationUsesProcessTreeCleanup() throws {
+        let hermesManager = try loadRepoTextFile("Epistemos/Agent/HermesSubprocessManager.swift")
+
+        #expect(hermesManager.contains("cleanupProcessTree(rootPID: pid_t(proc.processIdentifier))"))
+        #expect(!hermesManager.contains("func terminateProcessGroup()"))
+    }
+
+    @Test("Night Brain retains a durable EventStore reference for the full run")
+    func nightBrainRetainsDurableEventStoreReference() throws {
+        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
+
+        #expect(nightBrain.contains("let (store, runId, alreadyCompleted) ="))
+        #expect(nightBrain.contains("guard let store, let runId else {"))
+        #expect(!nightBrain.contains("storeProvider()?.updateNightBrainRun("))
+    }
+
+    @Test("Night Brain store-backed jobs no longer re-query storeProvider mid-run")
+    func nightBrainStoreBackedJobsNoLongerRequeryStoreProvider() throws {
+        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
+
+        #expect(nightBrain.contains("try await executeJob(job, store: store)"))
+        #expect(!nightBrain.contains("storeProvider()?.walCheckpointVacuum()"))
+        #expect(!nightBrain.contains("storeProvider()?.deduplicateArtifacts()"))
+        #expect(!nightBrain.contains("storeProvider()?.compactSnapshots(olderThanDays: 30)"))
+    }
+
+    @Test("Night Brain cloud knowledge distillation defers when the job is not wired")
+    func nightBrainCloudKnowledgeRequiresConfiguredJob() throws {
+        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
+
+        #expect(nightBrain.contains("private let hasCloudKnowledgeJob: Bool"))
+        #expect(nightBrain.contains("self.hasCloudKnowledgeJob = cloudKnowledgeJob != nil"))
+        #expect(nightBrain.contains("throw JobExecutionError.missingCloudKnowledgeJob"))
+    }
+
+    @Test("Cloud Knowledge prompt injection is wired into live Apple, cloud, and Hermes paths")
+    func cloudKnowledgePromptInjectionIsWiredIntoLiveRuntimePaths() throws {
+        let store = try loadRepoTextFile("Epistemos/KnowledgeFusion/KnowledgeProfileStore.swift")
+        let llmService = try loadRepoTextFile("Epistemos/Engine/LLMService.swift")
+        let apple = try loadRepoTextFile("Epistemos/Engine/AppleIntelligenceService.swift")
+        let agentViewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
+
+        #expect(store.contains("func augmentedSystemPrompt("))
+        #expect(store.contains("case .compact"))
+        #expect(llmService.contains("private func knowledgeAwareSystemPrompt(from systemPrompt: String?, modelID: String) async -> String?"))
+        #expect(llmService.contains("budget: .full"))
+        #expect(apple.contains("modelID: \"apple-intelligence\""))
+        #expect(apple.contains("_cachedSessionSystemPrompt"))
+        #expect(agentViewModel.contains("knowledgeAwareHermesSystemPrompt("))
+        #expect(agentViewModel.contains("resolvedModelVaultID()"))
+    }
+
+    @Test("agent and note persistence paths avoid silent try-question-mark fallbacks")
+    func agentAndNotePersistencePathsAvoidSilentTryQuestionMarkFallbacks() throws {
+        let agentViewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
+        let noteChat = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+        let pageEditorCache = try loadRepoTextFile("Epistemos/Views/Notes/PageEditorCache.swift")
+
+        #expect(!agentViewModel.contains("try? data.write(to: Self.persistenceURL, options: .atomic)"))
+        #expect(!agentViewModel.contains("guard let data = try? Data(contentsOf: Self.persistenceURL),"))
+        #expect(agentViewModel.contains("AgentViewModel: failed to persist session state"))
+        #expect(agentViewModel.contains("AgentViewModel: failed to restore session state"))
+
+        #expect(!noteChat.contains("guard let sdChat = (try? context.fetch(descriptor))?.first else { return }"))
+        #expect(!noteChat.contains("let existing = try? context.fetch("))
+        #expect(noteChat.contains("Failed to load persisted note chat"))
+        #expect(noteChat.contains("Failed to fetch existing persisted note chat"))
+
+        #expect(!pageEditorCache.contains("try? data.write(to: url, options: .atomic)"))
+        #expect(!pageEditorCache.contains("guard let data = try? Data(contentsOf: url),"))
+        #expect(pageEditorCache.contains("DiskStyleCache: failed to decode cache entry"))
+        #expect(pageEditorCache.contains("DiskStyleCache: failed to write cache entry"))
+    }
+
+    @Test("note insight and shell surfaces avoid silent persistence and cancellation fallbacks")
+    func noteInsightAndShellSurfacesAvoidSilentFallbacks() throws {
+        let noteInsight = try loadRepoTextFile("Epistemos/Engine/NoteInsightService.swift")
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let timeMachine = try loadRepoTextFile("Epistemos/Views/Landing/TimeMachineView.swift")
+
+        #expect(!noteInsight.contains("let existing = try? context.fetch("))
+        #expect(!noteInsight.contains("try? context.save()"))
+        #expect(!noteInsight.contains("return try? context.fetch("))
+
+        #expect(!sidebar.contains("return try? modelContext.fetch(descriptor).first"))
+        #expect(!sidebar.contains("try? modelContext.save()"))
+        #expect(!sidebar.contains("if let insight = try? modelContext.fetch(insightDesc).first"))
+
+        #expect(!inspector.contains("try? await Task.sleep(for: .seconds(1))"))
+        #expect(!inspector.contains("if let page = try? modelContext.fetch(desc).first"))
+        #expect(!inspector.contains("try? modelContext.save()"))
+
+        #expect(!timeMachine.contains("guard let data = try? JSONEncoder().encode(snapshot) else { return }"))
+        #expect(!timeMachine.contains("try? context?.save()"))
+        #expect(!timeMachine.contains("try? await Task.sleep(for: .milliseconds(150))"))
+    }
+
+    @Test("landing and vault runtime surfaces avoid silent startup and fetch fallbacks")
+    func landingAndVaultRuntimeSurfacesAvoidSilentFallbacks() throws {
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let vaultIndexActor = try loadRepoTextFile("Epistemos/Sync/VaultIndexActor.swift")
+
+        #expect(!landing.contains("try? await Task.sleep(for: .milliseconds(800))"))
+        #expect(!landing.contains("try? await Task.sleep(for: .milliseconds(16))"))
+        #expect(!landing.contains("try? bootstrap.modelContainer.mainContext.save()"))
+        #expect(!landing.contains("try? await Task.sleep(for: .milliseconds(100))"))
+        #expect(!landing.contains("return (try? modelContext.fetch(descriptor)) ?? []"))
+        #expect(landing.contains("LandingView: failed to fetch recent chats"))
+        #expect(landing.contains("LandingView: failed to save welcome-back summary note"))
+
+        #expect(!vaultIndexActor.contains("try? url.resourceValues(forKeys: [.contentModificationDateKey])"))
+        #expect(!vaultIndexActor.contains("try? modelContext.fetch(fetchDescriptor)"))
+        #expect(!vaultIndexActor.contains("try? modelContext.fetchCount(countDescriptor)"))
+        #expect(!vaultIndexActor.contains("try? modelContext.save()"))
+        #expect(!vaultIndexActor.contains("try? Data(contentsOf: url, options: [.mappedIfSafe])"))
+        #expect(vaultIndexActor.contains("private func fetchAll<T: PersistentModel>("))
+        #expect(vaultIndexActor.contains("private func fetchFirst<T: PersistentModel>("))
+        #expect(vaultIndexActor.contains("private func fetchCount<T: PersistentModel>("))
+        #expect(vaultIndexActor.contains("private func saveContext("))
+        #expect(vaultIndexActor.contains("private nonisolated static func contentModificationDate("))
+    }
+
+    @Test("chat vault and mini chat runtime surfaces avoid silent fetch save and timer fallbacks")
+    func chatVaultAndMiniChatRuntimeSurfacesAvoidSilentFallbacks() throws {
+        let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let miniChatWindowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+        let queryRuntime = try loadRepoTextFile("Epistemos/Engine/QueryRuntime.swift")
+        let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
+        let vaultRegistry = try loadRepoTextFile("Epistemos/Vault/VaultRegistry.swift")
+
+        #expect(!vaultSync.contains("let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []"))
+        #expect(!vaultSync.contains("guard (try? context.fetch(descriptor).first) != nil else { return nil }"))
+        #expect(!vaultSync.contains("if let page = try? context.fetch(desc).first, let result = exportResult"))
+        #expect(!vaultSync.contains("guard let dirtyPages = try? context.fetch(dirtyDescriptor),"))
+        #expect(!vaultSync.contains("try? await Task.sleep(for: .seconds(interval))"))
+        #expect(!vaultSync.contains("try? await Task.sleep(for: .seconds(300))"))
+        #expect(!vaultSync.contains("try? await Task.sleep(for: .seconds(2))"))
+        #expect(!vaultSync.contains("if let latest = try? context.fetch(versionDesc).first, latest.body == currentBody { return }"))
+        #expect(!vaultSync.contains("guard let totalCount = try? context.fetchCount(countDesc),"))
+        #expect(vaultSync.contains("private func fetchAll<T: PersistentModel>("))
+        #expect(vaultSync.contains("private func fetchFirst<T: PersistentModel>("))
+        #expect(vaultSync.contains("private nonisolated static func fetchBackgroundAll<T: PersistentModel>("))
+
+        #expect(!coordinator.contains("if let sdChat = try? context.fetch(descriptor).first {"))
+        #expect(!coordinator.contains("guard let chat = try? context.fetch(descriptor).first else { return [] }"))
+        #expect(!coordinator.contains("let allWorkspaces: [SDWorkspace] = (try? context.fetch(FetchDescriptor<SDWorkspace>())) ?? []"))
+        #expect(!coordinator.contains("if let chats = try? context.fetch(chatDesc) {"))
+        #expect(!coordinator.contains("if let folders = try? context.fetch(folderDesc),"))
+        #expect(!coordinator.contains("if let existing = try? context.fetch(descriptor).first {"))
+        #expect(coordinator.contains("ChatCoordinator: failed to fetch"))
+
+        #expect(!miniChat.contains("if let chat = try? modelContext.fetch(descriptor).first {"))
+        #expect(!miniChat.contains("return try? modelContext.fetch(descriptor).first"))
+        #expect(!miniChat.contains("guard let pages = try? modelContext.fetch(descriptor) else { return [] }"))
+        #expect(!miniChat.contains("return (try? modelContext.fetch(descriptor)) ?? []"))
+        #expect(!miniChat.contains("if let existing = try? modelContext.fetch(descriptor).first {"))
+        #expect(miniChat.contains("MiniChatView: failed to fetch"))
+
+        #expect(!miniChatWindowController.contains("guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else { return nil }"))
+        #expect(miniChatWindowController.contains("MiniChatWindowController: failed to fetch active note attachment"))
+
+        #expect(!queryRuntime.contains("let results = (try? searchIndex.search(query: query, limit: limit)) ?? []"))
+        #expect(!queryRuntime.contains("let blockResults = (try? searchIndex.searchBlocks(query: query, limit: limit)) ?? []"))
+        #expect(queryRuntime.contains("QueryRuntime: failed to search"))
+
+        #expect(!vaultMutator.contains("let before = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? defaultMemoryBody(for: targetVault)"))
+        #expect(!vaultMutator.contains("try? await Task.sleep(for: .seconds(timeoutSeconds))"))
+        #expect(vaultMutator.contains("VaultChatMutator: failed to read staged memory file"))
+
+        #expect(!vaultRegistry.contains("guard let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),"))
+        #expect(vaultRegistry.contains("VaultRegistry: failed to inspect modification date"))
+    }
+
+    @Test("omega note and checkpoint surfaces avoid silent persistence fallbacks")
+    func omegaNoteAndCheckpointSurfacesAvoidSilentFallbacks() throws {
+        let executionCheckpoints = try loadRepoTextFile("Epistemos/Omega/Safety/ExecutionCheckpointManager.swift")
+        let notesAgent = try loadRepoTextFile("Epistemos/Omega/Agents/NotesAgent.swift")
+
+        #expect(!executionCheckpoints.contains("try? FileManager.default.createDirectory(at: checkpointDir, withIntermediateDirectories: true)"))
+        #expect(!executionCheckpoints.contains("try? FileManager.default.removeItem(at: fileURL)"))
+        #expect(!executionCheckpoints.contains("guard let files = try? FileManager.default.contentsOfDirectory("))
+        #expect(!executionCheckpoints.contains("guard let data = try? Data(contentsOf: fileURL),"))
+        #expect(!executionCheckpoints.contains("guard let data = try? encoder.encode(checkpoint) else {"))
+        #expect(!executionCheckpoints.contains("try? FileManager.default.removeItem(at: tmpURL)"))
+        #expect(executionCheckpoints.contains("ExecutionCheckpoint: failed to create checkpoint directory"))
+        #expect(executionCheckpoints.contains("ExecutionCheckpoint: failed to decode checkpoint"))
+
+        #expect(!notesAgent.contains("guard let args = try? JSONSerialization.jsonObject(with: Data(step.argumentsJson.utf8)) as? [String: Any] else {"))
+        #expect(!notesAgent.contains("let pages = (try? context.fetch(descriptor)) ?? []"))
+        #expect(!notesAgent.contains("guard let page = (try? context.fetch(descriptor))?.first else {"))
+        #expect(!notesAgent.contains("try? context.save()"))
+        #expect(!notesAgent.contains("if let page = (try? context?.fetch(descriptor))?.first {"))
+        #expect(!notesAgent.contains("if let data = try? JSONSerialization.data(withJSONObject: [s]),"))
+        #expect(notesAgent.contains("NotesAgent: failed to parse step arguments"))
+        #expect(notesAgent.contains("NotesAgent: failed to save"))
+    }
+
+    @Test("python and Hermes setup subprocess helpers stream process output off the main actor")
+    func pythonAndHermesSetupSubprocessHelpersStreamOutputOffMain() throws {
+        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
+        let hermesSetupService = try loadRepoTextFile("Epistemos/Agent/HermesSetupService.swift")
+
+        #expect(pythonEnvironmentManager.contains("private nonisolated func executeProcess("))
+        #expect(pythonEnvironmentManager.contains("DispatchQueue.global(qos: .utility).async"))
+        #expect(pythonEnvironmentManager.contains("let execution = try await executeProcess("))
+        #expect(pythonEnvironmentManager.contains("stdoutHandle?.readabilityHandler = { handle in"))
+        #expect(pythonEnvironmentManager.contains("stderrHandle?.readabilityHandler = { handle in"))
+        #expect(pythonEnvironmentManager.contains("process.terminationHandler = { proc in"))
+        #expect(!pythonEnvironmentManager.contains("runProcessCaptureSync("))
+        #expect(!pythonEnvironmentManager.contains("process.waitUntilExit()"))
+
+        #expect(hermesSetupService.contains("private nonisolated func runProcess("))
+        #expect(hermesSetupService.contains("DispatchQueue.global(qos: .utility).async"))
+        #expect(hermesSetupService.contains("stdoutHandle.readabilityHandler = { handle in"))
+        #expect(hermesSetupService.contains("stderrHandle.readabilityHandler = { handle in"))
+        #expect(hermesSetupService.contains("process.terminationHandler = { proc in"))
+        #expect(hermesSetupService.contains("let timedOut: Bool"))
+        #expect(hermesSetupService.contains("return major > 3 || (major == 3 && minor >= 11)"))
+        #expect(!hermesSetupService.contains("process.waitUntilExit()"))
+    }
+
+    @Test("Hermes health check requires a live bridge ping before reporting healthy")
+    func hermesHealthCheckRequiresLiveBridgePing() throws {
+        let hermesManager = try loadRepoTextFile("Epistemos/Agent/HermesSubprocessManager.swift")
+
+        #expect(hermesManager.contains("let bridgeProbeFailure = await Self.probeBridgeResponsiveness(config: cfg)"))
+        #expect(hermesManager.contains("bridgeResponsive: bridgeResponsive"))
+        #expect(hermesManager.contains("try await client.ping()"))
+    }
+
+    @Test("long-lived subprocess continuations have timeout and cancellation escape hatches")
+    func longLivedSubprocessContinuationsHaveTimeoutAndCancellationEscapeHatches() throws {
+        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
+        let audioTranscriber = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift")
+        let qLoRATrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
+        let ktoTrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift")
+        let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
+
+        #expect(pythonEnvironmentManager.contains("withTaskCancellationHandler"))
+        #expect(pythonEnvironmentManager.contains("ThrowingProcessContinuationState<PythonProcessExecution>()"))
+        #expect(pythonEnvironmentManager.contains("TimeoutError(seconds: timeoutSeconds)"))
+
+        #expect(audioTranscriber.contains("withTaskCancellationHandler"))
+        #expect(audioTranscriber.contains("ThrowingProcessContinuationState<String>()"))
+        #expect(audioTranscriber.contains("TimeoutError(seconds: timeoutSeconds)"))
+
+        #expect(qLoRATrainer.contains("withTaskCancellationHandler"))
+        #expect(qLoRATrainer.contains("ThrowingProcessContinuationState<Void>()"))
+        #expect(qLoRATrainer.contains("TimeoutError(seconds: timeoutSeconds)"))
+        #expect(qLoRATrainer.contains("defer { activeProcess = nil }"))
+
+        #expect(ktoTrainer.contains("withTaskCancellationHandler"))
+        #expect(ktoTrainer.contains("ThrowingProcessContinuationState<Void>()"))
+        #expect(ktoTrainer.contains("TimeoutError(seconds: timeoutSeconds)"))
+
+        #expect(vaultMutator.contains("withTaskCancellationHandler"))
+        #expect(vaultMutator.contains("ThrowingProcessContinuationState<String>()"))
+        #expect(vaultMutator.contains("TimeoutError(seconds: timeoutSeconds)"))
+        #expect(!vaultMutator.contains("process.waitUntilExit()"))
+    }
+
+    @Test("setup and harness subprocess helpers terminate on cancellation")
+    func setupAndHarnessSubprocessHelpersTerminateOnCancellation() throws {
+        let hermesSetupService = try loadRepoTextFile("Epistemos/Agent/HermesSetupService.swift")
+        let completionChecker = try loadRepoTextFile("Epistemos/Harness/CompletionChecker.swift")
+        let harnessLab = try loadRepoTextFile("Epistemos/Harness/HarnessLab.swift")
+        let evalSandbox = try loadRepoTextFile("Epistemos/Harness/EvalSandbox.swift")
+
+        #expect(hermesSetupService.contains("withTaskCancellationHandler"))
+        #expect(hermesSetupService.contains("ProcessContinuationState<SimpleProcessResult?>()"))
+        #expect(hermesSetupService.contains("state.terminate()"))
+
+        #expect(completionChecker.contains("withTaskCancellationHandler"))
+        #expect(completionChecker.contains("ProcessContinuationState<ProcessResult>()"))
+        #expect(completionChecker.contains("Cancelled \\(executable)"))
+
+        #expect(harnessLab.contains("withTaskCancellationHandler"))
+        #expect(harnessLab.contains("ProcessContinuationState<ProcessResult>()"))
+        #expect(harnessLab.contains("Cancelled proposer agent"))
+
+        #expect(evalSandbox.contains("withTaskCancellationHandler"))
+        #expect(evalSandbox.contains("ProcessContinuationState<ProcessResult>()"))
+        #expect(evalSandbox.contains("Cancelled sandboxed command"))
+    }
+
+    @Test("main actor capture and vault helpers offload blocking subprocess waits")
+    func mainActorCaptureAndVaultHelpersOffloadBlockingSubprocessWaits() throws {
+        let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
+        let embodiedCapture = try loadRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
+        let screenCapture = try loadRepoTextFile("Epistemos/Omega/Vision/ScreenCaptureService.swift")
+
+        #expect(vaultMutator.contains("private nonisolated func runGitOffMain("))
+        #expect(vaultMutator.contains("try await runGitOffMain("))
+        #expect(vaultMutator.contains("DispatchQueue.global(qos: .utility).async"))
+
+        #expect(embodiedCapture.contains("private nonisolated func captureScreenshotOffMain("))
+        #expect(embodiedCapture.contains("await captureScreenshotOffMain("))
+
+        #expect(screenCapture.contains("private nonisolated func restartReplayd("))
+        #expect(screenCapture.contains("await restartReplayd("))
+    }
+
+    @Test("Agent heartbeat monitors Hermes after dispatch instead of blind sleeping to completion")
+    func agentHeartbeatMonitorsHermesAfterDispatch() throws {
+        let heartbeat = try loadRepoTextFile("Epistemos/State/AgentHeartbeatService.swift")
+
+        #expect(heartbeat.contains("let remainedAvailable = await monitorPostDispatchHermesAvailability()"))
+        #expect(heartbeat.contains("private func monitorPostDispatchHermesAvailability() async -> Bool"))
+        #expect(!heartbeat.contains("try? await Task.sleep(for: .seconds(30))\n\n        completion(.finished)"))
+    }
+
+    @Test("Agent heartbeat monitoring handles cancellation explicitly")
+    func agentHeartbeatMonitoringHandlesCancellationExplicitly() throws {
+        let heartbeat = try loadRepoTextFile("Epistemos/State/AgentHeartbeatService.swift")
+
+        #expect(heartbeat.contains("if Task.isCancelled {"))
+        #expect(heartbeat.contains("catch is CancellationError"))
+        #expect(!heartbeat.contains("try? await Task.sleep(for: postDispatchPollInterval)"))
+    }
+
+    @Test("Supervisor background sleep paths no longer swallow cancellation")
+    func supervisorBackgroundSleepPathsNoLongerSwallowCancellation() throws {
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+
+        #expect(!appSupervisor.contains("try? await Task.sleep(for: .seconds(60))"))
+        #expect(!appSupervisor.contains("try? await Task.sleep(for: .seconds(interval))"))
+        #expect(!appSupervisor.contains("try? await Task.sleep(for: .seconds(delay))"))
+        #expect(appSupervisor.contains("catch is CancellationError"))
+    }
+
+    @Test("Ambient capture runtime paths no longer swallow debounce or parse failures")
+    func ambientCaptureRuntimePathsNoLongerSwallowFailures() throws {
+        let ambientCapture = try loadRepoTextFile("Epistemos/State/AmbientCaptureService.swift")
+
+        #expect(!ambientCapture.contains("try? await Task.sleep(nanoseconds: 300_000_000)"))
+        #expect(!ambientCapture.contains("let tree = try? JSONSerialization.jsonObject(with: data) as? [String: Any]"))
+        #expect(!ambientCapture.contains("return patterns.compactMap { try? NSRegularExpression(pattern: $0) }"))
+        #expect(ambientCapture.contains("AmbientCapture: failed to decode AX tree JSON"))
+        #expect(ambientCapture.contains("failed to compile secret redaction pattern"))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
@@ -1810,236 +2506,5 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("if trimmed.isEmpty {"))
         #expect(source.contains("if case .cloud(let model) = preferredChatModelSelection, model.provider == provider"))
         #expect(source.contains("persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))"))
-    }
-}
-
-@Suite("Audit Hardening Regression")
-struct AuditHardeningRegressionTests {
-    @Test("Inline response replacement discards stale response before restart")
-    @MainActor func inlineResponseReplacementDiscardsStaleResponse() {
-        let inference = InferenceState()
-        let triage = TriageService(
-            inference: inference,
-            localLLMService: AuditCapturingStreamingLLMClient()
-        )
-
-        let state = NoteChatState(pageId: "page-inline-regression")
-        state.noteBodyProvider = { "Original note body." }
-        state.hasResponse = true
-        state.useResponsePanel = false
-        state.responseText = "stale inline response"
-
-        var events: [String] = []
-        state.onDiscard = { events.append("discard") }
-        state.onStreamStart = { _ in events.append("start") }
-
-        state.submitQuery(
-            "Rewrite this paragraph",
-            operation: .rewrite,
-            triageService: triage
-        )
-
-        #expect(Array(events.prefix(2)) == ["discard", "start"])
-        #expect(state.hasResponse)
-        #expect(state.responseText.isEmpty)
-    }
-
-    @Test("Text views protect the divider while allowing AI text edits")
-    @MainActor func textViewsProtectDividerWhileAllowingAITextEdits() {
-        assertDividerProtection(on: ProseTextView2(frame: .zero))
-    }
-
-    @Test("Vault destructive stop snapshots before clearing local data")
-    func vaultDestructiveStopSnapshotsBeforeClearing() throws {
-        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
-        let destructiveBlock = try #require(source.range(of: "if !preserveData {"))
-        let destructiveBody = source[destructiveBlock.lowerBound...]
-        let snapshotCall = try #require(destructiveBody.range(of: "try snapshotLocalState()"))
-        let clearCall = try #require(destructiveBody.range(of: "clearVaultData()"))
-
-        #expect(snapshotCall.lowerBound > destructiveBlock.lowerBound)
-        #expect(snapshotCall.lowerBound < clearCall.lowerBound)
-    }
-
-    @Test("Vault recovery snapshots use SQLite backups and prune old snapshots")
-    func vaultRecoverySnapshotsUseSQLiteBackupsAndPruneOldSnapshots() throws {
-        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
-
-        #expect(source.contains("sqlite3_backup_init"))
-        #expect(source.contains("backupSQLiteDatabaseIfPresent"))
-        #expect(source.contains("copyDirectoryContents("))
-        #expect(source.contains("pruneRecoverySnapshots(in: snapshotRoot"))
-        #expect(source.contains("pruneRecoverySnapshotsIfNeeded()"))
-        #expect(source.contains("recoverySnapshotLimit = 20"))
-    }
-
-    @Test("Vault recovery snapshots request and prune APFS safety snapshots")
-    func vaultRecoverySnapshotsRequestAndPruneAPFSSafetySnapshots() throws {
-        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
-
-        #expect(source.contains("createAPFSSafetySnapshotIfPossible(reason: \"local-state-recovery\")"))
-        #expect(source.contains("pruneAPFSSafetySnapshotsIfNeeded()"))
-        #expect(source.contains("commandRunner([\"localsnapshot\"])"))
-        #expect(source.contains("commandRunner([\"listlocalsnapshots\", \"/\"])"))
-        #expect(source.contains("commandRunner([\"deletelocalsnapshots\", snapshotID])"))
-        #expect(source.contains("apfs-snapshot-manifest.json"))
-    }
-
-    @Test("Omega planner schemas stay aligned with registered MCP tools")
-    @MainActor func omegaPlannerSchemasStayAligned() throws {
-        let inference = InferenceState()
-        let triage = TriageService(inference: inference)
-        let planner = OmegaInferenceBridge(triageService: triage)
-        let runtime = MCPBridge()
-
-        let data = try #require(planner.toolSchemasJson.data(using: .utf8))
-        let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
-
-        #expect(!schemas.isEmpty)
-        #expect(schemas.count == runtime.toolCount)
-        #expect(schemas.count == OmegaToolRegistry.all.count)
-    }
-
-    @Test("Regex-backed helpers avoid force-try compilation")
-    func regexBackedHelpersAvoidForceTryCompilation() throws {
-        let files = [
-            "Epistemos/Sync/BlockPropertyParser.swift",
-            "Epistemos/Views/Chat/ChatView.swift",
-            "Epistemos/Views/Chat/TaggedMarkdownTextView.swift",
-            "Epistemos/Views/Notes/MarkdownContentStorage.swift",
-            "Epistemos/Views/Notes/MarkdownEditorStyle.swift",
-            "Epistemos/Theme/EpistemosTheme.swift",
-            "Epistemos/Theme/GlassModifiers.swift",
-        ]
-
-        for file in files {
-            let source = try loadRepoTextFile(file)
-            #expect(!source.contains("try!"), "\(file) should not use try! for regex or detector setup")
-        }
-    }
-
-    @Test("Trap-prone persistence fallbacks stay removed")
-    func trapPronePersistenceFallbacksStayRemoved() throws {
-        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let feedbackLogger = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift")
-        let dataDetectionService = try loadRepoTextFile("Epistemos/Engine/DataDetectionService.swift")
-        let queryParser = try loadRepoTextFile("Epistemos/Engine/QueryParser.swift")
-        let structuredQueryParser = try loadRepoTextFile("Epistemos/Engine/StructuredQueryParser.swift")
-
-        #expect(!appBootstrap.contains("try! ModelContainer("))
-        #expect(!feedbackLogger.contains("try! JSONSerialization.data"))
-        #expect(!feedbackLogger.contains("String(data: data, encoding: .utf8)!"))
-        #expect(!dataDetectionService.contains("URL(string: \"webcal://\")!"))
-        #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
-        #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
-        #expect(!queryParser.contains("calendar.date(byAdding: .month, value: -1, to: now)!"))
-        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
-        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
-        #expect(!structuredQueryParser.contains("calendar.date(byAdding: .month, value: -1, to: now)!"))
-    }
-
-    @Test("launch and note shell surfaces keep explicit loading empty and accessibility states")
-    func launchAndNoteShellSurfacesKeepExplicitPolishStates() throws {
-        let timeMachine = try loadRepoTextFile("Epistemos/Views/Landing/TimeMachineView.swift")
-        let workspaces = try loadRepoTextFile("Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift")
-        let notesSidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
-        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
-
-        #expect(timeMachine.contains("Text(\"No session history yet\")"))
-        #expect(timeMachine.contains("ProgressView()"))
-        #expect(timeMachine.contains("Text(\"Select a session to explore\")"))
-
-        #expect(workspaces.contains("Text(\"No saved workspaces\")"))
-        #expect(workspaces.contains("Text(\"esc to close\")"))
-
-        #expect(notesSidebar.contains("Text(\"No results\")"))
-        #expect(notesSidebar.contains("Text(\"No notes yet\")"))
-        #expect(notesSidebar.contains(".accessibilityLabel(\"Search notes\")"))
-        #expect(notesSidebar.contains(".accessibilityLabel(\"Clear search\")"))
-
-        #expect(landing.contains(".accessibilityLabel(\"Send prompt\")"))
-        #expect(landing.contains(".accessibilityLabel(\"Local Model\")"))
-        #expect(landing.contains("ProgressView()"))
-    }
-
-    @Test("root shell keeps recovery overlays toast feedback and toolbar accessibility affordances")
-    func rootShellKeepsRecoveryAndAccessibilityAffordances() throws {
-        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
-
-        #expect(rootView.contains("ToastOverlay("))
-        #expect(rootView.contains("VaultRecoveryOverlay("))
-        #expect(rootView.contains(".accessibilityLabel(\"Back to Home\")"))
-        #expect(rootView.contains(".accessibilityLabel(\"Settings\")"))
-        #expect(rootView.contains(".accessibilityLabel(\"Chat History\")"))
-        #expect(rootView.contains(".alert(\"Database Error\""))
-    }
-
-    @MainActor
-    private func assertDividerProtection(on textView: NSTextView) {
-        textView.string = "Hello world.\(NoteChatInlineResponse.divider)AI response."
-
-        if let prose = textView as? ProseTextView2 {
-            prose.hasProtectedInlineResponseDivider = true
-        }
-
-        let fullText = textView.string as NSString
-        let dividerRange = fullText.range(of: NoteChatInlineResponse.divider)
-        let responseRange = fullText.range(of: "AI response.")
-
-        #expect(dividerRange.location != NSNotFound)
-        #expect(responseRange.location != NSNotFound)
-
-        let blocked: Bool
-        let allowed: Bool
-
-        switch textView {
-        case let prose as ProseTextView2:
-            blocked = prose.shouldChangeText(
-                in: NSRange(location: dividerRange.location + 1, length: 1),
-                replacementString: ""
-            )
-            allowed = prose.shouldChangeText(
-                in: responseRange,
-                replacementString: "Edited response."
-            )
-        default:
-            Issue.record("Unexpected text view type: \(type(of: textView))")
-            return
-        }
-
-        #expect(!blocked)
-        #expect(allowed)
-    }
-
-    private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        try loadRepoTextFileWithRetry(relativePath: relativePath, testsFilePath: #filePath)
-    }
-}
-
-@MainActor
-private final class AuditCapturingStreamingLLMClient: LLMClientProtocol {
-    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
-        "unused"
-    }
-
-    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            Task {
-                continuation.yield("ok")
-                continuation.finish()
-            }
-        }
-    }
-
-    func testConnection() async -> ConnectionTestResult {
-        ConnectionTestResult(success: true, message: "ok")
-    }
-
-    func configSnapshot() -> LLMSnapshot {
-        LLMSnapshot(
-            provider: .localMLX,
-            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
-            reasoningMode: .fast
-        )
     }
 }

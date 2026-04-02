@@ -41,6 +41,8 @@ actor PaperclipStateStore {
         subsystem: "com.epistemos.state",
         category: "PaperclipStore"
     )
+    nonisolated(unsafe) private static let sqliteTransientDestructor =
+        unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
     private var db: OpaquePointer?
     private let path: String
@@ -125,17 +127,36 @@ actor PaperclipStateStore {
     func recordTicks(_ ticks: [AgentTick]) throws {
         guard !ticks.isEmpty else { return }
 
-        try exec("BEGIN TRANSACTION;")
-        defer {
-            // Commit even if individual inserts fail — partial data is better than none
-            _ = try? exec("COMMIT;")
-        }
+        let sql = """
+            INSERT INTO agent_ticks (
+                session_id,
+                agent_id,
+                timestamp,
+                input_tokens,
+                output_tokens,
+                tool_name,
+                cost_micro_dollars,
+                turn_number
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        """
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
 
-        for tick in ticks {
-            try exec("""
-                INSERT INTO agent_ticks (session_id, agent_id, timestamp, input_tokens, output_tokens, tool_name, cost_micro_dollars, turn_number)
-                VALUES ('\(tick.sessionId)', '\(tick.agentId)', \(tick.timestamp.timeIntervalSince1970), \(tick.inputTokens), \(tick.outputTokens), \(tick.toolName.map { "'\($0)'" } ?? "NULL"), \(tick.costMicroDollars), \(tick.turnNumber));
-            """)
+        try withTransaction {
+            for tick in ticks {
+                sqlite3_reset(statement)
+                sqlite3_clear_bindings(statement)
+
+                try bindText(tick.sessionId, at: 1, in: statement)
+                try bindText(tick.agentId, at: 2, in: statement)
+                try bindDouble(tick.timestamp.timeIntervalSince1970, at: 3, in: statement)
+                try bindInt64(Int64(tick.inputTokens), at: 4, in: statement)
+                try bindInt64(Int64(tick.outputTokens), at: 5, in: statement)
+                try bindOptionalText(tick.toolName, at: 6, in: statement)
+                try bindInt64(Int64(tick.costMicroDollars), at: 7, in: statement)
+                try bindInt64(Int64(tick.turnNumber), at: 8, in: statement)
+                try stepDone(statement)
+            }
         }
     }
 
@@ -146,67 +167,105 @@ actor PaperclipStateStore {
 
     /// Record a cron heartbeat execution.
     func recordHeartbeat(_ heartbeat: CronHeartbeat) throws {
-        let errorValue = heartbeat.errorMessage.map { "'\($0)'" } ?? "NULL"
-        try exec("""
-            INSERT INTO cron_heartbeats (agent_id, scheduled_at, executed_at, duration_ms, success, error_message)
-            VALUES ('\(heartbeat.agentId)', \(heartbeat.scheduledAt.timeIntervalSince1970), \(heartbeat.executedAt.timeIntervalSince1970), \(heartbeat.durationMs), \(heartbeat.success ? 1 : 0), \(errorValue));
-        """)
+        let sql = """
+            INSERT INTO cron_heartbeats (
+                agent_id,
+                scheduled_at,
+                executed_at,
+                duration_ms,
+                success,
+                error_message
+            ) VALUES (?, ?, ?, ?, ?, ?);
+        """
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bindText(heartbeat.agentId, at: 1, in: statement)
+        try bindDouble(heartbeat.scheduledAt.timeIntervalSince1970, at: 2, in: statement)
+        try bindDouble(heartbeat.executedAt.timeIntervalSince1970, at: 3, in: statement)
+        try bindInt64(Int64(heartbeat.durationMs), at: 4, in: statement)
+        try bindInt64(heartbeat.success ? 1 : 0, at: 5, in: statement)
+        try bindOptionalText(heartbeat.errorMessage, at: 6, in: statement)
+        try stepDone(statement)
     }
 
     // MARK: - Read Operations
 
     /// Total tokens consumed in the current session.
     func sessionTokenCount(sessionId: String) throws -> (input: Int, output: Int) {
-        var stmt: OpaquePointer?
-        let sql = "SELECT COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0) FROM agent_ticks WHERE session_id = '\(sessionId)';"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            throw PaperclipError.queryFailed("prepare failed")
-        }
-        defer { sqlite3_finalize(stmt) }
+        let sql = """
+            SELECT COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0)
+            FROM agent_ticks
+            WHERE session_id = ?;
+        """
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
 
-        guard sqlite3_step(stmt) == SQLITE_ROW else {
-            return (0, 0)
+        try bindText(sessionId, at: 1, in: statement)
+
+        let stepResult = sqlite3_step(statement)
+        guard stepResult == SQLITE_ROW else {
+            throw PaperclipError.queryFailed(lastErrorMessage())
         }
         return (
-            Int(sqlite3_column_int64(stmt, 0)),
-            Int(sqlite3_column_int64(stmt, 1))
+            Int(sqlite3_column_int64(statement, 0)),
+            Int(sqlite3_column_int64(statement, 1))
         )
     }
 
     /// Total cost in micro-dollars for a given agent today.
     func dailyCost(agentId: String) throws -> Int {
         let todayStart = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
-        var stmt: OpaquePointer?
-        let sql = "SELECT COALESCE(SUM(cost_micro_dollars), 0) FROM agent_ticks WHERE agent_id = '\(agentId)' AND timestamp >= \(todayStart);"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            throw PaperclipError.queryFailed("prepare failed")
-        }
-        defer { sqlite3_finalize(stmt) }
+        let sql = """
+            SELECT COALESCE(SUM(cost_micro_dollars), 0)
+            FROM agent_ticks
+            WHERE agent_id = ? AND timestamp >= ?;
+        """
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
 
-        guard sqlite3_step(stmt) == SQLITE_ROW else {
-            return 0
+        try bindText(agentId, at: 1, in: statement)
+        try bindDouble(todayStart, at: 2, in: statement)
+
+        let stepResult = sqlite3_step(statement)
+        guard stepResult == SQLITE_ROW else {
+            throw PaperclipError.queryFailed(lastErrorMessage())
         }
-        return Int(sqlite3_column_int64(stmt, 0))
+        return Int(sqlite3_column_int64(statement, 0))
     }
 
     /// Recent heartbeats for an agent.
     func recentHeartbeats(agentId: String, limit: Int = 10) throws -> [CronHeartbeat] {
-        var stmt: OpaquePointer?
-        let sql = "SELECT agent_id, scheduled_at, executed_at, duration_ms, success, error_message FROM cron_heartbeats WHERE agent_id = '\(agentId)' ORDER BY executed_at DESC LIMIT \(limit);"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            throw PaperclipError.queryFailed("prepare failed")
-        }
-        defer { sqlite3_finalize(stmt) }
+        let sql = """
+            SELECT agent_id, scheduled_at, executed_at, duration_ms, success, error_message
+            FROM cron_heartbeats
+            WHERE agent_id = ?
+            ORDER BY executed_at DESC
+            LIMIT ?;
+        """
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bindText(agentId, at: 1, in: statement)
+        try bindInt64(Int64(limit), at: 2, in: statement)
 
         var results: [CronHeartbeat] = []
-        while sqlite3_step(stmt) == SQLITE_ROW {
+        while true {
+            let stepResult = sqlite3_step(statement)
+            if stepResult == SQLITE_DONE {
+                break
+            }
+            guard stepResult == SQLITE_ROW else {
+                throw PaperclipError.queryFailed(lastErrorMessage())
+            }
+
             let heartbeat = CronHeartbeat(
-                agentId: String(cString: sqlite3_column_text(stmt, 0)),
-                scheduledAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
-                executedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2)),
-                durationMs: Int(sqlite3_column_int(stmt, 3)),
-                success: sqlite3_column_int(stmt, 4) != 0,
-                errorMessage: sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+                agentId: String(cString: sqlite3_column_text(statement, 0)),
+                scheduledAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 1)),
+                executedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 2)),
+                durationMs: Int(sqlite3_column_int(statement, 3)),
+                success: sqlite3_column_int(statement, 4) != 0,
+                errorMessage: sqlite3_column_text(statement, 5).map { String(cString: $0) }
             )
             results.append(heartbeat)
         }
@@ -238,6 +297,81 @@ actor PaperclipStateStore {
             throw PaperclipError.execFailed(msg)
         }
         return rc
+    }
+
+    private func withTransaction(_ body: () throws -> Void) throws {
+        var transactionOpen = false
+        do {
+            try exec("BEGIN TRANSACTION;")
+            transactionOpen = true
+            try body()
+            try exec("COMMIT;")
+            transactionOpen = false
+        } catch {
+            if transactionOpen {
+                do {
+                    try exec("ROLLBACK;")
+                } catch {
+                    Self.logger.error("Paperclip transaction rollback failed: \(error.localizedDescription)")
+                }
+            }
+            throw error
+        }
+    }
+
+    private func prepareStatement(_ sql: String) throws -> OpaquePointer? {
+        guard let db else {
+            throw PaperclipError.notOpen
+        }
+
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            throw PaperclipError.queryFailed(lastErrorMessage())
+        }
+        return statement
+    }
+
+    private func bindText(_ value: String, at index: Int32, in statement: OpaquePointer?) throws {
+        let string = value as NSString
+        guard sqlite3_bind_text(statement, index, string.utf8String, -1, Self.sqliteTransientDestructor) == SQLITE_OK else {
+            throw PaperclipError.queryFailed(lastErrorMessage())
+        }
+    }
+
+    private func bindOptionalText(_ value: String?, at index: Int32, in statement: OpaquePointer?) throws {
+        if let value {
+            try bindText(value, at: index, in: statement)
+            return
+        }
+
+        guard sqlite3_bind_null(statement, index) == SQLITE_OK else {
+            throw PaperclipError.queryFailed(lastErrorMessage())
+        }
+    }
+
+    private func bindDouble(_ value: Double, at index: Int32, in statement: OpaquePointer?) throws {
+        guard sqlite3_bind_double(statement, index, value) == SQLITE_OK else {
+            throw PaperclipError.queryFailed(lastErrorMessage())
+        }
+    }
+
+    private func bindInt64(_ value: Int64, at index: Int32, in statement: OpaquePointer?) throws {
+        guard sqlite3_bind_int64(statement, index, value) == SQLITE_OK else {
+            throw PaperclipError.queryFailed(lastErrorMessage())
+        }
+    }
+
+    private func stepDone(_ statement: OpaquePointer?) throws {
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw PaperclipError.execFailed(lastErrorMessage())
+        }
+    }
+
+    private func lastErrorMessage() -> String {
+        guard let db, let message = sqlite3_errmsg(db) else {
+            return "unknown error"
+        }
+        return String(cString: message)
     }
 
     private static func defaultPath() -> String {

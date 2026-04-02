@@ -87,7 +87,14 @@ actor AmbientCaptureService {
 
         debounceTask?.cancel()
         debounceTask = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+            } catch is CancellationError {
+                return
+            } catch {
+                Self.log.error("AmbientCapture: debounce sleep failed — \(error.localizedDescription)")
+                return
+            }
             guard !Task.isCancelled else { return }
             await performCapture(pid: pid, bundleId: bundleId, appName: appName)
         }
@@ -145,9 +152,26 @@ actor AmbientCaptureService {
     // MARK: - Text Extraction
 
     private nonisolated func extractTextFromAXTree(_ json: String) -> String {
-        guard let data = json.data(using: .utf8),
-              let tree = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let elements = tree["elements"] as? [[String: Any]] else {
+        guard let data = json.data(using: .utf8) else {
+            Self.log.error("AmbientCapture: AX tree JSON was not valid UTF-8")
+            return ""
+        }
+
+        let treeObject: Any
+        do {
+            treeObject = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            Self.log.error("AmbientCapture: failed to decode AX tree JSON — \(error.localizedDescription)")
+            return ""
+        }
+
+        guard let tree = treeObject as? [String: Any] else {
+            Self.log.error("AmbientCapture: AX tree root payload was not a dictionary")
+            return ""
+        }
+
+        guard let elements = tree["elements"] as? [[String: Any]] else {
+            Self.log.error("AmbientCapture: AX tree payload missing elements array")
             return ""
         }
 
@@ -178,7 +202,16 @@ actor AmbientCaptureService {
             #"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b"#,
             #"\b\d{3}-\d{2}-\d{4}\b"#
         ]
-        return patterns.compactMap { try? NSRegularExpression(pattern: $0) }
+        return patterns.compactMap { pattern in
+            do {
+                return try NSRegularExpression(pattern: pattern)
+            } catch {
+                log.error(
+                    "AmbientCapture: failed to compile secret redaction pattern '\(pattern, privacy: .public)' — \(error.localizedDescription)"
+                )
+                return nil
+            }
+        }
     }()
 
     nonisolated static func redactSecrets(_ text: String) -> String {

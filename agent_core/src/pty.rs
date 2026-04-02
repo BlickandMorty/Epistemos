@@ -146,7 +146,7 @@ impl PtyPool {
         let mut raw_output = String::new();
         let mut exit_code: Option<i32> = None;
         let mut working_dir = session.working_dir.clone();
-        let mut found_sentinel = false;
+        let mut parsed_working_dir = false;
 
         loop {
             if start.elapsed() > timeout {
@@ -171,8 +171,7 @@ impl PtyPool {
             };
 
             if ready <= 0 {
-                // If we already found the sentinel, we can stop reading.
-                if found_sentinel {
+                if exit_code.is_some() && parsed_working_dir {
                     break;
                 }
                 continue;
@@ -196,44 +195,17 @@ impl PtyPool {
             // Strip ANSI escape sequences before checking for sentinel.
             let clean = strip_ansi(&raw_output);
 
-            // Check for sentinel in cleaned output.
-            if let Some(pos) = clean.find(&sentinel) {
-                found_sentinel = true;
+            if let Some(parsed_exit_code) = extract_exit_code(&clean, &sentinel) {
+                exit_code = Some(parsed_exit_code);
+            }
 
-                // Parse exit code from the sentinel line.
-                // The text right after the sentinel is the exit code, possibly
-                // followed by a newline, prompt text, or other shell output.
-                let after_sentinel = &clean[pos + sentinel.len()..];
-                // Extract leading digits (the exit code).
-                let code_str: String = after_sentinel
-                    .chars()
-                    .take_while(|c| c.is_ascii_digit())
-                    .collect();
-                if !code_str.is_empty() {
-                    exit_code = code_str.parse().ok();
-                }
+            if let Some(parsed_pwd) = extract_working_dir_marker(&clean) {
+                working_dir = parsed_pwd;
+                parsed_working_dir = true;
+            }
 
-                // Parse working directory from __EPPWD__ marker.
-                if let Some(pwd_pos) = clean.find("__EPPWD__") {
-                    let after_pwd = &clean[pwd_pos + 9..];
-                    if let Some(nl) = after_pwd.find('\n') {
-                        let wd = after_pwd[..nl].trim();
-                        if !wd.is_empty() {
-                            working_dir = wd.to_string();
-                        }
-                    } else {
-                        // PWD may be the last thing, no newline yet.
-                        let wd = after_pwd.trim();
-                        if !wd.is_empty() && !wd.contains("__EP") {
-                            working_dir = wd.to_string();
-                        }
-                    }
-                }
-
-                // If we have both sentinel and PWD, we're done.
-                if clean.contains("__EPPWD__") {
-                    break;
-                }
+            if exit_code.is_some() && parsed_working_dir {
+                break;
             }
         }
 
@@ -488,47 +460,73 @@ fn strip_ansi(s: &str) -> String {
     result
 }
 
+fn extract_exit_code(clean: &str, sentinel: &str) -> Option<i32> {
+    clean.rmatch_indices(sentinel).find_map(|(idx, _)| {
+        let after_sentinel = &clean[idx + sentinel.len()..];
+        let code_str: String = after_sentinel
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
+        if code_str.is_empty() {
+            None
+        } else {
+            code_str.parse().ok()
+        }
+    })
+}
+
+fn extract_working_dir_marker(clean: &str) -> Option<String> {
+    clean.rmatch_indices("__EPPWD__").find_map(|(idx, _)| {
+        let after_pwd = &clean[idx + 9..];
+        let line = after_pwd.lines().next().unwrap_or("").trim();
+        if line.starts_with('/') {
+            Some(line.to_string())
+        } else {
+            None
+        }
+    })
+}
+
+fn is_helper_line(line: &str, sentinel: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.contains("__eec=$?")
+        || trimmed.contains("__EPPWD__$(pwd)")
+        || trimmed.starts_with(sentinel)
+        || trimmed.starts_with("__EPPWD__")
+}
+
 /// Extract only the command output from cleaned PTY output.
 /// Removes the echoed command and the sentinel/PWD lines.
 fn extract_command_output(clean: &str, command: &str, sentinel: &str) -> String {
-    let lines: Vec<&str> = clean.lines().collect();
+    let end_idx = clean.rfind(sentinel).unwrap_or(clean.len());
+    let prefix = &clean[..end_idx];
+    let trimmed_command = command.trim();
+    let mut saw_command_echo = false;
+    let mut output_lines = Vec::new();
 
-    // Find the line(s) that are the echoed command. The shell echoes back
-    // the full input we sent (with leading space for history avoidance).
-    // Find where the sentinel starts.
-    let sentinel_line_idx = lines.iter().position(|l| l.contains(sentinel));
-    let end_idx = sentinel_line_idx.unwrap_or(lines.len());
-
-    // Skip echoed command lines at the start. The command we sent is prefixed
-    // with a space, so look for lines that match the command text.
-    let cmd_trimmed = command.trim();
-    let mut start_idx = 0;
-    for (i, line) in lines[..end_idx].iter().enumerate() {
-        let l = line.trim();
-        // Skip lines that are part of the echoed command or the __eec assignment.
-        if l.contains(cmd_trimmed)
-            || l.contains("__eec=$?")
-            || l.contains(sentinel)
-            || l.contains("__EPPWD__")
-            || l.is_empty()
-        {
-            start_idx = i + 1;
-        } else {
-            break;
+    for line in prefix.lines() {
+        if !saw_command_echo {
+            if line.trim() == trimmed_command {
+                saw_command_echo = true;
+            }
+            continue;
         }
+
+        if is_helper_line(line, sentinel) {
+            continue;
+        }
+
+        output_lines.push(line);
     }
 
-    if start_idx >= end_idx {
-        return String::new();
+    if !saw_command_echo {
+        output_lines = prefix
+            .lines()
+            .filter(|line| !is_helper_line(line, sentinel))
+            .collect();
     }
 
-    lines[start_idx..end_idx]
-        .iter()
-        .copied()
-        .collect::<Vec<&str>>()
-        .join("\n")
-        .trim()
-        .to_string()
+    output_lines.join("\n").trim().to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -663,5 +661,41 @@ mod tests {
         let input = "\x1b[?2004lhello\x1b[0m world\r\n";
         let clean = strip_ansi(input);
         assert_eq!(clean, "hello world\n");
+    }
+
+    #[test]
+    fn test_extract_command_output_ignores_stale_prefix_markers() {
+        let sentinel = "__EPSENTfresh__";
+        let clean = format!(
+            "__EPSENTstale__0\n pwd\n __eec=$?; echo \"{sentinel}$__eec\"; echo \"__EPPWD__$(pwd)\"\n/private/tmp\n{sentinel}0\n__EPPWD__/private/tmp\n"
+        );
+
+        let output = extract_command_output(&clean, "pwd", sentinel);
+        assert_eq!(output, "/private/tmp");
+    }
+
+    #[test]
+    fn test_extract_command_output_keeps_real_stdout_before_helper_echo() {
+        let sentinel = "__EPSENTfresh__";
+        let clean = format!(
+            " echo hello_world_123\nhello_world_123\n __eec=$?; echo \"{sentinel}$__eec\"; echo \"__EPPWD__$(pwd)\"\n{sentinel}0\n__EPPWD__/private/tmp\n"
+        );
+
+        let output = extract_command_output(&clean, "echo hello_world_123", sentinel);
+        assert_eq!(output, "hello_world_123");
+    }
+
+    #[test]
+    fn test_marker_parsers_ignore_echoed_command_literals() {
+        let sentinel = "__EPSENTfresh__";
+        let clean = format!(
+            "pwd\n __eec=$?; echo \"{sentinel}$__eec\"; echo \"__EPPWD__$(pwd)\"\n/private/tmp\n{sentinel}0\n__EPPWD__/private/tmp\n"
+        );
+
+        assert_eq!(extract_exit_code(&clean, sentinel), Some(0));
+        assert_eq!(
+            extract_working_dir_marker(&clean),
+            Some("/private/tmp".to_string())
+        );
     }
 }

@@ -130,11 +130,7 @@ final class ScreenCaptureService {
         // Kick the replayd daemon so it picks up the app's current cdhash.
         // This is a no-op if the daemon isn't running (it'll start fresh).
         let uid = getuid()
-        let kickTask = Process()
-        kickTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        kickTask.arguments = ["kickstart", "-k", "gui/\(uid)/com.apple.replayd"]
-        try? kickTask.run()
-        kickTask.waitUntilExit()
+        await restartReplayd(for: uid)
 
         // Brief cooldown for the daemon to re-initialize
         try? await Task.sleep(for: .milliseconds(500))
@@ -145,6 +141,21 @@ final class ScreenCaptureService {
         } catch {
             log.error("Stream recovery failed: \(error.localizedDescription)")
         }
+    }
+
+    private nonisolated func restartReplayd(for uid: uid_t) async {
+        await Task.detached(priority: .utility) {
+            let kickTask = Process.init()
+            kickTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            kickTask.arguments = ["kickstart", "-k", "gui/\(uid)/com.apple.replayd"]
+            do {
+                try kickTask.run()
+                kickTask.waitUntilExit()
+            } catch {
+                let logger = Logger(subsystem: "com.epistemos.omega", category: "ScreenCapture")
+                logger.error("Failed to restart replayd: \(error.localizedDescription)")
+            }
+        }.value
     }
 
     /// Get the latest frame, waiting up to maxWaitMs if no frame is available yet.

@@ -1,6 +1,14 @@
 import Foundation
 import Observation
+import OSLog
 import SwiftUI
+
+nonisolated enum VaultChatMutatorDiagnostics {
+    static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "VaultChatMutator"
+    )
+}
 
 nonisolated enum VaultIdentity: Hashable, Codable, Sendable {
     case model(String)
@@ -229,6 +237,24 @@ final class VaultChatMutator {
 }
 
 private actor VaultMutationIO {
+    private func stagedMemoryBodyIfPresent(
+        at fileURL: URL,
+        targetVault: VaultIdentity
+    ) throws -> String {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return defaultMemoryBody(for: targetVault)
+        }
+
+        do {
+            return try String(contentsOf: fileURL, encoding: .utf8)
+        } catch {
+            VaultChatMutatorDiagnostics.log.error(
+                "VaultChatMutator: failed to read staged memory file at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
+    }
+
     func prepareMutation(
         message: String,
         targetVault: VaultIdentity,
@@ -243,7 +269,7 @@ private actor VaultMutationIO {
 
         let relativePath = targetVault.relativeMemoryPath
         let fileURL = repositoryRootURL.appendingPathComponent(relativePath, isDirectory: false)
-        let before = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? defaultMemoryBody(for: targetVault)
+        let before = try stagedMemoryBodyIfPresent(at: fileURL, targetVault: targetVault)
         let proposal = proposeMutation(message: message, original: before, targetVault: targetVault)
         let unifiedDiff = makeUnifiedDiff(
             old: before,
@@ -274,7 +300,7 @@ private actor VaultMutationIO {
         )
     }
 
-    func commit(diff: DiffResult) throws -> String {
+    func commit(diff: DiffResult) async throws -> String {
         let parentURL = diff.fileURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: parentURL,
@@ -283,10 +309,10 @@ private actor VaultMutationIO {
         )
         try diff.after.write(to: diff.fileURL, atomically: true, encoding: .utf8)
 
-        try ensureGitRepository(at: diff.repositoryRootURL)
-        _ = try runGit(arguments: ["-C", diff.repositoryRootURL.path, "add", diff.relativePath], in: diff.repositoryRootURL)
-        _ = try runGit(arguments: ["-C", diff.repositoryRootURL.path, "commit", "-m", diff.commitMessage], in: diff.repositoryRootURL)
-        return try runGit(arguments: ["-C", diff.repositoryRootURL.path, "rev-parse", "HEAD"], in: diff.repositoryRootURL)
+        try await ensureGitRepository(at: diff.repositoryRootURL)
+        _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "add", diff.relativePath], in: diff.repositoryRootURL)
+        _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "commit", "-m", diff.commitMessage], in: diff.repositoryRootURL)
+        return try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "rev-parse", "HEAD"], in: diff.repositoryRootURL)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -451,39 +477,78 @@ private actor VaultMutationIO {
         return lines.joined(separator: "\n")
     }
 
-    private func ensureGitRepository(at rootURL: URL) throws {
+    private func ensureGitRepository(at rootURL: URL) async throws {
         let gitDirectory = rootURL.appendingPathComponent(".git", isDirectory: true)
         guard !FileManager.default.fileExists(atPath: gitDirectory.path) else {
             return
         }
-        _ = try runGit(arguments: ["-C", rootURL.path, "init"], in: rootURL)
+        _ = try await runGitOffMain(arguments: ["-C", rootURL.path, "init"], in: rootURL)
     }
 
-    private func runGit(arguments: [String], in currentDirectoryURL: URL) throws -> String {
-        let process = Process()
-        let outputPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + arguments
-        process.currentDirectoryURL = currentDirectoryURL
-        process.standardOutput = outputPipe
-        process.standardError = outputPipe
+    private nonisolated func runGitOffMain(arguments: [String], in currentDirectoryURL: URL) async throws -> String {
+        let timeoutSeconds = 15.0
+        let state = ThrowingProcessContinuationState<String>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.global(qos: .utility).async {
+                    let process = Process.init()
+                    let outputPipe = Pipe()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                    process.arguments = ["git"] + arguments
+                    process.currentDirectoryURL = currentDirectoryURL
+                    process.standardOutput = outputPipe
+                    process.standardError = outputPipe
 
-        var environment = ProcessInfo.processInfo.environment
-        environment["GIT_AUTHOR_NAME"] = environment["GIT_AUTHOR_NAME"] ?? "Epistemos"
-        environment["GIT_AUTHOR_EMAIL"] = environment["GIT_AUTHOR_EMAIL"] ?? "omega@epistemos.local"
-        environment["GIT_COMMITTER_NAME"] = environment["GIT_COMMITTER_NAME"] ?? "Epistemos"
-        environment["GIT_COMMITTER_EMAIL"] = environment["GIT_COMMITTER_EMAIL"] ?? "omega@epistemos.local"
-        process.environment = environment
+                    var environment = ProcessInfo.processInfo.environment
+                    environment["GIT_AUTHOR_NAME"] = environment["GIT_AUTHOR_NAME"] ?? "Epistemos"
+                    environment["GIT_AUTHOR_EMAIL"] = environment["GIT_AUTHOR_EMAIL"] ?? "omega@epistemos.local"
+                    environment["GIT_COMMITTER_NAME"] = environment["GIT_COMMITTER_NAME"] ?? "Epistemos"
+                    environment["GIT_COMMITTER_EMAIL"] = environment["GIT_COMMITTER_EMAIL"] ?? "omega@epistemos.local"
+                    process.environment = environment
 
-        try process.run()
-        process.waitUntilExit()
+                    guard state.store(process: process, continuation: continuation) else {
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
 
-        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let text = String(decoding: data, as: UTF8.self)
-        guard process.terminationStatus == 0 else {
-            throw VaultChatMutatorError.gitCommandFailed(text)
+                    let timeoutTask = Task.detached(priority: .utility) {
+                        do {
+                            try await Task.sleep(for: .seconds(timeoutSeconds))
+                        } catch is CancellationError {
+                            return
+                        } catch {
+                            VaultChatMutatorDiagnostics.log.error(
+                                "VaultChatMutator: failed while waiting for git timeout: \(error.localizedDescription, privacy: .public)"
+                            )
+                            return
+                        }
+                        state.terminate()
+                        state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
+                    }
+
+                    process.terminationHandler = { proc in
+                        timeoutTask.cancel()
+                        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                        let text = String(decoding: data, as: UTF8.self)
+                        guard proc.terminationStatus == 0 else {
+                            state.resume(throwing: VaultChatMutatorError.gitCommandFailed(text))
+                            return
+                        }
+                        state.resume(returning: text)
+                    }
+
+                    do {
+                        try process.run()
+                    } catch {
+                        timeoutTask.cancel()
+                        state.resume(throwing: error)
+                    }
+                }
+            }
+        } onCancel: {
+            state.terminate()
+            state.resume(throwing: CancellationError())
         }
-        return text
     }
 }
 

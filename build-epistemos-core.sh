@@ -50,6 +50,7 @@ mkdir -p ../build-rust/swift-bindings
 cargo run --bin uniffi_bindgen -- generate \
     uniffi/epistemos_core.udl \
     --language swift \
+    --no-format \
     --out-dir ../build-rust/swift-bindings/
 
 # Patch generated Swift for SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor compatibility

@@ -20,12 +20,16 @@ final class OmegaPermissions {
     var allGranted: Bool { accessibilityGranted && screenRecordingGranted && automationGranted }
 
     /// Refresh permission status from the OS.
+    /// Blocking calls (Rust FFI AXIsProcessTrusted) are dispatched off main thread.
     func refresh() async {
-        // Accessibility: check via Rust (omega-ax)
-        let status = checkPermissions()
-        accessibilityGranted = status.accessibility == .granted
+        // Accessibility: check via Rust (omega-ax) — OFF main thread.
+        // checkPermissions() calls AXIsProcessTrusted via FFI, which is synchronous IPC.
+        let accessibilityGranted = await Task.detached(priority: .userInitiated) {
+            checkPermissions().accessibility == .granted
+        }.value
+        self.accessibilityGranted = accessibilityGranted
 
-        // Screen Recording: check via ScreenCaptureKit
+        // Screen Recording: check via ScreenCaptureKit (with timeout)
         screenRecordingGranted = await checkScreenRecording()
 
         // Automation: check System Events Apple Events permission without prompting.
@@ -65,18 +69,32 @@ final class OmegaPermissions {
     // MARK: - Static Helpers
 
     /// Quick accessibility check (for use outside the Observable instance).
-    static func checkAccessibility() -> Bool {
+    /// NOTE: This calls AXIsProcessTrusted via Rust FFI which is synchronous.
+    /// Prefer `refresh()` in async contexts. This exists for startup gate checks.
+    nonisolated static func checkAccessibility() -> Bool {
         let status = checkPermissions()
         return status.accessibility == .granted
     }
 
     // MARK: - Private
 
+    /// Check screen recording with 5-second timeout.
+    /// SCShareableContent can hang if replayd is in a broken state.
     private func checkScreenRecording() async -> Bool {
-        do {
+        let fetchTask = Task { @MainActor () -> Bool in
             _ = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
             return true
+        }
+        let timeoutTask = Task {
+            try await Task.sleep(for: .seconds(5))
+            fetchTask.cancel()
+        }
+        do {
+            let result = try await fetchTask.value
+            timeoutTask.cancel()
+            return result
         } catch {
+            timeoutTask.cancel()
             return false
         }
     }

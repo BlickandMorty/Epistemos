@@ -70,6 +70,12 @@ final class PowerGuard {
         }
     }
 
+    /// Whether eco mode has ever been explicitly set by the user.
+    /// On first launch, eco is on by default.
+    private static var hasExplicitEcoPreference: Bool {
+        UserDefaults.standard.object(forKey: "epistemos.ecoMode") != nil
+    }
+
     /// Whether the system is in low power mode.
     private(set) var systemLowPowerActive = false
 
@@ -107,7 +113,10 @@ final class PowerGuard {
     private var thermalNotificationTask: Task<Void, Never>?
 
     private init() {
-        ecoModeEnabled = UserDefaults.standard.bool(forKey: "epistemos.ecoMode")
+        // Default to eco mode on first launch (no key in UserDefaults yet).
+        ecoModeEnabled = Self.hasExplicitEcoPreference
+            ? UserDefaults.standard.bool(forKey: "epistemos.ecoMode")
+            : true
         systemLowPowerActive = ProcessInfo.processInfo.isLowPowerModeEnabled
         thermalCritical = ProcessInfo.processInfo.thermalState == .critical
 

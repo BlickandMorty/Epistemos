@@ -279,29 +279,41 @@ final class RetrievalRuntime {
         var candidates: [RetrievalCandidate] = []
 
         if scope != .blocks {
-            let results = (try? searchIndex.search(query: query, limit: limit)) ?? []
-            for result in results {
-                appendNoteResult(
-                    pageId: result.pageId,
-                    score: Float(result.rank),
-                    snippet: result.snippet,
-                    source: .pageSearch,
-                    seen: &seen,
-                    candidates: &candidates
+            do {
+                let results = try searchIndex.search(query: query, limit: limit)
+                for result in results {
+                    appendNoteResult(
+                        pageId: result.pageId,
+                        score: Float(result.rank),
+                        snippet: result.snippet,
+                        source: .pageSearch,
+                        seen: &seen,
+                        candidates: &candidates
+                    )
+                }
+            } catch {
+                Log.ffiBoundary.error(
+                    "QueryRuntime: failed to search note index for '\(query, privacy: .public)': \(error.localizedDescription, privacy: .public)"
                 )
             }
         }
 
         if scope == .blocks || scope == .all {
-            let blockResults = (try? searchIndex.searchBlocks(query: query, limit: limit)) ?? []
-            for result in blockResults {
-                appendNoteResult(
-                    pageId: result.pageId,
-                    score: Float(result.rank),
-                    snippet: result.snippet,
-                    source: .blockSearch,
-                    seen: &seen,
-                    candidates: &candidates
+            do {
+                let blockResults = try searchIndex.searchBlocks(query: query, limit: limit)
+                for result in blockResults {
+                    appendNoteResult(
+                        pageId: result.pageId,
+                        score: Float(result.rank),
+                        snippet: result.snippet,
+                        source: .blockSearch,
+                        seen: &seen,
+                        candidates: &candidates
+                    )
+                }
+            } catch {
+                Log.ffiBoundary.error(
+                    "QueryRuntime: failed to search block index for '\(query, privacy: .public)': \(error.localizedDescription, privacy: .public)"
                 )
             }
         }

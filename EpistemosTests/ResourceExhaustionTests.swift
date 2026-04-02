@@ -1,5 +1,6 @@
 import Testing
 @testable import Epistemos
+import Dispatch
 import Foundation
 
 // MARK: - Resource Exhaustion Tests
@@ -386,6 +387,130 @@ struct ResourceLargeGraphTests {
         
         #expect(store.nodeCount == n)
         #expect(store.edgeCount == n * (n - 1) / 2)
+    }
+}
+
+@Suite("Resource Exhaustion - Memory Pressure Tracking")
+@MainActor
+struct ResourceMemoryPressureTrackingTests {
+
+    @Test("duplicate memory pressure warnings coalesce until recovery")
+    func duplicateWarningsCoalesceUntilRecovery() {
+        var tracker = RuntimeIssueMonitor.MemoryPressureTracker()
+
+        #expect(tracker.transition(for: .warning) == .entered(.warning))
+        #expect(tracker.transition(for: .warning) == nil)
+        #expect(tracker.transition(for: .normal) == .recovered(from: .warning))
+        #expect(tracker.transition(for: .normal) == nil)
+    }
+
+    @Test("critical pressure escalates from warning and only recovers once")
+    func criticalPressureEscalatesAndRecoversOnce() {
+        var tracker = RuntimeIssueMonitor.MemoryPressureTracker()
+
+        #expect(tracker.transition(for: .warning) == .entered(.warning))
+        #expect(tracker.transition(for: .critical) == .entered(.critical))
+        #expect(tracker.transition(for: .critical) == nil)
+        #expect(tracker.transition(for: .normal) == .recovered(from: .critical))
+        #expect(tracker.transition(for: .normal) == nil)
+    }
+
+    @Test("structured memory pressure diagnostics annotate source and scope")
+    func structuredMemoryPressureDiagnosticsAnnotateSourceAndScope() async throws {
+        let logDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("memory-pressure-log-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: logDirectory) }
+
+        let logger = StructuredDiagnosticLogger(logDirectory: logDirectory)
+        logger.log(
+            .memoryPressure(
+                level: "warning",
+                usedMB: 42,
+                pressureSource: "dispatch_source",
+                memoryScope: "process_resident",
+                isAppActive: false
+            )
+        )
+
+        try await Task.sleep(for: .milliseconds(50))
+
+        let fileURL = logDirectory.appendingPathComponent("events.jsonl")
+        let data = try Data(contentsOf: fileURL)
+        let content = try #require(String(data: data, encoding: .utf8))
+        let line = try #require(content.split(separator: "\n").first)
+        let eventData = Data(line.utf8)
+        let event = try #require(
+            JSONSerialization.jsonObject(with: eventData) as? [String: Any]
+        )
+
+        #expect(event["event"] as? String == "memory_pressure")
+        #expect(event["level"] as? String == "warning")
+        #expect(event["used_mb"] as? Int == 42)
+        #expect(event["pressure_source"] as? String == "dispatch_source")
+        #expect(event["memory_scope"] as? String == "process_resident")
+        #expect(event["app_active"] as? Bool == false)
+    }
+
+    @Test("structured diagnostics export recent events as a JSON array")
+    func structuredDiagnosticsExportRecentEventsAsJSONArray() async throws {
+        let logDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("diagnostic-export-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: logDirectory) }
+
+        let logger = StructuredDiagnosticLogger(logDirectory: logDirectory)
+        logger.log(.toolGateFailed(toolName: "browser", reason: "missing_credentials"))
+
+        try await Task.sleep(for: .milliseconds(50))
+
+        let exported = logger.exportRecent(limit: 1)
+        let data = try #require(exported.data(using: .utf8))
+        let events = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+
+        #expect(events.count == 1)
+        #expect(events.first?["event"] as? String == "tool_gate_failed")
+        #expect(events.first?["tool"] as? String == "browser")
+        #expect(events.first?["reason"] as? String == "missing_credentials")
+    }
+}
+
+@Suite("Resource Exhaustion - Main Thread Hang Tracking")
+@MainActor
+struct ResourceMainThreadHangTrackingTests {
+
+    @Test("queued delayed callbacks collapse into one hang emission")
+    func queuedDelayedCallbacksCollapseIntoSingleEmission() throws {
+        var tracker = MainThreadWatchdog.HangBurstTracker()
+
+        let firstSequence = tracker.recordHangSample(durationMs: 9_833)
+        _ = tracker.recordHangSample(durationMs: 8_833)
+        let latestSequence = tracker.recordHangSample(durationMs: 7_833)
+
+        let staleEmission = tracker.drainIfSequenceMatches(firstSequence)
+        #expect(staleEmission == nil)
+
+        let emission = tracker.drainIfSequenceMatches(latestSequence)
+        #expect(emission != nil)
+        #expect(emission?.durationMs == 9_833)
+        #expect(emission?.sampleCount == 3)
+        let drainedEmission = tracker.drainIfSequenceMatches(latestSequence)
+        #expect(drainedEmission == nil)
+    }
+
+    @Test("invalidating a pending hang burst drops stale emissions")
+    func invalidatingPendingHangBurstDropsStaleEmission() throws {
+        var tracker = MainThreadWatchdog.HangBurstTracker()
+
+        let staleSequence = tracker.recordHangSample(durationMs: 6_213)
+        tracker.invalidate()
+
+        let staleEmission = tracker.drainIfSequenceMatches(staleSequence)
+        #expect(staleEmission == nil)
+
+        let freshSequence = tracker.recordHangSample(durationMs: 2_472)
+        let emission = tracker.drainIfSequenceMatches(freshSequence)
+        #expect(emission != nil)
+        #expect(emission?.durationMs == 2_472)
+        #expect(emission?.sampleCount == 1)
     }
 }
 
