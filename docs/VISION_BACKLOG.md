@@ -15,15 +15,13 @@ This is the COMPLETE list of remaining work. Items are organized by theme and pr
 - Cannot distribute without notarization on macOS
 - **Action:** Add notarize step to release.yml, configure Sparkle 2, add SUFeedURL to Info.plist
 
-### 0B. ResearchPause Continuation Fix
-- Has timeout (120s) but potential double-resume crash
-- Needs atomic completion guard (same pattern as ConfirmationGate fix)
-- **File:** `Epistemos/Omega/Orchestrator/ResearchPause.swift`
+### 0B. ResearchPause Continuation Fix — ✅ DONE (Codex: bc3266ee)
 
 ### 0C. EmbeddingService Main Thread Hang
 - 3738ms hang during "pushed 1017 embeddings" — MainActor.run block after FFI call
 - Profile with Instruments, move remaining MainActor work to background
 - **File:** `Epistemos/Graph/EmbeddingService.swift`
+- **Status:** Needs verification — Codex may have addressed indirectly via graph startup fix (c5e30065)
 
 ---
 
@@ -217,7 +215,7 @@ The graph stops being "notes only" and becomes the map of your entire knowledge 
 **Node types and visual encoding:**
 | Type | Shape | Visual | Edges To |
 |------|-------|--------|----------|
-| Note | Circle | Opacity = Ebbinghaus strength | Other notes (wikilinks), agents (created by), sources (cites) |
+| Note | Circle | Opacity = Ebbinghaus strength | Other notes (wikilinks), agents (created by) |
 | Chat | Small circle | Yellow tint | Notes (spawned from), agents (session of) |
 | Folder | Circle | Black/white, shade lightens with nesting depth | Child notes, child folders |
 | Agent session | Diamond | Pulses when active | Tools used, notes created, skills invoked |
@@ -225,15 +223,12 @@ The graph stops being "notes only" and becomes the map of your entire knowledge 
 | Skill | Hexagon | Color by category (blue=code, teal=research, coral=writing) | Models that have it, notes it produced |
 | Tool | Small square | Connected to models that can use it | Agent sessions that invoked it |
 | Code file | Rectangle | Monospace icon, syntax-colored border | Notes that reference it, agents that generated it |
-| Person/entity | Small dot | Extracted via NER from notes | Notes that mention them |
-| Web source | External link icon | Citation node | Notes that cite it |
 
 **Graph lenses (filter views in immersive mode):**
 - **All** — full constellation, everything visible
 - **Notes** — just vault notes and their connections
 - **Agents** — agent vaults, models, tools, active sessions, skills
 - **Code** — code files and their connections to notes/agents
-- **People** — entity graph extracted from your notes
 - **Temporal** — time-axis showing knowledge evolution
 
 **5 zoom levels (from Living Vault Architecture):**
@@ -249,6 +244,46 @@ The graph stops being "notes only" and becomes the map of your entire knowledge 
 - Token flow animates as particles along edges
 - Memory mutations flash affected nodes
 - Contextual Shadows orbit active editor panel (semantic gravity)
+
+### 3-PHYSICS. Mass-Based Drag, Snap-Back Ripple, Motion Blur, Haptics
+**Nodes have weight. You feel it.**
+
+**Mass-based drag resistance:**
+- Every node has a `mass` derived from: child count + link count + nesting depth
+- Drag force divided by mass: `displacement = cursor_delta / mass`
+- Single orphan note (mass ~1) → follows cursor 1:1, light
+- Folder with 50 notes (mass ~50) → cursor leads, node lags behind
+- Root folder with 200 children → heavy, sluggish, you're pulling against gravity
+- Visible elastic tether between cursor and heavy node (faint line, stretches, thins)
+
+**Snap-back on release:**
+- Node rubber-bands toward force-layout equilibrium position
+- Snap velocity proportional to displacement distance
+- Small drag → gentle drift back. Large drag on heavy node → hard snap.
+- On snap-back: inject impulse vector at node position
+- Existing spring/link forces propagate the impulse as a ripple through connected nodes
+- Ripple attenuates with graph distance: 1-hop neighbors move noticeably, 3+ barely
+
+**Motion blur:**
+- Radial blur proportional to displacement speed between cursor and node
+- Heavy nodes blur more (they lag further behind cursor)
+- Per-node `blur_radius` float in fragment shader: `|cursor_vel - node_vel| * mass_factor`
+- Blur peaks briefly on snap-back then decays: `blur *= 0.85` per frame until < 0.5px
+- Zero cost when blur is 0 (early exit in shader)
+
+**Haptic feedback (NSHapticFeedbackManager):**
+- Grab light node → `.alignment` (subtle click)
+- Grab medium folder (10-50 children) → `.levelChange` (firm click)
+- Grab heavy folder (50+) → strong `.generic` pattern (trackpad THUDS)
+- Snap-back → haptic pulse proportional to snap distance
+- Heavy snap = strong thud. Light snap = soft tick.
+
+**Implementation (all in existing Rust engine + Metal shaders):**
+1. Add `mass: f32` field per node (derived from metadata)
+2. Drag interaction: `node_displacement = cursor_delta / mass` with spring tether
+3. Release: inject impulse at node position, simulation naturally propagates ripple
+4. Fragment shader: `blur_radius` uniform per node, Gaussian sample when > 0
+5. Swift: `NSHapticFeedbackManager.defaultPerformer.perform()` on grab/release events
 
 ### 3A. Black & White Graph Theme
 - Folders: black (dark mode: white), shade lightens with nesting depth
