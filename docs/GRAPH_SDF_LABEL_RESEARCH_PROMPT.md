@@ -131,6 +131,65 @@ Research how to make the blur reveal feel native:
 
 ---
 
+## G. CHALLENGE THE CURRENT ARCHITECTURE (Critical — find what's wrong)
+
+The current graph system works but may have non-obvious bottlenecks, suboptimal patterns, or missed opportunities. Research must CONTEST the existing implementation, not just extend it.
+
+### G1. Renderer Architecture Audit
+The current renderer (`renderer.rs`, ~3500 lines) compiles shaders from source strings at startup via `new_library_with_source()`. It creates separate pipelines for nodes, edges, straight edges, field lines, dialogue, and compute.
+
+Challenge and research:
+1. **Should shaders be precompiled as .metallib at build time?** Current approach recompiles every launch. What's the startup cost? Would `new_library_with_data()` from a precompiled binary eliminate the flock contention entirely (instead of the file-lock workaround in AppBootstrap)?
+2. **Is instanced rendering optimal for this use case?** Current draws nodes via instanced draw calls. Would indirect draw commands (`drawIndexedPrimitives(type:indexCount:indexType:indexBuffer:indexBufferOffset:instanceCount:)` from an `MTLIndirectCommandBuffer`) be faster for variable-count node types?
+3. **Should the renderer use tile-based deferred rendering on Apple Silicon?** Apple GPUs are tile-based — is the current immediate-mode pipeline leaving performance on the table? Would a tile shader reduce bandwidth for the glow/blur effects?
+4. **Triple buffering:** The Metal layer uses `maximumDrawableCount = 3`. Is this optimal? Should the render loop use a semaphore to gate frame-ahead, or does the atomic `framePending` flag suffice?
+
+### G2. Physics Simulation Audit
+The simulation runs Barnes-Hut N-body repulsion on the GPU compute shader plus CPU-side spring/link forces.
+
+Challenge and research:
+1. **Is Barnes-Hut the right algorithm at this scale?** For 10K-50K nodes, would a GPU-parallel Fast Multipole Method (FMM) be faster? Barnes-Hut is O(n log n), FMM is O(n) — but FMM has higher constant factors. Where's the crossover on Apple Silicon?
+2. **Are link forces computed on CPU or GPU?** If CPU, should they move to a compute shader? Iterating 10K edges on CPU while GPU handles N-body creates a pipeline bubble.
+3. **Velocity integration scheme:** Is the current simulation using Euler integration? Would Verlet integration provide more stable, less "rubbery" physics without losing the organic feel?
+4. **Spatial hashing vs quadtree:** Barnes-Hut uses a quadtree. Would a grid-based spatial hash be faster for collision detection and nearby-node queries on the GPU (more cache-friendly, fewer pointer chases)?
+5. **Force calculation frequency:** Do forces need to run every frame (120hz)? Would running physics at 60hz and interpolating positions for rendering at 120hz reduce compute by 50% with no visible difference?
+
+### G3. Ontology and Data Model Audit
+The graph has a 5-layer hierarchy: folders → nested folders → notes → chats → ideas. Node types are encoded as `UInt8` (0-6).
+
+Challenge and research:
+1. **Is a flat node array with type tags optimal?** Would separating node types into distinct buffers (one buffer per type) improve GPU cache coherence during rendering? Each type has different rendering (different shaders, different sizes).
+2. **Edge storage:** How are edges stored? Adjacency list? Edge list? For GPU traversal, would a Compressed Sparse Row (CSR) format be faster for force propagation?
+3. **The 5-layer hierarchy:** Is this enforced in the physics or just visual? If a folder node has 200 children, does the simulation treat them as 200 independent spring connections or as a hierarchical composite body? Hierarchical body simulation (treating a cluster as a single mass for distant interactions) would be dramatically faster.
+4. **Semantic clustering:** Currently uses embedding cosine similarity to cluster. Is this clustering computed incrementally or rebuilt from scratch? Would an incremental Louvain community detection algorithm provide better clusters with less compute?
+5. **Dynamic Level of Detail (LOD):** At extreme zoom-out, individual notes in a folder are invisible. Should the renderer collapse a folder's children into a single aggregate node at low zoom, reducing draw calls from 200 to 1?
+
+### G4. Memory and Data Transfer Audit
+The graph uses `MTLResourceOptions.storageModeShared` for zero-copy UMA buffers.
+
+Challenge and research:
+1. **Buffer growth strategy:** When new nodes are added, does the buffer reallocate? What's the growth factor? Should it use a geometric growth (2x) or a pool allocator with fixed-size slabs?
+2. **Per-frame data transfer:** How much data crosses the Rust→Swift→Metal boundary per frame? What's the minimum? Could the Rust engine write directly to a mapped MTLBuffer and Swift just issues the draw call (true zero-copy)?
+3. **SoA vs AoS completeness:** The research says positions are SoA (all X together, all Y together). But are ALL node attributes SoA? If colors, sizes, or types are in an AoS struct, cache misses during rendering could be significant.
+4. **Ring buffer for mutations:** The `SharedRingBuffer` (128-byte cache lines, mmap) handles knowledge core updates. Should graph mutations (add/remove node, move) also go through a ring buffer instead of direct FFI calls?
+
+### G5. Rendering Quality Audit
+Challenge the visual output:
+1. **Anti-aliasing:** Are nodes anti-aliased? SDF circles should have smooth edges via `smoothstep` in the fragment shader. If using triangle-based geometry, is MSAA enabled?
+2. **Glow implementation:** How is the glow effect rendered? Bloom pass? Additive blending? A dedicated glow compute shader? Would a simple Gaussian blur post-process on a downsampled glow buffer be more efficient?
+3. **Edge rendering:** Are edges Bezier curves or straight lines? Curved edges (quadratic Bezier) are more visually appealing for a knowledge graph. Are they tessellated on CPU or evaluated in the vertex shader?
+4. **Color space:** Are colors in sRGB or linear space? Metal fragment shaders should work in linear space and let the framebuffer do the sRGB conversion. If colors are in sRGB, blending will produce incorrect results (dark halos around glowing edges).
+5. **HDR and ProMotion:** Does the renderer take advantage of EDR (Extended Dynamic Range) for the glow? On ProMotion displays (120Hz), is the display link properly synced to the variable refresh rate?
+
+### G6. Scalability Stress Points
+Where will the current architecture break as the vault grows?
+1. **At 100K nodes:** Will the single instanced draw call still be efficient, or should nodes be split into batches by screen region (frustum culling)?
+2. **At 500K edges:** Will the edge buffer fit in VRAM? What's the memory footprint per edge?
+3. **At 1M total entities:** Should the graph adopt a virtual scrolling approach (like NSTableView) where only visible nodes are in the draw buffer?
+4. **Concurrent modification:** If NightBrain adds 50 nodes while the user is interacting with the graph, does the render loop handle this safely? Is there a double-buffer or snapshot mechanism?
+
+---
+
 ## CONSTRAINTS
 
 - Must run at 120fps on M2 Pro with 10K+ visible nodes with labels
