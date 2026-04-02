@@ -167,6 +167,8 @@ Work through phases A→H as defined in the execution order at the bottom of VIS
 
 **CRITICAL ENGINEERING NOTES:**
 
+**Cloud provider overhaul (Tier -1 in VISION_BACKLOG):** The app switches from showing ALL providers' models to ONE active provider at a time. Default is OpenAI with OAuth sign-in (zero API keys — like Xcode). Anthropic requires API key (OAuth killed Feb 2026). Model selector only shows active provider's models + local. Each provider gets native controls (OpenAI: thinking/pro/fast; Anthropic: extended thinking toggle + budget; Google: grounding). Read the full spec in VISION_BACKLOG.md Tier -1.
+
 **Disabled node types:** Source (type 3), Quote (type 5), and Person are DISABLED. Do NOT create, render, or wire them. They stay in engine code but must be disconnected from all production paths (GraphBuilder, EntityExtractor, filters, lenses). Only re-enable if the user explicitly says so. See `3-GRAPH` in VISION_BACKLOG.md.
 
 **Immersive mode performance:** Adding floating panels, Contextual Shadows, blur, haptics must NOT degrade fps. NSPanels for isolation, force injection for shadows, early-exit shader for blur. Profile before/after each feature. Reject anything that drops fps by >5%. See `3-PRIME` performance mandate in VISION_BACKLOG.md.

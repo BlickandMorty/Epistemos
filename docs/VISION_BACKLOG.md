@@ -7,6 +7,120 @@ This is the COMPLETE list of remaining work. Items are organized by theme and pr
 
 ---
 
+## TIER -1: CLOUD PROVIDER OVERHAUL (Changes how the entire app connects to AI)
+
+### -1A. Single Active Provider Model (Replace multi-provider model selector)
+
+**Current problem:** The model selector shows a flat list of all cloud providers' models mixed together (Claude Opus, GPT-5.4, Gemini, etc.). This is confusing and requires API keys for every provider.
+
+**New model:**
+- Settings → "AI Provider" section with ONE active provider at a time
+- Default: OpenAI (OAuth sign-in, zero API keys needed)
+- User can switch to: Anthropic, Google, or Local-only
+- The model selector in chat ONLY shows models from the active provider + local models
+
+**Provider selector in Settings:**
+```
+┌─ AI Provider ─────────────────────────────┐
+│ ● OpenAI        [Sign In with OpenAI]     │  ← DEFAULT, OAuth
+│ ○ Anthropic     [Enter API Key]           │  ← API key required
+│ ○ Google        [Sign In with Google]     │  ← OAuth possible
+│ ○ Local Only    [No cloud needed]         │  ← MLX only
+└───────────────────────────────────────────┘
+```
+
+**Model selector in chat (adapts to active provider):**
+
+When OpenAI is active:
+```
+── OpenAI ──
+  GPT-5.4          (Pro)
+  GPT-5.4 Mini     (Fast)
+  o3               (Thinking)
+── Local ──
+  Qwen 3.5 4B     (Fast)
+  Qwen 3.5 9B     (Thinking)
+```
+
+When Anthropic is active:
+```
+── Anthropic ──
+  Claude Opus 4.6    (Pro)
+  Claude Sonnet 4.6  (Fast)
+  Claude Haiku 4.5   (Fast)
+── Local ──
+  Qwen 3.5 4B     (Fast)
+  Qwen 3.5 9B     (Thinking)
+```
+
+When Google is active:
+```
+── Google ──
+  Gemini 2.5 Pro   (Thinking)
+  Gemini 2.5 Flash (Fast)
+── Local ──
+  ...
+```
+
+### -1B. OpenAI OAuth Sign-In (Zero API Keys — THE Default Path)
+
+**Implementation:** Use OpenAI's Apps SDK OAuth 2.1 flow.
+- User taps "Sign In with OpenAI" in Settings
+- OAuth browser flow → user logs into their ChatGPT account
+- Token stored in macOS Keychain (same pattern as current API keys)
+- ChatGPT Plus/Pro subscription billing handles everything — no separate API charges
+- Free tier users get limited access, subscribers get full access
+- This is exactly how Xcode 26 does it
+
+**Codex research tasks before implementing:**
+1. Read OpenAI Apps SDK auth docs: https://developers.openai.com/apps-sdk/build/auth
+2. Determine if Apps SDK OAuth works for direct API calls or only for Apps SDK features
+3. If OAuth doesn't grant API access, fall back to API key but with a streamlined "paste your key" flow
+4. Check if ChatGPT subscription tokens can call the /v1/chat/completions endpoint
+5. Check rate limits: does Plus get the same limits as API tier?
+
+### -1C. Provider-Native Controls (Match the native app experience)
+
+Each provider exposes different capabilities. The controls in the chat UI should match what the native app offers:
+
+**OpenAI controls:**
+- Model tier: Pro / Fast / Thinking (maps to GPT-5.4 / GPT-5.4 Mini / o3)
+- Thinking mode: toggle on/off for o3 (shows reasoning steps)
+- Web search: toggle (ChatGPT can search the web)
+- Code interpreter: toggle
+- Temperature / top-p (advanced, collapsed by default)
+
+**Anthropic controls:**
+- Extended thinking: toggle on/off (shows Claude's thinking process)
+- Thinking budget: slider (low / medium / high token budget for thinking)
+- System prompt: editable (power users can customize)
+- Prompt caching: auto-enabled for conversations >1024 tokens
+
+**Google controls:**
+- Thinking: toggle for Gemini 2.5 Pro thinking mode
+- Grounding: toggle for Google Search grounding
+- Safety settings: configurable thresholds
+
+**Local model controls (unchanged):**
+- Fast / Thinking mode
+- Temperature
+- Max tokens
+
+### -1D. Anthropic API Key Flow (Streamlined)
+- Anthropic killed third-party OAuth — API key is the only option
+- But make it frictionless: Settings → tap Anthropic → "Get API Key" button opens console.anthropic.com/settings/keys in browser
+- User pastes key → saved to Keychain → validated immediately → done
+- The auth failure banner on landing page already handles the "missing key" case
+
+### -1E. Default Fallback Chain
+When the active provider fails (rate limit, outage, invalid key):
+1. Try active cloud provider
+2. Fall back to local MLX model (always available)
+3. Show user a toast: "Cloud unavailable, using local model"
+4. Never silently fail — always tell the user what's happening
+
+---
+
 ## TIER 0: SHIP-BLOCKING (Cannot release without these)
 
 ### 0A. Notarization + Sparkle Auto-Update
@@ -887,10 +1001,15 @@ The app must become the **GUI control plane** for the agent runtime, not "anothe
 ## EXECUTION ORDER (Recommended)
 
 ```
-PHASE A — STABILITY FIXES (This week):
-  0B ResearchPause fix
-  0C EmbeddingService hang
-  (0A Notarization + Sparkle DEFERRED — do after app is feature-complete)
+PHASE A — STABILITY + PROVIDER OVERHAUL:
+  0B ResearchPause fix — ✅ DONE (Codex: bc3266ee)
+  0C EmbeddingService hang — verify if resolved
+  -1A Single active provider model (replace multi-provider selector)
+  -1B OpenAI OAuth sign-in (zero API keys, default path)
+  -1C Provider-native controls (thinking toggles, extended thinking, web search)
+  -1D Anthropic streamlined API key flow
+  -1E Default fallback chain (cloud → local → toast)
+  (0A Notarization + Sparkle DEFERRED — Phase H)
 
 PHASE B — GRAPH-FIRST APP (The defining experience):
   3-PRIME Immersive graph as default landing (hologram overlay = home)
