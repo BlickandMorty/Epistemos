@@ -393,6 +393,37 @@ Hermes shipped 95 PRs. Key features missing from Epistemos:
 - Wire into `HermesRuntimeRoute` resolution
 - **File:** `Epistemos/Agent/HermesSubprocessManager.swift`
 
+### 1-RESEARCH. Agent Fusion Research Findings (from Advisory Council + Synthesis)
+
+**Read these before implementing any agent work:**
+- `docs/AGENT_FUSION_RESEARCH_PROMPT.md` — the research prompt
+- `~/Downloads/files (9)/AGENT_ADVISORY_COUNCIL.md` — 5-expert advisory verdict
+- `~/Downloads/files (9)/UNIFIED_RESEARCH_SYNTHESIS.md` — 8-project fusion analysis
+
+**Key findings that shape implementation:**
+
+**1. The Orchestration Tax is real — minimize layers.**
+Every orchestration layer (agent→sub-agent→tool→result→verify) adds latency and failure modes. The council unanimously recommends: MCP as the single protocol spine, Hermes as the single runtime, no additional orchestration frameworks. Don't adopt OpenSwarm's message bus or GoClaw's PostgreSQL task board. Keep it simple.
+
+**2. Selective 5-pattern adoption (not 8-project fusion):**
+- Phantom self-evolution → Living Vault optimization loop (ALREADY PLANNED)
+- OpenSwarm Worker/Reviewer → CompletionChecker second-pass (ALREADY BUILT)
+- CodeNano 17-tool audit → verify Hermes tool coverage (NEW — quick audit task)
+- Claw Code Rust patterns → study for agent_core improvements (STUDY ONLY)
+- GoClaw single binary → future Hermes replacement option (WATCH, DON'T BUILD)
+
+**3. The "Fusion Penalty" — don't over-integrate.**
+Combining patterns from 8 projects creates more integration surface than value. Pick the 2-3 highest-impact patterns and implement them deeply rather than shallow-integrating all 8.
+
+**4. Performance budgets from research:**
+- Tool execution: <100ms (current Hermes: ~200-500ms — needs improvement)
+- Session start: <500ms (current: ~2-4s with Python cold start — GoClaw would fix this)
+- Context switch between agents: <50ms (current: N/A — single agent only)
+- Token streaming first-byte: <200ms (current: depends on provider)
+
+**5. The real competitive moat is NOT the agent runtime.**
+It's the knowledge layer (vault, graph, semantic search, nightly training) wrapped around the agent. Every project studied has good agent orchestration. None have knowledge management. Focus agent work on wiring Hermes deeper into the vault, not on replacing Hermes.
+
 ### 1-STRATEGY. Surpassing OpenClaw (Port Patterns, Don't Rewrite)
 **DO NOT rewrite OpenClaw in Rust/Swift.** The bottleneck is LLM latency (seconds), not runtime speed (microseconds). Port the 5 orchestration patterns that make OpenClaw powerful:
 1. **Sub-agent spawning** → Hermes v0.6.0 profiles (already supports multi-instance)
@@ -1251,6 +1282,8 @@ PHASE B — GRAPH-FIRST APP (The defining experience):
   3C Nested perspective layers (cinematic depth into folders)
 
 PHASE C — AGENT PARITY (Make it feel like Hermes/OpenClaw):
+  1-RESEARCH Read advisory council + synthesis findings before any agent work
+  1-AUDIT CodeNano 17-tool audit (verify Hermes covers the minimal coding agent set)
   1A Merge Hermes v0.6.0
   10A Build control plane UI (profiles, sessions, tools, cron, providers)
   1D Restyle agent window (Xcode-inspired live execution view)
