@@ -28,7 +28,9 @@ Read every file listed below. Do not skip any. Do not summarize — absorb the f
 3. `docs/CODEX_HANDOFF.md` — Detailed handoff from the prior Claude session: every change, runtime analysis, audit checklist, research context
 
 ### Tier 2: Agent System (Hermes is THE backend — understand this deeply)
-4. `docs/BEST_OF_CLAW_AND_OPENCLAW.md` — historical pattern source; many items from this plan are now implemented, so cross-check with `docs/AGENT_PROGRESS.md`
+4. `docs/AGENT_FUSION_RESEARCH_PROMPT.md` — Research analyzing 8 open-source agent projects (Hermes, GoClaw, Phantom, OpenSwarm, Claw Code, CodeNano, OpenClaw, Hermes IDE)
+4b. **CRITICAL:** Read `1-RESEARCH` section in VISION_BACKLOG.md — Advisory Council findings: minimize orchestration tax, MCP as spine, selective 5-pattern adoption only, the Fusion Penalty, competitive moat = knowledge layer not agent runtime
+5. `docs/BEST_OF_CLAW_AND_OPENCLAW.md` — historical pattern source; many items now implemented, cross-check with `docs/AGENT_PROGRESS.md`
 5. `docs/FUSED_AGENT_ENGINEERING_REPORT.md` — Root cause analysis + upgrade path for the agent system
 6. `docs/HERMES_INTEGRATION_RESEARCH.md` — 40-file deep study of hermes-agent internals
 7. `docs/HERMES_PARITY_REPORT.md` — What hermes-agent can do vs what Epistemos exposes
