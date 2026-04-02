@@ -371,7 +371,37 @@ The vault becomes a living cognitive substrate. Every memory change is a diff, n
 - "@claude summarize my week" → agent with vault context
 - The surface that unifies search + AI + agent + notes into one gesture
 
-### 8C-7. "It Just Knows" Notification
+### 8C-7. Temporal Knowledge Decay Visualization
+- In the graph, notes you haven't touched fade over time (Ebbinghaus decay already computed)
+- A "Memory Health" dashboard shows: notes at risk of being forgotten, concepts strengthening, knowledge gaps
+- Weekly digest: "You're losing grip on X — here are the 3 notes to revisit"
+- The graph literally shows your memory fading — motivates review without nagging
+
+### 8C-8. Epistemic Drift Detection
+- Monthly LoRA snapshots already exist — wire them to a comparison view
+- "Your understanding of [attention mechanisms] shifted 23% since January"
+- Shows which notes caused the shift, what changed, whether it was intentional
+- Unique to Epistemos — no other tool tracks how your thinking evolves
+
+### 8C-9. Ambient Capture (from North Star doc)
+- Background listener captures ideas from any app via global hotkey
+- ⌘⇧E from anywhere → quick capture overlay → idea lands in vault as a node
+- Auto-tagged with: source app, timestamp, current context
+- Appears in graph immediately as a fresh bright node
+
+### 8C-10. Contextual Shadows — Graph Physics Mode
+- In hologram overlay: related notes gravitationally orbit your active panel
+- Semantic similarity = gravitational force (closer match = tighter orbit)
+- Grab an orbiting node → dock it beside your current note for side-by-side
+- In modular mode: same data renders as ghost cards in a margin panel
+- The shadows aren't a list — they're spatial, physical, part of the graph simulation
+
+### 8C-11. Knowledge Gaps Detection
+- After vault analysis: "You have 47 notes on transformers but nothing on state space models"
+- Suggests research directions based on what's missing from your knowledge graph
+- Agent can auto-research gaps overnight via NightBrain + Hermes
+
+### 8C-12. "It Just Knows" Notification
 - Background agent detects: relevant new paper, vault contradiction, trending concept
 - Native macOS notification with insight preview
 - Tap → deep-link to relevant note with insight highlighted
@@ -495,6 +525,47 @@ The app must become the **GUI control plane** for the agent runtime, not "anothe
 | AST update (single char) | <2ms |
 | Tantivy search (10K files) | <10ms |
 | LSP crash recovery | <3s |
+
+---
+
+## TIER 12: FROM ORIGINAL RESEARCH VISION (North Star + Time-Aware + Cognitive macOS)
+
+### 12A. Spaced Repetition Integration
+- Notes flagged for review surface on FSRS schedule (Free Spaced Repetition Scheduler)
+- Graph nodes pulse when it's time to revisit
+- Decay strength resets on access — the more you use a note, the longer it lives
+- Already have Ebbinghaus decay in memory_decay.rs — needs UI surface
+
+### 12B. Concept Evolution Timeline
+- Horizontal timeline view: how a concept grew across notes over months
+- Each point = a note that mentioned or evolved the concept
+- Color = sentiment/confidence shift
+- Click any point → see the note at that moment in time
+
+### 12C. Friction-Aware Writing
+- FrictionMonitorService already exists in code
+- Detect when user is struggling: long pauses, deletions, cursor jumping
+- Offer contextual help: "Having trouble? Here are related notes that might help"
+- Or silently trigger Contextual Shadows with broader semantic radius
+
+### 12D. Cross-App Knowledge Capture (from Cognitive macOS research)
+- ScreenCaptureKit + AXorcist already built
+- When user reads a paper in Preview or a webpage in Safari, detect key highlights
+- Offer to capture highlighted text as a vault node
+- Auto-link to existing related notes via InstantRecall
+- CaptureEnabled flag already in EpistemosConfig
+
+### 12E. Collaborative Graph Exploration (future — requires sync)
+- Share a read-only view of your knowledge graph with collaborators
+- They see your constellation but can't edit
+- Can suggest connections ("your note on X is related to Y")
+- Deferred until sync infrastructure exists
+
+### 12F. Daily Journal with Graph Context
+- Logseq's killer feature adapted for Epistemos
+- Daily note auto-created with: today's Contextual Shadows, vault health summary, pending reviews
+- Graph view filters to show only today's activity
+- Links back to yesterday's journal for continuity
 
 ---
 
