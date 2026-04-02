@@ -50,6 +50,12 @@ struct NoteSavingAuditTests {
 /// Edge case tests for note saving
 @Suite("Note Saving Edge Cases — W17.16")
 struct NoteSavingEdgeCaseTests {
+    private func makeTempDirectory() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("note-saving-audit-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
     
     @Test("empty body saves correctly")
     func emptyBodySave() async throws {
@@ -117,6 +123,62 @@ struct NoteSavingEdgeCaseTests {
         let fallback = SDPage(title: "Fallback")
         fallback.body = "Inline fallback"
         #expect(fallback.loadBody(mapped: true) == "Inline fallback")
+    }
+
+    @Test("loadBody falls back to a readable vault source when the managed body file is missing")
+    @MainActor func loadBodyFallsBackToReadableVaultSourceWhenManagedBodyIsMissing() throws {
+        let storageURL = try makeTempDirectory()
+        let vaultURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: storageURL)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        try NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
+            let page = SDPage(title: "Vault Fallback")
+            let fileURL = vaultURL.appendingPathComponent("Vault Fallback.md")
+            try """
+            ---
+            title: Vault Fallback
+            ---
+
+            Recovered from the vault body
+            """.write(to: fileURL, atomically: true, encoding: .utf8)
+            page.filePath = fileURL.path
+
+            #expect(!NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(page.loadBody() == "Recovered from the vault body")
+            #expect(page.loadBody(mapped: true) == "Recovered from the vault body")
+        }
+    }
+
+    @Test("loadBody preserves an intentionally blank managed body even when the vault source still has content")
+    @MainActor func loadBodyDoesNotResurrectVaultContentWhenManagedBodyExists() throws {
+        let storageURL = try makeTempDirectory()
+        let vaultURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: storageURL)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        try NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
+            let page = SDPage(title: "Blank Managed Body")
+            let fileURL = vaultURL.appendingPathComponent("Blank Managed Body.md")
+            try """
+            ---
+            title: Blank Managed Body
+            ---
+
+            Older vault content
+            """.write(to: fileURL, atomically: true, encoding: .utf8)
+            page.filePath = fileURL.path
+
+            page.saveBody("")
+
+            #expect(NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(page.loadBody().isEmpty)
+            #expect(page.loadBody(mapped: true).isEmpty)
+        }
     }
     
     // MARK: - External Body Change Notification Tests (P1 fix)

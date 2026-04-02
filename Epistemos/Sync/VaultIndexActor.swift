@@ -215,8 +215,15 @@ actor VaultIndexActor {
                 }
 
                 if let existingPage = existingByPath[filePath] {
+                    let needsLocalBodyRebuild =
+                        !NoteFileStorage.bodyExists(pageId: existingPage.id)
+                        && NoteFileStorage.readBody(
+                            pageId: existingPage.id,
+                            mapped: false,
+                            fast: true
+                        ).isEmpty
                     // File exists in DB — check if it changed
-                    if fileModDate > existingPage.updatedAt {
+                    if fileModDate > existingPage.updatedAt || needsLocalBodyRebuild {
                         // File was modified externally — re-read and update
                         autoreleasepool {
                             do {
@@ -633,7 +640,7 @@ actor VaultIndexActor {
             return false  // Skip this file instead of crashing the entire import
         }
 
-        let (frontMatter, body) = parseFrontMatter(content)
+        let (frontMatter, body) = Self.parseFrontMatter(content)
 
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.filePath == filePath }
@@ -649,6 +656,13 @@ actor VaultIndexActor {
         let parsedWordCount = countWords(body)
 
         if let page = existing.first {
+            let missingManagedBodyNeedsRestore =
+                !NoteFileStorage.bodyExists(pageId: page.id)
+                && NoteFileStorage.readBody(
+                    pageId: page.id,
+                    mapped: false,
+                    fast: true
+                ).isEmpty
             // Guard: if the note-body file on disk is newer than the vault .md file,
             // the user edited in-app after the last auto-save export. Preserve their
             // edits by skipping the body overwrite — only update metadata from vault.
@@ -663,8 +677,12 @@ actor VaultIndexActor {
             let preserveBody = noteBodyIsNewer && !currentBody.isEmpty
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
-            if currentBody != body || page.title != parsedTitle || page.tags != parsedTags
-                || page.emoji != parsedEmoji || page.frontMatter != frontMatter
+            if missingManagedBodyNeedsRestore
+                || currentBody != body
+                || page.title != parsedTitle
+                || page.tags != parsedTags
+                || page.emoji != parsedEmoji
+                || page.frontMatter != frontMatter
                 || page.wordCount != parsedWordCount
             {
                 if preserveBody {
@@ -768,9 +786,24 @@ actor VaultIndexActor {
         }
     }
 
+    nonisolated static func decodedBodyFromReadableVaultFile(at fileURL: URL) -> String? {
+        guard FileManager.default.isReadableFile(atPath: fileURL.path),
+              let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe) else {
+            return nil
+        }
+
+        if let decoded = FoundationSafety.decodedText(from: data) {
+            return parseFrontMatter(decoded).1
+        }
+        if let latin1 = String(data: data, encoding: .isoLatin1) {
+            return parseFrontMatter(latin1).1
+        }
+        return nil
+    }
+
     /// Parse YAML front-matter from markdown content.
     /// Returns (frontMatter dict, body without front-matter).
-    private func parseFrontMatter(_ content: String) -> ([String: String], String) {
+    nonisolated static func parseFrontMatter(_ content: String) -> ([String: String], String) {
         // Strip Unicode BOM (U+FEFF) that Windows editors may prepend
         let cleaned = content.hasPrefix("\u{FEFF}") ? String(content.dropFirst()) : content
         guard cleaned.hasPrefix("---") else { return ([:], cleaned) }

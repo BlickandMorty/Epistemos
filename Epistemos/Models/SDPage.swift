@@ -186,19 +186,30 @@ final class SDPage {
     ///   This reduces intermediate copying for bulk operations, but the returned `String` is still materialized.
     ///   Default `false` for interactive use (editing, display) where the String is long-lived.
     func loadBody(mapped: Bool = false) -> String {
+        let hasManagedBody = NoteFileStorage.bodyExists(pageId: id)
         let diskBody: String
         if mapped {
             diskBody = autoreleasepool {
-                NoteFileStorage.readBody(pageId: id, mapped: true)
+                NoteFileStorage.readBody(pageId: id, mapped: true, fast: false)
             }
         } else {
-            diskBody = NoteFileStorage.readBody(pageId: id, mapped: false)
+            diskBody = NoteFileStorage.readBody(pageId: id, mapped: false, fast: true)
         }
-        // Fallback: if no file exists but inline body has content (pre-migration), use inline.
-        if diskBody.isEmpty && !body.isEmpty {
+        if !diskBody.isEmpty || hasManagedBody {
+            return diskBody
+        }
+        // Fallback: if no managed file exists but inline body has content (pre-migration), use inline.
+        if !body.isEmpty {
             return body
         }
-        return diskBody
+        if let filePath,
+           !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let fileURL = URL(fileURLWithPath: filePath)
+            if let readableVaultBody = VaultIndexActor.decodedBodyFromReadableVaultFile(at: fileURL) {
+                return readableVaultBody
+            }
+        }
+        return ""
     }
 
     func bodyPrefix(_ limit: Int, mapped: Bool = false) -> String {

@@ -496,6 +496,57 @@ struct VaultIndexActorTests {
         #expect(page.needsVaultSync == false)
     }
 
+    @Test("importVault rebuilds missing local body files even when vault notes are unchanged")
+    func importVaultRebuildsMissingLocalBodiesForUnchangedVaultNotes() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            let fileURL = vaultURL.appendingPathComponent("Imported.md")
+            try """
+            ---
+            title: Imported Title
+            ---
+
+            Imported body
+            """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            try await actor.importVault(from: vaultURL)
+
+            let firstContext = ModelContext(container)
+            guard let importedPage = try firstContext.fetch(FetchDescriptor<SDPage>()).first else {
+                Issue.record("Expected imported page")
+                return
+            }
+
+            let pageId = importedPage.id
+            #expect(NoteFileStorage.bodyExists(pageId: pageId))
+
+            NoteFileStorage.deleteBody(pageId: pageId)
+
+            #expect(!NoteFileStorage.bodyExists(pageId: pageId))
+            #expect(importedPage.loadBody() == "Imported body")
+
+            try await actor.importVault(from: vaultURL)
+
+            let verifyContext = ModelContext(container)
+            guard let rebuiltPage = try verifyContext.fetch(FetchDescriptor<SDPage>()).first(where: { $0.id == pageId }) else {
+                Issue.record("Expected rebuilt page")
+                return
+            }
+
+            #expect(NoteFileStorage.bodyExists(pageId: pageId))
+            #expect(rebuiltPage.loadBody() == "Imported body")
+            #expect(rebuiltPage.needsVaultSync == false)
+        }
+    }
+
     @Test("comparable vault page counts ignore non-vault records")
     func comparableVaultPageCountsIgnoreNonVaultPages() throws {
         let vaultURL = URL(fileURLWithPath: "/tmp/epistemos-vault", isDirectory: true)
