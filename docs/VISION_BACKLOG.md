@@ -691,6 +691,39 @@ production paths. Only re-enable if the user explicitly says so. This applies to
 4. Fragment shader: `blur_radius` uniform per node, Gaussian sample when > 0
 5. Swift: `NSHapticFeedbackManager.defaultPerformer.perform()` on grab/release events
 
+### 3-LABELS. SDF Blur-Reveal Labels (Continuous Distance-Based)
+**Labels appear as you zoom in — not a toggle, a continuous gradient.**
+
+**The technique:** Signed Distance Field (SDF) text rendering in the Metal fragment shader. Instead of rasterized fonts, each pixel stores the distance to the font edge. The shader manipulates the smoothstep boundary to blur/sharpen text mathematically.
+
+**Behavior:**
+- Dormant (zoomed out): no labels visible — nodes are just shapes (current behavior, preserved)
+- Zooming in: labels start as a diffused blur cloud, continuously sharpening as you get closer
+- In focus: labels are razor-sharp Apple typography
+- Panning away: labels blur back and fade to invisible
+- Only nodes near the camera focal point get crisp labels — everything else stays blurred
+- Per-node-type thresholds: folder labels reveal earlier (they're bigger, more important)
+- Density culling: if 50 labels would overlap, only show the N most important
+
+**The radial focus field:**
+- Camera focal point (world-space X/Y) passed from Rust → Swift → Metal as uniform
+- Fragment shader computes `distance(node_world_pos, camera_focus)`
+- `blur_intensity = smoothstep(focus_radius, blur_radius, dist_to_focus)`
+- SDF boundaries widen with blur: crisp = `smoothstep(0.45, 0.55)`, blurred = `smoothstep(0.1, 0.9)`
+- ALL distance math on GPU — never per-node CPU iteration
+
+**Integration with physics:**
+- During drag: labels blur MORE due to motion (motion blur stacks with distance blur)
+- Mass-drag snap-back: label blur peaks during snap, settles with node
+- The volatile "Garry's Mod" physics is a FEATURE — labels enhance it, don't fight it
+
+**Settings:**
+- Label visibility threshold slider (at what zoom depth labels start appearing)
+- In performance mode (quality 2): labels disabled entirely (zero cost)
+- In lowPower mode: labels disabled (PowerGuard integration)
+
+**Research prompt:** `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md` — 20 files, 6 objectives, full implementation spec
+
 ### 3A. Black & White Graph Theme
 - Folders: black (dark mode: white), shade lightens with nesting depth
 - Notes: keep current color scheme
