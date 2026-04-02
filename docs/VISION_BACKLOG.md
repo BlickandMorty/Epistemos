@@ -178,7 +178,44 @@ Local active:
 - Provider controls read `activeProvider` and show relevant toggles
 - All controls persist per-provider in UserDefaults (switching providers restores last-used settings)
 
-### -1G. Default Fallback Chain
+### -1H. Hermes Agent Subprocess — OAuth Token Passthrough
+
+**The key insight:** Hermes doesn't care WHERE the API key came from. It reads `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY` from its environment. OAuth tokens are bearer tokens — they work in the same `Authorization: Bearer <token>` header as API keys.
+
+**How OAuth flows into Hermes:**
+1. User signs into OpenAI via OAuth in Settings → access token stored in Keychain
+2. `HermesRuntimeRoute.resolve()` reads token from Keychain (same path as API keys)
+3. Token passed to Hermes subprocess as `OPENAI_API_KEY` environment variable
+4. Hermes uses it transparently — no Hermes code changes needed
+
+**Same for Google:**
+1. User signs into Google via OAuth → access token + refresh token in Keychain
+2. Token refresh handled by Swift (Google OAuth tokens expire every hour)
+3. `HermesRuntimeRoute` passes current token as `GOOGLE_API_KEY`
+4. If token expires mid-session, Swift refreshes and updates Hermes env (requires Hermes restart or env hot-reload)
+
+**Anthropic:** No change — API key from Keychain as today.
+
+**What changes in HermesRuntimeRoute:**
+- `resolve()` must check for OAuth tokens FIRST, then fall back to API keys
+- OAuth tokens stored with a different Keychain key prefix: `epistemos.oauth.openai`, `epistemos.oauth.google`
+- Token refresh logic runs in a background task, updates Keychain, signals Hermes if needed
+- `toolGateKeychainMappings` updated to try OAuth token first, then API key
+
+**Agent mode selector should also respect provider modes:**
+When Hermes agent is running (not just chat), the mode selector still applies:
+- OpenAI agent: can use GPT-5.4 (Pro), o3 (Thinking), GPT-5.4 Mini (Fast)
+- Anthropic agent: can use Opus (Pro), Sonnet (Fast), with extended thinking toggle
+- Google agent: can use Gemini 2.5 Pro (Thinking), Flash (Fast)
+- Local agent: Qwen only (Fast/Thinking, no Pro)
+
+The `HermesRuntimeRoute` already selects the model — extend it to also pass mode-specific parameters:
+- OpenAI Thinking: route to o3 model slug
+- Anthropic Thinking: set `HERMES_EXTENDED_THINKING=true` + budget env var
+- Google Thinking: route to gemini-2.5-pro with thinking config
+- The mode selector in agent panel works identically to chat mode selector
+
+### -1I. Default Fallback Chain
 When the active provider fails (rate limit, outage, invalid key):
 1. Try active cloud provider
 2. Fall back to local MLX model (always available)
@@ -1076,7 +1113,8 @@ PHASE A — STABILITY + PROVIDER OVERHAUL:
   -1E Anthropic streamlined API key flow
   -1F Dynamic mode selector (modes appear/disappear per model capability)
   -1C Provider-native controls (thinking toggles, extended thinking, web search, grounding)
-  -1G Default fallback chain (cloud → local → toast)
+  -1H Hermes agent OAuth passthrough (tokens flow to subprocess as env vars)
+  -1I Default fallback chain (cloud → local → toast)
   (0A Notarization + Sparkle DEFERRED — Phase H)
 
 PHASE B — GRAPH-FIRST APP (The defining experience):
