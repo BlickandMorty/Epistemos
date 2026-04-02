@@ -190,6 +190,45 @@ As you type in ANY note, the most semantically related notes respond physically.
 
 **This is the feature that sells the app in 5 seconds.**
 
+### 3-GRAPH. Universal Graph — Everything Is a Node
+The graph stops being "notes only" and becomes the map of your entire knowledge system.
+
+**Node types and visual encoding:**
+| Type | Shape | Visual | Edges To |
+|------|-------|--------|----------|
+| Note | Circle | Opacity = Ebbinghaus strength | Other notes (wikilinks), agents (created by), sources (cites) |
+| Chat | Small circle | Yellow tint | Notes (spawned from), agents (session of) |
+| Folder | Circle | Black/white, shade lightens with nesting depth | Child notes, child folders |
+| Agent session | Diamond | Pulses when active | Tools used, notes created, skills invoked |
+| Model vault | Large rounded rect | Color by provider (purple=Anthropic, green=OpenAI) | Skills, tools, memory nodes |
+| Skill | Hexagon | Color by category (blue=code, teal=research, coral=writing) | Models that have it, notes it produced |
+| Tool | Small square | Connected to models that can use it | Agent sessions that invoked it |
+| Code file | Rectangle | Monospace icon, syntax-colored border | Notes that reference it, agents that generated it |
+| Person/entity | Small dot | Extracted via NER from notes | Notes that mention them |
+| Web source | External link icon | Citation node | Notes that cite it |
+
+**Graph lenses (filter views in immersive mode):**
+- **All** — full constellation, everything visible
+- **Notes** — just vault notes and their connections
+- **Agents** — agent vaults, models, tools, active sessions, skills
+- **Code** — code files and their connections to notes/agents
+- **People** — entity graph extracted from your notes
+- **Temporal** — time-axis showing knowledge evolution
+
+**5 zoom levels (from Living Vault Architecture):**
+- Level 1 (cosmic): provider clouds — Anthropic, OpenAI, Local, Personal
+- Level 2 (constellation): models/agents within each cloud, edges show shared skills
+- Level 3 (solar system): one model selected, its skills/memory/tools/agents orbit it
+- Level 4 (planet): one agent or skill, individual memory nodes with strengths
+- Level 5 (surface): one node selected, full content shown, edit in place, diff history
+
+**Live state rendering:**
+- Active agents pulse, tool call edges flash
+- Context window fills as radial progress around model node
+- Token flow animates as particles along edges
+- Memory mutations flash affected nodes
+- Contextual Shadows orbit active editor panel (semantic gravity)
+
 ### 3A. Black & White Graph Theme
 - Folders: black (dark mode: white), shade lightens with nesting depth
 - Notes: keep current color scheme
