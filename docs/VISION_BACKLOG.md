@@ -52,6 +52,20 @@ Hermes shipped 95 PRs. Key features missing from Epistemos:
 - Wire into `HermesRuntimeRoute` resolution
 - **File:** `Epistemos/Agent/HermesSubprocessManager.swift`
 
+### 1-STRATEGY. Surpassing OpenClaw (Port Patterns, Don't Rewrite)
+**DO NOT rewrite OpenClaw in Rust/Swift.** The bottleneck is LLM latency (seconds), not runtime speed (microseconds). Port the 5 orchestration patterns that make OpenClaw powerful:
+1. **Sub-agent spawning** → Hermes v0.6.0 profiles (already supports multi-instance)
+2. **Concurrent task execution** → Rust tokio tasks with bounded parallelism
+3. **Session lifecycle** → existing session/progress store + daily reset semantics
+4. **Channel abstraction** → Hermes adapters (Telegram, Slack, iMessage)
+5. **Gateway control plane** → Knowledge Brick + ⌘K IS the control plane
+
+**Why Epistemos beats OpenClaw even without a rewrite:**
+- OpenClaw has zero knowledge management — no vault, no graph, no search, no memory
+- OpenClaw forgets everything between sessions unless you manually maintain context
+- Epistemos has: 3ms semantic search, nightly training, Ebbinghaus decay, Living Vault
+- OpenClaw is a powerful employee with amnesia. Epistemos is a research partner with perfect memory.
+
 ### 1D. Fix "Dumb Chatbot" UX Gap
 The app doesn't FEEL like Hermes Agent or OpenClaw because:
 - Tool results don't stream visually (user sees "thinking..." not the tool executing)
@@ -264,6 +278,16 @@ Each tab shows its own content but shares the same search/command bar at the top
 - Draggable edge to resize
 - Collapse to icon-only strip (~48px) with ⌘\
 - Expand to full split (50/50) for focused browsing
+
+### 4-SETTINGS. Inline Settings Panel (Kill Separate Window)
+- Gear icon at bottom of Knowledge Brick expands inline settings
+- Quick toggles at top: eco mode, model selector, theme, graph quality
+- Full settings expand below: Hermes config, API keys, NightBrain, training
+- ⌘K → type "eco" → toggle instantly (no window, no navigation)
+- ⌘K → type "theme" → switch theme instantly
+- ⌘K → type "api key" → jumps to credentials section
+- DELETE the separate SettingsView window — everything lives in the brick
+- Like Xcode's sidebar inspector: settings where you already are
 
 ### 4A. Unified Notes Sidebar + Mini Chat
 - Notes sidebar becomes the primary knowledge surface
@@ -710,7 +734,9 @@ PHASE C — AGENT PARITY (Make it feel like Hermes/OpenClaw):
 
 PHASE D — KNOWLEDGE BRICK (The one sidebar that IS the app):
   4-PRIME Knowledge Brick sidebar (replaces notes sidebar entirely)
-  8C-6  Command bar (Cmd+K) — teleport to anything
+  4-SETTINGS Inline settings panel (kill separate settings window)
+  8C-6  Command bar (Cmd+K) — teleport to anything, including settings
+  8C-9  Global hotkey (Opt+Space) — system-wide command bar overlay
   2A    Code streaming to notes
   4B    Coworker agent section
 
