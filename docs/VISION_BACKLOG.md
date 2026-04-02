@@ -1330,6 +1330,18 @@ PHASE H — RELEASE PREP (After features are complete):
   Release preflight, DMG packaging, legal docs
   Fresh-machine verification
 
+LONG-TERM WATCH:
+  GoClaw Lite — watch for stable MCP server mode + SQLite desktop (3-6 months)
+  Evaluate only AFTER Phases B+D shipped and GoClaw proves reliable
+
+LONG-TERM EVOLUTION (Rust Agent — eliminates Python entirely):
+  Phase 1: Keep Hermes Python (working now)
+  Phase 2: Move tool execution from Python to Rust agent_core (<100ms target)
+  Phase 3: Move skills/provider routing to Rust
+  Phase 4: Python becomes thin shell calling Rust
+  Phase 5: Drop Python — agent is pure Rust + Swift (5-15MB binary, <10ms start)
+  This is the ultimate form — beats Go on every metric (no GC, zero-copy, UMA)
+
 DEFERRED (Research-blocked):
   8A-8B Business features
   MOHAWK custom model training (RunPod funding + R10/R14 research)
