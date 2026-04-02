@@ -1325,22 +1325,57 @@ PHASE G — PERFORMANCE HARDENING:
   11A-F Zero-copy, typestate, capability tokens
   Phases 10-13 from MASTER_HARDENING_AND_HARNESS_PLAN
 
-PHASE H — RELEASE PREP (After features are complete):
+PHASE I — RUST AGENT MIGRATION (Pre-release — no Python in shipped app):
+  I-1 OpenAI + Google providers in Rust (raw HTTP + SSE)
+  I-2 Tool dispatch in Rust (simple tools native, complex via HTTP)
+  I-3 Skills loader in Rust (SKILL.md + serde_yaml)
+  I-4 MCP server in Rust (replace Python bridge)
+  I-5 Cron/scheduler in Rust (tokio cron)
+  I-6 Drop Python subprocess (delete hermes-agent submodule)
+  I-7 Final validation (all tools, all providers, performance targets)
+
+PHASE H — RELEASE PREP (After Rust migration complete):
   0A Notarization + Sparkle auto-update
   Release preflight, DMG packaging, legal docs
-  Fresh-machine verification
+  Fresh-machine verification — NO Python on user's machine
+
+PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping):
+  This is NOT optional. The app ships as pure Swift + Rust. No Python dependency.
+  GoClaw (Go) used as reference for architecture decisions, but implementation is Rust.
+
+  I-1: Add OpenAI + Google providers to agent_core/src/providers/
+       (raw HTTP + SSE, same pattern as existing Claude provider)
+       → Rust agent loop can call all 3 cloud APIs directly
+  I-2: Move tool dispatch to Rust
+       → Rust receives tool_use, executes simple tools natively
+         (file read/write, search, grep, glob — already have Rust impls)
+       → Complex tools (Firecrawl, browser) call out via subprocess or HTTP
+  I-3: Move skills loader to Rust
+       → Read SKILL.md files, parse YAML frontmatter (serde_yaml)
+       → Register tools dynamically from skills directory
+  I-4: Move MCP server to Rust
+       → Replace EpistemosMCPServer.swift + epistemos_bridge.py
+       → Pure Rust JSON-RPC over stdin/stdout (or shared memory)
+  I-5: Move cron/scheduler to Rust
+       → Replace Python cron.scheduler with tokio cron tasks
+  I-6: Drop Python subprocess entirely
+       → Delete hermes-agent/ submodule dependency
+       → Agent is pure Rust dylib loaded via UniFFI
+       → 5-15MB binary, <10ms cold start, zero-copy IPC, no venv
+  I-7: Final validation
+       → All 50+ tools working in Rust
+       → All skills loading from ~/.epistemos/skills/
+       → All providers (OpenAI OAuth, Google OAuth, Anthropic API key) working
+       → Performance targets: tool exec <100ms, session start <500ms→<50ms
+       → Zero Python on the user's machine
+
+  Reference: GoClaw Lite architecture (25MB single binary, SQLite, 40+ tools)
+  But our Rust version will be smaller (5-15MB), faster (<10ms vs <50ms),
+  and zero-copy (Apple Silicon UMA — impossible in Go due to GC)
 
 LONG-TERM WATCH:
-  GoClaw Lite — watch for stable MCP server mode + SQLite desktop (3-6 months)
-  Evaluate only AFTER Phases B+D shipped and GoClaw proves reliable
-
-LONG-TERM EVOLUTION (Rust Agent — eliminates Python entirely):
-  Phase 1: Keep Hermes Python (working now)
-  Phase 2: Move tool execution from Python to Rust agent_core (<100ms target)
-  Phase 3: Move skills/provider routing to Rust
-  Phase 4: Python becomes thin shell calling Rust
-  Phase 5: Drop Python — agent is pure Rust + Swift (5-15MB binary, <10ms start)
-  This is the ultimate form — beats Go on every metric (no GC, zero-copy, UMA)
+  GoClaw Lite — reference architecture only, not adopting
+  Study their tool implementations and multi-tenant patterns
 
 DEFERRED (Research-blocked):
   8A-8B Business features
