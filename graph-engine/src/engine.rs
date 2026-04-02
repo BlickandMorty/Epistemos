@@ -38,6 +38,38 @@ fn adaptive_physics_hz(node_count: usize) -> f64 {
         _ => 30.0,
     }
 }
+
+fn recenter_nodes_to_origin(nodes: &mut [crate::types::Node]) {
+    if nodes.is_empty() {
+        return;
+    }
+
+    let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
+    let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
+    for node in nodes.iter() {
+        min_x = min_x.min(node.x);
+        min_y = min_y.min(node.y);
+        max_x = max_x.max(node.x);
+        max_y = max_y.max(node.y);
+    }
+
+    let shift_x = (min_x + max_x) * 0.5;
+    let shift_y = (min_y + max_y) * 0.5;
+    if shift_x.abs() <= f32::EPSILON && shift_y.abs() <= f32::EPSILON {
+        return;
+    }
+
+    for node in nodes.iter_mut() {
+        node.x -= shift_x;
+        node.y -= shift_y;
+        if let Some(fx) = node.fx.as_mut() {
+            *fx -= shift_x;
+        }
+        if let Some(fy) = node.fy.as_mut() {
+            *fy -= shift_y;
+        }
+    }
+}
 /// Sleep duration (ms) when simulation is settled (avoids spinning).
 const SETTLED_SLEEP_MS: u64 = 50;
 /// Above this threshold, use cheap spatial clustering instead of Louvain.
@@ -268,22 +300,33 @@ impl Engine {
 
             let mut placed = vec![false; n];
             let mut queue: VecDeque<usize> = VecDeque::with_capacity(n);
-            let mut component_offset_x = 0.0_f32;
-            let mut component_max_x: f32;
+            let mut component_index = 0usize;
+            let component_spacing = child_spacing * 3.0;
 
             for &root in &roots {
                 if placed[root] {
                     continue;
                 }
 
+                // Disconnected components should start around the center rather than
+                // marching in a rightward strip. Keep the largest component at the
+                // origin, then place later components on a compact spiral.
+                let (component_root_x, component_root_y) = if component_index == 0 {
+                    (0.0_f32, 0.0_f32)
+                } else {
+                    let rank = component_index as f32;
+                    let angle = rank * golden_angle;
+                    let radius = component_spacing * rank.sqrt();
+                    (radius * angle.cos(), radius * angle.sin())
+                };
+
                 // Place component root.
-                self.graph.nodes[root].x = component_offset_x;
-                self.graph.nodes[root].y = 0.0;
+                self.graph.nodes[root].x = component_root_x;
+                self.graph.nodes[root].y = component_root_y;
                 self.graph.nodes[root].vx = 0.0;
                 self.graph.nodes[root].vy = 0.0;
                 placed[root] = true;
                 queue.push_back(root);
-                component_max_x = component_offset_x;
 
                 while let Some(parent) = queue.pop_front() {
                     let px = self.graph.nodes[parent].x;
@@ -310,15 +353,14 @@ impl Engine {
                         self.graph.nodes[child].vy = 0.0;
                         placed[child] = true;
                         queue.push_back(child);
-
-                        component_max_x = component_max_x.max(self.graph.nodes[child].x);
                     }
                     let _ = child_count; // suppress unused warning
                 }
 
-                // Offset next disconnected component to the right.
-                component_offset_x = component_max_x + child_spacing * 4.0;
+                component_index += 1;
             }
+
+            recenter_nodes_to_origin(&mut self.graph.nodes);
         }
 
         // ── Load Simulation ─────────────────────────────────────────────
@@ -1236,8 +1278,7 @@ impl Engine {
         }
     }
 
-    /// Zoom to fit all visible nodes with padding.
-    pub fn zoom_to_fit(&mut self) {
+    fn visible_camera_fit(&mut self) -> Option<([f32; 2], f32)> {
         self.sync_all_positions();
 
         let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
@@ -1258,7 +1299,7 @@ impl Engine {
         }
 
         if !any {
-            return;
+            return None;
         }
 
         let cx = (min_x + max_x) * 0.5;
@@ -1269,10 +1310,32 @@ impl Engine {
         let h = self.viewport_height as f32;
         let padding = 1.5;
         let zoom = (w / graph_w).min(h / graph_h) * padding;
+        Some((
+            [cx, cy],
+            clamp_zoom_for_theme(self.renderer.visual_theme, zoom),
+        ))
+    }
 
-        self.renderer.target_offset = [cx, cy];
-        self.renderer.target_zoom = clamp_zoom_for_theme(self.renderer.visual_theme, zoom);
+    /// Zoom to fit all visible nodes with padding.
+    pub fn zoom_to_fit(&mut self) {
+        let Some((target_offset, target_zoom)) = self.visible_camera_fit() else {
+            return;
+        };
+
+        self.renderer.target_offset = target_offset;
+        self.renderer.target_zoom = target_zoom;
         self.renderer.is_animating = true;
+        self.camera_rebuild_pending = true;
+    }
+
+    /// Snap the camera to the fitted visible-node bounds immediately.
+    pub fn snap_camera_to_fit(&mut self) {
+        let Some((target_offset, target_zoom)) = self.visible_camera_fit() else {
+            return;
+        };
+
+        self.renderer
+            .set_camera_immediately(target_offset, target_zoom);
         self.camera_rebuild_pending = true;
     }
 
@@ -1725,6 +1788,107 @@ mod tests {
         g
     }
 
+    fn make_disconnected_graph(component_count: usize) -> Graph {
+        let mut g = Graph::new();
+        for component in 0..component_count {
+            let left = format!("component-{component}-left");
+            let right = format!("component-{component}-right");
+            g.add_node(left.clone(), 0.0, 0.0, 0, 1, format!("Left {component}"));
+            g.add_node(right.clone(), 0.0, 0.0, 0, 1, format!("Right {component}"));
+            g.add_edge(&left, &right, 1.0, 0);
+        }
+        g
+    }
+
+    fn make_hub_with_orphans_graph(orphan_count: usize) -> Graph {
+        let mut g = Graph::new();
+        g.add_node("hub".into(), 0.0, 0.0, 0, 6, "Hub".into());
+        for index in 0..6 {
+            let child = format!("child-{index}");
+            g.add_node(child.clone(), 0.0, 0.0, 0, 1, format!("Child {index}"));
+            g.add_edge("hub", &child, 1.0, 0);
+        }
+        for index in 0..orphan_count {
+            g.add_node(
+                format!("orphan-{index}"),
+                0.0,
+                0.0,
+                0,
+                0,
+                format!("Orphan {index}"),
+            );
+        }
+        g
+    }
+
+    #[test]
+    fn entrance_layout_starts_disconnected_components_centered() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_disconnected_graph(3);
+        engine.commit(true);
+        engine.stop_physics();
+
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        for node in &engine.graph.nodes {
+            min_x = min_x.min(node.x);
+            max_x = max_x.max(node.x);
+        }
+
+        let center_x = (min_x + max_x) * 0.5;
+        assert!(
+            center_x.abs() < 1.0,
+            "entrance layout should start centered, got bounds center {center_x}"
+        );
+    }
+
+    #[test]
+    fn entrance_layout_disperses_orphans_around_main_component() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_hub_with_orphans_graph(8);
+        engine.commit(true);
+        engine.stop_physics();
+
+        let mut main_component_x_sum = 0.0_f32;
+        let mut main_component_count = 0usize;
+        let mut orphan_min_x = f32::MAX;
+        let mut orphan_max_x = f32::MIN;
+
+        for node in &engine.graph.nodes {
+            if node.uuid == "hub" || node.uuid.starts_with("child-") {
+                main_component_x_sum += node.x;
+                main_component_count += 1;
+                continue;
+            }
+
+            if node.uuid.starts_with("orphan-") {
+                orphan_min_x = orphan_min_x.min(node.x);
+                orphan_max_x = orphan_max_x.max(node.x);
+            }
+        }
+
+        assert!(main_component_count > 0, "main component should exist");
+        let main_component_center_x = main_component_x_sum / main_component_count as f32;
+        assert!(
+            orphan_min_x < main_component_center_x && orphan_max_x > main_component_center_x,
+            "orphans should start around the main component, got orphan range [{orphan_min_x}, {orphan_max_x}] vs main center {main_component_center_x}"
+        );
+    }
+
     #[test]
     fn sync_positions_updates_graph() {
         let graph = make_graph();
@@ -2032,6 +2196,30 @@ mod tests {
             engine.renderer.classic_buffer_rebuild_count() > baseline,
             "zoom animation should rebuild visible buffers while the camera is moving"
         );
+    }
+
+    #[test]
+    fn snap_camera_to_fit_updates_camera_immediately() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_graph();
+        engine.commit(false);
+        engine.stop_physics();
+        engine.viewport_width = 1280;
+        engine.viewport_height = 720;
+
+        engine.snap_camera_to_fit();
+
+        assert_eq!(engine.renderer.camera_offset, engine.renderer.target_offset);
+        assert_eq!(engine.renderer.camera_zoom, engine.renderer.target_zoom);
+        assert!(!engine.renderer.is_animating);
+        assert!(engine.camera_rebuild_pending);
     }
 
     // ── Deep Stress Tests ──────────────────────────────────────────────

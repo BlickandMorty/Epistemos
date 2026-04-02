@@ -3324,6 +3324,17 @@ impl Renderer {
     /// Camera smoothing factor. Higher = faster. 3.0 = gentle cinematic glide.
     const CAMERA_LAMBDA: f32 = 3.0;
 
+    pub fn set_camera_immediately(&mut self, offset: [f32; 2], zoom: f32) {
+        self.camera_offset = offset;
+        self.target_offset = offset;
+        self.camera_zoom = zoom;
+        self.target_zoom = zoom;
+        self.prev_camera_offset = offset;
+        self.prev_camera_zoom = zoom;
+        self.is_animating = false;
+        self.last_frame_time = std::time::Instant::now();
+    }
+
     pub fn update_camera(&mut self) {
         let now = std::time::Instant::now();
         let dt = (now - self.last_frame_time).as_secs_f32().min(0.1);

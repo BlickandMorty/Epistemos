@@ -33,4 +33,50 @@ struct MetalGraphViewBootstrapTests {
             ) == .renderCommittedGraph
         )
     }
+
+    @Test("startup refresh recommit snaps global camera")
+    func startupRefreshRecommitSnapsGlobalCamera() {
+        #expect(
+            graphRecommitCameraAction(
+                isPageMode: false,
+                shouldSnapGlobalCamera: true
+            ) == .snapGlobalFit
+        )
+    }
+
+    @Test("ordinary global recommit keeps animated fit")
+    func ordinaryGlobalRecommitKeepsAnimatedFit() {
+        #expect(
+            graphRecommitCameraAction(
+                isPageMode: false,
+                shouldSnapGlobalCamera: false
+            ) == .animateGlobalFit
+        )
+    }
+
+    @Test("page mode recommit still zooms close")
+    func pageModeRecommitStillZoomsClose() {
+        #expect(
+            graphRecommitCameraAction(
+                isPageMode: true,
+                shouldSnapGlobalCamera: true
+            ) == .pageModeCloseIn
+        )
+    }
+
+    @MainActor
+    @Test("initial commit syncs mode and graph data versions")
+    func initialCommitSyncsTrackedVersions() {
+        let graphState = GraphState()
+        graphState.modeVersion = 3
+        graphState.graphDataVersion = 5
+
+        let view = MetalGraphNSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        view.graphState = graphState
+
+        view.commitGraphData()
+
+        #expect(view.lastModeVersion == graphState.modeVersion)
+        #expect(view.lastGraphDataVersion == graphState.graphDataVersion)
+    }
 }

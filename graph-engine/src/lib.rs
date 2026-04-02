@@ -1063,6 +1063,15 @@ pub extern "C" fn graph_engine_zoom_to_fit(engine: *mut Engine) {
     });
 }
 
+/// Snap camera to fit all visible nodes in the viewport immediately.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_snap_camera_to_fit(engine: *mut Engine) {
+    ffi_catch_unwind!("graph_engine_snap_camera_to_fit", {
+        ffi_engine!(engine);
+        engine.snap_camera_to_fit();
+    });
+}
+
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
 /// Pause the engine: stop physics thread to free CPU when overlay is hidden.
