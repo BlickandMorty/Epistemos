@@ -106,13 +106,79 @@ Each provider exposes different capabilities. The controls in the chat UI should
 - Temperature
 - Max tokens
 
-### -1D. Anthropic API Key Flow (Streamlined)
+### -1D. Google OAuth Sign-In
+Google supports full OAuth 2.0 for Gemini API — users can sign in with their Google account.
+- Create OAuth 2.0 Client ID in Google Cloud Console (Desktop app type)
+- Standard OAuth browser flow → user signs into Google → grants Gemini API scope
+- Token cached in Keychain, refreshed automatically
+- **Codex:** Read https://ai.google.dev/gemini-api/docs/oauth for implementation details
+- Google AI Studio free tier gives 1500 req/day on Flash, 50 req/day on Pro
+
+**Authentication summary:**
+| Provider | Auth Method | Zero-Key? | Subscription Billing? |
+|----------|-----------|-----------|----------------------|
+| OpenAI | OAuth (Apps SDK) | YES | ChatGPT Plus/Pro |
+| Google | OAuth (Google Sign-In) | YES | Google AI Studio / Workspace |
+| Anthropic | API Key (manual) | NO | Pay-per-use only |
+
+### -1E. Anthropic API Key Flow (Streamlined)
 - Anthropic killed third-party OAuth — API key is the only option
 - But make it frictionless: Settings → tap Anthropic → "Get API Key" button opens console.anthropic.com/settings/keys in browser
 - User pastes key → saved to Keychain → validated immediately → done
 - The auth failure banner on landing page already handles the "missing key" case
 
-### -1E. Default Fallback Chain
+### -1F. Dynamic Mode Selector (Adapts to Provider + Model)
+
+The mode selector (Fast / Thinking / Pro / Agent) is NOT a fixed list. It dynamically shows only the modes the current model actually supports. Modes that don't apply DISAPPEAR — they don't grey out.
+
+**Per-provider mode capabilities:**
+
+| Provider | Model | Fast | Thinking | Pro | Agent |
+|----------|-------|------|----------|-----|-------|
+| OpenAI | GPT-5.4 | ✅ | ✅ (via o3) | ✅ | ✅ (tool_use) |
+| OpenAI | GPT-5.4 Mini | ✅ | ❌ | ❌ | ✅ (tool_use) |
+| OpenAI | o3 | ❌ | ✅ (native) | ✅ | ✅ (tool_use) |
+| Anthropic | Claude Opus 4.6 | ✅ | ✅ (extended thinking) | ✅ | ✅ (tool_use) |
+| Anthropic | Claude Sonnet 4.6 | ✅ | ✅ (extended thinking) | ❌ | ✅ (tool_use) |
+| Anthropic | Claude Haiku 4.5 | ✅ | ❌ | ❌ | ❌ |
+| Google | Gemini 2.5 Pro | ✅ | ✅ (native) | ✅ | ✅ (tool_use) |
+| Google | Gemini 2.5 Flash | ✅ | ❌ | ❌ | ✅ (tool_use) |
+| Local | Qwen 3.5 4B | ✅ | ✅ | ❌ | ❌ |
+| Local | Qwen 3.5 9B | ✅ | ✅ | ❌ | ❌ |
+
+**Behavior:**
+- User selects a model → mode selector instantly updates to show only supported modes
+- If current mode is not supported by new model → auto-switch to Fast
+- Modes that disappear animate out (not instant pop — smooth 150ms transition)
+- Modes that appear animate in
+- The mode selector should feel alive and responsive to model changes
+
+**Provider-specific controls (appear below mode selector when relevant):**
+
+OpenAI active:
+- Web search toggle (when model supports it)
+- Code interpreter toggle
+
+Anthropic active:
+- Extended thinking toggle (Opus/Sonnet only)
+- Thinking budget: Low (1K tokens) / Medium (4K) / High (16K) / Max (model decides)
+- Prompt caching indicator (auto-enabled, shows "cached" badge when active)
+
+Google active:
+- Search grounding toggle (Gemini Pro only)
+- Safety threshold selector (default / relaxed / strict)
+
+Local active:
+- Temperature slider
+- Max tokens slider
+
+**Implementation:**
+- `CloudTextModelID` already has a `provider` field — extend with `supportedModes: Set<OperatingMode>`
+- Mode selector reads `selectedModel.supportedModes` and renders only those
+- Provider controls read `activeProvider` and show relevant toggles
+- All controls persist per-provider in UserDefaults (switching providers restores last-used settings)
+
+### -1G. Default Fallback Chain
 When the active provider fails (rate limit, outage, invalid key):
 1. Try active cloud provider
 2. Fall back to local MLX model (always available)
@@ -1006,9 +1072,11 @@ PHASE A — STABILITY + PROVIDER OVERHAUL:
   0C EmbeddingService hang — verify if resolved
   -1A Single active provider model (replace multi-provider selector)
   -1B OpenAI OAuth sign-in (zero API keys, default path)
-  -1C Provider-native controls (thinking toggles, extended thinking, web search)
-  -1D Anthropic streamlined API key flow
-  -1E Default fallback chain (cloud → local → toast)
+  -1D Google OAuth sign-in
+  -1E Anthropic streamlined API key flow
+  -1F Dynamic mode selector (modes appear/disappear per model capability)
+  -1C Provider-native controls (thinking toggles, extended thinking, web search, grounding)
+  -1G Default fallback chain (cloud → local → toast)
   (0A Notarization + Sparkle DEFERRED — Phase H)
 
 PHASE B — GRAPH-FIRST APP (The defining experience):
