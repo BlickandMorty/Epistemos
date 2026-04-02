@@ -165,7 +165,13 @@ Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inv
 
 Work through phases A→H as defined in the execution order at the bottom of VISION_BACKLOG.md.
 
-**CRITICAL ENGINEERING NOTE:** When implementing Phase B (graph-first) and Phase D (Knowledge Brick), read the `4-ENGINEERING` section in VISION_BACKLOG.md first. It specifies isolation architecture (NSPanel floating panels, NSHostingView tab swapping, @Observable state persistence) to prevent layout interference and frame drops. Research the best implementation approach before building — the spec provides a recommended starting point, not a rigid mandate. Profile first, then decide.
+**CRITICAL ENGINEERING NOTES:**
+
+**Disabled node types:** Source (type 3), Quote (type 5), and Person are DISABLED. Do NOT create, render, or wire them. They stay in engine code but must be disconnected from all production paths (GraphBuilder, EntityExtractor, filters, lenses). Only re-enable if the user explicitly says so. See `3-GRAPH` in VISION_BACKLOG.md.
+
+**Immersive mode performance:** Adding floating panels, Contextual Shadows, blur, haptics must NOT degrade fps. NSPanels for isolation, force injection for shadows, early-exit shader for blur. Profile before/after each feature. Reject anything that drops fps by >5%. See `3-PRIME` performance mandate in VISION_BACKLOG.md.
+
+When implementing Phase B (graph-first) and Phase D (Knowledge Brick), read the `4-ENGINEERING` section in VISION_BACKLOG.md first. It specifies isolation architecture (NSPanel floating panels, NSHostingView tab swapping, @Observable state persistence) to prevent layout interference and frame drops. Research the best implementation approach before building — the spec provides a recommended starting point, not a rigid mandate. Profile first, then decide.
 
 ## MANDATORY POST-PHASE AUDIT PROTOCOL
 
