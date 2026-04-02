@@ -215,12 +215,138 @@ The `HermesRuntimeRoute` already selects the model — extend it to also pass mo
 - Google Thinking: route to gemini-2.5-pro with thinking config
 - The mode selector in agent panel works identically to chat mode selector
 
-### -1I. Default Fallback Chain
-When the active provider fails (rate limit, outage, invalid key):
-1. Try active cloud provider
-2. Fall back to local MLX model (always available)
-3. Show user a toast: "Cloud unavailable, using local model"
-4. Never silently fail — always tell the user what's happening
+### -1I. Smart Triage & Fallback System
+
+**CODEX: Before implementing this, audit the current triage logic in these files:**
+- `Epistemos/Engine/TriageService.swift` — current routing logic
+- `Epistemos/Engine/PipelineService.swift` — current pipeline orchestration
+- `Epistemos/State/InferenceState.swift` — model selection, capability gating, policy engine
+- `Epistemos/Engine/AppleIntelligenceService.swift` — Apple Intelligence availability + token budget
+- `Epistemos/Engine/MLXInferenceService.swift` — local model loading, idle unload, memory policy
+- `Epistemos/Agent/HermesSubprocessManager.swift` — HermesRuntimeRoute resolution
+- `Epistemos/Omega/Orchestrator/FallbackChainResolver.swift` — existing fallback logic
+
+**Read and understand the current triage before changing anything. Report what exists, what's broken, what's missing.**
+
+---
+
+#### Chat Triage (regular conversations, not agent)
+
+**Priority order — cloud first, Apple Intelligence second, local MLX last:**
+
+```
+User sends message
+  ↓
+TIER 1: Active cloud provider
+  - OpenAI (OAuth) / Anthropic (API key) / Google (OAuth)
+  - Use the model matching the user's selected mode (Pro/Thinking/Fast)
+  - If cloud succeeds → done
+  - If cloud fails (rate limit, network down, token expired, 401) → TIER 2
+  ↓
+TIER 2: Secondary cloud provider (if configured)
+  - User may have both OpenAI AND Anthropic configured
+  - Try the non-active provider as backup
+  - If succeeds → toast: "Switched to [provider] — [primary] unavailable"
+  - If fails or not configured → TIER 3
+  ↓
+TIER 3: Apple Intelligence (on-device, fast, free)
+  - Available on Apple Silicon with macOS 26+
+  - Best for: summaries, quick Q&A, simple tasks
+  - NOT for: tool calling, long reasoning, code generation
+  - If available → use it, toast: "Using Apple Intelligence — cloud unavailable"
+  - If not available (model not downloaded, query too complex) → TIER 4
+  ↓
+TIER 4: Local MLX (complexity-routed, always works)
+  - Route by query complexity:
+    - Simple (short query, factual) → Qwen 3.5 2B (if installed, fastest)
+    - Medium (multi-paragraph, analysis) → Qwen 3.5 4B
+    - Complex (reasoning, code, long context) → Qwen 3.5 9B (if memory allows)
+  - If selected model not installed → try next smaller
+  - Toast: "Using local [model] — cloud unavailable"
+  - This tier ALWAYS works — guaranteed fallback
+```
+
+**Complexity routing for local models (TIER 4):**
+```
+Query analysis (lightweight, <1ms):
+  - Token count < 50 AND no code blocks → Simple → route to smallest available
+  - Token count < 200 OR summary/QA intent → Medium → route to 4B
+  - Token count >= 200 OR code/reasoning/multi-step → Complex → route to 9B
+  - If target model not installed or won't fit in memory → downgrade one tier
+  - Apple Intelligence and Qwen 2B are roughly comparable for simple tasks
+    — Apple AI slightly better at summaries, Qwen 2B slightly better at following instructions
+    — when both available for a simple query, prefer Apple AI (no memory pressure)
+```
+
+**Apple Intelligence vs Qwen 2B decision (for TIER 3/4 boundary):**
+- Simple summary or Q&A → Apple Intelligence (faster, no MLX load overhead)
+- Needs specific instruction following → Qwen 2B (better at structured output)
+- Needs code → skip both, go to Qwen 4B minimum
+- Needs reasoning → skip both, go to Qwen 9B
+- Apple Intelligence has a hard 4096 token context limit — anything longer → local MLX
+
+---
+
+#### Agent Triage (tool-calling tasks)
+
+Agents REQUIRE tool calling. Apple Intelligence cannot call tools. Small local models can't reliably call tools. Different triage:
+
+```
+Agent task submitted
+  ↓
+TIER 1: Active cloud provider (must support tool_use)
+  - OpenAI: GPT-5.4 or o3 (both support tool_use)
+  - Anthropic: Opus or Sonnet (both support tool_use)
+  - Google: Gemini Pro (supports function_calling)
+  - If succeeds → done
+  - If fails → TIER 2
+  ↓
+TIER 2: Secondary cloud provider (if configured, must support tool_use)
+  - Same logic as chat TIER 2
+  - Toast: "Agent switched to [provider]"
+  - If fails → TIER 3
+  ↓
+TIER 3: Local agent-capable model
+  - ONLY Qwen 3.5 9B qualifies (canActAsAgent = true in LocalTextModelID)
+  - Qwen 4B and 2B do NOT reliably tool-call → skip them
+  - If 9B loaded and memory available → use it
+  - If 9B can't load → TIER 4
+  ↓
+TIER 4: Reject with actionable message
+  - "This task requires a cloud model or Qwen 9B."
+  - "Sign in to OpenAI (free) or install Qwen 9B to use agents."
+  - Show a button that navigates to Settings → AI Provider
+  - Do NOT fall back to Apple Intelligence or small models — a non-tool-calling
+    response is worse than no response. The user must understand the constraint.
+```
+
+**Apple Intelligence is NEVER used for agents.** No tool calling support = no agent capability. Don't fake it.
+
+---
+
+#### UI Behavior During Fallback
+
+**Toast notifications (non-blocking, bottom-right):**
+- Cloud → secondary cloud: "Switched to [Anthropic] — [OpenAI] rate limited"
+- Cloud → Apple Intelligence: "Using Apple Intelligence — cloud unavailable"
+- Cloud → Local: "Using Qwen 3.5 [4B] locally — cloud unavailable"
+- Cloud recovered: "OpenAI reconnected" (but do NOT auto-switch back — let user decide)
+
+**Mode selector updates on fallback:**
+- If user was in "Pro" mode and falls back to Apple Intelligence (only Fast) → auto-switch to Fast
+- Mode selector animates to show only fallback model's supported modes
+- When user manually switches back to cloud → modes restore to cloud model's capabilities
+
+**Agent panel during fallback:**
+- If cloud fails mid-agent-task → pause task, show: "Cloud connection lost. Resume when reconnected?"
+- Do NOT silently switch agent to local model mid-task — tool schemas may differ
+- User chooses: wait for reconnect, switch to local 9B and restart, or cancel
+
+**Settings indicator:**
+- Active provider shows green dot when connected
+- Yellow dot when using fallback
+- Red dot when disconnected and no fallback available
+- Provider health checked every 60s (or on demand via pull-to-refresh in settings)
 
 ---
 
