@@ -1364,6 +1364,79 @@ The app must become the **GUI control plane** for the agent runtime, not "anothe
 
 ## EXECUTION ORDER (Recommended)
 
+### Research & Executive Advice Backing Per Phase
+
+| Phase | Primary Research | Executive Advice | Key Insight |
+|-------|-----------------|------------------|-------------|
+| A | OpenAI Apps SDK docs, Google Gemini OAuth docs, Anthropic API docs | Advisory Council: "provider overhaul is the foundation everything depends on" | OAuth for OpenAI/Google eliminates API key friction; Anthropic is API-key-only (they killed OAuth Feb 2026) |
+| B | 4 SDF research reports (graph_1-4), GRAPH_SDF_LABEL_RESEARCH_PROMPT.md | Synthesis: "4 AI systems, same architecture — the research is done, write code" | sRGB fix is one line; MTSDF 512×512 SF Pro Text; cameraoffset IS the focal point; physics is already Verlet |
+| C | AGENT_FUSION_RESEARCH_PROMPT.md, AGENT_ADVISORY_COUNCIL.md, UNIFIED_RESEARCH_SYNTHESIS.md, BEST_OF_CLAW_AND_OPENCLAW.md, HERMES_PARITY_REPORT.md | Council: "minimize orchestration tax, MCP as spine, selective 5-pattern adoption, Fusion Penalty is real" | Competitive moat = knowledge layer NOT agent runtime. Don't over-integrate 8 projects. Port 5 patterns max. |
+| D | CONTROL_PLANE_RESEARCH.md, UNIFIED_SUBSTRATE_RESEARCH.md | Substrate synthesis: "windows are apertures not worlds, one source of truth" | NSPanel isolation for panels, NSHostingView swap for tabs, ⌘K replaces all navigation |
+| E | Architecture Discovery Report (Tier 9), CodeEdit/Zed/Nova analysis | Report: "reject TextKit 2 for code, custom CoreText + Rust Rope + Tree-sitter" | BoltFFI for 120fps hot paths; UniFFI for cold paths; same pattern as existing graph renderer |
+| F | OpenSwarm Worker/Reviewer, GoClaw agent teams, Phantom personas | Council: "sub-agents via MCP, not custom message bus" | Worker/Reviewer = CompletionChecker extended; agent teams = Hermes profiles with shared SQLite task board |
+| G | arc2 (7-area audit), arc7 (typestate/zero-alloc), Zero-Copy Masterclass, Stateful Rotor | Council: "measure before optimizing, UniFFI stays until profiling proves otherwise" | Zero-copy where meaningful (not as slogan); popcount breakers; 128-byte cache alignment |
+| I | GoClaw Lite (reference), Claw Code (Rust patterns), CodeNano (17-tool minimal set) | Council: "Rust beats Go — no GC, zero-copy, UMA; 5-15MB vs 25MB" | Phase I produces: pure Rust agent dylib, <10ms cold start, zero Python dependency |
+| H | Release preflight scripts, DMG packaging, Sparkle 2 docs | "Ship when Phase I is green and all audits pass" | Fresh-machine verification must pass with zero Python installed |
+
+### Research Documents Index (Codex: read the relevant ones before each phase)
+
+**Phase A research:**
+- OpenAI Apps SDK: https://developers.openai.com/apps-sdk/build/auth
+- Google Gemini OAuth: https://ai.google.dev/gemini-api/docs/oauth
+- Anthropic OAuth killed: https://github.com/anthropics/claude-code/issues/28091
+- Current triage files: TriageService.swift, PipelineService.swift, InferenceState.swift, FallbackChainResolver.swift
+
+**Phase B research:**
+- `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md` — 20 files, 7 objectives, architecture challenge
+- 4 SDF reports: `~/Downloads/graph 1.txt`, `graph 2.md`, `graph 3.md`, `graph 4.md`
+- Synthesis verdict: `~/Downloads/Epistemos Graph SDF Label System — Deep Engineering Report.md`
+
+**Phase C research:**
+- `docs/AGENT_FUSION_RESEARCH_PROMPT.md` — 8 projects × 20 files × 7 objectives
+- `~/Downloads/files (9)/AGENT_ADVISORY_COUNCIL.md` — 5-expert verdict
+- `~/Downloads/files (9)/UNIFIED_RESEARCH_SYNTHESIS.md` — Fusion Penalty, performance budgets
+- `docs/BEST_OF_CLAW_AND_OPENCLAW.md` — 15 engineering patterns
+- `docs/HERMES_PARITY_REPORT.md` — what Hermes can do vs what Epistemos exposes
+- `docs/HERMES_INTEGRATION_RESEARCH.md` — 40-file hermes-agent study
+- Hermes v0.6.0 release: https://github.com/NousResearch/hermes-agent/blob/main/RELEASE_v0.6.0.md
+
+**Phase D research:**
+- `docs/CONTROL_PLANE_RESEARCH.md` — GUI control plane, MCP spine, capability→UI mapping
+- `docs/UNIFIED_SUBSTRATE_RESEARCH.md` — 5 Laws, window singularity, EntityID
+- `~/Downloads/unified 1.md`, `unified2.md`, `unified 3.md` — 3 independent substrate dossiers
+
+**Phase E research:**
+- Architecture Discovery Report (deep-research-report.md) — CoreText, Rope, Tree-sitter, LSP, BoltFFI
+- CodeEdit: https://github.com/CodeEditApp/CodeEdit (CoreText patterns)
+- Zed: https://github.com/zed-industries/zed (Rope + Tree-sitter)
+
+**Phase F research:**
+- OpenSwarm: https://github.com/unohee/OpenSwarm (Worker/Reviewer, message bus)
+- GoClaw: https://github.com/nextlevelbuilder/goclaw (agent teams, task boards)
+- Phantom: https://github.com/ghostwright/phantom (self-evolution, personas)
+
+**Phase G research:**
+- `~/arc/arc2.md` — 7-area canonical pattern audit
+- `~/arc/arc7.txt` — typestate, zero-allocation breakers
+- `~/Downloads/unsorted research/Epistemos Zero-Copy Zero-Latency Implementation Masterclass.md`
+- `~/stateful-rotor-implementation-reference.md` — quantization, Apple Silicon optimization
+
+**Phase I research:**
+- GoClaw Lite: https://github.com/nextlevelbuilder/goclaw (reference architecture)
+- Claw Code: https://github.com/raks0078/-claw-code (Rust harness patterns)
+- CodeNano: https://github.com/Adamlixi/codenano (17-tool minimal set)
+
+**Phase H research:**
+- `scripts/release/release_preflight.sh` — existing preflight
+- `.github/workflows/release.yml` — existing CI/CD
+- Sparkle 2: https://sparkle-project.org
+
+**Always applicable:**
+- `~/Downloads/release/FINAL DOCS/1. CORRUPTION/ZERO_CORRUPTION_SPEC.md` — binding contract
+- `~/Downloads/release/FINAL DOCS/3. MUST READS/ANTI_DRIFT_SYSTEM.md` — 5-layer defense
+- `~/Downloads/release/EPISTEMOS_CODEX_RECURSIVE_MASTER_v4.md` — REF-01 through REF-16
+- `docs/UNIFIED_SUBSTRATE_RESEARCH.md` — 5 Laws apply to every phase
+
 ```
 PHASE A — STABILITY + PROVIDER OVERHAUL:
   0B ResearchPause fix — ✅ DONE (Codex: bc3266ee)
