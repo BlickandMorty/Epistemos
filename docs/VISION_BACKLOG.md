@@ -1647,40 +1647,7 @@ THE 5 LAWS (Binding — from docs/UNIFIED_SUBSTRATE_RESEARCH.md):
   4. UniFFI stays until profiling proves hotspots need C ABI
   5. Python out-of-process immediately (no-regret, 15-25MB savings)
 
-PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping):
-  This is NOT optional. The app ships as pure Swift + Rust. No Python dependency.
-
-  PRIMARY REFERENCE: Block Goose (github.com/block/goose)
-    - Apache-2.0, 33.5K stars, v1.29.0, pure Rust core
-    - Provider trait abstracts all 20+ cloud providers
-    - rmcp v0.9.1 (official Rust MCP SDK)
-    - Builtin extensions = zero IPC, compiled into binary
-    - Target: depend on goose crate as Cargo dependency, feature-gate aggressively
-
-  SECONDARY REFERENCE: Hermes GEPA Self-Evolution
-    - GEPA algorithm (ICLR 2026 Oral, outperforms GRPO by 6%, 35x fewer rollouts)
-    - trace → diagnose → mutate → Pareto select → constraint gates
-    - Port to Rust for Living Vault self-improvement
-    - $2-10 per optimization cycle, no GPU training
-
-  IMPLEMENTATION GUIDE: docs/PHASE_I_IMPLEMENTATION_GUIDE.md
-    - 800 lines of implementation-ready code patterns
-    - 8 integration surfaces in dependency order
-    - UniFFI bridge, Provider trait, MetalProvider, tool-call parser,
-      builtin extensions, agent loop, model manager, GEPA engine
-
-  BINARY TARGET: 8-12MB (stripped, feature-gated)
-    - goose crate alone (no LanceDB, no V8): 10-15MB
-    - With aggressive strip + opt-level=z + LTO + panic=abort: 8-12MB
-    - Current Python: ~250MB (venv + deps) → 30x reduction
-
-  MODEL DEFAULTS:
-    Router: Qwen3.5 4B MLX 4-bit (3.4GB, 97.5% tool accuracy)
-    Reasoner: Qwen3.5 9B MLX 4-bit (5.5GB)
-    Upgrade: Gemma 4 E2B router (~1.5GB) when MLX tool-call parser merges
-    Stretch: Gemma 4 26B-A4B MoE on 24GB+ (97% of 31B at 3.8B compute)
-
-  QUANTIZATION: MLX native safetensors ONLY (GGUF K-quants cast to FP16 on MLX = useless)
+(Phase I detail is above — see the week-by-week plan, Omega disposition, and 9-repo fusion map)
 
 UNIFIED SUBSTRATE RESEARCH — ✅ COMPLETE (see docs/UNIFIED_SUBSTRATE_RESEARCH.md)
   3 independent dossiers converge on same architecture.
