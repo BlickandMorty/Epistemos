@@ -1841,6 +1841,22 @@ struct RuntimeValidationTests {
         #expect(quitSavePanel.contains("floatingPanel.isRestorable = false"))
     }
 
+    @Test("graph overlay full-screen presentation uses an immersive topmost window mode")
+    func graphOverlayFullScreenPresentationUsesImmersiveTopmostWindowMode() throws {
+        let graphOverlayPanel = try loadRepoTextFile("Epistemos/Views/Graph/GraphOverlayPanel.swift")
+        let hologramOverlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+
+        #expect(graphOverlayPanel.contains("enum GraphOverlayPanelPresentation"))
+        #expect(graphOverlayPanel.contains("case immersiveOverlay"))
+        #expect(graphOverlayPanel.contains("case floatingPanel"))
+        #expect(graphOverlayPanel.contains("level = .screenSaver"))
+        #expect(graphOverlayPanel.contains("level = .floating"))
+
+        #expect(hologramOverlay.contains("window.applyPresentation(.immersiveOverlay)"))
+        #expect(hologramOverlay.contains("window.applyPresentation(.floatingPanel)"))
+        #expect(hologramOverlay.contains("orderFrontRegardless()"))
+    }
+
     @Test("app delegate disables AppKit state restoration in favor of workspace restore")
     func appDelegateDisablesAppKitStateRestorationInFavorOfWorkspaceRestore() throws {
         let source = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
