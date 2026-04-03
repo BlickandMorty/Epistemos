@@ -1409,17 +1409,33 @@ PHASE H — RELEASE PREP (After Rust migration):
   Release preflight, DMG packaging, legal docs
   Fresh-machine verification — NO Python on user's machine
 
-ARCHITECTURAL LENS (Not a phase — a guiding principle for ALL phases):
-  Unified Substrate research informs HOW each phase is built.
-  Paste the Unified Substrate Research Prompt into deep research.
-  Save results to docs/UNIFIED_SUBSTRATE_RESEARCH.md.
-  Codex reads it before starting any phase and applies its principles:
-  - One source of truth (phases B+D naturally unify state)
-  - Windows as apertures (Phase B floating panels achieve this)
-  - Zero-copy where meaningful (Phase I in-process Rust achieves this)
-  - Agent as native substrate (Phase I eliminates subprocess boundary)
-  - The substrate emerges from building each phase correctly,
-    not from a separate rewrite phase.
+SUBSTRATE SPRINTS (Weave into phases — read docs/UNIFIED_SUBSTRATE_RESEARCH.md):
+  Sprint 0 (Audit) → runs during Phase A
+    - Count all identity types, ObservableObject holders, UniFFI call sites
+    - Categorize call frequency, find Python on main thread, measure binary size
+    - Output: docs/ARCHITECTURE_AUDIT.md
+  Sprint 1 (EntityID + Python isolation) → runs during Phase B
+    - New crate: substrate-core with slotmap entity storage
+    - EntityID as u64 via C ABI, migrate Note identity first
+    - Formalize Python subprocess daemon (UDS + JSON-RPC)
+  Sprint 2 (Action grammar) → runs during Phase C
+    - AppAction Rust enum (CreateNote, UpdateContent, RenameNote, LinkNotes, DeleteNote)
+    - Event log: Vec<AppAction> + SQLite persistence
+    - Undo/redo via log replay
+  Sprint 3 (Window singularity proof) → runs during Phase D
+    - Note editor reads from Rust entity store via @Observable Swift projection
+    - Same note in two windows → single-frame propagation
+    - Validates the entire substrate thesis
+  Sprint 4+ (Measure and iterate) → Phase G onward
+    - Profile again, measurements dictate migration order
+    - By Phase I completion, substrate is fully operational
+
+THE 5 LAWS (Binding — from docs/UNIFIED_SUBSTRATE_RESEARCH.md):
+  1. Measure before you cut (Instruments profiling required for architecture PRs)
+  2. substrate-core is a NEW crate, not a refactor (slotmap, alongside existing code)
+  3. Identity unification first (EntityID as u64, notes→links→tags)
+  4. UniFFI stays until profiling proves hotspots need C ABI
+  5. Python out-of-process immediately (no-regret, 15-25MB savings)
 
 PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping):
   This is NOT optional. The app ships as pure Swift + Rust. No Python dependency.
@@ -1455,38 +1471,11 @@ PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping)
   But our Rust version will be smaller (5-15MB), faster (<10ms vs <50ms),
   and zero-copy (Apple Silicon UMA — impossible in Go due to GC)
 
-PHASE J — UNIFIED SUBSTRATE (The endgame architecture — after features ship):
-  The app reconceptualized as one semantic machine with many surface expressions.
-  Not a cleanup. Not a refactor. A fundamental reconceptualization.
-
-  Research prompt: paste the Unified Substrate Research Prompt into deep research
-  (Perplexity/Gemini/Claude). When results return, save to docs/UNIFIED_SUBSTRATE_RESEARCH.md
-  and Codex will integrate findings into the migration plan.
-
-  Key questions the research must answer:
-  - One ontology, one identity system, one action grammar, one ownership model
-  - Windows as apertures over a shared graph, not separate local kingdoms
-  - Zero-copy where meaningful (not as slogan) — where copies are unavoidable
-  - Binary slimming: realistic lower bound for a 250K-line pro app
-  - Python: embedded, isolated, replaced, or constrained to tool runtime?
-  - Agentic harness as native substrate, not bolted-on wrappers
-  - What the smallest, deepest, most compact architecture looks like
-
-  This phase produces:
-  - Unified-substrate manifesto
-  - Architecture selection (from 5+ evaluated patterns)
-  - Zero-copy and memory law for the entire app
-  - Binary compactness roadmap
-  - Multi-window singularity design
-  - Rendering/UI substrate contract
-  - Python runtime final disposition
-  - Agentic harness native design
-  - 30-day audit plan + 60-90 day migration plan
-  - Risk map, rollback strategy, metrics to track
-
-  Succession: Phase J happens AFTER Phase I (Rust migration) and BEFORE final release polish.
-  The Rust migration (Phase I) eliminates Python as a runtime dependency.
-  Phase J unifies everything that remains into a coherent substrate.
+UNIFIED SUBSTRATE RESEARCH — ✅ COMPLETE (see docs/UNIFIED_SUBSTRATE_RESEARCH.md)
+  3 independent dossiers converge on same architecture.
+  5 Laws + 4 Sprints + seed crystal defined.
+  NOT a separate phase — weaves into A through I via the sprint mapping above.
+  By Phase I completion, the substrate is fully operational.
 
 LONG-TERM WATCH:
   GoClaw Lite — reference architecture only, not adopting
@@ -1522,9 +1511,12 @@ DEFERRED — THE ENDGAME (Research-blocked but this is where it all leads):
     - Runs entirely on Apple Silicon via MLX — no cloud, no API keys, no subscription
     - The model IS your second brain — it learned from your notes, your style, your thinking
 
-    This is the big picture. Everything else (graph, Knowledge Brick, agent system,
-    Rust migration) builds toward this: a personal AI that runs on your machine,
-    trained on your knowledge, getting smarter every night.
+    This is the big picture. Everything else builds toward this:
+    - Unified Substrate (5 Laws, EntityID, AppAction) provides the foundation
+    - Rust Agent Migration (Phase I) puts inference in-process
+    - Living Vault provides the self-editing memory for training data
+    - Graph-first experience visualizes the model's knowledge
+    - The model IS your second brain — trained on your notes, your style, your thinking
 
   OTHER DEFERRED:
     8A-8B Business features (company model training)
