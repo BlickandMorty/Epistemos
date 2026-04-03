@@ -1522,6 +1522,24 @@ PHASE I — RUST AGENT MIGRATION (Pre-release — Goose + GEPA fusion):
   - GEPA = mind (trace → diagnose → mutate → Pareto select → test → commit)
   - WARNING: Goose without GEPA = faster but LESS intelligent than current Hermes
 
+  WHAT GETS REPLACED (the engine swap):
+  - hermes-agent/ Python subprocess → Goose crate compiled into Rust dylib
+  - epistemos_bridge.py → Goose Provider trait + builtin extensions
+  - HermesSubprocessManager.swift → simplified UniFFI bridge to Rust Goose
+  - HermesMCPClient.swift → rmcp (official Rust MCP SDK) in-process
+  - EpistemosMCPServer.swift → Goose builtin extension exposing tools
+
+  WHAT STAYS (the chassis, dashboard, safety — all YOUR code):
+  - AgentViewModel.swift — UI controller, harness integration, cost tracking
+  - OrchestratorState.swift — safety wrapper (depth limiter, loop detection, checkpoints)
+  - HarnessIntegration.swift — traces, bootstrap packets, completion checks
+  - StreamingDelegate.swift — token streaming to UI (Goose feeds into this)
+  - ConfirmationGate, CredentialRedactor, TranscriptRepair — all safety components
+  - ContextBudgetManager, ToolLoopDetector, AgentDepthLimiter — all orchestration
+  - Graph, vault, search, training, PowerGuard — completely untouched
+
+  HERMES STAYS RUNNING through Phases A-G. Only replaced in Phase I.
+
   Week 1: UniFFI Streaming Bridge
     - TokenStreamCallback (Rust → Swift) for Provider.stream() output
     - MetalProvider with bidirectional callback (Rust asks Swift/MLX to generate)
