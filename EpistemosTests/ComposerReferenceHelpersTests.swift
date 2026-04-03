@@ -233,8 +233,8 @@ struct ComposerReferenceHelpersTests {
         #expect(noteChoiceIDs(results.notes) == ["all-notes", "newer", "older"])
     }
 
-    @Test("empty note browse hides chat matches until the user searches")
-    func emptyNoteBrowseHidesChatsUntilTheUserSearches() {
+    @Test("empty note browse includes recent chats alongside notes")
+    func emptyNoteBrowseIncludesRecentChats() {
         let manifest = makeManifest(entries: [
             .init(
                 pageId: "newer",
@@ -250,14 +250,24 @@ struct ComposerReferenceHelpersTests {
 
         let chat = SDChat(title: "Atlas planning")
         chat.id = "chat-1"
-        chat.createdAt = .distantPast
-        chat.updatedAt = .distantPast
+        chat.createdAt = Date(timeIntervalSince1970: 200)
+        chat.updatedAt = Date(timeIntervalSince1970: 200)
+        let message = SDMessage(role: "user", content: "atlas")
+        message.createdAt = Date(timeIntervalSince1970: 190)
+        message.chat = chat
+        chat.messages = [message]
         let thread = ChatThread(
             id: "thread-1",
             type: "palette",
             label: "Palette thread",
-            messages: [AssistantMessage(role: .user, content: "atlas")],
-            createdAt: .distantPast
+            messages: [
+                AssistantMessage(
+                    role: .user,
+                    content: "atlas",
+                    createdAt: Date(timeIntervalSince1970: 150)
+                )
+            ],
+            createdAt: Date(timeIntervalSince1970: 140)
         )
 
         let results = ChatCoordinator.searchReferenceResults(
@@ -268,7 +278,7 @@ struct ComposerReferenceHelpersTests {
         )
 
         #expect(noteChoiceIDs(results.notes) == ["all-notes", "newer"])
-        #expect(results.chats.isEmpty)
+        #expect(results.chats.map(\.attachment.targetId) == ["chat-1", "thread-1"])
     }
 
     @Test("popover layout keeps a generous width when there is room")

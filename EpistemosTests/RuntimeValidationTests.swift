@@ -1785,28 +1785,17 @@ struct RuntimeValidationTests {
         #expect(landing.contains("resetKey: composerControlResetKey"))
         #expect(miniChat.contains("ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey)"))
 
-        if let chatModeRange = chatInput.range(of: "LocalModelToolbarMenu("),
-           let chatShortcutRange = chatInput.range(of: "ComposerContextShortcutBar(") {
-            #expect(chatModeRange.lowerBound < chatShortcutRange.lowerBound)
-        } else {
-            Issue.record("Chat input should contain both runtime menu and context shortcut controls")
-        }
+        #expect(chatInput.contains("LocalModelToolbarMenu("))
+        #expect(!chatInput.contains("ComposerContextShortcutBar("))
+        #expect(chatInput.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
 
-        if let landingModeRange = landing.range(of: "LocalModelToolbarMenu("),
-           let landingShortcutRange = landing.range(of: "ComposerContextShortcutBar(") {
-            #expect(landing.contains("landingInferenceControl"))
-            #expect(!landingModeRange.isEmpty)
-            #expect(!landingShortcutRange.isEmpty)
-        } else {
-            Issue.record("Landing should contain both runtime menu and context shortcut controls")
-        }
+        #expect(landing.contains("landingInferenceControl"))
+        #expect(!landing.contains("ComposerContextShortcutBar("))
+        #expect(landing.contains("ComposerAttachmentEntryHints.landingPlaceholder"))
 
-        if let miniModeRange = miniChat.range(of: "LocalModelToolbarMenu("),
-           let miniShortcutRange = miniChat.range(of: "ComposerContextShortcutBar(") {
-            #expect(miniModeRange.lowerBound < miniShortcutRange.lowerBound)
-        } else {
-            Issue.record("Mini chat should contain both runtime menu and context shortcut controls")
-        }
+        #expect(miniChat.contains("LocalModelToolbarMenu("))
+        #expect(!miniChat.contains("ComposerContextShortcutBar("))
+        #expect(miniChat.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
     }
 
     @Test("main chat transcript resubmits reuse sanitized operating mode state")

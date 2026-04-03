@@ -58,4 +58,44 @@ struct ChatPresentationTests {
         #expect(secondStats.hits == 1)
         #expect(secondStats.misses == 1)
     }
+
+    @Test("chat markdown parser preserves nested and task list metadata")
+    func chatMarkdownParserPreservesNestedAndTaskListMetadata() {
+        let content = """
+        - Top level
+          - Nested bullet
+        - [x] Completed task
+        1. First step
+          2. Nested step
+        """
+
+        let blocks = TaggedMarkdownTextView.debugBlockSummaries(for: content)
+
+        #expect(blocks == [
+            "bullet@0:Top level",
+            "bullet@1:Nested bullet",
+            "check@0:true:Completed task",
+            "numbered@0:1.:First step",
+            "numbered@1:2.:Nested step",
+        ])
+    }
+
+    @Test("chat markdown groups consecutive list items into one tight render run")
+    func chatMarkdownGroupsConsecutiveListItemsIntoOneRenderRun() {
+        let content = """
+        Intro paragraph
+
+        - One
+        - Two
+        - [ ] Three
+        1. Four
+        """
+
+        let renderUnits = TaggedMarkdownTextView.debugRenderUnitSummaries(for: content)
+
+        #expect(renderUnits == [
+            "paragraph",
+            "list:4",
+        ])
+    }
 }

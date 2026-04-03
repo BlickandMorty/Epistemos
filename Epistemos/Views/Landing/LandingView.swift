@@ -503,7 +503,7 @@ struct LandingView: View {
                                 }
 
                                 if landingSearchText.isEmpty {
-                                    Text("Ask Epistemos\u{2026}")
+                                    Text(ComposerAttachmentEntryHints.landingPlaceholder)
                                         .font(
                                             .system(
                                                 size: LandingSearchLayout.inputFontSize,
@@ -523,12 +523,6 @@ struct LandingView: View {
                                 resetKey: composerControlResetKey
                             ) {
                                 landingInferenceControl
-
-                                ComposerContextShortcutBar(
-                                    noteLabel: "Chat with Note",
-                                    onChatWithNote: openLandingNotePicker,
-                                    onChatWithChat: openLandingChatPicker
-                                )
                             }
 
                             if !landingSearchText.isEmpty {
@@ -566,6 +560,8 @@ struct LandingView: View {
                                 isPresented: $showLandingMentionDropdown,
                                 results: landingMentionSearchResults,
                                 query: $landingMentionFilter,
+                                manifest: ambientManifest,
+                                modelContext: modelContext,
                                 idealWidth: landingReferencePopoverStyle.idealWidth,
                                 maxHeight: landingReferencePopoverStyle.maxHeight,
                                 style: landingReferencePopoverStyle,
@@ -704,30 +700,6 @@ struct LandingView: View {
             chat: chat,
             orchestrator: orchestrator
         )
-    }
-
-    private func openLandingChatPicker() {
-        landingReferencePopoverStyle = .chatPicker
-        landingMentionFilter = ""
-        landingMentionPickerAutofocus = true
-        showLandingMentionDropdown = true
-        isLandingSearchFocused = true
-        landingReferenceSearch.reset()
-    }
-
-    private func openLandingNotePicker() {
-        landingReferencePopoverStyle = .notePicker
-        landingMentionFilter = ""
-        landingMentionPickerAutofocus = true
-        showLandingMentionDropdown = true
-        isLandingSearchFocused = true
-        landingReferenceSearch.reset()
-    }
-
-    private func attachLandingVaultContext() {
-        let attachment = ComposerReferenceHelpers.allNotesAttachment
-        guard !landingContextAttachments.contains(attachment) else { return }
-        landingContextAttachments.append(attachment)
     }
 
     private func attachLandingMentionReference(_ choice: ComposerReferenceChoice) {

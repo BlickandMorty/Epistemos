@@ -131,7 +131,7 @@ struct ChatInputBar: View {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
-    private let placeholderText = "Ask anything…"
+    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private var selectedOperatingMode: EpistemosOperatingMode {
         inference.sanitizedOperatingMode(
@@ -158,12 +158,11 @@ struct ChatInputBar: View {
                 indexedNoteSnippetsByPageID: [:]
             )
         }
-        let shouldSearchChats = !trimmedMentionFilter.isEmpty
         return ChatCoordinator.searchReferenceResults(
             filter: trimmedMentionFilter,
             manifest: ambientManifest,
-            chats: shouldSearchChats ? recentChats() : [],
-            threads: shouldSearchChats ? (AppBootstrap.shared?.threadState.chatThreads ?? []) : [],
+            chats: recentChats(),
+            threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
@@ -272,12 +271,6 @@ struct ChatInputBar: View {
                         )
                             .accessibilityLabel("Chat model")
 
-                        ComposerContextShortcutBar(
-                            noteLabel: "Chat with Note",
-                            onChatWithNote: openNotePicker,
-                            onChatWithChat: openChatPicker
-                        )
-
                         attachButton
                     }
 
@@ -308,6 +301,8 @@ struct ChatInputBar: View {
                     isPresented: $showMentionDropdown,
                     results: mentionSearchResults,
                     query: $mentionFilter,
+                    manifest: ambientManifest,
+                    modelContext: modelContext,
                     idealWidth: referencePopoverStyle.idealWidth,
                     maxHeight: referencePopoverStyle.maxHeight,
                     style: referencePopoverStyle,
@@ -513,28 +508,6 @@ struct ChatInputBar: View {
         if sanitized.rawValue != operatingModeRaw {
             operatingModeRaw = sanitized.rawValue
         }
-    }
-
-    private func openChatPicker() {
-        referencePopoverStyle = .chatPicker
-        mentionFilter = ""
-        mentionPickerAutofocus = true
-        showMentionDropdown = true
-        isFocused = true
-        referenceSearch.reset()
-    }
-
-    private func openNotePicker() {
-        referencePopoverStyle = .notePicker
-        mentionFilter = ""
-        mentionPickerAutofocus = true
-        showMentionDropdown = true
-        isFocused = true
-        referenceSearch.reset()
-    }
-
-    private func attachVaultContext() {
-        chat.addContextAttachment(ComposerReferenceHelpers.allNotesAttachment)
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {

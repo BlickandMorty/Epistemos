@@ -74,9 +74,12 @@ struct TaggedMarkdownTextView: View {
     private let blocks: [MarkdownBlock]
     private static let bodyFontSize: CGFloat = 15
     private static let bodyLineSpacing: CGFloat = 5
-    private static let listMarkerWidth: CGFloat = 16
-    private static let listIndent: CGFloat = 8
-    private static let listSpacing: CGFloat = 10
+    private static let listMarkerWidth: CGFloat = 11
+    private static let numberedMarkerMinWidth: CGFloat = 24
+    private static let listIndent: CGFloat = 4
+    private static let nestedListIndent: CGFloat = 18
+    private static let listSpacing: CGFloat = 6
+    private static let listRunSpacing: CGFloat = 4
     private static let blockCacheLimit = 48
     private static let blockCacheLock = NSLock()
     private static var blockCache: [String: [MarkdownBlock]] = [:]
@@ -115,8 +118,8 @@ struct TaggedMarkdownTextView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                renderBlock(block)
+            ForEach(Array(renderUnits.enumerated()), id: \.offset) { _, unit in
+                renderUnit(unit)
             }
         }
         .textSelection(.enabled)
@@ -126,18 +129,40 @@ struct TaggedMarkdownTextView: View {
         foregroundOverride ?? theme.assistantBubbleForeground
     }
 
+    private var renderUnits: [MarkdownRenderUnit] {
+        Self.renderUnits(from: blocks)
+    }
+
     // MARK: - Block Types
+
+    private enum MarkdownListKind: Equatable {
+        case bullet
+        case numbered(String)
+        case check(Bool)
+    }
+
+    private struct MarkdownListItem: Equatable {
+        let level: Int
+        let kind: MarkdownListKind
+        let text: String
+    }
 
     private enum MarkdownBlock {
         case heading(level: Int, text: String)
         case paragraph(text: String)
-        case bulletItem(text: String)
-        case numberedItem(number: String, text: String)
-        case blockquote(text: String)
+        case bulletItem(level: Int, text: String)
+        case numberedItem(level: Int, number: String, text: String)
+        case checkItem(level: Int, checked: Bool, text: String)
+        case blockquote(level: Int, text: String)
         case codeBlock(language: String, code: String)
         case horizontalRule
         case tableLine(text: String)
         case table(rows: [[String]], headerCount: Int)
+    }
+
+    private enum MarkdownRenderUnit {
+        case block(MarkdownBlock)
+        case list([MarkdownListItem])
     }
 
     struct BlockCacheStats: Equatable {
@@ -165,6 +190,61 @@ struct TaggedMarkdownTextView: View {
         let stats = BlockCacheStats(hits: blockCacheHits, misses: blockCacheMisses)
         blockCacheLock.unlock()
         return stats
+    }
+
+    static func debugBlockSummaries(for text: String) -> [String] {
+        cachedBlocks(for: text).compactMap { block in
+            switch block {
+            case .heading(let level, let text):
+                "heading@\(level):\(text)"
+            case .paragraph(let text):
+                "paragraph:\(text)"
+            case .bulletItem(let level, let text):
+                "bullet@\(level):\(text)"
+            case .numberedItem(let level, let number, let text):
+                "numbered@\(level):\(number):\(text)"
+            case .checkItem(let level, let checked, let text):
+                "check@\(level):\(checked):\(text)"
+            case .blockquote(let level, let text):
+                "blockquote@\(level):\(text)"
+            case .codeBlock(let language, _):
+                "code:\(language)"
+            case .horizontalRule:
+                "rule"
+            case .table(let rows, _):
+                "table:\(rows.count)"
+            case .tableLine:
+                nil
+            }
+        }
+    }
+
+    static func debugRenderUnitSummaries(for text: String) -> [String] {
+        renderUnits(from: cachedBlocks(for: text)).compactMap { unit in
+            switch unit {
+            case .block(let block):
+                switch block {
+                case .paragraph:
+                    "paragraph"
+                case .heading:
+                    "heading"
+                case .blockquote:
+                    "blockquote"
+                case .codeBlock:
+                    "code"
+                case .horizontalRule:
+                    "rule"
+                case .table:
+                    "table"
+                case .tableLine:
+                    nil
+                case .bulletItem, .numberedItem, .checkItem:
+                    "list-item"
+                }
+            case .list(let items):
+                "list:\(items.count)"
+            }
+        }
     }
 
     private static func cachedBlocks(for text: String) -> [MarkdownBlock] {
@@ -197,6 +277,96 @@ struct TaggedMarkdownTextView: View {
         }
         blockCacheLock.unlock()
         return parsed
+    }
+
+    private static func renderUnits(from blocks: [MarkdownBlock]) -> [MarkdownRenderUnit] {
+        var units: [MarkdownRenderUnit] = []
+        var listItems: [MarkdownListItem] = []
+
+        func flushList() {
+            guard !listItems.isEmpty else { return }
+            units.append(.list(listItems))
+            listItems.removeAll(keepingCapacity: true)
+        }
+
+        for block in blocks {
+            if let item = listItem(from: block) {
+                listItems.append(item)
+            } else {
+                flushList()
+                units.append(.block(block))
+            }
+        }
+
+        flushList()
+        return units
+    }
+
+    private static func listItem(from block: MarkdownBlock) -> MarkdownListItem? {
+        switch block {
+        case .bulletItem(let level, let text):
+            MarkdownListItem(level: level, kind: .bullet, text: text)
+        case .numberedItem(let level, let number, let text):
+            MarkdownListItem(level: level, kind: .numbered(number), text: text)
+        case .checkItem(let level, let checked, let text):
+            MarkdownListItem(level: level, kind: .check(checked), text: text)
+        default:
+            nil
+        }
+    }
+
+    private static func parseBulletItem(from line: String) -> (level: Int, text: String)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") else { return nil }
+        return (indentLevel(for: line), String(trimmed.dropFirst(2)))
+    }
+
+    private static func parseCheckItem(from line: String) -> (level: Int, checked: Bool, text: String)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard
+            let match = trimmed.range(of: #"^[-*]\s\[(x|X| )\]\s"#, options: .regularExpression)
+        else {
+            return nil
+        }
+
+        let marker = String(trimmed[trimmed.startIndex..<match.upperBound])
+        let checked = marker.localizedCaseInsensitiveContains("[x]")
+        let text = String(trimmed[match.upperBound...])
+        return (indentLevel(for: line), checked, text)
+    }
+
+    private static func parseNumberedItem(from line: String) -> (level: Int, number: String, text: String)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard let match = trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) else { return nil }
+        let number = String(trimmed[trimmed.startIndex..<match.upperBound]).trimmingCharacters(in: .whitespaces)
+        let text = String(trimmed[match.upperBound...])
+        return (indentLevel(for: line), number, text)
+    }
+
+    private static func parseBlockquote(from trimmedLine: String) -> (level: Int, text: String)? {
+        guard trimmedLine.hasPrefix(">") else { return nil }
+
+        var level = 0
+        var index = trimmedLine.startIndex
+        while index < trimmedLine.endIndex, trimmedLine[index] == ">" {
+            level += 1
+            index = trimmedLine.index(after: index)
+            if index < trimmedLine.endIndex, trimmedLine[index] == " " {
+                index = trimmedLine.index(after: index)
+            }
+        }
+
+        let text = trimmedLine[index...].trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+        return (max(level, 1), text)
+    }
+
+    private static func indentLevel(for line: String) -> Int {
+        let prefix = line.prefix { $0 == " " || $0 == "\t" }
+        let normalized = prefix.reduce(into: 0) { total, character in
+            total += character == "\t" ? 4 : 1
+        }
+        return normalized / 2
     }
 
     private static func parseBlocks(_ text: String) -> [MarkdownBlock] {
@@ -241,19 +411,20 @@ struct TaggedMarkdownTextView: View {
             else if trimmed == "---" || trimmed == "***" || trimmed == "___" {
                 blocks.append(.horizontalRule)
             }
+            else if let taskItem = parseCheckItem(from: line) {
+                blocks.append(.checkItem(level: taskItem.level, checked: taskItem.checked, text: taskItem.text))
+            }
             // Bullet list
-            else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-                blocks.append(.bulletItem(text: String(trimmed.dropFirst(2))))
+            else if let bulletItem = parseBulletItem(from: line) {
+                blocks.append(.bulletItem(level: bulletItem.level, text: bulletItem.text))
             }
             // Numbered list
-            else if let match = trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) {
-                let number = String(trimmed[trimmed.startIndex..<match.upperBound]).trimmingCharacters(in: .whitespaces)
-                let rest = String(trimmed[match.upperBound...])
-                blocks.append(.numberedItem(number: number, text: rest))
+            else if let numberedItem = parseNumberedItem(from: line) {
+                blocks.append(.numberedItem(level: numberedItem.level, number: numberedItem.number, text: numberedItem.text))
             }
             // Blockquote
-            else if trimmed.hasPrefix("> ") {
-                blocks.append(.blockquote(text: String(trimmed.dropFirst(2))))
+            else if let blockquote = parseBlockquote(from: trimmed) {
+                blocks.append(.blockquote(level: blockquote.level, text: blockquote.text))
             }
             // Table
             else if trimmed.hasPrefix("|") && trimmed.hasSuffix("|") {
@@ -334,6 +505,16 @@ struct TaggedMarkdownTextView: View {
         }
     }
 
+    @ViewBuilder
+    private func renderUnit(_ unit: MarkdownRenderUnit) -> some View {
+        switch unit {
+        case .block(let block):
+            renderBlock(block)
+        case .list(let items):
+            renderList(items)
+        }
+    }
+
     // MARK: - Block Rendering
 
     @ViewBuilder
@@ -357,59 +538,17 @@ struct TaggedMarkdownTextView: View {
                     color: bodyForeground,
                     enabled: rippleStyle.includesBodyBlocks
                 )
-        case .bulletItem(let text):
-            HStack(alignment: .top, spacing: Self.listSpacing) {
-                Text("\u{2022}")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(theme.resolved.accent.color)
-                    .frame(width: Self.listMarkerWidth, alignment: .center)
-                    .padding(.top, 1)
-                taggedInlineMarkdown(
-                    text,
-                    baseFontSize: Self.bodyFontSize,
-                    strongForegroundColor: theme.chatStrongForeground
-                )
-                    .font(.system(size: Self.bodyFontSize))
-                    .lineSpacing(Self.bodyLineSpacing)
-                    .foregroundStyle(bodyForeground)
-                    .asciiRippleOverlay(
-                        text: MarkdownRippleTextExtractor.displayText(from: text),
-                        font: .system(size: Self.bodyFontSize),
-                        color: bodyForeground,
-                        enabled: rippleStyle.includesBodyBlocks
-                    )
-            }
-            .padding(.leading, Self.listIndent)
-            .padding(.vertical, 2)
-        case .numberedItem(let number, let text):
-            HStack(alignment: .top, spacing: Self.listSpacing) {
-                Text(number)
-                    .font(.system(size: Self.bodyFontSize, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(theme.resolved.accent.color)
-                    .frame(minWidth: 24, alignment: .trailing)
-                    .padding(.top, 1)
-                taggedInlineMarkdown(
-                    text,
-                    baseFontSize: Self.bodyFontSize,
-                    strongForegroundColor: theme.chatStrongForeground
-                )
-                    .font(.system(size: Self.bodyFontSize))
-                    .lineSpacing(Self.bodyLineSpacing)
-                    .foregroundStyle(bodyForeground)
-                    .asciiRippleOverlay(
-                        text: MarkdownRippleTextExtractor.displayText(from: text),
-                        font: .system(size: Self.bodyFontSize),
-                        color: bodyForeground,
-                        enabled: rippleStyle.includesBodyBlocks
-                    )
-            }
-            .padding(.leading, Self.listIndent)
-            .padding(.vertical, 2)
-        case .blockquote(let text):
+        case .bulletItem, .numberedItem, .checkItem:
+            EmptyView()
+        case .blockquote(let level, let text):
             HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(theme.resolved.accent.color.opacity(0.5))
-                    .frame(width: 3)
+                HStack(spacing: 5) {
+                    ForEach(0..<max(level, 1), id: \.self) { depth in
+                        RoundedRectangle(cornerRadius: depth == 0 ? 1.5 : 1)
+                            .fill(theme.resolved.accent.color.opacity(depth == 0 ? 0.5 : 0.24))
+                            .frame(width: depth == 0 ? 3 : 2)
+                    }
+                }
                 taggedInlineMarkdown(
                     text,
                     baseFontSize: Self.bodyFontSize,
@@ -427,6 +566,7 @@ struct TaggedMarkdownTextView: View {
                         enabled: rippleStyle.includesBodyBlocks
                     )
             }
+            .padding(.leading, CGFloat(max(level - 1, 0)) * 6)
             .padding(.vertical, 4)
         case .codeBlock(let language, let code):
             VStack(alignment: .leading, spacing: 4) {
@@ -463,6 +603,81 @@ struct TaggedMarkdownTextView: View {
         case .tableLine:
             EmptyView()
         }
+    }
+
+    @ViewBuilder
+    private func renderList(_ items: [MarkdownListItem]) -> some View {
+        VStack(alignment: .leading, spacing: Self.listRunSpacing) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                renderListItem(item)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func renderListItem(_ item: MarkdownListItem) -> some View {
+        HStack(alignment: .top, spacing: Self.listSpacing) {
+            renderListMarker(for: item)
+            renderListText(
+                item.text,
+                foreground: listItemForeground(for: item),
+                strikethrough: isChecked(item)
+            )
+        }
+        .padding(.leading, Self.listIndent + CGFloat(item.level) * Self.nestedListIndent)
+    }
+
+    @ViewBuilder
+    private func renderListMarker(for item: MarkdownListItem) -> some View {
+        switch item.kind {
+        case .bullet:
+            Text("\u{2022}")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color)
+                .frame(width: Self.listMarkerWidth, alignment: .leading)
+                .padding(.top, 1)
+        case .numbered(let number):
+            Text(number)
+                .font(.system(size: Self.bodyFontSize, weight: .semibold).monospacedDigit())
+                .foregroundStyle(theme.resolved.accent.color)
+                .frame(minWidth: Self.numberedMarkerMinWidth, alignment: .trailing)
+                .padding(.top, 1)
+        case .check(let checked):
+            Image(systemName: checked ? "checkmark.square.fill" : "square")
+                .font(.system(size: 13))
+                .foregroundStyle(checked ? theme.resolved.accent.color : theme.textTertiary)
+                .frame(width: Self.listMarkerWidth, alignment: .leading)
+                .padding(.top, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func renderListText(
+        _ text: String,
+        foreground: Color,
+        strikethrough: Bool
+    ) -> some View {
+        taggedInlineMarkdown(
+            text,
+            baseFontSize: Self.bodyFontSize,
+            strongForegroundColor: theme.chatStrongForeground
+        )
+        .font(.system(size: Self.bodyFontSize))
+        .lineSpacing(Self.bodyLineSpacing)
+        .foregroundStyle(foreground)
+        .strikethrough(strikethrough)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .asciiRippleOverlay(
+            text: MarkdownRippleTextExtractor.displayText(from: text),
+            font: .system(size: Self.bodyFontSize),
+            color: foreground,
+            enabled: rippleStyle.includesBodyBlocks
+        )
+    }
+
+    private func listItemForeground(for item: MarkdownListItem) -> Color {
+        isChecked(item) ? theme.textTertiary : bodyForeground
     }
 
     // MARK: - Heading Rendering
@@ -502,6 +717,15 @@ struct TaggedMarkdownTextView: View {
             )
             .padding(.top, topPad)
             .padding(.bottom, 2)
+    }
+
+    // MARK: - List Helpers
+
+    private func isChecked(_ item: MarkdownListItem) -> Bool {
+        if case .check(let checked) = item.kind {
+            return checked
+        }
+        return false
     }
 
     // MARK: - Tag-Aware Inline Renderer
