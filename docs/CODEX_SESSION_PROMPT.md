@@ -120,6 +120,17 @@ The shipped app is pure Swift + Rust + Metal. No Python. See VISION_BACKLOG.md P
 - Every unsafe block gets `// SAFETY:` comment
 - F_FULLFSYNC (fcntl 51) for all durable writes — fsync is NOT sufficient on macOS
 
+### Graph Bugs (Phase B — fix FIRST, confirmed by 4 independent analyses)
+1. sRGB pixel format: `BGRA8Unorm` → `BGRA8Unorm_sRGB` (one line in renderer.rs)
+2. Precompile .metallib (eliminates startup shader compilation)
+3-6. Link force bubble, Louvain incremental, TBDR glow, color space blending
+
+### SDF Labels (research-validated — build after bugs)
+- SF Pro Text, MTSDF 512×512, `-size 32 -pxrange 6`
+- `cameraoffset` = focal point (zero new FFI)
+- Physics is velocity Verlet — tune only, don't replace
+- Full spec: `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md`
+
 ### Research Grounding (read when making architectural decisions)
 - Zero-corruption: `~/Downloads/release/FINAL DOCS/1. CORRUPTION/ZERO_CORRUPTION_SPEC.md`
 - Living Vault: `~/Downloads/last feature after new agents/LIVING_VAULT_ARCHITECTURE.md`
@@ -127,6 +138,8 @@ The shipped app is pure Swift + Rust + Metal. No Python. See VISION_BACKLOG.md P
 - Anti-drift: `~/Downloads/release/FINAL DOCS/3. MUST READS/ANTI_DRIFT_SYSTEM.md`
 - Quantization: `~/stateful-rotor-implementation-reference.md`
 - 50+ papers: `~/EPISTEMOS-RESEARCH-REFERENCE.md`
+- Graph SDF + architecture challenge: `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md`
+- Agent fusion (8 projects): `docs/AGENT_FUSION_RESEARCH_PROMPT.md`
 
 ```bash
 # Build

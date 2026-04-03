@@ -182,6 +182,21 @@ Work through phases A→I→H as defined in the execution order at the bottom of
 
 **Immersive mode performance:** Adding floating panels, Contextual Shadows, blur, haptics must NOT degrade fps. NSPanels for isolation, force injection for shadows, early-exit shader for blur. Profile before/after each feature. Reject anything that drops fps by >5%. See `3-PRIME` performance mandate in VISION_BACKLOG.md.
 
+**Graph bugs (fix FIRST in Phase B — confirmed by 4 independent analyses):**
+1. sRGB pixel format: `BGRA8Unorm` → `BGRA8Unorm_sRGB` in `renderer.rs` (one line)
+2. Precompile .metallib: `xcrun metal` + `xcrun metallib` at build time, load via `new_library_with_data()` — eliminates startup shader compilation and AppBootstrap file-lock workaround
+3. Link force pipeline bubble: CPU link forces serialize with GPU N-body — overlap or move to compute shader
+4. Louvain clustering: rebuild is not incremental — should only re-cluster affected communities
+5. TBDR glow: evaluate Dual Kawase blur for Apple Silicon tile-based architecture
+6. Color space: verify all color uniforms are linear before passing to shaders
+
+**SDF labels (research-validated, 4 reports agree — build after bugs):**
+- Font: SF Pro Text, Atlas: MTSDF 512×512, `-size 32`, `-pxrange 6`
+- Focal point: `cameraoffset` already in uniforms — zero new FFI needed
+- Physics: already velocity Verlet (d3-style) — tune parameters only, don't change integrator
+- Label cost: <0.5ms — effectively free
+- Read `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md` for full 7-section research + architecture challenge
+
 When implementing Phase B (graph-first) and Phase D (Knowledge Brick), read the `4-ENGINEERING` section in VISION_BACKLOG.md first. It specifies isolation architecture (NSPanel floating panels, NSHostingView tab swapping, @Observable state persistence) to prevent layout interference and frame drops. Research the best implementation approach before building — the spec provides a recommended starting point, not a rigid mandate. Profile first, then decide.
 
 ## MANDATORY POST-PHASE AUDIT PROTOCOL
