@@ -153,6 +153,13 @@ final class KnowledgeFusionViewModel {
         scheduler.ingestODIATraces(traces)
     }
 
+    /// Start only the lightweight background scheduling path at app launch.
+    /// Full registry / feedback hydration stays lazy until the settings surface opens.
+    func prepareBackgroundSchedulingIfNeeded() {
+        detectInstalledModels()
+        scheduler.startScheduling()
+    }
+
     // MARK: - Lifecycle
 
     func loadState() async {

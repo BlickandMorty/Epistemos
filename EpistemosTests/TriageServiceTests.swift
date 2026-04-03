@@ -1618,6 +1618,80 @@ struct TriageServiceIntegrationTests {
         #expect(request.chatTemplateContext?["enable_thinking"] == true)
     }
 
+    @Test("qwen 4b thinking loop mitigation only enables for the looping tier")
+    func qwen4BThinkingLoopMitigationOnlyEnablesForLoopingTier() {
+        let guardedRequest = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            prompt: "Think carefully.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .thinking
+        )
+        let fastRequest = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            prompt: "Answer directly.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .fast
+        )
+        let largerThinkingRequest = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_27B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen27"),
+            prompt: "Think carefully.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .thinking
+        )
+
+        #expect(LocalMLXLoopMitigation.isEnabled(for: guardedRequest))
+        #expect(!LocalMLXLoopMitigation.isEnabled(for: fastRequest))
+        #expect(!LocalMLXLoopMitigation.isEnabled(for: largerThinkingRequest))
+    }
+
+    @Test("qwen 4b thinking loop guard trips on repeated long chunks")
+    func qwen4BThinkingLoopGuardTripsOnRepeatedLongChunks() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            prompt: "Think carefully.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .thinking
+        )
+        var guardrail = LocalMLXLoopGuard(request: request)
+        let repeatedChunk = "Let me reason through the same intermediate chain in detail before answering."
+
+        var detection: LocalMLXLoopDetection?
+        for _ in 0..<5 {
+            detection = guardrail.record(chunk: repeatedChunk)
+        }
+
+        #expect(detection?.reason == .repeatedChunk)
+    }
+
+    @Test("qwen 4b thinking loop mitigation appends a user-visible fallback when no answer escapes")
+    func qwen4BThinkingLoopMitigationAppendsUserVisibleFallback() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            prompt: "Think carefully.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .thinking
+        )
+        let rawLoopingOutput = "<think>repeating the same hidden reasoning forever without closing the loop"
+        let mitigated = LocalMLXLoopMitigation.appendFallbackIfNeeded(
+            to: rawLoopingOutput,
+            for: request
+        )
+        let visible = UserFacingModelOutput.finalVisibleText(from: mitigated)
+
+        #expect(visible.contains("Qwen 4B thinking mode was stopped"))
+        #expect(visible.contains("Fast mode"))
+    }
+
     @Test("non-qwen local requests do not inject template thinking flags")
     func nonQwenLocalRequestsDoNotInjectTemplateThinkingFlags() {
         let request = LocalMLXRequest(

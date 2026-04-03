@@ -49,6 +49,27 @@ final class InstantRecallService {
     private(set) var maxSearchLatencyMs: Double = 0
 
     private let handle = "vault"
+    private var initialSnapshotProvider: (() -> [(id: String, text: String)])?
+    private var hasHydratedInitialSnapshot = false
+
+    private func ensureInitialized() {
+        guard !isReady else { return }
+        initialize()
+    }
+
+    private func hydrateInitialSnapshotIfNeeded() {
+        guard !hasHydratedInitialSnapshot else { return }
+        hasHydratedInitialSnapshot = true
+        guard let initialSnapshotProvider else { return }
+        rebuildIndex(notes: initialSnapshotProvider())
+    }
+
+    func configureInitialSnapshotProvider(
+        _ provider: @escaping () -> [(id: String, text: String)]
+    ) {
+        initialSnapshotProvider = provider
+        hasHydratedInitialSnapshot = false
+    }
 
     /// Initialize and create the Rust index.
     func initialize() {
@@ -80,6 +101,7 @@ final class InstantRecallService {
 
     /// Index a note's content. Call on note save or edit (debounced).
     func indexNote(noteId: String, text: String) {
+        ensureInitialized()
         guard isReady else { return }
         guard let indexableText = normalizedIndexableText(text) else {
             removeNote(noteId: noteId)
@@ -92,6 +114,7 @@ final class InstantRecallService {
 
     /// Remove a note from the index (on note deletion).
     func removeNote(noteId: String) {
+        ensureInitialized()
         guard isReady else { return }
         let _ = instantRecallRemove(handle: handle, docId: noteId)
         documentCount = Int(instantRecallCount(handle: handle))
@@ -101,6 +124,7 @@ final class InstantRecallService {
     /// Search for notes similar to the query text.
     /// Updates `lastResults` and `lastSearchLatencyMs`.
     func search(queryText: String, topK: Int = 5) -> [InstantRecallResult] {
+        ensureInitialized()
         guard isReady else {
             lastResults = []
             lastSearchLatencyMs = 0
@@ -113,6 +137,8 @@ final class InstantRecallService {
             lastSearchLatencyMs = 0
             return []
         }
+
+        hydrateInitialSnapshotIfNeeded()
 
         let start = CFAbsoluteTimeGetCurrent()
         let json = instantRecallSearch(handle: handle, queryText: normalizedQueryText, topK: UInt32(topK))
@@ -148,7 +174,9 @@ final class InstantRecallService {
 
     /// Index all notes from a vault scan. Call during app startup.
     func indexBatch(notes: [(id: String, text: String)]) {
+        ensureInitialized()
         guard isReady else { return }
+        hasHydratedInitialSnapshot = true
 
         let start = CFAbsoluteTimeGetCurrent()
 
@@ -167,7 +195,9 @@ final class InstantRecallService {
 
     /// Replace the entire index with a fresh note snapshot.
     func rebuildIndex(notes: [(id: String, text: String)]) {
+        ensureInitialized()
         guard isReady else { return }
+        hasHydratedInitialSnapshot = true
 
         let start = CFAbsoluteTimeGetCurrent()
         let _ = instantRecallClear(handle: handle)
@@ -194,6 +224,7 @@ final class InstantRecallService {
 
     /// Clear the entire index.
     func clearIndex() {
+        ensureInitialized()
         guard isReady else { return }
         let _ = instantRecallClear(handle: handle)
         documentCount = 0

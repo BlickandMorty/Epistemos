@@ -187,12 +187,7 @@ final class ChatState {
 
         let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
 
-        // Capture Notes Mode flags for this message, then reset for next turn
-        let briefing = isCurrentVaultBriefing
-        let noteTitles = loadedNoteTitles.isEmpty ? nil : loadedNoteTitles
-        let contextAttachments = pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
-        isCurrentVaultBriefing = false
-        loadedNoteTitles = []
+        let metadata = consumeStreamingMessageMetadata()
 
         let assistantMessage = ChatMessage(
             id: messageId,
@@ -200,9 +195,9 @@ final class ChatState {
             role: .assistant,
             content: answerText,
             mode: mode,
-            isVaultBriefing: briefing,
-            loadedNoteTitles: noteTitles,
-            contextAttachments: contextAttachments
+            isVaultBriefing: metadata.briefing,
+            loadedNoteTitles: metadata.noteTitles,
+            contextAttachments: metadata.contextAttachments
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
@@ -211,6 +206,39 @@ final class ChatState {
         streamingText = ""
         isStreaming = false
         eventBus?.emit(.queryCompleted(chatId: ChatId(chatId), messageId: MessageId(assistantMessage.id)))
+    }
+
+    @discardableResult
+    func completeCancelledProcessing(
+        messageId: String = UUID().uuidString,
+        mode: InferenceMode
+    ) -> Bool {
+        flushStreamingTokens()
+
+        let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let metadata = consumeStreamingMessageMetadata()
+
+        defer {
+            streamingText = ""
+            isStreaming = false
+        }
+
+        guard let chatId = activeChatId, !answerText.isEmpty else { return false }
+
+        let assistantMessage = ChatMessage(
+            id: messageId,
+            chatId: chatId,
+            role: .assistant,
+            content: answerText,
+            mode: mode,
+            isVaultBriefing: metadata.briefing,
+            loadedNoteTitles: metadata.noteTitles,
+            contextAttachments: metadata.contextAttachments
+        )
+        messages.append(assistantMessage)
+        markTranscriptChanged()
+        return true
     }
 
     /// Update the last message's content (used for post-processing like vault action markers).
@@ -267,6 +295,21 @@ final class ChatState {
 
     private func flushStreamingTokens() {
         streamBuffer.flushNow()
+    }
+
+    private func consumeStreamingMessageMetadata() -> (
+        briefing: Bool,
+        noteTitles: [String]?,
+        contextAttachments: [ContextAttachment]?
+    ) {
+        let metadata = (
+            briefing: isCurrentVaultBriefing,
+            noteTitles: loadedNoteTitles.isEmpty ? nil : loadedNoteTitles,
+            contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
+        )
+        isCurrentVaultBriefing = false
+        loadedNoteTitles = []
+        return metadata
     }
 
     // MARK: - Attachments

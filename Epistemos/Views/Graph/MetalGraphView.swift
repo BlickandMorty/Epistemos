@@ -567,7 +567,7 @@ final class MetalGraphNSView: NSView {
         layer.pixelFormat = .bgra8Unorm
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
-        layer.maximumDrawableCount = 3     // Triple buffer for smooth 120Hz ProMotion.
+        layer.maximumDrawableCount = 2     // Double buffer keeps graph memory lower when active.
         layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         self.metalLayer = layer
         return layer
@@ -655,11 +655,13 @@ final class MetalGraphNSView: NSView {
         isEnginePaused = true
         stopDisplayLink()
         if let engine { graph_engine_pause(engine) }
+        metalLayer?.drawableSize = .zero
     }
 
     /// Resume rendering and physics. Call when overlay is shown.
     func resumeEngine() {
         isEnginePaused = false
+        updateMetalLayerBackingProperties()
         if let engine { graph_engine_resume(engine) }
         needsRender = true
     }

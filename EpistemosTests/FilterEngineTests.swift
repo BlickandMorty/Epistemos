@@ -129,4 +129,16 @@ struct FilterEngineTests {
         engine.showAllEdgeTypes()
         #expect(engine.isEdgeVisible(edge, sourceVisible: true, targetVisible: true))
     }
+
+    @Test("agent vault mode excludes disabled source and quote nodes")
+    func agentVaultModeExcludesDisabledSourceAndQuoteNodes() {
+        let engine = FilterEngine()
+
+        engine.applyAgentVaultMode()
+
+        #expect(engine.activeNodeTypes.contains(.idea))
+        #expect(engine.activeNodeTypes.contains(.tag))
+        #expect(!engine.activeNodeTypes.contains(.source))
+        #expect(!engine.activeNodeTypes.contains(.quote))
+    }
 }

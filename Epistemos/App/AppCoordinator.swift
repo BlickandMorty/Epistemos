@@ -212,6 +212,7 @@ final class AppCoordinator {
     // MARK: - Query Lifecycle
 
     func cancelActiveQuery() {
+        pipelineService.cancelActiveRun()
         bootstrap.queryTask?.cancel()
         bootstrap.queryTask = nil
     }

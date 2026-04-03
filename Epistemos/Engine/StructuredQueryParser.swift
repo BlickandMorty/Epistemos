@@ -53,6 +53,9 @@ enum StructuredQueryParser {
         if s.range(of: #"^type=(\w+)$"#, options: .regularExpression) != nil {
             let typeName = s.replacingOccurrences(of: "type=", with: "")
             if let nodeType = GraphNodeType.from(displayName: typeName) {
+                guard nodeType != .source, nodeType != .quote else {
+                    return nil
+                }
                 return .typeFilter(types: [nodeType])
             }
             return nil // Unknown type — don't fall through to label search

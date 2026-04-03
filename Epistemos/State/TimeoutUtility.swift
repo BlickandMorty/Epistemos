@@ -102,6 +102,42 @@ final class ProcessContinuationState<Result: Sendable>: @unchecked Sendable {
     }
 }
 
+/// Thread-safe continuation state for general async bridge helpers.
+/// Allows timeout/cancellation handlers to win races against late completions.
+final class ThrowingContinuationState<Result: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var continuation: CheckedContinuation<Result, Error>?
+    nonisolated(unsafe) private var resumed = false
+
+    nonisolated func store(continuation: CheckedContinuation<Result, Error>) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !resumed else { return false }
+        self.continuation = continuation
+        return true
+    }
+
+    nonisolated func resume(returning value: Result) {
+        let continuation = takeContinuation()
+        continuation?.resume(returning: value)
+    }
+
+    nonisolated func resume(throwing error: Error) {
+        let continuation = takeContinuation()
+        continuation?.resume(throwing: error)
+    }
+
+    private nonisolated func takeContinuation() -> CheckedContinuation<Result, Error>? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !resumed else { return nil }
+        resumed = true
+        let continuation = self.continuation
+        self.continuation = nil
+        return continuation
+    }
+}
+
 /// Wraps an async operation with a timeout. If the operation doesn't complete
 /// within `seconds`, throws `TimeoutError` and cancels the operation.
 func withTimeout<T: Sendable>(
@@ -120,6 +156,57 @@ func withTimeout<T: Sendable>(
             throw TimeoutError(seconds: seconds)
         }
         return result
+    }
+}
+
+/// Bridge a MainActor-isolated async operation into a nonisolated context with
+/// the same timeout/cancellation guarantees as subprocess-backed helpers.
+func withTimedMainActorBridge<T: Sendable>(
+    seconds: Double = 30.0,
+    operation: @escaping @MainActor @Sendable () async throws -> T
+) async throws -> T {
+    let state = ThrowingContinuationState<T>()
+
+    return try await withTaskCancellationHandler {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await withCheckedThrowingContinuation { continuation in
+                    guard !Task.isCancelled else {
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
+                    guard state.store(continuation: continuation) else {
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
+
+                    Task { @MainActor in
+                        do {
+                            state.resume(returning: try await operation())
+                        } catch {
+                            state.resume(throwing: error)
+                        }
+                    }
+                }
+            }
+
+            group.addTask {
+                try await Task.sleep(for: .seconds(seconds))
+                let timeout = TimeoutError(seconds: seconds)
+                state.resume(throwing: timeout)
+                throw timeout
+            }
+
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else {
+                let timeout = TimeoutError(seconds: seconds)
+                state.resume(throwing: timeout)
+                throw timeout
+            }
+            return result
+        }
+    } onCancel: {
+        state.resume(throwing: CancellationError())
     }
 }
 

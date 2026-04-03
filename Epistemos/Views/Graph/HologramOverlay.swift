@@ -226,8 +226,14 @@ final class HologramOverlay {
     func show(noteWindow: NSWindow? = nil) {
         self.noteWindowFrame = noteWindow?.frame
 
+        if isMinimized {
+            restore()
+            return
+        }
+
         // Fast path: if engine is still alive from a soft-hide, just resume + show.
         if let window, let metalView {
+            restoreImmersiveChromeIfNeeded(window, metalView: metalView)
             prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
             window.alphaValue = 0
             window.makeKeyAndOrderFront(nil)
@@ -639,8 +645,9 @@ final class HologramOverlay {
 
     /// Create a companion inspector panel positioned to the right of the mini graph.
     private func createMiniInspectorPanel(relativeTo graphPanel: NSWindow) -> GraphOverlayPanel {
-        let inspectorWidth: CGFloat = 380
-        let inspectorHeight: CGFloat = 620
+        let dimensions = miniInspectorDimensions(for: inspectorState.inspectorMode)
+        let inspectorWidth = dimensions.width
+        let inspectorHeight = dimensions.height
 
         let panel = GraphOverlayPanel(contentRect: NSRect(x: 0, y: 0, width: inspectorWidth, height: inspectorHeight))
         panel.applyPresentation(.floatingPanel)
@@ -764,6 +771,28 @@ final class HologramOverlay {
         repositionInspector()
     }
 
+    private func inspectorDimensions(
+        for mode: NodeInspectorState.InspectorMode
+    ) -> CGSize {
+        switch mode {
+        case .profile:
+            CGSize(width: 380, height: 500)
+        case .editor:
+            CGSize(width: 620, height: 600)
+        }
+    }
+
+    private func miniInspectorDimensions(
+        for mode: NodeInspectorState.InspectorMode
+    ) -> CGSize {
+        switch mode {
+        case .profile:
+            CGSize(width: 380, height: 620)
+        case .editor:
+            CGSize(width: 620, height: 620)
+        }
+    }
+
     private func shouldQueueInspectorReposition(
         anchor: CGPoint?,
         mode: NodeInspectorState.InspectorMode
@@ -793,14 +822,14 @@ final class HologramOverlay {
         }
 
         let bounds = contentView.bounds
-        let isEditor = inspectorState.inspectorMode == .editor
+        let dimensions = inspectorDimensions(for: inspectorState.inspectorMode)
 
         let topInset: CGFloat = 80  // keep clear of title bar / toolbar
         let bottomInset: CGFloat = 20
 
         if let pt = graphState.selectedNodeScreenPoint {
-            let inspectorWidth: CGFloat = isEditor ? 620 : 380
-            let inspectorHeight: CGFloat = min(isEditor ? 600 : 500, bounds.height - topInset - bottomInset)
+            let inspectorWidth = dimensions.width
+            let inspectorHeight = min(dimensions.height, bounds.height - topInset - bottomInset)
             let gap: CGFloat = 24
 
             let nodeRight = pt.x + gap
@@ -817,8 +846,8 @@ final class HologramOverlay {
             lastInspectorFrame = targetFrame
             inspectorHostView.isHidden = false
         } else {
-            let inspectorWidth: CGFloat = isEditor ? 620 : 380
-            let inspectorHeight: CGFloat = isEditor ? 600 : 500
+            let inspectorWidth = dimensions.width
+            let inspectorHeight = dimensions.height
             let targetFrame = CGRect(
                 x: bounds.width - inspectorWidth - 40,
                 y: bottomInset,
@@ -875,9 +904,9 @@ final class HologramOverlay {
     /// Resize the mini inspector panel when switching between profile/editor modes.
     private func resizeMiniInspectorForMode() {
         guard let panel = miniInspectorPanel, let miniPanel else { return }
-        let isEditor = inspectorState.inspectorMode == .editor
-        let newWidth: CGFloat = isEditor ? 620 : 380
-        let newHeight: CGFloat = isEditor ? 620 : 620
+        let dimensions = miniInspectorDimensions(for: inspectorState.inspectorMode)
+        let newWidth = dimensions.width
+        let newHeight = dimensions.height
 
         let graphFrame = miniPanel.frame
         let x = graphFrame.minX - newWidth - 12
@@ -1239,7 +1268,10 @@ final class HologramOverlay {
         controlsView.addGestureRecognizer(ctrlDrag)
 
         // Search sidebar (SwiftUI hosted — draggable).
-        let sidebarRoot = HologramSearchSidebar { [weak graphView, weak self] uuid in
+        let sidebarRoot = HologramSearchSidebar(
+            inspectorState: inspectorState,
+            modelContext: modelContainer?.mainContext
+        ) { [weak graphView, weak self] uuid in
             graphView?.isolateNode(uuid)
             self?.graphState.selectNode(uuid)
         }
@@ -1342,6 +1374,29 @@ final class HologramOverlay {
         // Observe fullscreen transitions and parent window miniaturize.
         observeFullscreenTransitions()
         observeParentMiniaturize()
+    }
+
+    private func restoreImmersiveChromeIfNeeded(
+        _ window: GraphOverlayPanel,
+        metalView: MetalGraphNSView
+    ) {
+        isMinimized = false
+        miniPanel = nil
+        metalView.isMiniMode = false
+
+        window.contentView?.subviews
+            .filter { $0.identifier == NSUserInterfaceItemIdentifier("miniBlur") }
+            .forEach { $0.removeFromSuperview() }
+
+        blurView?.isHidden = false
+        darkenLayer?.isHidden = false
+        for subview in window.contentView?.subviews ?? [] {
+            subview.isHidden = false
+        }
+
+        window.contentView?.layer?.cornerRadius = 0
+        window.contentView?.layer?.masksToBounds = false
+        window.applyPresentation(.immersiveOverlay)
     }
 
     private func prepareImmersiveOverlayWindow(_ window: GraphOverlayPanel, screen: NSScreen?) {

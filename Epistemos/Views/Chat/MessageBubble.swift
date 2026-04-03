@@ -19,6 +19,38 @@ private func buildFullExport(message: ChatMessage) -> String {
     UserFacingModelOutput.finalVisibleText(from: stripBracketTags(message.content))
 }
 
+// MARK: - Assistant Transcript Chrome
+
+struct AssistantTranscriptChrome<Content: View>: View {
+    @Environment(UIState.self) private var ui
+
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        if theme.assistantBubbleBackgroundHex != nil {
+            content
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(
+                    theme.assistantBubbleBackground,
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(theme.border.opacity(0.85), lineWidth: 0.8)
+                )
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Message Bubble
 
 struct MessageBubble: View {
@@ -110,7 +142,7 @@ struct MessageBubble: View {
     }
 
     private var assistantBubble: some View {
-        assistantBubbleChrome {
+        AssistantTranscriptChrome {
             VStack(alignment: .leading, spacing: Spacing.md) {
             // Vault briefing header — Notes Mode auto-briefing indicator
                 if message.isVaultBriefing {
@@ -157,26 +189,6 @@ struct MessageBubble: View {
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
-    }
-
-    // MARK: - Helpers
-
-    @ViewBuilder
-    private func assistantBubbleChrome<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        if theme.assistantBubbleBackgroundHex != nil {
-            content()
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(theme.assistantBubbleBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(theme.border.opacity(0.85), lineWidth: 0.8)
-                )
-        } else {
-            content()
-        }
     }
 }
 

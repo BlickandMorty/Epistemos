@@ -75,8 +75,7 @@ final class HologramController {
         ensureOverlay()
         prepareOverlayForGlobalMode()
         graphState?.startOverlayPhysicsCycle()
-        overlay?.show()
-        NSApp.activate(ignoringOtherApps: true)
+        presentFullOverlay()
     }
 
     /// Reveals a specific note in the graph overlay (page mode, focused on the node).
@@ -92,8 +91,7 @@ final class HologramController {
         }
         prepareOverlayForGlobalMode(centering: node.id)
         graphState.startOverlayPhysicsCycle()
-        overlay?.show()
-        NSApp.activate(ignoringOtherApps: true)
+        presentFullOverlay()
     }
 
     func hide() {
@@ -164,6 +162,15 @@ final class HologramController {
         graphState.requestFilterSync()
         graphState.selectNode(nodeId)
         graphState.pendingCenterNodeId = nodeId
+    }
+
+    private func presentFullOverlay() {
+        if overlay?.isMinimized == true {
+            overlay?.restore()
+        } else {
+            overlay?.show()
+        }
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - Screen Changes

@@ -111,10 +111,11 @@ final class FilterEngine {
     /// The set of node types visible before entering agent vault mode.
     private var savedNodeTypes: Set<GraphNodeType>?
 
-    /// Apply agent vault mode — show only .idea and .source nodes (the agent's memory graph).
+    /// Apply agent vault mode — show only live agent-memory graph nodes.
+    /// Source/quote nodes stay disconnected from production paths.
     func applyAgentVaultMode() {
         savedNodeTypes = activeNodeTypes
-        activeNodeTypes = [.idea, .source, .tag]
+        activeNodeTypes = [.idea, .tag]
     }
 
     /// Restore human vault mode — show all standard node types.

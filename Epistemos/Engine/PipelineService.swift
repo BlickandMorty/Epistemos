@@ -127,6 +127,14 @@ final class PipelineService {
         }
     }
 
+    func cancelActiveRun() {
+        guard activeRunID != nil else { return }
+        pipelineTask?.cancel()
+        pipelineTask = nil
+        activeRunID = nil
+        pipelineState.completeProcessing()
+    }
+
     private func supersedeActiveRun(with runID: UUID) {
         pipelineTask?.cancel()
         pipelineTask = nil

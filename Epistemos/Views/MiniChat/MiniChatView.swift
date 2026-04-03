@@ -194,12 +194,10 @@ private struct MiniChatThread: View {
                                     MiniChatAssistantBubbleChrome {
                                         VStack(alignment: .leading, spacing: 0) {
                                             if visibleStreamingText.isEmpty {
-                                                HStack(spacing: 6) {
-                                                    ProgressView().controlSize(.small)
-                                                    Text("Responding…")
-                                                        .font(.system(size: 12))
-                                                        .foregroundStyle(theme.mutedForeground)
-                                                }
+                                                AssistantTypingIndicatorDots(
+                                                    theme: theme,
+                                                    accent: theme.resolved.accent.color
+                                                )
                                             } else {
                                                 TaggedMarkdownTextView(
                                                     content: visibleStreamingText + " ▍",
@@ -335,30 +333,14 @@ private struct MiniChatRecentChatsList: View {
 // MARK: - Chat Bubble
 
 private struct MiniChatAssistantBubbleChrome<Content: View>: View {
-    @Environment(UIState.self) private var ui
-
     private let content: Content
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
-    private var theme: EpistemosTheme { ui.theme }
-
     var body: some View {
-        if theme.assistantBubbleBackgroundHex != nil {
-            content
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(
-                    theme.assistantBubbleBackground,
-                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(theme.border.opacity(0.85), lineWidth: 0.8)
-                )
-        } else {
+        AssistantTranscriptChrome {
             content
         }
     }
@@ -377,21 +359,18 @@ private struct MiniChatBubble: View {
             ? UserFacingModelOutput.finalVisibleText(from: message.content)
             : message.content
         if isUser {
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                TaggedMarkdownTextView(
-                    content: displayContent,
-                    theme: theme,
-                    rippleStyle: .none,
-                    foregroundOverride: theme.userBubbleText
-                )
-                .textSelection(.enabled)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .frame(maxWidth: 360, alignment: .leading)
-            }
-            .frame(maxWidth: .infinity)
+            TaggedMarkdownTextView(
+                content: displayContent,
+                theme: theme,
+                rippleStyle: .none,
+                foregroundOverride: theme.userBubbleText
+            )
+            .textSelection(.enabled)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .frame(maxWidth: MiniChatLayout.userBubbleMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         } else {
             MiniChatAssistantBubbleChrome {
                 VStack(alignment: .leading, spacing: Spacing.md) {
@@ -589,6 +568,7 @@ private struct MiniChatInputBar: View {
     let chatID: String
 
     private var theme: EpistemosTheme { ui.theme }
+    private var composerAccentColor: Color { theme.resolved.accent.color }
     private let composerMetrics = AssistantComposerMetrics.compactChat
     private var selectedOperatingMode: EpistemosOperatingMode {
         get {
@@ -613,6 +593,26 @@ private struct MiniChatInputBar: View {
 
     private var composerIsActive: Bool {
         isFocused || canSend || isProcessing || !activeContextAttachments.isEmpty
+    }
+    private var composerStatusPhase: AssistantComposerStatusPhase {
+        AssistantComposerStatusPhase.resolve(
+            isActive: isProcessing || threadState.miniChatIsStreaming(chatID: chatID),
+            streamingText: threadState.miniChatStreamingText(chatID: chatID)
+        )
+    }
+    private var composerHaloStyle: AssistantComposerHaloStyle? {
+        AssistantComposerHaloStyle.resolve(for: composerStatusPhase)
+    }
+    private var composerStatusLabelState: AssistantComposerStatusLabelState? {
+        AssistantComposerStatusLabelState.resolve(
+            inputText: text,
+            phase: composerStatusPhase,
+            idleText: "Ask anything…",
+            showsIdleLabel: false
+        )
+    }
+    private var composerTextAreaHeight: CGFloat {
+        max(ChatComposerInputMetrics.minHeight, composerHeight)
     }
 
     private var miniChatThread: ChatThread? {
@@ -715,6 +715,14 @@ private struct MiniChatInputBar: View {
                 metrics: composerMetrics,
                 isActive: composerIsActive
             )
+            .background {
+                AssistantComposerOuterHalo(
+                    style: composerHaloStyle,
+                    accent: composerAccentColor,
+                    cornerRadius: composerMetrics.cornerRadius,
+                    animatesContinuously: false
+                )
+            }
         }
         .frame(maxWidth: MiniChatLayout.composerMaxWidth)
         .frame(maxWidth: .infinity)
@@ -743,31 +751,44 @@ private struct MiniChatInputBar: View {
     }
 
     private var composerTextArea: some View {
-        ZStack(alignment: .topLeading) {
-            ChatComposerTextEditor(
-                text: $text,
-                height: $composerHeight,
-                isFocused: $isFocused,
-                theme: theme,
-                isProcessing: isProcessing
-            ) {
-                send()
+        ChatComposerTextEditor(
+            text: $text,
+            height: $composerHeight,
+            isFocused: $isFocused,
+            theme: theme,
+            isProcessing: isProcessing
+        ) {
+            send()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: composerHeight)
+        .accessibilityLabel("Mini chat message input")
+        .overlay(alignment: .topLeading) {
+            if let labelState = composerStatusLabelState {
+                AssistantAnimatedStatusLabel(
+                    state: labelState,
+                    accent: composerAccentColor,
+                    phase: composerStatusPhase,
+                    theme: theme,
+                    font: .system(size: 16, weight: .regular, design: .rounded),
+                    haloStyle: composerHaloStyle
+                )
+                .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                .padding(.leading, ChatComposerInputMetrics.horizontalInset)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: composerHeight)
-            .accessibilityLabel("Mini chat message input")
-
-            if text.isEmpty {
+        }
+        .overlay(alignment: .topLeading) {
+            if text.isEmpty && composerStatusLabelState == nil {
                 Text("Ask anything…")
                     .font(.system(size: 16, weight: .regular, design: .rounded))
                     .foregroundStyle(theme.mutedForeground.opacity(0.55))
                     .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                    .padding(.leading, ChatComposerInputMetrics.horizontalInset)
                     .allowsHitTesting(false)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)
-        .layoutPriority(1)
+        .frame(height: composerTextAreaHeight, alignment: .topLeading)
         .onChange(of: text) { _, newVal in
             if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
                 referencePopoverStyle = .mention
@@ -1435,8 +1456,21 @@ private struct MiniChatInputBar: View {
     }
 
     private func cancelStream() {
+        let partial = UserFacingModelOutput.finalVisibleText(
+            from: threadState.miniChatStreamingText(chatID: chatID)
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        isProcessing = false
+        threadState.setMiniChatStreaming(false, chatID: chatID)
+        threadState.setMiniChatStreamingText("", chatID: chatID)
         streamTask?.cancel()
         streamTask = nil
+        if !partial.isEmpty {
+            threadState.addMiniChatMessage(
+                AssistantMessage(role: .assistant, content: partial),
+                chatID: chatID
+            )
+            persistMiniChatSession()
+        }
     }
 }
 

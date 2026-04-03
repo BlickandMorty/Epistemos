@@ -361,6 +361,7 @@ struct NoteEditorLayoutTests {
     @Test("toolbar ask field streams inline with siri glow instead of the old ascii status badge")
     func toolbarAskFieldStreamsInlineWithoutPopover() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
         guard let toolbarRange = source.range(of: "private func toolbarChatField(width: CGFloat) -> some View"),
               let nextSectionRange = source.range(of: "private var noteChatContextAttachment", range: toolbarRange.upperBound..<source.endIndex) else {
             Issue.record("Failed to isolate toolbarChatField() in NoteDetailWorkspaceView.swift")
@@ -370,8 +371,13 @@ struct NoteEditorLayoutTests {
         let toolbarSource = String(source[toolbarRange.lowerBound..<nextSectionRange.lowerBound])
 
         #expect(toolbarSource.contains("noteChatState.submitToolbarQuery("))
-        #expect(toolbarSource.contains(".siriGlow("))
-        #expect(toolbarSource.contains("TextField(\"Ask this note\""))
+        #expect(toolbarSource.contains("AssistantToolbarAskBar("))
+        #expect(toolbarSource.contains("phase: toolbarAskStatusPhase"))
+        #expect(toolbarSource.contains("accent: toolbarAskAccentColor"))
+        #expect(sharedStatus.contains("struct AssistantToolbarAskBar<Leading: View>: View"))
+        #expect(sharedStatus.contains("TextField(\"\", text: $text)"))
+        #expect(sharedStatus.contains("AssistantAnimatedStatusLabel("))
+        #expect(sharedStatus.contains("AssistantComposerOuterHalo(style: haloStyle, accent: accent)"))
         #expect(!toolbarSource.contains(".popover("))
         #expect(!toolbarSource.contains("ASCIIFrameAnimationText("))
         #expect(!toolbarSource.contains("ASCIIRippleText("))

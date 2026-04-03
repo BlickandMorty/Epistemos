@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct HologramSidebarNotesTreeSnapshot {
@@ -135,18 +136,35 @@ enum HologramSidebarNotesTreeBuilder {
 
 // MARK: - HologramSidebar
 // Floating left panel for the graph overlay.
-// Two tabs: Notes (folder tree — note nodes only) and Query (AI-powered graph queries).
+// Three tabs: Notes, Query, and Chat for the currently selected node.
 
 struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
+    @Environment(UIState.self) private var ui
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
     @State private var cachedNotesTreeSnapshot = HologramSidebarNotesTreeSnapshot.empty
     @State private var cachedNotesTreeTopologyVersion = -1
+    @State private var graphChatLastScrollTime: ContinuousClock.Instant = .now
 
+    let inspectorState: NodeInspectorState
+    let modelContext: ModelContext?
     var onSelectNode: (String) -> Void
 
-    enum SidebarTab { case notes, query }
+    enum SidebarTab { case notes, query, chat }
+
+    private var theme: EpistemosTheme { ui.theme }
+    private var graphChatAccentColor: Color { theme.resolved.accent.color }
+    private var graphChatStreamingText: String {
+        guard inspectorState.chatMessages.last?.role == .assistant else { return "" }
+        return inspectorState.chatMessages.last?.text ?? ""
+    }
+    private var graphChatStatusPhase: AssistantComposerStatusPhase {
+        AssistantComposerStatusPhase.resolve(
+            isActive: inspectorState.isChatStreaming,
+            streamingText: graphChatStreamingText
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -158,6 +176,8 @@ struct HologramSearchSidebar: View {
                 notesContent
             case .query:
                 queryContent
+            case .chat:
+                chatContent
             }
         }
         .frame(width: 400)
@@ -173,6 +193,10 @@ struct HologramSearchSidebar: View {
                 withAnimation(.smooth(duration: 0.2)) { activeTab = .query }
             }
         }
+        .onChange(of: inspectorState.isChatStreaming) { _, isStreaming in
+            guard isStreaming else { return }
+            withAnimation(.smooth(duration: 0.2)) { activeTab = .chat }
+        }
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -186,6 +210,7 @@ struct HologramSearchSidebar: View {
         HStack(spacing: 4) {
             tabButton("Notes", icon: "doc.text", tab: .notes)
             tabButton("Query", icon: "point.3.connected.trianglepath.dotted", tab: .query)
+            tabButton("Chat", icon: "bubble.left.and.bubble.right", tab: .chat)
             Spacer()
         }
         .padding(.horizontal, 10)
@@ -508,6 +533,155 @@ struct HologramSearchSidebar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Chat Content
+
+    private var chatContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let node = inspectorState.selectedNode {
+                chatNodeHeader(node)
+                Divider().opacity(0.2)
+
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            if inspectorState.chatMessages.isEmpty && !inspectorState.isChatStreaming {
+                                emptyState("Ask about this node", icon: "bubble.left.and.bubble.right")
+                            } else {
+                                ForEach(inspectorState.chatMessages) { message in
+                                    graphChatRow(message)
+                                        .id(message.id)
+                                }
+                            }
+
+                            Color.clear
+                                .frame(height: 1)
+                                .id("graph-chat-bottom")
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                    }
+                    .onChange(of: inspectorState.chatMessages.count) { _, _ in
+                        Task { @MainActor in
+                            proxy.scrollTo("graph-chat-bottom", anchor: .bottom)
+                        }
+                    }
+                    .onChange(of: graphChatStreamingText) { _, _ in
+                        let now = ContinuousClock.now
+                        guard now - graphChatLastScrollTime > ChatScrollFollowPolicy.streamingThrottle
+                        else { return }
+                        graphChatLastScrollTime = now
+                        Task { @MainActor in
+                            proxy.scrollTo("graph-chat-bottom", anchor: .bottom)
+                        }
+                    }
+                    .onAppear {
+                        Task { @MainActor in
+                            proxy.scrollTo("graph-chat-bottom", anchor: .bottom)
+                        }
+                    }
+                }
+
+                Divider().opacity(0.2)
+                graphChatComposer
+            } else {
+                emptyState("Select a node to start chatting", icon: "bubble.left.and.bubble.right")
+                    .frame(maxHeight: .infinity)
+            }
+        }
+    }
+
+    private func chatNodeHeader(_ node: GraphNodeRecord) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(node.type.swiftUIColor)
+                .frame(width: 8, height: 8)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(node.label.isEmpty ? "Untitled Node" : node.label)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.92))
+                    .lineLimit(1)
+
+                Text(node.type.displayName)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.38))
+                    .textCase(.uppercase)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private var graphChatComposer: some View {
+        @Bindable var inspectorState = inspectorState
+
+        return AssistantToolbarAskBar(
+            text: $inspectorState.chatInput,
+            placeholder: "Ask this node",
+            phase: graphChatStatusPhase,
+            theme: theme,
+            accent: graphChatAccentColor,
+            isStreaming: inspectorState.isChatStreaming,
+            chromeTuning: .noteAskBar,
+            onSubmit: {
+                sendGraphChatMessage()
+            },
+            onStop: {
+                inspectorState.stopChat()
+            }
+        ) {
+            LocalModelToolbarMenu(variant: .toolbar)
+        }
+        .padding(12)
+    }
+
+    private func graphChatRow(_ message: InspectorChatMessage) -> some View {
+        let displayText = message.role == .assistant
+            ? UserFacingModelOutput.finalVisibleText(from: message.text)
+            : message.text
+
+        if message.role == .user {
+            return AnyView(
+                TaggedMarkdownTextView(
+                    content: displayText,
+                    theme: theme,
+                    rippleStyle: .none,
+                    foregroundOverride: theme.userBubbleText
+                )
+                .textSelection(.enabled)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .frame(maxWidth: 320, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            )
+        }
+
+        return AnyView(
+            AssistantTranscriptChrome {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    if displayText.isEmpty {
+                        AssistantTypingIndicatorDots(
+                            theme: theme,
+                            accent: graphChatAccentColor
+                        )
+                    } else {
+                        TaggedMarkdownTextView(content: displayText, theme: theme)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        )
+    }
+
+    private func sendGraphChatMessage() {
+        guard let modelContext else { return }
+        inspectorState.sendMessage(store: graphState.store, modelContext: modelContext)
     }
 
     // MARK: - Shared Components

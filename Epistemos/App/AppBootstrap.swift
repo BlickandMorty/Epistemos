@@ -598,6 +598,11 @@ final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    #if DEBUG
+    private nonisolated static let isDebugBuild = true
+    #else
+    private nonisolated static let isDebugBuild = false
+    #endif
 
     static func startupAutoDiscoveryReportForTesting(
         isRunningTests: Bool,
@@ -607,6 +612,31 @@ final class AppBootstrap {
             return StartupAutoDiscovery.testHostReport()
         }
         return discover()
+    }
+
+    nonisolated static func shouldPrewarmHermesAtLaunch(
+        setupComplete: Bool,
+        backgroundDisabled: Bool,
+        isRunningTests: Bool = AppBootstrap.isRunningTests,
+        isDebugBuild: Bool = AppBootstrap.isDebugBuild
+    ) -> Bool {
+        !isRunningTests && !isDebugBuild && setupComplete && !backgroundDisabled
+    }
+
+    nonisolated static func shouldSuperviseHermesAtLaunch(
+        setupComplete: Bool,
+        backgroundDisabled: Bool,
+        isRunningTests: Bool = AppBootstrap.isRunningTests,
+        isDebugBuild: Bool = AppBootstrap.isDebugBuild
+    ) -> Bool {
+        !isRunningTests && !isDebugBuild && setupComplete && !backgroundDisabled
+    }
+
+    nonisolated static func shouldScheduleMetalShaderWarmupAtLaunch(
+        isRunningTests: Bool = AppBootstrap.isRunningTests,
+        isDebugBuild: Bool = AppBootstrap.isDebugBuild
+    ) -> Bool {
+        !isRunningTests && !isDebugBuild
     }
 
     private static func requireInitialized<Value>(_ value: Value?, name: StaticString) -> Value {
@@ -872,7 +902,10 @@ final class AppBootstrap {
         // If setup hasn't run yet, the Python venv likely doesn't exist and
         // pre-warm would fail silently. SetupAssistantView handles installation.
         let setupComplete = UserDefaults.standard.bool(forKey: "epistemos.setupComplete")
-        if !Self.isRunningTests && setupComplete && !PowerGuard.shared.shouldDisableBackground {
+        if Self.shouldPrewarmHermesAtLaunch(
+            setupComplete: setupComplete,
+            backgroundDisabled: PowerGuard.shared.shouldDisableBackground
+        ) {
             Task.detached(priority: .utility) { [hermesManager] in
                 await hermesManager.preWarm()
             }
@@ -891,8 +924,12 @@ final class AppBootstrap {
         Task { await ThermalGuard.shared.start() }
 
         // Register supervised children and start OTP-style supervisor.
-        // Order matters — rest_for_one cancels children after the failed index.
-        if !Self.isRunningTests {
+        // Hermes stays fully lazy during debug / test / background-disabled launch
+        // so idle memory does not pay for a resident Python bridge up front.
+        if Self.shouldSuperviseHermesAtLaunch(
+            setupComplete: setupComplete,
+            backgroundDisabled: PowerGuard.shared.shouldDisableBackground
+        ) {
             supervisor.register(ChildSpec(
                 id: "hermesSubprocess",
                 policy: .permanent,
@@ -1088,14 +1125,10 @@ final class AppBootstrap {
         orchestratorState.agentGraphMemory = agentGraphMemory
         agentViewModel.agentGraphMemory = agentGraphMemory
 
-        let startupBookmarkValidation = vaultSync.startupBookmarkValidation()
-
-        // Initialize instant recall vector index (Ω18)
-        instantRecallService.initialize()
-        if Self.shouldScheduleInitialInstantRecallSeed(
-            vaultBookmarkValidation: startupBookmarkValidation
-        ) {
-            scheduleInitialInstantRecallRebuild()
+        // Instant recall now hydrates on first real recall use instead of
+        // rebuilding its vault index during idle launch.
+        instantRecallService.configureInitialSnapshotProvider { [self] in
+            snapshotInstantRecallNotes()
         }
 
         // Body-file migration runs off-main to avoid launch hitching.
@@ -1104,16 +1137,9 @@ final class AppBootstrap {
             await migrateBodiesToFileStorage()
         }
 
-        // Graph loads asynchronously — no launch stall. QueryEngine holds a reference
-        // to GraphStore (a class), so it sees data as soon as the background load populates it.
-        // HologramController.ensureOverlay() has a sync fallback if the graph is opened
-        // before this Task completes.
+        // Keep the graph fully lazy at launch so normal idle use does not pay the
+        // graph-store residency cost until the graph is actually opened.
         graphState.modelContext = container.mainContext
-        if Self.shouldScheduleInitialGraphLoad(
-            vaultBookmarkValidation: startupBookmarkValidation
-        ) {
-            Task(priority: .utility) { await graphState.loadGraph(container: container) }
-        }
 
         scheduleMetalShaderWarmupIfNeeded()
 
@@ -1290,28 +1316,16 @@ final class AppBootstrap {
         vaultBookmarkValidation.bookmarkExists && vaultBookmarkValidation.isReadyForAutomaticRestore
     }
 
-    private nonisolated static func shouldScheduleInitialInstantRecallSeed(
-        vaultBookmarkValidation: VaultBookmarkStartupValidation
-    ) -> Bool {
-        !shouldDeferLaunchVaultPreloads(vaultBookmarkValidation: vaultBookmarkValidation)
-    }
-
     private nonisolated static func shouldScheduleInitialGraphLoad(
         vaultBookmarkValidation: VaultBookmarkStartupValidation
     ) -> Bool {
-        !shouldDeferLaunchVaultPreloads(vaultBookmarkValidation: vaultBookmarkValidation)
+        false
     }
 
     private nonisolated static func shouldWaitForPrimaryLaunchBeforeAutomaticVaultRestore(
         vaultBookmarkValidation: VaultBookmarkStartupValidation
     ) -> Bool {
         shouldDeferLaunchVaultPreloads(vaultBookmarkValidation: vaultBookmarkValidation)
-    }
-
-    nonisolated static func shouldScheduleInitialInstantRecallSeedForTesting(
-        vaultBookmarkValidation: VaultBookmarkStartupValidation
-    ) -> Bool {
-        shouldScheduleInitialInstantRecallSeed(vaultBookmarkValidation: vaultBookmarkValidation)
     }
 
     nonisolated static func shouldScheduleInitialGraphLoadForTesting(
@@ -1461,7 +1475,7 @@ final class AppBootstrap {
 
             await self.nightBrain.start()
             await self.agentHeartbeat.start()
-            await KnowledgeFusionViewModel.shared.loadState()
+            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()
 
             if self.epistemosConfig.captureEnabled {
                 await self.ambientCapture.start()
@@ -1565,23 +1579,6 @@ final class AppBootstrap {
         relaunchApp()
     }
 
-    private func scheduleInitialInstantRecallRebuild() {
-        guard !Self.isRunningTests else { return }
-
-        let seeds = snapshotInstantRecallSeeds()
-        Task.detached(priority: .utility) {
-            let notes = seeds.map { seed -> (id: String, text: String) in
-                let diskBody = NoteFileStorage.readBody(pageId: seed.id, mapped: true)
-                let text = seed.liveBody ?? (diskBody.isEmpty ? seed.inlineBody : diskBody)
-                return (id: seed.id, text: text)
-            }
-
-            await MainActor.run {
-                AppBootstrap.shared?.instantRecallService.rebuildIndex(notes: notes)
-            }
-        }
-    }
-
     private func snapshotInstantRecallSeeds() -> [InstantRecallSeed] {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
@@ -1599,6 +1596,14 @@ final class AppBootstrap {
                 inlineBody: $0.body,
                 liveBody: NoteWindowManager.shared.editorBody(for: $0.id)
             )
+        }
+    }
+
+    private func snapshotInstantRecallNotes() -> [(id: String, text: String)] {
+        snapshotInstantRecallSeeds().map { seed in
+            let diskBody = NoteFileStorage.readBody(pageId: seed.id, mapped: true)
+            let text = seed.liveBody ?? (diskBody.isEmpty ? seed.inlineBody : diskBody)
+            return (id: seed.id, text: text)
         }
     }
 
@@ -1660,7 +1665,7 @@ final class AppBootstrap {
     }
 
     private func scheduleMetalShaderWarmupIfNeeded() {
-        guard !Self.isRunningTests else { return }
+        guard Self.shouldScheduleMetalShaderWarmupAtLaunch() else { return }
 
         // Pre-warm Metal shader cache.
         // The Rust engine compiles Metal shaders from source during graph_engine_create(),

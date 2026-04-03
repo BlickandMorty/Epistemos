@@ -34,6 +34,120 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     }
 }
 
+nonisolated enum LocalMLXLoopMitigation {
+    static let qwen4BThinkingFallback =
+        "Qwen 4B thinking mode was stopped because it entered a repetition loop before reaching a usable answer. Retry in Fast mode or use a larger local model for deeper reasoning."
+
+    static func isEnabled(for request: LocalMLXRequest) -> Bool {
+        request.reasoningMode == .thinking
+            && LocalTextModelID(rawValue: request.modelID) == .qwen35_4B4Bit
+    }
+
+    static func appendFallbackIfNeeded(
+        to rawOutput: String,
+        for request: LocalMLXRequest
+    ) -> String {
+        guard isEnabled(for: request) else { return rawOutput }
+        guard UserFacingModelOutput.finalVisibleText(from: rawOutput).isEmpty else { return rawOutput }
+        return rawOutput + "\n\nFinal answer: " + qwen4BThinkingFallback
+    }
+}
+
+nonisolated struct LocalMLXLoopDetection: Sendable, Equatable {
+    enum Reason: String, Sendable, Equatable {
+        case repeatedChunk
+        case repeatedSuffix
+    }
+
+    let reason: Reason
+}
+
+nonisolated struct LocalMLXLoopGuard: Sendable {
+    private static let minimumChunkSignatureLength = 24
+    private static let repeatedChunkThreshold = 5
+    private static let minimumTrackedTailLength = 640
+    private static let trackedTailLimit = 2_048
+    private static let trackedSuffixWidth = 160
+    private static let repeatedSuffixThreshold = 3
+    private static let maxTrackedSuffixes = 48
+
+    private let enabled: Bool
+    private var lastChunkSignature: String?
+    private var repeatedChunkCount = 0
+    private var normalizedTail = ""
+    private var suffixCounts: [String: Int] = [:]
+    private var suffixOrder: [String] = []
+
+    init(request: LocalMLXRequest) {
+        enabled = LocalMLXLoopMitigation.isEnabled(for: request)
+    }
+
+    mutating func record(chunk: String) -> LocalMLXLoopDetection? {
+        guard enabled else { return nil }
+
+        let signature = Self.normalizedSignature(for: chunk)
+        guard !signature.isEmpty else { return nil }
+
+        normalizedTail += signature
+        if normalizedTail.count > Self.trackedTailLimit {
+            normalizedTail.removeFirst(normalizedTail.count - Self.trackedTailLimit)
+        }
+
+        if signature.count >= Self.minimumChunkSignatureLength {
+            if signature == lastChunkSignature {
+                repeatedChunkCount += 1
+            } else {
+                lastChunkSignature = signature
+                repeatedChunkCount = 1
+            }
+
+            if repeatedChunkCount >= Self.repeatedChunkThreshold {
+                return LocalMLXLoopDetection(reason: .repeatedChunk)
+            }
+        } else {
+            lastChunkSignature = nil
+            repeatedChunkCount = 0
+        }
+
+        guard normalizedTail.count >= Self.minimumTrackedTailLength else { return nil }
+        let suffix = String(normalizedTail.suffix(Self.trackedSuffixWidth))
+        guard suffix.count == Self.trackedSuffixWidth else { return nil }
+
+        let suffixHits = trackSuffix(suffix)
+        if suffixHits >= Self.repeatedSuffixThreshold {
+            return LocalMLXLoopDetection(reason: .repeatedSuffix)
+        }
+
+        return nil
+    }
+
+    private mutating func trackSuffix(_ suffix: String) -> Int {
+        let count = (suffixCounts[suffix] ?? 0) + 1
+        suffixCounts[suffix] = count
+        suffixOrder.append(suffix)
+
+        if suffixOrder.count > Self.maxTrackedSuffixes {
+            let evicted = suffixOrder.removeFirst()
+            if let existing = suffixCounts[evicted] {
+                if existing <= 1 {
+                    suffixCounts.removeValue(forKey: evicted)
+                } else {
+                    suffixCounts[evicted] = existing - 1
+                }
+            }
+        }
+
+        return count
+    }
+
+    private static func normalizedSignature(for value: String) -> String {
+        value
+            .lowercased()
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+    }
+}
+
 protocol LocalMLXRuntime: Sendable {
     func generate(request: LocalMLXRequest) async throws -> String
     func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error>
@@ -714,6 +828,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         emit: ((String) -> Void)?
     ) async throws -> GenerationExecutionSummary {
         let pass = try await runPass(
+            request: request,
             session: session,
             prompt: request.prompt,
             requestStart: requestStart,
@@ -732,6 +847,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     private func runPass(
+        request: LocalMLXRequest,
         session: ChatSession,
         prompt: String,
         requestStart: ContinuousClock.Instant,
@@ -742,8 +858,9 @@ actor MLXInferenceService: LocalMLXRuntime {
         var firstTokenLatencyMS: Double?
         var chunkCount = 0
         var stopReason: GenerateStopReason = .cancelled
+        var loopGuard = LocalMLXLoopGuard(request: request)
 
-        for try await item in session.streamDetails(
+        generationLoop: for try await item in session.streamDetails(
             to: prompt,
             images: [],
             videos: []
@@ -759,6 +876,14 @@ actor MLXInferenceService: LocalMLXRuntime {
                 chunkCount += 1
                 if firstTokenLatencyMS == nil {
                     firstTokenLatencyMS = requestStart.duration(to: ContinuousClock.now).millisecondsValue
+                }
+                if let detection = loopGuard.record(chunk: chunk) {
+                    output = LocalMLXLoopMitigation.appendFallbackIfNeeded(to: output, for: request)
+                    stopReason = .stop
+                    log.warning(
+                        "Local stream loop guard stopped model=\(request.modelID, privacy: .public) reason=\(detection.reason.rawValue, privacy: .public)"
+                    )
+                    break generationLoop
                 }
                 if emitChunksImmediately {
                     emit?(chunk)
