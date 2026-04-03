@@ -133,7 +133,7 @@ private final class ObservationChangeWaiter {
 // on top of a heavy frosted-glass blur. Triggered by a global hotkey.
 //
 // Architecture:
-// - NSWindow: borderless, floating level, full-screen
+// - NSWindow: borderless, immersive topmost level, full-screen
 // - Background: NSVisualEffectView with .hudWindow material
 // - Content: MetalGraphView fills the entire screen
 // - Controls: GraphFloatingControls pill bar at bottom
@@ -143,7 +143,7 @@ private final class ObservationChangeWaiter {
 @MainActor
 final class HologramOverlay {
 
-    private var window: NSWindow?
+    private var window: GraphOverlayPanel?
     private var metalView: MetalGraphNSView?
     private var inspectorHostView: NSHostingView<AnyView>?
     private var escapeMonitor: Any?
@@ -228,11 +228,10 @@ final class HologramOverlay {
 
         // Fast path: if engine is still alive from a soft-hide, just resume + show.
         if let window, let metalView {
-            if let screen = NSScreen.main {
-                window.setFrame(screen.frame, display: true)
-            }
+            prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
             window.alphaValue = 0
             window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
             window.makeFirstResponder(metalView)
             metalView.resumeEngine()
             NSAnimationContext.runAnimationGroup { ctx in
@@ -248,10 +247,7 @@ final class HologramOverlay {
 
         guard let window else { return }
 
-        // Position on the active screen.
-        if let screen = NSScreen.main {
-            window.setFrame(screen.frame, display: true)
-        }
+        prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
 
         // Page mode: lighter blur (nodes "break out" of the overlay).
         let isPageMode: Bool = {
@@ -272,6 +268,7 @@ final class HologramOverlay {
         // Entrance animation: fade in from zero opacity.
         window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
 
         // Make Metal view first responder for keyboard zoom (Cmd+/-/0).
         if let metalView {
@@ -394,8 +391,7 @@ final class HologramOverlay {
 
         // 3. Configure window for mini mode.
         window.styleMask = [.nonactivatingPanel, .borderless, .resizable]
-        window.hasShadow = true
-        window.level = .floating
+        window.applyPresentation(.floatingPanel)
         metalView.isMiniMode = true
 
         // 4. Animate frame change to mini size in bottom-right.
@@ -432,13 +428,11 @@ final class HologramOverlay {
         addExpandButton(to: window)
 
         // Re-attach as child.
-        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is GraphOverlayPanel) }) {
-            mainWindow.addChildWindow(window, ordered: .above)
-        }
+        attachFloatingPanelToMainWindow(window)
 
         // Alias the full-screen window as miniPanel so downstream code
         // (inspector, escape handler, first responder queries) works.
-        self.miniPanel = window as? GraphOverlayPanel
+        self.miniPanel = window
 
         window.makeFirstResponder(metalView)
         observeNodeSelection()
@@ -483,7 +477,7 @@ final class HologramOverlay {
         window.contentView?.layer?.masksToBounds = false
 
         // 5. Animate frame change to full screen.
-        window.hasShadow = false
+        window.applyPresentation(.immersiveOverlay)
         guard let screen = NSScreen.main else { return }
 
         NSAnimationContext.runAnimationGroup { ctx in
@@ -492,12 +486,8 @@ final class HologramOverlay {
             window.animator().setFrame(screen.frame, display: true)
         }
 
+        window.orderFrontRegardless()
         window.makeFirstResponder(metalView)
-
-        // Re-attach as child.
-        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is GraphOverlayPanel) }) {
-            mainWindow.addChildWindow(window, ordered: .above)
-        }
 
         // Hide mini inspector if shown
         if let inspector = miniInspectorPanel {
@@ -553,9 +543,7 @@ final class HologramOverlay {
         self.miniPanel = panel
 
         // Attach as child of main app window for proper z-ordering.
-        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
-            mainWindow.addChildWindow(panel, ordered: .above)
-        }
+        attachFloatingPanelToMainWindow(panel)
 
         guard let panelContentView = panel.contentView else { return }
         graphView.autoresizingMask = [.width, .height]
@@ -608,6 +596,7 @@ final class HologramOverlay {
                 height: GraphMiniPanelLayout.defaultSide
             )
         )
+        panel.applyPresentation(.floatingPanel)
         panel.minSize = NSSize(width: 320, height: 320)
         panel.maxSize = NSSize(width: 1200, height: 900)
 
@@ -654,6 +643,7 @@ final class HologramOverlay {
         let inspectorHeight: CGFloat = 620
 
         let panel = GraphOverlayPanel(contentRect: NSRect(x: 0, y: 0, width: inspectorWidth, height: inspectorHeight))
+        panel.applyPresentation(.floatingPanel)
         panel.styleMask = [.nonactivatingPanel, .borderless]  // Inspector is not resizable
 
         // Position: to the left of the mini graph panel with a small gap.
@@ -997,11 +987,10 @@ final class HologramOverlay {
             let fullscreenWindow = notification.object as? NSWindow
             MainActor.assumeIsolated {
                 guard let self, self.isVisible else { return }
-                // Re-attach as child of the now-fullscreen window.
                 if let fsWindow = fullscreenWindow {
                     if let w = self.window, !self.isMinimized {
-                        fsWindow.addChildWindow(w, ordered: .above)
-                        w.orderFront(nil)
+                        self.prepareImmersiveOverlayWindow(w, screen: fsWindow.screen)
+                        w.orderFrontRegardless()
                     }
                     if let mp = self.miniPanel, self.isMinimized {
                         fsWindow.addChildWindow(mp, ordered: .above)
@@ -1039,7 +1028,7 @@ final class HologramOverlay {
                 if self.isMinimized {
                     self.miniPanel?.orderFront(nil as NSWindow?)
                 } else if self.window != nil, self.isVisible {
-                    self.window?.orderFront(nil)
+                    self.window?.orderFrontRegardless()
                 }
             }
         }
@@ -1192,9 +1181,8 @@ final class HologramOverlay {
         let theme = GraphOverlayThemeStyle.resolvedTheme(uiState: uiState)
 
         let window = GraphOverlayPanel(contentRect: screen.frame)
+        window.applyPresentation(.immersiveOverlay)
         window.appearance = GraphOverlayThemeStyle.windowAppearance(for: theme)
-        // Full-screen overlay doesn't need a shadow (blur background covers everything).
-        window.hasShadow = false
 
         // Build the content: blur + Metal graph + floating controls + search sidebar.
         let contentView = NSView(frame: screen.frame)
@@ -1320,11 +1308,6 @@ final class HologramOverlay {
         self.window = window
         self.metalView = graphView
 
-        // Attach as child of main app window for proper z-ordering and fullscreen behavior.
-        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
-            mainWindow.addChildWindow(window, ordered: .above)
-        }
-
         window.makeFirstResponder(graphView)
 
         // Commit graph data after window is set up.
@@ -1359,6 +1342,26 @@ final class HologramOverlay {
         // Observe fullscreen transitions and parent window miniaturize.
         observeFullscreenTransitions()
         observeParentMiniaturize()
+    }
+
+    private func prepareImmersiveOverlayWindow(_ window: GraphOverlayPanel, screen: NSScreen?) {
+        if let parent = window.parent {
+            parent.removeChildWindow(window)
+        }
+        window.applyPresentation(.immersiveOverlay)
+        if let screen {
+            window.setFrame(screen.frame, display: true)
+        }
+    }
+
+    private func attachFloatingPanelToMainWindow(_ panel: GraphOverlayPanel) {
+        panel.applyPresentation(.floatingPanel)
+        if let parent = panel.parent {
+            parent.removeChildWindow(panel)
+        }
+        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
+            mainWindow.addChildWindow(panel, ordered: .above)
+        }
     }
 
     private func updateMiniPanelTint(_ panel: NSWindow?, theme: EpistemosTheme) {

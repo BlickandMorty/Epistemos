@@ -1,9 +1,14 @@
 import AppKit
 
+enum GraphOverlayPanelPresentation {
+    case immersiveOverlay
+    case floatingPanel
+}
+
 /// NSPanel subclass for the graph overlay.
 /// Uses .nonactivatingPanel to avoid stealing focus from the main window.
-/// Set as a child window of the main app window for proper z-ordering,
-/// Mission Control behavior, and fullscreen transitions.
+/// Full-screen immersive mode can float independently above system chrome,
+/// while mini/inspector panels stay attached to the app window.
 final class GraphOverlayPanel: NSPanel {
 
     /// In mini mode, the panel should accept key for graph interactions.
@@ -24,26 +29,38 @@ final class GraphOverlayPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = true
         isMovableByWindowBackground = false
-        level = .floating
         isReleasedWhenClosed = false
         isRestorable = false
         hidesOnDeactivate = false
-        // The Secret Sauce — this single property fixes 80% of "weirdness":
-        // .moveToActiveSpace  — follows user between Spaces
-        // .fullScreenAuxiliary — stays visible in fullscreen
-        // .ignoresCycle        — excluded from ⌘~ window cycling
-        // .stationary          — don't auto-move on Exposé/Mission Control
-        collectionBehavior = [
-            .moveToActiveSpace,
-            .fullScreenAuxiliary,
-            .ignoresCycle,
-            .stationary
-        ]
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
         // Prevent the panel from appearing in the Window menu or Exposé.
         isExcludedFromWindowsMenu = true
+        applyPresentation(.floatingPanel)
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    func applyPresentation(_ presentation: GraphOverlayPanelPresentation) {
+        switch presentation {
+        case .immersiveOverlay:
+            level = .screenSaver
+            hasShadow = false
+            collectionBehavior = [
+                .moveToActiveSpace,
+                .fullScreenAuxiliary,
+                .ignoresCycle,
+                .stationary
+            ]
+        case .floatingPanel:
+            level = .floating
+            hasShadow = true
+            collectionBehavior = [
+                .moveToActiveSpace,
+                .fullScreenAuxiliary,
+                .ignoresCycle,
+                .stationary
+            ]
+        }
+    }
 }
