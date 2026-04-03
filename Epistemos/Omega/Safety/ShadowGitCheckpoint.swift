@@ -111,46 +111,63 @@ actor ShadowGitCheckpoint {
     }
 
     private func runGit(args: [String], gitDir: URL, workTree: String) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let process = Process.init()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-            process.arguments = args
-            process.environment = [
-                "GIT_DIR": gitDir.path,
-                "GIT_WORK_TREE": workTree,
-                "HOME": NSHomeDirectory(),
-                "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-            ]
-            process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
+        let timeoutSeconds = 10.0
+        let state = ThrowingProcessContinuationState<Void>()
 
-            // 10s timeout
-            let timer = DispatchSource.makeTimerSource()
-            timer.schedule(deadline: .now() + 10)
-            timer.setEventHandler { [weak process] in
-                process?.terminate()
-            }
-            timer.resume()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let process = Process.init()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+                process.arguments = args
+                process.environment = [
+                    "GIT_DIR": gitDir.path,
+                    "GIT_WORK_TREE": workTree,
+                    "HOME": NSHomeDirectory(),
+                    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                ]
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
 
-            process.terminationHandler = { proc in
-                timer.cancel()
-                if proc.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: NSError(
-                        domain: "ShadowGit",
-                        code: Int(proc.terminationStatus),
-                        userInfo: [NSLocalizedDescriptionKey: "git \(args.first ?? "") failed with status \(proc.terminationStatus)"]
-                    ))
+                guard state.store(process: process, continuation: continuation) else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+
+                let timeoutTask = Task.detached(priority: .utility) {
+                    do {
+                        try await Task.sleep(for: .seconds(timeoutSeconds))
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        return
+                    }
+                    state.terminate()
+                    state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
+                }
+
+                process.terminationHandler = { proc in
+                    timeoutTask.cancel()
+                    if proc.terminationStatus == 0 {
+                        state.resume(returning: ())
+                    } else {
+                        state.resume(throwing: NSError(
+                            domain: "ShadowGit",
+                            code: Int(proc.terminationStatus),
+                            userInfo: [NSLocalizedDescriptionKey: "git \(args.first ?? "") failed with status \(proc.terminationStatus)"]
+                        ))
+                    }
+                }
+
+                do {
+                    try process.run()
+                } catch {
+                    timeoutTask.cancel()
+                    state.resume(throwing: error)
                 }
             }
-
-            do {
-                try process.run()
-            } catch {
-                timer.cancel()
-                continuation.resume(throwing: error)
-            }
+        } onCancel: {
+            state.terminate()
+            state.resume(throwing: CancellationError())
         }
     }
 }

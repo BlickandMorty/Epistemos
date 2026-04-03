@@ -1,3 +1,25 @@
+## Inference Memory Audit — 2026-04-03
+- Scope: inference idle memory plus post-query retention in chat and note-chat surfaces
+- Build/test verification:
+  - `cargo test --manifest-path graph-engine/Cargo.toml`: PASS (2451 passed, 0 failed, 8 ignored)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS,arch=arm64' -derivedDataPath /tmp/epistemos-idle-memory-dd test -only-testing:EpistemosTests/NoteChatStateTests -only-testing:EpistemosTests/PipelineServiceTests/ChatStateLocalMessageTests/startNewChatClearsPendingAttachmentsAndContext -only-testing:EpistemosTests/PipelineServiceTests/ChatStateLocalMessageTests/clearMessagesDropsPendingAttachmentsAndContext -only-testing:EpistemosTests/RuntimeValidationTests`: PASS (181 tests in 3 suites)
+- Recursive audit:
+  - Focused memory slice now has 3 successive clean no-edit passes across the same Rust + Swift verification pair
+  - Manual code audit re-checked `ChatState`, `NoteChatState`, `TriageService`, `Extensions`, and `MLXInferenceService` for deterministic post-turn retention paths
+- Issues found:
+  - The earlier hidden-Metal overlay retention bug was the dominant idle-memory spike and had already been fixed in the preceding 2026-04-03 graph-overlay pass
+  - The MLX runtime already had active-vs-idle budget trimming, so the remaining deterministic inference-side retention was oversized Swift `String` backing storage held after large streamed responses
+  - `ChatState.streamingText`, `NoteChatState.responseText`, and `DisplayPacedTextBuffer.pendingText` were being reset logically but could still retain heap capacity after large turns
+- Issues fixed:
+  - `DisplayPacedTextBuffer.reset(releaseCapacity:)` now optionally drops retained pending-text capacity instead of only emptying content
+  - `ChatState` now explicitly releases oversized stream-buffer storage on new chat, completion, cancellation, error, and clear/reset paths
+  - `NoteChatState` now explicitly releases oversized inline-response and buffered-stream storage on submission reset, accept, discard, and clear paths
+  - Added a focused behavioral regression in `NoteChatStateTests` plus a `RuntimeValidationTests` source guard for the release-capacity reset wiring
+- Observations:
+  - A previous live `vmmap` sample from the 2026-04-03 memory session showed the post-fix app down around a ~627-649 MB physical footprint with `IOAccelerator` essentially idle, supporting that the worst idle leak was GPU-retention rather than an ever-growing inference heap
+  - Some active-generation memory remains expected while the local model container is warm; this audit closes the deterministic post-turn buffer retention path rather than eliminating legitimate working-set growth during generation
+- VERDICT: PASS — the remaining deterministic post-query memory retention path is fixed, the focused inference-memory audit is three-pass clean, and no additional accumulating chat-buffer leak was found beyond the now-closed buffer-capacity retention
+
 ## Audit Sweep — 2026-04-02
 - Build: PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build`)
 - Focused tests: PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test`, 109 tests)

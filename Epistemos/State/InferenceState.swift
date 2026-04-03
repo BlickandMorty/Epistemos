@@ -164,6 +164,76 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
     }
 }
 
+nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
+    case openAI
+    case anthropic
+    case google
+    case localOnly
+
+    init(cloudProvider: CloudModelProvider) {
+        switch cloudProvider {
+        case .openAI:
+            self = .openAI
+        case .anthropic:
+            self = .anthropic
+        case .google:
+            self = .google
+        }
+    }
+
+    var cloudProvider: CloudModelProvider? {
+        switch self {
+        case .openAI:
+            .openAI
+        case .anthropic:
+            .anthropic
+        case .google:
+            .google
+        case .localOnly:
+            nil
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .openAI:
+            "OpenAI"
+        case .anthropic:
+            "Anthropic"
+        case .google:
+            "Google"
+        case .localOnly:
+            "Local Only"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .openAI:
+            "sparkles"
+        case .anthropic:
+            "brain"
+        case .google:
+            "globe.americas.fill"
+        case .localOnly:
+            "memorychip"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .openAI:
+            "Use OpenAI as the single active cloud provider while keeping local models available."
+        case .anthropic:
+            "Use Anthropic as the single active cloud provider while keeping local models available."
+        case .google:
+            "Use Google as the single active cloud provider while keeping local models available."
+        case .localOnly:
+            "Hide cloud models from the picker and stay on-device with Apple Intelligence plus local models."
+        }
+    }
+}
+
 nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     case openAIGPT54 = "openai:gpt-5.4"
     case openAIGPT54Mini = "openai:gpt-5.4-mini"
@@ -451,6 +521,17 @@ extension CloudModelProvider {
             .anthropicClaudeSonnet4
         case .google:
             .googleGemini25Flash
+        }
+    }
+
+    var defaultChatModel: CloudTextModelID {
+        switch self {
+        case .openAI:
+            .openAIGPT54
+        case .anthropic:
+            .anthropicClaudeSonnet4
+        case .google:
+            .googleGemini25Pro
         }
     }
 }
@@ -818,6 +899,7 @@ final class InferenceState {
         "epistemos.offlineOnlyEnabled",
         "epistemos.preferredFallbackLocalTextModelID",
     ]
+    private nonisolated static let activeAIProviderDefaultsKey = "epistemos.activeAIProvider"
 
     var inferenceMode: InferenceMode = .api
     var routingMode: LocalRoutingMode = .auto
@@ -825,6 +907,7 @@ final class InferenceState {
     var preferredChatModelSelection: ChatModelSelection = .localQwen(
         LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     )
+    var activeAIProvider: AIProviderSelection = .openAI
     private let keychainLoad: (String) -> String?
     private let keychainSave: (String, String) -> Bool
     private let keychainDelete: (String) -> Void
@@ -888,6 +971,22 @@ final class InferenceState {
             )
         } else {
             self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
+        }
+        if let savedProvider = defaults.string(forKey: Self.activeAIProviderDefaultsKey),
+           let provider = AIProviderSelection(rawValue: savedProvider) {
+            self.activeAIProvider = provider
+        } else if case .cloud(let model) = self.preferredChatModelSelection {
+            self.activeAIProvider = AIProviderSelection(cloudProvider: model.provider)
+        } else {
+            self.activeAIProvider = .openAI
+        }
+        if case .cloud(let model) = self.preferredChatModelSelection {
+            persistPreferredCloudModel(model, defaults: defaults)
+            if activeAIProvider == .localOnly {
+                self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
+            } else if activeAIProvider.cloudProvider != model.provider {
+                self.activeAIProvider = AIProviderSelection(cloudProvider: model.provider)
+            }
         }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
@@ -963,6 +1062,40 @@ final class InferenceState {
             return nil
         }
         return .cloud(model)
+    }
+
+    private nonisolated static func preferredCloudModelDefaultsKey(
+        for provider: CloudModelProvider
+    ) -> String {
+        "epistemos.preferredCloudModel.\(provider.rawValue)"
+    }
+
+    private func loadPreferredCloudModel(for provider: CloudModelProvider) -> CloudTextModelID {
+        let defaults = UserDefaults.standard
+        if let saved = defaults.string(forKey: Self.preferredCloudModelDefaultsKey(for: provider)),
+           let model = CloudTextModelID.from(rawValueOrVendorID: saved),
+           model.provider == provider {
+            return model
+        }
+        return provider.defaultChatModel
+    }
+
+    private func persistPreferredCloudModel(
+        _ model: CloudTextModelID,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(
+            model.rawValue,
+            forKey: Self.preferredCloudModelDefaultsKey(for: model.provider)
+        )
+    }
+
+    private func persistActiveAIProvider(
+        _ provider: AIProviderSelection,
+        defaults: UserDefaults = .standard
+    ) {
+        activeAIProvider = provider
+        defaults.set(provider.rawValue, forKey: Self.activeAIProviderDefaultsKey)
     }
 
     func setInferenceMode(_ mode: InferenceMode) { inferenceMode = mode }
@@ -1071,6 +1204,15 @@ final class InferenceState {
         preferredChatModelSelection.displayName
     }
 
+    var activeCloudProvider: CloudModelProvider? {
+        activeAIProvider.cloudProvider
+    }
+
+    var activeCloudModels: [CloudTextModelID] {
+        guard let provider = activeCloudProvider else { return [] }
+        return CloudTextModelID.models(for: provider)
+    }
+
     var configuredCloudProviders: [CloudModelProvider] {
         CloudModelProvider.allCases.filter { provider in
             guard let key = apiKey(for: provider) else { return false }
@@ -1122,6 +1264,9 @@ final class InferenceState {
         if case .localQwen(let modelID) = selection {
             preferredLocalTextModelID = modelID
             UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
+        } else if case .cloud(let model) = selection {
+            persistPreferredCloudModel(model)
+            persistActiveAIProvider(AIProviderSelection(cloudProvider: model.provider))
         }
     }
 
@@ -1225,6 +1370,29 @@ final class InferenceState {
     func setRoutingMode(_ mode: LocalRoutingMode) {
         routingMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.localRoutingMode")
+    }
+
+    func setActiveAIProvider(_ provider: AIProviderSelection) {
+        persistActiveAIProvider(provider)
+
+        switch preferredChatModelSelection {
+        case .appleIntelligence, .localQwen:
+            return
+        case .cloud(let currentModel):
+            guard let activeCloudProvider = provider.cloudProvider else {
+                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+                return
+            }
+            guard currentModel.provider != activeCloudProvider else {
+                persistPreferredCloudModel(currentModel)
+                return
+            }
+            guard hasConfiguredAPIKey(for: activeCloudProvider) else {
+                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+                return
+            }
+            persistPreferredChatModelSelection(.cloud(loadPreferredCloudModel(for: activeCloudProvider)))
+        }
     }
 
     func setPreferredLocalTextModelID(_ modelID: String) {

@@ -67,6 +67,19 @@ enum GraphOverlayThemeStyle {
     }
 }
 
+nonisolated enum GraphOverlayHideAction: Equatable {
+    case teardownImmediately
+    case pauseThenTeardownAfterDelay
+}
+
+nonisolated enum GraphOverlayRetentionPolicy {
+    static let hiddenTeardownDelay: Duration = .seconds(10)
+
+    static func hideAction(isMinimized: Bool) -> GraphOverlayHideAction {
+        isMinimized ? .teardownImmediately : .pauseThenTeardownAfterDelay
+    }
+}
+
 private struct GraphOverlayThemeContainer<Content: View>: View {
     @Environment(UIState.self) private var ui
     let content: Content
@@ -186,6 +199,7 @@ final class HologramOverlay {
     private var resetObserver: Any?
     private var restoreObserver: Any?
     private var closeObserver: Any?
+    private var hiddenTeardownTask: Task<Void, Never>?
 
     // Fullscreen transition observers
     private var fullscreenEnterObserver: Any?
@@ -224,6 +238,7 @@ final class HologramOverlay {
     }
 
     func show(noteWindow: NSWindow? = nil) {
+        cancelScheduledTeardown()
         self.noteWindowFrame = noteWindow?.frame
 
         if isMinimized {
@@ -328,11 +343,34 @@ final class HologramOverlay {
         )
     }
 
+    private func cancelScheduledTeardown() {
+        hiddenTeardownTask?.cancel()
+        hiddenTeardownTask = nil
+    }
+
+    private func scheduleHiddenTeardown() {
+        cancelScheduledTeardown()
+        hiddenTeardownTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: GraphOverlayRetentionPolicy.hiddenTeardownDelay)
+                guard let self else { return }
+                guard !self.isMinimized, self.window?.isVisible != true else { return }
+                self.teardown()
+            } catch is CancellationError {
+                return
+            } catch {
+                Log.graph.error(
+                    "Scheduled graph overlay teardown failed: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+    }
 
     func hide() {
         fadeInTask?.cancel()
         fadeInTask = nil
-        if isMinimized {
+        switch GraphOverlayRetentionPolicy.hideAction(isMinimized: isMinimized) {
+        case .teardownImmediately:
             // Minimized: fade out the mini panel and do full teardown.
             guard let miniPanel else { teardown(); return }
             NSAnimationContext.runAnimationGroup({ ctx in
@@ -344,27 +382,28 @@ final class HologramOverlay {
                     self?.teardown()
                 }
             })
-            return
+        case .pauseThenTeardownAfterDelay:
+            guard let window else { return }
+
+            // Soft hide: pause engine + hide window, keep engine alive briefly for fast re-show.
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.2
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                window.animator().alphaValue = 0
+            }, completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    window.orderOut(nil)
+                    self?.metalView?.pauseEngine()
+                    self?.scheduleHiddenTeardown()
+                }
+            })
         }
-
-        guard let window else { return }
-
-        // Soft hide: pause engine + hide window, keep engine alive for fast re-show.
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.2
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            window.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            MainActor.assumeIsolated {
-                window.orderOut(nil)
-                self?.metalView?.pauseEngine()
-            }
-        })
     }
 
     /// Full teardown: destroy engine + Metal resources to free all memory.
     /// Call when the overlay is being permanently dismissed (e.g. app quit).
     func forceClose() {
+        cancelScheduledTeardown()
         if let window {
             window.orderOut(nil)
         }
@@ -514,6 +553,7 @@ final class HologramOverlay {
     /// Show the graph directly in mini mode without creating a full-screen window.
     /// Used by the command palette to display the graph as a companion panel.
     func showMini() {
+        cancelScheduledTeardown()
         // Already minimized and visible — nothing to do.
         if isMinimized, miniPanel?.isVisible == true { return }
 
@@ -521,6 +561,10 @@ final class HologramOverlay {
         if window?.isVisible == true {
             minimize()
             return
+        }
+
+        if window != nil || metalView != nil {
+            teardown()
         }
 
         // Re-register observers if needed (teardown removes them).
@@ -1130,6 +1174,7 @@ final class HologramOverlay {
     /// Destroy all views and the Rust engine to free GPU/CPU memory.
     /// Called after the fade-out animation completes.
     private func teardown() {
+        cancelScheduledTeardown()
         // Remove escape key monitor.
         if let monitor = escapeMonitor {
             NSEvent.removeMonitor(monitor)

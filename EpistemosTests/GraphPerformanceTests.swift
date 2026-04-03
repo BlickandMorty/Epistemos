@@ -238,6 +238,26 @@ private actor DeferredMetadataRunGate {
     }
 }
 
+@Suite("Graph Overlay Retention Policy")
+struct GraphOverlayRetentionPolicyTests {
+    @Test("soft hide keeps only a short resume window before teardown")
+    func softHideKeepsOnlyAShortResumeWindowBeforeTeardown() {
+        #expect(GraphOverlayRetentionPolicy.hiddenTeardownDelay == .seconds(10))
+        #expect(
+            GraphOverlayRetentionPolicy.hideAction(isMinimized: false)
+                == .pauseThenTeardownAfterDelay
+        )
+    }
+
+    @Test("minimized overlay tears down immediately")
+    func minimizedOverlayTearsDownImmediately() {
+        #expect(
+            GraphOverlayRetentionPolicy.hideAction(isMinimized: true)
+                == .teardownImmediately
+        )
+    }
+}
+
 @Suite("Graph Deferred Metadata Driver", .serialized)
 struct GraphDeferredMetadataDriverTests {
     @Test("burst metadata requests before the next run loop tick coalesce")

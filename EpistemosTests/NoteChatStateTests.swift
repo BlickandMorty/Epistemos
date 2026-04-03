@@ -577,6 +577,20 @@ struct DisplayPacedTextBufferTests {
         #expect(flushed.isEmpty)
     }
 
+    @Test("reset can release retained buffer capacity without flushing")
+    @MainActor func resetCanReleaseRetainedBufferCapacityWithoutFlushing() async throws {
+        var flushed: [String] = []
+        let buffer = DisplayPacedTextBuffer(flushInterval: .milliseconds(20)) { delta in
+            flushed.append(delta)
+        }
+
+        buffer.append(String(repeating: "x", count: 80_000), scheduleFlush: false)
+        buffer.reset(releaseCapacity: true)
+        try await Task.sleep(for: .milliseconds(40))
+
+        #expect(flushed.isEmpty)
+    }
+
     @Test("threshold flushes immediately")
     @MainActor func thresholdFlushesImmediately() {
         var flushed: [String] = []

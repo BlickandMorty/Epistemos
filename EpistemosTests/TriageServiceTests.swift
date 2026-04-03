@@ -5,6 +5,10 @@ private let isolatedInferenceDefaultsKeys = [
     "epistemos.localRoutingMode",
     "epistemos.preferredLocalTextModelID",
     "epistemos.preferredChatModelSelection",
+    "epistemos.activeAIProvider",
+    "epistemos.preferredCloudModel.openAI",
+    "epistemos.preferredCloudModel.anthropic",
+    "epistemos.preferredCloudModel.google",
 ]
 
 @MainActor
@@ -1119,6 +1123,29 @@ struct TriageServiceIntegrationTests {
         #expect(lowPower.idleUnloadDelay < normal.idleUnloadDelay)
         #expect(lowPower.memoryPolicy.cacheLimitBytes < normal.memoryPolicy.cacheLimitBytes)
         #expect(lowPower.memoryPolicy.memoryLimitBytes <= normal.memoryPolicy.memoryLimitBytes)
+    }
+
+    @MainActor
+    @Test("idle local runtime keeps a much smaller cache budget than active inference")
+    func idleRuntimeBudgetIsMuchSmallerThanActiveInferenceBudget() {
+        let snapshot = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 18_000_000_000,
+            roundedMemoryGB: 18,
+            maxRecommendedLocalContentLength: 8_000
+        )
+
+        let policy = LocalMLXRuntimeTuning.runtimePolicy(
+            snapshot: snapshot,
+            conditions: LocalRuntimeConditions(
+                lowPowerModeEnabled: false,
+                appActive: true,
+                thermalState: .nominal
+            )
+        )
+
+        #expect(policy.idleMemoryPolicy.cacheLimitBytes < policy.memoryPolicy.cacheLimitBytes)
+        #expect(policy.idleMemoryPolicy.memoryLimitBytes < policy.memoryPolicy.memoryLimitBytes)
+        #expect(policy.idleMemoryPolicy.cacheLimitBytes <= 128_000_000)
     }
 
     @MainActor

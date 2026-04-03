@@ -208,7 +208,13 @@ actor QLoRATrainer {
                 }
 
                 let timeoutTask = Task.detached(priority: .utility) {
-                    try? await Task.sleep(for: .seconds(timeoutSeconds))
+                    do {
+                        try await Task.sleep(for: .seconds(timeoutSeconds))
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        return
+                    }
                     state.terminate()
                     state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
                 }

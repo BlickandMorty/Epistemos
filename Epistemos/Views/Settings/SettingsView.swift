@@ -632,13 +632,30 @@ private struct InferenceDetailView: View {
 
             Section("Cloud AI") {
                 SettingsDescriptionText(
-                    text: "Cloud keys are optional. Save one, run a live check, and the cloud model picker unlocks immediately. Local models remain the default path unless you explicitly switch."
+                    text: "Pick one active provider for the chat model picker, then save and validate whichever cloud credentials you want available as backups."
                 )
+
+                Picker(
+                    "AI Provider",
+                    selection: Binding(
+                        get: { inference.activeAIProvider },
+                        set: { inference.setActiveAIProvider($0) }
+                    )
+                ) {
+                    ForEach(AIProviderSelection.allCases, id: \.self) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+
+                Text(inference.activeAIProvider.summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 cloudKeyRow(title: "OpenAI", text: $openAIKey, provider: .openAI)
                 cloudKeyRow(title: "Anthropic", text: $anthropicKey, provider: .anthropic)
                 cloudKeyRow(title: "Google", text: $googleKey, provider: .google)
 
-                Text("Stored securely in the Apple Keychain. Cloud models enable as soon as a key is saved, and the checker confirms whether the provider actually accepts it.")
+                Text("Stored securely in the Apple Keychain. The active provider scopes the chat picker, while saved secondary keys remain available for future fallback work.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

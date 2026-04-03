@@ -2069,9 +2069,10 @@ final class VaultSyncService {
         guard let actor else { return }
         let pages = await actor.allPagesForRebuild()
         let notes = pages.map { (id: $0.id, text: $0.body) }
-        await MainActor.run {
-            AppBootstrap.shared?.instantRecallService.rebuildIndex(notes: notes)
+        guard let service = await MainActor.run(body: { AppBootstrap.shared?.instantRecallService }) else {
+            return
         }
+        await service.rebuildIndexAsync(notes: notes)
     }
 
     // MARK: - Vault Context (Background)

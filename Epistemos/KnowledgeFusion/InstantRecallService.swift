@@ -14,6 +14,12 @@ import os.log
 
 private let log = Logger(subsystem: "com.epistemos.app", category: "InstantRecall")
 
+private struct InstantRecallRebuildSummary: Sendable {
+    let insertedCount: Int
+    let documentCount: Int
+    let elapsedMs: Double
+}
+
 /// Result from an instant recall search.
 struct InstantRecallResult: Identifiable, Sendable {
     let id: String  // doc_id
@@ -88,7 +94,7 @@ final class InstantRecallService {
         }
     }
 
-    private func normalizedIndexableText(_ text: String) -> String? {
+    private nonisolated static func normalizedIndexableText(_ text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : text
     }
@@ -99,11 +105,50 @@ final class InstantRecallService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private nonisolated static func rebuildSnapshot(
+        handle: String,
+        notes: [(id: String, text: String)]
+    ) -> InstantRecallRebuildSummary {
+        let start = CFAbsoluteTimeGetCurrent()
+        let _ = instantRecallClear(handle: handle)
+
+        var insertedCount = 0
+        for note in notes {
+            guard let indexableText = Self.normalizedIndexableText(note.text) else { continue }
+            let _ = instantRecallInsert(handle: handle, docId: note.id, text: indexableText)
+            insertedCount += 1
+        }
+
+        let elapsedMs = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
+        let documentCount = Int(instantRecallCount(handle: handle))
+        return InstantRecallRebuildSummary(
+            insertedCount: insertedCount,
+            documentCount: documentCount,
+            elapsedMs: elapsedMs
+        )
+    }
+
+    private func finishRebuild(
+        _ summary: InstantRecallRebuildSummary,
+        candidateCount: Int
+    ) {
+        documentCount = summary.documentCount
+        lastResults = []
+        lastSearchLatencyMs = 0
+        searchCount = 0
+        averageSearchLatencyMs = 0
+        maxSearchLatencyMs = 0
+
+        log.info(
+            "InstantRecall: rebuilt index with \(summary.insertedCount) notes from \(candidateCount) candidates in \(String(format: "%.1f", summary.elapsedMs))ms"
+        )
+    }
+
     /// Index a note's content. Call on note save or edit (debounced).
     func indexNote(noteId: String, text: String) {
         ensureInitialized()
         guard isReady else { return }
-        guard let indexableText = normalizedIndexableText(text) else {
+        guard let indexableText = Self.normalizedIndexableText(text) else {
             removeNote(noteId: noteId)
             return
         }
@@ -181,7 +226,7 @@ final class InstantRecallService {
         let start = CFAbsoluteTimeGetCurrent()
 
         for note in notes {
-            guard let indexableText = normalizedIndexableText(note.text) else { continue }
+            guard let indexableText = Self.normalizedIndexableText(note.text) else { continue }
             let _ = instantRecallInsert(handle: handle, docId: note.id, text: indexableText)
         }
 
@@ -199,27 +244,21 @@ final class InstantRecallService {
         guard isReady else { return }
         hasHydratedInitialSnapshot = true
 
-        let start = CFAbsoluteTimeGetCurrent()
-        let _ = instantRecallClear(handle: handle)
+        let summary = Self.rebuildSnapshot(handle: handle, notes: notes)
+        finishRebuild(summary, candidateCount: notes.count)
+    }
 
-        var inserted = 0
-        for note in notes {
-            guard let indexableText = normalizedIndexableText(note.text) else { continue }
-            let _ = instantRecallInsert(handle: handle, docId: note.id, text: indexableText)
-            inserted += 1
-        }
+    func rebuildIndexAsync(notes: [(id: String, text: String)]) async {
+        ensureInitialized()
+        guard isReady else { return }
+        hasHydratedInitialSnapshot = true
 
-        let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
-        documentCount = Int(instantRecallCount(handle: handle))
-        lastResults = []
-        lastSearchLatencyMs = 0
-        searchCount = 0
-        averageSearchLatencyMs = 0
-        maxSearchLatencyMs = 0
+        let handle = self.handle
+        let summary = await Task.detached(priority: .utility) {
+            Self.rebuildSnapshot(handle: handle, notes: notes)
+        }.value
 
-        log.info(
-            "InstantRecall: rebuilt index with \(inserted) notes from \(notes.count) candidates in \(String(format: "%.1f", elapsed))ms"
-        )
+        finishRebuild(summary, candidateCount: notes.count)
     }
 
     /// Clear the entire index.

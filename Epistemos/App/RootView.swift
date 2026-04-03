@@ -591,11 +591,36 @@ struct LocalModelToolbarMenu: View {
                         }
                     )
 
+                    VStack(alignment: .leading, spacing: 8) {
+                        popoverSectionTitle("AI Provider")
+
+                        ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
+                            let selection = AIProviderSelection(cloudProvider: provider)
+                            selectionRow(
+                                title: provider.displayName,
+                                subtitle: providerSelectionSubtitle(for: provider),
+                                systemImage: provider.systemImage,
+                                isSelected: inference.activeAIProvider == selection
+                            ) {
+                                inference.setActiveAIProvider(selection)
+                            }
+                        }
+
+                        selectionRow(
+                            title: "Local Only",
+                            subtitle: "Hide cloud models from this picker and stay on-device.",
+                            systemImage: "memorychip",
+                            isSelected: inference.activeAIProvider == .localOnly
+                        ) {
+                            inference.setActiveAIProvider(.localOnly)
+                        }
+                    }
+
                     DisclosureGroup(
                         isExpanded: $showsCloudModels,
                         content: {
                             VStack(alignment: .leading, spacing: 10) {
-                                ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
+                                if let provider = inference.activeCloudProvider {
                                     VStack(alignment: .leading, spacing: 6) {
                                         HStack(alignment: .center, spacing: 8) {
                                             Image(systemName: provider.systemImage)
@@ -617,7 +642,7 @@ struct LocalModelToolbarMenu: View {
                                             let providerConfigured = inference.configuredCloudProviders.contains(provider)
                                             selectionRow(
                                                 title: model.compactDisplayName,
-                                                subtitle: provider.modelSummary,
+                                                subtitle: cloudModelSubtitle(for: model),
                                                 systemImage: provider.systemImage,
                                                 isSelected: selectedMenuItem == .cloud(model),
                                                 isEnabled: providerConfigured
@@ -628,6 +653,11 @@ struct LocalModelToolbarMenu: View {
                                         }
                                     }
                                     .padding(.top, 2)
+                                } else {
+                                    Text("Local Only is active. Switch the AI Provider to browse cloud models here.")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(theme.textTertiary)
+                                        .padding(.leading, 4)
                                 }
 
                                 Button("Open Inference Settings") {
@@ -642,9 +672,7 @@ struct LocalModelToolbarMenu: View {
                         label: {
                             disclosureTitle(
                                 title: "Cloud Models",
-                                subtitle: inference.hasConfiguredCloudModels
-                                    ? "\(inference.configuredCloudProviders.count) provider\(inference.configuredCloudProviders.count == 1 ? "" : "s") ready"
-                                    : "Add a key to unlock"
+                                subtitle: cloudDisclosureSubtitle
                             )
                         }
                     )
@@ -770,6 +798,30 @@ struct LocalModelToolbarMenu: View {
         }
         let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")
         return "\(featureSummary) • \(modelID.minimumRecommendedMemoryGB) GB+"
+    }
+
+    private func providerSelectionSubtitle(for provider: CloudModelProvider) -> String {
+        let status = inference.cloudValidationState(for: provider).statusBadge
+        return "\(provider.modelSummary) • \(status)"
+    }
+
+    private func cloudModelSubtitle(for model: CloudTextModelID) -> String {
+        let provider = model.provider
+        let configuration = inference.configuredCloudProviders.contains(provider)
+            ? "Ready"
+            : "Add key"
+        return "\(provider.displayName) • \(configuration)"
+    }
+
+    private var cloudDisclosureSubtitle: String {
+        guard let provider = inference.activeCloudProvider else {
+            return "Local Only"
+        }
+        let validation = inference.cloudValidationState(for: provider)
+        if inference.configuredCloudProviders.contains(provider) {
+            return "\(provider.displayName) • \(validation.statusBadge)"
+        }
+        return "Add a key to unlock"
     }
 
     private func openSettings() {

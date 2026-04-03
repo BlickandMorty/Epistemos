@@ -102,6 +102,26 @@ private struct SidebarPageSearchCatalogEntry: Equatable {
     let haystack: String
 }
 
+enum NotesSidebarSearchCachePolicy {
+    static let maxCachedQueries = 12
+
+    static func store<Value>(
+        query: String,
+        value: Value,
+        order: inout [String],
+        cache: inout [String: Value]
+    ) {
+        cache[query] = value
+        order.removeAll { $0 == query }
+        order.append(query)
+
+        while order.count > maxCachedQueries {
+            let evictedQuery = order.removeFirst()
+            cache.removeValue(forKey: evictedQuery)
+        }
+    }
+}
+
 // MARK: - Sidebar Action Enum
 // All mutation actions are routed through this enum back to NotesSidebar,
 // which holds the @Environment services (modelContext, vaultSync, notesUI).
@@ -412,6 +432,8 @@ struct NotesSidebar: View {
     @State private var cachedPageSearchTrigramIndex = TrigramSearchIndex<String>()
     @State private var cachedTitleSearchResultIDsByQuery: [String: [String]] = [:]
     @State private var cachedBodySearchResultsByQuery: [String: [SidebarPageItem]] = [:]
+    @State private var cachedTitleSearchQueryOrder: [String] = []
+    @State private var cachedBodySearchQueryOrder: [String] = []
     @State private var hasDailyNotesFolder = false
     @State private var rebuildTask: Task<Void, Never>?
     @State private var bodySearchTask: Task<Void, Never>?
@@ -455,6 +477,8 @@ struct NotesSidebar: View {
         )
         cachedTitleSearchResultIDsByQuery.removeAll(keepingCapacity: true)
         cachedBodySearchResultsByQuery.removeAll(keepingCapacity: true)
+        cachedTitleSearchQueryOrder.removeAll(keepingCapacity: true)
+        cachedBodySearchQueryOrder.removeAll(keepingCapacity: true)
 
         cachedPageSearchTrigramIndex.rebuild(
             cachedPageSearchCatalog.map { (key: $0.pageId, text: $0.haystack) }
@@ -965,10 +989,20 @@ struct NotesSidebar: View {
             let filtered = candidateIDs.filter { pageId in
                 cachedPageSearchCatalogById[pageId]?.haystack.contains(normalizedQuery) == true
             }
-            cachedTitleSearchResultIDsByQuery[normalizedQuery] = filtered
+            NotesSidebarSearchCachePolicy.store(
+                query: normalizedQuery,
+                value: filtered,
+                order: &cachedTitleSearchQueryOrder,
+                cache: &cachedTitleSearchResultIDsByQuery
+            )
             return filtered
         }()
-        cachedTitleSearchResultIDsByQuery[normalizedQuery] = matchedIDs
+        NotesSidebarSearchCachePolicy.store(
+            query: normalizedQuery,
+            value: matchedIDs,
+            order: &cachedTitleSearchQueryOrder,
+            cache: &cachedTitleSearchResultIDsByQuery
+        )
         titleSearchResults = matchedIDs.compactMap { cachedPageById[$0] }
     }
 
@@ -1046,7 +1080,12 @@ struct NotesSidebar: View {
                 guard notesUI.debouncedSearchQuery == normalizedQuery || notesUI.searchQuery == normalizedQuery else {
                     return
                 }
-                cachedBodySearchResultsByQuery[normalizedQuery] = results
+                NotesSidebarSearchCachePolicy.store(
+                    query: normalizedQuery,
+                    value: results,
+                    order: &cachedBodySearchQueryOrder,
+                    cache: &cachedBodySearchResultsByQuery
+                )
                 bodySearchResults = results
             }
         }
