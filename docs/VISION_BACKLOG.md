@@ -1529,14 +1529,37 @@ PHASE I — RUST AGENT MIGRATION (Pre-release — Goose + GEPA fusion):
   - HermesMCPClient.swift → rmcp (official Rust MCP SDK) in-process
   - EpistemosMCPServer.swift → Goose builtin extension exposing tools
 
-  WHAT STAYS (the chassis, dashboard, safety — all YOUR code):
+  WHAT STAYS (simplified — Goose absorbs most of Omega):
   - AgentViewModel.swift — UI controller, harness integration, cost tracking
-  - OrchestratorState.swift — safety wrapper (depth limiter, loop detection, checkpoints)
   - HarnessIntegration.swift — traces, bootstrap packets, completion checks
   - StreamingDelegate.swift — token streaming to UI (Goose feeds into this)
-  - ConfirmationGate, CredentialRedactor, TranscriptRepair — all safety components
-  - ContextBudgetManager, ToolLoopDetector, AgentDepthLimiter — all orchestration
   - Graph, vault, search, training, PowerGuard — completely untouched
+
+  OMEGA DISPOSITION (Goose absorbs most orchestration):
+  | Omega Component          | Disposition                                      |
+  | OrchestratorState        | KEEP depth limiter only (Goose has no equivalent) |
+  | ToolLoopDetector         | REPLACE with Goose ToolInspectionManager          |
+  | ConfirmationGate         | REPLACE with Goose PermissionManager              |
+  | CredentialRedactor       | REPLACE with Goose security inspectors            |
+  | ContextBudgetManager     | REPLACE with Goose SessionManager (proactive)     |
+  | ExecutionCheckpointManager| KEEP (SQLite persistence > Goose's JSONL)         |
+  | ResearchPause            | KEEP (unique UX, no Goose equivalent)             |
+  | TranscriptRepair         | KEEP (repairs corrupted tool_use blocks)           |
+  | FallbackChainResolver    | REPLACE with Goose Lead/Worker providers           |
+  | OmegaInferenceBridge     | REPLACE with MetalProvider                        |
+  | MCPBridge                | REPLACE with rmcp + builtin extensions            |
+
+  9-REPO FUSION MAP (what we take from each project):
+  | Repo              | What We Take                              | Phase |
+  | Goose             | Provider, agent loop, MCP, builtins, perms | I     |
+  | Hermes GEPA       | Trace→diagnose→mutate→Pareto→gates        | I W4  |
+  | Phantom           | Runtime MCP tool creation (GEPA subsumes evolution) | I |
+  | OpenSwarm         | Worker/Reviewer verification pass          | F     |
+  | GoClaw            | SQLite task board for agent teams          | F     |
+  | CodeNano          | 17-tool audit checklist                   | I W3  |
+  | OpenClaw          | Session lifecycle, doctor command          | C     |
+  | SciAgent-Skills   | 196 scientific skill templates as SKILL.md | C     |
+  | Hermes IDE        | Ghost-text + project scan (STUDY, BSL)    | B+E   |
 
   HERMES STAYS RUNNING through Phases A-G. Only replaced in Phase I.
 
