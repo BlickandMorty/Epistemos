@@ -1404,15 +1404,22 @@ PHASE I — RUST AGENT MIGRATION (Pre-release — no Python in shipped app):
   I-6 Drop Python subprocess (delete hermes-agent submodule)
   I-7 Final validation (all tools, all providers, performance targets)
 
-PHASE J — UNIFIED SUBSTRATE (After Rust migration — the endgame):
-  Research: paste Unified Substrate Research Prompt into deep research
-  Save results to docs/UNIFIED_SUBSTRATE_RESEARCH.md
-  30-day audit → 60-90 day migration → one semantic machine
-
-PHASE H — RELEASE PREP (After substrate unification):
+PHASE H — RELEASE PREP (After Rust migration):
   0A Notarization + Sparkle auto-update
   Release preflight, DMG packaging, legal docs
-  Fresh-machine verification — NO Python, unified substrate
+  Fresh-machine verification — NO Python on user's machine
+
+ARCHITECTURAL LENS (Not a phase — a guiding principle for ALL phases):
+  Unified Substrate research informs HOW each phase is built.
+  Paste the Unified Substrate Research Prompt into deep research.
+  Save results to docs/UNIFIED_SUBSTRATE_RESEARCH.md.
+  Codex reads it before starting any phase and applies its principles:
+  - One source of truth (phases B+D naturally unify state)
+  - Windows as apertures (Phase B floating panels achieve this)
+  - Zero-copy where meaningful (Phase I in-process Rust achieves this)
+  - Agent as native substrate (Phase I eliminates subprocess boundary)
+  - The substrate emerges from building each phase correctly,
+    not from a separate rewrite phase.
 
 PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping):
   This is NOT optional. The app ships as pure Swift + Rust. No Python dependency.
