@@ -1336,6 +1336,14 @@ struct RuntimeValidationTests {
         #expect(overlay.contains("private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool"))
     }
 
+    @Test("graph overlay toolbar defaults to a bottom anchor before drag repositioning")
+    func graphOverlayToolbarDefaultsToBottomAnchorBeforeDragRepositioning() throws {
+        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+
+        #expect(overlay.contains("controlsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor"))
+        #expect(!overlay.contains("controlsView.topAnchor.constraint(equalTo: contentView.topAnchor"))
+    }
+
     @Test("metal graph view wakes idle renderer on power mode changes")
     func metalGraphViewWakesIdleRendererOnPowerModeChanges() throws {
         let metalView = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
