@@ -119,6 +119,27 @@ struct InstantRecallServiceTests {
         #expect(freshResults.first?.docId == "fresh-doc")
     }
 
+    @Test("Async service rebuild replaces stale indexed documents")
+    @MainActor func serviceAsyncRebuildReplacesStaleDocuments() async {
+        let service = InstantRecallService()
+        service.initialize()
+        service.indexNote(noteId: "old-doc", text: "Rust systems programming language")
+
+        let oldResults = service.search(queryText: "Rust programming", topK: 5)
+        #expect(oldResults.contains(where: { $0.docId == "old-doc" }))
+
+        await service.rebuildIndexAsync(notes: [
+            (id: "fresh-doc", text: "Italian pasta recipes and sauce technique"),
+        ])
+
+        #expect(service.documentCount == 1)
+        let staleResults = service.search(queryText: "Rust programming", topK: 5)
+        #expect(!staleResults.contains(where: { $0.docId == "old-doc" }))
+
+        let freshResults = service.search(queryText: "Italian pasta", topK: 5)
+        #expect(freshResults.first?.docId == "fresh-doc")
+    }
+
     @Test("Service lazily initializes on first use")
     @MainActor func serviceLazilyInitializesOnFirstUse() {
         let service = InstantRecallService()

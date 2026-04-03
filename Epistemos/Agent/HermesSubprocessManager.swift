@@ -1274,7 +1274,13 @@ final class HermesSubprocessManager {
                 }
 
                 let timeoutTask = Task.detached(priority: .utility) {
-                    try? await Task.sleep(for: timeout)
+                    do {
+                        try await Task.sleep(for: timeout)
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        return
+                    }
                     state.terminate()
                     state.resume(with: nil)
                 }

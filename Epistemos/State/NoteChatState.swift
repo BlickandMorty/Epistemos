@@ -130,9 +130,13 @@ final class NoteChatState {
         streamBuffer.flushNow()
     }
 
-    private func resetStreamBuffer() {
-        streamBuffer.reset()
+    private func resetStreamBuffer(releaseCapacity: Bool = false) {
+        streamBuffer.reset(releaseCapacity: releaseCapacity)
         lastStreamingHapticAt = nil
+    }
+
+    private func clearResponseTextBuffer() {
+        responseText.removeAll(keepingCapacity: false)
     }
 
     private func emitStreamingHapticIfNeeded(now: Date = .now) {
@@ -159,8 +163,8 @@ final class NoteChatState {
     ) {
         messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
-        resetStreamBuffer()
-        responseText = ""
+        resetStreamBuffer(releaseCapacity: true)
+        clearResponseTextBuffer()
         error = nil
         isStreaming = true
         hasResponse = true
@@ -535,10 +539,10 @@ final class NoteChatState {
         } else {
             onAccept?()
         }
-        resetStreamBuffer()
+        resetStreamBuffer(releaseCapacity: true)
         hasResponse = false
         useResponsePanel = false
-        responseText = ""
+        clearResponseTextBuffer()
         resetStreamingPresentationState()
     }
 
@@ -546,10 +550,10 @@ final class NoteChatState {
         if !useResponsePanel {
             onDiscard?()
         }
-        resetStreamBuffer()
+        resetStreamBuffer(releaseCapacity: true)
         hasResponse = false
         useResponsePanel = false
-        responseText = ""
+        clearResponseTextBuffer()
         resetStreamingPresentationState()
     }
 
@@ -558,8 +562,8 @@ final class NoteChatState {
         if hasResponse {
             discardResponse()
         } else {
-            resetStreamBuffer()
-            responseText = ""
+            resetStreamBuffer(releaseCapacity: true)
+            clearResponseTextBuffer()
             useResponsePanel = false
             resetStreamingPresentationState()
         }

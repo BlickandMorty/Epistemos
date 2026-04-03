@@ -156,6 +156,7 @@ protocol LocalMLXRuntime: Sendable {
 
 nonisolated struct LocalMLXRuntimePolicy: Sendable, Equatable {
     let memoryPolicy: LocalMLXMemoryPolicy
+    let idleMemoryPolicy: LocalMLXMemoryPolicy
     let idleUnloadDelay: Duration
 }
 
@@ -249,6 +250,11 @@ nonisolated enum LocalMLXRuntimeTuning {
             snapshot: snapshot,
             conditions: conditions
         )
+        let idleMemoryPolicy = idleResidentMemoryPolicy(
+            activeMemoryPolicy: memoryPolicy,
+            snapshot: snapshot,
+            conditions: conditions
+        )
         var idleUnloadDelay: Duration
         switch snapshot.roundedMemoryGB {
         case ..<16:
@@ -273,7 +279,11 @@ nonisolated enum LocalMLXRuntimeTuning {
                 idleUnloadDelay = .seconds(1)
             }
         }
-        return LocalMLXRuntimePolicy(memoryPolicy: memoryPolicy, idleUnloadDelay: idleUnloadDelay)
+        return LocalMLXRuntimePolicy(
+            memoryPolicy: memoryPolicy,
+            idleMemoryPolicy: idleMemoryPolicy,
+            idleUnloadDelay: idleUnloadDelay
+        )
     }
 
     /// Hard ceiling on Metal intermediate tensor cache (4GB).
@@ -334,6 +344,53 @@ nonisolated enum LocalMLXRuntimeTuning {
 
         // Enforce hard ceiling: never exceed 4GB regardless of hardware tier.
         cacheLimit = min(cacheLimit, metalCacheCeiling)
+
+        return LocalMLXMemoryPolicy(memoryLimitBytes: memoryLimit, cacheLimitBytes: cacheLimit)
+    }
+
+    static func idleResidentMemoryPolicy(
+        activeMemoryPolicy: LocalMLXMemoryPolicy,
+        snapshot: LocalHardwareCapabilitySnapshot,
+        conditions: LocalRuntimeConditions
+    ) -> LocalMLXMemoryPolicy {
+        var memoryLimit = max(900_000_000, Int(Double(activeMemoryPolicy.memoryLimitBytes) * 0.52))
+        var cacheLimit = max(32_000_000, Int(Double(activeMemoryPolicy.cacheLimitBytes) * 0.10))
+
+        let cacheCeiling: Int
+        switch snapshot.roundedMemoryGB {
+        case ..<12:
+            cacheCeiling = 48_000_000
+        case ..<16:
+            cacheCeiling = 64_000_000
+        case ..<24:
+            cacheCeiling = 128_000_000
+        case ..<36:
+            cacheCeiling = 160_000_000
+        case ..<64:
+            cacheCeiling = 192_000_000
+        default:
+            cacheCeiling = 256_000_000
+        }
+        cacheLimit = min(cacheLimit, cacheCeiling)
+
+        if !conditions.appActive {
+            memoryLimit = max(768_000_000, Int(Double(memoryLimit) * 0.85))
+            cacheLimit = max(16_000_000, Int(Double(cacheLimit) * 0.50))
+        }
+
+        switch conditions.thermalState {
+        case .nominal:
+            break
+        case .fair:
+            memoryLimit = max(768_000_000, Int(Double(memoryLimit) * 0.92))
+            cacheLimit = max(24_000_000, Int(Double(cacheLimit) * 0.85))
+        case .serious:
+            memoryLimit = max(700_000_000, Int(Double(memoryLimit) * 0.74))
+            cacheLimit = max(16_000_000, Int(Double(cacheLimit) * 0.60))
+        case .critical:
+            memoryLimit = max(600_000_000, Int(Double(memoryLimit) * 0.58))
+            cacheLimit = max(16_000_000, Int(Double(cacheLimit) * 0.40))
+        }
 
         return LocalMLXMemoryPolicy(memoryLimitBytes: memoryLimit, cacheLimitBytes: cacheLimit)
     }
@@ -582,8 +639,8 @@ actor MLXInferenceService: LocalMLXRuntime {
             snapshot: snapshot,
             conditions: runtimeConditions
         )
-        Memory.memoryLimit = policy.memoryPolicy.memoryLimitBytes
-        Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
+        Memory.memoryLimit = policy.idleMemoryPolicy.memoryLimitBytes
+        Memory.cacheLimit = policy.idleMemoryPolicy.cacheLimitBytes
     }
 
     func generate(request: LocalMLXRequest) async throws -> String {
@@ -724,8 +781,11 @@ actor MLXInferenceService: LocalMLXRuntime {
     func updateRuntimeConditions(_ conditions: LocalRuntimeConditions) async {
         runtimeConditions = conditions
         let policy = currentRuntimePolicy()
-        Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
-        Memory.memoryLimit = policy.memoryPolicy.memoryLimitBytes
+        if activeRequestCount > 0 {
+            applyActiveMemoryPolicy(policy)
+        } else {
+            applyIdleMemoryPolicy(policy)
+        }
         if activeRequestCount == 0,
            container != nil,
            (!conditions.appActive || conditions.thermalState == .critical) {
@@ -740,8 +800,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         Memory.cacheLimit = 0
         Memory.clearCache()
         let policy = currentRuntimePolicy()
-        Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
-        Memory.memoryLimit = policy.memoryPolicy.memoryLimitBytes
+        applyIdleMemoryPolicy(policy)
     }
 
     func profilingSnapshot() -> LocalMLXRunProfile? {
@@ -753,14 +812,14 @@ actor MLXInferenceService: LocalMLXRuntime {
         policy: LocalMLXRuntimePolicy
     ) async throws -> (container: ModelContainer, coldLoad: Bool, loadDurationMS: Double) {
         cancelScheduledUnload()
+        applyActiveMemoryPolicy(policy)
         if loadedModelID == request.modelID, let container {
             return (container, false, 0)
         }
 
         await unload()
         let start = ContinuousClock.now
-        Memory.memoryLimit = policy.memoryPolicy.memoryLimitBytes
-        Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
+        applyActiveMemoryPolicy(policy)
         Memory.peakMemory = 0
 
         let configuration = ModelConfiguration(directory: request.modelDirectory)
@@ -805,9 +864,19 @@ actor MLXInferenceService: LocalMLXRuntime {
     private func endRequest(policy: LocalMLXRuntimePolicy) async {
         activeRequestCount = max(0, activeRequestCount - 1)
         Memory.clearCache()
-        Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
+        applyIdleMemoryPolicy(policy)
         scheduleIdleUnload()
         await requestGate.release()
+    }
+
+    private func applyActiveMemoryPolicy(_ policy: LocalMLXRuntimePolicy) {
+        Memory.memoryLimit = policy.memoryPolicy.memoryLimitBytes
+        Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
+    }
+
+    private func applyIdleMemoryPolicy(_ policy: LocalMLXRuntimePolicy) {
+        Memory.memoryLimit = policy.idleMemoryPolicy.memoryLimitBytes
+        Memory.cacheLimit = policy.idleMemoryPolicy.cacheLimitBytes
     }
 
     private func currentRuntimePolicy() -> LocalMLXRuntimePolicy {

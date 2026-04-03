@@ -55,6 +55,10 @@ final class ChatState {
         transcriptRevision &+= 1
     }
 
+    private func releaseStreamingTextStorage() {
+        streamingText.removeAll(keepingCapacity: false)
+    }
+
     // MARK: - Error
 
     var error: String?
@@ -81,16 +85,17 @@ final class ChatState {
     /// Start a fresh chat session. Clears old messages and activeChatId so the
     /// next submitQuery creates a new conversation. Preserves mode preferences.
     func startNewChat() {
-        streamBuffer.reset()
+        streamBuffer.reset(releaseCapacity: true)
 
         messages = []
         markTranscriptChanged()
         hasMessages = false
-        streamingText = ""
+        releaseStreamingTextStorage()
         isStreaming = false
         activeChatId = nil
         chatTitle = nil
         showLanding = false
+        pendingAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
         pendingContextAttachments = []
@@ -132,7 +137,8 @@ final class ChatState {
         hasMessages = true
 
         pendingAttachments = []
-        streamingText = ""
+        streamBuffer.reset(releaseCapacity: true)
+        releaseStreamingTextStorage()
         isStreaming = false
 
         eventBus?.emit(
@@ -203,7 +209,8 @@ final class ChatState {
         messages.append(assistantMessage)
         markTranscriptChanged()
 
-        streamingText = ""
+        streamBuffer.reset(releaseCapacity: true)
+        releaseStreamingTextStorage()
         isStreaming = false
         eventBus?.emit(.queryCompleted(chatId: ChatId(chatId), messageId: MessageId(assistantMessage.id)))
     }
@@ -220,7 +227,8 @@ final class ChatState {
         let metadata = consumeStreamingMessageMetadata()
 
         defer {
-            streamingText = ""
+            streamBuffer.reset(releaseCapacity: true)
+            releaseStreamingTextStorage()
             isStreaming = false
         }
 
@@ -261,7 +269,8 @@ final class ChatState {
         )
         messages.append(errorMessage)
         markTranscriptChanged()
-        streamingText = ""
+        streamBuffer.reset(releaseCapacity: true)
+        releaseStreamingTextStorage()
         isStreaming = false
     }
 
@@ -343,15 +352,17 @@ final class ChatState {
 
     func clearMessages() {
         let chatId = activeChatId
-        streamBuffer.reset()
+        streamBuffer.reset(releaseCapacity: true)
 
         messages = []
         markTranscriptChanged()
         hasMessages = false
-        streamingText = ""
+        releaseStreamingTextStorage()
         isStreaming = false
         isIncognito = false
         showLanding = true
+        pendingAttachments = []
+        pendingContextAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
         vaultBriefingManifest = nil
@@ -472,9 +483,9 @@ final class DisplayPacedTextBuffer {
         onFlush(delta)
     }
 
-    func reset() {
+    func reset(releaseCapacity: Bool = false) {
         flushTask?.cancel()
         flushTask = nil
-        pendingText.removeAll(keepingCapacity: true)
+        pendingText.removeAll(keepingCapacity: !releaseCapacity)
     }
 }

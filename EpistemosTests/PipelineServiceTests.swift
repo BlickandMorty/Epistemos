@@ -1718,6 +1718,72 @@ struct ChatStateLocalMessageTests {
         #expect(chatState.messages.last?.role == .assistant)
         #expect(chatState.messages.last?.content == "Partial answer")
     }
+
+    @Test("starting a new chat clears pending attachments and transient context")
+    func startNewChatClearsPendingAttachmentsAndContext() {
+        let chatState = ChatState()
+        chatState.addAttachment(
+            FileAttachment(
+                id: "file-1",
+                name: "notes.txt",
+                type: .text,
+                uri: "file:///tmp/notes.txt",
+                size: 128,
+                mimeType: "text/plain",
+                preview: "cached"
+            )
+        )
+        chatState.addContextAttachment(
+            ContextAttachment(
+                kind: .note,
+                targetId: "note-99",
+                title: "Retained Context",
+                subtitle: "Vault"
+            )
+        )
+        chatState.loadedNoteIds = ["note-99"]
+        chatState.loadedNoteTitles = ["Retained Context"]
+
+        chatState.startNewChat()
+
+        #expect(chatState.pendingAttachments.isEmpty)
+        #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.loadedNoteIds.isEmpty)
+        #expect(chatState.loadedNoteTitles.isEmpty)
+    }
+
+    @Test("clearing messages drops pending attachments and transient context")
+    func clearMessagesDropsPendingAttachmentsAndContext() {
+        let chatState = ChatState()
+        chatState.addAttachment(
+            FileAttachment(
+                id: "file-2",
+                name: "memo.txt",
+                type: .text,
+                uri: "file:///tmp/memo.txt",
+                size: 256,
+                mimeType: "text/plain",
+                preview: "memo"
+            )
+        )
+        chatState.addContextAttachment(
+            ContextAttachment(
+                kind: .allNotes,
+                targetId: ChatCoordinator.allNotesMentionToken,
+                title: "All Notes",
+                subtitle: "Vault"
+            )
+        )
+        chatState.loadedNoteIds = ["note-2"]
+        chatState.loadedNoteTitles = ["Memo"]
+
+        chatState.clearMessages()
+
+        #expect(chatState.pendingAttachments.isEmpty)
+        #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.loadedNoteIds.isEmpty)
+        #expect(chatState.loadedNoteTitles.isEmpty)
+    }
 }
 
 @Suite("Ambient Manifest Refresh Driver", .serialized)

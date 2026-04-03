@@ -45,6 +45,10 @@ struct RuntimeValidationTests {
         "epistemos.localRoutingMode",
         "epistemos.preferredLocalTextModelID",
         "epistemos.preferredChatModelSelection",
+        "epistemos.activeAIProvider",
+        "epistemos.preferredCloudModel.openAI",
+        "epistemos.preferredCloudModel.anthropic",
+        "epistemos.preferredCloudModel.google",
     ]
 
     @MainActor
@@ -112,7 +116,7 @@ struct RuntimeValidationTests {
         #expect(source.contains("\"gemini-1.5-pro\": .googleGemini25Pro"))
     }
 
-    @Test("chat model selector uses a popover with foldable local and cloud sections")
+    @Test("chat model selector uses a popover with an active provider and scoped cloud section")
     func chatModelSelectorUsesPopoverWithFoldableSections() throws {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
@@ -120,8 +124,10 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("DisclosureGroup("))
         #expect(rootView.contains("\"Local Models\""))
         #expect(rootView.contains("\"Cloud Models\""))
+        #expect(rootView.contains("\"AI Provider\""))
         #expect(rootView.contains("\"Temporary Chat\""))
         #expect(rootView.contains("ForEach(CloudModelProvider.allCases"))
+        #expect(rootView.contains("inference.activeAIProvider"))
         #expect(rootView.contains("ForEach(CloudTextModelID.models(for: provider)"))
     }
 
@@ -657,6 +663,35 @@ struct RuntimeValidationTests {
         }
     }
 
+    @Test("shadow git checkpoint subprocess remains cancellation-safe")
+    func shadowGitCheckpointSubprocessRemainsCancellationSafe() throws {
+        let source = try loadRepoTextFile("Epistemos/Omega/Safety/ShadowGitCheckpoint.swift")
+
+        #expect(source.contains("ThrowingProcessContinuationState<Void>()"))
+        #expect(source.contains("withTaskCancellationHandler"))
+        #expect(source.contains("TimeoutError(seconds: timeoutSeconds)"))
+        #expect(source.contains("state.terminate()"))
+        #expect(source.contains("state.resume(throwing: CancellationError())"))
+    }
+
+    @Test("subprocess timeout watchdogs stop cleanly on cancellation")
+    func subprocessTimeoutWatchdogsStopCleanlyOnCancellation() throws {
+        let sourcePaths = [
+            "Epistemos/Agent/HermesSubprocessManager.swift",
+            "Epistemos/Omega/Safety/ShadowGitCheckpoint.swift",
+            "Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift",
+            "Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift",
+            "Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift",
+            "Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift",
+        ]
+
+        for path in sourcePaths {
+            let source = try loadRepoTextFile(path)
+            #expect(!source.contains("try? await Task.sleep(for: .seconds(timeoutSeconds))"))
+            #expect(source.contains("catch is CancellationError"))
+        }
+    }
+
     @Test("epistemos core durability and instant recall exports stay fail-closed")
     func epistemosCoreDurabilityAndInstantRecallExportsStayFailClosed() throws {
         let source = try loadRepoTextFile("epistemos-core/src/uniffi_exports.rs")
@@ -879,6 +914,27 @@ struct RuntimeValidationTests {
         #expect(runtime.contains("private let requestGate = LocalMLXRequestGate()"))
         #expect(runtime.contains("await requestGate.acquire()"))
         #expect(runtime.contains("await requestGate.release()"))
+        #expect(runtime.contains("let idleMemoryPolicy: LocalMLXMemoryPolicy"))
+        #expect(runtime.contains("private func applyActiveMemoryPolicy"))
+        #expect(runtime.contains("private func applyIdleMemoryPolicy"))
+        #expect(runtime.contains("applyActiveMemoryPolicy(policy)"))
+        #expect(runtime.contains("applyIdleMemoryPolicy(policy)"))
+    }
+
+    @Test("chat and note chat release oversized streaming buffers after reset paths")
+    func chatAndNoteChatReleaseOversizedStreamingBuffersAfterResetPaths() throws {
+        let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
+        let noteChatState = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+
+        #expect(chatState.contains("private func releaseStreamingTextStorage()"))
+        #expect(chatState.contains("streamingText.removeAll(keepingCapacity: false)"))
+        #expect(chatState.contains("streamBuffer.reset(releaseCapacity: true)"))
+
+        #expect(noteChatState.contains("private func clearResponseTextBuffer()"))
+        #expect(noteChatState.contains("responseText.removeAll(keepingCapacity: false)"))
+        #expect(noteChatState.contains("private func resetStreamBuffer(releaseCapacity: Bool = false)"))
+        #expect(noteChatState.contains("resetStreamBuffer(releaseCapacity: true)"))
+        #expect(noteChatState.contains("responseText.reserveCapacity(16_384)"))
     }
 
     @Test("bootstrap refreshes prepared retrieval runtime state on app activation")
@@ -1352,12 +1408,16 @@ struct RuntimeValidationTests {
     func notesSidebarCachesTitleMatchesOutsideRenderPath() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
 
+        #expect(sidebar.contains("enum NotesSidebarSearchCachePolicy"))
+        #expect(sidebar.contains("static let maxCachedQueries = 12"))
         #expect(sidebar.contains("@State private var titleSearchResults: [SidebarPageItem] = []"))
         #expect(sidebar.contains("@State private var cachedPageSearchCatalog: [SidebarPageSearchCatalogEntry] = []"))
         #expect(sidebar.contains("@State private var cachedPageSearchCatalogById: [String: SidebarPageSearchCatalogEntry] = [:]"))
         #expect(sidebar.contains("@State private var cachedPageSearchTrigramIndex = TrigramSearchIndex<String>()"))
         #expect(sidebar.contains("@State private var cachedTitleSearchResultIDsByQuery: [String: [String]] = [:]"))
         #expect(sidebar.contains("@State private var cachedBodySearchResultsByQuery: [String: [SidebarPageItem]] = [:]"))
+        #expect(sidebar.contains("@State private var cachedTitleSearchQueryOrder: [String] = []"))
+        #expect(sidebar.contains("@State private var cachedBodySearchQueryOrder: [String] = []"))
         #expect(sidebar.contains("refreshTitleSearchResults(query: notesUI.searchQuery)"))
         #expect(sidebar.contains("titleSearchResults + uniqueBodyMatches"))
         #expect(sidebar.contains("cachedPageSearchTrigramIndex.rebuild("))
@@ -1365,9 +1425,10 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("let matchedIDs = cachedTitleSearchResultIDsByQuery[normalizedQuery] ?? {"))
         #expect(sidebar.contains("let candidateIDs = longestCachedTitleSearchPrefixIDs(for: normalizedQuery)"))
         #expect(sidebar.contains("cachedPageSearchTrigramIndex.orderedCandidates(for: normalizedQuery)"))
+        #expect(sidebar.contains("NotesSidebarSearchCachePolicy.store("))
         #expect(sidebar.contains("guard normalizedQuery.count >= 3 else"))
         #expect(sidebar.contains("if let cached = cachedBodySearchResultsByQuery[normalizedQuery]"))
-        #expect(sidebar.contains("cachedBodySearchResultsByQuery[normalizedQuery] = results"))
+        #expect(sidebar.contains("cache: &cachedBodySearchResultsByQuery"))
         #expect(sidebar.contains("private func refreshTitleSearchResults(query: String)"))
     }
 
@@ -1431,6 +1492,19 @@ struct RuntimeValidationTests {
         #expect(overlay.contains("if isMinimized {"))
         #expect(overlay.contains("restore()"))
         #expect(overlay.contains("restoreImmersiveChromeIfNeeded(window, metalView: metalView)"))
+    }
+
+    @Test("graph overlay bounds hidden Metal retention with a scheduled teardown")
+    func graphOverlayBoundsHiddenMetalRetentionWithAScheduledTeardown() throws {
+        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+
+        #expect(overlay.contains("private var hiddenTeardownTask: Task<Void, Never>?"))
+        #expect(overlay.contains("cancelScheduledTeardown()"))
+        #expect(overlay.contains("scheduleHiddenTeardown()"))
+        #expect(overlay.contains("self?.metalView?.pauseEngine()"))
+        #expect(overlay.contains("self?.scheduleHiddenTeardown()"))
+        #expect(overlay.contains("GraphOverlayRetentionPolicy.hiddenTeardownDelay"))
+        #expect(overlay.contains("guard !self.isMinimized, self.window?.isVisible != true else { return }"))
     }
 
     @Test("metal graph view wakes idle renderer on power mode changes")
@@ -1772,15 +1846,17 @@ struct RuntimeValidationTests {
         #expect(root.contains("setPreferredChatModelSelection("))
     }
 
-    @Test("chat model selector always exposes cloud models and shows configuration guidance")
+    @Test("chat model selector scopes cloud models to the active provider and shows configuration guidance")
     func chatModelSelectorAlwaysExposesCloudModelsAndShowsConfigurationGuidance() throws {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
         #expect(root.contains("title: \"Cloud Models\""))
         #expect(root.contains("ForEach(CloudModelProvider.allCases"))
-        #expect(root.contains("Text(provider.displayName)"))
+        #expect(root.contains("inference.activeCloudProvider"))
         #expect(root.contains("isEnabled: providerConfigured"))
-        #expect(root.contains(": \"Add a key to unlock\""))
+        #expect(root.contains("\"Local Only\""))
+        #expect(root.contains("subtitle: cloudDisclosureSubtitle"))
+        #expect(root.contains("return \"Add a key to unlock\""))
         #expect(root.contains("Open Inference Settings"))
     }
 
@@ -1793,6 +1869,17 @@ struct RuntimeValidationTests {
         #expect(chatInput.contains("panel.begin(completionHandler: handler)"))
         #expect(chatInput.contains("url.startAccessingSecurityScopedResource()"))
         #expect(chatInput.contains("url.stopAccessingSecurityScopedResource()"))
+    }
+
+    @Test("instant recall rebuild leaves the heavy vault watcher work off the main actor")
+    func instantRecallRebuildLeavesWatcherWorkOffTheMainActor() throws {
+        let service = try loadRepoTextFile("Epistemos/KnowledgeFusion/InstantRecallService.swift")
+        let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(service.contains("func rebuildIndexAsync(notes: [(id: String, text: String)]) async"))
+        #expect(service.contains("Task.detached(priority: .utility)"))
+        #expect(vaultSync.contains("await service.rebuildIndexAsync(notes: notes)"))
+        #expect(!vaultSync.contains("instantRecallService.rebuildIndex(notes: notes)"))
     }
 
     @Test("composer reference popover keeps result rendering lazy for smooth scrolling")
@@ -2647,6 +2734,10 @@ struct InferenceCloudSelectionTests {
         "epistemos.localRoutingMode",
         "epistemos.preferredLocalTextModelID",
         "epistemos.preferredChatModelSelection",
+        "epistemos.activeAIProvider",
+        "epistemos.preferredCloudModel.openAI",
+        "epistemos.preferredCloudModel.anthropic",
+        "epistemos.preferredCloudModel.google",
     ]
 
     @MainActor
@@ -2700,6 +2791,49 @@ struct InferenceCloudSelectionTests {
 
                 #expect(inference.preferredChatModelSelection == fallback)
             }
+        }
+    }
+
+    @MainActor
+    @Test("active AI provider scopes cloud models and remembers the last model per provider")
+    func activeAIProviderScopesCloudModelsAndRemembersProviderModels() async {
+        await withResetInferenceDefaults {
+            var keychainValues: [String: String] = [
+                CloudModelProvider.openAI.apiKeyKeychainKey: "openai-test-key",
+                CloudModelProvider.anthropic.apiKeyKeychainKey: "anthropic-test-key",
+            ]
+            let inference = InferenceState(
+                keychainLoad: { keychainValues[$0] },
+                keychainSave: { value, key in
+                    keychainValues[key] = value
+                    return true
+                },
+                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+            )
+
+            #expect(inference.activeAIProvider == .openAI)
+            #expect(inference.activeCloudProvider == .openAI)
+            #expect(inference.activeCloudModels == CloudTextModelID.models(for: .openAI))
+
+            inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
+            inference.setActiveAIProvider(.anthropic)
+
+            #expect(inference.activeAIProvider == .anthropic)
+            #expect(inference.activeCloudProvider == .anthropic)
+            #expect(inference.activeCloudModels == CloudTextModelID.models(for: .anthropic))
+            #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeSonnet4))
+
+            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeHaiku35))
+            inference.setActiveAIProvider(.localOnly)
+            #expect(inference.preferredChatModelSelection == .localQwen(inference.preferredLocalTextModelID))
+
+            inference.setActiveAIProvider(.anthropic)
+            #expect(inference.preferredChatModelSelection == .localQwen(inference.preferredLocalTextModelID))
+
+            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeHaiku35))
+            inference.setActiveAIProvider(.openAI)
+            inference.setActiveAIProvider(.anthropic)
+            #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeHaiku35))
         }
     }
 
