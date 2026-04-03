@@ -1229,7 +1229,7 @@ final class HologramOverlay {
 
         let ctrlConstraints = [
             controlsView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            controlsView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 56),
+            controlsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -56),
             controlsView.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, constant: -80),
         ]
         NSLayoutConstraint.activate(ctrlConstraints)
