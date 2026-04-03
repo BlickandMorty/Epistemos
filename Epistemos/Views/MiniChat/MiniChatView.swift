@@ -607,7 +607,7 @@ private struct MiniChatInputBar: View {
         AssistantComposerStatusLabelState.resolve(
             inputText: text,
             phase: composerStatusPhase,
-            idleText: "Ask anything…",
+            idleText: ComposerAttachmentEntryHints.mainChatPlaceholder,
             showsIdleLabel: false
         )
     }
@@ -645,12 +645,11 @@ private struct MiniChatInputBar: View {
                 indexedNoteSnippetsByPageID: [:]
             )
         }
-        let shouldSearchChats = !trimmedMentionFilter.isEmpty
         return ChatCoordinator.searchReferenceResults(
             filter: trimmedMentionFilter,
             manifest: ambientManifest,
-            chats: shouldSearchChats ? recentChats() : [],
-            threads: shouldSearchChats ? threadState.chatThreads : [],
+            chats: recentChats(),
+            threads: threadState.chatThreads,
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
@@ -682,12 +681,6 @@ private struct MiniChatInputBar: View {
                             operatingMode: operatingModeBinding
                         )
                             .accessibilityLabel("Chat model")
-
-                        ComposerContextShortcutBar(
-                            noteLabel: "Chat with Note",
-                            onChatWithNote: openNotePicker,
-                            onChatWithChat: openChatPicker
-                        )
                     }
 
                     AssistantSendButton(
@@ -738,6 +731,8 @@ private struct MiniChatInputBar: View {
                     isPresented: $showMentionDropdown,
                     results: mentionSearchResults,
                     query: $mentionFilter,
+                    manifest: ambientManifest,
+                    modelContext: modelContext,
                     idealWidth: referencePopoverStyle.idealWidth,
                     maxHeight: referencePopoverStyle.maxHeight,
                     style: referencePopoverStyle,
@@ -779,7 +774,7 @@ private struct MiniChatInputBar: View {
         }
         .overlay(alignment: .topLeading) {
             if text.isEmpty && composerStatusLabelState == nil {
-                Text("Ask anything…")
+                Text(ComposerAttachmentEntryHints.mainChatPlaceholder)
                     .font(.system(size: 16, weight: .regular, design: .rounded))
                     .foregroundStyle(theme.mutedForeground.opacity(0.55))
                     .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
@@ -1352,29 +1347,6 @@ private struct MiniChatInputBar: View {
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
-    }
-
-    private func openChatPicker() {
-        referencePopoverStyle = .chatPicker
-        mentionFilter = ""
-        mentionPickerAutofocus = true
-        showMentionDropdown = true
-        isFocused = true
-        referenceSearch.reset()
-    }
-
-    private func openNotePicker() {
-        referencePopoverStyle = .notePicker
-        mentionFilter = ""
-        mentionPickerAutofocus = true
-        showMentionDropdown = true
-        isFocused = true
-        referenceSearch.reset()
-    }
-
-    private func attachVaultContext() {
-        threadState.addMiniChatContextAttachment(ComposerReferenceHelpers.allNotesAttachment, chatID: chatID)
-        persistMiniChatSession()
     }
 
     private func dismissReferencePopover() {

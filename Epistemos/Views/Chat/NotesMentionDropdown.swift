@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import SwiftData
 import SwiftUI
 
 enum NoteMentionChoice: Identifiable {
@@ -307,7 +308,7 @@ enum ComposerReferencePopoverStyle {
 
     var idealWidth: CGFloat {
         switch self {
-        case .mention: 560
+        case .mention: 480
         case .notePicker: 760
         case .chatPicker: 560
         }
@@ -315,7 +316,7 @@ enum ComposerReferencePopoverStyle {
 
     var maxHeight: CGFloat {
         switch self {
-        case .mention: 420
+        case .mention: 500
         case .notePicker: 560
         case .chatPicker: 460
         }
@@ -345,6 +346,8 @@ final class ComposerReferencePopoverBridge {
     var maxHeight: CGFloat
     var style: ComposerReferencePopoverStyle
     var autofocusSearchField: Bool
+    var manifest: VaultManifest?
+    let modelContext: ModelContext
     @ObservationIgnored var selectAction: ((ComposerReferenceChoice) -> Void)?
     @ObservationIgnored var queryChangeAction: ((String) -> Void)?
 
@@ -354,7 +357,9 @@ final class ComposerReferencePopoverBridge {
         width: CGFloat,
         maxHeight: CGFloat,
         style: ComposerReferencePopoverStyle,
-        autofocusSearchField: Bool
+        autofocusSearchField: Bool,
+        manifest: VaultManifest?,
+        modelContext: ModelContext
     ) {
         self.results = results
         self.query = query
@@ -362,6 +367,8 @@ final class ComposerReferencePopoverBridge {
         self.maxHeight = maxHeight
         self.style = style
         self.autofocusSearchField = autofocusSearchField
+        self.manifest = manifest
+        self.modelContext = modelContext
     }
 }
 
@@ -382,6 +389,8 @@ private struct ComposerReferencePopoverBridgeRoot: View {
             maxHeight: bridge.maxHeight,
             style: bridge.style,
             autofocusSearchField: bridge.autofocusSearchField,
+            manifest: bridge.manifest,
+            modelContext: bridge.modelContext,
             onSelect: { choice in
                 bridge.selectAction?(choice)
             }
@@ -425,6 +434,7 @@ final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
             if bridge.maxHeight != configuration.maxHeight { bridge.maxHeight = configuration.maxHeight }
             if bridge.style != configuration.style { bridge.style = configuration.style }
             if bridge.autofocusSearchField != configuration.autofocusSearchField { bridge.autofocusSearchField = configuration.autofocusSearchField }
+            bridge.manifest = configuration.manifest
             bridge.selectAction = configuration.onSelect
             bridge.queryChangeAction = { queryBinding.wrappedValue = $0 }
         } else {
@@ -434,7 +444,9 @@ final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
                 width: width,
                 maxHeight: configuration.maxHeight,
                 style: configuration.style,
-                autofocusSearchField: configuration.autofocusSearchField
+                autofocusSearchField: configuration.autofocusSearchField,
+                manifest: configuration.manifest,
+                modelContext: configuration.modelContext
             )
             newBridge.selectAction = configuration.onSelect
             newBridge.queryChangeAction = { queryBinding.wrappedValue = $0 }
@@ -504,12 +516,16 @@ struct ComposerReferencePopover: NSViewRepresentable {
     let style: ComposerReferencePopoverStyle
     @Binding var query: String
     let autofocusSearchField: Bool
+    let manifest: VaultManifest?
+    let modelContext: ModelContext
     let onDismiss: () -> Void
 
     init(
         isPresented: Binding<Bool>,
         results: ChatCoordinator.ReferenceSearchResults,
         query: Binding<String>,
+        manifest: VaultManifest?,
+        modelContext: ModelContext,
         idealWidth: CGFloat = 428,
         maxHeight: CGFloat = 360,
         style: ComposerReferencePopoverStyle = .mention,
@@ -521,6 +537,8 @@ struct ComposerReferencePopover: NSViewRepresentable {
         self.results = results
         _query = query
         self.onSelect = onSelect
+        self.manifest = manifest
+        self.modelContext = modelContext
         self.idealWidth = idealWidth
         self.maxHeight = maxHeight
         self.style = style
@@ -560,8 +578,11 @@ private struct ComposerReferencePopoverContent: View {
     let style: ComposerReferencePopoverStyle
     @Binding private var query: String
     private let autofocusSearchField: Bool
+    private let manifest: VaultManifest?
+    private let modelContext: ModelContext
 
     @FocusState private var isSearchFocused: Bool
+    @State private var browseInventory = ComposerReferenceBrowserInventory.empty
 
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
@@ -573,6 +594,8 @@ private struct ComposerReferencePopoverContent: View {
         maxHeight: CGFloat,
         style: ComposerReferencePopoverStyle,
         autofocusSearchField: Bool,
+        manifest: VaultManifest?,
+        modelContext: ModelContext,
         onSelect: @escaping (ComposerReferenceChoice) -> Void
     ) {
         self.results = results
@@ -581,6 +604,8 @@ private struct ComposerReferencePopoverContent: View {
         self.maxHeight = maxHeight
         self.style = style
         self.autofocusSearchField = autofocusSearchField
+        self.manifest = manifest
+        self.modelContext = modelContext
         self.onSelect = onSelect
     }
 
@@ -629,6 +654,18 @@ private struct ComposerReferencePopoverContent: View {
             guard autofocusSearchField else { return }
             try? await Task.sleep(for: .milliseconds(60))
             isSearchFocused = true
+        }
+        .onAppear {
+            refreshBrowseInventoryIfNeeded(force: true)
+        }
+        .onChange(of: style) { _, _ in
+            refreshBrowseInventoryIfNeeded(force: false)
+        }
+        .onChange(of: results.query) { _, _ in
+            refreshBrowseInventoryIfNeeded(force: false)
+        }
+        .onChange(of: results.vaultNoteCount) { _, _ in
+            refreshBrowseInventoryIfNeeded(force: true)
         }
     }
 
@@ -692,6 +729,7 @@ private struct ComposerReferencePopoverContent: View {
             NotesMentionDropdown(
                 results: results,
                 style: style,
+                browseInventory: browseInventory,
                 onSelect: onSelect
             )
             .padding(.vertical, 8)
@@ -813,7 +851,7 @@ private struct ComposerReferencePopoverContent: View {
                 : "Search your notes and chats, then attach the exact context you want in this turn."
         }
         if results.query.isEmpty {
-            return "Attach a note, search your vault, or bring the whole index into this turn."
+            return "Browse recent chats, scan your note tree, or attach the full vault index."
         }
         return "Searching titles, folders, tags, and body excerpts for “\(results.query)”."
     }
@@ -825,7 +863,7 @@ private struct ComposerReferencePopoverContent: View {
         if style == .notePicker {
             return results.query.isEmpty ? "Find Note Context" : "Search Results"
         }
-        return results.query.isEmpty ? "Browse Note Context" : "Search Notes and Chats"
+        return results.query.isEmpty ? "Browse Notes and Chats" : "Search Notes and Chats"
     }
 
     private var headerIcon: String {
@@ -939,6 +977,35 @@ private struct ComposerReferencePopoverContent: View {
         }
         .buttonStyle(.plain)
     }
+
+    private func refreshBrowseInventoryIfNeeded(force: Bool) {
+        guard style == .mention, results.query.isEmpty else { return }
+        if !force && !browseInventory.isEmpty { return }
+
+        var folderDescriptor = FetchDescriptor<SDFolder>(
+            sortBy: [
+                SortDescriptor(\.sortOrder),
+                SortDescriptor(\.createdAt)
+            ]
+        )
+        folderDescriptor.fetchLimit = 1_000
+
+        guard let pages = try? modelContext.fetch(SDPage.activePagesDescriptor),
+              let folders = try? modelContext.fetch(folderDescriptor)
+        else {
+            browseInventory = .empty
+            return
+        }
+
+        let manifestEntriesByPageID = Dictionary(
+            uniqueKeysWithValues: (manifest?.entries ?? []).map { ($0.pageId, $0) }
+        )
+        browseInventory = ComposerReferenceBrowserInventoryBuilder.build(
+            manifestEntriesByPageID: manifestEntriesByPageID,
+            pages: pages,
+            folders: folders
+        )
+    }
 }
 
 // MARK: - Notes Mention Dropdown
@@ -948,6 +1015,7 @@ private struct ComposerReferencePopoverContent: View {
 struct NotesMentionDropdown: View {
     let results: ChatCoordinator.ReferenceSearchResults
     let style: ComposerReferencePopoverStyle
+    let browseInventory: ComposerReferenceBrowserInventory
     let onSelect: (ComposerReferenceChoice) -> Void
 
     @Environment(UIState.self) private var ui
@@ -961,7 +1029,13 @@ struct NotesMentionDropdown: View {
     }
 
     var body: some View {
-        if !hasResults {
+        if style == .mention && results.query.isEmpty {
+            ComposerReferenceBrowseList(
+                inventory: browseInventory,
+                results: results,
+                onSelect: onSelect
+            )
+        } else if !hasResults {
             emptyState
         } else {
             LazyVStack(alignment: .leading, spacing: 0) {

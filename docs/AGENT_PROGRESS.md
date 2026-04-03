@@ -2,6 +2,13 @@
 
 Last updated: 2026-04-03 | All sprints COMPLETE | Full automated sweep green: Swift 3111 tests / 422 suites, graph-engine 2451, agent_core 144, omega-mcp 126, omega-ax 12 | Swift BUILD SUCCEEDED | Current research source of truth: docs/HERMES_INTEGRATION_RESEARCH.md
 
+## 2026-04-03 Main Chat Markdown Tightening ✅
+- [x] `TaggedMarkdownTextView` now groups consecutive list items into a single render run so main chat and mini chat no longer space bullets like separate paragraphs
+- [x] Chat markdown parsing now preserves nested list indentation, task-list items, and nested blockquote depth for the shared chat renderer
+- [x] Main chat and mini chat both pick up the change automatically because `MessageBubble` and `MiniChatView` already share `TaggedMarkdownTextView`
+- [x] Added focused `ChatPresentationTests` coverage for nested/task-list parsing and grouped list-run rendering
+- [x] Focused verification passed: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS,arch=arm64' -derivedDataPath /tmp/epistemos-chat-format-dd test -only-testing:EpistemosTests/ChatPresentationTests`
+
 ## 2026-04-03 Inference Post-Query Memory Release Audit ✅
 - [x] `DisplayPacedTextBuffer.reset(...)` now supports an explicit release-capacity path so oversized buffered assistant text does not keep its backing storage after the turn ends
 - [x] `ChatState` now drops retained `streamingText` / pending-buffer capacity on new chat, completion, cancellation, error, and clear paths instead of only resetting content length

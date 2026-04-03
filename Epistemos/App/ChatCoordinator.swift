@@ -531,47 +531,61 @@ final class ChatCoordinator {
             return results
         }()
 
-        let recentChats = chats.map { chat in
+        let recentChats = chats
+            .filter { !($0.messages ?? []).isEmpty }
+            .map { chat in
             let preview = chat.sortedMessages.last?.content.trimmingCharacters(in: .whitespacesAndNewlines)
-            return ChatReferenceResult(
-                attachment: ContextAttachment(
-                    kind: .chat,
-                    targetId: chat.id,
-                    title: chat.title,
-                    subtitle: "Main chat"
+            return (
+                result: ChatReferenceResult(
+                    attachment: ContextAttachment(
+                        kind: .chat,
+                        targetId: chat.id,
+                        title: chat.title,
+                        subtitle: "Main chat"
+                    ),
+                    preview: preview
                 ),
-                preview: preview
+                sortDate: chat.updatedAt
             )
         }
 
         let transientThreads = threads
             .filter { !$0.messages.isEmpty }
             .map { thread in
-                ChatReferenceResult(
-                    attachment: ContextAttachment(
-                        kind: .chat,
-                        targetId: thread.id,
-                        title: thread.label,
-                        subtitle: "Mini chat"
+                (
+                    result: ChatReferenceResult(
+                        attachment: ContextAttachment(
+                            kind: .chat,
+                            targetId: thread.id,
+                            title: thread.label,
+                            subtitle: "Mini chat"
+                        ),
+                        preview: thread.messages.last?.content.trimmingCharacters(in: .whitespacesAndNewlines)
                     ),
-                    preview: thread.messages.last?.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    sortDate: thread.messages.last?.createdAt ?? thread.createdAt
                 )
             }
 
         var seenChatIDs = Set<String>()
-        let filteredChats = (recentChats + transientThreads).filter { result in
-            seenChatIDs.insert(result.id).inserted
-        }.filter { result in
-            if normalizedFilter.isEmpty { return false }
-            let haystack = [result.attachment.title, result.attachment.subtitle, result.preview]
+        let filteredChats = (recentChats + transientThreads).filter { item in
+            seenChatIDs.insert(item.result.id).inserted
+        }.filter { item in
+            if normalizedFilter.isEmpty { return true }
+            let haystack = [item.result.attachment.title, item.result.attachment.subtitle, item.result.preview]
                 .compactMap { $0?.lowercased() }
                 .joined(separator: "\n")
             return haystack.contains(normalizedFilter)
+        }.sorted { lhs, rhs in
+            if lhs.sortDate != rhs.sortDate {
+                return lhs.sortDate > rhs.sortDate
+            }
+            return lhs.result.attachment.title.localizedCaseInsensitiveCompare(rhs.result.attachment.title)
+                == .orderedAscending
         }
 
         return ReferenceSearchResults(
             notes: noteChoices,
-            chats: Array(filteredChats.prefix(limitPerSection)),
+            chats: Array(filteredChats.prefix(limitPerSection).map(\.result)),
             vaultTitle: manifest?.vaultTitle,
             vaultNoteCount: manifest?.totalNoteCount ?? 0,
             isInventoryComplete: manifest?.isInventoryComplete ?? false,
