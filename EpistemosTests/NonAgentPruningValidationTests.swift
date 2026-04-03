@@ -32,6 +32,49 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
     }
 
+    @Test("session intelligence overlay avoids full vault scans for title lookups")
+    func sessionIntelligenceOverlayAvoidsFullVaultScansForTitleLookups() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+
+        #expect(!source.contains("let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []"))
+        #expect(!source.contains("let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []"))
+        #expect(source.contains("descriptor.fetchLimit = 1"))
+        #expect(source.contains("title.localizedStandardContains(normalizedTitle)"))
+    }
+
+    @Test("session intelligence overlay avoids full page scans when reopening the last mentioned note")
+    func sessionIntelligenceOverlayAvoidsFullPageScansForRecentNoteResolution() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+
+        #expect(source.contains("SessionIntelligenceNoteLookup.candidateTitles(in: text)"))
+        #expect(source.contains("findOpenNoteByTitle(candidate)"))
+        #expect(!source.contains("let descriptor = FetchDescriptor<SDPage>(sortBy: [SortDescriptor(\\.updatedAt, order: .reverse)])"))
+        #expect(!source.contains("for page in pages where !page.title.isEmpty"))
+    }
+
+    @Test("session intelligence overlay batches chat title lookups for summaries")
+    func sessionIntelligenceOverlayBatchesChatTitleLookupsForSummaries() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+
+        #expect(source.contains("SessionIntelligenceChatSummary.orderedGroups(from: chatGroups, limit: 10)"))
+        #expect(source.contains("loadChatTitles(for: orderedGroups.map(\\.chatId), in: context)"))
+        #expect(!source.contains("for (chatId, snippets) in chatGroups.prefix(10)"))
+        #expect(!source.contains("let chatTitle = (try? context.fetch(chatDesc).first?.title) ?? \"Chat\""))
+    }
+
+    @Test("session intelligence overlay shares autosave summary and note presentation helpers")
+    func sessionIntelligenceOverlaySharesAutosaveAndPresentationHelpers() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+
+        #expect(source.contains("private func latestAutoSavedWorkspaceSummary("))
+        #expect(source.contains("private func createAndOpenNote("))
+        #expect(source.contains("SessionIntelligenceOverlayTiming.notePresentationDelay()"))
+        #expect(source.contains("SessionIntelligenceOverlayTiming.dismissDelay()"))
+        #expect(!source.contains("try? await Task.sleep(for: .milliseconds(100))"))
+        #expect(!source.contains("try? await Task.sleep(for: .milliseconds(150))"))
+        #expect(!source.contains("try? AppBootstrap.shared?.modelContainer.mainContext.save()"))
+    }
+
     @Test("setup assistant sheet uses shared app environment injection")
     func setupAssistantSheetUsesSharedEnvironment() throws {
         let source = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")

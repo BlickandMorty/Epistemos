@@ -1227,6 +1227,18 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!pageShell.contains("cursorVisible"))
     }
 
+    @Test("liquid greeting uses deterministic timing helpers instead of random per-character sleeps")
+    func liquidGreetingUsesDeterministicTimingHelpers() throws {
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+
+        #expect(liquidGreeting.contains("LiquidGreetingTiming.typingDelay(forStep: index)"))
+        #expect(liquidGreeting.contains("LiquidGreetingTiming.untypingDelay(forStep: index)"))
+        #expect(liquidGreeting.contains("private func pause(_ duration: Duration) async -> Bool"))
+        #expect(!liquidGreeting.contains("Int.random(in: 45...75)"))
+        #expect(!liquidGreeting.contains("Int.random(in: 20...40)"))
+        #expect(!liquidGreeting.contains("try? await Task.sleep"))
+    }
+
     @Test("root toolbar drops cursor fx controls")
     func rootToolbarDropsCursorFXControls() throws {
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")

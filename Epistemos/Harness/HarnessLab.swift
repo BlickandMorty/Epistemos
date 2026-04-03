@@ -2,6 +2,16 @@ import Foundation
 import os
 import GRDB
 
+private enum HarnessLabTime {
+    nonisolated static func timestampString(_ date: Date = Date()) -> String {
+        date.ISO8601Format()
+    }
+
+    nonisolated static func filenameTimestamp(_ date: Date = Date()) -> String {
+        String(timestampString(date).prefix(19)).replacingOccurrences(of: ":", with: "-")
+    }
+}
+
 // MARK: - Harness Lab
 //
 // Developer-only, offline subsystem for harness evolution.
@@ -403,7 +413,7 @@ actor EvaluationRunner {
                         turns: 0,
                         tracePath: nil,
                         evidence: "Evaluation timed out after \(Int(self.perTaskTimeout))s",
-                        timestamp: ISO8601DateFormatter().string(from: Date())
+                        timestamp: HarnessLabTime.timestampString()
                     )
                 }
 
@@ -423,7 +433,7 @@ actor EvaluationRunner {
                 turns: 0,
                 tracePath: nil,
                 evidence: "Evaluation error: \(error.localizedDescription)",
-                timestamp: ISO8601DateFormatter().string(from: Date())
+                timestamp: HarnessLabTime.timestampString()
             )
         }
     }
@@ -447,7 +457,7 @@ actor EvaluationRunner {
                 taskId: task.id, harnessVersion: candidateId, passed: false, score: 0.0,
                 tokenCost: 0, turns: 0, tracePath: nil,
                 evidence: "Failed to create volatile root: \(error.localizedDescription)",
-                timestamp: ISO8601DateFormatter().string(from: Date())
+                timestamp: HarnessLabTime.timestampString()
             )
         }
         defer { volatileRoot.cleanup() }
@@ -513,7 +523,7 @@ actor EvaluationRunner {
             turns: 0,
             tracePath: nil,
             evidence: verificationResult.evidence,
-            timestamp: ISO8601DateFormatter().string(from: Date())
+            timestamp: HarnessLabTime.timestampString()
         )
     }
 
@@ -602,7 +612,7 @@ actor PromotionPipeline {
             diffs: diffs,
             improvement: improvement,
             verdict: verdict,
-            timestamp: ISO8601DateFormatter().string(from: Date())
+            timestamp: HarnessLabTime.timestampString()
         )
     }
 
@@ -1006,7 +1016,7 @@ actor ProposerOrchestrator {
         let fm = FileManager.default
         try fm.createDirectory(at: logsDir, withIntermediateDirectories: true)
 
-        let timestamp = ISO8601DateFormatter().string(from: Date()).prefix(19).replacingOccurrences(of: ":", with: "-")
+        let timestamp = HarnessLabTime.filenameTimestamp()
         let filename = "proposer_\(targetVersion)_\(timestamp).md"
         let logFile = logsDir.appendingPathComponent(filename)
 
@@ -1014,7 +1024,7 @@ actor ProposerOrchestrator {
         # Proposer Run Log
 
         **Target Version:** \(targetVersion)
-        **Timestamp:** \(ISO8601DateFormatter().string(from: Date()))
+        **Timestamp:** \(HarnessLabTime.timestampString())
         **Exit Code:** \(output.exitCode)
         **Agent Command:** \(agentCommand)
 
@@ -1475,7 +1485,7 @@ actor TraceMaterializer {
             "harnessVersion": harnessVersion,
             "sessionCount": bySession.count,
             "totalEvents": rows.count,
-            "materializedAt": ISO8601DateFormatter().string(from: Date()),
+            "materializedAt": HarnessLabTime.timestampString(),
             "sessions": sessionSummaries
         ]
         let summaryData = try JSONSerialization.data(withJSONObject: versionSummary, options: [.prettyPrinted, .sortedKeys])

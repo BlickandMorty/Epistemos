@@ -937,8 +937,11 @@ final class LocalModelManager {
         do {
             try paths.ensureBaseDirectories(fileManager: fileManager)
             installRecords = try loadManifest()
-            purgeLegacyNonQwenInstalls()
-            pruneMissingInstalls()
+            let removedLegacyInstalls = purgeLegacyNonQwenInstalls()
+            let removedMissingInstalls = pruneMissingInstalls()
+            if removedLegacyInstalls || removedMissingInstalls {
+                try persistManifest()
+            }
             syncInferenceInstalledSets()
             adoptInstalledTextModelIfNeeded()
             lastErrorMessage = nil
@@ -1018,24 +1021,31 @@ final class LocalModelManager {
         lastErrorMessage = nil
     }
 
-    private func pruneMissingInstalls() {
-        installRecords = installRecords.filter { _, record in
+    private func pruneMissingInstalls() -> Bool {
+        let prunedRecords = installRecords.filter { _, record in
             fileManager.fileExists(atPath: record.activeDirectoryPath)
         }
-        try? persistManifest()
+        guard prunedRecords != installRecords else { return false }
+        installRecords = prunedRecords
+        return true
     }
 
-    private func purgeLegacyNonQwenInstalls() {
+    private func purgeLegacyNonQwenInstalls() -> Bool {
         let staleRecords = installRecords.values.filter { LocalModelCatalog.descriptor(for: $0.modelID) == nil }
-        guard !staleRecords.isEmpty || fileManager.fileExists(atPath: legacyVoiceDirectory.path) else { return }
+        let hasLegacyDirectories =
+            fileManager.fileExists(atPath: legacyVoiceDirectory.path) ||
+            fileManager.fileExists(atPath: legacyVoiceHubDirectory.path)
+        guard !staleRecords.isEmpty || hasLegacyDirectories else { return false }
 
         for record in staleRecords {
             try? removeIfPresent(record.activeDirectoryURL)
         }
         try? removeIfPresent(legacyVoiceDirectory)
         try? removeIfPresent(legacyVoiceHubDirectory)
-        installRecords = installRecords.filter { LocalModelCatalog.descriptor(for: $0.key) != nil }
-        try? persistManifest()
+        let filteredRecords = installRecords.filter { LocalModelCatalog.descriptor(for: $0.key) != nil }
+        let didChangeRecords = filteredRecords != installRecords
+        installRecords = filteredRecords
+        return didChangeRecords
     }
 
     private var legacyVoiceDirectory: URL {

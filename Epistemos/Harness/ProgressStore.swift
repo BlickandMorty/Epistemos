@@ -91,10 +91,69 @@ struct TaskDecomposition: Codable, Sendable {
 /// Stored in the session directory under Application Support.
 enum ProgressStore {
     private static let log = Logger(subsystem: "com.epistemos", category: "ProgressStore")
+    private static let sessionDirectoryResourceKeys: Set<URLResourceKey> = [
+        .contentModificationDateKey,
+        .isDirectoryKey,
+    ]
 
     private static var sessionsDir: URL {
         let appSupport = FoundationSafety.userApplicationSupportDirectory()
         return appSupport.appendingPathComponent("com.epistemos.app/sessions")
+    }
+
+    private static func sessionDirectoryEntries(fileManager: FileManager = .default) -> [(url: URL, modificationDate: Date)] {
+        guard fileManager.fileExists(atPath: sessionsDir.path) else { return [] }
+
+        let contents: [URL]
+        do {
+            contents = try fileManager.contentsOfDirectory(
+                at: sessionsDir,
+                includingPropertiesForKeys: Array(sessionDirectoryResourceKeys),
+                options: [.skipsHiddenFiles]
+            )
+        } catch {
+            log.error("Failed to enumerate session directories: \(error.localizedDescription)")
+            return []
+        }
+
+        return contents.compactMap { url in
+            do {
+                let values = try url.resourceValues(forKeys: sessionDirectoryResourceKeys)
+                guard values.isDirectory == true else { return nil }
+                return (url, values.contentModificationDate ?? .distantPast)
+            } catch {
+                log.error("Failed to inspect session directory \(url.lastPathComponent): \(error.localizedDescription)")
+                return nil
+            }
+        }
+    }
+
+    private static func sortedSessionDirectories(fileManager: FileManager = .default) -> [URL] {
+        sessionDirectoryEntries(fileManager: fileManager)
+            .sorted { $0.modificationDate > $1.modificationDate }
+            .map(\.url)
+    }
+
+    private static func loadProgress(at path: URL) -> SessionProgress? {
+        guard FileManager.default.fileExists(atPath: path.path) else { return nil }
+        do {
+            let data = try Data(contentsOf: path)
+            return try JSONDecoder().decode(SessionProgress.self, from: data)
+        } catch {
+            log.error("Failed to load progress from \(path.lastPathComponent): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private static func loadTaskDecomposition(at path: URL) -> TaskDecomposition? {
+        guard FileManager.default.fileExists(atPath: path.path) else { return nil }
+        do {
+            let data = try Data(contentsOf: path)
+            return try JSONDecoder().decode(TaskDecomposition.self, from: data)
+        } catch {
+            log.error("Failed to load task decomposition from \(path.lastPathComponent): \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Session Progress
@@ -117,23 +176,9 @@ enum ProgressStore {
 
     /// Load the most recent session progress for continuation.
     static func loadLatestProgress() -> SessionProgress? {
-        let fm = FileManager.default
-        guard let contents = try? fm.contentsOfDirectory(
-            at: sessionsDir, includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else { return nil }
-
-        // Find most recent session directory
-        let sorted = contents.sorted { a, b in
-            let aDate = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            let bDate = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            return aDate > bDate
-        }
-
-        for dir in sorted {
+        for dir in sortedSessionDirectories() {
             let progressPath = dir.appendingPathComponent("progress.json")
-            if let data = try? Data(contentsOf: progressPath),
-               let progress = try? JSONDecoder().decode(SessionProgress.self, from: data) {
+            if let progress = loadProgress(at: progressPath) {
                 return progress
             }
         }
@@ -143,8 +188,7 @@ enum ProgressStore {
     /// Load progress for a specific session.
     static func loadProgress(sessionId: String) -> SessionProgress? {
         let path = sessionsDir.appendingPathComponent(sessionId).appendingPathComponent("progress.json")
-        guard let data = try? Data(contentsOf: path) else { return nil }
-        return try? JSONDecoder().decode(SessionProgress.self, from: data)
+        return loadProgress(at: path)
     }
 
     // MARK: - Task Decomposition
@@ -168,8 +212,7 @@ enum ProgressStore {
     /// Load task decomposition for a session.
     static func loadTaskDecomposition(sessionId: String) -> TaskDecomposition? {
         let path = sessionsDir.appendingPathComponent(sessionId).appendingPathComponent("tasks.json")
-        guard let data = try? Data(contentsOf: path) else { return nil }
-        return try? JSONDecoder().decode(TaskDecomposition.self, from: data)
+        return loadTaskDecomposition(at: path)
     }
 
     // MARK: - Bootstrap Packet Archive
@@ -198,18 +241,6 @@ enum ProgressStore {
 
     /// List all session IDs, sorted by most recent first.
     static func listSessions() -> [String] {
-        let fm = FileManager.default
-        guard let contents = try? fm.contentsOfDirectory(
-            at: sessionsDir, includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-
-        return contents
-            .sorted { a, b in
-                let aDate = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                let bDate = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                return aDate > bDate
-            }
-            .map { $0.lastPathComponent }
+        sortedSessionDirectories().map(\.lastPathComponent)
     }
 }

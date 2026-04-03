@@ -1,6 +1,10 @@
 import SwiftData
 import SwiftUI
 
+private enum WorkspaceSwitcherOverlayTiming {
+    nonisolated static func dismissDelay() -> Duration { .milliseconds(150) }
+}
+
 // MARK: - Workspace Switcher Overlay
 // A centered command-palette-style overlay for cycling through saved workspaces.
 // Triggered by Cmd+Ctrl+W. Keyboard navigation: arrow keys to cycle, Enter to load, Esc to dismiss.
@@ -163,32 +167,42 @@ struct WorkspaceSwitcherOverlay: View {
     }
 
     private func loadWorkspace(_ workspace: SDWorkspace) {
-        withAnimation(.easeIn(duration: 0.15)) { appeared = false }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
+        performAfterDismiss {
             AppBootstrap.shared?.workspaceService.loadWorkspace(workspace)
-            isPresented = false
         }
     }
 
     private func loadWorkspaceInSpace(_ workspace: SDWorkspace) {
-        withAnimation(.easeIn(duration: 0.15)) { appeared = false }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
+        performAfterDismiss {
             AppBootstrap.shared?.workspaceService.loadWorkspace(workspace)
             // Set all restored windows to follow the active space
             for window in NoteWindowManager.shared.openPageIds.compactMap({ NoteWindowManager.shared.window(for: $0) }) {
                 window.collectionBehavior.insert(.moveToActiveSpace)
             }
-            isPresented = false
         }
     }
 
     private func dismiss() {
+        performAfterDismiss()
+    }
+
+    private func performAfterDismiss(_ action: (@MainActor () -> Void)? = nil) {
         withAnimation(.easeIn(duration: 0.15)) { appeared = false }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
+            guard await pause(WorkspaceSwitcherOverlayTiming.dismissDelay()) else { return }
+            action?()
             isPresented = false
+        }
+    }
+
+    private func pause(_ duration: Duration) async -> Bool {
+        do {
+            try await Task.sleep(for: duration)
+            return !Task.isCancelled
+        } catch is CancellationError {
+            return false
+        } catch {
+            return false
         }
     }
 }

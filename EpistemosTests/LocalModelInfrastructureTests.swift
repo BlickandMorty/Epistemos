@@ -128,6 +128,52 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
+    @Test("refresh leaves the manifest untouched when install records are already current")
+    func refreshDoesNotRewriteUnchangedManifest() throws {
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        let installedURL = root.activeDirectory(
+            for: try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        )
+        try FileManager.default.createDirectory(at: installedURL, withIntermediateDirectories: true)
+
+        let record = LocalModelInstallRecord(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            kind: .text,
+            activeDirectoryPath: installedURL.path,
+            revision: "1234567890abcdef1234567890abcdef12345678",
+            installedAt: Date(timeIntervalSince1970: 1_234),
+            sizeBytes: 123
+        )
+        try root.ensureBaseDirectories()
+        let manifest = LocalModelInstallManifest(records: [record])
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(manifest)
+        try data.write(to: root.manifestURL, options: .atomic)
+
+        let inference = InferenceState()
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: root,
+            installer: FakeLocalModelInstaller()
+        )
+
+        let originalModificationDate = try #require(
+            root.manifestURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        )
+
+        Thread.sleep(forTimeInterval: 1.1)
+        manager.refreshFromDisk()
+
+        let refreshedModificationDate = try #require(
+            root.manifestURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        )
+        #expect(refreshedModificationDate == originalModificationDate)
+    }
+
+    @MainActor
     @Test("refresh drops unsupported legacy installs from disk and manifest")
     func refreshPurgesLegacyUnsupportedInstalls() throws {
         let root = makeTemporaryRoot()
