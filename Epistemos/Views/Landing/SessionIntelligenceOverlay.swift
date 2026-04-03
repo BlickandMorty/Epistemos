@@ -1,6 +1,127 @@
 import SwiftData
 import SwiftUI
 
+enum SessionIntelligenceNoteLookup {
+    nonisolated static func candidateTitles(in text: String) -> [String] {
+        var candidates: [String] = []
+        var seen: Set<String> = []
+
+        func append(_ raw: String) {
+            let candidate = normalizeCandidate(raw)
+            guard candidate.count > 1 else { return }
+            let key = candidate.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            guard seen.insert(key).inserted else { return }
+            candidates.append(candidate)
+        }
+
+        for match in captureMatches(pattern: bracketedCommandPattern(), in: text) {
+            append(match)
+        }
+
+        for match in captureMatches(pattern: quotedTitlePattern(), in: text) {
+            append(match)
+        }
+
+        for line in text.split(whereSeparator: \.isNewline) {
+            let trimmedLine = String(line).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedLine.isEmpty else { continue }
+
+            let lowercasedLine = trimmedLine.lowercased()
+            for prefix in commandPrefixes() {
+                guard let prefixRange = lowercasedLine.range(of: prefix) else { continue }
+                let startOffset = lowercasedLine.distance(from: lowercasedLine.startIndex, to: prefixRange.upperBound)
+                let startIndex = trimmedLine.index(trimmedLine.startIndex, offsetBy: startOffset)
+                append(String(trimmedLine[startIndex...]))
+            }
+        }
+
+        return candidates
+    }
+
+    private nonisolated static func quotedTitlePattern() -> String {
+        #"[\"'“”]([^\"'“”\n]{2,160})[\"'“”]"#
+    }
+
+    private nonisolated static func bracketedCommandPattern() -> String {
+        #"\[(?:CREATE_NOTE|OPEN_NOTE|NAVIGATE_GRAPH|CLOSE_NOTE):\s*(.+?)\]"#
+    }
+
+    private nonisolated static func commandPrefixes() -> [String] {
+        [
+            "created and opened note: ",
+            "created and opened: ",
+            "opened note: ",
+            "closed note: ",
+            "open note ",
+            "close note ",
+            "summarize note ",
+            "write to note ",
+            "show note ",
+            "navigate to note ",
+            "reveal note ",
+            "reveal "
+        ]
+    }
+
+    private nonisolated static func captureMatches(pattern: String, in text: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return []
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return regex.matches(in: text, range: range).compactMap { match in
+            guard match.numberOfRanges > 1,
+                  let captureRange = Range(match.range(at: 1), in: text) else {
+                return nil
+            }
+            return String(text[captureRange])
+        }
+    }
+
+    private nonisolated static func normalizeCandidate(_ raw: String) -> String {
+        var cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        cleaned = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”[]"))
+
+        let lowercased = cleaned.lowercased()
+        for suffix in [" in the graph", " in graph"] where lowercased.hasSuffix(suffix) {
+            cleaned.removeLast(suffix.count)
+            break
+        }
+
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+    }
+}
+
+nonisolated struct SessionIntelligenceChatGroup: Equatable, Sendable {
+    let chatId: String
+    let snippets: [String]
+}
+
+enum SessionIntelligenceChatSummary {
+    nonisolated static func orderedGroups(
+        from groups: [String: [String]],
+        limit: Int
+    ) -> [SessionIntelligenceChatGroup] {
+        guard limit > 0 else { return [] }
+
+        return groups
+            .map { SessionIntelligenceChatGroup(chatId: $0.key, snippets: $0.value) }
+            .sorted { lhs, rhs in
+                if lhs.snippets.count != rhs.snippets.count {
+                    return lhs.snippets.count > rhs.snippets.count
+                }
+                return lhs.chatId < rhs.chatId
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+}
+
+private enum SessionIntelligenceOverlayTiming {
+    nonisolated static func notePresentationDelay() -> Duration { .milliseconds(100) }
+    nonisolated static func dismissDelay() -> Duration { .milliseconds(150) }
+}
+
 // MARK: - Session Intelligence Overlay
 // Full-screen overlay triggered by Cmd+Ctrl+R. Shows a visual map of all open windows
 // with per-window AI summaries typed progressively, followed by a global synthesis.
@@ -276,10 +397,8 @@ struct SessionIntelligenceOverlay: View {
         // Reduce phase: global synthesis (use returning variant to avoid stale DB read race)
         if let freshSummary = await summaryService.generateSummaryNowReturning() {
             globalSynthesis = freshSummary
-        } else if let workspace = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
-            FetchDescriptor<SDWorkspace>(predicate: #Predicate<SDWorkspace> { $0.isAutoSave == true })
-        ).first {
-            globalSynthesis = workspace.summary
+        } else if let summary = latestAutoSavedWorkspaceSummary() {
+            globalSynthesis = summary
         }
 
         isGenerating = false
@@ -451,11 +570,7 @@ struct SessionIntelligenceOverlay: View {
         if lower.hasPrefix("new note ") || lower.hasPrefix("create note ") {
             let title = original.dropFirst(lower.hasPrefix("new note ") ? 9 : 12).trimmingCharacters(in: .whitespaces)
             let resolvedTitle = title.isEmpty ? "Untitled" : title
-            if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: resolvedTitle) {
-                // Save context before opening window to ensure SwiftData sees the new page
-                try? AppBootstrap.shared?.modelContainer.mainContext.save()
-                try? await Task.sleep(for: .milliseconds(100))
-                NoteWindowManager.shared.open(pageId: pageId)
+            if await createAndOpenNote(title: resolvedTitle) != nil {
                 return "Created and opened: \(resolvedTitle)"
             }
             return "Failed to create note."
@@ -668,19 +783,27 @@ struct SessionIntelligenceOverlay: View {
         }
 
         // Build a brief summary
+        let orderedGroups = SessionIntelligenceChatSummary.orderedGroups(from: chatGroups, limit: 10)
+        let chatTitles = loadChatTitles(for: orderedGroups.map(\.chatId), in: context)
         var summaryParts: [String] = []
-        for (chatId, snippets) in chatGroups.prefix(10) {
-            // Try to find the chat title
-            let targetId = chatId
-            let chatDesc = FetchDescriptor<SDChat>(
-                predicate: #Predicate<SDChat> { $0.id == targetId }
-            )
-            let chatTitle = (try? context.fetch(chatDesc).first?.title) ?? "Chat"
-            let preview = snippets.prefix(3).joined(separator: " | ")
-            summaryParts.append("**\(chatTitle)** (\(snippets.count) messages): \(String(preview.prefix(120)))")
+        for group in orderedGroups {
+            let chatTitle = chatTitles[group.chatId].flatMap { $0.isEmpty ? nil : $0 } ?? "Chat"
+            let preview = group.snippets.prefix(3).joined(separator: " | ")
+            summaryParts.append("**\(chatTitle)** (\(group.snippets.count) messages): \(String(preview.prefix(120)))")
         }
 
         return "Today's chats (\(chatGroups.count) conversation\(chatGroups.count == 1 ? "" : "s"), \(chatEvents.count) messages):\n" + summaryParts.joined(separator: "\n")
+    }
+
+    private func loadChatTitles(for chatIDs: [String], in context: ModelContext) -> [String: String] {
+        let targetIDs = Array(Set(chatIDs))
+        guard !targetIDs.isEmpty else { return [:] }
+
+        let descriptor = FetchDescriptor<SDChat>(
+            predicate: #Predicate<SDChat> { targetIDs.contains($0.id) }
+        )
+        guard let chats = try? context.fetch(descriptor) else { return [:] }
+        return Dictionary(uniqueKeysWithValues: chats.map { ($0.id, $0.title) })
     }
 
     // MARK: - Create Session Note
@@ -716,10 +839,8 @@ struct SessionIntelligenceOverlay: View {
         }
 
         // AI summary
-        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-        if let ws = try? bootstrap.modelContainer.mainContext.fetch(FetchDescriptor(predicate: predicate)).first,
-           !ws.summary.isEmpty {
-            content += "## AI Summary\n\(ws.summary)\n\n"
+        if let summary = latestAutoSavedWorkspaceSummary(in: bootstrap.modelContainer.mainContext) {
+            content += "## AI Summary\n\(summary)\n\n"
         }
 
         // Chat history from command panel
@@ -755,10 +876,7 @@ struct SessionIntelligenceOverlay: View {
             } else if lower.contains("session") {
                 return await createSessionNote()
             }
-            if let pageId = await bootstrap.vaultSync.createPage(title: title) {
-                try? bootstrap.modelContainer.mainContext.save()
-                try? await Task.sleep(for: .milliseconds(100))
-                NoteWindowManager.shared.open(pageId: pageId)
+            if await createAndOpenNote(title: title) != nil {
                 return "Created and opened note: \"\(title)\""
             }
             return "Failed to create note."
@@ -883,11 +1001,8 @@ struct SessionIntelligenceOverlay: View {
         switch action {
         case "CREATE_NOTE":
             let title = argument.isEmpty ? "Untitled" : argument
-            guard let bootstrap = AppBootstrap.shared else { return "App not ready." }
-            if let pageId = await bootstrap.vaultSync.createPage(title: title) {
-                try? bootstrap.modelContainer.mainContext.save()
-                try? await Task.sleep(for: .milliseconds(100))
-                NoteWindowManager.shared.open(pageId: pageId)
+            guard AppBootstrap.shared != nil else { return "App not ready." }
+            if await createAndOpenNote(title: title) != nil {
                 return "Created and opened: \"\(title)\""
             }
             return "Failed to create note."
@@ -923,29 +1038,107 @@ struct SessionIntelligenceOverlay: View {
 
     /// Try to find a note title mentioned in text and return its pageId.
     private func extractAndFindNote(from text: String) -> String? {
-        guard let context = AppBootstrap.shared?.modelContainer.mainContext else { return nil }
-        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
-        // Check if any note title appears in the text
-        for page in pages where !page.title.isEmpty {
-            if text.localizedCaseInsensitiveContains(page.title) {
-                return page.id
+        for candidate in SessionIntelligenceNoteLookup.candidateTitles(in: text) {
+            if let pageId = findOpenNoteByTitle(candidate) {
+                return pageId
+            }
+            if let pageId = findNoteByTitle(candidate) {
+                return pageId
             }
         }
         return nil
     }
 
+    private func findOpenNoteByTitle(_ title: String) -> String? {
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedTitle.isEmpty else { return nil }
+
+        for pageId in NoteWindowManager.shared.orderedPageIds() {
+            guard let currentTitle = NoteWindowManager.shared.navState(forTab: pageId)?.currentPageTitle,
+                  currentTitle.localizedStandardContains(normalizedTitle) else {
+                continue
+            }
+            return pageId
+        }
+
+        return nil
+    }
+
     private func findNoteByTitle(_ title: String) -> String? {
         guard let context = AppBootstrap.shared?.modelContainer.mainContext else { return nil }
-        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
-        let lower = title.lowercased()
-        return pages.first(where: { $0.title.lowercased().contains(lower) })?.id
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedTitle.isEmpty else { return nil }
+
+        var descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { page in
+                page.title.localizedStandardContains(normalizedTitle)
+            },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor).first)?.id
     }
 
     private func findChatByTitle(_ title: String) -> String? {
         guard let context = AppBootstrap.shared?.modelContainer.mainContext else { return nil }
-        let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []
-        let lower = title.lowercased()
-        return chats.first(where: { $0.title.lowercased().contains(lower) })?.id
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedTitle.isEmpty else { return nil }
+
+        var descriptor = FetchDescriptor<SDChat>(
+            predicate: #Predicate<SDChat> { chat in
+                chat.title.localizedStandardContains(normalizedTitle)
+            },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor).first)?.id
+    }
+
+    private func createAndOpenNote(title: String, body: String? = nil) async -> String? {
+        guard let bootstrap = AppBootstrap.shared else { return nil }
+
+        let pageId: String?
+        if let body {
+            pageId = await bootstrap.vaultSync.createPage(title: title, body: body)
+        } else {
+            pageId = await bootstrap.vaultSync.createPage(title: title)
+        }
+
+        guard let pageId else { return nil }
+        do {
+            try bootstrap.modelContainer.mainContext.save()
+        } catch {
+            return nil
+        }
+        guard await pause(SessionIntelligenceOverlayTiming.notePresentationDelay()) else { return nil }
+        NoteWindowManager.shared.open(pageId: pageId)
+        return pageId
+    }
+
+    private func latestAutoSavedWorkspaceSummary(in context: ModelContext? = AppBootstrap.shared?.modelContainer.mainContext) -> String? {
+        guard let context else { return nil }
+
+        var descriptor = FetchDescriptor<SDWorkspace>(
+            predicate: #Predicate<SDWorkspace> { $0.isAutoSave == true },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        guard let workspace = try? context.fetch(descriptor).first,
+              !workspace.summary.isEmpty else {
+            return nil
+        }
+        return workspace.summary
+    }
+
+    private func pause(_ duration: Duration) async -> Bool {
+        do {
+            try await Task.sleep(for: duration)
+            return !Task.isCancelled
+        } catch is CancellationError {
+            return false
+        } catch {
+            return false
+        }
     }
 
     private func commandHintRow(_ command: String, _ desc: String) -> some View {
@@ -966,7 +1159,7 @@ struct SessionIntelligenceOverlay: View {
     private func dismiss() {
         withAnimation(.easeIn(duration: 0.15)) { appeared = false }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
+            guard await pause(SessionIntelligenceOverlayTiming.dismissDelay()) else { return }
             isPresented = false
         }
     }

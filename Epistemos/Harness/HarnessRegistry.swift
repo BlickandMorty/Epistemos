@@ -70,6 +70,9 @@ actor HarnessRegistry {
     static let shared = HarnessRegistry()
 
     private static let log = Logger(subsystem: "com.epistemos", category: "HarnessRegistry")
+    private nonisolated static func timestampString(_ date: Date = Date()) -> String {
+        date.ISO8601Format()
+    }
 
     private let baseDir: URL
     private var cachedProductionConfig: HarnessConfig?
@@ -164,7 +167,7 @@ actor HarnessRegistry {
         let ancestry = CandidateAncestry(
             candidateId: candidateId,
             parentVersion: parentVersion,
-            createdAt: ISO8601DateFormatter().string(from: Date()),
+            createdAt: Self.timestampString(),
             description: description
         )
         let ancestryData = try Self.encode(ancestry)
@@ -202,8 +205,8 @@ actor HarnessRegistry {
         // Write metadata
         let metadata = HarnessMetadata(
             version: newVersion,
-            createdAt: ISO8601DateFormatter().string(from: Date()),
-            promotedAt: ISO8601DateFormatter().string(from: Date()),
+            createdAt: Self.timestampString(),
+            promotedAt: Self.timestampString(),
             promotedBy: promotedBy,
             parentVersion: candidateId,
             description: "Promoted from \(candidateId)",
@@ -260,7 +263,7 @@ actor HarnessRegistry {
             "passRate": suiteResult.passRate,
             "averageScore": suiteResult.averageScore,
             "averageTokenCost": suiteResult.averageTokenCost,
-            "evaluatedAt": ISO8601DateFormatter().string(from: Date()),
+            "evaluatedAt": Self.timestampString(),
             "results": resultDicts
         ]
 
@@ -414,7 +417,7 @@ actor HarnessRegistry {
 
             let metadata = HarnessMetadata(
                 version: "v1.0.0",
-                createdAt: ISO8601DateFormatter().string(from: Date()),
+                createdAt: Self.timestampString(),
                 promotedAt: nil, promotedBy: nil, parentVersion: nil,
                 description: "Default initial harness",
                 scores: nil

@@ -60,6 +60,8 @@ final class AgentViewModel {
     private var speculativePtyId: String?
     // Fix: [Issue 3 - TCC Permissions] — permission state for agent gate.
     let permissions = TCCPermissionState()
+    private let computerActionMutationSamplingDelay: Duration = .milliseconds(300)
+    private let cronKeepaliveInterval: Duration = .seconds(60)
 
     init(
         hermesManager: HermesSubprocessManager? = nil,
@@ -1187,19 +1189,11 @@ final class AgentViewModel {
                 let r = GhostComputerAgent.mcpClick(args: args)
                 return (pid, snap, r)
             }
-
-            var enriched = result
-            if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(300))
-                let mutation = await MainActor.run {
-                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
-                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
-                    return AXMutationDetector.compare(before: before, after: after)
-                }
-                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
-            }
-
-            enriched = CredentialRedactor.redact(enriched)
+            let enriched = await self.enrichComputerActionResult(
+                result,
+                frontPID: frontPID,
+                beforeSnapshot: before
+            )
             return .success(.string(enriched))
         }
 
@@ -1228,19 +1222,11 @@ final class AgentViewModel {
                 let r = GhostComputerAgent.mcpType(args: args)
                 return (pid, snap, r)
             }
-
-            var enriched = result
-            if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(300))
-                let mutation = await MainActor.run {
-                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
-                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
-                    return AXMutationDetector.compare(before: before, after: after)
-                }
-                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
-            }
-
-            enriched = CredentialRedactor.redact(enriched)
+            let enriched = await self.enrichComputerActionResult(
+                result,
+                frontPID: frontPID,
+                beforeSnapshot: before
+            )
             return .success(.string(enriched))
         }
 
@@ -1289,19 +1275,11 @@ final class AgentViewModel {
                 let r = GhostComputerAgent.mcpKeys(args: args)
                 return (pid, snap, r)
             }
-
-            var enriched = result
-            if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(300))
-                let mutation = await MainActor.run {
-                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
-                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
-                    return AXMutationDetector.compare(before: before, after: after)
-                }
-                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
-            }
-
-            enriched = CredentialRedactor.redact(enriched)
+            let enriched = await self.enrichComputerActionResult(
+                result,
+                frontPID: frontPID,
+                beforeSnapshot: before
+            )
             return .success(.string(enriched))
         }
 
@@ -1331,25 +1309,46 @@ final class AgentViewModel {
                 let r = GhostComputerAgent.mcpScroll(args: args)
                 return (pid, snap, r)
             }
-
-            var enriched = result
-            if let before, frontPID > 0 {
-                try? await Task.sleep(for: .milliseconds(300))
-                let mutation = await MainActor.run {
-                    let perception = Screen2AXFusion(screenCapture: self.screenCaptureService)
-                    let after = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
-                    return AXMutationDetector.compare(before: before, after: after)
-                }
-                enriched = Self.appendMutationInfo(to: result, mutation: mutation)
-            }
-
-            enriched = CredentialRedactor.redact(enriched)
+            let enriched = await self.enrichComputerActionResult(
+                result,
+                frontPID: frontPID,
+                beforeSnapshot: before
+            )
             return .success(.string(enriched))
         }
     }
 
     /// Screen capture service for computer use tools.
     private let screenCaptureService = ScreenCaptureService()
+
+    private func enrichComputerActionResult(
+        _ result: String,
+        frontPID: Int32,
+        beforeSnapshot: AXMutationDetector.Snapshot?
+    ) async -> String {
+        guard let beforeSnapshot, frontPID > 0 else {
+            return CredentialRedactor.redact(result)
+        }
+
+        do {
+            try await Task.sleep(for: computerActionMutationSamplingDelay)
+            guard !Task.isCancelled else {
+                return CredentialRedactor.redact(result)
+            }
+
+            let perception = Screen2AXFusion(screenCapture: screenCaptureService)
+            let afterSnapshot = AXMutationDetector.captureSnapshot(pid: frontPID, using: perception)
+            let mutation = AXMutationDetector.compare(before: beforeSnapshot, after: afterSnapshot)
+            return CredentialRedactor.redact(Self.appendMutationInfo(to: result, mutation: mutation))
+        } catch is CancellationError {
+            return CredentialRedactor.redact(result)
+        } catch {
+            Self.log.error(
+                "AgentViewModel: failed to sample computer action mutation: \(error.localizedDescription, privacy: .public)"
+            )
+            return CredentialRedactor.redact(result)
+        }
+    }
 
     /// Convert AnyCodableValue to [String: Any] for MCP tool handlers.
     nonisolated private static func anyCodableToDict(_ value: AnyCodableValue) -> [String: Any] {
@@ -1678,9 +1677,9 @@ final class AgentViewModel {
     private func startCronKeepalive() {
         cronKeepaliveTask?.cancel()
         cronKeepaliveTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                guard !Task.isCancelled, let self else { break }
+            while let self, !Task.isCancelled {
+                guard self.hermesManager.isRunning else { break }
+                guard await self.waitForCronKeepaliveInterval() else { break }
                 guard self.hermesManager.isRunning else { break }
                 // Tick the cron scheduler in the Python subprocess
                 self.sendHermesCommand([
@@ -1689,6 +1688,18 @@ final class AgentViewModel {
                     "action": "tick",
                 ], handlesRuntimeFailure: false)
             }
+        }
+    }
+
+    private func waitForCronKeepaliveInterval() async -> Bool {
+        do {
+            try await Task.sleep(for: cronKeepaliveInterval)
+            return !Task.isCancelled
+        } catch is CancellationError {
+            return false
+        } catch {
+            Self.log.error("AgentViewModel: cron keepalive wait failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

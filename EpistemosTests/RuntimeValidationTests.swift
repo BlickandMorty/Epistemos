@@ -779,6 +779,18 @@ struct RuntimeValidationTests {
         #expect(!manager.contains(".first(where: { installRecords[$0] != nil && inference.hardwareCapabilitySnapshot.supports(textModelID: $0) })"))
     }
 
+    @Test("local model refresh only persists the manifest when cleanup changes records")
+    func localModelRefreshOnlyPersistsManifestWhenCleanupChangesRecords() throws {
+        let manager = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+
+        #expect(manager.contains("let removedLegacyInstalls = purgeLegacyNonQwenInstalls()"))
+        #expect(manager.contains("let removedMissingInstalls = pruneMissingInstalls()"))
+        #expect(manager.contains("if removedLegacyInstalls || removedMissingInstalls {"))
+        #expect(manager.contains("private func pruneMissingInstalls() -> Bool"))
+        #expect(manager.contains("guard prunedRecords != installRecords else { return false }"))
+        #expect(!manager.contains("try? persistManifest()"))
+    }
+
     @Test("bootstrap throttles local model refreshes and the local runtime serializes request turns")
     func bootstrapThrottlesRefreshAndRuntimeSerializesTurns() throws {
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
@@ -2258,6 +2270,51 @@ struct RuntimeValidationTests {
 
         #expect(!vaultRegistry.contains("guard let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),"))
         #expect(vaultRegistry.contains("VaultRegistry: failed to inspect modification date"))
+    }
+
+    @Test("agent and harness perf hotspots reuse shared mutation and timestamp helpers")
+    func agentAndHarnessPerfHotspotsReuseSharedHelpers() throws {
+        let agentViewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
+        let progressStore = try loadRepoTextFile("Epistemos/Harness/ProgressStore.swift")
+        let harnessRegistry = try loadRepoTextFile("Epistemos/Harness/HarnessRegistry.swift")
+        let harnessLab = try loadRepoTextFile("Epistemos/Harness/HarnessLab.swift")
+
+        #expect(agentViewModel.contains("private let computerActionMutationSamplingDelay"))
+        #expect(agentViewModel.contains("private func enrichComputerActionResult("))
+        #expect(agentViewModel.contains("await self.enrichComputerActionResult("))
+        #expect(!agentViewModel.contains("try? await Task.sleep(for: .milliseconds(300))"))
+
+        #expect(progressStore.contains("private static func sortedSessionDirectories("))
+        #expect(progressStore.contains("private static func sessionDirectoryEntries("))
+
+        #expect(harnessRegistry.contains("private nonisolated static func timestampString("))
+        #expect(!harnessRegistry.contains("ISO8601DateFormatter().string(from: Date())"))
+
+        #expect(harnessLab.contains("private enum HarnessLabTime"))
+        #expect(harnessLab.contains("static func timestampString("))
+        #expect(!harnessLab.contains("ISO8601DateFormatter().string(from: Date())"))
+    }
+
+    @Test("landing and admin perf seams share explicit delay helpers")
+    func landingAndAdminPerfSeamsShareExplicitDelayHelpers() throws {
+        let overlay = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+        let workspaceSwitcher = try loadRepoTextFile("Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift")
+        let agentViewModel = try loadRepoTextFile("Epistemos/ViewModels/AgentViewModel.swift")
+
+        #expect(overlay.contains("private enum SessionIntelligenceOverlayTiming"))
+        #expect(overlay.contains("private func pause(_ duration: Duration) async -> Bool"))
+        #expect(!overlay.contains("try? await Task.sleep(for: .milliseconds(100))"))
+        #expect(!overlay.contains("try? await Task.sleep(for: .milliseconds(150))"))
+        #expect(overlay.contains("descriptor.fetchLimit = 1"))
+
+        #expect(workspaceSwitcher.contains("private enum WorkspaceSwitcherOverlayTiming"))
+        #expect(workspaceSwitcher.contains("private func performAfterDismiss("))
+        #expect(workspaceSwitcher.contains("private func pause(_ duration: Duration) async -> Bool"))
+        #expect(!workspaceSwitcher.contains("try? await Task.sleep(for: .milliseconds(150))"))
+
+        #expect(agentViewModel.contains("private let cronKeepaliveInterval"))
+        #expect(agentViewModel.contains("private func waitForCronKeepaliveInterval() async -> Bool"))
+        #expect(!agentViewModel.contains("try? await Task.sleep(for: .seconds(60))"))
     }
 
     @Test("omega note and checkpoint surfaces avoid silent persistence fallbacks")

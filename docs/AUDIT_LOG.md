@@ -438,3 +438,117 @@
   - with `VaultSyncService`, `ChatCoordinator`, the mini-chat shell, and the Omega notes/checkpoint seam hardened, the highest-value remaining `try?` debt is now concentrated more in broader Hermes/harness/session surfaces and lower-risk best-effort parsing or UI polish paths than in the core note/chat/vault runtime shell
   - the current largest remaining production `try?` counts are in `Views/Landing/SessionIntelligenceOverlay.swift`, `ViewModels/AgentViewModel.swift`, `Harness/HarnessLab.swift`, `Harness/ProgressStore.swift`, `Harness/HarnessRegistry.swift`, `Engine/LocalModelInfrastructure.swift`, and several Hermes-adjacent files rather than the note-shell persistence path
 - VERDICT: PASS — the core vault save loop, main chat shell, mini-chat/runtime retrieval, and Omega note/checkpoint persistence no longer hide these audited failures silently, and the focused audit slice is green
+
+## Recursive Performance Audit Follow-On 15 — 2026-04-02
+- Scope: landing overlay command lookup performance
+- Issues found:
+  - `SessionIntelligenceOverlay` still fetched every `SDPage` or `SDChat` and performed lowercased linear scans just to resolve simple `open note`, `reveal`, `close note`, and `open chat` commands, which made the interactive landing overlay do full vault scans on a path that should stay cheap even in large libraries
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now resolves note/chat titles through bounded `FetchDescriptor` queries with `localizedStandardContains(...)` predicates, recency ordering, and `fetchLimit = 1` instead of pulling whole note/chat tables into memory for those command lookups
+  - Added a focused `NonAgentPruningValidationTests` guard that keeps the overlay from regressing back to full-page/full-chat fetches for title lookup
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit test -only-testing:EpistemosTests/NonAgentPruningValidationTests -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit build -quiet`: PASS
+- Observations:
+  - this is a small but real user-facing perf hardening pass, not a broad landing refactor; the strongest remaining optimization seams now look more concentrated in `Views/Landing/SessionIntelligenceOverlay.swift`'s remaining note-history parsing path, `ViewModels/AgentViewModel.swift`, `Harness/HarnessLab.swift`, `Harness/ProgressStore.swift`, `Harness/HarnessRegistry.swift`, `Views/Landing/LiquidGreeting.swift`, and some timer-heavy Hermes-adjacent surfaces
+- VERDICT: PASS — simple landing overlay commands no longer trigger full note/chat scans for title resolution, and the focused perf guard is green
+
+## Recursive Performance Audit Follow-On 16 — 2026-04-02
+- Scope: `AgentViewModel` computer-action postprocessing plus Harness timestamp/session discovery cleanup
+- Issues found:
+  - `AgentViewModel` still duplicated the same 300 ms post-computer-action AX mutation sampling logic across click/type/keys/scroll tool handlers, which increased maintenance risk and kept a polling-heavy path noisier than it needed to be
+  - `ProgressStore` still enumerated raw session-root children and decoded progress payloads inline, so stray non-directory artifacts could leak into session listings and repeated listing/loading paths did more work than necessary
+  - `HarnessRegistry` and `HarnessLab` still instantiated fresh `ISO8601DateFormatter` objects at each write site, which created avoidable formatter churn on hot harness logging/proposal/result paths
+  - the first verification pass surfaced one refinement bug: the new `HarnessLabTime` helper inherited the repo's default `MainActor` isolation, which broke nonisolated call sites until the helper methods were marked `nonisolated`
+- Issues fixed:
+  - `AgentViewModel` now routes computer-use result enrichment through one shared `enrichComputerActionResult(...)` helper with a single reusable sampling delay constant, explicit cancellation handling, and centralized AX mutation diff formatting/redaction
+  - `ProgressStore` now uses shared session-directory enumeration/sorting helpers, filters to real directories only, logs enumeration/resource/decode failures explicitly, and reuses dedicated load helpers for progress/task-decomposition reads
+  - `HarnessRegistry` now uses one shared nonisolated ISO-8601 timestamp helper instead of recreating a formatter at each candidate/promote/score/default-harness write site
+  - `HarnessLab` now uses shared nonisolated timestamp and filename-timestamp helpers across evaluation, proposal, and materialization paths instead of repeating fresh formatter creation
+  - Added focused regressions in `HarnessSubsystemTests` and `RuntimeValidationTests` to keep the shared-helper structure and non-directory session filtering from regressing
+- Focused verification:
+  - the first refinement-loop build caught the `HarnessLabTime` isolation mistake; the helper was corrected, the pass counter reset, and verification restarted
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit-diagnostic test -only-testing:EpistemosTests/ProgressStoreTests`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit-diagnostic test -only-testing:EpistemosTests/HarnessSubsystemTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit-diagnostic build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this pass removed more avoidable work from the local harness/admin runtime without broad refactors: shared post-action enrichment in `AgentViewModel`, shared session discovery in `ProgressStore`, and shared timestamp formatting in the Harness surfaces
+  - the strongest remaining non-Hermes perf seams now appear to be `Views/Landing/SessionIntelligenceOverlay.swift`'s remaining note-history lookup path, `Views/Landing/LiquidGreeting.swift`'s task-sleep-driven animation loops, and broader model/runtime refresh costs in `Engine/LocalModelInfrastructure.swift`
+- VERDICT: PASS — the audited agent/harness perf hotspots now reuse shared helpers, avoid stray session-artifact pollution, and passed three consecutive no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 17 — 2026-04-02
+- Scope: landing note-history note resolution plus landing greeting animation timing
+- Issues found:
+  - `SessionIntelligenceOverlay` still reopened “the last mentioned note” by fetching every `SDPage` and scanning titles linearly across each history entry, so the fallback `open it` path still did full-page vault scans on an interactive overlay command loop
+  - `LiquidGreeting` still used per-character random delays and repeated silent `Task.sleep` calls inside its typing/backspacing loops, which added avoidable RNG churn and left cancellation behavior implicit on a long-lived landing animation task
+  - the first post-patch refinement pass surfaced one compile regression: the new landing note-lookup helper constants inherited the repo’s default `MainActor` isolation until they were converted to nonisolated accessors
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now extracts likely note-title candidates from quoted text, bracketed overlay commands, and note-command phrases, checks open note titles first, and only falls back to bounded `findNoteByTitle(...)` fetches instead of loading every page row to infer the last-mentioned note
+  - `LiquidGreeting` now routes startup/hold/retract/transition/type/backspace pacing through shared deterministic timing helpers plus an explicit `pause(...)` helper, removing per-character `Int.random(...)` calls and making task cancellation intentional instead of silent
+  - Added focused helper regression coverage in `LandingOptimizationTests`, plus source guards in `NonAgentPruningValidationTests` and `ThemePairTests`, to keep the landing overlay from regressing back to full-page scans and the greeting from slipping back to random sleep loops
+- Focused verification:
+  - pre-fix targeted test run failed and established the new landing helper/source-guard expectations before the patch
+  - the first post-patch compile pass caught the `SessionIntelligenceNoteLookup` isolation mistake; the helper was corrected, the pass counter reset, and verification restarted
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-landing-perf-verify2 test -only-testing:EpistemosTests/LandingOptimizationTests -only-testing:EpistemosTests/NonAgentPruningValidationTests -only-testing:EpistemosTests/ThemePairTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-landing-perf-verify2 build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this pass keeps the landing command/greeting logic lightweight without broad UI redesign: recent-note resolution now uses candidate extraction plus bounded lookups, and the greeting animation keeps its typewriter feel without RNG churn on every character
+  - the strongest remaining non-Hermes perf seams now look concentrated in `Engine/LocalModelInfrastructure.swift`, the remaining delayed command/task paths in `Views/Landing/SessionIntelligenceOverlay.swift`, and broader timer-heavy surfaces outside the landing shell
+- VERDICT: PASS — landing note-history reopening no longer scans the full page table, the greeting animation now uses deterministic shared timing helpers, and the focused audit slice stayed green across three no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 18 — 2026-04-02
+- Scope: local model manifest refresh I/O
+- Issues found:
+  - `LocalModelManager.refreshFromDisk()` still rewrote the local model manifest on no-op refreshes because `pruneMissingInstalls()` always persisted after filtering, even when the install set was already current
+  - cleanup refreshes could also trigger more than one manifest write in the same pass because legacy cleanup and missing-install pruning each persisted independently
+- Issues fixed:
+  - `LocalModelManager.refreshFromDisk()` now records whether legacy or missing-install cleanup actually changed `installRecords` and only persists the manifest once when a cleanup pass really mutated the record set
+  - `pruneMissingInstalls()` and `purgeLegacyNonQwenInstalls()` now return whether they changed the install records instead of writing unconditionally during every refresh pass
+  - Added a real file-modification-date regression in `LocalModelInfrastructureTests` that proves a no-op refresh leaves the manifest untouched, plus a `RuntimeValidationTests` source guard that keeps the conditional-persist structure from regressing
+- Focused verification:
+  - pre-fix targeted verification failed and surfaced the new no-op-refresh/source-guard expectations before the patch
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-localmodel-verify test -only-testing:EpistemosTests/LocalModelInfrastructureTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-localmodel-verify build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this pass removes avoidable disk churn from a manager that already had hot-path throttling elsewhere, so app activation/request routing refreshes no longer pay for redundant manifest writes when nothing actually changed on disk
+  - with this in place, the clearest remaining non-Hermes optimization seams now look more concentrated in delayed landing/task loops and other timer-heavy runtime surfaces than in local model manifest refresh
+- VERDICT: PASS — local model refresh now avoids no-op manifest rewrites, cleanup-triggered refreshes persist at most once per pass, and the focused audit slice stayed green across three no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 19 — 2026-04-02
+- Scope: landing chat-summary resolution
+- Issues found:
+  - `SessionIntelligenceOverlay.summarizeChats()` still resolved chat titles with one SwiftData fetch per chat group, which turned a simple “summarize today’s chats” action into an N+1 fetch loop on the interactive landing overlay path
+  - the chat-summary ordering also depended on dictionary iteration instead of an explicit ranking rule, so the overlay summary order was not intentionally deterministic
+  - the first post-patch verification pass surfaced one refinement-loop issue in the new guard coverage: the source assertion for `orderedGroups.map(\.chatId)` had an over-escaped key-path string and needed to be corrected before verification could proceed
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now routes chat summary ordering through `SessionIntelligenceChatSummary.orderedGroups(...)`, which sorts groups deterministically by message count and then chat ID before applying the limit
+  - `SessionIntelligenceOverlay` now batch-loads chat titles for the selected groups in one `FetchDescriptor<SDChat>` query instead of fetching each chat title individually inside the summary loop
+  - Added a real `LandingOptimizationTests` helper regression for deterministic chat-group ordering/capping plus a `NonAgentPruningValidationTests` source guard that keeps the summary path from regressing back to per-chat fetches
+- Focused verification:
+  - pre-fix targeted verification failed and surfaced the new helper/source-guard expectations before the patch
+  - the first post-patch verification run caught the over-escaped key-path assertion in `NonAgentPruningValidationTests`; the test expectation was corrected, the pass counter reset, and verification restarted
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-chat-summary-verify2 test -only-testing:EpistemosTests/LandingOptimizationTests -only-testing:EpistemosTests/NonAgentPruningValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-chat-summary-verify2 build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this keeps the landing overlay summary path light without changing the user-facing feature: summary ordering is now explicit and title resolution no longer scales linearly with the number of grouped chats
+  - the strongest remaining non-Hermes optimization seams now appear to be the remaining delayed command/task paths in `Views/Landing/SessionIntelligenceOverlay.swift`, the repeated dismiss/load-delay tasks in `Views/Landing/WorkspaceSwitcherOverlay.swift`, and the background keepalive/admin refresh loops in `ViewModels/AgentViewModel.swift`
+- VERDICT: PASS — landing chat summarization now avoids per-chat fetch loops, uses deterministic ordering, and stayed green across three no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 20 — 2026-04-02
+- Scope: final non-Hermes delayed-task/admin keepalive cleanup
+- Issues found:
+  - `SessionIntelligenceOverlay` still had a few duplicated delayed create/open and dismiss paths using raw sleep calls, plus broad auto-save workspace fallback fetches that did more work than needed on the landing command surface
+  - `WorkspaceSwitcherOverlay` repeated the same dismiss animation + 150 ms delay logic across multiple actions instead of routing through one explicit post-dismiss path
+  - `AgentViewModel.startCronKeepalive()` still used a raw 60-second sleep loop without an explicit helper, which left the background admin keepalive surface less intentional and harder to audit than the other timer-heavy paths already cleaned up
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now shares `createAndOpenNote(...)`, `latestAutoSavedWorkspaceSummary(...)`, and a `pause(...)` helper backed by `SessionIntelligenceOverlayTiming`, so create/open flows, dismiss timing, and workspace-summary fallback reads all route through one bounded, auditable path
+  - `WorkspaceSwitcherOverlay` now routes load/dismiss flows through `performAfterDismiss(...)` plus `WorkspaceSwitcherOverlayTiming.dismissDelay()`, removing the duplicated raw delay tasks
+  - `AgentViewModel` now routes the cron keepalive wait through `waitForCronKeepaliveInterval()` and a shared `cronKeepaliveInterval`, giving the admin refresh surface explicit cancellation/error handling instead of an inline raw sleep
+  - Added `NonAgentPruningValidationTests` and `RuntimeValidationTests` source guards that keep these landing/admin paths from regressing back to scattered raw delay calls or broader fallback fetches
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-final-perf-round test -only-testing:EpistemosTests/LandingOptimizationTests -only-testing:EpistemosTests/NonAgentPruningValidationTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-final-perf-round build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - package-side Metal warnings from `mlx-swift` and the existing always-run build-script notes still appear during verification, but this pass introduced no new app-code warnings or regressions
+  - this closes the remaining non-Hermes perf targets previously called out in the landing overlay, workspace switcher, and admin keepalive surfaces; what remains now is mostly lower-priority polish or Hermes-adjacent work rather than a clearly stronger non-Hermes hotspot
+- VERDICT: PASS — the final audited landing/admin delay surfaces now share bounded helpers, the keepalive loop is explicit, and the focused slice stayed green across three no-edit verification cycles

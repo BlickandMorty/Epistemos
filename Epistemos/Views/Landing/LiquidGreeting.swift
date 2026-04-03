@@ -1,5 +1,35 @@
 import SwiftUI
 
+enum LiquidGreetingTiming {
+    nonisolated static func startupDelay() -> Duration { .milliseconds(50) }
+    nonisolated static func retractDelay() -> Duration { .milliseconds(15) }
+    nonisolated static func holdDelay(for phrase: LandingGreetingPhrase) -> Duration { .seconds(phrase.durationSeconds) }
+    nonisolated static func transitionDelay() -> Duration { .milliseconds(320) }
+
+    nonisolated static func typingDelay(forStep step: Int) -> Duration {
+        switch normalizedCycleIndex(forStep: step, count: 4) {
+        case 0: .milliseconds(48)
+        case 1: .milliseconds(56)
+        case 2: .milliseconds(64)
+        default: .milliseconds(72)
+        }
+    }
+
+    nonisolated static func untypingDelay(forStep step: Int) -> Duration {
+        switch normalizedCycleIndex(forStep: step, count: 4) {
+        case 0: .milliseconds(24)
+        case 1: .milliseconds(30)
+        case 2: .milliseconds(36)
+        default: .milliseconds(28)
+        }
+    }
+
+    private nonisolated static func normalizedCycleIndex(forStep step: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return abs(step) % count
+    }
+}
+
 struct LiquidGreeting: View {
     nonisolated static let restingGreeting = "Greetings, Learner"
 
@@ -40,8 +70,7 @@ struct LiquidGreeting: View {
             }
 
             displayText = ""
-            try? await Task.sleep(for: .milliseconds(50))
-            guard !Task.isCancelled else { return }
+            guard await pause(LiquidGreetingTiming.startupDelay()) else { return }
             await typewriterLoop()
         }
     }
@@ -59,6 +88,17 @@ struct LiquidGreeting: View {
         )
     }
 
+    private func pause(_ duration: Duration) async -> Bool {
+        do {
+            try await Task.sleep(for: duration)
+            return !Task.isCancelled
+        } catch is CancellationError {
+            return false
+        } catch {
+            return false
+        }
+    }
+
     @MainActor
     private func retractText() async {
         guard !displayText.isEmpty else {
@@ -68,7 +108,7 @@ struct LiquidGreeting: View {
 
         while !displayText.isEmpty && !Task.isCancelled {
             displayText.removeLast()
-            try? await Task.sleep(for: .milliseconds(15))
+            guard await pause(LiquidGreetingTiming.retractDelay()) else { return }
         }
         guard !Task.isCancelled else { return }
         onRetractComplete?()
@@ -93,8 +133,7 @@ struct LiquidGreeting: View {
             guard !Task.isCancelled else { return }
 
             // Hold.
-            try? await Task.sleep(for: .seconds(current.durationSeconds))
-            guard !Task.isCancelled else { return }
+            guard await pause(LiquidGreetingTiming.holdDelay(for: current)) else { return }
 
             // Backspace only the suffix that differs from the next phrase.
             // e.g. "Greetings, Brainiac" → "Greetings, Researcher" only erases "Brainiac".
@@ -102,7 +141,7 @@ struct LiquidGreeting: View {
             await untypeTo(current.text, stopAt: keepTo)
             guard !Task.isCancelled else { return }
 
-            try? await Task.sleep(for: .milliseconds(320))
+            guard await pause(LiquidGreetingTiming.transitionDelay()) else { return }
             phraseIndex = (phraseIndex + 1) % activePlaylist.count
         }
     }
@@ -129,7 +168,7 @@ struct LiquidGreeting: View {
         for index in (start + 1)...phrase.count {
             guard !Task.isCancelled else { return }
             displayText = String(phrase.prefix(index))
-            try? await Task.sleep(for: .milliseconds(Int.random(in: 45...75)))
+            guard await pause(LiquidGreetingTiming.typingDelay(forStep: index)) else { return }
         }
     }
 
@@ -140,7 +179,7 @@ struct LiquidGreeting: View {
         while index > floor && !Task.isCancelled {
             index -= 1
             displayText = String(phrase.prefix(index))
-            try? await Task.sleep(for: .milliseconds(Int.random(in: 20...40)))
+            guard await pause(LiquidGreetingTiming.untypingDelay(forStep: index)) else { return }
         }
     }
 }

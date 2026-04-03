@@ -275,6 +275,32 @@ struct ProgressStoreTests {
         let dir = ProgressStore.sessionDirectory(for: sessionId)
         try? FileManager.default.removeItem(at: dir)
     }
+
+    @Test("List sessions ignores non-directory artifacts")
+    func listSessionsIgnoresNonDirectoryArtifacts() throws {
+        let firstSessionId = "test-list-\(UUID().uuidString)"
+        let secondSessionId = "test-list-\(UUID().uuidString)"
+        let firstSessionDir = ProgressStore.sessionDirectory(for: firstSessionId)
+        let secondSessionDir = ProgressStore.sessionDirectory(for: secondSessionId)
+        let sessionsDir = firstSessionDir.deletingLastPathComponent()
+        let artifact = sessionsDir.appendingPathComponent("README.txt")
+        let fileManager = FileManager.default
+
+        try fileManager.createDirectory(at: firstSessionDir, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: secondSessionDir, withIntermediateDirectories: true)
+        try "ignore me".write(to: artifact, atomically: true, encoding: .utf8)
+
+        defer {
+            try? fileManager.removeItem(at: firstSessionDir)
+            try? fileManager.removeItem(at: secondSessionDir)
+            try? fileManager.removeItem(at: artifact)
+        }
+
+        let sessions = ProgressStore.listSessions()
+        #expect(sessions.contains(firstSessionId))
+        #expect(sessions.contains(secondSessionId))
+        #expect(!sessions.contains("README.txt"))
+    }
 }
 
 // MARK: - Completion Checker Tests
