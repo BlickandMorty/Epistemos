@@ -170,7 +170,11 @@ Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inv
 
 Work through phases A→I→H as defined in the execution order at the bottom of VISION_BACKLOG.md.
 
-**PHASE I (Rust Agent Migration) is MANDATORY before Phase H (Release).** The shipped app must be pure Swift + Rust + Metal. No Python subprocess, no venv, no pip. The agent becomes a Rust dylib loaded via UniFFI (5-15MB, <10ms cold start, zero-copy IPC). See VISION_BACKLOG.md Phase I for the 7-step migration plan. GoClaw (Go, 25MB single binary) is used as an architecture reference but we beat it on every metric because Rust has no GC.
+**PHASE I (Rust Agent Migration) is MANDATORY before Phase J.** The shipped app must be pure Swift + Rust + Metal. No Python subprocess, no venv, no pip. The agent becomes a Rust dylib loaded via UniFFI (5-15MB, <10ms cold start, zero-copy IPC). See VISION_BACKLOG.md Phase I for the 7-step migration plan.
+
+**PHASE J (Unified Substrate) is the endgame architecture.** After Rust migration, reconceptualize the entire app as one semantic machine with many surface expressions. One ontology, one identity system, one action grammar, one ownership model. Windows as apertures over a shared graph. When `docs/UNIFIED_SUBSTRATE_RESEARCH.md` exists, read it and execute the migration plan within. See VISION_BACKLOG.md Phase J.
+
+**Execution order: A → B → C → D → E → F → G → I → J → H (release).**
 
 **CRITICAL ENGINEERING NOTES:**
 
