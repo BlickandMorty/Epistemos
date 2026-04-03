@@ -66,8 +66,8 @@ Phase F: Multi-Agent                     ❌ PLANNED
 Phase G: Performance Hardening           ❌ PLANNED
 Phase I: Rust Agent Migration            ❌ PRE-RELEASE MANDATORY
 Phase H: Release                         ❌ AFTER Phase I
-Unified Substrate: NOT a phase — architectural lens for ALL phases
-  (read docs/UNIFIED_SUBSTRATE_RESEARCH.md if it exists)
+Unified Substrate: READ docs/UNIFIED_SUBSTRATE_RESEARCH.md — 5 Laws, 4 sprints
+  Sprint 0 audit during Phase A, EntityID during Phase B, action grammar Phase C
 ```
 
 Defaults: eco mode ON, graph performance mode ON.
