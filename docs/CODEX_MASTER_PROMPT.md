@@ -182,6 +182,8 @@ Work through phases A→I→H as defined in the execution order at the bottom of
 
 **Execution order: A → B → C → D → E → F → G → I → H (release).**
 
+**BEFORE STARTING EACH PHASE:** Read the "Research Documents Index" section in `docs/VISION_BACKLOG.md`. Every phase has specific research documents, executive advice, and key insights listed. Read the relevant ones for that phase before writing any code. This ensures every architectural decision is grounded in the research, not guessed.
+
 **CRITICAL ENGINEERING NOTES:**
 
 **Cloud provider overhaul (Tier -1 in VISION_BACKLOG):** The app switches from showing ALL providers' models to ONE active provider at a time. Default is OpenAI with OAuth sign-in (zero API keys — like Xcode). Anthropic requires API key (OAuth killed Feb 2026). Model selector only shows active provider's models + local. Each provider gets native controls (OpenAI: thinking/pro/fast; Anthropic: extended thinking toggle + budget; Google: grounding). Read the full spec in VISION_BACKLOG.md Tier -1.
