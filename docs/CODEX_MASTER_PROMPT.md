@@ -170,7 +170,13 @@ Read `docs/VISION_BACKLOG.md` for the complete **11-tier, 70+ item** feature inv
 
 Work through phases A→I→H as defined in the execution order at the bottom of VISION_BACKLOG.md.
 
-**PHASE I (Rust Agent Migration) is MANDATORY before Phase J.** The shipped app must be pure Swift + Rust + Metal. No Python subprocess, no venv, no pip. The agent becomes a Rust dylib loaded via UniFFI (5-15MB, <10ms cold start, zero-copy IPC). See VISION_BACKLOG.md Phase I for the 7-step migration plan.
+**PHASE I (Rust Agent Migration) is MANDATORY before release.** Pure Swift + Rust + Metal. No Python.
+
+**Architecture: Goose body + GEPA brain.** Clone Block Goose's Provider trait, agent loop, builtin extensions (Apache-2.0, github.com/block/goose). Port Hermes GEPA self-evolution to Rust for Living Vault. WARNING: Goose without GEPA = faster but less intelligent.
+
+**Read before starting Phase I:** `docs/PHASE_I_IMPLEMENTATION_GUIDE.md` (800 lines, 8 integration surfaces), `docs/GOOSE_AGENT_RESEARCH.md`, `docs/GOOSE_AGENT_RESEARCH_2.md`
+
+**Target:** 8-12MB binary, <10ms cold start. Qwen3.5 4B router (97.5% tool accuracy) + 9B reasoner. MLX native safetensors ONLY.
 
 **Unified Substrate (`docs/UNIFIED_SUBSTRATE_RESEARCH.md` — READ THIS).** The 5 Laws and 4-sprint substrate plan derived from 3 independent research dossiers. NOT a separate phase — weaves into every phase. Key directives:
 - **Law 1:** Measure before you cut (Instruments profiling required for any architecture PR)

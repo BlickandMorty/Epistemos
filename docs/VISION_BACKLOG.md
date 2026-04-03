@@ -1513,14 +1513,65 @@ PHASE G — PERFORMANCE HARDENING:
   11A-F Zero-copy, typestate, capability tokens
   Phases 10-13 from MASTER_HARDENING_AND_HARNESS_PLAN
 
-PHASE I — RUST AGENT MIGRATION (Pre-release — no Python in shipped app):
-  I-1 OpenAI + Google providers in Rust (raw HTTP + SSE)
-  I-2 Tool dispatch in Rust (simple tools native, complex via HTTP)
-  I-3 Skills loader in Rust (SKILL.md + serde_yaml)
-  I-4 MCP server in Rust (replace Python bridge)
-  I-5 Cron/scheduler in Rust (tokio cron)
-  I-6 Drop Python subprocess (delete hermes-agent submodule)
-  I-7 Final validation (all tools, all providers, performance targets)
+PHASE I — RUST AGENT MIGRATION (Pre-release — Goose + GEPA fusion):
+  READ FIRST: docs/GOOSE_AGENT_RESEARCH.md, docs/GOOSE_AGENT_RESEARCH_2.md,
+              docs/PHASE_I_IMPLEMENTATION_GUIDE.md
+
+  ARCHITECTURE: Goose's Rust skeleton (body) + Hermes's GEPA algorithm (brain)
+  - Goose = orchestrator (Provider trait, agent loop, MCP, builtin extensions)
+  - GEPA = mind (trace → diagnose → mutate → Pareto select → test → commit)
+  - WARNING: Goose without GEPA = faster but LESS intelligent than current Hermes
+
+  Week 1: UniFFI Streaming Bridge
+    - TokenStreamCallback (Rust → Swift) for Provider.stream() output
+    - MetalProvider with bidirectional callback (Rust asks Swift/MLX to generate)
+    - Channel registry (DashMap<u64, mpsc::Sender>) for Metal thread → Rust async
+    - Mock provider bridge test: tokens show up in SwiftUI = everything else follows
+
+  Week 2: Goose Provider + Agent Loop
+    - Clone crates/goose Provider trait (stream, complete, get_model_config)
+    - Strip CLI/UI/Electron code → target 6-8MB core
+    - Feature-gate: no LanceDB (use sqlite-vec), no V8
+    - Add parallel tool dispatch: futures::try_join_all (Goose's biggest weakness)
+    - Add proactive context compaction (before hitting limit, not after error)
+    - Add tokio::CancellationToken for SwiftUI task lifecycle
+
+  Week 3: Builtin Extensions + MCP
+    - Rewrite 17 core tools as Rust builtin extensions (zero IPC, sub-ms execution)
+    - Developer: shell, file read/write/edit, grep, glob
+    - macOS: AXUIElement, ScreenCaptureKit (custom builtin extension)
+    - Memory: sqlite-vec + tantivy search (custom builtin extension)
+    - Use rmcp v0.9.1 (official Rust MCP SDK) for external tool protocol
+    - Path-sandboxed file ops, .gooseignore-style security
+
+  Week 4: Model Manager + GEPA Evolution
+    - 3-tier model architecture within 18GB budget:
+      Router (pinned): Qwen3.5 4B MLX 4-bit (3.4GB, 55-65 tok/s, 97.5% tool accuracy)
+      Reasoner (cold): Qwen3.5 9B MLX 4-bit (5.5GB, 35-42 tok/s)
+      Upgrade path: Gemma 4 E2B as router when MLX tool-call parser merges
+      Stretch: Gemma 4 26B-A4B MoE on 24GB+ machines (97% of 31B quality)
+    - Port GEPA reflective evolution to Rust:
+      trace → LLM diagnosis → targeted mutation → Pareto selection → 5 constraint gates
+      Cost: $2-10 per optimization cycle via cloud API
+      Drives: self-optimizing retrieval prompts, evolving memory classification,
+              adaptive research behavior in Living Vault
+
+  Week 5: Validation + Python Elimination
+    - All 50+ tools working in Rust
+    - All providers (OpenAI OAuth, Google OAuth, Anthropic API key) working
+    - All skills loading from ~/.epistemos/skills/ (serde_yaml)
+    - Performance: tool exec <100ms, session start <10ms, binary 8-12MB
+    - Delete hermes-agent/ submodule
+    - Zero Python on user's machine
+
+  QUANTIZATION RULE: MLX native safetensors ONLY for production
+    - MLX 4-bit affine: 90-92% quality, full Metal acceleration ← default
+    - MLX 6-bit affine: 97% quality, full Metal acceleration ← when memory allows
+    - GGUF K-quants (Q4_K_M etc): cast to FP16 on MLX = USELESS, skip
+    - Unsloth Dynamic 2.0: SOTA for llama.cpp but NOT for MLX-Swift
+    - TQ3_4S (TurboQuant weights): experimental fork, no MLX support, skip
+    - TurboQuant KV cache compression: 4.6x compression at 98% FP16 speed
+      → implement fused Metal kernels for Walsh-Hadamard rotation (future)
 
 PHASE H — RELEASE PREP (After Rust migration):
   0A Notarization + Sparkle auto-update
@@ -1557,37 +1608,38 @@ THE 5 LAWS (Binding — from docs/UNIFIED_SUBSTRATE_RESEARCH.md):
 
 PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping):
   This is NOT optional. The app ships as pure Swift + Rust. No Python dependency.
-  GoClaw (Go) used as reference for architecture decisions, but implementation is Rust.
 
-  I-1: Add OpenAI + Google providers to agent_core/src/providers/
-       (raw HTTP + SSE, same pattern as existing Claude provider)
-       → Rust agent loop can call all 3 cloud APIs directly
-  I-2: Move tool dispatch to Rust
-       → Rust receives tool_use, executes simple tools natively
-         (file read/write, search, grep, glob — already have Rust impls)
-       → Complex tools (Firecrawl, browser) call out via subprocess or HTTP
-  I-3: Move skills loader to Rust
-       → Read SKILL.md files, parse YAML frontmatter (serde_yaml)
-       → Register tools dynamically from skills directory
-  I-4: Move MCP server to Rust
-       → Replace EpistemosMCPServer.swift + epistemos_bridge.py
-       → Pure Rust JSON-RPC over stdin/stdout (or shared memory)
-  I-5: Move cron/scheduler to Rust
-       → Replace Python cron.scheduler with tokio cron tasks
-  I-6: Drop Python subprocess entirely
-       → Delete hermes-agent/ submodule dependency
-       → Agent is pure Rust dylib loaded via UniFFI
-       → 5-15MB binary, <10ms cold start, zero-copy IPC, no venv
-  I-7: Final validation
-       → All 50+ tools working in Rust
-       → All skills loading from ~/.epistemos/skills/
-       → All providers (OpenAI OAuth, Google OAuth, Anthropic API key) working
-       → Performance targets: tool exec <100ms, session start <500ms→<50ms
-       → Zero Python on the user's machine
+  PRIMARY REFERENCE: Block Goose (github.com/block/goose)
+    - Apache-2.0, 33.5K stars, v1.29.0, pure Rust core
+    - Provider trait abstracts all 20+ cloud providers
+    - rmcp v0.9.1 (official Rust MCP SDK)
+    - Builtin extensions = zero IPC, compiled into binary
+    - Target: depend on goose crate as Cargo dependency, feature-gate aggressively
 
-  Reference: GoClaw Lite architecture (25MB single binary, SQLite, 40+ tools)
-  But our Rust version will be smaller (5-15MB), faster (<10ms vs <50ms),
-  and zero-copy (Apple Silicon UMA — impossible in Go due to GC)
+  SECONDARY REFERENCE: Hermes GEPA Self-Evolution
+    - GEPA algorithm (ICLR 2026 Oral, outperforms GRPO by 6%, 35x fewer rollouts)
+    - trace → diagnose → mutate → Pareto select → constraint gates
+    - Port to Rust for Living Vault self-improvement
+    - $2-10 per optimization cycle, no GPU training
+
+  IMPLEMENTATION GUIDE: docs/PHASE_I_IMPLEMENTATION_GUIDE.md
+    - 800 lines of implementation-ready code patterns
+    - 8 integration surfaces in dependency order
+    - UniFFI bridge, Provider trait, MetalProvider, tool-call parser,
+      builtin extensions, agent loop, model manager, GEPA engine
+
+  BINARY TARGET: 8-12MB (stripped, feature-gated)
+    - goose crate alone (no LanceDB, no V8): 10-15MB
+    - With aggressive strip + opt-level=z + LTO + panic=abort: 8-12MB
+    - Current Python: ~250MB (venv + deps) → 30x reduction
+
+  MODEL DEFAULTS:
+    Router: Qwen3.5 4B MLX 4-bit (3.4GB, 97.5% tool accuracy)
+    Reasoner: Qwen3.5 9B MLX 4-bit (5.5GB)
+    Upgrade: Gemma 4 E2B router (~1.5GB) when MLX tool-call parser merges
+    Stretch: Gemma 4 26B-A4B MoE on 24GB+ (97% of 31B at 3.8B compute)
+
+  QUANTIZATION: MLX native safetensors ONLY (GGUF K-quants cast to FP16 on MLX = useless)
 
 UNIFIED SUBSTRATE RESEARCH — ✅ COMPLETE (see docs/UNIFIED_SUBSTRATE_RESEARCH.md)
   3 independent dossiers converge on same architecture.
