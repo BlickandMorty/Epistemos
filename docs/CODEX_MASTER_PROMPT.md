@@ -172,7 +172,13 @@ Work through phases A→I→H as defined in the execution order at the bottom of
 
 **PHASE I (Rust Agent Migration) is MANDATORY before Phase J.** The shipped app must be pure Swift + Rust + Metal. No Python subprocess, no venv, no pip. The agent becomes a Rust dylib loaded via UniFFI (5-15MB, <10ms cold start, zero-copy IPC). See VISION_BACKLOG.md Phase I for the 7-step migration plan.
 
-**Unified Substrate is NOT a separate phase — it's the architectural lens for ALL phases.** When `docs/UNIFIED_SUBSTRATE_RESEARCH.md` exists, read it before starting any phase. Apply its principles: one source of truth, windows as apertures, zero-copy where meaningful, agent as native substrate. The substrate emerges from building each phase correctly — Phase B unifies the graph, Phase D unifies the sidebar, Phase I puts the agent in-process. No separate rewrite needed.
+**Unified Substrate (`docs/UNIFIED_SUBSTRATE_RESEARCH.md` — READ THIS).** The 5 Laws and 4-sprint substrate plan derived from 3 independent research dossiers. NOT a separate phase — weaves into every phase. Key directives:
+- **Law 1:** Measure before you cut (Instruments profiling required for any architecture PR)
+- **Law 2:** substrate-core is a NEW Rust crate (slotmap entity store), not a refactor of existing code
+- **Law 3:** Identity unification first (EntityID as u64 via C ABI, migrate notes first)
+- **Law 4:** UniFFI stays until profiling proves hotspots need C ABI
+- **Law 5:** Python out-of-process immediately (no-regret, saves 15-25MB)
+- Sprint 0 (audit) runs during Phase A. Sprint 1 (EntityID + Python) runs during Phase B. Sprint 2-3 weave into Phases C-D. By Phase I, the substrate is operational.
 
 **Execution order: A → B → C → D → E → F → G → I → H (release).**
 
