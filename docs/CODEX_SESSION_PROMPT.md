@@ -65,7 +65,8 @@ Phase E: Code Editor                     ❌ PLANNED
 Phase F: Multi-Agent                     ❌ PLANNED
 Phase G: Performance Hardening           ❌ PLANNED
 Phase I: Rust Agent Migration            ❌ PRE-RELEASE MANDATORY
-Phase H: Release                         ❌ AFTER Phase I
+Phase J: Unified Substrate               ❌ ENDGAME (after Phase I, before release)
+Phase H: Release                         ❌ AFTER Phase J
 ```
 
 Defaults: eco mode ON, graph performance mode ON.

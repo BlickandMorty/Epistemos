@@ -1404,10 +1404,15 @@ PHASE I — RUST AGENT MIGRATION (Pre-release — no Python in shipped app):
   I-6 Drop Python subprocess (delete hermes-agent submodule)
   I-7 Final validation (all tools, all providers, performance targets)
 
-PHASE H — RELEASE PREP (After Rust migration complete):
+PHASE J — UNIFIED SUBSTRATE (After Rust migration — the endgame):
+  Research: paste Unified Substrate Research Prompt into deep research
+  Save results to docs/UNIFIED_SUBSTRATE_RESEARCH.md
+  30-day audit → 60-90 day migration → one semantic machine
+
+PHASE H — RELEASE PREP (After substrate unification):
   0A Notarization + Sparkle auto-update
   Release preflight, DMG packaging, legal docs
-  Fresh-machine verification — NO Python on user's machine
+  Fresh-machine verification — NO Python, unified substrate
 
 PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping):
   This is NOT optional. The app ships as pure Swift + Rust. No Python dependency.
@@ -1442,6 +1447,39 @@ PHASE I — RUST AGENT MIGRATION (Pre-release — MUST complete before shipping)
   Reference: GoClaw Lite architecture (25MB single binary, SQLite, 40+ tools)
   But our Rust version will be smaller (5-15MB), faster (<10ms vs <50ms),
   and zero-copy (Apple Silicon UMA — impossible in Go due to GC)
+
+PHASE J — UNIFIED SUBSTRATE (The endgame architecture — after features ship):
+  The app reconceptualized as one semantic machine with many surface expressions.
+  Not a cleanup. Not a refactor. A fundamental reconceptualization.
+
+  Research prompt: paste the Unified Substrate Research Prompt into deep research
+  (Perplexity/Gemini/Claude). When results return, save to docs/UNIFIED_SUBSTRATE_RESEARCH.md
+  and Codex will integrate findings into the migration plan.
+
+  Key questions the research must answer:
+  - One ontology, one identity system, one action grammar, one ownership model
+  - Windows as apertures over a shared graph, not separate local kingdoms
+  - Zero-copy where meaningful (not as slogan) — where copies are unavoidable
+  - Binary slimming: realistic lower bound for a 250K-line pro app
+  - Python: embedded, isolated, replaced, or constrained to tool runtime?
+  - Agentic harness as native substrate, not bolted-on wrappers
+  - What the smallest, deepest, most compact architecture looks like
+
+  This phase produces:
+  - Unified-substrate manifesto
+  - Architecture selection (from 5+ evaluated patterns)
+  - Zero-copy and memory law for the entire app
+  - Binary compactness roadmap
+  - Multi-window singularity design
+  - Rendering/UI substrate contract
+  - Python runtime final disposition
+  - Agentic harness native design
+  - 30-day audit plan + 60-90 day migration plan
+  - Risk map, rollback strategy, metrics to track
+
+  Succession: Phase J happens AFTER Phase I (Rust migration) and BEFORE final release polish.
+  The Rust migration (Phase I) eliminates Python as a runtime dependency.
+  Phase J unifies everything that remains into a coherent substrate.
 
 LONG-TERM WATCH:
   GoClaw Lite — reference architecture only, not adopting
