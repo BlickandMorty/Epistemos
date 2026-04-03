@@ -661,6 +661,12 @@ final class NodeInspectorState {
         }
     }
 
+    func stopChat() {
+        chatTask?.cancel()
+        chatTask = nil
+        isChatStreaming = false
+    }
+
     private func appendToLastAssistant(_ text: String) {
         guard let lastIndex = chatMessages.indices.last,
               chatMessages[lastIndex].role == .assistant else { return }

@@ -267,9 +267,9 @@ enum GraphInteractionMode: Equatable {
 /// Multi-tenant vault mode for the knowledge graph.
 /// Switches between the user's human vault and the agent's internal memory vault.
 enum GraphVaultMode: String, CaseIterable, Sendable {
-    /// Human vault — the user's notes, sources, and ideas.
+    /// Human vault — the user's notes, folders, chats, ideas, and tags.
     case humanVault
-    /// Agent vault — the model's internal .idea and .source nodes from Hermes execution.
+    /// Agent vault — the model's internal live execution memory nodes.
     case agentVault
 }
 
@@ -285,7 +285,7 @@ final class GraphState {
 
     /// Current vault mode — determines which nodes are visible in the Hologram.
     /// `.humanVault` shows the user's notes; `.agentVault` shows agent-generated
-    /// .idea and .source nodes from Hermes executions.
+    /// live execution-memory nodes without re-enabling disabled source/quote types.
     var vaultMode: GraphVaultMode = .humanVault
 
     private static let visualThemeDefaultsKey = "graphVisualTheme"

@@ -100,6 +100,7 @@ enum NoteEditorNotifications {
 enum NoteToolbarMetrics {
     static let iconSide: CGFloat = 14
     static let buttonSide: CGFloat = 28
+    static let stopBallSize: CGFloat = 22
     static let spacing: CGFloat = 6
     static let chatFieldWidth: CGFloat = 220
     static let stripGlowBlurRadius: CGFloat = 6
@@ -121,8 +122,6 @@ enum NoteToolbarPalette {
 enum NoteToolbarDisplay {
     static let hidesMenuIndicators = true
 }
-
-
 
 enum NoteWorkspaceSurfaceStyle {
     static let minimumEditorSize = CGSize(width: 400, height: 300)
@@ -1433,85 +1432,40 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
-    private var toolbarAskGlowLineWidth: CGFloat {
-        switch noteChatState.toolbarStatusPhase {
-        case .idle:
-            1.0
-        case .analyzing:
-            1.6
-        case .typing:
-            1.1
-        }
+    private var toolbarAskStatusPhase: AssistantComposerStatusPhase {
+        AssistantComposerStatusPhase(notePhase: noteChatState.toolbarStatusPhase)
     }
 
-    private var toolbarAskFillColor: Color {
-        let accent = ui.theme.resolved.accent.color
-        switch noteChatState.toolbarStatusPhase {
-        case .idle:
-            return ui.theme.resolved.foreground.color.opacity(0.035)
-        case .analyzing:
-            return accent.opacity(0.10)
-        case .typing:
-            return accent.opacity(0.05)
-        }
-    }
-
-    private var toolbarAskStrokeColor: Color {
-        let accent = ui.theme.resolved.accent.color
-        switch noteChatState.toolbarStatusPhase {
-        case .idle:
-            return ui.theme.resolved.foreground.color.opacity(0.08)
-        case .analyzing:
-            return accent.opacity(0.22)
-        case .typing:
-            return accent.opacity(0.12)
-        }
+    private var toolbarAskAccentColor: Color {
+        ui.theme.resolved.accent.color
     }
 
     // MARK: - Toolbar Chat Field
 
     private func toolbarChatField(width: CGFloat) -> some View {
-        HStack(spacing: 8) {
-            @Bindable var chat = noteChatState
-            LocalModelToolbarMenu(variant: .toolbar)
-            TextField("Ask this note", text: $chat.inputText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12))
-                .frame(width: width)
-                .onSubmit {
-                    noteChatState.submitToolbarQuery(
-                        noteChatState.inputText,
-                        triageService: triageService
-                    )
-                }
+        @Bindable var chat = noteChatState
 
-            if noteChatState.isStreaming {
-                Button {
-                    noteChatState.stopStreaming()
-                } label: {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(ui.theme.error)
-                }
-                .buttonStyle(.plain)
+        return AssistantToolbarAskBar(
+            text: $chat.inputText,
+            placeholder: "Ask this note",
+            phase: toolbarAskStatusPhase,
+            theme: ui.theme,
+            accent: toolbarAskAccentColor,
+            isStreaming: noteChatState.isStreaming,
+            fieldWidth: width,
+            chromeTuning: .noteAskBar,
+            onSubmit: {
+                noteChatState.submitToolbarQuery(
+                    noteChatState.inputText,
+                    triageService: triageService
+                )
+            },
+            onStop: {
+                noteChatState.stopStreaming()
             }
+        ) {
+            LocalModelToolbarMenu(variant: .toolbar)
         }
-        .frame(minHeight: NoteToolbarMetrics.buttonSide)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 3)
-        .background(
-            Capsule()
-                .fill(toolbarAskFillColor)
-        )
-        .overlay(
-            Capsule()
-                .strokeBorder(toolbarAskStrokeColor, lineWidth: 0.75)
-        )
-        .siriGlow(
-            cornerRadius: NoteToolbarMetrics.buttonSide / 2,
-            lineWidth: toolbarAskGlowLineWidth,
-            isActive: noteChatState.toolbarStatusPhase != .idle
-        )
     }
 
     private var noteChatContextAttachment: ContextAttachment? {

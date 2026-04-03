@@ -47,14 +47,6 @@ enum QueryParser {
             return .typeFilter(types: [.idea])
         }
 
-        if matches(q, patterns: ["all sources", "show sources", "list sources"]) {
-            return .typeFilter(types: [.source])
-        }
-
-        if matches(q, patterns: ["all quotes", "show quotes", "list quotes"]) {
-            return .typeFilter(types: [.quote])
-        }
-
         if matches(q, patterns: ["all chats", "show chats", "list chats"]) {
             return .typeFilter(types: [.chat])
         }

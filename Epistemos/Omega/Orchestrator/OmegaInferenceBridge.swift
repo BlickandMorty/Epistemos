@@ -45,26 +45,23 @@ final class OmegaInferenceBridge {
         systemPrompt: String? = nil
     ) async throws -> String {
         // Try constrained decoding path first (only when truly available)
-        let constrained: String? = try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor [weak self] in
-                guard let self, let cd = self.constrainedDecoding, cd.isAvailable else {
-                    continuation.resume(returning: nil as String?)
-                    return
-                }
-                do {
-                    let system = systemPrompt ?? "You are a precise task planner. Output ONLY valid JSON array."
-                    let prompt = Self.buildPlanningPrompt(taskDescription: taskDescription)
-                    let result = try await cd.generateConstrainedPlan(
-                        prompt: prompt,
-                        systemPrompt: system,
-                        toolSchemas: self.parsedToolSchemas,
-                        maxTokens: 1024
-                    )
-                    continuation.resume(returning: result)
-                } catch {
-                    // Constrained decoding failed — fall through to unconstrained
-                    continuation.resume(returning: nil as String?)
-                }
+        let constrained = try await withTimedMainActorBridge { [weak self] in
+            guard let self, let cd = self.constrainedDecoding, cd.isAvailable else {
+                return nil as String?
+            }
+
+            do {
+                let system = systemPrompt ?? "You are a precise task planner. Output ONLY valid JSON array."
+                let prompt = Self.buildPlanningPrompt(taskDescription: taskDescription)
+                return try await cd.generateConstrainedPlan(
+                    prompt: prompt,
+                    systemPrompt: system,
+                    toolSchemas: self.parsedToolSchemas,
+                    maxTokens: 1024
+                )
+            } catch {
+                // Constrained decoding failed — fall through to unconstrained
+                return nil as String?
             }
         }
 
@@ -74,19 +71,12 @@ final class OmegaInferenceBridge {
         let prompt = Self.buildPlanningPrompt(taskDescription: taskDescription)
         let system = systemPrompt ?? "You are a precise task planner. Output ONLY valid JSON array. No explanation, no markdown, no code fences."
 
-        let raw: String = try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor [triageService] in
-                do {
-                    let result = try await triageService.generateRawLocal(
-                        prompt: prompt,
-                        systemPrompt: system,
-                        maxTokens: 1024
-                    )
-                    continuation.resume(returning: result)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+        let raw = try await withTimedMainActorBridge { [self] in
+            try await self.triageService.generateRawLocal(
+                prompt: prompt,
+                systemPrompt: system,
+                maxTokens: 1024
+            )
         }
 
         return Self.stripThinkTags(raw)

@@ -87,6 +87,22 @@ struct MiniChatViewAuditTests {
         #expect(inferenceState.contains("case appleIntelligence"))
     }
 
+    @Test("chat stop handlers clear active streaming UI immediately")
+    func chatStopHandlersClearActiveStreamingUIImmediately() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let mainChatSource = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let coordinatorSource = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
+
+        #expect(miniChatSource.contains("private func cancelStream() {"))
+        #expect(miniChatSource.contains("isProcessing = false"))
+        #expect(miniChatSource.contains("threadState.setMiniChatStreaming(false, chatID: chatID)"))
+        #expect(miniChatSource.contains("threadState.setMiniChatStreamingText(\"\", chatID: chatID)"))
+        #expect(miniChatSource.contains("streamTask?.cancel()"))
+        #expect(mainChatSource.contains("if pipeline.isProcessing || chat.isStreaming"))
+        #expect(!mainChatSource.contains("if chat.isStreaming || !chat.streamingText.isEmpty"))
+        #expect(coordinatorSource.contains("pipelineService.cancelActiveRun()"))
+    }
+
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
         let testsFileURL = URL(fileURLWithPath: #filePath)
         let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()

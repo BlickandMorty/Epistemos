@@ -119,6 +119,35 @@ struct InstantRecallServiceTests {
         #expect(freshResults.first?.docId == "fresh-doc")
     }
 
+    @Test("Service lazily initializes on first use")
+    @MainActor func serviceLazilyInitializesOnFirstUse() {
+        let service = InstantRecallService()
+        #expect(!service.isReady)
+
+        service.indexNote(noteId: "doc-lazy", text: "Bayesian evidence and posterior updates")
+
+        #expect(service.isReady)
+        #expect(service.documentCount == 1)
+        #expect(service.search(queryText: "Bayesian evidence", topK: 5).first?.docId == "doc-lazy")
+    }
+
+    @Test("Service hydrates the initial snapshot on first search")
+    @MainActor func serviceHydratesInitialSnapshotOnFirstSearch() {
+        let service = InstantRecallService()
+        service.configureInitialSnapshotProvider {
+            [
+                (id: "doc-seeded", text: "Hidden Markov models and posterior decoding"),
+                (id: "doc-other", text: "Apple pie recipe and cinnamon filling"),
+            ]
+        }
+
+        let results = service.search(queryText: "posterior decoding", topK: 5)
+
+        #expect(service.isReady)
+        #expect(service.documentCount == 2)
+        #expect(results.first?.docId == "doc-seeded")
+    }
+
     @Test("Service treats empty note bodies as removals")
     @MainActor func serviceTreatsEmptyBodyAsRemoval() {
         let service = InstantRecallService()

@@ -5,6 +5,14 @@ import Testing
 
 @testable import Epistemos
 
+private func loadWorkspaceSnapshotRepoTextFile(_ relativePath: String) throws -> String {
+    let repoRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let fileURL = repoRoot.appendingPathComponent(relativePath)
+    return try String(contentsOf: fileURL, encoding: .utf8)
+}
+
 @Suite("WorkspaceSnapshot")
 struct WorkspaceSnapshotTests {
 
@@ -377,44 +385,13 @@ struct StartupIntegrityTests {
         )
     }
 
-    @Test("initial instant recall seed is skipped when automatic vault restore is ready")
-    func initialInstantRecallSeedSkipsWhenAutomaticVaultRestoreIsReady() {
-        let validation = VaultBookmarkStartupValidation(
-            bookmarkExists: true,
-            isReadyForAutomaticRestore: true,
-            failureReason: nil
-        )
+    @Test("initial instant recall hydration is configured lazily")
+    func initialInstantRecallHydrationIsConfiguredLazily() throws {
+        let appBootstrap = try loadWorkspaceSnapshotRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(
-            AppBootstrap.shouldScheduleInitialInstantRecallSeedForTesting(
-                vaultBookmarkValidation: validation
-            ) == false
-        )
-    }
-
-    @Test("initial instant recall seed still runs when bookmark restore is unavailable")
-    func initialInstantRecallSeedRunsWhenBookmarkRestoreIsUnavailable() {
-        let missingBookmark = VaultBookmarkStartupValidation(
-            bookmarkExists: false,
-            isReadyForAutomaticRestore: true,
-            failureReason: nil
-        )
-        let staleBookmark = VaultBookmarkStartupValidation(
-            bookmarkExists: true,
-            isReadyForAutomaticRestore: false,
-            failureReason: "Saved vault bookmark is stale and must be re-selected."
-        )
-
-        #expect(
-            AppBootstrap.shouldScheduleInitialInstantRecallSeedForTesting(
-                vaultBookmarkValidation: missingBookmark
-            )
-        )
-        #expect(
-            AppBootstrap.shouldScheduleInitialInstantRecallSeedForTesting(
-                vaultBookmarkValidation: staleBookmark
-            )
-        )
+        #expect(appBootstrap.contains("instantRecallService.configureInitialSnapshotProvider"))
+        #expect(!appBootstrap.contains("if Self.shouldScheduleInitialInstantRecallSeed("))
+        #expect(!appBootstrap.contains("scheduleInitialInstantRecallRebuild()"))
     }
 
     @Test("initial graph preload is skipped when automatic vault restore is ready")
@@ -430,10 +407,13 @@ struct StartupIntegrityTests {
                 vaultBookmarkValidation: validation
             ) == false
         )
+
+        let appBootstrap = try? loadWorkspaceSnapshotRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        #expect(appBootstrap?.contains("Task(priority: .utility) { await graphState.loadGraph(container: container) }") == false)
     }
 
-    @Test("initial graph preload still runs when bookmark restore is unavailable")
-    func initialGraphPreloadRunsWhenBookmarkRestoreIsUnavailable() {
+    @Test("initial graph preload stays lazy even when bookmark restore is unavailable")
+    func initialGraphPreloadStaysLazyWhenBookmarkRestoreIsUnavailable() {
         let missingBookmark = VaultBookmarkStartupValidation(
             bookmarkExists: false,
             isReadyForAutomaticRestore: true,
@@ -448,13 +428,23 @@ struct StartupIntegrityTests {
         #expect(
             AppBootstrap.shouldScheduleInitialGraphLoadForTesting(
                 vaultBookmarkValidation: missingBookmark
-            )
+            ) == false
         )
         #expect(
             AppBootstrap.shouldScheduleInitialGraphLoadForTesting(
                 vaultBookmarkValidation: staleBookmark
-            )
+            ) == false
         )
+    }
+
+    @Test("knowledge fusion startup keeps full state hydration lazy")
+    func knowledgeFusionStartupKeepsFullStateHydrationLazy() throws {
+        let appBootstrap = try loadWorkspaceSnapshotRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let settingsView = try loadWorkspaceSnapshotRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(!appBootstrap.contains("await KnowledgeFusionViewModel.shared.loadState()"))
+        #expect(appBootstrap.contains("KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
+        #expect(settingsView.contains("await vm.loadState()"))
     }
 
     @Test("automatic vault restore waits for primary launch work when bookmark restore is ready")

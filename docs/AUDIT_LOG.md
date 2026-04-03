@@ -552,3 +552,52 @@
   - package-side Metal warnings from `mlx-swift` and the existing always-run build-script notes still appear during verification, but this pass introduced no new app-code warnings or regressions
   - this closes the remaining non-Hermes perf targets previously called out in the landing overlay, workspace switcher, and admin keepalive surfaces; what remains now is mostly lower-priority polish or Hermes-adjacent work rather than a clearly stronger non-Hermes hotspot
 - VERDICT: PASS — the final audited landing/admin delay surfaces now share bounded helpers, the keepalive loop is explicit, and the focused slice stayed green across three no-edit verification cycles
+
+## Audit Sweep — 2026-04-02
+- Scope: status-corrected continuation/power/code-signing audit plus disabled graph-node regression sweep
+- Build: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build`)
+- Focused tests: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos_audit_dd test -only-testing:EpistemosTests/FilterEngineTests -only-testing:EpistemosTests/DeviceAgentServiceTests -only-testing:EpistemosTests/QueryParserVisibilityTests`)
+- Rust verification:
+  - `cargo test --manifest-path agent_core/Cargo.toml`: PASS (144 passed)
+  - `cargo test --manifest-path graph-engine/Cargo.toml`: PASS (2451 passed, 8 ignored)
+  - `cargo test --manifest-path omega-ax/Cargo.toml`: PASS (12 passed)
+  - `cargo test --manifest-path omega-mcp/Cargo.toml`: PASS (126 passed)
+- Hardening grep: 50/50 passed (`docs/HARDENING_VERIFICATION.md`)
+  - the helper script reported `49/50` only because `grep -c 'polling'` returns exit status `1` when the output is the expected literal `0`; the output itself was verified as correct
+- Code signing: PASS (`codesign --verify --deep --strict --verbose=2 /tmp/epistemos_audit_dd/Build/Products/Debug/Epistemos.app`)
+- Zero-corruption:
+  - `NoteFileStorage.swift` raw `try?` grep count: 0
+  - production `try!` / `.unwrap()` grep count: 0
+  - `agent_core/src/bridge.rs` `ffi_guard_*` / `catch_unwind` grep count: 18
+- Anti-drift:
+  - production `Process()` / `NSTask` / `posix_spawn` grep count: 0
+  - fake cloud SDK imports: 0
+  - `UserDefaults.*ApiKey` grep count: 0
+  - `ObservableObject` grep count: 0
+  - `PowerGuard.shared` grep count: 20
+- Continuations:
+  - `withCheckedContinuation` / `withCheckedThrowingContinuation` count: 27
+  - `withTaskCancellationHandler` count: 18
+  - reviewed the high-risk stored continuation sites in `ThermalGuard`, `HermesMCPClient`, `ConfirmationGate`, and `ResearchPause`; no fresh regression found there
+  - added a shared `withTimedMainActorBridge(...)` helper so `MLXInferenceBridge`, `OmegaInferenceBridge`, and `SharedGPUBackend.generate(...)` now have explicit timeout/cancellation safety instead of open-ended MainActor bridging continuations
+- Power / MCP / cross-cutting verification:
+  - confirmed eco mode defaults on, graph performance mode defaults on, graph quality is forced to 2 under `PowerGuard.shared.shouldDisableBackground`, and `MetalGraphView` re-pushes quality on power-mode changes
+  - confirmed `VaultSyncService` background timers restart on return to `.full`
+  - confirmed `NightBrainService`, `AgentHeartbeatService`, and `ScreenCaptureService` honor PowerGuard gating
+  - confirmed `HermesMCPClient.listTools()` uses a 5-second timeout, default MCP timeout is 10 seconds, `removePending(...)` resumes with timeout/cancellation errors, and `cancelAll()` resumes all pending requests on disconnect
+  - confirmed `AppleIntelligenceService` calls `ThermalGuard.shared.acquireClearance()` before inference, thermal pauses stay breaker-neutral, `AppSupervisor` checks `EventStore.shared` for the knowledge store signal, and thermal notifications drive the mode machine
+- Issues found:
+  - `QueryParser` and `StructuredQueryParser` still exposed disabled `.source` / `.quote` graph filters
+  - `FilterEngine.applyAgentVaultMode()` still re-enabled `.source`, which contradicted the current disabled-node policy in `VISION_BACKLOG.md`
+  - a few nonisolated-to-MainActor inference bridges still lacked timeout/cancellation safety nets
+- Issues fixed:
+  - removed disabled `.source` / `.quote` query exposure from `Epistemos/Engine/QueryParser.swift` and `Epistemos/Engine/StructuredQueryParser.swift`
+  - added `EpistemosTests/QueryParserVisibilityTests.swift` to keep disabled source/quote query filters from resurfacing
+  - updated `Epistemos/Graph/FilterEngine.swift`, `Epistemos/Graph/GraphState.swift`, and `Epistemos/Views/AgentPanelContainer.swift` so agent-vault mode no longer re-enables disabled source/quote nodes
+  - added `FilterEngineTests` coverage for the agent-vault disabled-node boundary
+  - added `withTimedMainActorBridge(...)` in `Epistemos/State/TimeoutUtility.swift` and routed `MLXInferenceBridge`, `OmegaInferenceBridge`, and `SharedGPUBackend` through it
+  - added a `ProductionHardeningTests` source guard so those inference bridges keep the timeout-guarded pattern
+- Historical breadcrumbs not reopened:
+  - the old embedding push hang was not reopened because the current `EmbeddingService` push already runs off-main and no fresh logs implicated it
+  - `_NSDetectedLayoutRecursion` was not reopened because current source no longer shows the prior breadcrumbed production call sites and no live repro surfaced during this sweep
+- VERDICT: PASS — the current audit findings were fixed, focused verification is green, and no fresh blocker remained in the requested continuation/power/code-signing/MCP surfaces

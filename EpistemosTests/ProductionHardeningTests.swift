@@ -572,8 +572,11 @@ struct ReleasePackagingHardeningTests {
     func testHostsSkipHermesSubprocessBootstrap() throws {
         let source = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(source.contains("if !Self.isRunningTests && setupComplete && !PowerGuard.shared.shouldDisableBackground"))
-        #expect(source.contains("if !Self.isRunningTests {\n            supervisor.register(ChildSpec("))
+        #expect(source.contains("static func shouldPrewarmHermesAtLaunch("))
+        #expect(source.contains("!isRunningTests && !isDebugBuild && setupComplete && !backgroundDisabled"))
+        #expect(source.contains("if Self.shouldPrewarmHermesAtLaunch("))
+        #expect(source.contains("static func shouldSuperviseHermesAtLaunch("))
+        #expect(source.contains("if Self.shouldSuperviseHermesAtLaunch("))
         #expect(source.contains("supervisor.start()"))
     }
 
@@ -592,7 +595,8 @@ struct ReleasePackagingHardeningTests {
 
         #expect(source.contains("scheduleMetalShaderWarmupIfNeeded()"))
         #expect(source.contains("private func scheduleMetalShaderWarmupIfNeeded()"))
-        #expect(source.contains("guard !Self.isRunningTests else { return }"))
+        #expect(source.contains("static func shouldScheduleMetalShaderWarmupAtLaunch("))
+        #expect(source.contains("guard Self.shouldScheduleMetalShaderWarmupAtLaunch() else { return }"))
     }
 }
 
@@ -719,6 +723,19 @@ struct AuditHardeningRegressionTests {
         #expect(!schemas.isEmpty)
         #expect(schemas.count == runtime.toolCount)
         #expect(schemas.count == OmegaToolRegistry.all.count)
+    }
+
+    @Test("main-actor inference bridges use timeout-guarded continuations")
+    func mainActorInferenceBridgesUseTimeoutGuard() throws {
+        let timeoutUtility = try loadProductionHardeningRepoTextFile("Epistemos/State/TimeoutUtility.swift")
+        let deviceAgent = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
+        let mlxBridge = try loadProductionHardeningRepoTextFile("Epistemos/KnowledgeFusion/MLXInferenceBridge.swift")
+        let omegaBridge = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Orchestrator/OmegaInferenceBridge.swift")
+
+        #expect(timeoutUtility.contains("func withTimedMainActorBridge"))
+        #expect(deviceAgent.contains("withTimedMainActorBridge"))
+        #expect(mlxBridge.contains("withTimedMainActorBridge"))
+        #expect(omegaBridge.contains("withTimedMainActorBridge"))
     }
 
     @Test("Regex-backed helpers avoid force-try compilation")

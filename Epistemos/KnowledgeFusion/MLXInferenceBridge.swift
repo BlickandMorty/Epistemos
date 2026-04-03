@@ -16,19 +16,12 @@ final class MLXInferenceBridge: KFInferenceProvider {
     }
 
     nonisolated func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
-        let raw: String = try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor [triageService] in
-                do {
-                    let result = try await triageService.generateRawLocal(
-                        prompt: prompt,
-                        systemPrompt: systemPrompt,
-                        maxTokens: maxTokens
-                    )
-                    continuation.resume(returning: result)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+        let raw = try await withTimedMainActorBridge { [self] in
+            try await self.triageService.generateRawLocal(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens
+            )
         }
 
         // Strip <think>...</think> tags but preserve the actual content outside them

@@ -3,7 +3,7 @@ import SwiftData
 import NaturalLanguage
 
 // MARK: - HologramNodeInspector
-// Right-side floating panel: node details, AI summary, chat.
+// Right-side floating panel: node details and AI summary.
 // True accordion layout — one section expanded at a time.
 // Native macOS 26 Liquid Glass styling.
 
@@ -13,7 +13,7 @@ struct HologramNodeInspector: View {
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext
 
-    enum Section: CaseIterable { case profile, summary, relationships, chat }
+    enum Section: CaseIterable { case profile, summary, relationships }
     enum EditorDisplay: String, CaseIterable {
         case raw
         case formatted
@@ -461,11 +461,6 @@ struct HologramNodeInspector: View {
             )
             Divider()
         }
-
-        sectionHeader(.chat, icon: "bubble.left.and.bubble.right", title: "Chat", preview: chatPreview)
-        if expandedSection == .chat {
-            chatBody
-        }
     }
 
     // MARK: - Section Header
@@ -515,11 +510,6 @@ struct HologramNodeInspector: View {
 
     private func relationshipsPreview(_ node: GraphNodeRecord) -> String {
         let count = graphState.store.adjacency[node.id]?.count ?? 0
-        return count > 0 ? "\(count)" : ""
-    }
-
-    private var chatPreview: String {
-        let count = inspectorState.chatMessages.count
         return count > 0 ? "\(count)" : ""
     }
 
@@ -718,92 +708,6 @@ struct HologramNodeInspector: View {
                 }
             }
             .padding(16)
-        }
-    }
-
-    // MARK: - Chat Body
-
-    private var chatBody: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 10) {
-                        if inspectorState.chatMessages.isEmpty {
-                            Text("Ask a question about this node…")
-                                .font(.caption)
-                                .foregroundStyle(.quaternary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                        }
-                        ForEach(inspectorState.chatMessages) { msg in
-                            chatRow(msg).id(msg.id)
-                        }
-                    }
-                    .padding(16)
-                }
-                .onChange(of: inspectorState.chatMessages.count) { _, _ in
-                    if let last = inspectorState.chatMessages.last {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
-            }
-
-            Divider()
-
-            HStack(spacing: 8) {
-                TextField("Ask…", text: Bindable(inspectorState).chatInput)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.callout)
-                    .onSubmit {
-                        inspectorState.sendMessage(store: graphState.store, modelContext: modelContext)
-                    }
-
-                Button {
-                    inspectorState.sendMessage(store: graphState.store, modelContext: modelContext)
-                } label: {
-                    Image(systemName: inspectorState.isChatStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(inspectorState.chatInput.isEmpty ? .tertiary : .primary)
-                }
-                .buttonStyle(.plain)
-                .disabled(inspectorState.chatInput.isEmpty && !inspectorState.isChatStreaming)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-    }
-
-    // MARK: - Chat Row
-
-    private func chatRow(_ message: InspectorChatMessage) -> some View {
-        let displayText = message.role == .assistant
-            ? UserFacingModelOutput.finalVisibleText(from: message.text)
-            : message.text
-        return HStack(alignment: .top, spacing: 0) {
-            if message.role == .user { Spacer(minLength: 48) }
-
-            VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
-                if message.role == .assistant && displayText.isEmpty {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(minWidth: 40, minHeight: 20)
-                } else {
-                    Text(displayText)
-                        .font(.callout)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                message.role == .user ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.06),
-                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-            )
-
-            if message.role == .assistant { Spacer(minLength: 48) }
         }
     }
 }

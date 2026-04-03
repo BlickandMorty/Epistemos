@@ -218,23 +218,16 @@ final class SharedGPUBackend: DeviceInferenceBackend {
     }
 
     nonisolated func generate(prompt: String, systemPrompt: String, maxTokens: Int) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor [weak self] in
-                guard let self else {
-                    continuation.resume(throwing: DeviceAgentError.backendNotReady)
-                    return
-                }
-                do {
-                    let result = try await self.generateOnMainActor(
-                        prompt: prompt,
-                        systemPrompt: systemPrompt,
-                        maxTokens: maxTokens
-                    )
-                    continuation.resume(returning: result)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
+        try await withTimedMainActorBridge { [weak self] in
+            guard let self else {
+                throw DeviceAgentError.backendNotReady
             }
+
+            return try await self.generateOnMainActor(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens
+            )
         }
     }
 

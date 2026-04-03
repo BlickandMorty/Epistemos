@@ -511,6 +511,48 @@ struct PipelineContractTests {
         #expect(!receivedCompleted)
     }
 
+    @Test("Cancelling an active run clears pipeline processing immediately")
+    @MainActor func pipelineCancelImmediatelyClearsProcessingState() async {
+        let mock = MockLLMClient()
+        mock.streamTokens = (0..<120).map { "Token\($0) " }
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let stream = pipeline.run(
+            query: "Give me a very long answer.",
+            mode: .api
+        )
+
+        let consumer = Task { @MainActor in
+            do {
+                for try await _ in stream {
+                }
+            } catch {
+            }
+        }
+
+        try? await Task.sleep(for: .milliseconds(40))
+        #expect(pipelineState.isProcessing)
+
+        pipeline.cancelActiveRun()
+
+        #expect(!pipelineState.isProcessing)
+        _ = await consumer.result
+    }
+
     @Test("Terminating an older stream does not cancel the newest pipeline run")
     @MainActor func olderStreamTerminationDoesNotCancelNewestRun() async {
         let mock = MockLLMClient()
@@ -1657,6 +1699,24 @@ struct ChatStateLocalMessageTests {
         #expect(chatState.messages.last?.role == .assistant)
         #expect(chatState.messages.last?.content == EpistemosOperatingMode.agent.handoffMessage)
         #expect(orchestrator.currentTaskDescription == "Plan a multi-step refactor")
+    }
+
+    @Test("cancelled streaming promotes partial output into a stable assistant message")
+    func cancelledStreamingPromotesPartialOutput() {
+        let chatState = ChatState()
+
+        chatState.submitQuery("Explain this")
+        chatState.startStreaming()
+        chatState.appendStreamingText("Partial answer")
+
+        let completed = chatState.completeCancelledProcessing(mode: .api)
+
+        #expect(completed)
+        #expect(!chatState.isStreaming)
+        #expect(chatState.streamingText.isEmpty)
+        #expect(chatState.messages.count == 2)
+        #expect(chatState.messages.last?.role == .assistant)
+        #expect(chatState.messages.last?.content == "Partial answer")
     }
 }
 

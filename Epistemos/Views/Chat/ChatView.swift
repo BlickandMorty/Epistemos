@@ -170,7 +170,7 @@ struct ChatView: View {
                             }
 
                             // Streaming indicator
-                            if chat.isStreaming || !chat.streamingText.isEmpty {
+                            if pipeline.isProcessing || chat.isStreaming {
                                 StreamingIndicator()
                                     .id("streaming-bottom")
                             }
@@ -334,7 +334,6 @@ struct ChatView: View {
 private struct StreamingIndicator: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
-    @State private var dotPhase = 0
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -357,24 +356,10 @@ private struct StreamingIndicator: View {
                 TaggedMarkdownTextView(content: finalStreamingText, theme: theme)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                // Idle dots while we wait for the first streamed text chunk.
-                HStack(spacing: 4) {
-                    Text("Responding")
-                        .font(.epCaption)
-                        .foregroundStyle(theme.mutedForeground.opacity(0.6))
-                    ForEach(0..<3) { i in
-                        Circle()
-                            .fill(theme.resolved.accent.color.opacity(i <= dotPhase ? 0.8 : 0.2))
-                            .frame(width: 4, height: 4)
-                    }
-                }
-                .task {
-                    while !Task.isCancelled {
-                        try? await Task.sleep(for: .milliseconds(400))
-                        guard !Task.isCancelled else { break }
-                        dotPhase = (dotPhase + 1) % 3
-                    }
-                }
+                AssistantTypingIndicatorDots(
+                    theme: theme,
+                    accent: theme.resolved.accent.color
+                )
             }
         }
         .padding(.horizontal, 18)

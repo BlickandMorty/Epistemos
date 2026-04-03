@@ -149,6 +149,78 @@ struct RuntimeValidationTests {
         #expect(AppBootstrap.shared === second)
     }
 
+    @Test("startup warmups stay lazy in tests and debug builds")
+    func startupWarmupsStayLazyInTestsAndDebugBuilds() {
+        #expect(
+            !AppBootstrap.shouldPrewarmHermesAtLaunch(
+                setupComplete: true,
+                backgroundDisabled: false,
+                isRunningTests: true,
+                isDebugBuild: false
+            )
+        )
+        #expect(
+            !AppBootstrap.shouldPrewarmHermesAtLaunch(
+                setupComplete: true,
+                backgroundDisabled: false,
+                isRunningTests: false,
+                isDebugBuild: true
+            )
+        )
+        #expect(
+            AppBootstrap.shouldPrewarmHermesAtLaunch(
+                setupComplete: true,
+                backgroundDisabled: false,
+                isRunningTests: false,
+                isDebugBuild: false
+            )
+        )
+
+        #expect(
+            !AppBootstrap.shouldScheduleMetalShaderWarmupAtLaunch(
+                isRunningTests: true,
+                isDebugBuild: false
+            )
+        )
+        #expect(
+            !AppBootstrap.shouldScheduleMetalShaderWarmupAtLaunch(
+                isRunningTests: false,
+                isDebugBuild: true
+            )
+        )
+        #expect(
+            AppBootstrap.shouldScheduleMetalShaderWarmupAtLaunch(
+                isRunningTests: false,
+                isDebugBuild: false
+            )
+        )
+
+        #expect(
+            !AppBootstrap.shouldSuperviseHermesAtLaunch(
+                setupComplete: true,
+                backgroundDisabled: false,
+                isRunningTests: true,
+                isDebugBuild: false
+            )
+        )
+        #expect(
+            !AppBootstrap.shouldSuperviseHermesAtLaunch(
+                setupComplete: true,
+                backgroundDisabled: false,
+                isRunningTests: false,
+                isDebugBuild: true
+            )
+        )
+        #expect(
+            AppBootstrap.shouldSuperviseHermesAtLaunch(
+                setupComplete: true,
+                backgroundDisabled: false,
+                isRunningTests: false,
+                isDebugBuild: false
+            )
+        )
+    }
+
     @Test("test hosts route application support paths into a temporary runtime root")
     func testHostsRouteApplicationSupportPathsIntoTemporaryRuntimeRoot() {
         let appSupport = FoundationSafety.userApplicationSupportDirectory().standardizedFileURL
@@ -1344,6 +1416,23 @@ struct RuntimeValidationTests {
         #expect(!overlay.contains("controlsView.topAnchor.constraint(equalTo: contentView.topAnchor"))
     }
 
+    @Test("graph full-show paths restore immersive chrome after mini mode")
+    func graphFullShowPathsRestoreImmersiveChromeAfterMiniMode() throws {
+        let controller = try loadRepoTextFile("Epistemos/Views/Graph/HologramController.swift")
+        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+
+        #expect(controller.contains("private func presentFullOverlay()"))
+        #expect(controller.contains("if overlay?.isMinimized == true"))
+        #expect(controller.contains("overlay?.restore()"))
+        #expect(controller.contains("overlay?.show()"))
+        #expect(controller.contains("func show()"))
+        #expect(controller.contains("presentFullOverlay()"))
+        #expect(controller.contains("func revealPage(_ pageId: String)"))
+        #expect(overlay.contains("if isMinimized {"))
+        #expect(overlay.contains("restore()"))
+        #expect(overlay.contains("restoreImmersiveChromeIfNeeded(window, metalView: metalView)"))
+    }
+
     @Test("metal graph view wakes idle renderer on power mode changes")
     func metalGraphViewWakesIdleRendererOnPowerModeChanges() throws {
         let metalView = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
@@ -1358,6 +1447,17 @@ struct RuntimeValidationTests {
         #expect(metalView.contains("self?.applyPowerModeGraphOverrides()"))
     }
 
+    @Test("graph pause path releases drawables and resume restores them before rendering")
+    func graphPausePathReleasesDrawablesAndResumeRestoresThem() throws {
+        let metalView = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(metalView.contains("layer.maximumDrawableCount = 2"))
+        #expect(metalView.contains("func pauseEngine()"))
+        #expect(metalView.contains("metalLayer?.drawableSize = .zero"))
+        #expect(metalView.contains("func resumeEngine()"))
+        #expect(metalView.contains("updateMetalLayerBackingProperties()"))
+    }
+
     @Test("graph sidebar caches notes tree snapshots across selection churn")
     func graphSidebarCachesNotesTreeSnapshotsAcrossSelectionChurn() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
@@ -1367,6 +1467,34 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("refreshNotesTreeSnapshotIfNeeded()"))
         #expect(sidebar.contains("cachedNotesTreeTopologyVersion != topologyVersion"))
         #expect(sidebar.contains("let snapshot = cachedNotesTreeSnapshot"))
+    }
+
+    @Test("graph exposes node chat in the sidebar with the shared ask bar")
+    func graphExposesNodeChatInTheSidebarWithTheSharedAskBar() throws {
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+        let state = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+
+        #expect(sidebar.contains("enum SidebarTab { case notes, query, chat }"))
+        #expect(sidebar.contains("case .chat"))
+        #expect(sidebar.contains("AssistantToolbarAskBar("))
+        #expect(state.contains("enum InspectorMode: Hashable { case profile, editor }"))
+        #expect(!inspector.contains("Text(\"Chat\").tag(NodeInspectorState.InspectorMode.chat)"))
+        #expect(!inspector.contains("else if inspectorState.inspectorMode == .chat"))
+        #expect(!inspector.contains("AssistantToolbarAskBar("))
+        #expect(overlay.contains("let sidebarRoot = HologramSearchSidebar("))
+    }
+
+    @Test("graph chat transcript uses the mini-chat assistant formatting path")
+    func graphChatTranscriptUsesMiniChatAssistantFormattingPath() throws {
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        let messageBubble = try loadRepoTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+
+        #expect(sidebar.contains("AssistantTranscriptChrome"))
+        #expect(sidebar.contains("TaggedMarkdownTextView(content: displayText, theme: theme)"))
+        #expect(sidebar.contains(".frame(maxWidth: .infinity, alignment: .trailing)"))
+        #expect(messageBubble.contains("struct AssistantTranscriptChrome"))
     }
 
     @Test("graph node inspector keeps summary generation off the immediate selection turn")
@@ -1458,9 +1586,8 @@ struct RuntimeValidationTests {
         #expect(miniChat.contains("HStack {\n                            Spacer(minLength: 0)"))
         #expect(miniChat.contains("}\n                        .frame(maxWidth: .infinity)"))
         #expect(miniChat.contains(".background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))"))
-        #expect(miniChat.contains("HStack(spacing: 0) {"))
-        #expect(miniChat.contains("Spacer(minLength: 0)"))
-        #expect(miniChat.contains(".frame(maxWidth: .infinity)"))
+        #expect(miniChat.contains(".frame(maxWidth: MiniChatLayout.userBubbleMaxWidth, alignment: .leading)"))
+        #expect(miniChat.contains(".frame(maxWidth: .infinity, alignment: .trailing)"))
     }
 
     @Test("mini chat launches in its own real window and keeps main-chat styling cues")
@@ -1504,7 +1631,7 @@ struct RuntimeValidationTests {
         #expect(miniChat.contains("ChatComposerTextEditor("))
         #expect(miniChat.contains(".assistantComposerChrome("))
         #expect(miniChat.contains("TaggedMarkdownTextView("))
-        #expect(miniChat.contains(".frame(maxWidth: 360, alignment: .leading)"))
+        #expect(miniChat.contains(".frame(maxWidth: MiniChatLayout.userBubbleMaxWidth, alignment: .leading)"))
     }
 
     @Test("mini chat uses native macOS tab groups and loads app-wide chats by chat id")

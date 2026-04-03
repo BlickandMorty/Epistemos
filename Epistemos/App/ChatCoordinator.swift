@@ -285,7 +285,7 @@ final class ChatCoordinator {
                     }
                 }
             } catch is CancellationError {
-                // User pressed stop — clean exit
+                _ = chatState.completeCancelledProcessing(mode: inferenceState.inferenceMode)
             } catch {
                 chatState.addErrorMessage("Analysis failed: \(error.localizedDescription)")
             }

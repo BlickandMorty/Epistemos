@@ -132,6 +132,7 @@ struct ChatInputBar: View {
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
     private let placeholderText = "Ask anything…"
+    private var composerAccentColor: Color { theme.resolved.accent.color }
     private var selectedOperatingMode: EpistemosOperatingMode {
         inference.sanitizedOperatingMode(
             EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
@@ -174,6 +175,26 @@ struct ChatInputBar: View {
     }
     private var composerIsActive: Bool {
         isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty || !chat.pendingContextAttachments.isEmpty
+    }
+    private var composerStatusPhase: AssistantComposerStatusPhase {
+        AssistantComposerStatusPhase.resolve(
+            isActive: isProcessing,
+            streamingText: chat.streamingText
+        )
+    }
+    private var composerHaloStyle: AssistantComposerHaloStyle? {
+        AssistantComposerHaloStyle.resolve(for: composerStatusPhase)
+    }
+    private var composerStatusLabelState: AssistantComposerStatusLabelState? {
+        AssistantComposerStatusLabelState.resolve(
+            inputText: text,
+            phase: composerStatusPhase,
+            idleText: placeholderText,
+            showsIdleLabel: false
+        )
+    }
+    private var composerTextAreaHeight: CGFloat {
+        max(ChatComposerInputMetrics.minHeight, composerHeight)
     }
     var body: some View {
         VStack(spacing: 0) {
@@ -273,6 +294,14 @@ struct ChatInputBar: View {
             metrics: composerMetrics,
             isActive: composerIsActive
         )
+        .background {
+            AssistantComposerOuterHalo(
+                style: composerHaloStyle,
+                accent: composerAccentColor,
+                cornerRadius: composerMetrics.cornerRadius,
+                animatesContinuously: false
+            )
+        }
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
                 ComposerReferencePopover(
@@ -302,36 +331,49 @@ struct ChatInputBar: View {
     }
 
     private var composerTextArea: some View {
-        ZStack(alignment: .topLeading) {
-            ChatComposerTextEditor(
-                text: $text,
-                height: $composerHeight,
-                isFocused: $isFocused,
-                theme: theme,
-                isProcessing: isProcessing
-            ) {
-                submitCurrentText()
+        ChatComposerTextEditor(
+            text: $text,
+            height: $composerHeight,
+            isFocused: $isFocused,
+            theme: theme,
+            isProcessing: isProcessing
+        ) {
+            submitCurrentText()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: composerHeight)
+        .accessibilityLabel("Message input")
+        .accessibilityHint(
+            isProcessing
+                ? "You can keep typing while the current response finishes. Press stop to cancel."
+                : "Type a question or command. Press Shift-Enter for a new line."
+        )
+        .overlay(alignment: .topLeading) {
+            if let labelState = composerStatusLabelState {
+                AssistantAnimatedStatusLabel(
+                    state: labelState,
+                    accent: composerAccentColor,
+                    phase: composerStatusPhase,
+                    theme: theme,
+                    font: .system(size: 16, weight: .regular, design: .rounded),
+                    haloStyle: composerHaloStyle
+                )
+                .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                .padding(.leading, ChatComposerInputMetrics.horizontalInset)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: composerHeight)
-            .accessibilityLabel("Message input")
-            .accessibilityHint(
-                isProcessing
-                    ? "You can keep typing while the current response finishes. Press stop to cancel."
-                    : "Type a question or command. Press Shift-Enter for a new line."
-            )
-
-            if text.isEmpty {
+        }
+        .overlay(alignment: .topLeading) {
+            if text.isEmpty && composerStatusLabelState == nil {
                 Text(placeholderText)
                     .font(.system(size: 16, weight: .regular, design: .rounded))
                     .foregroundStyle(theme.mutedForeground.opacity(0.55))
                     .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                    .padding(.leading, ChatComposerInputMetrics.horizontalInset)
                     .allowsHitTesting(false)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)
-        .layoutPriority(1)
+        .frame(height: composerTextAreaHeight, alignment: .topLeading)
         .onChange(of: text) { _, newVal in
             if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
                 referencePopoverStyle = .mention
@@ -564,6 +606,7 @@ enum ChatComposerKeyHandling {
 enum ChatComposerInputMetrics {
     static let fontSize: CGFloat = 14
     static let maxVisibleLines = 8
+    static let horizontalInset: CGFloat = 10
     static let verticalInset: CGFloat = 4
     static let placeholderTopPadding: CGFloat = 4
     static let minimumHeightPadding: CGFloat = 4
@@ -650,7 +693,10 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         )
         textView.drawsBackground = false
         textView.backgroundColor = .clear
-        textView.textContainerInset = NSSize(width: 0, height: ChatComposerInputMetrics.verticalInset)
+        textView.textContainerInset = NSSize(
+            width: ChatComposerInputMetrics.horizontalInset,
+            height: ChatComposerInputMetrics.verticalInset
+        )
         textView.allowsUndo = true
         textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -690,6 +736,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: ChatComposerTextEditor
+        private var pendingHeight: CGFloat?
 
         init(parent: ChatComposerTextEditor) {
             self.parent = parent
@@ -764,10 +811,15 @@ struct ChatComposerTextEditor: NSViewRepresentable {
                 fontSize: parent.fontSize
             )
 
-            if parent.height != clampedHeight {
+            if abs(parent.height - clampedHeight) > 0.5, pendingHeight != clampedHeight {
+                pendingHeight = clampedHeight
                 // Defer binding mutation to avoid re-entrant SwiftUI update.
                 DispatchQueue.main.async { [weak self] in
-                    self?.parent.height = clampedHeight
+                    guard let self else { return }
+                    if abs(self.parent.height - clampedHeight) > 0.5 {
+                        self.parent.height = clampedHeight
+                    }
+                    self.pendingHeight = nil
                 }
             }
 
