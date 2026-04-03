@@ -691,6 +691,19 @@ production paths. Only re-enable if the user explicitly says so. This applies to
 4. Fragment shader: `blur_radius` uniform per node, Gaussian sample when > 0
 5. Swift: `NSHapticFeedbackManager.defaultPerformer.perform()` on grab/release events
 
+### 3-BUGS. Graph Architectural Bugs (Confirmed by 4 independent analyses — fix FIRST)
+
+These are real bugs confirmed by every research report. Fix before any new graph features.
+
+1. **sRGB pixel format** — `layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm)` should be `BGRA8Unorm_sRGB`. Glow halos have dark fringes because blending happens in gamma space. **One line fix in `renderer.rs`.**
+2. **Precompile .metallib** — shaders compile from source every launch (150-300ms). Use `xcrun metal` + `xcrun metallib` at build time, load via `new_library_with_data()`. Eliminates the AppBootstrap file-lock workaround entirely.
+3. **Link force pipeline bubble** — link/spring forces computed on CPU while GPU handles N-body. CPU and GPU are serialized when they could overlap. Move link forces to a compute shader or overlap CPU link calc with GPU N-body via double buffering.
+4. **Louvain clustering scratch rebuild** — semantic clustering rebuilds from scratch on every change. Should be incremental (only re-cluster affected communities).
+5. **TBDR glow optimization** — Apple Silicon GPUs are tile-based deferred renderers. Current glow pass may not exploit tile memory. Evaluate Dual Kawase blur (cheaper than Gaussian, designed for tile architectures).
+6. **Color space blending** — if sRGB fix is applied, verify all color uniforms are in linear space before passing to shaders. Gamma-encoded colors blended in linear space produce incorrect results.
+
+**Codex: fix bugs 1 and 2 immediately (minutes each). Bugs 3-6 during Phase B graph work.**
+
 ### 3-LABELS. SDF Blur-Reveal Labels (Continuous Distance-Based)
 **Labels appear as you zoom in — not a toggle, a continuous gradient.**
 
@@ -722,7 +735,26 @@ production paths. Only re-enable if the user explicitly says so. This applies to
 - In performance mode (quality 2): labels disabled entirely (zero cost)
 - In lowPower mode: labels disabled (PowerGuard integration)
 
-**Research prompt:** `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md` — 20 files, 6 objectives, full implementation spec
+**Research-confirmed parameters (4 independent analyses agree):**
+- Font: SF Pro Text (NOT mono — labels are short proper nouns, not code)
+- Atlas: MTSDF (4-channel — alpha contains true SDF for smooth blur gradient)
+- Atlas size: 512×512 at `-size 32` `-pxrange 6` `-type mtsdf`
+- Tool: msdf-atlas-gen (build-time artifact, committed to Epistemos/Resources/)
+- Focal point: `cameraoffset` already exists in uniforms — NO new FFI fields needed
+- Physics: already velocity Verlet (d3-style) — tune parameters, don't change integrator
+- Label cost: <0.5ms for 2K visible labels — effectively free
+- The "rubbery" feel is intentional (velocity_decay × spring forces) — preserve it
+
+**Build order (from synthesis):**
+1. Fix sRGB pixel format (one line in renderer.rs)
+2. Generate MTSDF atlas (msdf-atlas-gen command, commit PNG + JSON)
+3. Add `LabelUniforms` struct + size test (pure data, zero behavior)
+4. Precompile .metallib (eliminates startup shader compilation)
+5. Add `LABEL_SHADER_SOURCE` const string (MTSDF → true SDF blend in fragment shader)
+6. Wire up label render pipeline (instanced draw, glyph quad buffer, texture binding)
+7. Tune: focus_radius, blur_radius, smoothstep boundaries, glow interaction
+
+**Research prompt:** `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md` — 20 files, 7 objectives (A-G), full implementation spec + architecture challenge
 
 ### 3A. Black & White Graph Theme
 - Folders: black (dark mode: white), shade lightens with nesting depth
@@ -1308,8 +1340,13 @@ PHASE A — STABILITY + PROVIDER OVERHAUL:
   (0A Notarization + Sparkle DEFERRED — Phase H)
 
 PHASE B — GRAPH-FIRST APP (The defining experience):
-  3-PRIME Immersive graph as default landing (hologram overlay = home)
-  3-SHADOW Contextual Shadows (semantic nodes glow as you type)
+  3-BUGS Fix sRGB pixel format + precompile .metallib (do FIRST — minutes each)
+  3-LABELS Generate MTSDF atlas, add label shader, wire pipeline (SDF blur-reveal)
+  3-BUGS 3-6 Link force bubble, Louvain incremental, TBDR glow, color space
+  3-PRIME Immersive graph (three-stance: Quick/Focused/Immersive with floating panels)
+  3-SHADOW Contextual Shadows (semantic gravity in compute shader)
+  3-PHYSICS Mass-drag, snap-back ripple, motion blur, haptics
+  3-GRAPH Universal graph (9 active node types, 5 lenses, 5 zoom levels)
   3A Black & white theme with glow
   3B Living graph animation (slow drift)
   3C Nested perspective layers (cinematic depth into folders)
