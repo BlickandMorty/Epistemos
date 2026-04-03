@@ -424,6 +424,45 @@ Combining patterns from 8 projects creates more integration surface than value. 
 **5. The real competitive moat is NOT the agent runtime.**
 It's the knowledge layer (vault, graph, semantic search, nightly training) wrapped around the agent. Every project studied has good agent orchestration. None have knowledge management. Focus agent work on wiring Hermes deeper into the vault, not on replacing Hermes.
 
+### 1-FIRECRAWL. Enable Firecrawl Web Scraping (Immediate — already wired)
+- Firecrawl API key already in `toolGateKeychainMappings` (added this session)
+- Just needs: Settings UI field for Firecrawl API key in AI Provider section
+- When set: Hermes gets full web scraping (not just search) — page extraction, structured data
+- Unlocks deep research for one-click research (⌘R) feature
+- **Do this during Phase A — it's one Settings field.**
+
+### 1-OPEN-SOURCE. Patterns Stolen from 8 Open-Source Projects
+
+**Concrete action items (from advisory council + research synthesis):**
+
+| Pattern | Source Project | Maps To | Status | Phase |
+|---------|--------------|---------|--------|-------|
+| Self-evolution (agent rewrites own config) | Phantom | Living Vault optimization loop | ALREADY DESIGNED | Phase B (Living Vault) |
+| Worker/Reviewer verification pipeline | OpenSwarm | CompletionChecker multi-perspective | ALREADY BUILT | ✅ Done |
+| 17-tool minimal coding agent audit | CodeNano | Verify Hermes tool coverage | TODO | Phase C |
+| Rust harness patterns | Claw Code | Study for agent_core improvements | STUDY ONLY | Phase I |
+| Single-binary agent (25MB, <50ms start) | GoClaw Lite | Rust agent migration target | REFERENCE | Phase I |
+| Runtime MCP tool creation | Phantom | Skills system dynamic tool registration | TODO | Phase C |
+| Inter-agent message bus via MCP | OpenSwarm | Multi-instance Hermes profiles over MCP | TODO | Phase F |
+| Gateway-as-control-plane | OpenClaw | Knowledge Brick + ⌘K IS the control plane | DESIGNED | Phase D |
+| Session lifecycle (daily reset, manual reset) | OpenClaw | Session management in agent panel | TODO | Phase C |
+| Onboarding wizard + doctor command | OpenClaw | Automated install + doctor + update flow | TODO | Phase C |
+| DM pairing security model | OpenClaw | Tool approval UI (ConfirmationGate) | ALREADY BUILT | ✅ Done |
+| Ghost-text command prediction | Hermes IDE | Ghost Writer feature | DESIGNED | Phase B (8C-4) |
+| Project scanning (language/framework) | Hermes IDE | Code section file tree | STUDY ONLY | Phase E |
+| Agent teams with shared task boards | GoClaw | Multi-instance profiles | TODO | Phase F |
+| Encrypted credential store (AES-256-GCM) | Phantom | macOS Keychain (already better) | ✅ Done | — |
+
+**What NOT to adopt (advisory council unanimous):**
+- OpenSwarm's full message bus (too complex, MCP is enough)
+- GoClaw's PostgreSQL task board (overkill for single-user desktop app)
+- Phantom's Docker dependency (we're native macOS, no containers)
+- Any additional orchestration framework on top of Hermes
+- OpenClaude (we already have multi-provider support, skip entirely)
+
+**The competitive moat is NOT the agent runtime — it's the knowledge layer.**
+Focus agent work on wiring Hermes deeper into the vault, not on replacing Hermes.
+
 ### 1-STRATEGY. Surpassing OpenClaw (Port Patterns, Don't Rewrite)
 **DO NOT rewrite OpenClaw in Rust/Swift.** The bottleneck is LLM latency (seconds), not runtime speed (microseconds). Port the 5 orchestration patterns that make OpenClaw powerful:
 1. **Sub-agent spawning** → Hermes v0.6.0 profiles (already supports multi-instance)
@@ -1336,7 +1375,8 @@ PHASE A — STABILITY + PROVIDER OVERHAUL:
   -1F Dynamic mode selector (modes appear/disappear per model capability)
   -1C Provider-native controls (thinking toggles, extended thinking, web search, grounding)
   -1H Hermes agent OAuth passthrough (tokens flow to subprocess as env vars)
-  -1I Default fallback chain (cloud → local → toast)
+  -1I Smart triage + fallback chain (cloud → secondary → Apple AI → local MLX)
+  1-FIRECRAWL Enable Firecrawl API key in Settings (one field, already wired in Keychain)
   (0A Notarization + Sparkle DEFERRED — Phase H)
 
 PHASE B — GRAPH-FIRST APP (The defining experience):
@@ -1352,9 +1392,13 @@ PHASE B — GRAPH-FIRST APP (The defining experience):
   3C Nested perspective layers (cinematic depth into folders)
 
 PHASE C — AGENT PARITY (Make it feel like Hermes/OpenClaw):
-  1-RESEARCH Read advisory council + synthesis findings before any agent work
-  1-AUDIT CodeNano 17-tool audit (verify Hermes covers the minimal coding agent set)
-  1A Merge Hermes v0.6.0
+  1-RESEARCH Read advisory council + synthesis before any agent work
+  1-AUDIT CodeNano 17-tool audit (verify Hermes covers minimal coding agent set)
+  1-OPEN-SOURCE Review pattern table in VISION_BACKLOG §1-OPEN-SOURCE (15 patterns, what to steal vs skip)
+  1A Merge Hermes v0.6.0 (profiles, fallback chains, MCP server, Exa backend)
+  1-SESSION Session lifecycle: create/reset/compact/expire (OpenClaw pattern)
+  1-RUNTIME-TOOLS Runtime MCP tool creation (Phantom pattern → skills system)
+  1-ONBOARD Automated install + doctor + update flow (OpenClaw pattern)
   10A Build control plane UI (profiles, sessions, tools, cron, providers)
   1D Restyle agent window (Xcode-inspired live execution view)
   10C Automated install + doctor + update flow
@@ -1379,8 +1423,9 @@ PHASE E — CODE EDITOR (V2 — after core is stable):
   9F AI-native code context
 
 PHASE F — MULTI-AGENT & COMMUNICATION:
-  5A Sub-agent architecture
-  5B Agent personas (JSON profiles)
+  5A Sub-agent architecture (OpenSwarm Worker/Reviewer pairs via MCP)
+  5-TEAMS Agent teams with shared task boards (GoClaw pattern, SQLite not PostgreSQL)
+  5B Agent personas (JSON profiles — Phantom pattern)
   5C Agent self-development (autonomous research pipeline)
   5D Wake-up summary
   6A iMessage integration
