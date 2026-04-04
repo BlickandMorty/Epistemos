@@ -262,6 +262,23 @@ enum GraphInteractionMode: Equatable {
     case connecting(sourceNodeId: String)
 }
 
+// MARK: - Graph Startup View Mode
+
+/// Which graph view opens when the user presses Cmd+G.
+enum GraphStartupViewMode: String, Codable, CaseIterable, Identifiable {
+    case fullOverlay  // full-screen hologram overlay
+    case minimized    // small floating mini-graph panel
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .fullOverlay: return "Full Overlay"
+        case .minimized:   return "Minimized"
+        }
+    }
+}
+
 // MARK: - Physics Scheduler Types
 
 enum PhysicsSchedulerMode: String, Codable {
@@ -323,6 +340,8 @@ struct CustomPhysicsPresetSnapshot: Codable, Identifiable, Equatable {
     var timelineSteps: [PhysicsScheduleStep]
     var interactionMotionHoldSeconds: Double
     var interactionMotionAlphaTarget: Float
+    // Optional for forward compat: older snapshots won't have this field.
+    var startupViewMode: GraphStartupViewMode?
 }
 
 // MARK: - Graph Vault Mode
@@ -727,6 +746,7 @@ final class GraphState {
         d.set(simpleRestingPresetKey, forKey: "epistemos.physics.simpleRestingPresetKey")
         d.set(interactionMotionHoldSeconds, forKey: "epistemos.physics.interactionMotionHoldSeconds")
         d.set(interactionMotionAlphaTarget, forKey: "epistemos.physics.interactionMotionAlphaTarget")
+        d.set(startupViewMode.rawValue, forKey: "epistemos.physics.startupViewMode")
         // Timeline steps as JSON
         if let stepsData = try? JSONEncoder().encode(timelineSteps) {
             d.set(stepsData, forKey: "epistemos.physics.timelineSteps")
@@ -810,6 +830,10 @@ final class GraphState {
         }
         if d.object(forKey: "epistemos.physics.interactionMotionAlphaTarget") != nil {
             interactionMotionAlphaTarget = d.float(forKey: "epistemos.physics.interactionMotionAlphaTarget")
+        }
+        if let raw = d.string(forKey: "epistemos.physics.startupViewMode"),
+           let mode = GraphStartupViewMode(rawValue: raw) {
+            startupViewMode = mode
         }
         if let stepsData = d.data(forKey: "epistemos.physics.timelineSteps"),
            let steps = try? JSONDecoder().decode([PhysicsScheduleStep].self, from: stepsData) {
@@ -1049,6 +1073,14 @@ final class GraphState {
     var interactionMotionHoldSeconds: Double = 30.0
     /// Alpha target during interaction-sustained motion (0.001-0.1).
     var interactionMotionAlphaTarget: Float = 0.015
+    /// Which graph view appears when the user presses Cmd+G.
+    var startupViewMode: GraphStartupViewMode = .fullOverlay {
+        didSet {
+            if !isRestoringPhysicsSettings, startupViewMode != oldValue {
+                savePhysicsSettings()
+            }
+        }
+    }
     var schedulerConfigVersion: Int = 0
 
     func pushSchedulerChange() {
@@ -1108,7 +1140,8 @@ final class GraphState {
             simpleRestingPresetKey: simpleRestingPresetKey,
             timelineSteps: timelineSteps,
             interactionMotionHoldSeconds: interactionMotionHoldSeconds,
-            interactionMotionAlphaTarget: interactionMotionAlphaTarget
+            interactionMotionAlphaTarget: interactionMotionAlphaTarget,
+            startupViewMode: startupViewMode
         )
         customPhysicsPresets.insert(snapshot, at: 0)
         saveCustomPresetsToDefaults()
@@ -1154,6 +1187,9 @@ final class GraphState {
         timelineSteps = preset.timelineSteps
         interactionMotionHoldSeconds = preset.interactionMotionHoldSeconds
         interactionMotionAlphaTarget = preset.interactionMotionAlphaTarget
+        if let mode = preset.startupViewMode {
+            startupViewMode = mode
+        }
 
         forceConfigVersion += 1
         extendedForceConfigVersion += 1

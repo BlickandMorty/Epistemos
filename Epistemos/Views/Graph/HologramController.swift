@@ -67,7 +67,12 @@ final class HologramController {
         ensureOverlay()
         prepareOverlayForGlobalMode()
         graphState?.startOverlayPhysicsCycle()
-        overlay?.show()
+        // Honor the user's startup-view-mode preference: open in full overlay or mini.
+        if graphState?.startupViewMode == .minimized {
+            overlay?.showMini()
+        } else {
+            overlay?.show()
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 
