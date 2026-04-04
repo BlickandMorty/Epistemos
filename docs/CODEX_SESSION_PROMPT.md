@@ -73,6 +73,20 @@ Unified Substrate: READ docs/UNIFIED_SUBSTRATE_RESEARCH.md — 5 Laws, 4 sprints
 
 Defaults: eco mode ON, graph performance mode ON.
 
+## RELEASE-CRITICAL MOAT FEATURES (added 2026-04-04)
+
+These are ship-blocking. See `docs/CODEX_PROMPT_CHAIN.md` → HIGH-PRIORITY ADDITIONS (X-1..X-6):
+
+- **★★★ X-1 iMessage Ingestion (Phase D)** — fuses conversations with notes, the ONLY PKM that does this
+- **★★★ X-2 OpenClaw Screen-Aware Coding Agent (Phase E)** — screen+AX agent for Xcode/Terminal, the moat
+- **★★ X-3 Model Council (Phase F)** — parallel multi-model synthesis
+- **★★ X-4 GTD Quick Capture (Phase D)** — menu bar + Cmd+Shift+N, <500ms capture
+- **★★ X-5 Agent Personas UI (Phase F)** — Hermes profiles as named characters
+- **★ X-6 Mindfulness Pause Screen (Phase B)** — breathing overlay with graph ambient
+
+DO NOT skip any of these. X-1 and X-2 are release blockers.
+
+
 **CRITICAL:** Phase I (Rust Agent Migration) is MANDATORY before Phase H (Release).
 The shipped app is pure Swift + Rust + Metal. No Python. See VISION_BACKLOG.md Phase I.
 

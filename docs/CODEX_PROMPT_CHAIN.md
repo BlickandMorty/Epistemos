@@ -765,6 +765,205 @@ Phase I Week 4-5:
 Run full audit. Write to AUDIT_LOG.md.
 ```
 
+## ═══════════════════════════════════════
+## HIGH-PRIORITY ADDITIONS (inject into phases as noted)
+## ═══════════════════════════════════════
+
+These prompts MUST be delivered. They are numbered outside the main chain to avoid renumbering existing prompts. Each one notes which phase it belongs in. **Treat X-1 (iMessage) and X-2 (OpenClaw) as release-blocking features — they are the moat.**
+
+### ★★★ X-1: iMessage Ingestion (CRITICAL — Phase D, after D-3)
+
+```
+Build the iMessage ingestion pipeline. This is a FLAGSHIP feature — Epistemos becomes the only PKM that fuses your conversations with your notes.
+
+SCOPE:
+1. Read-only access to ~/Library/Messages/chat.db (SQLite). Requires user to grant Full Disk Access in System Settings → Privacy & Security.
+2. On first run: show a gate UI explaining what will be imported and asking for explicit consent. Nothing syncs without user action.
+3. Per-conversation opt-in: show a list of all chats (title, last date, message count) with checkboxes. User picks which conversations to ingest.
+4. Each selected conversation becomes a Chat-type node in the graph. Each message becomes a Block node linked to the Chat.
+5. Incremental sync: track last-ingested-ROWID per chat. Only ingest new messages on subsequent runs.
+6. Background sync every 30 minutes when app is active. NEVER sync when app is idle or on battery < 20%.
+7. Respect user privacy — all processing local, never sent to any cloud API without explicit per-message opt-in.
+
+FILES:
+- Epistemos/Ingestion/iMessageImporter.swift — the SQLite reader + node builder
+- Epistemos/Views/Settings/iMessageSettingsSection.swift — gate UI + chat picker
+- Epistemos/State/iMessageSyncState.swift — @Observable state holder
+
+SCHEMA NOTES:
+- chat.db tables: chat, message, handle, chat_message_join
+- Message body is in `text` column; attributedBody (binary plist) holds rich content for newer messages
+- `is_from_me` flags direction; `date` is nanoseconds since 2001-01-01
+- Group chats: link via chat_message_join
+
+CONSTRAINTS:
+- Use GRDB with read-only flag (SQLite.Configuration.readOnly)
+- No writes to chat.db EVER
+- Attachments stay on disk; only store paths
+- If Full Disk Access is not granted, show clear error with "Open System Settings" button
+
+Build and verify: ingest a test conversation, confirm nodes appear in graph, confirm incremental sync skips already-ingested messages.
+```
+
+### ★★★ X-2: OpenClaw Screen-Aware Coding Agent (CRITICAL — Phase E, after E-1)
+
+```
+Build the screen-aware coding agent — the OpenClaw/Pi pattern. This is THE moat feature. Nobody else has this on-device.
+
+The agent can SEE your screen, read the Xcode AX tree, and take targeted actions. Unlike Cursor (sidebar only) or Copilot (suggestions only), this agent operates across ANY macOS app.
+
+SCOPE:
+1. Screen capture via ScreenCaptureKit (already exists in Epistemos/Omega/Vision/ScreenCaptureService.swift) — reuse, don't rebuild.
+2. AX tree extraction via AXorcist (already in codebase) — get structured view of focused window.
+3. Fusion pass: combine screen image + AX tree into a unified representation. Already exists at Epistemos/Omega/Vision/Screen2AXFusion.swift — extend it.
+4. Tool set (new):
+   - xcode_build_error_reader: parse Xcode error pane via AX, return structured errors
+   - editor_goto_line: click a specific file:line in the focused editor
+   - editor_replace_selection: type replacement text
+   - xcode_run: click Run button
+   - terminal_read_output: read stdout from frontmost Terminal window
+   - screen_describe: vision model describes what's on screen
+5. Agent loop: uses existing Hermes/Rust agent infrastructure. Adds these tools to the registry (agent_core/src/tools/registry.rs).
+6. Trigger: global hotkey Cmd+Shift+K opens an inline prompt "what should I do?" near the cursor. User types, agent acts on the focused window.
+
+SECURITY GATES:
+- Screen capture requires Screen Recording permission (already handled by existing ScreenCaptureService)
+- AX queries require Accessibility permission
+- NEVER act on a screen containing the word "password", "secret", or a visible credit card pattern — hard stop
+- User sees a preview of planned actions before any click/type is sent
+- Cmd+. cancels mid-action
+
+FILES TO CREATE/EXTEND:
+- agent_core/src/tools/screen_aware.rs — new tool module
+- Epistemos/Omega/CodingAgent/CodingAgentService.swift — orchestration
+- Epistemos/Omega/CodingAgent/ActionPreviewPanel.swift — user confirmation UI
+- Epistemos/Omega/CodingAgent/XcodeAXAdapter.swift — Xcode-specific AX queries
+
+CONSTRAINT: This is a CODING agent. Scope it to Xcode, Terminal, and the focused editor. Do NOT build general computer use here.
+
+Build and verify: open Xcode with a syntax error, press Cmd+Shift+K, ask "fix this", confirm the preview, watch the agent navigate to the error and fix it.
+```
+
+### ★★ X-3: Model Council (Phase F, after F-1)
+
+```
+Build the Model Council — parallel multi-model synthesis. Sends the same prompt to N providers, then synthesizes the answers with a meta-prompt.
+
+UX: In the chat composer, add a "Council" button next to Send. When active, the message is sent to 2-4 configured models simultaneously. Responses stream side-by-side in columns. A synthesis response appears below, generated by the primary model using the others as context.
+
+SCOPE:
+1. Add CouncilConfig to InferenceState:
+   struct CouncilConfig: Codable {
+       var enabled: Bool
+       var members: [CloudTextModelID]  // 2-4 models
+       var synthesizerModel: CloudTextModelID  // who writes the final answer
+       var synthesisPrompt: String  // templated meta-prompt
+   }
+
+2. On send, fan out to all members in parallel via TaskGroup. Stream each to its own column.
+3. After all members finish, run synthesizer with prompt: "Here are N expert answers. Identify agreements, disagreements, and synthesize the strongest response: [answer 1]... [answer 2]..."
+4. Store all responses as linked nodes in the graph (one Chat node, N Block children for each member, 1 synthesis Block).
+5. Cost tracker sums all N calls + synthesis.
+
+FILES:
+- Epistemos/Council/CouncilOrchestrator.swift
+- Epistemos/Views/Chat/CouncilView.swift (side-by-side columns)
+- Epistemos/State/CouncilConfig.swift
+
+CONSTRAINT: Local-only mode (only MLX models) must also work — council of 2-3 local model profiles.
+
+Build and verify: send "explain async/await" to council of GPT-5.4 + Claude Opus 4.6 + Gemini 2.5, confirm 3 streams + synthesis.
+```
+
+### ★★ X-4: GTD Quick Capture (Phase D, after D-2)
+
+```
+Build zero-friction quick capture. Menu bar item + global hotkey = instant node creation without opening the full app.
+
+SCOPE:
+1. NSStatusItem in menu bar (always visible when app is running). Icon: small Epistemos glyph.
+2. Clicking icon opens a small popover (NSPanel) with a single TextField and tag chips.
+3. Global hotkey: Cmd+Shift+N opens the same popover. Register via RegisterEventHotKey or SwiftUI .keyboardShortcut on a hidden window.
+4. User types, optionally adds tags (autocomplete from existing tags), presses Enter → new Note node created → popover closes.
+5. Popover shows recent captures (last 5) for "just-wrote-that" confirmation.
+6. Captured notes land in an "Inbox" folder by default. User can batch-process later.
+
+FILES:
+- Epistemos/Capture/QuickCaptureController.swift
+- Epistemos/Views/Capture/QuickCapturePopover.swift
+- Epistemos/State/CaptureInboxState.swift
+
+CONSTRAINTS:
+- Capture must complete in <500ms from hotkey to confirmation
+- Works even if main window is closed
+- No inference runs on capture — it's purely store-and-forget
+
+Build and verify: hide main window, press Cmd+Shift+N, type "buy groceries", press Enter, reopen app, verify node exists in Inbox.
+```
+
+### ★★ X-5: Agent Personas UI (Phase F, after X-3)
+
+```
+Surface Hermes profiles as personas with character. Each profile = name + avatar + system-prompt tone + default toolset + color.
+
+SCOPE:
+1. Add PersonaConfig model:
+   struct PersonaConfig: Identifiable, Codable {
+       let id: UUID
+       var name: String  // "Researcher", "Critic", "Builder"
+       var avatarSymbol: String  // SF Symbol name
+       var tint: Color
+       var systemPromptAddition: String  // prepended to base system prompt
+       var enabledTools: Set<String>  // subset of available tool names
+       var hermesProfileName: String  // backing Hermes profile
+   }
+
+2. Ship 4 built-in personas: Researcher (web + memory tools, curious tone), Critic (no tools, skeptical tone), Builder (file + bash tools, pragmatic), Coach (no tools, supportive).
+3. User can create custom personas.
+4. Persona selector in agent panel — pill-style chips at top. Clicking one switches the active persona (= switches Hermes profile).
+5. Chat bubbles colored with persona tint so conversation history shows who said what.
+
+FILES:
+- Epistemos/Personas/PersonaConfig.swift
+- Epistemos/Personas/PersonaRegistry.swift (@Observable)
+- Epistemos/Views/Agent/PersonaPicker.swift
+
+Build and verify: switch between Researcher and Critic on the same question, confirm different tone + different tools available.
+```
+
+### ★ X-6: Mindfulness Pause Screen (Phase B, after B-8)
+
+```
+Add a 60-second mindfulness pause screen. Full-screen breathing overlay with ambient graph animation.
+
+SCOPE:
+1. Trigger: Cmd+Shift+P or menu bar "Pause" button.
+2. Full-screen NSWindow overlay on the active display. Dark translucent background.
+3. Large breathing circle centered on screen — 4s in, 7s hold, 8s out (box breathing).
+4. Behind the circle: the graph continues rendering but at 0.1x physics speed, heavily blurred, low opacity.
+5. Text below the circle: "Breathe in" / "Hold" / "Breathe out" synced to the circle animation.
+6. After 60 seconds, a subtle "Continue" button fades in. Or user presses Escape to exit immediately.
+7. Log pauses to a small SQLite table (timestamp, duration) for tracking.
+
+FILES:
+- Epistemos/Views/Mindfulness/MindfulnessPauseWindow.swift
+- Epistemos/Views/Mindfulness/BreathingCircleView.swift
+- Epistemos/State/MindfulnessLogStore.swift
+
+CONSTRAINTS:
+- Uses existing graph rendering — does NOT create a second Metal context
+- Animation runs at 60fps even if main app is in eco mode
+- Dismissible at any time
+
+Build and verify: trigger pause, confirm full-screen overlay, confirm graph animates behind, confirm 60s auto-continue.
+```
+
+---
+
+## ═══════════════════════════════════════
+## ORIGINAL PHASE H
+## ═══════════════════════════════════════
+
 ### H-1: Release
 
 ```

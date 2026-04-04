@@ -7,6 +7,19 @@ This is the COMPLETE list of remaining work. Items are organized by theme and pr
 
 ---
 
+## TIER 0: RELEASE-CRITICAL ADDITIONS (moat features — DO NOT SKIP)
+
+Added 2026-04-04. Full build prompts in `docs/CODEX_PROMPT_CHAIN.md` under "HIGH-PRIORITY ADDITIONS" (X-1 through X-6).
+
+- **★★★ iMessage Ingestion (X-1, Phase D):** Read-only ingest of `~/Library/Messages/chat.db` → Chat/Block nodes. Per-conversation opt-in, incremental sync, local processing. **Only PKM that fuses your conversations with your notes.** Release blocker.
+- **★★★ OpenClaw Screen-Aware Coding Agent (X-2, Phase E):** Screen capture + AX tree + targeted actions in Xcode/Terminal. Cmd+Shift+K prompt acts on focused window. **The moat. Nobody else has this on-device.** Release blocker.
+- **★★ Model Council (X-3, Phase F):** Parallel multi-model synthesis with side-by-side streaming + synthesizer meta-prompt.
+- **★★ GTD Quick Capture (X-4, Phase D):** Menu bar + Cmd+Shift+N hotkey. <500ms zero-friction node creation.
+- **★★ Agent Personas UI (X-5, Phase F):** Hermes profiles as named personas (Researcher/Critic/Builder/Coach) with avatars, tints, tool subsets.
+- **★ Mindfulness Pause Screen (X-6, Phase B):** Cmd+Shift+P full-screen breathing overlay, graph at 0.1x physics behind.
+
+---
+
 ## TIER -1: CLOUD PROVIDER OVERHAUL (Changes how the entire app connects to AI)
 
 ### -1A. Single Active Provider Model (Replace multi-provider model selector)
