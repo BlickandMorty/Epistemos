@@ -47,19 +47,25 @@ enum GraphOverlayThemeStyle {
     }
 
     static func blurMaterial(for theme: EpistemosTheme) -> NSVisualEffectView.Material {
-        theme.isDark ? .hudWindow : .sheet
+        // .hudWindow is the true floating-glass material and adapts to theme.
+        // .sheet (previously used in light mode) is a flat opaque slab — wrong for a glass float.
+        .hudWindow
     }
 
     static func overlayTintColor(for theme: EpistemosTheme) -> NSColor {
+        // Light glaze over the hudWindow blur. Kept minimal so the blur shows through
+        // as true glass instead of being hidden behind an opaque tint.
         theme.isDark
-            ? NSColor.black.withAlphaComponent(0.58)
-            : NSColor.white.withAlphaComponent(0.72)
+            ? NSColor.black.withAlphaComponent(0.32)
+            : NSColor.white.withAlphaComponent(0.38)
     }
 
     static func miniTintColor(for theme: EpistemosTheme) -> NSColor {
+        // Mini panel is the "glass float" — tint is just a whisper of color so
+        // the NSVisualEffectView blur defines the look.
         theme.isDark
-            ? NSColor.black.withAlphaComponent(0.42)
-            : NSColor.white.withAlphaComponent(0.16)
+            ? NSColor.black.withAlphaComponent(0.22)
+            : NSColor.white.withAlphaComponent(0.32)
     }
 
     static func lightModeEnabled(for theme: EpistemosTheme) -> Bool {
