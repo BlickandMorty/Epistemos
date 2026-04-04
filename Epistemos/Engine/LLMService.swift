@@ -30,6 +30,22 @@ protocol LocalConfigurableLLMClient: LLMClientProtocol {
     ) -> AsyncThrowingStream<String, Error>
 }
 
+@MainActor
+protocol CloudConfigurableLLMClient: LLMClientProtocol {
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID
+    ) async throws -> String
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID
+    ) -> AsyncThrowingStream<String, Error>
+}
+
 extension LocalConfigurableLLMClient {
     func generate(
         prompt: String,
@@ -145,7 +161,7 @@ final class LLMService: LLMClientProtocol {
                 systemPrompt: systemPrompt,
                 maxTokens: maxTokens
             )
-        case .openAI, .anthropic, .google:
+        case .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek:
             guard let cloudLLMClient else {
                 return AsyncThrowingStream { continuation in
                     continuation.finish(throwing: CloudLLMError.runtimeUnavailable)
@@ -238,7 +254,7 @@ final class LLMService: LLMClientProtocol {
                 reasoningMode: snapshot.reasoningMode,
                 modelID: snapshot.model.isEmpty ? nil : snapshot.model
             )
-        case .openAI, .anthropic, .google:
+        case .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek:
             return try await sharedCloudGenerate(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
@@ -399,6 +415,9 @@ nonisolated enum LLMError: LocalizedError {
             case 503:
                 return "The selected AI provider is temporarily unavailable (503). Please try again shortly."
             default:
+                if code == 400, body.contains("client_version") {
+                    return "OpenAI account setup is missing a required client version marker. Retry OpenAI sign-in and then run the live check again."
+                }
                 if !body.isEmpty {
                     return "AI provider error \(code): \(body)"
                 }
@@ -419,12 +438,16 @@ extension CloudModelProvider {
         case .openAI: .openAI
         case .anthropic: .anthropic
         case .google: .google
+        case .zai: .zai
+        case .kimi: .kimi
+        case .minimax: .minimax
+        case .deepseek: .deepseek
         }
     }
 }
 
 @MainActor
-final class CloudLLMClient: LLMClientProtocol {
+final class CloudLLMClient: CloudConfigurableLLMClient {
     private static let log = Logger(subsystem: "com.epistemos.llm", category: "CloudLLMClient")
 
     private let inference: InferenceState
@@ -442,8 +465,21 @@ final class CloudLLMClient: LLMClientProtocol {
     }
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
-        let model = try selectedCloudModel()
-        let apiKey = try apiKey(for: model.provider)
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: try selectedCloudModel()
+        )
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID
+    ) async throws -> String {
+        let credential = try await resolvedCredential(for: model.provider)
         let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
             from: systemPrompt,
             modelID: model.vendorModelID
@@ -453,7 +489,7 @@ final class CloudLLMClient: LLMClientProtocol {
         case .openAI:
             return try await generateOpenAI(
                 model: model,
-                apiKey: apiKey,
+                credential: credential,
                 prompt: prompt,
                 systemPrompt: resolvedSystemPrompt,
                 maxTokens: maxTokens
@@ -461,7 +497,7 @@ final class CloudLLMClient: LLMClientProtocol {
         case .anthropic:
             return try await generateAnthropic(
                 model: model,
-                apiKey: apiKey,
+                credential: credential,
                 prompt: prompt,
                 systemPrompt: resolvedSystemPrompt,
                 maxTokens: maxTokens
@@ -469,7 +505,25 @@ final class CloudLLMClient: LLMClientProtocol {
         case .google:
             return try await generateGoogle(
                 model: model,
-                apiKey: apiKey,
+                credential: credential,
+                prompt: prompt,
+                systemPrompt: resolvedSystemPrompt,
+                maxTokens: maxTokens
+            )
+        case .zai, .kimi, .deepseek:
+            return try await generateOpenAICompatible(
+                provider: model.provider,
+                model: model,
+                credential: credential,
+                prompt: prompt,
+                systemPrompt: resolvedSystemPrompt,
+                maxTokens: maxTokens
+            )
+        case .minimax:
+            return try await generateAnthropicCompatible(
+                provider: .minimax,
+                model: model,
+                credential: credential,
                 prompt: prompt,
                 systemPrompt: resolvedSystemPrompt,
                 maxTokens: maxTokens
@@ -478,6 +532,29 @@ final class CloudLLMClient: LLMClientProtocol {
     }
 
     func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        let selectedModel: CloudTextModelID
+        do {
+            selectedModel = try selectedCloudModel()
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: error)
+            }
+        }
+
+        return stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: selectedModel
+        )
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID
+    ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { @MainActor [weak self] in
                 guard let self else {
@@ -486,8 +563,7 @@ final class CloudLLMClient: LLMClientProtocol {
                 }
 
                 do {
-                    let model = try self.selectedCloudModel()
-                    let apiKey = try self.apiKey(for: model.provider)
+                    let credential = try await self.resolvedCredential(for: model.provider)
                     let resolvedSystemPrompt = await self.knowledgeAwareSystemPrompt(
                         from: systemPrompt,
                         modelID: model.vendorModelID
@@ -498,7 +574,7 @@ final class CloudLLMClient: LLMClientProtocol {
                     case .openAI:
                         upstream = self.streamOpenAI(
                             model: model,
-                            apiKey: apiKey,
+                            credential: credential,
                             prompt: prompt,
                             systemPrompt: resolvedSystemPrompt,
                             maxTokens: maxTokens
@@ -506,7 +582,7 @@ final class CloudLLMClient: LLMClientProtocol {
                     case .anthropic:
                         upstream = self.streamAnthropic(
                             model: model,
-                            apiKey: apiKey,
+                            credential: credential,
                             prompt: prompt,
                             systemPrompt: resolvedSystemPrompt,
                             maxTokens: maxTokens
@@ -514,7 +590,25 @@ final class CloudLLMClient: LLMClientProtocol {
                     case .google:
                         upstream = self.streamGoogle(
                             model: model,
-                            apiKey: apiKey,
+                            credential: credential,
+                            prompt: prompt,
+                            systemPrompt: resolvedSystemPrompt,
+                            maxTokens: maxTokens
+                        )
+                    case .zai, .kimi, .deepseek:
+                        upstream = self.streamOpenAICompatible(
+                            provider: model.provider,
+                            model: model,
+                            credential: credential,
+                            prompt: prompt,
+                            systemPrompt: resolvedSystemPrompt,
+                            maxTokens: maxTokens
+                        )
+                    case .minimax:
+                        upstream = self.streamAnthropicCompatible(
+                            provider: .minimax,
+                            model: model,
+                            credential: credential,
                             prompt: prompt,
                             systemPrompt: resolvedSystemPrompt,
                             maxTokens: maxTokens
@@ -539,8 +633,7 @@ final class CloudLLMClient: LLMClientProtocol {
     func testConnection() async -> ConnectionTestResult {
         do {
             let model = try selectedCloudModel()
-            let apiKey = try apiKey(for: model.provider)
-            return await testConnection(provider: model.provider, apiKey: apiKey, model: model)
+            return await testConnection(provider: model.provider, model: model)
         } catch {
             return ConnectionTestResult(success: false, message: error.localizedDescription)
         }
@@ -548,12 +641,12 @@ final class CloudLLMClient: LLMClientProtocol {
 
     func testConnection(
         provider: CloudModelProvider,
-        apiKey: String,
         model: CloudTextModelID? = nil
     ) async -> ConnectionTestResult {
         do {
+            let credential = try await resolvedCredential(for: provider)
             if let model {
-                try await testModelConnection(provider: provider, apiKey: apiKey, model: model)
+                try await testModelConnection(provider: provider, credential: credential, model: model)
                 return ConnectionTestResult(
                     success: true,
                     message: "Connected to \(provider.displayName) via \(model.compactDisplayName)"
@@ -562,7 +655,7 @@ final class CloudLLMClient: LLMClientProtocol {
 
             return ConnectionTestResult(
                 success: true,
-                message: try await validateProviderAuthorization(provider: provider, apiKey: apiKey)
+                message: try await validateProviderAuthorization(provider: provider, credential: credential)
             )
         } catch {
             return ConnectionTestResult(success: false, message: error.localizedDescription)
@@ -587,13 +680,17 @@ final class CloudLLMClient: LLMClientProtocol {
         return model
     }
 
-    private func apiKey(for provider: CloudModelProvider) throws -> String {
-        guard let value = inference.apiKey(for: provider)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !value.isEmpty else {
-            throw CloudLLMError.missingAPIKey(provider.displayName)
+    private func resolvedCredential(for provider: CloudModelProvider) async throws -> CloudProviderResolvedCredential {
+        do {
+            return try await inference.resolvedCloudCredential(for: provider)
+        } catch let error as CloudProviderAuthError {
+            switch error {
+            case .missingOAuthSession:
+                throw CloudLLMError.missingAccess(provider.displayName)
+            default:
+                throw error
+            }
         }
-        return value
     }
 
     private func knowledgeAwareSystemPrompt(from systemPrompt: String?, modelID: String) async -> String? {
@@ -613,14 +710,14 @@ final class CloudLLMClient: LLMClientProtocol {
 
     private func testModelConnection(
         provider: CloudModelProvider,
-        apiKey: String,
+        credential: CloudProviderResolvedCredential,
         model: CloudTextModelID
     ) async throws {
         switch provider {
         case .openAI:
             _ = try await generateOpenAI(
                 model: model,
-                apiKey: apiKey,
+                credential: credential,
                 prompt: "Reply with OK.",
                 systemPrompt: nil,
                 maxTokens: 16
@@ -628,7 +725,7 @@ final class CloudLLMClient: LLMClientProtocol {
         case .anthropic:
             _ = try await generateAnthropic(
                 model: model,
-                apiKey: apiKey,
+                credential: credential,
                 prompt: "Reply with OK.",
                 systemPrompt: nil,
                 maxTokens: 16
@@ -636,7 +733,25 @@ final class CloudLLMClient: LLMClientProtocol {
         case .google:
             _ = try await generateGoogle(
                 model: model,
-                apiKey: apiKey,
+                credential: credential,
+                prompt: "Reply with OK.",
+                systemPrompt: nil,
+                maxTokens: 16
+            )
+        case .zai, .kimi, .deepseek:
+            _ = try await generateOpenAICompatible(
+                provider: provider,
+                model: model,
+                credential: credential,
+                prompt: "Reply with OK.",
+                systemPrompt: nil,
+                maxTokens: 16
+            )
+        case .minimax:
+            _ = try await generateAnthropicCompatible(
+                provider: provider,
+                model: model,
+                credential: credential,
                 prompt: "Reply with OK.",
                 systemPrompt: nil,
                 maxTokens: 16
@@ -646,9 +761,18 @@ final class CloudLLMClient: LLMClientProtocol {
 
     private func validateProviderAuthorization(
         provider: CloudModelProvider,
-        apiKey: String
+        credential: CloudProviderResolvedCredential
     ) async throws -> String {
-        let request = try providerAuthorizationRequest(provider: provider, apiKey: apiKey)
+        if provider == .minimax {
+            try await testModelConnection(
+                provider: provider,
+                credential: credential,
+                model: provider.validationModel
+            )
+            return "Connected to \(provider.displayName) via \(provider.validationModel.compactDisplayName)."
+        }
+
+        let request = try providerAuthorizationRequest(provider: provider, credential: credential)
         let json = try await sendJSON(request)
         let supportedModelCount = supportedProviderModelCount(in: json, provider: provider)
         if supportedModelCount > 0 {
@@ -659,16 +783,16 @@ final class CloudLLMClient: LLMClientProtocol {
 
     private func providerAuthorizationRequest(
         provider: CloudModelProvider,
-        apiKey: String
+        credential: CloudProviderResolvedCredential
     ) throws -> URLRequest {
         switch provider {
         case .openAI:
-            guard let url = URL(string: "https://api.openai.com/v1/models") else {
+            guard let url = openAIRequestURL(path: "/models", credential: credential) else {
                 throw CloudLLMError.invalidResponse
             }
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
             return request
         case .anthropic:
             guard let url = URL(string: "https://api.anthropic.com/v1/models") else {
@@ -676,18 +800,20 @@ final class CloudLLMClient: LLMClientProtocol {
             }
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
-            request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            applyAnthropicAuthorization(credential, provider: .anthropic, to: &request)
             return request
         case .google:
-            var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models")
-            components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
-            guard let url = components?.url else {
+            return try googleModelsRequest(for: credential)
+        case .zai, .kimi, .deepseek:
+            guard let url = URL(string: try openAICompatibleBaseURL(for: provider, credential: credential) + "/models") else {
                 throw CloudLLMError.invalidResponse
             }
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
+            request.setValue(openAICompatibleAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
             return request
+        case .minimax:
+            throw CloudLLMError.invalidResponse
         }
     }
 
@@ -706,7 +832,7 @@ final class CloudLLMClient: LLMClientProtocol {
         provider: CloudModelProvider
     ) -> Set<String> {
         switch provider {
-        case .openAI, .anthropic:
+        case .openAI, .anthropic, .zai, .kimi, .deepseek:
             let models = json["data"] as? [[String: Any]] ?? []
             return Set(models.compactMap { $0["id"] as? String })
         case .google:
@@ -715,12 +841,14 @@ final class CloudLLMClient: LLMClientProtocol {
                 models.compactMap { $0["name"] as? String }
                     .map { $0.replacingOccurrences(of: "models/", with: "") }
             )
+        case .minimax:
+            return []
         }
     }
 
     private func generateOpenAI(
         model: CloudTextModelID,
-        apiKey: String,
+        credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int
@@ -742,13 +870,17 @@ final class CloudLLMClient: LLMClientProtocol {
         if maxTokens > 0 {
             body["max_output_tokens"] = maxTokens
         }
+        let tools = openAIToolsConfiguration()
+        if !tools.isEmpty {
+            body["tools"] = tools
+        }
 
-        guard let url = URL(string: "https://api.openai.com/v1/responses") else {
+        guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
             throw CloudLLMError.invalidResponse
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -769,7 +901,7 @@ final class CloudLLMClient: LLMClientProtocol {
 
     private func streamOpenAI(
         model: CloudTextModelID,
-        apiKey: String,
+        credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int
@@ -792,15 +924,19 @@ final class CloudLLMClient: LLMClientProtocol {
         if maxTokens > 0 {
             body["max_output_tokens"] = maxTokens
         }
+        let tools = openAIToolsConfiguration()
+        if !tools.isEmpty {
+            body["tools"] = tools
+        }
 
-        guard let url = URL(string: "https://api.openai.com/v1/responses") else {
+        guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -817,11 +953,30 @@ final class CloudLLMClient: LLMClientProtocol {
 
     private func generateAnthropic(
         model: CloudTextModelID,
-        apiKey: String,
+        credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int
     ) async throws -> String {
+        try await generateAnthropicCompatible(
+            provider: .anthropic,
+            model: model,
+            credential: credential,
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens
+        )
+    }
+
+    private func generateAnthropicCompatible(
+        provider: CloudModelProvider,
+        model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int
+    ) async throws -> String {
+        let resolvedMaxTokens = resolvedAnthropicMaxTokens(requestedMaxTokens: maxTokens)
         var body: [String: Any] = [
             "model": model.vendorModelID,
             "messages": [
@@ -830,19 +985,21 @@ final class CloudLLMClient: LLMClientProtocol {
                     "content": prompt,
                 ]
             ],
-            "max_tokens": max(maxTokens, 512),
+            "max_tokens": resolvedMaxTokens,
         ]
         if let systemPrompt, !systemPrompt.isEmpty {
             body["system"] = systemPrompt
         }
+        if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
+            body["thinking"] = thinking
+        }
 
-        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+        guard let url = URL(string: anthropicBaseURL(for: provider) + "/v1/messages") else {
             throw CloudLLMError.invalidResponse
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        applyAnthropicAuthorization(credential, provider: provider, to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -856,11 +1013,30 @@ final class CloudLLMClient: LLMClientProtocol {
 
     private func streamAnthropic(
         model: CloudTextModelID,
-        apiKey: String,
+        credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int
     ) -> AsyncThrowingStream<String, Error> {
+        streamAnthropicCompatible(
+            provider: .anthropic,
+            model: model,
+            credential: credential,
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens
+        )
+    }
+
+    private func streamAnthropicCompatible(
+        provider: CloudModelProvider,
+        model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int
+    ) -> AsyncThrowingStream<String, Error> {
+        let resolvedMaxTokens = resolvedAnthropicMaxTokens(requestedMaxTokens: maxTokens)
         var body: [String: Any] = [
             "model": model.vendorModelID,
             "messages": [
@@ -869,22 +1045,24 @@ final class CloudLLMClient: LLMClientProtocol {
                     "content": prompt,
                 ]
             ],
-            "max_tokens": max(maxTokens, 512),
+            "max_tokens": resolvedMaxTokens,
             "stream": true,
         ]
         if let systemPrompt, !systemPrompt.isEmpty {
             body["system"] = systemPrompt
         }
+        if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
+            body["thinking"] = thinking
+        }
 
-        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+        guard let url = URL(string: anthropicBaseURL(for: provider) + "/v1/messages") else {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        applyAnthropicAuthorization(credential, provider: provider, to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -899,14 +1077,79 @@ final class CloudLLMClient: LLMClientProtocol {
         }
     }
 
-    private func generateGoogle(
+    private func generateOpenAICompatible(
+        provider: CloudModelProvider,
         model: CloudTextModelID,
-        apiKey: String,
+        credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int
     ) async throws -> String {
-        let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/\(model.vendorModelID):generateContent?key=\(apiKey)"
+        var request = try openAICompatibleChatRequest(
+            provider: provider,
+            modelID: model.vendorModelID,
+            credential: credential
+        )
+        request.httpBody = try JSONSerialization.data(
+            withJSONObject: compatibleChatCompletionBody(
+                modelID: model.vendorModelID,
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                stream: false
+            )
+        )
+
+        let json = try await sendJSON(request)
+        guard let text = openAICompatibleMessageText(from: json), !text.isEmpty else {
+            throw CloudLLMError.invalidResponse
+        }
+        return text
+    }
+
+    private func streamOpenAICompatible(
+        provider: CloudModelProvider,
+        model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int
+    ) -> AsyncThrowingStream<String, Error> {
+        let request: URLRequest
+        do {
+            var builtRequest = try openAICompatibleChatRequest(
+                provider: provider,
+                modelID: model.vendorModelID,
+                credential: credential
+            )
+            builtRequest.httpBody = try JSONSerialization.data(
+                withJSONObject: compatibleChatCompletionBody(
+                    modelID: model.vendorModelID,
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    maxTokens: maxTokens,
+                    stream: true
+                )
+            )
+            request = builtRequest
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: CloudLLMError.invalidResponse)
+            }
+        }
+
+        return streamSSE(request) { json in
+            CloudStreamingParser.openAICompatibleTextDelta(from: json)
+        }
+    }
+
+    private func generateGoogle(
+        model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int
+    ) async throws -> String {
         var body: [String: Any] = [
             "contents": [
                 [
@@ -923,12 +1166,19 @@ final class CloudLLMClient: LLMClientProtocol {
                 "parts": [["text": systemPrompt]]
             ]
         }
-
-        guard let url = URL(string: endpoint) else {
-            throw CloudLLMError.invalidResponse
+        if inference.googleGroundingEnabled {
+            body["tools"] = [
+                [
+                    "google_search": [:]
+                ]
+            ]
         }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+
+        var request = try googleContentRequest(
+            modelID: model.vendorModelID,
+            suffix: ":generateContent",
+            credential: credential
+        )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -947,7 +1197,7 @@ final class CloudLLMClient: LLMClientProtocol {
 
     private func streamGoogle(
         model: CloudTextModelID,
-        apiKey: String,
+        credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int
@@ -968,15 +1218,23 @@ final class CloudLLMClient: LLMClientProtocol {
                 "parts": [["text": systemPrompt]]
             ]
         }
+        if inference.googleGroundingEnabled {
+            body["tools"] = [
+                [
+                    "google_search": [:]
+                ]
+            ]
+        }
 
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model.vendorModelID):streamGenerateContent?alt=sse") else {
+        let baseRequest: URLRequest
+        do {
+            baseRequest = try googleStreamRequest(modelID: model.vendorModelID, credential: credential)
+        } catch {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+        var request = baseRequest
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -988,6 +1246,244 @@ final class CloudLLMClient: LLMClientProtocol {
 
         return streamSSE(request) { json in
             CloudStreamingParser.googleTextDelta(from: json)
+        }
+    }
+
+    private func openAIBaseURL(for credential: CloudProviderResolvedCredential) -> String {
+        switch credential {
+        case .openAICodex:
+            "https://chatgpt.com/backend-api/codex"
+        case .apiKey:
+            "https://api.openai.com/v1"
+        case .anthropicOAuth, .googleOAuth:
+            "https://api.openai.com/v1"
+        }
+    }
+
+    private func openAIRequestURL(
+        path: String,
+        credential: CloudProviderResolvedCredential
+    ) -> URL? {
+        let urlString = openAIBaseURL(for: credential) + path
+        switch credential {
+        case .openAICodex:
+            return OpenAICodexRuntimeMetadata.url(appendingClientVersionTo: urlString)
+        case .apiKey, .anthropicOAuth, .googleOAuth:
+            return URL(string: urlString)
+        }
+    }
+
+    private func openAICompatibleBaseURL(
+        for provider: CloudModelProvider,
+        credential: CloudProviderResolvedCredential
+    ) throws -> String {
+        guard case .apiKey(let token) = credential, !token.isEmpty else {
+            throw CloudLLMError.invalidResponse
+        }
+
+        switch provider {
+        case .zai:
+            return "https://api.z.ai/api/paas/v4"
+        case .kimi:
+            return token.hasPrefix("sk-kimi-")
+                ? "https://api.kimi.com/coding/v1"
+                : "https://api.moonshot.ai/v1"
+        case .deepseek:
+            return "https://api.deepseek.com/v1"
+        case .openAI, .anthropic, .google, .minimax:
+            throw CloudLLMError.invalidResponse
+        }
+    }
+
+    private func openAIAuthorizationHeader(for credential: CloudProviderResolvedCredential) -> String {
+        switch credential {
+        case .apiKey(let token),
+             .openAICodex(let token):
+            "Bearer \(token)"
+        case .anthropicOAuth, .googleOAuth:
+            "Bearer "
+        }
+    }
+
+    private func openAICompatibleAuthorizationHeader(for credential: CloudProviderResolvedCredential) -> String {
+        switch credential {
+        case .apiKey(let token):
+            "Bearer \(token)"
+        case .openAICodex, .anthropicOAuth, .googleOAuth:
+            "Bearer "
+        }
+    }
+
+    private func applyAnthropicAuthorization(
+        _ credential: CloudProviderResolvedCredential,
+        provider: CloudModelProvider,
+        to request: inout URLRequest
+    ) {
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        switch credential {
+        case .apiKey(let token):
+            if provider == .minimax {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            } else {
+                request.setValue(token, forHTTPHeaderField: "x-api-key")
+            }
+        case .anthropicOAuth(let accessToken):
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue(
+                "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20",
+                forHTTPHeaderField: "anthropic-beta"
+            )
+            request.setValue("claude-cli/2.1.74 (external, cli)", forHTTPHeaderField: "User-Agent")
+            request.setValue("cli", forHTTPHeaderField: "x-app")
+        case .openAICodex, .googleOAuth:
+            break
+        }
+    }
+
+    private func anthropicBaseURL(for provider: CloudModelProvider) -> String {
+        switch provider {
+        case .anthropic:
+            "https://api.anthropic.com"
+        case .minimax:
+            "https://api.minimax.io/anthropic"
+        case .openAI, .google, .zai, .kimi, .deepseek:
+            "https://api.anthropic.com"
+        }
+    }
+
+    private func openAICompatibleChatRequest(
+        provider: CloudModelProvider,
+        modelID: String,
+        credential: CloudProviderResolvedCredential
+    ) throws -> URLRequest {
+        guard let url = URL(string: try openAICompatibleBaseURL(for: provider, credential: credential) + "/chat/completions") else {
+            throw CloudLLMError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(openAICompatibleAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        return request
+    }
+
+    private func compatibleChatCompletionBody(
+        modelID: String,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        stream: Bool
+    ) -> [String: Any] {
+        var messages: [[String: String]] = []
+        if let systemPrompt, !systemPrompt.isEmpty {
+            messages.append(["role": "system", "content": systemPrompt])
+        }
+        messages.append(["role": "user", "content": prompt])
+
+        var body: [String: Any] = [
+            "model": modelID,
+            "messages": messages,
+            "stream": stream,
+        ]
+        if maxTokens > 0 {
+            body["max_tokens"] = maxTokens
+        }
+        return body
+    }
+
+    private func openAICompatibleMessageText(from json: [String: Any]) -> String? {
+        let choices = json["choices"] as? [[String: Any]] ?? []
+        let text = choices.compactMap { choice -> String? in
+            guard let message = choice["message"] as? [String: Any] else { return nil }
+            if let content = message["content"] as? String, !content.isEmpty {
+                return content
+            }
+            if let reasoning = message["reasoning_content"] as? String, !reasoning.isEmpty {
+                return reasoning
+            }
+            return nil
+        }
+        .joined()
+        return text.isEmpty ? nil : text
+    }
+
+    private func googleModelsRequest(
+        for credential: CloudProviderResolvedCredential
+    ) throws -> URLRequest {
+        switch credential {
+        case .apiKey(let token):
+            var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models")
+            components?.queryItems = [URLQueryItem(name: "key", value: token)]
+            guard let url = components?.url else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            return request
+        case .googleOAuth(let accessToken, let projectID):
+            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models") else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue(projectID, forHTTPHeaderField: "x-goog-user-project")
+            return request
+        case .openAICodex, .anthropicOAuth:
+            throw CloudLLMError.invalidResponse
+        }
+    }
+
+    private func googleContentRequest(
+        modelID: String,
+        suffix: String,
+        credential: CloudProviderResolvedCredential
+    ) throws -> URLRequest {
+        switch credential {
+        case .apiKey(let token):
+            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID)\(suffix)?key=\(token)") else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            return request
+        case .googleOAuth(let accessToken, let projectID):
+            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID)\(suffix)") else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue(projectID, forHTTPHeaderField: "x-goog-user-project")
+            return request
+        case .openAICodex, .anthropicOAuth:
+            throw CloudLLMError.invalidResponse
+        }
+    }
+
+    private func googleStreamRequest(
+        modelID: String,
+        credential: CloudProviderResolvedCredential
+    ) throws -> URLRequest {
+        switch credential {
+        case .apiKey(let token):
+            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID):streamGenerateContent?alt=sse") else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue(token, forHTTPHeaderField: "x-goog-api-key")
+            return request
+        case .googleOAuth(let accessToken, let projectID):
+            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID):streamGenerateContent?alt=sse") else {
+                throw CloudLLMError.invalidResponse
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue(projectID, forHTTPHeaderField: "x-goog-user-project")
+            return request
+        case .openAICodex, .anthropicOAuth:
+            throw CloudLLMError.invalidResponse
         }
     }
 
@@ -1097,11 +1593,44 @@ final class CloudLLMClient: LLMClientProtocol {
         }
         return json
     }
+
+    private func openAIToolsConfiguration() -> [[String: Any]] {
+        var tools: [[String: Any]] = []
+        if inference.openAIWebSearchEnabled {
+            tools.append(["type": "web_search"])
+        }
+        if inference.openAICodeInterpreterEnabled {
+            tools.append(
+                [
+                    "type": "code_interpreter",
+                    "container": ["type": "auto"]
+                ]
+            )
+        }
+        return tools
+    }
+
+    private func resolvedAnthropicMaxTokens(requestedMaxTokens: Int) -> Int {
+        let baseTokens = max(requestedMaxTokens, 512)
+        guard inference.anthropicExtendedThinkingEnabled else {
+            return baseTokens
+        }
+        return max(baseTokens, inference.anthropicThinkingBudgetTokens + 512)
+    }
+
+    private func anthropicThinkingConfiguration(maxTokens: Int) -> [String: Any]? {
+        guard inference.anthropicExtendedThinkingEnabled else { return nil }
+        let budget = min(inference.anthropicThinkingBudgetTokens, max(1_024, maxTokens - 128))
+        return [
+            "type": "enabled",
+            "budget_tokens": budget,
+        ]
+    }
 }
 
 nonisolated enum CloudLLMError: LocalizedError {
     case modelRequired
-    case missingAPIKey(String)
+    case missingAccess(String)
     case invalidResponse
     case runtimeUnavailable
 
@@ -1109,8 +1638,8 @@ nonisolated enum CloudLLMError: LocalizedError {
         switch self {
         case .modelRequired:
             "No cloud model is selected."
-        case .missingAPIKey(let provider):
-            "\(provider) API key is missing. Add it in Settings → Inference."
+        case .missingAccess(let provider):
+            "\(provider) access is missing. Connect an account or add an API key in Settings → Inference."
         case .invalidResponse:
             "The cloud provider returned an unreadable response."
         case .runtimeUnavailable:
@@ -1145,6 +1674,22 @@ nonisolated enum CloudStreamingParser {
             return text.isEmpty ? nil : text
         }
         return nil
+    }
+
+    static func openAICompatibleTextDelta(from json: [String: Any]) -> String? {
+        let choices = json["choices"] as? [[String: Any]] ?? []
+        let text = choices.compactMap { choice -> String? in
+            guard let delta = choice["delta"] as? [String: Any] else { return nil }
+            if let content = delta["content"] as? String, !content.isEmpty {
+                return content
+            }
+            if let reasoning = delta["reasoning_content"] as? String, !reasoning.isEmpty {
+                return reasoning
+            }
+            return nil
+        }
+        .joined()
+        return text.isEmpty ? nil : text
     }
 
     static func streamError(from json: [String: Any], eventName: String?) -> LLMError? {

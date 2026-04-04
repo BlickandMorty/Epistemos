@@ -346,7 +346,7 @@ private struct ThemedUtilityRoot: View {
                 case .cloud:
                     AgentPanelContainer(viewModel: bootstrap.agentViewModel)
                 case .localQwen(let modelID):
-                    if let model = LocalTextModelID(rawValue: modelID), model.canActAsAgent {
+                    if let model = LocalTextModelID(rawValue: modelID), model.supportsHermesAgentMode {
                         AgentPanelContainer(viewModel: bootstrap.agentViewModel)
                     } else {
                         AgentModeUnavailableView(

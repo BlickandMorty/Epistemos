@@ -97,12 +97,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var supportsThinkingMode: Bool {
         switch self {
         case .qwen35_4B4Bit,
+             .qwen35_9B4Bit,
              .qwen35_27B4Bit,
              .qwen35_35BA3B4Bit:
             true
         case .qwen35_0_8B4Bit,
              .qwen35_2B4Bit,
-             .qwen35_9B4Bit,
              .smolLM3_3B4Bit,
              .devstralSmall2505_4Bit,
              .mistralSmall31_24B4Bit,
@@ -129,18 +129,44 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             false
         }
     }
+
+    var supportsHermesAgentMode: Bool {
+        switch self {
+        case .qwen35_9B4Bit:
+            true
+        case .qwen35_0_8B4Bit,
+             .qwen35_2B4Bit,
+             .qwen35_4B4Bit,
+             .qwen35_27B4Bit,
+             .qwen35_35BA3B4Bit,
+             .smolLM3_3B4Bit,
+             .devstralSmall2505_4Bit,
+             .mistralSmall31_24B4Bit,
+             .gemma3_27BQAT4Bit,
+             .llama4Scout17B16E4Bit:
+            false
+        }
+    }
 }
 
 nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
     case openAI
     case anthropic
     case google
+    case zai
+    case kimi
+    case minimax
+    case deepseek
 
     var displayName: String {
         switch self {
         case .openAI: "OpenAI"
         case .anthropic: "Anthropic"
         case .google: "Google"
+        case .zai: "Z.AI / GLM"
+        case .kimi: "Kimi / Moonshot"
+        case .minimax: "MiniMax"
+        case .deepseek: "DeepSeek"
         }
     }
 
@@ -149,6 +175,22 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
         case .openAI: "epistemos.openai.apiKey"
         case .anthropic: "epistemos.anthropic.apiKey"
         case .google: "epistemos.google.apiKey"
+        case .zai: "epistemos.zai.apiKey"
+        case .kimi: "epistemos.kimi.apiKey"
+        case .minimax: "epistemos.minimax.apiKey"
+        case .deepseek: "epistemos.deepseek.apiKey"
+        }
+    }
+
+    var oauthKeychainKey: String {
+        switch self {
+        case .openAI: "epistemos.openai.oauth"
+        case .anthropic: "epistemos.anthropic.oauth"
+        case .google: "epistemos.google.oauth"
+        case .zai: "epistemos.zai.oauth"
+        case .kimi: "epistemos.kimi.oauth"
+        case .minimax: "epistemos.minimax.oauth"
+        case .deepseek: "epistemos.deepseek.oauth"
         }
     }
 
@@ -160,6 +202,8 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
             ["epistemos.apiKey.anthropic"]
         case .google:
             ["epistemos.apiKey.google"]
+        case .zai, .kimi, .minimax, .deepseek:
+            []
         }
     }
 }
@@ -168,6 +212,10 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
     case openAI
     case anthropic
     case google
+    case zai
+    case kimi
+    case minimax
+    case deepseek
     case localOnly
 
     init(cloudProvider: CloudModelProvider) {
@@ -178,6 +226,14 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
             self = .anthropic
         case .google:
             self = .google
+        case .zai:
+            self = .zai
+        case .kimi:
+            self = .kimi
+        case .minimax:
+            self = .minimax
+        case .deepseek:
+            self = .deepseek
         }
     }
 
@@ -189,6 +245,14 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
             .anthropic
         case .google:
             .google
+        case .zai:
+            .zai
+        case .kimi:
+            .kimi
+        case .minimax:
+            .minimax
+        case .deepseek:
+            .deepseek
         case .localOnly:
             nil
         }
@@ -202,6 +266,14 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
             "Anthropic"
         case .google:
             "Google"
+        case .zai:
+            "Z.AI / GLM"
+        case .kimi:
+            "Kimi / Moonshot"
+        case .minimax:
+            "MiniMax"
+        case .deepseek:
+            "DeepSeek"
         case .localOnly:
             "Local Only"
         }
@@ -215,6 +287,14 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
             "brain"
         case .google:
             "globe.americas.fill"
+        case .zai:
+            "bolt.horizontal.circle"
+        case .kimi:
+            "moon.stars.fill"
+        case .minimax:
+            "paperplane.circle.fill"
+        case .deepseek:
+            "water.waves"
         case .localOnly:
             "memorychip"
         }
@@ -223,15 +303,34 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
     var summary: String {
         switch self {
         case .openAI:
-            "Use OpenAI as the single active cloud provider while keeping local models available."
+            "Use OpenAI as the active cloud provider with ChatGPT account access or a legacy API key while keeping local models available."
         case .anthropic:
-            "Use Anthropic as the single active cloud provider while keeping local models available."
+            "Use Anthropic as the active cloud provider with Claude Code credentials or a legacy API key while keeping local models available."
         case .google:
-            "Use Google as the single active cloud provider while keeping local models available."
+            "Use Google Gemini as the active cloud provider with Desktop OAuth or a legacy API key while keeping local models available."
+        case .zai:
+            "Use Z.AI / GLM as the active cloud provider. The public API path is direct-key today, while local models remain available."
+        case .kimi:
+            "Use Kimi / Moonshot as the active cloud provider. The public API path is direct-key today, while local models remain available."
+        case .minimax:
+            "Use MiniMax as the active cloud provider. The public API path is direct-key today, while local models remain available."
+        case .deepseek:
+            "Use DeepSeek as the active cloud provider. The public API path is direct-key today, while local models remain available."
         case .localOnly:
             "Hide cloud models from the picker and stay on-device with Apple Intelligence plus local models."
         }
     }
+
+    nonisolated static let preferredOrder: [AIProviderSelection] = [
+        .openAI,
+        .anthropic,
+        .google,
+        .deepseek,
+        .zai,
+        .kimi,
+        .minimax,
+        .localOnly,
+    ]
 }
 
 nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
@@ -253,6 +352,16 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     case googleGemini3FlashPreview = "google:gemini-3-flash-preview"
     case googleGemini3ProPreview = "google:gemini-3-pro-preview"
     case googleGemini31ProPreview = "google:gemini-3.1-pro-preview"
+    case zaiGLM5 = "zai:glm-5"
+    case zaiGLM45Flash = "zai:glm-4.5-flash"
+    case kimiK25 = "kimi:kimi-k2.5"
+    case kimiK2Thinking = "kimi:kimi-k2-thinking"
+    case kimiK2TurboPreview = "kimi:kimi-k2-turbo-preview"
+    case minimaxM25 = "minimax:MiniMax-M2.5"
+    case minimaxM25HighSpeed = "minimax:MiniMax-M2.5-highspeed"
+    case minimaxM21 = "minimax:MiniMax-M2.1"
+    case deepseekChat = "deepseek:deepseek-chat"
+    case deepseekReasoner = "deepseek:deepseek-reasoner"
 
     var provider: CloudModelProvider {
         switch self {
@@ -265,6 +374,14 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
              .googleGemini3ProPreview, .googleGemini31ProPreview:
             .google
+        case .zaiGLM5, .zaiGLM45Flash:
+            .zai
+        case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
+            .kimi
+        case .minimaxM25, .minimaxM25HighSpeed, .minimaxM21:
+            .minimax
+        case .deepseekChat, .deepseekReasoner:
+            .deepseek
         }
     }
 
@@ -288,6 +405,16 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .googleGemini3FlashPreview: "gemini-3-flash-preview"
         case .googleGemini3ProPreview: "gemini-3-pro-preview"
         case .googleGemini31ProPreview: "gemini-3.1-pro-preview"
+        case .zaiGLM5: "glm-5"
+        case .zaiGLM45Flash: "glm-4.5-flash"
+        case .kimiK25: "kimi-k2.5"
+        case .kimiK2Thinking: "kimi-k2-thinking"
+        case .kimiK2TurboPreview: "kimi-k2-turbo-preview"
+        case .minimaxM25: "MiniMax-M2.5"
+        case .minimaxM25HighSpeed: "MiniMax-M2.5-highspeed"
+        case .minimaxM21: "MiniMax-M2.1"
+        case .deepseekChat: "deepseek-chat"
+        case .deepseekReasoner: "deepseek-reasoner"
         }
     }
 
@@ -311,6 +438,16 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .googleGemini3FlashPreview: "Gemini 3 Flash Preview"
         case .googleGemini3ProPreview: "Gemini 3 Pro Preview"
         case .googleGemini31ProPreview: "Gemini 3.1 Pro Preview"
+        case .zaiGLM5: "GLM-5"
+        case .zaiGLM45Flash: "GLM-4.5 Flash"
+        case .kimiK25: "Kimi K2.5"
+        case .kimiK2Thinking: "Kimi K2 Thinking"
+        case .kimiK2TurboPreview: "Kimi K2 Turbo Preview"
+        case .minimaxM25: "MiniMax M2.5"
+        case .minimaxM25HighSpeed: "MiniMax M2.5 High-Speed"
+        case .minimaxM21: "MiniMax M2.1"
+        case .deepseekChat: "DeepSeek Chat"
+        case .deepseekReasoner: "DeepSeek Reasoner"
         }
     }
 
@@ -334,11 +471,98 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .googleGemini3FlashPreview: "Gemini 3 Flash"
         case .googleGemini3ProPreview: "Gemini 3 Pro"
         case .googleGemini31ProPreview: "Gemini 3.1 Pro"
+        case .zaiGLM5: "GLM-5"
+        case .zaiGLM45Flash: "GLM 4.5 Flash"
+        case .kimiK25: "Kimi K2.5"
+        case .kimiK2Thinking: "Kimi K2 Thinking"
+        case .kimiK2TurboPreview: "Kimi K2 Turbo"
+        case .minimaxM25: "MiniMax M2.5"
+        case .minimaxM25HighSpeed: "M2.5 High-Speed"
+        case .minimaxM21: "MiniMax M2.1"
+        case .deepseekChat: "DeepSeek Chat"
+        case .deepseekReasoner: "DeepSeek Reasoner"
         }
     }
 
     var providerDisplayName: String {
         provider.displayName
+    }
+
+    var supportedOperatingModes: [EpistemosOperatingMode] {
+        switch self {
+        case .openAIGPT54:
+            [.fast, .thinking, .pro, .agent]
+        case .openAIGPT54Mini:
+            [.fast, .agent]
+        case .openAIGPT54Nano:
+            [.fast]
+        case .openAIGPT52:
+            [.fast, .thinking, .pro, .agent]
+        case .openAIGPT41:
+            [.fast, .agent]
+        case .openAIGPT41Mini:
+            [.fast]
+        case .openAIO3:
+            [.thinking, .pro, .agent]
+        case .openAIO3Mini:
+            [.fast, .thinking, .agent]
+        case .anthropicClaudeOpus41,
+             .anthropicClaudeOpus4:
+            [.fast, .thinking, .pro, .agent]
+        case .anthropicClaudeSonnet4,
+             .anthropicClaudeSonnet37:
+            [.fast, .thinking, .agent]
+        case .anthropicClaudeHaiku35:
+            [.fast]
+        case .googleGemini25Pro,
+             .googleGemini3ProPreview,
+             .googleGemini31ProPreview:
+            [.fast, .thinking, .pro, .agent]
+        case .googleGemini25Flash,
+             .googleGemini3FlashPreview:
+            [.fast, .agent]
+        case .zaiGLM5:
+            [.fast, .thinking, .pro, .agent]
+        case .zaiGLM45Flash:
+            [.fast]
+        case .kimiK25:
+            [.fast, .thinking, .pro, .agent]
+        case .kimiK2Thinking:
+            [.thinking, .pro, .agent]
+        case .kimiK2TurboPreview:
+            [.fast, .agent]
+        case .minimaxM25:
+            [.fast, .thinking, .pro, .agent]
+        case .minimaxM25HighSpeed:
+            [.fast, .agent]
+        case .minimaxM21:
+            [.fast, .thinking, .agent]
+        case .deepseekChat:
+            [.fast, .agent]
+        case .deepseekReasoner:
+            [.thinking, .pro, .agent]
+        }
+    }
+
+    func resolvedModel(for operatingMode: EpistemosOperatingMode) -> CloudTextModelID {
+        switch (self, operatingMode) {
+        case (.openAIGPT54, .fast):
+            .openAIGPT54Mini
+        case (.openAIGPT54, .thinking):
+            .openAIO3
+        case (.zaiGLM5, .fast):
+            .zaiGLM45Flash
+        case (.kimiK25, .fast):
+            .kimiK2TurboPreview
+        case (.kimiK25, .thinking):
+            .kimiK2Thinking
+        case (.minimaxM25, .fast):
+            .minimaxM25HighSpeed
+        case (.deepseekChat, .thinking), (.deepseekChat, .pro):
+            .deepseekReasoner
+        default:
+            self
+        }
     }
 
     nonisolated static func models(for provider: CloudModelProvider) -> [CloudTextModelID] {
@@ -385,6 +609,16 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         "gemini-3-flash-preview": .googleGemini3FlashPreview,
         "gemini-3-pro-preview": .googleGemini3ProPreview,
         "gemini-3.1-pro-preview": .googleGemini31ProPreview,
+        "glm-5": .zaiGLM5,
+        "glm-4.5-flash": .zaiGLM45Flash,
+        "kimi-k2.5": .kimiK25,
+        "kimi-k2-thinking": .kimiK2Thinking,
+        "kimi-k2-turbo-preview": .kimiK2TurboPreview,
+        "MiniMax-M2.5": .minimaxM25,
+        "MiniMax-M2.5-highspeed": .minimaxM25HighSpeed,
+        "MiniMax-M2.1": .minimaxM21,
+        "deepseek-chat": .deepseekChat,
+        "deepseek-reasoner": .deepseekReasoner,
     ]
 }
 
@@ -402,16 +636,23 @@ nonisolated enum CloudProviderValidationState: Sendable, Equatable {
         return false
     }
 
+    var isVerified: Bool {
+        if case .valid = self {
+            return true
+        }
+        return false
+    }
+
     var statusBadge: String {
         switch self {
         case .missing:
-            "No Key"
+            "Not Connected"
         case .unchecked:
             "Saved"
         case .checking:
             "Checking"
         case .valid:
-            "Valid"
+            "Verified"
         case .invalid:
             "Needs Attention"
         }
@@ -420,11 +661,11 @@ nonisolated enum CloudProviderValidationState: Sendable, Equatable {
     var statusText: String {
         return switch self {
         case .missing:
-            "Add a provider key to unlock these cloud models."
+            "Connect provider access to unlock these cloud models."
         case .unchecked:
-            "Key saved. Run a check to confirm provider access."
+            "Access is stored locally but not verified yet. Run a live check before making this provider active."
         case .checking:
-            "Checking this provider with a lightweight live request…"
+            "Verifying this provider with a live request. This check times out after 90 seconds."
         case .valid(let message, let checkedAt):
             "\(message) • Checked \(checkedAt.formatted(date: .omitted, time: .shortened))"
         case .invalid(let message, let checkedAt):
@@ -435,9 +676,9 @@ nonisolated enum CloudProviderValidationState: Sendable, Equatable {
     var systemImage: String {
         switch self {
         case .missing:
-            "key.slash"
+            "person.crop.circle.badge.exclamationmark"
         case .unchecked:
-            "key.fill"
+            "clock.badge.exclamationmark"
         case .checking:
             "arrow.triangle.2.circlepath"
         case .valid:
@@ -461,6 +702,20 @@ nonisolated enum CloudProviderValidationState: Sendable, Equatable {
     }
 }
 
+nonisolated enum CloudProviderAccountConnectionState: Sendable, Equatable {
+    case disconnected
+    case pendingVerification
+    case checking
+    case connected
+    case failure
+}
+
+nonisolated struct CloudProviderAccountConnectionSummary: Sendable, Equatable {
+    let state: CloudProviderAccountConnectionState
+    let title: String
+    let detail: String
+}
+
 nonisolated enum ColorRole: Sendable, Equatable {
     case accent
     case secondary
@@ -469,6 +724,31 @@ nonisolated enum ColorRole: Sendable, Equatable {
 }
 
 extension CloudModelProvider {
+    var supportsAccountConnection: Bool {
+        switch self {
+        case .openAI, .anthropic, .google:
+            true
+        case .zai, .kimi, .minimax, .deepseek:
+            false
+        }
+    }
+
+    var manualCredentialTitle: String {
+        supportsAccountConnection ? "Legacy API Key" : "API Key"
+    }
+
+    var manualCredentialTitleLowercase: String {
+        manualCredentialTitle.lowercased()
+    }
+
+    var missingManualCredentialMessage: String {
+        "Paste or type a non-empty \(manualCredentialTitleLowercase) before saving."
+    }
+
+    var missingClipboardCredentialMessage: String {
+        "Clipboard doesn't contain a non-empty \(manualCredentialTitleLowercase) for \(displayName)."
+    }
+
     var systemImage: String {
         switch self {
         case .openAI:
@@ -477,6 +757,14 @@ extension CloudModelProvider {
             "brain"
         case .google:
             "globe.americas.fill"
+        case .zai:
+            "bolt.horizontal.circle"
+        case .kimi:
+            "moon.stars.fill"
+        case .minimax:
+            "paperplane.circle.fill"
+        case .deepseek:
+            "water.waves"
         }
     }
 
@@ -488,17 +776,175 @@ extension CloudModelProvider {
             "sk-ant-..."
         case .google:
             "AIza..."
+        case .zai:
+            "za-..."
+        case .kimi:
+            "sk-..."
+        case .minimax:
+            "eyJ..."
+        case .deepseek:
+            "sk-..."
         }
     }
 
     var setupHelpText: String {
         switch self {
         case .openAI:
-            "Unlocks GPT-5.4, GPT-5.2, GPT-4.1, and o3. Great default for general cloud chat."
+            "Recommended account path. Sign in with ChatGPT and Epistemos uses the OpenAI Codex session directly. Legacy API keys stay available only as a fallback."
         case .anthropic:
-            "Unlocks Claude Sonnet and Opus models. Best fit when you want a strong agentic writing partner."
+            "Preferred account path. Import your Claude Code session so Epistemos can use Claude access without a pasted key. Legacy API keys stay available only as a fallback."
         case .google:
-            "Unlocks Gemini 2.5 and preview Gemini 3 models. Useful for broad long-context work."
+            "Real OAuth path. In Google Cloud Console, create an OAuth client ID for a Desktop app, download that client JSON, enter the matching Google Cloud project ID, then sign in with Google for Gemini without a pasted API key."
+        case .zai:
+            "Z.AI / GLM currently uses the direct API route in Epistemos. Open the platform, create an API key, then save it here."
+        case .kimi:
+            "Kimi / Moonshot currently uses the direct API route in Epistemos. Open the platform, create an API key, then save it here."
+        case .minimax:
+            "MiniMax documents OAuth for OpenClaw, but the public API path available to Epistemos today is the direct API route. Create a key, then save it here."
+        case .deepseek:
+            "DeepSeek currently uses the direct API route in Epistemos. Open the platform, create an API key, then save it here."
+        }
+    }
+
+    var automationHintText: String {
+        switch self {
+        case .openAI:
+            "Best path: Sign in with ChatGPT. If you already use Codex CLI, you can import that session. Manual API keys are now the legacy path."
+        case .anthropic:
+            "Best path: import Claude Code credentials. If you prefer the direct API console route, the legacy key path is still tucked away below."
+        case .google:
+            "Best path: in Google Cloud Console, create an OAuth client ID for a Desktop app, download that client JSON, choose it here, enter the same Google Cloud project ID, then sign in with your Google account. Legacy Gemini API keys are only the fallback."
+        case .zai:
+            "Fastest path: open Z.AI, create an API key, then use Paste + Save."
+        case .kimi:
+            "Fastest path: open Moonshot, create an API key, then use Paste + Save."
+        case .minimax:
+            "Fastest path in Epistemos today: open MiniMax, create an API key, then use Paste + Save."
+        case .deepseek:
+            "Fastest path: open DeepSeek, create an API key, then use Paste + Save."
+        }
+    }
+
+    var accountSetupTitle: String {
+        switch self {
+        case .openAI:
+            "Use your OpenAI account"
+        case .anthropic:
+            "Use your Anthropic account"
+        case .google:
+            "Use your Google account"
+        case .zai:
+            "Connect Z.AI / GLM"
+        case .kimi:
+            "Connect Kimi / Moonshot"
+        case .minimax:
+            "Connect MiniMax"
+        case .deepseek:
+            "Connect DeepSeek"
+        }
+    }
+
+    var accountSetupHelpText: String {
+        switch self {
+        case .openAI:
+            "Sign in with ChatGPT first. Manual API key tools stay tucked under Legacy API Key if you need them."
+        case .anthropic:
+            "Use your Claude account first by importing Claude Code credentials. Expand Legacy API Key only if you want the console-key path."
+        case .google:
+            "Connect Google OAuth first with the Desktop-app client JSON from Google Cloud Console and the matching Google Cloud project ID, then fall back to Legacy API Key only when needed."
+        case .zai:
+            "Use the provider portal to create an API key, then save it here. Z.AI's public API path in Epistemos is direct-key today."
+        case .kimi:
+            "Use the provider portal to create an API key, then save it here. Kimi's public API path in Epistemos is direct-key today."
+        case .minimax:
+            "Use the provider portal to create an API key, then save it here. MiniMax's public API path in Epistemos is direct-key today."
+        case .deepseek:
+            "Use the provider portal to create an API key, then save it here. DeepSeek's public API path in Epistemos is direct-key today."
+        }
+    }
+
+    var accountActionTitle: String {
+        switch self {
+        case .openAI:
+            "Sign in with ChatGPT"
+        case .anthropic:
+            "Use Claude Code Account"
+        case .google:
+            "Connect Google OAuth"
+        case .zai:
+            "Open Z.AI API Keys"
+        case .kimi:
+            "Open Moonshot API Keys"
+        case .minimax:
+            "Open MiniMax API Keys"
+        case .deepseek:
+            "Open DeepSeek API Keys"
+        }
+    }
+
+    var credentialActionTitle: String {
+        switch self {
+        case .openAI:
+            "Open API Keys"
+        case .anthropic:
+            "Open Console"
+        case .google:
+            "Open AI Studio"
+        case .zai:
+            "Open Z.AI API Keys"
+        case .kimi:
+            "Open Moonshot API Keys"
+        case .minimax:
+            "Open MiniMax API Keys"
+        case .deepseek:
+            "Open DeepSeek API Keys"
+        }
+    }
+
+    var credentialManagementURL: URL? {
+        switch self {
+        case .openAI:
+            URL(string: "https://platform.openai.com/api-keys")
+        case .anthropic:
+            URL(string: "https://console.anthropic.com/settings/keys")
+        case .google:
+            URL(string: "https://aistudio.google.com/app/apikey")
+        case .zai:
+            URL(string: "https://z.ai/manage-apikey/apikey-list")
+        case .kimi:
+            URL(string: "https://platform.moonshot.ai/console/api-keys")
+        case .minimax:
+            URL(string: "https://platform.minimax.io/docs/api-reference/text-ai-coding-refer")
+        case .deepseek:
+            URL(string: "https://platform.deepseek.com/api_keys")
+        }
+    }
+
+    var documentationActionTitle: String {
+        switch self {
+        case .google:
+            "Open Gemini Docs"
+        case .openAI, .anthropic, .zai, .kimi, .minimax, .deepseek:
+            "Open API Docs"
+        }
+    }
+
+    var documentationURL: URL? {
+        switch self {
+        case .openAI:
+            URL(string: "https://developers.openai.com/api-reference/authentication")
+        case .anthropic:
+            URL(string: "https://docs.anthropic.com/en/api/getting-started")
+        case .google:
+            URL(string: "https://ai.google.dev/gemini-api/docs/api-key")
+        case .zai:
+            URL(string: "https://docs.z.ai/guides/development-guide/introduction")
+        case .kimi:
+            URL(string: "https://platform.moonshot.ai/docs/guide/start-using-kimi-api")
+        case .minimax:
+            URL(string: "https://platform.minimax.io/docs/api-reference/text-ai-coding-refer")
+        case .deepseek:
+            URL(string: "https://api-docs.deepseek.com/")
         }
     }
 
@@ -510,6 +956,14 @@ extension CloudModelProvider {
             "Claude Opus 4.1, Opus 4, Sonnet 4"
         case .google:
             "Gemini 2.5 Pro, 2.5 Flash, Gemini 3 previews"
+        case .zai:
+            "GLM-5, GLM-4.5 Flash"
+        case .kimi:
+            "Kimi K2.5, K2 Thinking, K2 Turbo"
+        case .minimax:
+            "MiniMax M2.5, M2.5 High-Speed, M2.1"
+        case .deepseek:
+            "DeepSeek Chat, DeepSeek Reasoner"
         }
     }
 
@@ -521,6 +975,14 @@ extension CloudModelProvider {
             .anthropicClaudeSonnet4
         case .google:
             .googleGemini25Flash
+        case .zai:
+            .zaiGLM45Flash
+        case .kimi:
+            .kimiK2TurboPreview
+        case .minimax:
+            .minimaxM25HighSpeed
+        case .deepseek:
+            .deepseekChat
         }
     }
 
@@ -532,7 +994,178 @@ extension CloudModelProvider {
             .anthropicClaudeSonnet4
         case .google:
             .googleGemini25Pro
+        case .zai:
+            .zaiGLM5
+        case .kimi:
+            .kimiK25
+        case .minimax:
+            .minimaxM25
+        case .deepseek:
+            .deepseekChat
         }
+    }
+
+    func accountConnectionSummary(
+        oauthCredential: CloudProviderOAuthCredential?,
+        hasSavedAPIKey: Bool,
+        validationState: CloudProviderValidationState
+    ) -> CloudProviderAccountConnectionSummary? {
+        guard supportsAccountConnection else { return nil }
+
+        if let oauthCredential {
+            let accountLabel = oauthCredential.displayAccountLabel
+            switch validationState {
+            case .valid:
+                return CloudProviderAccountConnectionSummary(
+                    state: .connected,
+                    title: "Verified account connected",
+                    detail: verifiedAccountDetail(accountLabel: accountLabel)
+                )
+            case .checking:
+                return CloudProviderAccountConnectionSummary(
+                    state: .checking,
+                    title: "Verifying account access",
+                    detail: checkingAccountDetail(accountLabel: accountLabel)
+                )
+            case .invalid(let message, _):
+                return CloudProviderAccountConnectionSummary(
+                    state: .failure,
+                    title: "Account needs attention",
+                    detail: failureAccountDetail(accountLabel: accountLabel, message: message)
+                )
+            case .unchecked, .missing:
+                return CloudProviderAccountConnectionSummary(
+                    state: .pendingVerification,
+                    title: "Account saved, not verified",
+                    detail: pendingAccountDetail(accountLabel: accountLabel)
+                )
+            }
+        }
+
+        let detail: String
+        switch self {
+        case .openAI:
+            detail = hasSavedAPIKey
+                ? "No account session connected. Legacy API key saved as fallback."
+                : "No account session connected. Sign in with ChatGPT to keep setup account-first."
+        case .anthropic:
+            detail = hasSavedAPIKey
+                ? "No account session connected. Legacy API key saved as fallback."
+                : "No account session connected. Import Claude Code to connect Anthropic without pasting a key."
+        case .google:
+            detail = hasSavedAPIKey
+                ? "No account session connected. Legacy API key saved as fallback."
+                : "No account session connected. Finish Google OAuth to keep Gemini setup account-first."
+        case .zai, .kimi, .minimax, .deepseek:
+            return nil
+        }
+        return CloudProviderAccountConnectionSummary(
+            state: .disconnected,
+            title: "No account session connected",
+            detail: detail
+        )
+    }
+
+    func accountGuidanceText(
+        validationState: CloudProviderValidationState
+    ) -> String? {
+        guard supportsAccountConnection else { return nil }
+
+        switch self {
+        case .openAI:
+            return switch validationState {
+            case .valid:
+                nil
+            case .checking:
+                "If OpenAI asks you to enable access first, finish that browser step now. Verification stops after 90 seconds."
+            case .unchecked, .missing:
+                "Sign in with ChatGPT, then verify live access before making this provider active."
+            case .invalid:
+                "If OpenAI asked you to enable access first, finish that browser step and then retry OpenAI sign-in."
+            }
+        case .anthropic:
+            return switch validationState {
+            case .valid:
+                nil
+            case .checking:
+                "Claude Code needs to be signed in first. Epistemos verifies that imported account with a live check and stops after 90 seconds."
+            case .unchecked, .missing:
+                "Claude Code needs to be signed in first. Import that connected account, then verify live access before making this provider active."
+            case .invalid:
+                "Claude Code needs to be signed in first. Reopen Claude Code, reconnect if needed, and then retry import."
+            }
+        case .google:
+            return switch validationState {
+            case .valid:
+                nil
+            case .checking:
+                "Finish the Google browser consent flow now. If Google asks for extra setup, complete it there and retry."
+            case .unchecked, .missing:
+                "Verify live access before making this provider active."
+            case .invalid:
+                "If Google asked for extra setup in the browser, complete that step and then retry Google OAuth."
+            }
+        case .zai, .kimi, .minimax, .deepseek:
+            return nil
+        }
+    }
+
+    private func verifiedAccountDetail(accountLabel: String?) -> String {
+        if let accountLabel {
+            return "Connected as \(accountLabel)."
+        }
+
+        return switch self {
+        case .openAI:
+            "Verified OpenAI account session is stored in Apple Keychain."
+        case .anthropic:
+            "Verified Claude Code account session is stored in Apple Keychain."
+        case .google:
+            "Verified Google account session is stored in Apple Keychain."
+        case .zai, .kimi, .minimax, .deepseek:
+            ""
+        }
+    }
+
+    private func pendingAccountDetail(accountLabel: String?) -> String {
+        if let accountLabel {
+            return "Stored account: \(accountLabel). Tap Check Access before making this provider active."
+        }
+
+        return switch self {
+        case .openAI:
+            "OpenAI account session is stored, but you still need a live verification check. Tap Check Access before making this provider active."
+        case .anthropic:
+            "Claude Code account session is stored, but you still need a live verification check. Tap Check Access before making this provider active."
+        case .google:
+            "Google account session is stored, but you still need a live verification check. Tap Check Access before making this provider active."
+        case .zai, .kimi, .minimax, .deepseek:
+            ""
+        }
+    }
+
+    private func checkingAccountDetail(accountLabel: String?) -> String {
+        if let accountLabel {
+            return "Checking \(accountLabel) with a live request. This stops after 90 seconds."
+        }
+
+        return switch self {
+        case .openAI:
+            "Checking the stored OpenAI account with a live request. This stops after 90 seconds."
+        case .anthropic:
+            "Checking the imported Claude Code account with a live request. This stops after 90 seconds."
+        case .google:
+            "Checking the stored Google account with a live request. This stops after 90 seconds."
+        case .zai, .kimi, .minimax, .deepseek:
+            ""
+        }
+    }
+
+    private func failureAccountDetail(accountLabel: String?, message: String) -> String {
+        if let accountLabel {
+            return "Stored account: \(accountLabel). \(message)"
+        }
+        return message
     }
 }
 
@@ -629,12 +1262,14 @@ nonisolated enum LocalReasoningMode: String, Codable, Sendable, CaseIterable {
 nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable {
     case fast
     case thinking
+    case pro
     case agent
 
     var displayName: String {
         switch self {
         case .fast: "Fast"
         case .thinking: "Thinking"
+        case .pro: "Pro"
         case .agent: "Agent"
         }
     }
@@ -643,6 +1278,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         switch self {
         case .fast: "bolt.fill"
         case .thinking: "brain.head.profile"
+        case .pro: "sparkles.rectangle.stack.fill"
         case .agent: "cpu.fill"
         }
     }
@@ -653,6 +1289,8 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
             "Quick local replies with the lightest reasoning overhead."
         case .thinking:
             "Spend more local reasoning budget before answering."
+        case .pro:
+            "Use the provider's highest-quality route before falling back to on-device reasoning."
         case .agent:
             "Hand off the task to the agent runtime for visible multi-step execution."
         }
@@ -661,7 +1299,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     var localReasoningMode: LocalReasoningMode? {
         switch self {
         case .fast: .fast
-        case .thinking: .thinking
+        case .thinking, .pro: .thinking
         case .agent: nil
         }
     }
@@ -670,7 +1308,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         switch self {
         case .agent:
             "Handing this off to the agent runtime for multi-step execution. Follow progress in the Agent Runtime panel."
-        case .fast, .thinking:
+        case .fast, .thinking, .pro:
             nil
         }
     }
@@ -767,7 +1405,48 @@ nonisolated struct LocalModelSelection: Sendable, Equatable {
         guard let model = LocalTextModelID(rawValue: modelID) else {
             return false
         }
-        return model.canActAsAgent
+        return model.supportsHermesAgentMode
+    }
+}
+
+extension CloudModelProvider {
+    var recommendedFallbackCloudModel: (EpistemosOperatingMode) -> CloudTextModelID {
+        { operatingMode in
+            switch (self, operatingMode) {
+            case (.openAI, .fast):
+                .openAIGPT54Mini
+            case (.openAI, .thinking):
+                .openAIO3
+            case (.openAI, .pro), (.openAI, .agent):
+                .openAIGPT54
+            case (.anthropic, .pro):
+                .anthropicClaudeOpus41
+            case (.anthropic, .agent), (.anthropic, .thinking), (.anthropic, .fast):
+                .anthropicClaudeSonnet4
+            case (.google, .fast):
+                .googleGemini25Flash
+            case (.google, .thinking), (.google, .pro), (.google, .agent):
+                .googleGemini25Pro
+            case (.zai, .fast):
+                .zaiGLM45Flash
+            case (.zai, .thinking), (.zai, .pro), (.zai, .agent):
+                .zaiGLM5
+            case (.kimi, .fast):
+                .kimiK2TurboPreview
+            case (.kimi, .thinking):
+                .kimiK2Thinking
+            case (.kimi, .pro), (.kimi, .agent):
+                .kimiK25
+            case (.minimax, .fast):
+                .minimaxM25HighSpeed
+            case (.minimax, .thinking), (.minimax, .pro), (.minimax, .agent):
+                .minimaxM25
+            case (.deepseek, .fast):
+                .deepseekChat
+            case (.deepseek, .thinking), (.deepseek, .pro), (.deepseek, .agent):
+                .deepseekReasoner
+            }
+        }
     }
 }
 
@@ -900,6 +1579,15 @@ final class InferenceState {
         "epistemos.preferredFallbackLocalTextModelID",
     ]
     private nonisolated static let activeAIProviderDefaultsKey = "epistemos.activeAIProvider"
+    private nonisolated static let lastNonLocalAIProviderDefaultsKey = "epistemos.lastNonLocalAIProvider"
+    private nonisolated static let openAIWebSearchDefaultsKey = "epistemos.openAIWebSearchEnabled"
+    private nonisolated static let openAICodeInterpreterDefaultsKey = "epistemos.openAICodeInterpreterEnabled"
+    private nonisolated static let anthropicExtendedThinkingDefaultsKey = "epistemos.anthropicExtendedThinkingEnabled"
+    private nonisolated static let anthropicThinkingBudgetDefaultsKey = "epistemos.anthropicThinkingBudgetTokens"
+    private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
+    private nonisolated static let firecrawlAPIKeyKeychainKey = "epistemos.firecrawl.apiKey"
+    private nonisolated static let cloudSetupHintShownDefaultsKey = "epistemos.cloudSetupHintShown"
+    private nonisolated static let cloudValidationTimeout: Duration = .seconds(90)
 
     var inferenceMode: InferenceMode = .api
     var routingMode: LocalRoutingMode = .auto
@@ -911,8 +1599,11 @@ final class InferenceState {
     private let keychainLoad: (String) -> String?
     private let keychainSave: (String, String) -> Bool
     private let keychainDelete: (String) -> Void
+    private let authService: CloudProviderAuthService
     private(set) var cachedCloudAPIKeys: [CloudModelProvider: String] = [:]
     private var missingCloudAPIKeyProviders: Set<CloudModelProvider> = []
+    private(set) var cachedCloudOAuthCredentials: [CloudModelProvider: CloudProviderOAuthCredential] = [:]
+    private var missingCloudOAuthProviders: Set<CloudModelProvider> = []
     private(set) var cloudProviderValidationStates: [CloudModelProvider: CloudProviderValidationState] = [:]
     private(set) var installedLocalTextModelIDs: Set<String> = []
     private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
@@ -924,6 +1615,12 @@ final class InferenceState {
 
     /// Max tokens for user-visible chat responses. 0 = no cap (model default, ~16k).
     var chatOutputTokens: Int = 0
+    var openAIWebSearchEnabled = false
+    var openAICodeInterpreterEnabled = false
+    var anthropicExtendedThinkingEnabled = false
+    var anthropicThinkingBudgetTokens = 8_000
+    var googleGroundingEnabled = false
+    private(set) var hasShownCloudSetupHint = false
 
     init(
         keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
@@ -935,6 +1632,11 @@ final class InferenceState {
         self.keychainLoad = keychainLoad
         self.keychainSave = keychainSave
         self.keychainDelete = keychainDelete
+        self.authService = CloudProviderAuthService(
+            keychainLoad: keychainLoad,
+            keychainSave: keychainSave,
+            keychainDelete: keychainDelete
+        )
 
         let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
         self.appleIntelligenceAvailable = available
@@ -956,9 +1658,9 @@ final class InferenceState {
         }
         if let saved = defaults.string(forKey: "epistemos.preferredChatModelSelection"),
            let selection = ChatModelSelection(rawValue: saved) {
-            // If the saved selection is a cloud model but there's no API key for it,
+            // If the saved selection is a cloud model but there's no cloud access for it,
             // fall back to local Qwen to avoid unusable cloud routing.
-            if case .cloud(let model) = selection, apiKey(for: model.provider) == nil {
+            if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
                 self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
             } else {
                 self.preferredChatModelSelection = selection
@@ -989,8 +1691,21 @@ final class InferenceState {
             }
         }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
+        self.openAIWebSearchEnabled = defaults.bool(forKey: Self.openAIWebSearchDefaultsKey)
+        self.openAICodeInterpreterEnabled = defaults.bool(forKey: Self.openAICodeInterpreterDefaultsKey)
+        self.anthropicExtendedThinkingEnabled = defaults.bool(forKey: Self.anthropicExtendedThinkingDefaultsKey)
+        let savedBudget = defaults.integer(forKey: Self.anthropicThinkingBudgetDefaultsKey)
+        self.anthropicThinkingBudgetTokens = Self.clampedAnthropicThinkingBudget(
+            savedBudget > 0 ? savedBudget : 8_000
+        )
+        self.googleGroundingEnabled = defaults.bool(forKey: Self.googleGroundingDefaultsKey)
+        self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
+    }
+
+    private nonisolated static func clampedAnthropicThinkingBudget(_ tokens: Int) -> Int {
+        min(max(tokens, 1_024), 32_000)
     }
 
     static func purgeLegacyRemoteConfiguration(defaults: UserDefaults = .standard) {
@@ -1023,6 +1738,7 @@ final class InferenceState {
 
     private func refreshCachedCloudAPIKeys() {
         missingCloudAPIKeyProviders.removeAll()
+        missingCloudOAuthProviders.removeAll()
         cachedCloudAPIKeys = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
             guard let key = keychainLoad(provider.apiKeyKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1033,8 +1749,21 @@ final class InferenceState {
             partialResult[provider] = key
         }
 
+        cachedCloudOAuthCredentials = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
+            guard let rawValue = keychainLoad(provider.oauthKeychainKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                  !rawValue.isEmpty,
+                  let credential = CloudProviderOAuthCredential.decode(from: rawValue) else {
+                missingCloudOAuthProviders.insert(provider)
+                return
+            }
+            partialResult[provider] = credential
+        }
+
         cloudProviderValidationStates = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
-            partialResult[provider] = cachedCloudAPIKeys[provider] == nil ? .missing : .unchecked
+            let hasConfiguredAccess = cachedCloudAPIKeys[provider] != nil
+                || cachedCloudOAuthCredentials[provider] != nil
+            partialResult[provider] = hasConfiguredAccess ? .unchecked : .missing
         }
     }
 
@@ -1096,6 +1825,20 @@ final class InferenceState {
     ) {
         activeAIProvider = provider
         defaults.set(provider.rawValue, forKey: Self.activeAIProviderDefaultsKey)
+        if provider != .localOnly {
+            defaults.set(provider.rawValue, forKey: Self.lastNonLocalAIProviderDefaultsKey)
+        }
+    }
+
+    private func lastNonLocalAIProvider(
+        defaults: UserDefaults = .standard
+    ) -> AIProviderSelection {
+        if let savedProvider = defaults.string(forKey: Self.lastNonLocalAIProviderDefaultsKey),
+           let provider = AIProviderSelection(rawValue: savedProvider),
+           provider != .localOnly {
+            return provider
+        }
+        return .openAI
     }
 
     func setInferenceMode(_ mode: InferenceMode) { inferenceMode = mode }
@@ -1142,7 +1885,7 @@ final class InferenceState {
             return false
         }
 
-        return model.canActAsAgent
+        return model.supportsHermesAgentMode
     }
 
     var operatingModeCapabilities: OperatingModeCapabilities {
@@ -1150,9 +1893,8 @@ final class InferenceState {
         case .appleIntelligence:
             // Apple Intelligence has no agent capability — fast only.
             return OperatingModeCapabilities(availableModes: [.fast])
-        case .cloud:
-            // Cloud models always support Hermes agent mode.
-            return OperatingModeCapabilities(availableModes: [.fast, .agent])
+        case .cloud(let model):
+            return OperatingModeCapabilities(availableModes: model.supportedOperatingModes)
         case .localQwen(let modelID):
             let activeModelID = LocalTextModelID(rawValue: modelID) != nil ? modelID : activeLocalTextModelID
             guard let activeModelID,
@@ -1164,7 +1906,7 @@ final class InferenceState {
             if model.supportsThinkingMode {
                 modes.append(.thinking)
             }
-            if model.canActAsAgent {
+            if model.supportsHermesAgentMode {
                 modes.append(.agent)
             }
             return OperatingModeCapabilities(availableModes: modes)
@@ -1208,6 +1950,10 @@ final class InferenceState {
         activeAIProvider.cloudProvider
     }
 
+    var cloudModelsEnabled: Bool {
+        activeAIProvider != .localOnly
+    }
+
     var activeCloudModels: [CloudTextModelID] {
         guard let provider = activeCloudProvider else { return [] }
         return CloudTextModelID.models(for: provider)
@@ -1215,13 +1961,16 @@ final class InferenceState {
 
     var configuredCloudProviders: [CloudModelProvider] {
         CloudModelProvider.allCases.filter { provider in
-            guard let key = apiKey(for: provider) else { return false }
-            return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            hasConfiguredCloudAccess(for: provider)
         }
     }
 
     var hasConfiguredCloudModels: Bool {
         !configuredCloudProviders.isEmpty
+    }
+
+    var shouldShowCloudSetupHint: Bool {
+        !hasShownCloudSetupHint && !hasConfiguredCloudModels
     }
 
     func apiKey(for provider: CloudModelProvider) -> String? {
@@ -1246,8 +1995,43 @@ final class InferenceState {
         return key
     }
 
+    func oauthCredential(for provider: CloudModelProvider) -> CloudProviderOAuthCredential? {
+        if let cached = cachedCloudOAuthCredentials[provider] {
+            return cached
+        }
+        guard !missingCloudOAuthProviders.contains(provider) else {
+            return nil
+        }
+        guard let rawValue = keychainLoad(provider.oauthKeychainKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawValue.isEmpty,
+              let credential = CloudProviderOAuthCredential.decode(from: rawValue) else {
+            missingCloudOAuthProviders.insert(provider)
+            return nil
+        }
+        cachedCloudOAuthCredentials[provider] = credential
+        if cloudProviderValidationStates[provider] == nil ||
+            cloudProviderValidationStates[provider] == .missing {
+            cloudProviderValidationStates[provider] = .unchecked
+        }
+        return credential
+    }
+
+    func resolvedCloudCredential(for provider: CloudModelProvider) async throws -> CloudProviderResolvedCredential {
+        try await authService.resolvedCredential(
+            for: provider,
+            apiKey: apiKey(for: provider)
+        )
+    }
+
     func cloudValidationState(for provider: CloudModelProvider) -> CloudProviderValidationState {
         cloudProviderValidationStates[provider] ?? .missing
+    }
+
+    func resetCloudProviderValidationState(for provider: CloudModelProvider) {
+        cloudProviderValidationStates[provider] = hasConfiguredCloudAccess(for: provider)
+            ? .unchecked
+            : .missing
     }
 
     private func hasConfiguredAPIKey(for provider: CloudModelProvider) -> Bool {
@@ -1256,6 +2040,13 @@ final class InferenceState {
             return false
         }
         return !value.isEmpty
+    }
+
+    func hasConfiguredCloudAccess(for provider: CloudModelProvider) -> Bool {
+        if hasConfiguredAPIKey(for: provider) {
+            return true
+        }
+        return oauthCredential(for: provider) != nil
     }
 
     private func persistPreferredChatModelSelection(_ selection: ChatModelSelection) {
@@ -1277,8 +2068,12 @@ final class InferenceState {
             keychainDelete(provider.apiKeyKeychainKey)
             cachedCloudAPIKeys.removeValue(forKey: provider)
             missingCloudAPIKeyProviders.insert(provider)
-            cloudProviderValidationStates[provider] = .missing
-            if case .cloud(let model) = preferredChatModelSelection, model.provider == provider {
+            cloudProviderValidationStates[provider] = hasConfiguredCloudAccess(for: provider)
+                ? .unchecked
+                : .missing
+            if case .cloud(let model) = preferredChatModelSelection,
+               model.provider == provider,
+               !hasConfiguredCloudAccess(for: provider) {
                 persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
             }
             return true
@@ -1297,27 +2092,172 @@ final class InferenceState {
         return didSave
     }
 
-    func validateAPIKey(for provider: CloudModelProvider) async -> ConnectionTestResult {
-        guard let apiKey = apiKey(for: provider)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !apiKey.isEmpty else {
+    @discardableResult
+    func setOAuthCredential(_ credential: CloudProviderOAuthCredential?, for provider: CloudModelProvider) -> Bool {
+        guard let credential else {
+            keychainDelete(provider.oauthKeychainKey)
+            cachedCloudOAuthCredentials.removeValue(forKey: provider)
+            missingCloudOAuthProviders.insert(provider)
+            cloudProviderValidationStates[provider] = hasConfiguredCloudAccess(for: provider)
+                ? .unchecked
+                : .missing
+            if case .cloud(let model) = preferredChatModelSelection,
+               model.provider == provider,
+               !hasConfiguredCloudAccess(for: provider) {
+                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+            }
+            return true
+        }
+
+        let didSave = authService.storeOAuthCredential(credential)
+        if didSave {
+            cachedCloudOAuthCredentials[provider] = credential
+            missingCloudOAuthProviders.remove(provider)
+            cloudProviderValidationStates[provider] = .unchecked
+        } else {
+            cloudProviderValidationStates[provider] = .invalid(
+                message: "Couldn't store this account session in the Apple Keychain.",
+                checkedAt: Date()
+            )
+        }
+        return didSave
+    }
+
+    func validateCloudAccess(for provider: CloudModelProvider) async -> ConnectionTestResult {
+        guard hasConfiguredCloudAccess(for: provider) else {
             cloudProviderValidationStates[provider] = .missing
             return ConnectionTestResult(
                 success: false,
-                message: "No \(provider.displayName) API key saved yet."
+                message: provider.supportsAccountConnection
+                    ? "No \(provider.displayName) account session or API key is saved yet."
+                    : "No \(provider.displayName) API key is saved yet."
             )
         }
 
         cloudProviderValidationStates[provider] = .checking
-        let result = await CloudLLMClient(inference: self).testConnection(
-            provider: provider,
-            apiKey: apiKey
-        )
+        let result = await withCloudValidationTimeout(for: provider) {
+            await CloudLLMClient(inference: self).testConnection(provider: provider)
+        }
         let checkedAt = Date()
         cloudProviderValidationStates[provider] = result.success
             ? .valid(message: result.message, checkedAt: checkedAt)
             : .invalid(message: result.message, checkedAt: checkedAt)
         return result
+    }
+
+    private func withCloudValidationTimeout(
+        for provider: CloudModelProvider,
+        operation: @escaping @MainActor @Sendable () async -> ConnectionTestResult
+    ) async -> ConnectionTestResult {
+        let timeoutMessage = "\(provider.displayName) verification timed out after 90 seconds. Retry to run another live check."
+        let validationTask = Task { @MainActor in
+            await operation()
+        }
+        defer { validationTask.cancel() }
+
+        return await withTaskGroup(of: ConnectionTestResult.self) { group in
+            group.addTask {
+                await validationTask.value
+            }
+            group.addTask {
+                try? await Task.sleep(for: Self.cloudValidationTimeout)
+                return ConnectionTestResult(success: false, message: timeoutMessage)
+            }
+
+            let result = await group.next() ?? ConnectionTestResult(
+                success: false,
+                message: timeoutMessage
+            )
+            group.cancelAll()
+            return result
+        }
+    }
+
+    func validateAPIKey(for provider: CloudModelProvider) async -> ConnectionTestResult {
+        await validateCloudAccess(for: provider)
+    }
+
+    func recordCloudProviderValidationFailure(
+        for provider: CloudModelProvider,
+        message: String
+    ) -> ConnectionTestResult {
+        cloudProviderValidationStates[provider] = .invalid(
+            message: message,
+            checkedAt: Date()
+        )
+        return ConnectionTestResult(success: false, message: message)
+    }
+
+    func signInToOpenAI(
+        onDeviceCodeReady: @escaping @MainActor @Sendable (OpenAIDeviceAuthorization) -> Void = { _ in }
+    ) async -> ConnectionTestResult {
+        cloudProviderValidationStates[.openAI] = .checking
+        do {
+            try await authService.signInToOpenAI(onDeviceCodeReady: onDeviceCodeReady)
+            refreshCachedCloudAPIKeys()
+            return await validateCloudAccess(for: .openAI)
+        } catch {
+            let checkedAt = Date()
+            cloudProviderValidationStates[.openAI] = .invalid(
+                message: error.localizedDescription,
+                checkedAt: checkedAt
+            )
+            return ConnectionTestResult(success: false, message: error.localizedDescription)
+        }
+    }
+
+    func importOpenAIAccount() async -> ConnectionTestResult {
+        cloudProviderValidationStates[.openAI] = .checking
+        guard authService.importOpenAICodexCLIIfPresent() else {
+            let message = "No Codex account session was found in ~/.codex/auth.json."
+            cloudProviderValidationStates[.openAI] = .invalid(
+                message: message,
+                checkedAt: Date()
+            )
+            return ConnectionTestResult(
+                success: false,
+                message: message
+            )
+        }
+        refreshCachedCloudAPIKeys()
+        return await validateCloudAccess(for: .openAI)
+    }
+
+    func importAnthropicAccount() async -> ConnectionTestResult {
+        cloudProviderValidationStates[.anthropic] = .checking
+        switch authService.importAnthropicClaudeCodeCredentials() {
+        case .imported:
+            refreshCachedCloudAPIKeys()
+            return await validateCloudAccess(for: .anthropic)
+        case .failure(let message):
+            let checkedAt = Date()
+            cloudProviderValidationStates[.anthropic] = .invalid(
+                message: message,
+                checkedAt: checkedAt
+            )
+            return ConnectionTestResult(success: false, message: message)
+        }
+    }
+
+    func signInToGoogle(configuration: GoogleOAuthClientConfiguration) async -> ConnectionTestResult {
+        cloudProviderValidationStates[.google] = .checking
+        do {
+            try await authService.signInToGoogle(configuration: configuration)
+            refreshCachedCloudAPIKeys()
+            return await validateCloudAccess(for: .google)
+        } catch {
+            let checkedAt = Date()
+            cloudProviderValidationStates[.google] = .invalid(
+                message: error.localizedDescription,
+                checkedAt: checkedAt
+            )
+            return ConnectionTestResult(success: false, message: error.localizedDescription)
+        }
+    }
+
+    func clearCloudAccess(for provider: CloudModelProvider) {
+        _ = setOAuthCredential(nil, for: provider)
+        _ = setAPIKey("", for: provider)
     }
 
     func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {
@@ -1367,6 +2307,58 @@ final class InferenceState {
         UserDefaults.standard.set(chatOutputTokens, forKey: "epistemos.chatOutputTokens")
     }
 
+    func setOpenAIWebSearchEnabled(_ isEnabled: Bool) {
+        openAIWebSearchEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.openAIWebSearchDefaultsKey)
+    }
+
+    func setOpenAICodeInterpreterEnabled(_ isEnabled: Bool) {
+        openAICodeInterpreterEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.openAICodeInterpreterDefaultsKey)
+    }
+
+    func setAnthropicExtendedThinkingEnabled(_ isEnabled: Bool) {
+        anthropicExtendedThinkingEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.anthropicExtendedThinkingDefaultsKey)
+    }
+
+    func setAnthropicThinkingBudgetTokens(_ tokens: Int) {
+        anthropicThinkingBudgetTokens = Self.clampedAnthropicThinkingBudget(tokens)
+        UserDefaults.standard.set(
+            anthropicThinkingBudgetTokens,
+            forKey: Self.anthropicThinkingBudgetDefaultsKey
+        )
+    }
+
+    func setGoogleGroundingEnabled(_ isEnabled: Bool) {
+        googleGroundingEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.googleGroundingDefaultsKey)
+    }
+
+    func markCloudSetupHintShown() {
+        hasShownCloudSetupHint = true
+        UserDefaults.standard.set(true, forKey: Self.cloudSetupHintShownDefaultsKey)
+    }
+
+    func firecrawlAPIKey() -> String? {
+        guard let value = keychainLoad(Self.firecrawlAPIKeyKeychainKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return nil
+        }
+        return value
+    }
+
+    @discardableResult
+    func setFirecrawlAPIKey(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            keychainDelete(Self.firecrawlAPIKeyKeychainKey)
+            return true
+        }
+        return keychainSave(trimmed, Self.firecrawlAPIKeyKeychainKey)
+    }
+
     func setRoutingMode(_ mode: LocalRoutingMode) {
         routingMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.localRoutingMode")
@@ -1387,12 +2379,32 @@ final class InferenceState {
                 persistPreferredCloudModel(currentModel)
                 return
             }
-            guard hasConfiguredAPIKey(for: activeCloudProvider) else {
+            guard hasConfiguredCloudAccess(for: activeCloudProvider) else {
                 persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
                 return
             }
             persistPreferredChatModelSelection(.cloud(loadPreferredCloudModel(for: activeCloudProvider)))
         }
+    }
+
+    func setCloudModelsEnabled(_ isEnabled: Bool) {
+        if isEnabled {
+            let restoredProvider = lastNonLocalAIProvider()
+            guard let cloudProvider = restoredProvider.cloudProvider else {
+                persistActiveAIProvider(.openAI)
+                return
+            }
+            let restoredSelection = AIProviderSelection(cloudProvider: cloudProvider)
+            persistActiveAIProvider(restoredSelection)
+            if hasConfiguredCloudAccess(for: cloudProvider) {
+                persistPreferredChatModelSelection(
+                    .cloud(loadPreferredCloudModel(for: cloudProvider))
+                )
+            }
+            return
+        }
+
+        setActiveAIProvider(.localOnly)
     }
 
     func setPreferredLocalTextModelID(_ modelID: String) {
@@ -1409,11 +2421,37 @@ final class InferenceState {
     }
 
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
-        if case .cloud(let model) = selection, !hasConfiguredAPIKey(for: model.provider) {
+        if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
             persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
             return
         }
         persistPreferredChatModelSelection(selection)
+    }
+
+    func cloudFallbackChain(for operatingMode: EpistemosOperatingMode) -> [CloudTextModelID] {
+        guard case .cloud(let primaryModel) = preferredChatModelSelection else { return [] }
+
+        var chain: [CloudTextModelID] = [
+            primaryModel.resolvedModel(for: operatingMode)
+        ]
+
+        for provider in CloudModelProvider.fallbackPriority(after: primaryModel.provider) {
+            guard hasConfiguredCloudAccess(for: provider) else { continue }
+
+            let preferredModel = loadPreferredCloudModel(for: provider)
+            let fallbackModel: CloudTextModelID
+            if preferredModel.supportedOperatingModes.contains(operatingMode) {
+                fallbackModel = preferredModel.resolvedModel(for: operatingMode)
+            } else {
+                fallbackModel = provider.recommendedFallbackCloudModel(operatingMode)
+            }
+            chain.append(fallbackModel)
+        }
+
+        var seen: Set<String> = []
+        return chain.filter { model in
+            seen.insert(model.rawValue).inserted
+        }
     }
 
     func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {
@@ -1422,5 +2460,21 @@ final class InferenceState {
 
     func setInstalledLocalTextModelIDs(_ ids: Set<String>) {
         installedLocalTextModelIDs = ids
+    }
+}
+
+extension CloudModelProvider {
+    nonisolated static let preferredOrder: [CloudModelProvider] = [
+        .openAI,
+        .anthropic,
+        .google,
+        .deepseek,
+        .zai,
+        .kimi,
+        .minimax,
+    ]
+
+    nonisolated static func fallbackPriority(after primary: CloudModelProvider) -> [CloudModelProvider] {
+        preferredOrder.filter { $0 != primary }
     }
 }

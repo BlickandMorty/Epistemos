@@ -62,6 +62,10 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     case openAI
     case anthropic
     case google
+    case zai
+    case kimi
+    case minimax
+    case deepseek
 
     /// Display name shown in badges and UI.
     nonisolated var displayName: String {
@@ -71,6 +75,10 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         case .openAI: "OpenAI"
         case .anthropic: "Anthropic"
         case .google: "Google"
+        case .zai: "Z.AI / GLM"
+        case .kimi: "Kimi / Moonshot"
+        case .minimax: "MiniMax"
+        case .deepseek: "DeepSeek"
         }
     }
 
@@ -82,6 +90,10 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         case .openAI: "sparkles.rectangle.stack"
         case .anthropic: "brain.head.profile"
         case .google: "cloud"
+        case .zai: "bolt.horizontal.circle"
+        case .kimi: "moon.stars"
+        case .minimax: "paperplane.circle"
+        case .deepseek: "water.waves"
         }
     }
 
@@ -93,6 +105,10 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         case .openAI: Color(red: 0.07, green: 0.67, blue: 0.54)
         case .anthropic: Color(red: 0.77, green: 0.48, blue: 0.18)
         case .google: Color(red: 0.24, green: 0.52, blue: 0.96)
+        case .zai: Color(red: 0.16, green: 0.62, blue: 0.92)
+        case .kimi: Color(red: 0.41, green: 0.48, blue: 0.94)
+        case .minimax: Color(red: 0.98, green: 0.42, blue: 0.24)
+        case .deepseek: Color(red: 0.10, green: 0.68, blue: 0.74)
         }
     }
 }

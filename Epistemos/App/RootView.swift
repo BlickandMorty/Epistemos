@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -377,6 +378,8 @@ struct LocalModelToolbarMenu: View {
     @State private var isPresented = false
     @State private var showsLocalModels = true
     @State private var showsCloudModels = true
+    @State private var showsCloudProviderOptions = false
+    @State private var showsActiveCloudModelOptions = false
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -427,7 +430,7 @@ struct LocalModelToolbarMenu: View {
             "Select Model"
         }
         guard let operatingMode else { return selectedModelLabel }
-        return "\(selectedModelLabel) \(operatingMode.wrappedValue.displayName)"
+            return "\(selectedModelLabel) \(operatingMode.wrappedValue.displayName)"
     }
 
     private var labelFont: Font {
@@ -445,6 +448,7 @@ struct LocalModelToolbarMenu: View {
             for: [
                 "Apple Intelligence Agent",
                 "GPT-5.4 Thinking",
+                "GPT-5.4 Pro",
                 "Gemini 2.5 Pro Agent",
                 "Qwen 35B Thinking",
             ],
@@ -525,20 +529,23 @@ struct LocalModelToolbarMenu: View {
                 if let operatingMode {
                     VStack(alignment: .leading, spacing: 8) {
                         popoverSectionTitle("Mode")
-                        ForEach(EpistemosOperatingMode.allCases, id: \.rawValue) { option in
-                            let isEnabled = inference.availableOperatingModes.contains(option)
+                        ForEach(inference.availableOperatingModes, id: \.rawValue) { option in
                             selectionRow(
                                 title: option.displayName,
-                                subtitle: modeSubtitle(for: option, isEnabled: isEnabled),
+                                subtitle: modeSubtitle(for: option, isEnabled: true),
                                 systemImage: option.systemImage,
                                 isSelected: operatingMode.wrappedValue == option,
-                                isEnabled: isEnabled
+                                isEnabled: true
                             ) {
                                 operatingMode.wrappedValue = inference.sanitizedOperatingMode(option)
                                 isPresented = false
                             }
                         }
                     }
+                    .animation(
+                        .easeInOut(duration: 0.15),
+                        value: inference.availableOperatingModes.map(\.rawValue).joined(separator: "|")
+                    )
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -591,73 +598,92 @@ struct LocalModelToolbarMenu: View {
                         }
                     )
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        popoverSectionTitle("AI Provider")
-
-                        ForEach(CloudModelProvider.allCases, id: \.rawValue) { provider in
-                            let selection = AIProviderSelection(cloudProvider: provider)
-                            selectionRow(
-                                title: provider.displayName,
-                                subtitle: providerSelectionSubtitle(for: provider),
-                                systemImage: provider.systemImage,
-                                isSelected: inference.activeAIProvider == selection
-                            ) {
-                                inference.setActiveAIProvider(selection)
-                            }
-                        }
-
-                        selectionRow(
-                            title: "Local Only",
-                            subtitle: "Hide cloud models from this picker and stay on-device.",
-                            systemImage: "memorychip",
-                            isSelected: inference.activeAIProvider == .localOnly
-                        ) {
-                            inference.setActiveAIProvider(.localOnly)
-                        }
-                    }
-
                     DisclosureGroup(
                         isExpanded: $showsCloudModels,
                         content: {
                             VStack(alignment: .leading, spacing: 10) {
                                 if let provider = inference.activeCloudProvider {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        HStack(alignment: .center, spacing: 8) {
-                                            Image(systemName: provider.systemImage)
-                                                .font(.system(size: 11, weight: .semibold))
-                                                .foregroundStyle(theme.textSecondary)
-                                            Text(provider.displayName)
-                                                .font(.system(size: 12, weight: .semibold))
-                                            Spacer()
-                                            Text(inference.cloudValidationState(for: provider).statusBadge)
-                                                .font(.system(size: 10, weight: .semibold))
-                                                .foregroundStyle(theme.textTertiary)
-                                        }
+                                    let providerConfigured = inference.configuredCloudProviders.contains(provider)
 
-                                        Text(inference.cloudValidationState(for: provider).statusText)
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(theme.textTertiary)
-
-                                        ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
-                                            let providerConfigured = inference.configuredCloudProviders.contains(provider)
-                                            selectionRow(
-                                                title: model.compactDisplayName,
-                                                subtitle: cloudModelSubtitle(for: model),
-                                                systemImage: provider.systemImage,
-                                                isSelected: selectedMenuItem == .cloud(model),
-                                                isEnabled: providerConfigured
-                                            ) {
-                                                inference.setPreferredChatModelSelection(.cloud(model))
-                                                isPresented = false
-                                            }
-                                        }
+                                    if !providerConfigured {
+                                        CloudProviderSetupCard(
+                                            provider: provider,
+                                            compact: true,
+                                            showsOpenSettings: false,
+                                            showsDismissTip: inference.shouldShowCloudSetupHint
+                                        )
                                     }
-                                    .padding(.top, 2)
+
+                                    DisclosureGroup(
+                                        isExpanded: $showsCloudProviderOptions,
+                                        content: {
+                                            cloudProviderSelectionRows
+                                        },
+                                        label: {
+                                            disclosureTitle(
+                                                title: "Provider",
+                                                subtitle: cloudProviderDisclosureSubtitle
+                                            )
+                                        }
+                                    )
+
+                                    DisclosureGroup(
+                                        isExpanded: $showsActiveCloudModelOptions,
+                                        content: {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                if providerConfigured {
+                                                    ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
+                                                        selectionRow(
+                                                            title: model.compactDisplayName,
+                                                            subtitle: cloudModelSubtitle(for: model),
+                                                            systemImage: provider.systemImage,
+                                                            isSelected: selectedMenuItem == .cloud(model),
+                                                            isEnabled: providerConfigured
+                                                        ) {
+                                                            inference.setPreferredChatModelSelection(.cloud(model))
+                                                            isPresented = false
+                                                        }
+                                                    }
+                                                } else {
+                                                    Text(
+                                                        provider.supportsAccountConnection
+                                                            ? "Finish account setup first. If you prefer the manual path, expand Legacy API Key above."
+                                                            : "Finish API key setup first. Open the provider portal, create a key, then use Paste + Save."
+                                                    )
+                                                        .font(.system(size: 10.5))
+                                                        .foregroundStyle(theme.textTertiary)
+                                                        .padding(.leading, 4)
+                                                        .padding(.top, 2)
+                                                }
+                                            }
+                                        },
+                                        label: {
+                                            disclosureTitle(
+                                                title: "Models",
+                                                subtitle: providerConfigured
+                                                    ? provider.modelSummary
+                                                    : "Finish setup to unlock"
+                                            )
+                                        }
+                                    )
                                 } else {
                                     Text("Local Only is active. Switch the AI Provider to browse cloud models here.")
                                         .font(.system(size: 11))
                                         .foregroundStyle(theme.textTertiary)
                                         .padding(.leading, 4)
+
+                                    DisclosureGroup(
+                                        isExpanded: $showsCloudProviderOptions,
+                                        content: {
+                                            cloudProviderSelectionRows
+                                        },
+                                        label: {
+                                            disclosureTitle(
+                                                title: "Provider",
+                                                subtitle: cloudProviderDisclosureSubtitle
+                                            )
+                                        }
+                                    )
                                 }
 
                                 Button("Open Inference Settings") {
@@ -671,8 +697,8 @@ struct LocalModelToolbarMenu: View {
                         },
                         label: {
                             disclosureTitle(
-                                title: "Cloud Models",
-                                subtitle: cloudDisclosureSubtitle
+                                title: "Cloud Access",
+                                subtitle: cloudAccessSubtitle
                             )
                         }
                     )
@@ -726,6 +752,32 @@ struct LocalModelToolbarMenu: View {
     }
 
     @ViewBuilder
+    private var cloudProviderSelectionRows: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(CloudModelProvider.preferredOrder, id: \.rawValue) { provider in
+                let selection = AIProviderSelection(cloudProvider: provider)
+                selectionRow(
+                    title: provider.displayName,
+                    subtitle: providerSelectionSubtitle(for: provider),
+                    systemImage: provider.systemImage,
+                    isSelected: inference.activeAIProvider == selection
+                ) {
+                    inference.setActiveAIProvider(selection)
+                }
+            }
+
+            selectionRow(
+                title: "Local Only",
+                subtitle: "Hide cloud models from this picker and stay on-device.",
+                systemImage: "memorychip",
+                isSelected: inference.activeAIProvider == .localOnly
+            ) {
+                inference.setActiveAIProvider(.localOnly)
+            }
+        }
+    }
+
+    @ViewBuilder
     private func selectionRow(
         title: String,
         subtitle: String,
@@ -775,6 +827,8 @@ struct LocalModelToolbarMenu: View {
             switch option {
             case .thinking:
                 return "This model does not expose verified thinking mode."
+            case .pro:
+                return "This model does not expose a verified pro-grade cloud route."
             case .agent:
                 return "This model cannot run the current visible agent loop."
             case .fast:
@@ -793,7 +847,7 @@ struct LocalModelToolbarMenu: View {
         if modelID.supportsThinkingMode {
             features.append("Thinking")
         }
-        if modelID.canActAsAgent {
+        if modelID.supportsHermesAgentMode {
             features.append("Agent")
         }
         let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")
@@ -801,7 +855,9 @@ struct LocalModelToolbarMenu: View {
     }
 
     private func providerSelectionSubtitle(for provider: CloudModelProvider) -> String {
-        let status = inference.cloudValidationState(for: provider).statusBadge
+        let status = inference.configuredCloudProviders.contains(provider)
+            ? inference.cloudValidationState(for: provider).statusBadge
+            : (provider.supportsAccountConnection ? "Account setup" : "API key setup")
         return "\(provider.modelSummary) • \(status)"
     }
 
@@ -809,11 +865,11 @@ struct LocalModelToolbarMenu: View {
         let provider = model.provider
         let configuration = inference.configuredCloudProviders.contains(provider)
             ? "Ready"
-            : "Add key"
+            : "Finish setup"
         return "\(provider.displayName) • \(configuration)"
     }
 
-    private var cloudDisclosureSubtitle: String {
+    private var cloudAccessSubtitle: String {
         guard let provider = inference.activeCloudProvider else {
             return "Local Only"
         }
@@ -821,7 +877,20 @@ struct LocalModelToolbarMenu: View {
         if inference.configuredCloudProviders.contains(provider) {
             return "\(provider.displayName) • \(validation.statusBadge)"
         }
-        return "Add a key to unlock"
+        return "Finish setup to unlock"
+    }
+
+    private var cloudProviderDisclosureSubtitle: String {
+        guard let provider = inference.activeCloudProvider else {
+            return "Choose a provider"
+        }
+        if inference.configuredCloudProviders.contains(provider) {
+            return "\(provider.displayName) • Active"
+        }
+        if provider.supportsAccountConnection {
+            return "\(provider.displayName) • Account first"
+        }
+        return "\(provider.displayName) • API key"
     }
 
     private func openSettings() {

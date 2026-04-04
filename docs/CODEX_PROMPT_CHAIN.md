@@ -3,6 +3,26 @@
 **How to use:** Paste one prompt. Wait for Codex to finish. Verify. Then paste the next.
 **Rule:** Never paste two at once. Each prompt is self-contained.
 
+## VERIFICATION CADENCE
+
+**After every 3rd prompt** within a phase, paste this quick check:
+
+```
+Quick check before continuing:
+1. Build: xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | xcbeautify
+2. Run the most recent test file you created or modified
+3. Launch the app and verify the last 3 changes work visually
+4. If anything fails, fix it before moving on. Do not skip.
+Report: "Build: PASS/FAIL. Tests: N passed. Visual: OK/issue"
+```
+
+**After the LAST prompt in each phase**, paste the full audit (A-9, B-9, C-5, D-4).
+The full audit runs: build + all Rust tests + hardening grep + zero-corruption + anti-drift + performance + write to AUDIT_LOG.md.
+
+**Cost:** Quick checks ~500 tokens each. Full audits ~2000 tokens each.
+A typical phase of 9 prompts = 3 quick checks + 1 full audit = ~3500 tokens of verification.
+That's <2% of the total work tokens. Worth it to prevent 100% rework from drift.
+
 ---
 
 ## ═══════════════════════════════════════

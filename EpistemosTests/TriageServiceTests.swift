@@ -6,9 +6,14 @@ private let isolatedInferenceDefaultsKeys = [
     "epistemos.preferredLocalTextModelID",
     "epistemos.preferredChatModelSelection",
     "epistemos.activeAIProvider",
+    "epistemos.cloudSetupHintShown",
     "epistemos.preferredCloudModel.openAI",
     "epistemos.preferredCloudModel.anthropic",
     "epistemos.preferredCloudModel.google",
+    "epistemos.preferredCloudModel.zai",
+    "epistemos.preferredCloudModel.kimi",
+    "epistemos.preferredCloudModel.minimax",
+    "epistemos.preferredCloudModel.deepseek",
 ]
 
 @MainActor
@@ -46,11 +51,17 @@ private func withSavedAPIKey(
     _ body: () async throws -> Void
 ) async rethrows {
     let originalValue = Keychain.load(for: provider.apiKeyKeychainKey)
+    let originalOAuthValue = Keychain.load(for: provider.oauthKeychainKey)
     defer {
         if let originalValue {
             _ = Keychain.save(originalValue, for: provider.apiKeyKeychainKey)
         } else {
             Keychain.delete(for: provider.apiKeyKeychainKey)
+        }
+        if let originalOAuthValue {
+            _ = Keychain.save(originalOAuthValue, for: provider.oauthKeychainKey)
+        } else {
+            Keychain.delete(for: provider.oauthKeychainKey)
         }
     }
     try await body()
@@ -114,7 +125,7 @@ struct TriageServiceTests {
     @Test("routing stays Apple plus local without stale cloud modes or providers")
     func routingSurfaceRemainsTwoState() {
         #expect(LocalRoutingMode.allCases == [.auto, .localOnly])
-        #expect(LLMProviderType.allCases == [.appleIntelligence, .localMLX, .openAI, .anthropic, .google])
+        #expect(LLMProviderType.allCases == [.appleIntelligence, .localMLX, .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek])
     }
 
     @Test("local routing errors no longer mention switch routing modes")
@@ -144,6 +155,38 @@ struct TriageServiceTests {
         #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeSonnet4))
         #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeHaiku35))
         #expect(CloudTextModelID.models(for: .google).contains(.googleGemini31ProPreview))
+        #expect(CloudTextModelID.models(for: .zai).contains(.zaiGLM5))
+        #expect(CloudTextModelID.models(for: .kimi).contains(.kimiK25))
+        #expect(CloudTextModelID.models(for: .minimax).contains(.minimaxM25))
+        #expect(CloudTextModelID.models(for: .deepseek).contains(.deepseekReasoner))
+    }
+
+    @Test("cloud models expose only their supported operating modes")
+    func cloudModelsExposeSupportedOperatingModes() {
+        #expect(CloudTextModelID.openAIGPT54.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
+        #expect(CloudTextModelID.openAIGPT54Mini.supportedOperatingModes == [.fast, .agent])
+        #expect(CloudTextModelID.anthropicClaudeHaiku35.supportedOperatingModes == [.fast])
+        #expect(CloudTextModelID.googleGemini25Pro.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
+        #expect(CloudTextModelID.zaiGLM5.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
+        #expect(CloudTextModelID.kimiK2Thinking.supportedOperatingModes == [.thinking, .pro, .agent])
+        #expect(CloudTextModelID.minimaxM25HighSpeed.supportedOperatingModes == [.fast, .agent])
+        #expect(CloudTextModelID.deepseekReasoner.supportedOperatingModes == [.thinking, .pro, .agent])
+    }
+
+    @Test("inference state sanitizes unsupported cloud operating modes")
+    @MainActor func inferenceStateSanitizesUnsupportedCloudOperatingModes() {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.anthropic.apiKeyKeychainKey ? "sk-ant-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeHaiku35))
+
+        #expect(inference.availableOperatingModes == [.fast])
+        #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
+        #expect(inference.sanitizedOperatingMode(.pro) == .fast)
     }
 }
 
@@ -966,10 +1009,33 @@ struct TriageServiceIntegrationTests {
         }
     }
 
-    @Test("cloud generation fails fast when the selected provider key is missing")
-    @MainActor func cloudGenerationFailsFastWhenProviderKeyIsMissing() async {
+    @Test("cloud fallback chain starts with the active provider route and then configured backups")
+    @MainActor func cloudFallbackChainOrdersConfiguredBackups() {
+        var storedValues: [String: String] = [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "test-openai-key",
+            CloudModelProvider.anthropic.apiKeyKeychainKey: "test-anthropic-key",
+        ]
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { storedValues[$0] },
+            keychainSave: { value, key in
+                storedValues[key] = value
+                return true
+            },
+            keychainDelete: { key in
+                storedValues.removeValue(forKey: key)
+            }
+        )
+
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        #expect(inference.cloudFallbackChain(for: .fast) == [.openAIGPT54Mini, .anthropicClaudeSonnet4])
+    }
+
+    @Test("cloud generation fails fast when the selected provider access is missing")
+    @MainActor func cloudGenerationFailsFastWhenProviderAccessIsMissing() async {
         await withSavedAPIKey(for: .openAI) {
             Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
+            Keychain.delete(for: CloudModelProvider.openAI.oauthKeychainKey)
 
             let cloud = TriageIntegrationMockCloudLLMClient()
             let triage = makeService(
@@ -986,13 +1052,13 @@ struct TriageServiceIntegrationTests {
                     operation: .chatResponse(query: "Use the cloud model"),
                     contentLength: 19
                 )
-                Issue.record("Expected missing API key error")
+                Issue.record("Expected missing provider access error")
             } catch let error as CloudLLMError {
                 switch error {
-                case .missingAPIKey(let provider):
+                case .missingAccess(let provider):
                     #expect(provider == CloudModelProvider.openAI.displayName)
                 default:
-                    Issue.record("Expected missingAPIKey, got \(error)")
+                    Issue.record("Expected missingAccess, got \(error)")
                 }
             } catch {
                 Issue.record("Expected CloudLLMError, got \(error)")
@@ -1002,10 +1068,11 @@ struct TriageServiceIntegrationTests {
         }
     }
 
-    @Test("cloud streaming fails fast when the selected provider key is missing")
-    @MainActor func cloudStreamingFailsFastWhenProviderKeyIsMissing() async {
+    @Test("cloud streaming fails fast when the selected provider access is missing")
+    @MainActor func cloudStreamingFailsFastWhenProviderAccessIsMissing() async {
         await withSavedAPIKey(for: .openAI) {
             Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
+            Keychain.delete(for: CloudModelProvider.openAI.oauthKeychainKey)
 
             let cloud = TriageIntegrationMockCloudLLMClient()
             let triage = makeService(
@@ -1025,13 +1092,13 @@ struct TriageServiceIntegrationTests {
                 for try await _ in stream {
                     Issue.record("Expected stream to fail before yielding output")
                 }
-                Issue.record("Expected missing API key error")
+                Issue.record("Expected missing provider access error")
             } catch let error as CloudLLMError {
                 switch error {
-                case .missingAPIKey(let provider):
+                case .missingAccess(let provider):
                     #expect(provider == CloudModelProvider.openAI.displayName)
                 default:
-                    Issue.record("Expected missingAPIKey, got \(error)")
+                    Issue.record("Expected missingAccess, got \(error)")
                 }
             } catch {
                 Issue.record("Expected CloudLLMError, got \(error)")
@@ -1387,7 +1454,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: "Be helpful.",
             operation: .chatResponse(query: "Compare these two parser implementations and recommend one."),
             contentLength: 58,
-            localReasoningMode: .thinking
+            operatingMode: .thinking
         )
 
         let request = try #require(await runtime.lastGenerateRequest)
@@ -1429,7 +1496,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: "Think through the tradeoffs before answering.",
             operation: .chatResponse(query: "Think step by step about competing code paths and failure modes."),
             contentLength: hardPrompt.count,
-            localReasoningMode: .thinking
+            operatingMode: .thinking
         )
 
         let firstRequest = try #require(await runtime.lastGenerateRequest)

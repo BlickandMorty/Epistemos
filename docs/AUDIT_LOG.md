@@ -1,3 +1,283 @@
+## Phase A Follow-Up 13 — 2026-04-03
+- Scope: close the account-session verification dead end by exposing a visible top-level live-check action for saved OpenAI, Anthropic, and Google access instead of burying verification under the legacy-key disclosure
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOpenAICheckAccessDD -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests/savedProviderAccessExposesAVisibleTopLevelCheckAction -only-testing:EpistemosTests/RuntimeValidationTests/oauthProviderSettingsRequireVerifiedAccessBeforeActivation -only-testing:EpistemosTests/RuntimeValidationTests/inferenceSettingsSurfaceExposesValidationAndGuidance test CODE_SIGNING_ALLOWED=NO -quiet`) — visible verification affordance slice green
+- Issues found:
+  - A saved OAuth session could land in the `Saved` / `Account saved, not verified` state after app relaunch or state refresh, but the only live validation button was hidden inside `Legacy API Key`, which made the account-first path look broken even when the session had actually been stored
+  - The pending-account copy told users they still needed a live check, but it did not point them to a visible action in the main provider row
+- Issues fixed:
+  - Added a top-level `Check Access` / `Re-check Access` action directly in the main provider controls whenever saved account access or a saved API key already exists
+  - Added the same visible verification affordance to the shared provider setup card so compact recovery surfaces no longer dead-end on `Saved`
+  - Tightened the pending-account copy so it explicitly tells users to tap `Check Access`
+- Observations:
+  - This follow-up improves the verification UX and clarifies the saved-versus-verified distinction; it does not change the underlying OpenAI device-code token exchange flow
+- VERDICT: PASS — saved account sessions now have an obvious next step instead of appearing stuck in a passive `not verified` state
+
+## Phase A Follow-Up 12 — 2026-04-03
+- Scope: clarify the Google OAuth setup UX so the settings screen explains the exact JSON file, the exact project ID field, and the Desktop-app Google Cloud Console path instead of using vague "OAuth file" wording
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosGoogleOAuthCopyDD -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests/googleOAuthSetupCopyExplainsTheExactJSONFileAndProjectID -only-testing:EpistemosTests/RuntimeValidationTests/googleOAuthSurfacesTimeoutRetryAndConnectedAccountConfirmation -only-testing:EpistemosTests/RuntimeValidationTests/legacyKeysAndGoogleDraftAuthInputsSurfaceExplicitValidationFeedback test CODE_SIGNING_ALLOWED=NO -quiet`) — Google OAuth copy + validation guidance slice green
+- Issues found:
+  - The Google provider row still used vague labels like "Choose OAuth File" and "Google Cloud project ID", which left it unclear what JSON users should download or whether the field expected a project slug versus project number
+  - The Google parser error mentioned missing Desktop-app fields, but it did not tell users which JSON keys Epistemos was actually looking for
+- Issues fixed:
+  - Renamed the Google settings controls to explicitly say `Google OAuth JSON` and `Google Cloud project ID (not project number)`
+  - Added helper copy that tells users to create an OAuth client ID for a Desktop app in Google Cloud Console, download that JSON, and use the same Gemini-enabled project ID
+  - Clarified the saved/removed/status/error text so the UI consistently talks about the Google OAuth client JSON instead of a nebulous generic file
+  - Expanded the invalid-client parser message to call out the expected Desktop-app keys (`installed.client_id` and `installed.client_secret`, or the same under `web`)
+- Observations:
+  - This follow-up stayed in Swift/UI copy and source-level validation only; the auth flow itself did not change
+- VERDICT: PASS — Google OAuth setup now tells users exactly which file to download and which project identifier to enter
+
+## Phase A Follow-Up 11 — 2026-04-03
+- Scope: fix the OpenAI account-first dead end caused by missing `client_version` on Codex auth and ChatGPT Codex backend requests, and replace the raw provider JSON blob with readable recovery guidance for that failure mode
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOpenAIClientVersionTargetedDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests/openAIOAuthCheckingHasTimeoutAndRetryAffordances -only-testing:EpistemosTests/RuntimeValidationTests/openAICodexAuthAndValidationRoutesCarryTheRequiredClientVersion test CODE_SIGNING_ALLOWED=NO -quiet`) — OpenAI auth/runtime slice green
+- Issues found:
+  - OpenAI device-auth requests still sent only the Codex client ID, but the upstream service now requires `client_version` in the query string
+  - OpenAI account validation and response requests against `https://chatgpt.com/backend-api/codex` also omitted `client_version`, which left the provider row stuck in a 400 `Needs Attention` state even when an OAuth session existed
+  - The settings row surfaced the raw backend JSON blob for this 400 instead of a readable recovery message
+- Issues fixed:
+  - Added a shared `OpenAICodexRuntimeMetadata` helper that resolves the current Codex `client_version` from `~/.codex/models_cache.json` with a stable fallback
+  - Added `client_version` to the OpenAI device-auth user-code request, device-auth polling request, and token refresh/exchange URLs
+  - Added `client_version` to OpenAI Codex `/models` and `/responses` requests used by provider validation and cloud generation
+  - Replaced the raw `client_version` 400 body with a readable retry/sign-in guidance message
+  - Added runtime tests for the OpenAI device-auth request, OpenAI provider validation request, OpenAI response request, and the readable error fallback
+- Observations:
+  - A broader rerun of the full `RuntimeValidationTests` suite still reports an unrelated existing failure in `available operating modes match the active chat selection`; the new OpenAI auth/runtime tests themselves passed
+- VERDICT: PASS — the OpenAI account-first path now sends the required Codex `client_version` marker and no longer dead-ends in the provider settings row
+
+## Phase A Follow-Up 10 — 2026-04-03
+- Scope: extend provider account-auth and live-verification timeouts from 15 seconds to 90 seconds so slow browser setup and consent flows do not fail prematurely
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAuthTimeout90DD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused auth/runtime suites green
+- Issues found:
+  - The 15-second auth and verification budget was too aggressive for real-world OpenAI, Google, and imported-account flows that may require extra browser or consent work before control returns to Epistemos
+- Issues fixed:
+  - Increased the default OpenAI and Google OAuth timeout windows to 90 seconds in the shared cloud auth service
+  - Increased the shared provider live-verification timeout to 90 seconds so settings/account status messaging matches the real runtime behavior
+  - Updated source-level runtime validation expectations so the auth layer and surfaced guidance stay aligned on the same timeout budget
+- Observations:
+  - The no-indefinite-spinner rule still holds; the app now waits longer before failing, but every account check still exits with a real timeout instead of spinning forever
+- VERDICT: PASS — provider auth flows now allow a realistic 90-second setup window without reverting to indefinite checking
+
+## Phase A Follow-Up 9 — 2026-04-03
+- Scope: remove the remaining Google OAuth setup dead end by persisting Desktop OAuth draft inputs across surfaces and allowing the shared setup card to complete Google connect directly once prerequisites are already saved
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosZeroDeadEndsBuildDD -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosZeroDeadEndsTestDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused auth/runtime suites green
+- Issues found:
+  - Google Desktop OAuth setup still depended on `SettingsView`-local draft state, so users could import a client file or enter a project ID, close the sheet, and hit a dead end the next time they tried to finish setup from another surface
+  - The shared compact Google setup card still bounced users back to Settings even when the OAuth client file and project ID were already known, which broke the “finish setup where you are” expectation
+  - The Google Desktop OAuth client parser still treated `project_id` as if it had to live inside the client JSON instead of allowing Epistemos to supply it separately from the UI draft field
+- Issues fixed:
+  - Persisted the Google OAuth client JSON securely in Keychain and the filename/project-ID draft in app defaults so setup progress survives settings reopen, window changes, and follow-up retries
+  - Let the shared `CloudProviderSetupCard` resolve the stored Google OAuth configuration and launch the real Google connect flow directly when the saved prerequisites are already present
+  - Added explicit success and failure feedback for import, secure storage, removal, missing file, and missing project ID states instead of letting those paths silently return
+  - Relaxed Google client parsing so valid Desktop OAuth client files can load even when `project_id` is supplied separately by the user
+- Observations:
+  - This follow-up stayed in Swift/UI state only; no Rust sources changed, so `cargo test` was not rerun
+  - The remaining unavoidable manual step is limited to providers whose public API path is still key-only today; the Google OAuth path itself is now persistent and resumable instead of single-view stateful
+- VERDICT: PASS — the last major Google OAuth setup dead end is closed, and the shared provider flow now survives retries and cross-surface completion
+
+## Phase A Follow-Up 8 — 2026-04-03
+- Scope: audit and harden remaining provider-auth setup paths (legacy API key entry, clipboard paste flows, Google OAuth client-file import, Google Cloud project ID gating, and Codex CLI import failure visibility)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAuthAuditBuildDD -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAuthAuditTestDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — remaining auth-path validation coverage green
+- Issues found:
+  - Empty legacy-key saves and clipboard-dependent key actions could still no-op without surfacing a provider-level validation error
+  - Google OAuth client-file import deferred validation until connect time, which meant unreadable or malformed files could appear to do nothing
+  - The Google OAuth client parser still required `project_id` inside the client JSON even though Epistemos exposes a separate project-ID field, and the Connect action could still return early without a visible error if file or project setup was missing
+  - OpenAI Codex CLI import returned a failure result when `~/.codex/auth.json` was absent, but it did not mark the OpenAI provider row invalid in settings
+- Issues fixed:
+  - Added explicit provider-level validation messages for empty manual-key saves and missing clipboard key content across both Settings and the shared setup card
+  - Added immediate Google OAuth file validation, success/error feedback in settings, and project-ID autofill when the selected client JSON already contains one
+  - Split Google client-file validation from project-ID validation so Desktop OAuth files can load without `project_id`, while Connect now reports missing file or missing project ID explicitly instead of returning silently
+  - Marked failed Codex CLI import attempts as invalid in the OpenAI provider state so the failure is visible in the same settings row as the other auth flows
+- Observations:
+  - The focused test target still recompiles a large slice of the app before launching the filtered suites, but it completed cleanly on the fresh derived-data root used here
+- VERDICT: PASS — the remaining auth setup paths now fail loudly, validate earlier, and surface actionable feedback instead of silently returning
+
+## Phase A Follow-Up 7 — 2026-04-03
+- Scope: universal OAuth provider-settings standards for OpenAI, Anthropic, and Google (verified-only activation, unified loading/success/failure states, inline setup guidance, green-dot connected state, and bounded verification waits)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOAuthStandardsBuildDD2 -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOAuthStandardsTestDD2 -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — OAuth auth/runtime standards coverage green
+- Issues found:
+  - Provider settings still treated a merely saved account session as effectively connected, which let `Make Active` appear ready before a live verification succeeded
+  - The account-status row was binary and optimistic, so saved-but-unverified or failed sessions could still read as connected instead of clearly showing pending, checking, or attention-needed states
+  - Google OAuth still had a 60-second callback wait, and OpenAI account sessions still lacked an extracted account label in the shared connected-account UI
+- Issues fixed:
+  - Tightened provider validation semantics so saved access is distinct from verified access, updated status copy, and disabled `Make Active` until a provider has a verified live check
+  - Reworked the shared account-status row to show pending/checking/failure/connected states, with the connected state rendered as a green dot plus account info when available
+  - Added inline guidance for provider-specific setup and retry steps, including Google Desktop OAuth configuration, OpenAI enable-access retry guidance, and Claude Code reconnect guidance
+  - Reduced Google OAuth callback waits to 15 seconds and extracted OpenAI account labels from account-session tokens so the connected-state UX is more explicit across all three providers
+- Observations:
+  - The filtered test run still recompiles large portions of the app and test targets before launching, so verification used fresh derived-data roots and sequential execution to avoid Rust build-script lock contention
+- VERDICT: PASS — the three OAuth-backed providers now follow the same verified-first activation and recovery standards in Settings and the shared setup card
+
+## Phase A Follow-Up 6 — 2026-04-03
+- Scope: Google OAuth UX hardening in provider settings (timeout, retry, visible connection status, connected-account confirmation, and focused validation coverage)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAnthropicImportDD2 -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosGoogleOAuthDD -destination 'platform=macOS' build-for-testing CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosGoogleOAuthTestDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — Google auth/runtime coverage green
+- Issues found:
+  - Google OAuth could sit in a checking state with no hard stop while waiting for the browser callback, leaving users with no visible failure, retry path, or confirmed account identity
+  - Pre-flight configuration failures from the Google settings action could return before `InferenceState` recorded an invalid provider state, which meant the provider row had no durable error surface for retry
+  - The Google OAuth success path did not resolve and persist a connected account label, so the UI could not confirm who actually connected after the browser flow completed
+- Issues fixed:
+  - Added a hard Google OAuth timeout plus explicit timeout messaging and invalid-state recording so the settings flow never spins indefinitely
+  - Added retry affordances for Google OAuth in both the full settings screen and the compact provider setup card
+  - Resolved the Google user profile after token exchange and surfaced the connected account label through the shared account-connection row
+- Observations:
+  - The focused test target still recompiles the large app and test bundle before execution, so verification used fresh derived-data roots to keep the auth/runtime result deterministic
+- VERDICT: PASS — Google OAuth now has bounded waits, visible recovery, and a clear connected-account confirmation path
+
+## Phase A Follow-Up 5 — 2026-04-03
+- Scope: expanded cloud provider surface for Z.AI / GLM, Kimi / Moonshot, MiniMax, and DeepSeek, plus account-first versus direct-key copy cleanup and focused provider regression verification
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexProvidersCheck -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexProvidersCheck -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/HermesBridgeIntegrationTests -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused provider/runtime suites green
+- Issues found:
+  - The initial provider expansion left one OpenAI-compatible base-URL helper returning bare string literals, which blocked the first Swift compile in `LLMService.swift`
+  - Several account-recovery hints still implied every provider had a real browser account flow, even though Z.AI / GLM, Kimi / Moonshot, MiniMax, and DeepSeek remain direct-key in Epistemos today
+  - Focused validation tests still expected hard-coded provider-specific defaults strings and an older local-agent-capable model assumption in the Hermes route suite
+- Issues fixed:
+  - Fixed the OpenAI-compatible provider base-URL helper so Z.AI / GLM, Kimi / Moonshot, and DeepSeek compile cleanly through the Swift cloud client
+  - Updated the root picker, onboarding flow, landing recovery, agent recovery, and missing-access validation copy so account-backed providers stay account-first while key-only providers point directly to API-key setup
+  - Aligned focused tests with the current implementation, including the dynamic preferred-cloud-model key path, `provider.manualCredentialTitle`, and the Hermes local-agent 9B-only rule
+- Observations:
+  - This follow-up kept MiniMax key-first in-app because the current Hermes/runtime surface and the public API path used here are still direct-key based
+  - No Rust sources changed in this slice, so `cargo test` was not rerun
+- VERDICT: PASS — the expanded provider matrix now builds cleanly, uses honest account-first defaults where supported, and passes the focused provider/runtime suites
+
+## Phase A Follow-Up 4 — 2026-04-03
+- Scope: true account-auth follow-up for cloud providers (OpenAI Codex account sessions, Anthropic Claude Code sessions, Google OAuth route headers, Hermes agent runtime env injection, account-first recovery copy, and auth-aware validation coverage)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexDD3 -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — 163 tests in 1 suite
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexDD4 -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/HermesBridgeIntegrationTests -only-testing:EpistemosTests/HermesSubprocessTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused auth/route suites green
+- Issues found:
+  - The Swift cloud pipeline had moved to account sessions, but Hermes route selection still assumed raw API keys, which meant agent runs and recovery copy could drift back toward key-first behavior even after the account-auth refactor
+  - Fresh account-aware tests exposed stale assumptions in the focused suites, including key-only missing-access isolation and a cloud-mode test that no longer provisioned cloud access before selecting a gated cloud model
+  - The new callback-server auth plumbing carried Swift 6 actor-isolation and sendability issues that blocked the first focused build until the continuation helper and request-buffer path were made concurrency-safe
+- Issues fixed:
+  - Added account-aware Hermes runtime routes for OpenAI Codex bearer access, Anthropic Claude Code session tokens, and Google OAuth project-header injection instead of limiting the agent path to API-key env vars
+  - Updated `AgentViewModel` to resolve start routes from the real account-aware cloud credential pipeline before launching Hermes, while keeping local 9B fallback behavior intact
+  - Patched Hermes Python startup to honor `HERMES_OPENAI_DEFAULT_HEADERS_JSON`, enabling Google OAuth agent traffic to carry the required `x-goog-user-project` header through the OpenAI-compatible Gemini endpoint
+  - Reworked landing, onboarding, and agent failure-recovery copy so the recovery UI now leads with reconnecting provider accounts and leaves legacy keys as explicit fallback only
+  - Tightened focused test coverage for OAuth-backed access, Hermes runtime-route credential mapping, account-aware validation strings, and deterministic cloud-access isolation in the triage suite
+- Observations:
+  - Xcode’s default derived-data tree held onto stale runner state during some focused test attempts, so the final focused verification was rerun on fresh temporary derived-data roots to get deterministic bundle + test execution results
+  - No Rust sources changed in this follow-up slice, so `cargo test` was not rerun
+- VERDICT: PASS — native account-auth flows now reach both the cloud request path and the Hermes agent runtime, with focused build and test coverage green on the patched slice
+
+## Phase A Follow-Up 3 — 2026-04-03
+- Scope: compact cloud model popover cleanup (foldable cloud access, account-first provider setup, manual API path collapsed by default)
+- Build:
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test`) — 163 tests in 1 suite
+- Issues found:
+  - The shared runtime popover stacked provider selection, setup messaging, and locked cloud models into one tall flow, which made the picker feel cluttered and buried the intended account-first onboarding path under manual-key controls
+- Issues fixed:
+  - Reworked the popover into a foldable `Cloud Access` section with separate nested `Provider` and `Models` disclosures instead of one long stacked cloud block
+  - Updated the compact setup card to lead with browser-account actions (`Continue with Google/OpenAI/Anthropic`) and move the manual API path behind a collapsed `Manual API Key` disclosure
+  - Hid the locked cloud-model list behind the foldable `Models` section and replaced the old `Add key` copy with account-first `Finish setup` guidance
+  - Kept Settings and other recovery surfaces intact while reusing the same account-first copy and compact manual fallback behavior
+- Observations:
+  - This remains browser-account-first rather than native in-app OAuth; the UI now defaults to the account continuation path and de-emphasizes manual keys until the user explicitly expands them
+- VERDICT: PASS — the cloud picker is materially more condensed and better aligned with the account-first setup goal
+
+## Phase A Follow-Up 2 — 2026-04-03
+- Scope: extend the simplified direct-API onboarding flow into more first-run and recovery surfaces (Landing Hermes recovery, Setup Assistant, Agent runtime recovery, shared setup card + shared Paste + Save automation)
+- Project sync:
+  - PASS (`xcodegen generate`)
+- Build:
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test`) — 163 tests in 1 suite
+- Issues found:
+  - The automated provider setup path was still concentrated in Settings and the shared model picker, which meant first-run users and Hermes recovery states could still dead-end into generic errors instead of offering the same direct provider actions
+- Issues fixed:
+  - Added a shared `CloudProviderSetupCard` so Google/OpenAI/Anthropic portal links, docs links, `Paste + Save`, validation state, and Settings recovery all stay in one reusable flow
+  - Replaced the Landing Hermes auth banner with a provider-aware recovery card that can open the right provider page or save the key from the clipboard in place
+  - Added provider setup directly into the Setup Assistant so first-run onboarding can connect cloud access before Hermes runtime checks continue
+  - Added provider recovery UI to the Agent session failure state when the error indicates missing or invalid cloud credentials
+  - Reused the same clipboard-save helper in Settings so the automated/manual flow behaves consistently across surfaces
+- Observations:
+  - The first-use hint remains one-time via `cloudSetupHintShown`, while ongoing surfaces keep persistent contextual guidance without re-showing the same onboarding popover forever
+  - No Rust files changed in this follow-up slice, so Rust tests were not rerun
+- VERDICT: PASS — the provider setup flow now reaches the main first-use and failure-recovery surfaces instead of living only in Settings
+
+## Phase A Follow-Up — 2026-04-03
+- Scope: provider onboarding UX polish after the Google-first direct-API baseline (active-provider quick setup card, Anthropic/OpenAI docs links, first-use dismissal hint, persistent setup guidance in the shared runtime popover)
+- Build:
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test`) — 176 tests in 2 suites
+- Issues found:
+  - Provider setup guidance was strong in Settings but still thin inside the shared chat runtime picker, which left Anthropic/OpenAI link access and first-use automation hints too far from the actual model-selection surface
+- Issues fixed:
+  - Added an active-provider setup card in the shared runtime popover so main chat and mini chat both expose direct provider links plus a clear path back to Settings → Inference
+  - Kept the first-use hint dismissible and persistent through the shared `cloudSetupHintShown` state instead of introducing a separate drift-prone hint flag
+  - Fixed the new source-level validation to use the repo text-file retry helper that is actually visible from the cloud-selection test suite
+- VERDICT: PASS — provider setup is now surfaced where users choose models, with direct Anthropic/OpenAI links and lightweight first-use guidance still green on build and focused tests
+
+## Phase A Audit — 2026-04-03
+- Scope: Substrate Sprint 0 architecture audit plus the provider/direct-API overhaul baseline (Google-first default, single active provider UX, dynamic operating modes, explicit cloud fallback order, provider-native controls, Firecrawl settings field)
+- Build:
+  - PASS (`xcodegen generate`)
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build`)
+  - Note: `xcbeautify` was not installed in this environment, so the build was verified via raw `xcodebuild` output instead
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test`) — 176 tests in 2 suites
+- Rust verification:
+  - PASS (`cargo test --manifest-path agent_core/Cargo.toml`) — 144 passed, 0 failed
+- Hardening grep:
+  - PASS (`docs/HARDENING_VERIFICATION.md`) — 49/49 checks passed
+- Zero-corruption:
+  - `F_FULLFSYNC` / `fcntl(..., 51)` grep count: 12
+  - `Epistemos/Sync/NoteFileStorage.swift` raw `try?` grep count: 0
+  - `agent_core/src/bridge.rs` `ffi_guard_*` / `catch_unwind` grep count: 18
+  - Production `try!` / `.unwrap()` grep count: 0
+- Anti-drift:
+  - Production `Process()` / `NSTask` / `posix_spawn` grep count in `Epistemos/`: 0
+  - Fake SDK import grep count (`import Anthropic` / `import OpenAI`): 0
+  - `UserDefaults.*ApiKey` grep count: 0
+  - `ObservableObject` grep count in production `Epistemos/`: 0
+  - `PowerGuard.shared` grep count in production `Epistemos/`: 21
+  - `DispatchQueue.main.sync` grep count in production `Epistemos/`: 0
+- Continuations:
+  - `withCheckedContinuation` / `withCheckedThrowingContinuation` count: 27
+  - `withTaskCancellationHandler` count: 19
+  - Code review of the changed Phase A slice found no new main-sync or stored-continuation regressions
+- Performance:
+  - `MetalGraphView` frame skip counter still present (`frameSkip` grep count: 3)
+  - `KnowledgeCoreBridge` polling still uses `PowerGuard.shared.ringPollInterval` (`ringPollInterval` grep count: 1)
+  - No new blocking FFI-on-`@MainActor` path was introduced in the changed provider/runtime files
+- Coherence:
+  - Re-read `docs/CONTROL_PLANE_RESEARCH.md`, `ZERO_CORRUPTION_SPEC.md`, and `ANTI_DRIFT_SYSTEM.md`
+  - No architectural drift detected in the Phase A slice: provider configuration is exposed as control-plane UI, credentials stay Keychain-backed, and no inference sidecar path was introduced
+- Issues found:
+  - The provider UX was still biased toward an OpenAI-first default even though the lowest-friction direct API setup is Google AI Studio
+  - Runtime validation and triage tests had stale expectations after the new capability matrix and fallback chain landed
+  - The first full build attempt failed only because a stale `xcodebuild` process from the aborted `xcbeautify` run held the build database lock
+- Issues fixed:
+  - Added `docs/ARCHITECTURE_AUDIT.md` for Substrate Sprint 0
+  - Switched the default active provider to Google, reordered provider selection to make the Google-first path obvious, and added provider-specific direct-key setup links in Settings
+  - Kept OpenAI fully enabled as a direct API backup path and made cloud fallback ordering explicit instead of relying on enum order
+  - Updated focused runtime/triage expectations and verified the new provider/mode behavior end to end
+- VERDICT: PASS — Phase A is green on this Google-first direct-API baseline; do not start Phase B from an older provider-selection assumption
+
 ## Inference Memory Audit — 2026-04-03
 - Scope: inference idle memory plus post-query retention in chat and note-chat surfaces
 - Build/test verification:

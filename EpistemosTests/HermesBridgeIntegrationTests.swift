@@ -32,7 +32,7 @@ struct HermesBridgeStartPayloadTests {
     func localQwenRouteResolvesForAgentCapableModel() throws {
         let route = try #require(
             HermesRuntimeRoute.resolveLocal(
-                modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+                modelID: LocalTextModelID.qwen35_9B4Bit.rawValue,
                 inferencePort: 9876
             )
         )
@@ -57,7 +57,7 @@ struct HermesBridgeStartPayloadTests {
     @Test("Local route returns nil for zero port")
     func localRouteReturnsNilForZeroPort() {
         let route = HermesRuntimeRoute.resolveLocal(
-            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            modelID: LocalTextModelID.qwen35_9B4Bit.rawValue,
             inferencePort: 0
         )
         #expect(route == nil)
@@ -79,6 +79,42 @@ struct HermesBridgeStartPayloadTests {
             apiKeyLookup: { _ in "   " }
         )
         #expect(route == nil)
+    }
+
+    @Test("Cloud Anthropic OAuth route resolves Claude Code token values for the bridge")
+    func cloudAnthropicOAuthRouteResolvesCorrectWireValues() throws {
+        let route = HermesRuntimeRoute.resolve(
+            for: .anthropicClaudeOpus4,
+            credential: .anthropicOAuth(accessToken: "claude-oauth-token")
+        )
+
+        #expect(route.model == "claude-opus-4-20250514")
+        #expect(route.requestedProvider == "anthropic")
+        #expect(route.baseURL == "https://api.anthropic.com")
+        #expect(route.apiMode == "anthropic_messages")
+        #expect(route.environmentOverrides["ANTHROPIC_API_KEY"] == "")
+        #expect(route.environmentOverrides["ANTHROPIC_TOKEN"] == "claude-oauth-token")
+        #expect(route.environmentOverrides["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-oauth-token")
+    }
+
+    @Test("Cloud Google OAuth route resolves project headers for the bridge")
+    func cloudGoogleOAuthRouteResolvesProjectHeaders() throws {
+        let route = HermesRuntimeRoute.resolve(
+            for: .googleGemini25Flash,
+            credential: .googleOAuth(
+                accessToken: "google-oauth-token",
+                projectID: "epistemos-gemini-project"
+            )
+        )
+
+        #expect(route.model == "gemini-2.5-flash")
+        #expect(route.requestedProvider == "custom")
+        #expect(route.baseURL == "https://generativelanguage.googleapis.com/v1beta/openai/")
+        #expect(route.apiMode == "chat_completions")
+        #expect(route.environmentOverrides["OPENAI_API_KEY"] == "google-oauth-token")
+        #expect(route.environmentOverrides["GOOGLE_API_KEY"] == "")
+        #expect(route.environmentOverrides["GOOGLE_CLOUD_PROJECT"] == "epistemos-gemini-project")
+        #expect(route.environmentOverrides["HERMES_OPENAI_DEFAULT_HEADERS_JSON"]?.contains("x-goog-user-project") == true)
     }
 }
 
@@ -710,17 +746,36 @@ struct HermesRuntimeRouteResolverTests {
         #expect(route.environmentOverrides["GOOGLE_API_KEY"] == "gsk-google-test")
     }
 
+    @Test("OpenAI account route uses Codex bearer access instead of legacy keys")
+    func openAIAccountRouteUsesCodexBearerAccess() {
+        let route = HermesRuntimeRoute.resolve(
+            for: .openAIGPT54Mini,
+            credential: .openAICodex(accessToken: "codex-oauth-token")
+        )
+
+        #expect(route.apiMode == "codex_responses")
+        #expect(route.baseURL == "https://chatgpt.com/backend-api/codex")
+        #expect(route.requestedProvider == "custom")
+        #expect(route.environmentOverrides["OPENAI_API_KEY"] == "codex-oauth-token")
+    }
+
     @Test("All cloud routes clear competing provider keys to empty strings")
     func allCloudRoutesClearCompetingProviderKeys() throws {
         let providerKeys: Set<String> = [
             "OPENAI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY",
             "ANTHROPIC_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN",
+            "GOOGLE_CLOUD_PROJECT", "HERMES_OPENAI_DEFAULT_HEADERS_JSON",
+            "GLM_API_KEY", "KIMI_API_KEY", "MINIMAX_API_KEY", "DEEPSEEK_API_KEY",
         ]
 
         let selections: [(ChatModelSelection, CloudModelProvider)] = [
             (.cloud(.openAIGPT41Mini), .openAI),
             (.cloud(.anthropicClaudeSonnet4), .anthropic),
             (.cloud(.googleGemini25Flash), .google),
+            (.cloud(.zaiGLM5), .zai),
+            (.cloud(.kimiK25), .kimi),
+            (.cloud(.minimaxM25), .minimax),
+            (.cloud(.deepseekChat), .deepseek),
         ]
 
         for (selection, _) in selections {

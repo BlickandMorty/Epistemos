@@ -193,6 +193,11 @@ final class AgentViewModel {
             return
         }
 
+        if !hasAvailableStartRuntimeRoute() {
+            handleError(missingAgentRuntimeAccessMessage)
+            return
+        }
+
         if isRunning {
             stop()
         }
@@ -214,13 +219,23 @@ final class AgentViewModel {
         )
         activeContinuation = continuation
 
-        var startPayload = makeStartPayload(prompt: trimmed, providerName: providerName)
         let modelVaultID = resolvedModelVaultID()
 
         currentTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             do {
                 try await self.connectIfNeeded()
+                let startRoute = await self.resolvedStartRuntimeRoute()
+                if self.inferenceState != nil, startRoute == nil {
+                    self.handleError(self.missingAgentRuntimeAccessMessage)
+                    return
+                }
+
+                var startPayload = self.makeStartPayload(
+                    prompt: trimmed,
+                    providerName: providerName,
+                    route: startRoute
+                )
                 startPayload["system_prompt"] = await self.knowledgeAwareHermesSystemPrompt(
                     harnessSystemPrompt,
                     modelVaultID: modelVaultID
@@ -663,13 +678,21 @@ final class AgentViewModel {
         lastSubmittedPrompt = ""
     }
 
-    private func makeStartPayload(prompt: String, providerName: String) -> [String: Any] {
+    private func makeStartPayload(
+        prompt: String,
+        providerName: String,
+        route: HermesRuntimeRoute?
+    ) -> [String: Any] {
         var payload: [String: Any] = [
             "command": "start",
             "prompt": prompt,
             "cwd": AgentRuntimeDefaults.vaultPath,
         ]
-        appendRuntimeOverrides(to: &payload, providerName: providerName)
+        if let route {
+            applyRoute(route, to: &payload)
+        } else {
+            appendRuntimeOverrides(to: &payload, providerName: providerName)
+        }
         return payload
     }
 
@@ -713,6 +736,72 @@ final class AgentViewModel {
         if let providerName, !providerName.isEmpty {
             payload["provider_name"] = providerName
         }
+    }
+
+    private var missingAgentRuntimeAccessMessage: String {
+        "This task requires a connected Google, OpenAI, or Anthropic account, or Qwen 9B installed in Settings → Inference."
+    }
+
+    private func hasAvailableStartRuntimeRoute() -> Bool {
+        guard let inferenceState else { return true }
+
+        for model in inferenceState.cloudFallbackChain(for: .agent) {
+            if inferenceState.hasConfiguredCloudAccess(for: model.provider) {
+                return true
+            }
+        }
+
+        guard let port = localInferencePort else { return false }
+
+        if case .localQwen(let modelID) = inferenceState.preferredChatModelSelection,
+           HermesRuntimeRoute.resolveLocal(modelID: modelID, inferencePort: port) != nil {
+            return true
+        }
+
+        if inferenceState.installedLocalTextModelIDs.contains(LocalTextModelID.qwen35_9B4Bit.rawValue),
+           inferenceState.hardwareCapabilitySnapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue),
+           HermesRuntimeRoute.resolveLocal(
+                modelID: LocalTextModelID.qwen35_9B4Bit.rawValue,
+                inferencePort: port
+           ) != nil {
+            return true
+        }
+
+        return false
+    }
+
+    private func resolvedStartRuntimeRoute() async -> HermesRuntimeRoute? {
+        guard let inferenceState else { return nil }
+
+        for model in inferenceState.cloudFallbackChain(for: .agent) {
+            guard inferenceState.hasConfiguredCloudAccess(for: model.provider) else { continue }
+            do {
+                let credential = try await inferenceState.resolvedCloudCredential(for: model.provider)
+                return HermesRuntimeRoute.resolve(for: model, credential: credential)
+            } catch {
+                Self.log.warning(
+                    "Skipping \(model.provider.displayName, privacy: .public) agent route while resolving cloud access: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
+        guard let port = localInferencePort else { return nil }
+
+        if case .localQwen(let modelID) = inferenceState.preferredChatModelSelection,
+           let route = HermesRuntimeRoute.resolveLocal(modelID: modelID, inferencePort: port) {
+            return route
+        }
+
+        if inferenceState.installedLocalTextModelIDs.contains(LocalTextModelID.qwen35_9B4Bit.rawValue),
+           inferenceState.hardwareCapabilitySnapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue),
+           let route = HermesRuntimeRoute.resolveLocal(
+                modelID: LocalTextModelID.qwen35_9B4Bit.rawValue,
+                inferencePort: port
+           ) {
+            return route
+        }
+
+        return nil
     }
 
     private func applyRoute(_ route: HermesRuntimeRoute, to payload: inout [String: Any]) {

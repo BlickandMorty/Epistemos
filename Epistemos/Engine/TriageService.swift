@@ -730,22 +730,24 @@ final class TriageService {
         localReasoningMode: LocalReasoningMode? = nil
     ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
-        if selectedCloudModel() != nil {
-            lastDecision = .cloud
-            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
-            return userFacingStream(
-                cloudStream(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt
-                )
-            )
-        }
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
             localReasoningMode: localReasoningMode
         )
+        if selectedCloudModel() != nil {
+            lastDecision = .cloud
+            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
+            return userFacingStream(
+                streamWithCloudFallbackChain(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    operatingMode: cloudOperatingMode(for: localReasoningMode),
+                    localSelection: decision.localSelection
+                )
+            )
+        }
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -768,10 +770,18 @@ final class TriageService {
                 )
             )
         case .cloud:
+            guard let model = selectedCloudModel() else {
+                return userFacingStream(
+                    AsyncThrowingStream { continuation in
+                        continuation.finish(throwing: CloudLLMError.modelRequired)
+                    }
+                )
+            }
             return userFacingStream(
                 cloudStream(
                     prompt: prompt,
-                    systemPrompt: systemPrompt
+                    systemPrompt: systemPrompt,
+                    model: model
                 )
             )
         }
@@ -788,20 +798,22 @@ final class TriageService {
         localReasoningMode: LocalReasoningMode? = nil
     ) async throws -> String {
         prepareForRouting()
-        if selectedCloudModel() != nil {
-            lastDecision = .cloud
-            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
-            return UserFacingModelOutput.finalVisibleText(from: try await cloudGenerate(
-                prompt: prompt,
-                systemPrompt: systemPrompt
-            ))
-        }
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
             localReasoningMode: localReasoningMode
         )
+        if selectedCloudModel() != nil {
+            lastDecision = .cloud
+            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
+            return UserFacingModelOutput.finalVisibleText(from: try await generateWithCloudFallbackChain(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                operatingMode: cloudOperatingMode(for: localReasoningMode),
+                localSelection: decision.localSelection
+            ))
+        }
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -837,9 +849,13 @@ final class TriageService {
                 selection: decision.localSelection
             ))
         case .cloud:
+            guard let model = selectedCloudModel() else {
+                throw CloudLLMError.modelRequired
+            }
             return UserFacingModelOutput.finalVisibleText(from: try await cloudGenerate(
                 prompt: prompt,
-                systemPrompt: systemPrompt
+                systemPrompt: systemPrompt,
+                model: model
             ))
         }
     }
@@ -877,7 +893,7 @@ final class TriageService {
     func triageGeneral(
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode? = nil,
+        operatingMode: EpistemosOperatingMode = .fast,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) -> TriageDecision {
         prepareForRouting()
@@ -887,7 +903,7 @@ final class TriageService {
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: localReasoningMode,
+            operatingMode: operatingMode,
             localSurface: localSurface
         )
         return triageDecision(for: decision.selectedRoute)
@@ -898,26 +914,28 @@ final class TriageService {
         systemPrompt: String? = nil,
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode? = nil,
+        operatingMode: EpistemosOperatingMode = .fast,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
+        let decision = routeDecisionForGeneral(
+            operation: operation,
+            contentLength: contentLength,
+            operatingMode: operatingMode,
+            localSurface: localSurface
+        )
         if selectedCloudModel() != nil {
             lastDecision = .cloud
             Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
             return userFacingStream(
-                cloudStream(
+                streamWithCloudFallbackChain(
                     prompt: prompt,
-                    systemPrompt: systemPrompt
+                    systemPrompt: systemPrompt,
+                    operatingMode: operatingMode,
+                    localSelection: decision.localSelection
                 )
             )
         }
-        let decision = routeDecisionForGeneral(
-            operation: operation,
-            contentLength: contentLength,
-            localReasoningMode: localReasoningMode,
-            localSurface: localSurface
-        )
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -940,10 +958,18 @@ final class TriageService {
                 )
             )
         case .cloud:
+            guard let model = selectedCloudModel() else {
+                return userFacingStream(
+                    AsyncThrowingStream { continuation in
+                        continuation.finish(throwing: CloudLLMError.modelRequired)
+                    }
+                )
+            }
             return userFacingStream(
                 cloudStream(
                     prompt: prompt,
-                    systemPrompt: systemPrompt
+                    systemPrompt: systemPrompt,
+                    model: model
                 )
             )
         }
@@ -954,24 +980,26 @@ final class TriageService {
         systemPrompt: String? = nil,
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode? = nil,
+        operatingMode: EpistemosOperatingMode = .fast,
         localSurface: LocalModelSelectionSurface = .mainChat
     ) async throws -> String {
         prepareForRouting()
-        if selectedCloudModel() != nil {
-            lastDecision = .cloud
-            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
-            return UserFacingModelOutput.finalVisibleText(from: try await cloudGenerate(
-                prompt: prompt,
-                systemPrompt: systemPrompt
-            ))
-        }
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
-            localReasoningMode: localReasoningMode,
+            operatingMode: operatingMode,
             localSurface: localSurface
         )
+        if selectedCloudModel() != nil {
+            lastDecision = .cloud
+            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
+            return UserFacingModelOutput.finalVisibleText(from: try await generateWithCloudFallbackChain(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                operatingMode: operatingMode,
+                localSelection: decision.localSelection
+            ))
+        }
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -1007,9 +1035,13 @@ final class TriageService {
                 selection: decision.localSelection
             ))
         case .cloud:
+            guard let model = selectedCloudModel() else {
+                throw CloudLLMError.modelRequired
+            }
             return UserFacingModelOutput.finalVisibleText(from: try await cloudGenerate(
                 prompt: prompt,
-                systemPrompt: systemPrompt
+                systemPrompt: systemPrompt,
+                model: model
             ))
         }
     }
@@ -1111,14 +1143,14 @@ final class TriageService {
     private func routeDecisionForGeneral(
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode?,
+        operatingMode: EpistemosOperatingMode,
         localSurface: LocalModelSelectionSurface
     ) -> InferenceRouteDecision {
         inference.routeDecision(
             for: requestProfileForGeneral(
                 operation: operation,
                 contentLength: contentLength,
-                localReasoningMode: localReasoningMode,
+                operatingMode: operatingMode,
                 localSurface: localSurface
             )
         )
@@ -1164,7 +1196,7 @@ final class TriageService {
     private func requestProfileForGeneral(
         operation: GeneralOperation,
         contentLength: Int,
-        localReasoningMode: LocalReasoningMode?,
+        operatingMode: EpistemosOperatingMode,
         localSurface: LocalModelSelectionSurface
     ) -> InferenceRequestProfile {
         let queryText: String
@@ -1191,11 +1223,20 @@ final class TriageService {
             ),
             baseComplexity: operation.baseComplexity,
             queryComplexity: analysis?.complexity ?? 0,
-            requestedReasoningMode: localReasoningMode ?? .fast,
-            explicitThinkingRequested: localReasoningMode == .thinking,
-            explicitFastRequested: localReasoningMode == .fast,
+            requestedReasoningMode: operatingMode.localReasoningMode ?? .fast,
+            explicitThinkingRequested: operatingMode == .thinking || operatingMode == .pro,
+            explicitFastRequested: operatingMode == .fast,
             visibleThinkingRequested: false
         )
+    }
+
+    private func cloudOperatingMode(for localReasoningMode: LocalReasoningMode?) -> EpistemosOperatingMode {
+        switch localReasoningMode {
+        case .thinking:
+            .thinking
+        case .fast, .none:
+            .fast
+        }
     }
 
     private static func explicitThinkingRequested(in text: String) -> Bool {
@@ -1324,27 +1365,34 @@ final class TriageService {
         return model
     }
 
-    private func cloudConfigurationError() -> CloudLLMError? {
-        guard let model = selectedCloudModel() else {
+    private func cloudConfigurationError(for model: CloudTextModelID) -> CloudLLMError? {
+        guard selectedCloudModel() != nil else {
             return .modelRequired
         }
-        guard let apiKey = inference.apiKey(for: model.provider)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !apiKey.isEmpty else {
-            return .missingAPIKey(model.provider.displayName)
+        guard inference.hasConfiguredCloudAccess(for: model.provider) else {
+            return .missingAccess(model.provider.displayName)
         }
         return nil
     }
 
     private func cloudGenerate(
         prompt: String,
-        systemPrompt: String?
+        systemPrompt: String?,
+        model: CloudTextModelID
     ) async throws -> String {
-        if let error = cloudConfigurationError() {
+        if let error = cloudConfigurationError(for: model) {
             throw error
         }
         guard let cloudLLMService else {
             throw CloudLLMError.runtimeUnavailable
+        }
+        if let configurable = cloudLLMService as? any CloudConfigurableLLMClient {
+            return try await configurable.generate(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: inference.chatOutputTokens,
+                model: model
+            )
         }
         return try await cloudLLMService.generate(
             prompt: prompt,
@@ -1355,9 +1403,10 @@ final class TriageService {
 
     private func cloudStream(
         prompt: String,
-        systemPrompt: String?
+        systemPrompt: String?,
+        model: CloudTextModelID
     ) -> AsyncThrowingStream<String, Error> {
-        if let error = cloudConfigurationError() {
+        if let error = cloudConfigurationError(for: model) {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: error)
             }
@@ -1367,11 +1416,161 @@ final class TriageService {
                 continuation.finish(throwing: CloudLLMError.runtimeUnavailable)
             }
         }
+        if let configurable = cloudLLMService as? any CloudConfigurableLLMClient {
+            return configurable.stream(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: inference.chatOutputTokens,
+                model: model
+            )
+        }
         return cloudLLMService.stream(
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: inference.chatOutputTokens
         )
+    }
+
+    private func generateWithCloudFallbackChain(
+        prompt: String,
+        systemPrompt: String?,
+        operatingMode: EpistemosOperatingMode,
+        localSelection: LocalModelSelection?
+    ) async throws -> String {
+        var lastCloudError: Error?
+
+        for model in inference.cloudFallbackChain(for: operatingMode) {
+            do {
+                lastDecision = .cloud
+                return try await cloudGenerate(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    model: model
+                )
+            } catch {
+                lastCloudError = error
+                Log.engine.warning(
+                    "Cloud route \(model.vendorModelID, privacy: .public) failed, trying the next fallback: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
+        if inference.appleIntelligenceAvailable {
+            lastDecision = .appleIntelligence
+            let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
+            do {
+                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
+                if !Self.shouldRetryWithLocalModel(result) {
+                    return result
+                }
+                Log.engine.info("Apple Intelligence fallback response was inadequate, continuing to the local model path")
+            } catch {
+                Log.engine.warning(
+                    "Apple Intelligence fallback failed after cloud retries: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
+        guard localSelection != nil else {
+            if let lastCloudError {
+                throw lastCloudError
+            }
+            throw LocalInferenceRoutingError.modelRequired
+        }
+
+        lastDecision = .localMLX
+        return try await localGenerateOrFallback(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            selection: localSelection
+        )
+    }
+
+    private func streamWithCloudFallbackChain(
+        prompt: String,
+        systemPrompt: String?,
+        operatingMode: EpistemosOperatingMode,
+        localSelection: LocalModelSelection?
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task { [weak self] in
+                guard let self else {
+                    continuation.finish()
+                    return
+                }
+
+                var lastCloudError: Error?
+
+                for model in self.inference.cloudFallbackChain(for: operatingMode) {
+                    var emittedAnyTokens = false
+                    do {
+                        self.lastDecision = .cloud
+                        let stream = self.cloudStream(
+                            prompt: prompt,
+                            systemPrompt: systemPrompt,
+                            model: model
+                        )
+                        for try await chunk in stream {
+                            emittedAnyTokens = true
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                        return
+                    } catch {
+                        lastCloudError = error
+                        if emittedAnyTokens {
+                            continuation.finish(throwing: error)
+                            return
+                        }
+                        Log.engine.warning(
+                            "Cloud stream route \(model.vendorModelID, privacy: .public) failed before yielding output, trying the next fallback: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
+                }
+
+                if self.inference.appleIntelligenceAvailable {
+                    self.lastDecision = .appleIntelligence
+                    let appleFallback = self.appleIntelligenceStreamWithFallback(
+                        prompt: prompt,
+                        systemPrompt: systemPrompt,
+                        localSelection: localSelection
+                    )
+                    do {
+                        for try await chunk in appleFallback {
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
+                    }
+                    return
+                }
+
+                guard localSelection != nil else {
+                    continuation.finish(throwing: lastCloudError ?? LocalInferenceRoutingError.modelRequired)
+                    return
+                }
+
+                self.lastDecision = .localMLX
+                let localFallback = self.localStreamOrFallback(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    selection: localSelection
+                )
+                do {
+                    for try await chunk in localFallback {
+                        continuation.yield(chunk)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
     }
 
     // MARK: - Local MLX Fallback

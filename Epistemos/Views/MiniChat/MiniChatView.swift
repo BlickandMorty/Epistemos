@@ -645,11 +645,12 @@ private struct MiniChatInputBar: View {
                 indexedNoteSnippetsByPageID: [:]
             )
         }
+        let shouldSearchChats = !trimmedMentionFilter.isEmpty
         return ChatCoordinator.searchReferenceResults(
             filter: trimmedMentionFilter,
             manifest: ambientManifest,
-            chats: recentChats(),
-            threads: threadState.chatThreads,
+            chats: shouldSearchChats ? recentChats() : [],
+            threads: shouldSearchChats ? threadState.chatThreads : [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
@@ -1019,7 +1020,7 @@ private struct MiniChatInputBar: View {
                     prompt: prompt, systemPrompt: nil,
                     operation: .brainstorm,
                     contentLength: contentLength,
-                    localReasoningMode: selectedOperatingMode.localReasoningMode ?? .thinking,
+                    operatingMode: selectedOperatingMode,
                     localSurface: .miniChat
                 ) {
                     guard !Task.isCancelled else { break }
@@ -1116,7 +1117,7 @@ private struct MiniChatInputBar: View {
             UtilityWindowManager.shared.show(.omega)
             Task { await orchestrator.submitTask(trimmed) }
             return
-        case .fast, .thinking:
+        case .fast, .thinking, .pro:
             break
         }
 
@@ -1216,7 +1217,7 @@ private struct MiniChatInputBar: View {
                     systemPrompt: nil,
                     operation: .chatResponse(query: trimmed),
                     contentLength: contentLength,
-                    localReasoningMode: selectedOperatingMode.localReasoningMode ?? .fast,
+                    operatingMode: selectedOperatingMode,
                     localSurface: .miniChat
                 ) {
                     guard !Task.isCancelled else { break }

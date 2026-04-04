@@ -242,7 +242,7 @@ final class ChatCoordinator {
                     mode: mode,
                     notesContext: effectiveNotesContextWithWorkspace,
                     conversationHistory: conversationHistory,
-                    localReasoningMode: operatingMode.localReasoningMode ?? .fast
+                    operatingMode: operatingMode
                 )
 
                 for try await event in stream {

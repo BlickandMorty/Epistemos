@@ -47,45 +47,23 @@ enum LandingCoordinateSpace {
 
 // MARK: - Hermes Setup Banner
 
-/// Inline prompt shown when Hermes reports an auth failure (401, missing API key).
-/// One tap opens Settings so the user can paste their key — no terminal needed.
+/// Inline prompt shown when Hermes reports an auth failure (401, missing account access).
+/// One tap opens Settings so the user can reconnect the provider account — no terminal needed.
 private struct HermesSetupBanner: View {
-    let theme: EpistemosTheme
-    let onOpenSettings: () -> Void
+    let provider: CloudModelProvider
+    let failureMessage: String
 
     var body: some View {
-        Button(action: onOpenSettings) {
-            HStack(spacing: 10) {
-                Image(systemName: "key.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(theme.resolved.accent.color)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Cloud API key needed")
-                        .font(.system(size: 12.5, weight: .semibold))
-                    Text("Add your API key in Settings to enable cloud models.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textTertiary)
-                }
-
-                Spacer(minLength: 8)
-
-                Text("Open Settings")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(theme.resolved.accent.color)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.08 : 0.06))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(theme.resolved.accent.color.opacity(0.15), lineWidth: 0.5)
-            }
-        }
-        .buttonStyle(.plain)
+        CloudProviderSetupCard(
+            provider: provider,
+            title: "Reconnect Cloud Access",
+            message: provider.supportsAccountConnection
+                ? "Hermes hit an authentication error. Reconnect your \(provider.displayName) account here. Legacy keys stay tucked under the fallback disclosure if you explicitly need them."
+                : "Hermes needs working \(provider.displayName) access here. Open the provider portal, create or copy a key, then use Paste + Save.",
+            footer: failureMessage,
+            compact: true,
+            showsDismissTip: false
+        )
         .frame(maxWidth: 400)
     }
 }
@@ -288,11 +266,11 @@ struct LandingView: View {
             .padding(.horizontal, Spacing.xxl)
             .allowsHitTesting(false)
 
-            if hermesAuthFailure != nil {
-                HermesSetupBanner(theme: theme) {
-                    UtilityWindowManager.shared.show(.settings)
-                    NSApp.activate()
-                }
+            if let hermesAuthFailure {
+                HermesSetupBanner(
+                    provider: inference.activeCloudProvider ?? .google,
+                    failureMessage: hermesAuthFailure
+                )
                 .padding(.top, 16)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
