@@ -704,9 +704,11 @@ vertex NodeVertexOut node_vertex(
     float highlight_dim = flag == 0 ? 1.0
                         : (flag == 1 ? 1.0    // highlighted: stays natural in both modes
                         : (flag == 2 ? 0.10   // dark mode: strong dim for unselected
-                        : (flag == 3 ? 0.70   // light mode: gentle fade (original Codex value)
+                        : (flag == 3 ? 0.35   // light mode: pure color, low alpha = faded/transparent
                         : (float(flag) / 255.0))));
-    float desaturate = (flag == 2 || flag == 3) ? 1.0 : 0.0;
+    // Desaturation only for dark mode dim. Light mode handles dim by darkening
+    // the color (below), not by graying it — grayscale on white bg = white.
+    float desaturate = (flag == 2) ? 1.0 : 0.0;
 
     NodeVertexOut out;
     out.position = float4(ndc, ndc_z, 1.0);
@@ -870,7 +872,9 @@ fragment float4 node_fragment(
     float3 result_color = lit_color;
     if (is_dimmed) {
         if (is_light_mode_dim) {
-            depth_fade *= 0.55;
+            // Pure original color — no darken, no grayscale. Desaturate flag
+            // is off for light mode, so this is just the original hue faded
+            // via the lower highlight_dim alpha. True transparency.
         } else {
             float lum = dot(lit_color, float3(0.299, 0.587, 0.114));
             result_color = mix(lit_color, float3(lum) * 1.1, 0.35);
@@ -2410,7 +2414,9 @@ impl Renderer {
 
             self.node_count = self.classic_node_scratch.len();
         } else {
-            let draw_glow = lod.draw_glow && self.visual_theme != VisualTheme::Dialogue;
+            // Light mode: skip the bloom/glow halos entirely — they read as
+            // washed-out blobs against the white background.
+            let draw_glow = lod.draw_glow && self.visual_theme != VisualTheme::Dialogue && !self.light_mode;
             if draw_glow {
                 for &node_index in &self.rendered_node_indices {
                     let pos = [world.transform[node_index].x, world.transform[node_index].y];

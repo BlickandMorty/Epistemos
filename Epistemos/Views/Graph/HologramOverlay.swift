@@ -57,7 +57,7 @@ enum GraphOverlayThemeStyle {
         // as true glass instead of being hidden behind an opaque tint.
         theme.isDark
             ? NSColor.black.withAlphaComponent(0.32)
-            : NSColor.white.withAlphaComponent(0.38)
+            : NSColor.white.withAlphaComponent(0.26)
     }
 
     static func miniTintColor(for theme: EpistemosTheme) -> NSColor {
@@ -65,7 +65,7 @@ enum GraphOverlayThemeStyle {
         // the NSVisualEffectView blur defines the look.
         theme.isDark
             ? NSColor.black.withAlphaComponent(0.22)
-            : NSColor.white.withAlphaComponent(0.32)
+            : NSColor.white.withAlphaComponent(0.20)
     }
 
     static func lightModeEnabled(for theme: EpistemosTheme) -> Bool {
