@@ -550,6 +550,18 @@ struct ReleasePackagingHardeningTests {
         #expect(projectSpec.contains("ENABLE_HARDENED_RUNTIME: true"))
     }
 
+    @Test("debug and test targets default to local signing without removing real signing support")
+    func debugAndTestsDefaultToLocalSigning() throws {
+        let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
+
+        #expect(projectSpec.contains("CODE_SIGN_IDENTITY: \"-\""))
+        #expect(projectSpec.contains("DEVELOPMENT_TEAM: \"\""))
+        #expect(project.contains("CODE_SIGN_IDENTITY = \"-\";"))
+        #expect(project.contains("DEVELOPMENT_TEAM = \"\";"))
+        #expect(projectSpec.contains("CODE_SIGN_IDENTITY: \"Apple Development\""))
+    }
+
     @Test("prepared model manifest is bundled into app resources")
     func preparedModelManifestIsBundledIntoAppResources() throws {
         let spec = try loadProductionHardeningRepoTextFile("project.yml")

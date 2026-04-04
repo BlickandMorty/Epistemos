@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Settings View
 // Mirrors macOS System Settings: NavigationSplitView sidebar → detail pane.
@@ -176,6 +177,76 @@ struct SettingsDescriptionCard: View {
         }
         .padding(10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct SettingsHelpHeader<PopoverContent: View>: View {
+    let title: String
+    @Binding var isPresented: Bool
+    @ViewBuilder let popoverContent: () -> PopoverContent
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+            Button {
+                isPresented = true
+            } label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+                popoverContent()
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private struct CloudHintPopover: View {
+    let title: String
+    let bulletPoints: [String]
+    let footnote: String?
+    let onRemindLater: () -> Void
+    let onGotIt: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+
+            ForEach(Array(bulletPoints.enumerated()), id: \.offset) { index, point in
+                Text("\(index + 1). \(point)")
+                    .font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let footnote {
+                Text(footnote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 8) {
+                Button("Remind Me Later") {
+                    onRemindLater()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Spacer()
+
+                Button("Got It") {
+                    onGotIt()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
+        .padding(16)
+        .frame(width: 340, alignment: .leading)
     }
 }
 
@@ -521,21 +592,81 @@ private struct InferenceDetailView: View {
     @Environment(InferenceState.self) private var inference
     @Environment(LocalModelManager.self) private var localModelManager
 
+    @AppStorage("epistemos.inferenceAdvancedSettingsEnabled") private var showsAdvancedSettings = false
+
     @State private var showLocalModelManager = false
     @State private var tokenCapEnabled = false
     @State private var tokenCapDraft: Int = 2000
     @State private var openAIKey = ""
     @State private var anthropicKey = ""
     @State private var googleKey = ""
+    @State private var zaiKey = ""
+    @State private var kimiKey = ""
+    @State private var minimaxKey = ""
+    @State private var deepseekKey = ""
+    @State private var firecrawlKey = ""
+    @State private var showCloudSetupHint = false
+    @State private var googleOAuthProjectID = ""
+    @State private var googleOAuthClientConfigData: Data?
+    @State private var googleOAuthClientFilename = ""
+    @State private var googleOAuthClientStatusMessage: String?
+    @State private var googleOAuthClientStatusIsSuccess = false
+    @State private var accountActionInFlightProvider: CloudModelProvider?
+    @State private var openAIDeviceAuthorization: OpenAIDeviceAuthorization?
+    @State private var showSettingsModeHint = false
+    @State private var showRoutingHint = false
+    @State private var showLocalAIHint = false
+    @State private var showOtherCloudProvidersHint = false
+    @State private var showResponseTokensHint = false
 
     private var theme: EpistemosTheme { ui.theme }
     private var activeLocalModelDisplayName: String {
         return inference.activeLocalTextModelDisplayName
     }
+    private var activeCloudWorkspaceProvider: CloudModelProvider {
+        inference.activeCloudProvider ?? .openAI
+    }
+    private var otherCloudProviders: [CloudModelProvider] {
+        CloudModelProvider.preferredOrder.filter { $0 != activeCloudWorkspaceProvider }
+    }
+    private var cloudModelsEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { inference.cloudModelsEnabled },
+            set: { inference.setCloudModelsEnabled($0) }
+        )
+    }
 
     var body: some View {
         Form {
-            Section("Routing") {
+            Section {
+                Picker("Settings Mode", selection: $showsAdvancedSettings) {
+                    Text("Regular").tag(false)
+                    Text("Advanced").tag(true)
+                }
+                .pickerStyle(.segmented)
+
+                SettingsDescriptionText(
+                    text: showsAdvancedSettings
+                        ? "Advanced exposes legacy credential editors, provider diagnostics, and extra runtime utilities."
+                        : "Regular keeps routing, local models, and the active cloud workspace focused on the essentials."
+                )
+            } header: {
+                SettingsHelpHeader(title: "Settings Mode", isPresented: $showSettingsModeHint) {
+                    CloudHintPopover(
+                        title: "Regular vs Advanced",
+                        bulletPoints: [
+                            "Regular keeps the main routing, local model, and active cloud controls visible.",
+                            "Advanced reveals legacy API key editors, provider verification tools, and utility keys.",
+                            "You can switch modes any time without changing your saved providers or models.",
+                        ],
+                        footnote: "Use Advanced when you need deeper setup or recovery controls.",
+                        onRemindLater: { showSettingsModeHint = false },
+                        onGotIt: { showSettingsModeHint = false }
+                    )
+                }
+            }
+
+            Section {
                 SettingsDescriptionText(
                     text: "Routing decides which model path handles each request. Local Qwen is the main reasoning path, while lightweight Apple Intelligence work can be used when the selected routing mode allows it."
                 )
@@ -568,9 +699,23 @@ private struct InferenceDetailView: View {
                         .font(.caption)
                         .foregroundStyle(theme.warning)
                 }
+            } header: {
+                SettingsHelpHeader(title: "Routing", isPresented: $showRoutingHint) {
+                    CloudHintPopover(
+                        title: "Routing",
+                        bulletPoints: [
+                            "Auto keeps Apple Intelligence available for the lightest local work.",
+                            "Local Only bypasses Apple Intelligence and keeps every request on your installed local models.",
+                            "Cloud enablement is separate and lives below in the cloud workspace controls.",
+                        ],
+                        footnote: "Routing changes the local path first; cloud can still be disabled entirely.",
+                        onRemindLater: { showRoutingHint = false },
+                        onGotIt: { showRoutingHint = false }
+                    )
+                }
             }
 
-            Section("Local AI") {
+            Section {
                 SettingsDescriptionText(
                     text: "Local AI manages the on-device models installed on this Mac, shows the active local tier, and lets you choose which local runtime the chat surfaces should prefer."
                 )
@@ -628,61 +773,123 @@ private struct InferenceDetailView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(theme.resolved.accent.color)
                 .controlSize(.small)
+            } header: {
+                SettingsHelpHeader(title: "Local AI", isPresented: $showLocalAIHint) {
+                    CloudHintPopover(
+                        title: "Local AI",
+                        bulletPoints: [
+                            "Your active local model is the on-device fallback and the full local-only path.",
+                            "Manage Local Models opens installs, deletes, and constrained fallback options.",
+                            "Cloud controls never remove local-only mode.",
+                        ],
+                        footnote: "If you turn cloud models off, these local settings stay in charge.",
+                        onRemindLater: { showLocalAIHint = false },
+                        onGotIt: { showLocalAIHint = false }
+                    )
+                }
             }
 
-            Section("Cloud AI") {
+            Section {
+                Toggle("Enable Cloud Models", isOn: cloudModelsEnabledBinding)
+
                 SettingsDescriptionText(
-                    text: "Pick one active provider for the chat model picker, then save and validate whichever cloud credentials you want available as backups."
+                    text: inference.cloudModelsEnabled
+                        ? "OpenAI is the default cloud workspace for chat and coding. Switch providers any time while keeping Local Only available."
+                        : "Cloud models are hidden. Epistemos stays local-only until you turn cloud models back on."
                 )
 
-                Picker(
-                    "AI Provider",
-                    selection: Binding(
-                        get: { inference.activeAIProvider },
-                        set: { inference.setActiveAIProvider($0) }
-                    )
-                ) {
-                    ForEach(AIProviderSelection.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
+                if inference.cloudModelsEnabled {
+                    activeCloudWorkspace
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        CloudProviderGuidanceRow(
+                            text: "Cloud models are currently disabled, so chat and coding stay on-device until you re-enable cloud models.",
+                            theme: theme,
+                            systemImage: "memorychip.fill",
+                            tint: theme.resolved.accent.color
+                        )
+
+                        Button("Re-enable OpenAI Cloud") {
+                            inference.setCloudModelsEnabled(true)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                SettingsHelpHeader(title: "Active Cloud", isPresented: $showCloudSetupHint) {
+                    cloudSetupHintPopover
+                }
+            }
+
+            if inference.cloudModelsEnabled {
+                Section {
+                    ForEach(otherCloudProviders, id: \.rawValue) { provider in
+                        otherCloudProviderRow(provider: provider)
+                    }
+                } header: {
+                    SettingsHelpHeader(title: "Other Cloud Providers", isPresented: $showOtherCloudProvidersHint) {
+                        CloudHintPopover(
+                            title: "Other Cloud Providers",
+                            bulletPoints: [
+                                "This section stays condensed so the active provider gets the larger workspace.",
+                                "Choose Open Setup to focus the main workspace on another provider.",
+                                "Make Active promotes a configured provider without reopening the rest of settings.",
+                            ],
+                            footnote: "Use Advanced mode if you want the manual credential path visible while switching providers.",
+                            onRemindLater: { showOtherCloudProvidersHint = false },
+                            onGotIt: { showOtherCloudProvidersHint = false }
+                        )
                     }
                 }
-
-                Text(inference.activeAIProvider.summary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                cloudKeyRow(title: "OpenAI", text: $openAIKey, provider: .openAI)
-                cloudKeyRow(title: "Anthropic", text: $anthropicKey, provider: .anthropic)
-                cloudKeyRow(title: "Google", text: $googleKey, provider: .google)
-
-                Text("Stored securely in the Apple Keychain. The active provider scopes the chat picker, while saved secondary keys remain available for future fallback work.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
-            Section("Response Tokens") {
-                SettingsDescriptionText(
-                    text: "Use a response cap when you want shorter answers, lower token usage, or a tighter guardrail for long generations."
-                )
-                LabeledContent("Cap") {
-                    HStack(spacing: 8) {
-                        Toggle("", isOn: $tokenCapEnabled)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                        Text(tokenCapEnabled ? "\(tokenCapDraft)" : "Unlimited")
-                            .font(.system(size: 12))
-                            .foregroundStyle(tokenCapEnabled ? .primary : .secondary)
-                        if tokenCapEnabled {
-                            Stepper("", value: $tokenCapDraft, in: 500...32000, step: 500)
+            if showsAdvancedSettings {
+                Section("Research Tools") {
+                    firecrawlKeyRow
+                }
+            }
+
+            if showsAdvancedSettings {
+                Section {
+                    SettingsDescriptionText(
+                        text: "Use a response cap when you want shorter answers, lower token usage, or a tighter guardrail for long generations."
+                    )
+                    LabeledContent("Cap") {
+                        HStack(spacing: 8) {
+                            Toggle("", isOn: $tokenCapEnabled)
+                                .toggleStyle(.checkbox)
                                 .labelsHidden()
+                            Text(tokenCapEnabled ? "\(tokenCapDraft)" : "Unlimited")
+                                .font(.system(size: 12))
+                                .foregroundStyle(tokenCapEnabled ? .primary : .secondary)
+                            if tokenCapEnabled {
+                                Stepper("", value: $tokenCapDraft, in: 500...32000, step: 500)
+                                    .labelsHidden()
+                            }
                         }
                     }
-                }
-                .onChange(of: tokenCapEnabled) { _, enabled in
-                    inference.setChatOutputTokens(enabled ? tokenCapDraft : 0)
-                }
-                .onChange(of: tokenCapDraft) { _, value in
-                    if tokenCapEnabled { inference.setChatOutputTokens(value) }
+                    .onChange(of: tokenCapEnabled) { _, enabled in
+                        inference.setChatOutputTokens(enabled ? tokenCapDraft : 0)
+                    }
+                    .onChange(of: tokenCapDraft) { _, value in
+                        if tokenCapEnabled { inference.setChatOutputTokens(value) }
+                    }
+                } header: {
+                    SettingsHelpHeader(title: "Response Tokens", isPresented: $showResponseTokensHint) {
+                        CloudHintPopover(
+                            title: "Response Tokens",
+                            bulletPoints: [
+                                "Use a cap when you want shorter cloud or local answers.",
+                                "Leave it unlimited to let the active model decide its normal response size.",
+                                "This is an advanced guardrail, not a required setup step.",
+                            ],
+                            footnote: nil,
+                            onRemindLater: { showResponseTokensHint = false },
+                            onGotIt: { showResponseTokensHint = false }
+                        )
+                    }
                 }
             }
         }
@@ -695,25 +902,184 @@ private struct InferenceDetailView: View {
                 openAIKey = inference.apiKey(for: .openAI) ?? ""
                 anthropicKey = inference.apiKey(for: .anthropic) ?? ""
                 googleKey = inference.apiKey(for: .google) ?? ""
+                zaiKey = inference.apiKey(for: .zai) ?? ""
+                kimiKey = inference.apiKey(for: .kimi) ?? ""
+                minimaxKey = inference.apiKey(for: .minimax) ?? ""
+                deepseekKey = inference.apiKey(for: .deepseek) ?? ""
+                googleOAuthClientConfigData = CloudProviderSetupAutomation.loadGoogleOAuthClientConfigData()
+                googleOAuthClientFilename = CloudProviderSetupAutomation.loadGoogleOAuthClientFilename()
+                googleOAuthProjectID = inference.oauthCredential(for: .google)?.projectID
+                    ?? CloudProviderSetupAutomation.loadGoogleOAuthProjectIDDraft()
+                firecrawlKey = inference.firecrawlAPIKey() ?? ""
+                showCloudSetupHint = inference.shouldShowCloudSetupHint
             }
+        }
+        .onChange(of: googleOAuthProjectID) { _, newValue in
+            CloudProviderSetupAutomation.persistGoogleOAuthProjectIDDraft(newValue)
         }
         .sheet(isPresented: $showLocalModelManager) {
             LocalModelManagerSheet()
                 .frame(minWidth: 620, minHeight: 480)
         }
+        .sheet(item: $openAIDeviceAuthorization) { authorization in
+            OpenAIDeviceAuthorizationSheet(
+                authorization: authorization,
+                onDismiss: { openAIDeviceAuthorization = nil }
+            )
+        }
     }
 
-    private func cloudKeyRow(
-        title: String,
-        text: Binding<String>,
+    private var activeCloudWorkspace: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            cloudProviderAccessRow(provider: activeCloudWorkspaceProvider)
+
+            if inference.hasConfiguredCloudAccess(for: activeCloudWorkspaceProvider) {
+                Picker(
+                    "Cloud Model",
+                    selection: activeCloudModelBinding(for: activeCloudWorkspaceProvider)
+                ) {
+                    ForEach(CloudTextModelID.models(for: activeCloudWorkspaceProvider), id: \.rawValue) { model in
+                        Text(model.displayName).tag(model)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                SettingsDescriptionText(
+                    text: "\(activeCloudWorkspaceProvider.displayName) model choices stay here so chat and coding follow one focused cloud workspace at a time."
+                )
+            } else {
+                CloudProviderGuidanceRow(
+                    text: "Finish setup and run a live access check before activating a \(activeCloudWorkspaceProvider.displayName) cloud model.",
+                    theme: theme
+                )
+            }
+
+            if inference.activeAIProvider != .localOnly {
+                providerNativeControls
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func otherCloudProviderRow(
         provider: CloudModelProvider
     ) -> some View {
         let validationState = inference.cloudValidationState(for: provider)
+        let hasConfiguredAccess = inference.hasConfiguredCloudAccess(for: provider)
+        let canPromoteToActive = hasConfiguredAccess && validationState.isVerified
+        let isActionInFlight = accountActionInFlightProvider == provider
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
-                Label(title, systemImage: provider.systemImage)
+                Label(provider.displayName, systemImage: provider.systemImage)
                     .font(.body.weight(.semibold))
+                if provider == .openAI {
+                    Text("OpenAI Recommended")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(theme.resolved.accent.color.opacity(0.12), in: Capsule())
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
+                Spacer()
+                statusBadge(for: provider)
+            }
+
+            SettingsDescriptionText(text: provider.accountSetupHelpText)
+
+            HStack(spacing: 6) {
+                if canPromoteToActive {
+                    Button("Make Active") {
+                        inference.setCloudModelsEnabled(true)
+                        inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                } else {
+                    Button("Open Setup") {
+                        inference.setCloudModelsEnabled(true)
+                        inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+
+                if showsAdvancedSettings, hasConfiguredAccess {
+                    Button(validationState.isVerified ? "Re-check Access" : "Check Access") {
+                        Task { _ = await inference.validateCloudAccess(for: provider) }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(validationState.isChecking || isActionInFlight)
+                }
+
+                if showsAdvancedSettings, let url = provider.documentationURL {
+                    Button(provider.documentationActionTitle) {
+                        NSWorkspace.shared.open(url)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+
+            Text("Available models: \(provider.modelSummary)")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func activeCloudModelBinding(
+        for provider: CloudModelProvider
+    ) -> Binding<CloudTextModelID> {
+        Binding(
+            get: {
+                if case .cloud(let model) = inference.preferredChatModelSelection,
+                   model.provider == provider {
+                    return model
+                }
+                return provider.defaultChatModel
+            },
+            set: { model in
+                inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+                inference.setPreferredChatModelSelection(.cloud(model))
+            }
+        )
+    }
+
+    private func dismissCloudSetupHintPermanently() {
+        inference.markCloudSetupHintShown()
+        showCloudSetupHint = false
+    }
+
+    private func cloudProviderAccessRow(
+        provider: CloudModelProvider
+    ) -> some View {
+        let text = cloudProviderDraftBinding(for: provider)
+        let validationState = inference.cloudValidationState(for: provider)
+        let oauthCredential = inference.oauthCredential(for: provider)
+        let hasOAuthSession = oauthCredential != nil
+        let hasSavedAPIKey = normalizedCredentialDraft(inference.apiKey(for: provider) ?? "") != nil
+        let accountConnectionSummary = provider.accountConnectionSummary(
+            oauthCredential: oauthCredential,
+            hasSavedAPIKey: hasSavedAPIKey,
+            validationState: validationState
+        )
+        let isActionInFlight = accountActionInFlightProvider == provider
+        let isActiveWorkspace = inference.activeAIProvider == AIProviderSelection(cloudProvider: provider)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Label(provider.displayName, systemImage: provider.systemImage)
+                    .font(.body.weight(.semibold))
+                if provider == .openAI {
+                    Text("OpenAI Recommended")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(theme.resolved.accent.color.opacity(0.12), in: Capsule())
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
                 Spacer()
                 statusBadge(for: provider)
             }
@@ -721,30 +1087,97 @@ private struct InferenceDetailView: View {
             SettingsDescriptionText(text: provider.setupHelpText)
 
             HStack(spacing: 6) {
-                SecureField(provider.apiKeyPlaceholder, text: text)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 220)
-                Button("Save") {
-                    let didSave = inference.setAPIKey(text.wrappedValue, for: provider)
-                    text.wrappedValue = inference.apiKey(for: provider) ?? ""
-                    if didSave {
-                        Task { _ = await inference.validateAPIKey(for: provider) }
+                primaryAccessButtons(for: provider, isActionInFlight: isActionInFlight)
+
+                if hasOAuthSession || hasSavedAPIKey {
+                    Button(validationState.isVerified ? "Re-check Access" : "Check Access") {
+                        Task { _ = await inference.validateCloudAccess(for: provider) }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(validationState.isChecking || isActionInFlight)
+                }
+
+                if showsAdvancedSettings, let url = provider.documentationURL {
+                    Button(provider.documentationActionTitle) {
+                        NSWorkspace.shared.open(url)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+
+                if !isActiveWorkspace {
+                    Button("Make Active") {
+                        inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(!validationState.isVerified)
+                    .help(
+                        validationState.isVerified
+                            ? "Make this the active cloud provider."
+                            : "Verify live access before making this provider active."
+                    )
+                }
+            }
+
+            if provider == .google {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Google Cloud project ID (not project number)", text: $googleOAuthProjectID)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(minWidth: 220)
+                    Text(
+                        googleOAuthClientFilename.isEmpty
+                            ? "Choose the OAuth client JSON you downloaded from Google Cloud Console after creating an OAuth client ID for a Desktop app."
+                            : "Google OAuth client JSON: \(googleOAuthClientFilename). This should be the Desktop app client file from Google Cloud Console."
+                    )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Use the Google Cloud project ID for the same project where Gemini API is enabled. This is the project slug, not the numeric project number.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    if let googleOAuthClientStatusMessage {
+                        CloudProviderGuidanceRow(
+                            text: googleOAuthClientStatusMessage,
+                            theme: theme,
+                            systemImage: googleOAuthClientStatusIsSuccess
+                                ? "checkmark.circle.fill"
+                                : "exclamationmark.triangle.fill",
+                            tint: googleOAuthClientStatusIsSuccess
+                                ? theme.success
+                                : theme.warning
+                        )
                     }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                Button("Check Key") {
-                    Task { _ = await inference.validateAPIKey(for: provider) }
+            }
+
+            if let accountConnectionSummary {
+                CloudProviderAccountConnectionRow(
+                    summary: accountConnectionSummary,
+                    theme: theme,
+                    actionTitle: hasOAuthSession ? "Disconnect Account" : nil,
+                    action: hasOAuthSession ? {
+                        _ = inference.setOAuthCredential(nil, for: provider)
+                    } : nil
+                )
+            }
+
+            if provider.supportsAccountConnection, showsAdvancedSettings {
+                DisclosureGroup(provider.manualCredentialTitle) {
+                    manualCredentialEditor(
+                        for: provider,
+                        text: text,
+                        validationState: validationState,
+                        hasOAuthSession: hasOAuthSession
+                    )
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(validationState.isChecking || (inference.apiKey(for: provider)?.isEmpty ?? true))
-                Button("Clear") {
-                    text.wrappedValue = ""
-                    _ = inference.setAPIKey("", for: provider)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+            } else if !provider.supportsAccountConnection {
+                manualCredentialEditor(
+                    for: provider,
+                    text: text,
+                    validationState: validationState,
+                    hasOAuthSession: hasOAuthSession
+                )
             }
 
             HStack(alignment: .top, spacing: 8) {
@@ -758,9 +1191,283 @@ private struct InferenceDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if let guidanceText = accountGuidanceText(
+                for: provider,
+                validationState: validationState,
+                hasOAuthSession: hasOAuthSession
+            ) {
+                CloudProviderGuidanceRow(
+                    text: guidanceText,
+                    theme: theme
+                )
+            }
+
+            if provider == .openAI, case .invalid = validationState {
+                Button("Retry OpenAI Sign In") {
+                    Task { await runAccountAction(for: .openAI) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(isActionInFlight)
+            }
+
+            if provider == .anthropic, case .invalid = validationState {
+                Button("Retry Claude Code Import") {
+                    Task { await runAccountAction(for: .anthropic) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(isActionInFlight)
+            }
+
+            if provider == .google, case .invalid = validationState {
+                Button("Retry Google OAuth") {
+                    Task { await runAccountAction(for: .google) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(isActionInFlight)
+            }
+
             Text("Available models: \(provider.modelSummary)")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func primaryAccessButtons(
+        for provider: CloudModelProvider,
+        isActionInFlight: Bool
+    ) -> some View {
+        switch provider {
+        case .openAI:
+            Button("Sign In") {
+                Task { await runAccountAction(for: .openAI) }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .disabled(isActionInFlight)
+
+            Button("Import Codex CLI") {
+                Task { await runAccountAction(for: .openAI, importExistingSession: true) }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(isActionInFlight)
+        case .anthropic:
+            Button("Import Claude Code") {
+                Task { await runAccountAction(for: .anthropic) }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .disabled(isActionInFlight)
+        case .google:
+            Button(googleOAuthClientConfigData == nil ? "Choose Google OAuth JSON" : "Replace Google OAuth JSON") {
+                chooseGoogleOAuthClientFile()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
+            if googleOAuthClientConfigData != nil {
+                Button("Clear Google OAuth JSON") {
+                    clearGoogleOAuthClientFile()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            Button("Connect Google OAuth") {
+                Task { await runAccountAction(for: .google) }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .disabled(
+                isActionInFlight
+                    || googleOAuthClientConfigData == nil
+                    || googleOAuthProjectID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+        case .zai, .kimi, .minimax, .deepseek:
+            if let url = provider.credentialManagementURL {
+                Button(provider.accountActionTitle) {
+                    inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+                    NSWorkspace.shared.open(url)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func manualCredentialEditor(
+        for provider: CloudModelProvider,
+        text: Binding<String>,
+        validationState: CloudProviderValidationState,
+        hasOAuthSession: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                SecureField(provider.apiKeyPlaceholder, text: text)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 220)
+                Button("Paste Key") {
+                    pasteProviderKey(for: provider, fromClipboardInto: text)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                Button("Save") {
+                    saveProviderKey(text.wrappedValue, for: provider, field: text)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            HStack(spacing: 6) {
+                Button("Paste + Save") {
+                    Task {
+                        await pasteAndSaveProviderKey(fromClipboardInto: text, provider: provider)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                Button("Check Access") {
+                    Task { _ = await inference.validateCloudAccess(for: provider) }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(validationState.isChecking || (!hasOAuthSession && (inference.apiKey(for: provider)?.isEmpty ?? true)))
+                Button(provider.supportsAccountConnection ? "Clear Legacy Key" : "Clear Key") {
+                    text.wrappedValue = ""
+                    _ = inference.setAPIKey("", for: provider)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            SettingsDescriptionText(text: provider.automationHintText, tertiary: true)
+        }
+    }
+
+    @ViewBuilder
+    private var providerNativeControls: some View {
+        switch inference.activeAIProvider {
+        case .openAI:
+            VStack(alignment: .leading, spacing: 10) {
+                Label("OpenAI Runtime Controls", systemImage: CloudModelProvider.openAI.systemImage)
+                    .font(.body.weight(.semibold))
+                SettingsDescriptionText(
+                    text: "Enable built-in OpenAI tools for the active provider. These apply to cloud requests sent through the Responses API."
+                )
+                Toggle(
+                    "Enable Web Search",
+                    isOn: Binding(
+                        get: { inference.openAIWebSearchEnabled },
+                        set: { inference.setOpenAIWebSearchEnabled($0) }
+                    )
+                )
+                Toggle(
+                    "Enable Code Interpreter",
+                    isOn: Binding(
+                        get: { inference.openAICodeInterpreterEnabled },
+                        set: { inference.setOpenAICodeInterpreterEnabled($0) }
+                    )
+                )
+            }
+            .padding(.vertical, 4)
+
+        case .anthropic:
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Anthropic Runtime Controls", systemImage: CloudModelProvider.anthropic.systemImage)
+                    .font(.body.weight(.semibold))
+                SettingsDescriptionText(
+                    text: "Extended thinking uses Anthropic's thinking configuration. Budget applies only when extended thinking is enabled."
+                )
+                Toggle(
+                    "Enable Extended Thinking",
+                    isOn: Binding(
+                        get: { inference.anthropicExtendedThinkingEnabled },
+                        set: { inference.setAnthropicExtendedThinkingEnabled($0) }
+                    )
+                )
+                if inference.anthropicExtendedThinkingEnabled {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Thinking Budget")
+                            Spacer()
+                            Text("\(inference.anthropicThinkingBudgetTokens) tokens")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(inference.anthropicThinkingBudgetTokens) },
+                                set: { inference.setAnthropicThinkingBudgetTokens(Int($0.rounded())) }
+                            ),
+                            in: 1_024...32_000,
+                            step: 1_024
+                        )
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+
+        case .google:
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Google Runtime Controls", systemImage: CloudModelProvider.google.systemImage)
+                    .font(.body.weight(.semibold))
+                SettingsDescriptionText(
+                    text: "Grounding enables Gemini's Google Search tool so the model can search live web results when it decides that search will improve the answer."
+                )
+                Toggle(
+                    "Enable Grounding with Google Search",
+                    isOn: Binding(
+                        get: { inference.googleGroundingEnabled },
+                        set: { inference.setGoogleGroundingEnabled($0) }
+                    )
+                )
+            }
+            .padding(.vertical, 4)
+
+        case .zai, .kimi, .minimax, .deepseek:
+            EmptyView()
+        case .localOnly:
+            EmptyView()
+        }
+    }
+
+    private var firecrawlKeyRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Label("Firecrawl", systemImage: "flame.fill")
+                    .font(.body.weight(.semibold))
+                Spacer()
+            }
+
+            SettingsDescriptionText(
+                text: "Optional web extraction key for Hermes and related research tooling."
+            )
+
+            HStack(spacing: 6) {
+                SecureField("fc-...", text: $firecrawlKey)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 220)
+                Button("Save") {
+                    let didSave = inference.setFirecrawlAPIKey(firecrawlKey)
+                    if didSave {
+                        firecrawlKey = inference.firecrawlAPIKey() ?? ""
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                Button("Clear") {
+                    firecrawlKey = ""
+                    _ = inference.setFirecrawlAPIKey("")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -787,6 +1494,265 @@ private struct InferenceDetailView: View {
             theme.success
         case .warning:
             theme.warning
+        }
+    }
+
+    private func accountGuidanceText(
+        for provider: CloudModelProvider,
+        validationState: CloudProviderValidationState,
+        hasOAuthSession: Bool
+    ) -> String? {
+        if provider == .google,
+           !hasOAuthSession,
+           (googleOAuthClientConfigData == nil || normalizedCredentialDraft(googleOAuthProjectID) == nil) {
+            return "Choose a Google Desktop OAuth client JSON file and enter a project ID before connecting your account."
+        }
+
+        if let providerGuidance = provider.accountGuidanceText(validationState: validationState) {
+            return providerGuidance
+        }
+
+        if inference.activeAIProvider != AIProviderSelection(cloudProvider: provider),
+           !validationState.isVerified {
+            return "Verify live access before making this provider active."
+        }
+
+        return nil
+    }
+
+    private var cloudSetupHintPopover: some View {
+        CloudHintPopover(
+            title: "Cloud Workspace",
+            bulletPoints: [
+                "OpenAI is the default cloud workspace for chat and coding in Epistemos.",
+                "Turn off Enable Cloud Models any time to stay local-only.",
+                "Other providers stay compact until you make one active.",
+            ],
+            footnote: "Account-first setup stays primary where the provider supports it.",
+            onRemindLater: { showCloudSetupHint = false },
+            onGotIt: { dismissCloudSetupHintPermanently() }
+        )
+    }
+
+    private func clipboardKeyCandidate() -> String? {
+        CloudProviderSetupAutomation.clipboardKeyCandidate()
+    }
+
+    private func pasteProviderKey(
+        for provider: CloudModelProvider,
+        fromClipboardInto field: Binding<String>
+    ) {
+        guard let clipboardValue = clipboardKeyCandidate() else {
+            _ = inference.recordCloudProviderValidationFailure(
+                for: provider,
+                message: provider.missingClipboardCredentialMessage
+            )
+            return
+        }
+        field.wrappedValue = clipboardValue
+    }
+
+    private func pasteAndSaveProviderKey(
+        fromClipboardInto field: Binding<String>,
+        provider: CloudModelProvider
+    ) async {
+        let didSave = await CloudProviderSetupAutomation.pasteAndSave(
+            provider: provider,
+            inference: inference
+        )
+        field.wrappedValue = inference.apiKey(for: provider) ?? ""
+        if didSave {
+            showCloudSetupHint = false
+        }
+    }
+
+    private func saveProviderKey(
+        _ value: String,
+        for provider: CloudModelProvider,
+        field: Binding<String>
+    ) {
+        guard normalizedCredentialDraft(value) != nil else {
+            _ = inference.recordCloudProviderValidationFailure(
+                for: provider,
+                message: provider.missingManualCredentialMessage
+            )
+            return
+        }
+        let didSave = inference.setAPIKey(value, for: provider)
+        field.wrappedValue = inference.apiKey(for: provider) ?? ""
+        if didSave {
+            Task { _ = await inference.validateCloudAccess(for: provider) }
+        }
+    }
+
+    private func chooseGoogleOAuthClientFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK else {
+            return
+        }
+
+        guard let url = panel.url else {
+            googleOAuthClientStatusMessage = "Couldn't resolve the selected Google OAuth client file."
+            googleOAuthClientStatusIsSuccess = false
+            _ = inference.recordCloudProviderValidationFailure(
+                for: .google,
+                message: "Couldn't resolve the selected Google OAuth client JSON file."
+            )
+            return
+        }
+
+        guard let data = try? Data(contentsOf: url) else {
+            googleOAuthClientStatusMessage = "Couldn't read the selected Google OAuth client JSON file."
+            googleOAuthClientStatusIsSuccess = false
+            _ = inference.recordCloudProviderValidationFailure(
+                for: .google,
+                message: "Couldn't read the selected Google OAuth client JSON file."
+            )
+            return
+        }
+
+        do {
+            let parsedConfiguration = try GoogleOAuthClientConfiguration.parse(from: data)
+            guard CloudProviderSetupAutomation.persistGoogleOAuthClientConfig(
+                data: data,
+                filename: url.lastPathComponent
+            ) else {
+                googleOAuthClientStatusMessage = "Couldn't store the Google OAuth client file securely in the Apple Keychain."
+                googleOAuthClientStatusIsSuccess = false
+                _ = inference.recordCloudProviderValidationFailure(
+                    for: .google,
+                    message: "Couldn't store the Google OAuth client file securely in the Apple Keychain."
+                )
+                return
+            }
+
+            googleOAuthClientConfigData = data
+            googleOAuthClientFilename = url.lastPathComponent
+            if !parsedConfiguration.projectID.isEmpty {
+                googleOAuthProjectID = parsedConfiguration.projectID
+                googleOAuthClientStatusMessage = "Google OAuth client JSON verified. Project ID loaded from the file."
+            } else if normalizedCredentialDraft(googleOAuthProjectID) != nil {
+                googleOAuthClientStatusMessage = "Google OAuth client JSON verified. Using your current Google Cloud project ID."
+            } else {
+                googleOAuthClientStatusMessage = "Google OAuth client JSON verified. Enter the Google Cloud project ID for the same Gemini-enabled project."
+            }
+            googleOAuthClientStatusIsSuccess = true
+            inference.resetCloudProviderValidationState(for: .google)
+        } catch {
+            googleOAuthClientStatusMessage = error.localizedDescription
+            googleOAuthClientStatusIsSuccess = false
+            _ = inference.recordCloudProviderValidationFailure(
+                for: .google,
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func clearGoogleOAuthClientFile() {
+        CloudProviderSetupAutomation.clearGoogleOAuthClientConfig()
+        googleOAuthClientConfigData = nil
+        googleOAuthClientFilename = ""
+        googleOAuthClientStatusMessage = "Removed the saved Google OAuth client JSON."
+        googleOAuthClientStatusIsSuccess = true
+        inference.resetCloudProviderValidationState(for: .google)
+    }
+
+    private func runAccountAction(
+        for provider: CloudModelProvider,
+        importExistingSession: Bool = false
+    ) async {
+        accountActionInFlightProvider = provider
+        defer { accountActionInFlightProvider = nil }
+
+        let result: ConnectionTestResult
+        switch provider {
+        case .openAI:
+            if importExistingSession {
+                result = await inference.importOpenAIAccount()
+            } else {
+                openAIDeviceAuthorization = nil
+                result = await inference.signInToOpenAI { authorization in
+                    openAIDeviceAuthorization = authorization
+                }
+                openAIDeviceAuthorization = nil
+            }
+        case .anthropic:
+            result = await inference.importAnthropicAccount()
+        case .google:
+            guard let configData = googleOAuthClientConfigData else {
+                googleOAuthClientStatusMessage = "Choose the Google OAuth client JSON you downloaded from Google Cloud Console for a Desktop app before connecting Google OAuth."
+                googleOAuthClientStatusIsSuccess = false
+                result = inference.recordCloudProviderValidationFailure(
+                    for: .google,
+                    message: "Choose the Google OAuth client JSON you downloaded from Google Cloud Console for a Desktop app before connecting Google OAuth."
+                )
+                break
+            }
+            do {
+                let parsedConfiguration = try GoogleOAuthClientConfiguration.parse(from: configData)
+                guard let projectID = normalizedCredentialDraft(googleOAuthProjectID)
+                    ?? normalizedCredentialDraft(parsedConfiguration.projectID) else {
+                    googleOAuthClientStatusMessage = "Enter the Google Cloud project ID for the same project where Gemini API is enabled before connecting Google OAuth."
+                    googleOAuthClientStatusIsSuccess = false
+                    result = inference.recordCloudProviderValidationFailure(
+                        for: .google,
+                        message: "Enter the Google Cloud project ID for the same project where Gemini API is enabled before connecting Google OAuth."
+                    )
+                    break
+                }
+                let configuration = GoogleOAuthClientConfiguration(
+                    clientID: parsedConfiguration.clientID,
+                    clientSecret: parsedConfiguration.clientSecret,
+                    projectID: projectID
+                )
+                googleOAuthClientStatusMessage = nil
+                result = await inference.signInToGoogle(configuration: configuration)
+            } catch {
+                googleOAuthClientStatusMessage = error.localizedDescription
+                googleOAuthClientStatusIsSuccess = false
+                result = inference.recordCloudProviderValidationFailure(
+                    for: .google,
+                    message: error.localizedDescription
+                )
+            }
+        case .zai, .kimi, .minimax, .deepseek:
+            if let url = provider.credentialManagementURL {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+
+        if result.success {
+            showCloudSetupHint = false
+        }
+    }
+
+    private func normalizedCredentialDraft(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func cloudProviderDraftBinding(for provider: CloudModelProvider) -> Binding<String> {
+        switch provider {
+        case .openAI:
+            $openAIKey
+        case .anthropic:
+            $anthropicKey
+        case .google:
+            $googleKey
+        case .zai:
+            $zaiKey
+        case .kimi:
+            $kimiKey
+        case .minimax:
+            $minimaxKey
+        case .deepseek:
+            $deepseekKey
         }
     }
 }

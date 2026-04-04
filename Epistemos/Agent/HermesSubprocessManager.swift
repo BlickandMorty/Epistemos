@@ -144,6 +144,10 @@ struct HermesConfig: Sendable {
         .init(envVar: "ANTHROPIC_API_KEY", keychainKey: "epistemos.anthropic.apiKey"),
         .init(envVar: "OPENAI_API_KEY", keychainKey: "epistemos.openai.apiKey"),
         .init(envVar: "GOOGLE_API_KEY", keychainKey: "epistemos.google.apiKey"),
+        .init(envVar: "GLM_API_KEY", keychainKey: "epistemos.zai.apiKey"),
+        .init(envVar: "KIMI_API_KEY", keychainKey: "epistemos.kimi.apiKey"),
+        .init(envVar: "MINIMAX_API_KEY", keychainKey: "epistemos.minimax.apiKey"),
+        .init(envVar: "DEEPSEEK_API_KEY", keychainKey: "epistemos.deepseek.apiKey"),
     ]
 
     static func defaultHermesHomeURL(fileManager: FileManager = .default) -> URL {
@@ -414,6 +418,16 @@ struct HermesConfig: Sendable {
 }
 
 struct HermesRuntimeRoute: Sendable, Equatable {
+    private static let openAIAPIBaseURL = "https://api.openai.com/v1"
+    private static let openAICodexBaseURL = "https://chatgpt.com/backend-api/codex"
+    private static let anthropicBaseURL = "https://api.anthropic.com"
+    private static let googleOpenAIBaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    private static let zaiOpenAIBaseURL = "https://api.z.ai/api/paas/v4"
+    private static let kimiOpenAIBaseURL = "https://api.moonshot.ai/v1"
+    private static let kimiCodingBaseURL = "https://api.kimi.com/coding/v1"
+    private static let minimaxAnthropicBaseURL = "https://api.minimax.io/anthropic"
+    private static let deepSeekOpenAIBaseURL = "https://api.deepseek.com/v1"
+
     let model: String
     let requestedProvider: String
     let baseURL: String?
@@ -427,7 +441,7 @@ struct HermesRuntimeRoute: Sendable, Equatable {
         inferencePort: Int
     ) -> HermesRuntimeRoute? {
         guard let model = LocalTextModelID(rawValue: modelID),
-              model.canActAsAgent,
+              model.supportsHermesAgentMode,
               inferencePort > 0 else {
             return nil
         }
@@ -437,11 +451,14 @@ struct HermesRuntimeRoute: Sendable, Equatable {
             requestedProvider: "custom",
             baseURL: "http://127.0.0.1:\(inferencePort)/v1",
             apiMode: "chat_completions",
-            environmentOverrides: [
-                "HERMES_INFERENCE_PROVIDER": "custom",
-                "OPENAI_API_KEY": "local-epistemos",
-                "OPENAI_BASE_URL": "http://127.0.0.1:\(inferencePort)/v1",
-            ]
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "custom",
+                    "OPENAI_API_KEY": "local-epistemos",
+                    "OPENAI_BASE_URL": "http://127.0.0.1:\(inferencePort)/v1",
+                ],
+                uniquingKeysWith: { _, new in new }
+            )
         )
     }
 
@@ -456,7 +473,97 @@ struct HermesRuntimeRoute: Sendable, Equatable {
             return nil
         }
 
-        let clearedProviderEnvironment: [String: String] = [
+        return resolve(for: model, credential: .apiKey(apiKey))
+    }
+
+    static func resolve(
+        for model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential
+    ) -> HermesRuntimeRoute {
+        switch (model.provider, credential) {
+        case (.openAI, .apiKey(let apiKey)):
+            return openAIRoute(model: model, apiKey: apiKey, baseURL: openAIAPIBaseURL)
+        case (.openAI, .openAICodex(let accessToken)):
+            return openAIRoute(model: model, apiKey: accessToken, baseURL: openAICodexBaseURL)
+        case (.anthropic, .apiKey(let apiKey)):
+            return anthropicRoute(model: model, apiKey: apiKey)
+        case (.anthropic, .anthropicOAuth(let accessToken)):
+            return anthropicOAuthRoute(model: model, accessToken: accessToken)
+        case (.google, .apiKey(let apiKey)):
+            return googleRoute(model: model, apiKey: apiKey)
+        case (.google, .googleOAuth(let accessToken, let projectID)):
+            return googleOAuthRoute(model: model, accessToken: accessToken, projectID: projectID)
+        case (.zai, .apiKey(let apiKey)):
+            return openAICompatibleRoute(
+                providerEnv: "GLM_API_KEY",
+                baseURLEnv: "GLM_BASE_URL",
+                model: model,
+                apiKey: apiKey,
+                baseURL: zaiOpenAIBaseURL
+            )
+        case (.kimi, .apiKey(let apiKey)):
+            let baseURL = apiKey.hasPrefix("sk-kimi-") ? kimiCodingBaseURL : kimiOpenAIBaseURL
+            return openAICompatibleRoute(
+                providerEnv: "KIMI_API_KEY",
+                baseURLEnv: "KIMI_BASE_URL",
+                model: model,
+                apiKey: apiKey,
+                baseURL: baseURL
+            )
+        case (.minimax, .apiKey(let apiKey)):
+            return minimaxRoute(model: model, apiKey: apiKey)
+        case (.deepseek, .apiKey(let apiKey)):
+            return openAICompatibleRoute(
+                providerEnv: "DEEPSEEK_API_KEY",
+                baseURLEnv: "DEEPSEEK_BASE_URL",
+                model: model,
+                apiKey: apiKey,
+                baseURL: deepSeekOpenAIBaseURL
+            )
+        case (.openAI, _):
+            assertionFailure("Mismatched OpenAI credential for Hermes runtime route")
+            return openAIRoute(model: model, apiKey: "", baseURL: openAIAPIBaseURL)
+        case (.anthropic, _):
+            assertionFailure("Mismatched Anthropic credential for Hermes runtime route")
+            return anthropicRoute(model: model, apiKey: "")
+        case (.google, _):
+            assertionFailure("Mismatched Google credential for Hermes runtime route")
+            return googleRoute(model: model, apiKey: "")
+        case (.zai, _):
+            assertionFailure("Mismatched Z.AI credential for Hermes runtime route")
+            return openAICompatibleRoute(
+                providerEnv: "GLM_API_KEY",
+                baseURLEnv: "GLM_BASE_URL",
+                model: model,
+                apiKey: "",
+                baseURL: zaiOpenAIBaseURL
+            )
+        case (.kimi, _):
+            assertionFailure("Mismatched Kimi credential for Hermes runtime route")
+            return openAICompatibleRoute(
+                providerEnv: "KIMI_API_KEY",
+                baseURLEnv: "KIMI_BASE_URL",
+                model: model,
+                apiKey: "",
+                baseURL: kimiOpenAIBaseURL
+            )
+        case (.minimax, _):
+            assertionFailure("Mismatched MiniMax credential for Hermes runtime route")
+            return minimaxRoute(model: model, apiKey: "")
+        case (.deepseek, _):
+            assertionFailure("Mismatched DeepSeek credential for Hermes runtime route")
+            return openAICompatibleRoute(
+                providerEnv: "DEEPSEEK_API_KEY",
+                baseURLEnv: "DEEPSEEK_BASE_URL",
+                model: model,
+                apiKey: "",
+                baseURL: deepSeekOpenAIBaseURL
+            )
+        }
+    }
+
+    private static func baseClearedProviderEnvironment() -> [String: String] {
+        [
             "OPENAI_API_KEY": "",
             "OPENAI_BASE_URL": "",
             "OPENROUTER_API_KEY": "",
@@ -464,55 +571,168 @@ struct HermesRuntimeRoute: Sendable, Equatable {
             "ANTHROPIC_TOKEN": "",
             "CLAUDE_CODE_OAUTH_TOKEN": "",
             "GOOGLE_API_KEY": "",
+            "GOOGLE_CLOUD_PROJECT": "",
+            "HERMES_OPENAI_DEFAULT_HEADERS_JSON": "",
+            "GLM_API_KEY": "",
+            "GLM_BASE_URL": "",
+            "KIMI_API_KEY": "",
+            "KIMI_BASE_URL": "",
+            "MINIMAX_API_KEY": "",
+            "MINIMAX_BASE_URL": "",
+            "DEEPSEEK_API_KEY": "",
+            "DEEPSEEK_BASE_URL": "",
         ]
+    }
 
-        switch model.provider {
-        case .openAI:
-            return HermesRuntimeRoute(
-                model: model.vendorModelID,
-                requestedProvider: "custom",
-                baseURL: "https://api.openai.com/v1",
-                apiMode: "codex_responses",
-                environmentOverrides: clearedProviderEnvironment.merging(
-                    [
-                        "HERMES_INFERENCE_PROVIDER": "custom",
-                        "OPENAI_API_KEY": apiKey,
-                        "OPENAI_BASE_URL": "https://api.openai.com/v1",
-                    ],
-                    uniquingKeysWith: { _, new in new }
-                )
+    private static func openAIRoute(
+        model: CloudTextModelID,
+        apiKey: String,
+        baseURL: String
+    ) -> HermesRuntimeRoute {
+        HermesRuntimeRoute(
+            model: model.vendorModelID,
+            requestedProvider: "custom",
+            baseURL: baseURL,
+            apiMode: "codex_responses",
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "custom",
+                    "OPENAI_API_KEY": apiKey,
+                    "OPENAI_BASE_URL": baseURL,
+                ],
+                uniquingKeysWith: { _, new in new }
             )
-        case .anthropic:
-            return HermesRuntimeRoute(
-                model: model.vendorModelID,
-                requestedProvider: "anthropic",
-                baseURL: "https://api.anthropic.com",
-                apiMode: "anthropic_messages",
-                environmentOverrides: clearedProviderEnvironment.merging(
-                    [
-                        "HERMES_INFERENCE_PROVIDER": "anthropic",
-                        "ANTHROPIC_API_KEY": apiKey,
-                    ],
-                    uniquingKeysWith: { _, new in new }
-                )
+        )
+    }
+
+    private static func anthropicRoute(
+        model: CloudTextModelID,
+        apiKey: String
+    ) -> HermesRuntimeRoute {
+        HermesRuntimeRoute(
+            model: model.vendorModelID,
+            requestedProvider: "anthropic",
+            baseURL: anthropicBaseURL,
+            apiMode: "anthropic_messages",
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "anthropic",
+                    "ANTHROPIC_API_KEY": apiKey,
+                ],
+                uniquingKeysWith: { _, new in new }
             )
-        case .google:
-            return HermesRuntimeRoute(
-                model: model.vendorModelID,
-                requestedProvider: "custom",
-                baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-                apiMode: "chat_completions",
-                environmentOverrides: clearedProviderEnvironment.merging(
-                    [
-                        "HERMES_INFERENCE_PROVIDER": "custom",
-                        "OPENAI_API_KEY": apiKey,
-                        "OPENAI_BASE_URL": "https://generativelanguage.googleapis.com/v1beta/openai/",
-                        "GOOGLE_API_KEY": apiKey,
-                    ],
-                    uniquingKeysWith: { _, new in new }
-                )
+        )
+    }
+
+    private static func anthropicOAuthRoute(
+        model: CloudTextModelID,
+        accessToken: String
+    ) -> HermesRuntimeRoute {
+        HermesRuntimeRoute(
+            model: model.vendorModelID,
+            requestedProvider: "anthropic",
+            baseURL: anthropicBaseURL,
+            apiMode: "anthropic_messages",
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "anthropic",
+                    "ANTHROPIC_TOKEN": accessToken,
+                    "CLAUDE_CODE_OAUTH_TOKEN": accessToken,
+                ],
+                uniquingKeysWith: { _, new in new }
             )
-        }
+        )
+    }
+
+    private static func googleRoute(
+        model: CloudTextModelID,
+        apiKey: String
+    ) -> HermesRuntimeRoute {
+        HermesRuntimeRoute(
+            model: model.vendorModelID,
+            requestedProvider: "custom",
+            baseURL: googleOpenAIBaseURL,
+            apiMode: "chat_completions",
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "custom",
+                    "OPENAI_API_KEY": apiKey,
+                    "OPENAI_BASE_URL": googleOpenAIBaseURL,
+                    "GOOGLE_API_KEY": apiKey,
+                ],
+                uniquingKeysWith: { _, new in new }
+            )
+        )
+    }
+
+    private static func googleOAuthRoute(
+        model: CloudTextModelID,
+        accessToken: String,
+        projectID: String
+    ) -> HermesRuntimeRoute {
+        let projectHeaderJSON = "{\"x-goog-user-project\":\"\(projectID)\"}"
+        return HermesRuntimeRoute(
+            model: model.vendorModelID,
+            requestedProvider: "custom",
+            baseURL: googleOpenAIBaseURL,
+            apiMode: "chat_completions",
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "custom",
+                    "OPENAI_API_KEY": accessToken,
+                    "OPENAI_BASE_URL": googleOpenAIBaseURL,
+                    "GOOGLE_CLOUD_PROJECT": projectID,
+                    "HERMES_OPENAI_DEFAULT_HEADERS_JSON": projectHeaderJSON,
+                ],
+                uniquingKeysWith: { _, new in new }
+            )
+        )
+    }
+
+    private static func openAICompatibleRoute(
+        providerEnv: String,
+        baseURLEnv: String,
+        model: CloudTextModelID,
+        apiKey: String,
+        baseURL: String
+    ) -> HermesRuntimeRoute {
+        HermesRuntimeRoute(
+            model: model.vendorModelID,
+            requestedProvider: "custom",
+            baseURL: baseURL,
+            apiMode: "chat_completions",
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "custom",
+                    "OPENAI_API_KEY": apiKey,
+                    "OPENAI_BASE_URL": baseURL,
+                    providerEnv: apiKey,
+                    baseURLEnv: baseURL,
+                ],
+                uniquingKeysWith: { _, new in new }
+            )
+        )
+    }
+
+    private static func minimaxRoute(
+        model: CloudTextModelID,
+        apiKey: String
+    ) -> HermesRuntimeRoute {
+        HermesRuntimeRoute(
+            model: model.vendorModelID,
+            requestedProvider: "anthropic",
+            baseURL: minimaxAnthropicBaseURL,
+            apiMode: "anthropic_messages",
+            environmentOverrides: baseClearedProviderEnvironment().merging(
+                [
+                    "HERMES_INFERENCE_PROVIDER": "anthropic",
+                    "ANTHROPIC_API_KEY": apiKey,
+                    "MINIMAX_API_KEY": apiKey,
+                    "MINIMAX_BASE_URL": minimaxAnthropicBaseURL,
+                ],
+                uniquingKeysWith: { _, new in new }
+            )
+        )
     }
 }
 
@@ -572,7 +792,7 @@ final class HermesSubprocessManager {
     private(set) var processState: HermesProcessState = .idle
     private(set) var pid: Int32?
 
-    /// Set when Hermes reports an authentication failure (HTTP 401, missing API key).
+    /// Set when Hermes reports an authentication failure (HTTP 401, missing account session, or missing API key).
     /// UI observes this to show an inline setup prompt.
     private(set) var authFailureMessage: String?
 
@@ -1117,7 +1337,7 @@ final class HermesSubprocessManager {
                 || lowered.contains("openai_api_key not set") {
                 if authFailureMessage == nil {
                     authFailureMessage = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                    log.warning("Auth failure detected — UI should prompt for API key setup")
+                    log.warning("Auth failure detected — UI should prompt for cloud account setup")
                 }
             }
         }

@@ -55,7 +55,7 @@ final class PipelineService {
         mode: InferenceMode,
         notesContext: String? = nil,
         conversationHistory: String? = nil,
-        localReasoningMode: LocalReasoningMode = .fast
+        operatingMode: EpistemosOperatingMode = .fast
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         let _ = (mode, llmService, inference, eventBus)
         let runID = UUID()
@@ -82,7 +82,7 @@ final class PipelineService {
                         query: query,
                         notesContext: notesContext,
                         conversationHistory: conversationHistory,
-                        localReasoningMode: localReasoningMode
+                        operatingMode: operatingMode
                     )
 
                     for try await token in directStream {
@@ -167,7 +167,7 @@ final class PipelineService {
         query: String,
         notesContext: String? = nil,
         conversationHistory: String? = nil,
-        localReasoningMode: LocalReasoningMode = .fast
+        operatingMode: EpistemosOperatingMode = .fast
     ) -> AsyncThrowingStream<String, Error> {
         Log.pipeline.info("🔬 generateDirectStream — chatMode=PLAIN queryLen=\(query.count)")
 
@@ -192,7 +192,7 @@ final class PipelineService {
             systemPrompt: nil,
             operation: .chatResponse(query: query),
             contentLength: finalPrompt.count,
-            localReasoningMode: localReasoningMode,
+            operatingMode: operatingMode,
             localSurface: .miniChat
         )
     }

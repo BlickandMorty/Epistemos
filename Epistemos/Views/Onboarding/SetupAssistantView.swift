@@ -16,6 +16,17 @@ struct SetupAssistantView: View {
 
     let onComplete: () -> Void
 
+    private var selectedCloudSetupProvider: CloudModelProvider {
+        inference.activeCloudProvider ?? .google
+    }
+
+    private var cloudSetupProviderBinding: Binding<CloudModelProvider> {
+        Binding(
+            get: { selectedCloudSetupProvider },
+            set: { inference.setActiveAIProvider(AIProviderSelection(cloudProvider: $0)) }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Progress dots
@@ -184,6 +195,29 @@ struct SetupAssistantView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Cloud AI Provider")
+                    .font(.subheadline.weight(.semibold))
+
+                Picker("Cloud AI Provider", selection: cloudSetupProviderBinding) {
+                    ForEach(CloudModelProvider.preferredOrder, id: \.rawValue) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                CloudProviderSetupCard(
+                    provider: selectedCloudSetupProvider,
+                    title: "Connect \(selectedCloudSetupProvider.displayName)",
+                    message: selectedCloudSetupProvider.setupHelpText,
+                    footer: selectedCloudSetupProvider.supportsAccountConnection
+                        ? "Start with the provider account flow here. Expand Legacy API Key only if you intentionally want the manual fallback."
+                        : "This provider uses the direct API route in Epistemos today. Open the provider portal, create a key, then use Paste + Save.",
+                    showsDismissTip: false
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Spacer()
 
             // Status display
@@ -268,6 +302,9 @@ struct SetupAssistantView: View {
         .padding(.vertical, 24)
         .task {
             guard hermesSetup.state == .idle else { return }
+            if inference.shouldShowCloudSetupHint {
+                inference.markCloudSetupHintShown()
+            }
             await hermesSetup.runSetup()
             // Auto-advance on success after a brief pause
             if hermesSetup.state == .ready {

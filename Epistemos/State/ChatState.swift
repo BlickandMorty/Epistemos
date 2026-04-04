@@ -433,7 +433,7 @@ enum MainChatSubmissionRouter {
                 await orchestrator.submitTask(trimmed)
             }
 
-        case .fast, .thinking:
+        case .fast, .thinking, .pro:
             chat.submitQuery(trimmed, operatingMode: operatingMode)
         }
     }

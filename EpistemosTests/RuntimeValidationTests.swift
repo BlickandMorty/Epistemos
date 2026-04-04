@@ -46,9 +46,14 @@ struct RuntimeValidationTests {
         "epistemos.preferredLocalTextModelID",
         "epistemos.preferredChatModelSelection",
         "epistemos.activeAIProvider",
+        "epistemos.cloudSetupHintShown",
         "epistemos.preferredCloudModel.openAI",
         "epistemos.preferredCloudModel.anthropic",
         "epistemos.preferredCloudModel.google",
+        "epistemos.preferredCloudModel.zai",
+        "epistemos.preferredCloudModel.kimi",
+        "epistemos.preferredCloudModel.minimax",
+        "epistemos.preferredCloudModel.deepseek",
     ]
 
     @MainActor
@@ -114,6 +119,11 @@ struct RuntimeValidationTests {
         #expect(source.contains("\"gpt-5.3\": .openAIGPT54"))
         #expect(source.contains("\"claude-sonnet-4-6\": .anthropicClaudeSonnet4"))
         #expect(source.contains("\"gemini-1.5-pro\": .googleGemini25Pro"))
+        #expect(source.contains("case zai"))
+        #expect(source.contains("case kimi"))
+        #expect(source.contains("case minimax"))
+        #expect(source.contains("case deepseek"))
+        #expect(source.contains("\"epistemos.preferredCloudModel.\\(provider.rawValue)\""))
     }
 
     @Test("chat model selector uses a popover with an active provider and scoped cloud section")
@@ -123,10 +133,10 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("AnchoredPopoverButton("))
         #expect(rootView.contains("DisclosureGroup("))
         #expect(rootView.contains("\"Local Models\""))
-        #expect(rootView.contains("\"Cloud Models\""))
-        #expect(rootView.contains("\"AI Provider\""))
+        #expect(rootView.contains("\"Cloud Access\""))
+        #expect(rootView.contains("\"Provider\""))
         #expect(rootView.contains("\"Temporary Chat\""))
-        #expect(rootView.contains("ForEach(CloudModelProvider.allCases"))
+        #expect(rootView.contains("ForEach(CloudModelProvider.preferredOrder"))
         #expect(rootView.contains("inference.activeAIProvider"))
         #expect(rootView.contains("ForEach(CloudTextModelID.models(for: provider)"))
     }
@@ -356,8 +366,8 @@ struct RuntimeValidationTests {
             #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_9B4Bit.rawValue))
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast])
+            #expect(inference.supportsThinkingOperatingMode)
+            #expect(inference.availableOperatingModes == [.fast, .thinking, .agent])
         }
     }
 
@@ -386,7 +396,7 @@ struct RuntimeValidationTests {
             ])
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue))
-            #expect(inference.availableOperatingModes == [.fast, .thinking, .agent])
+            #expect(inference.availableOperatingModes == [.fast, .thinking])
 
             inference.setPreferredChatModelSelection(.localQwen(LocalTextModelID.smolLM3_3B4Bit.rawValue))
             #expect(inference.availableOperatingModes == [.fast])
@@ -430,7 +440,9 @@ struct RuntimeValidationTests {
         let source = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
 
         #expect(source.contains("private(set) var cachedCloudAPIKeys"))
+        #expect(source.contains("private(set) var cachedCloudOAuthCredentials"))
         #expect(source.contains("private(set) var cloudProviderValidationStates"))
+        #expect(source.contains("func validateCloudAccess(for provider: CloudModelProvider) async -> ConnectionTestResult"))
         #expect(source.contains("func validateAPIKey(for provider: CloudModelProvider) async -> ConnectionTestResult"))
         #expect(source.contains("cloudProviderValidationStates[provider] = .checking"))
         #expect(source.contains("cloudProviderValidationStates[provider] = .unchecked"))
@@ -445,7 +457,7 @@ struct RuntimeValidationTests {
 
         #expect(llmService.contains("if let model"))
         #expect(llmService.contains("providerAuthorizationRequest"))
-        #expect(llmService.contains("https://api.openai.com/v1/models"))
+        #expect(llmService.contains("openAIBaseURL(for: credential) + \"/models\""))
         #expect(llmService.contains("https://api.anthropic.com/v1/models"))
         #expect(llmService.contains("generativelanguage.googleapis.com/v1beta/models"))
         #expect(inference.contains("case .anthropic:\n            .anthropicClaudeSonnet4"))
@@ -455,7 +467,8 @@ struct RuntimeValidationTests {
     func inferenceSettingsSurfaceExposesValidationAndGuidance() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
-        #expect(source.contains("Check Key"))
+        #expect(source.contains("Check Access"))
+        #expect(source.contains("provider.manualCredentialTitle"))
         #expect(source.contains("statusBadge"))
         #expect(source.contains("setupHelpText"))
         #expect(source.contains("Stored securely in the Apple Keychain"))
@@ -1269,8 +1282,8 @@ struct RuntimeValidationTests {
         }
     }
 
-    @Test("live local ai surfaces stay free of sidecar and deepseek residue")
-    func liveLocalAISurfacesStayFreeOfSidecarAndDeepSeekResidue() throws {
+    @Test("live local ai surfaces stay free of sidecar residue")
+    func liveLocalAISurfacesStayFreeOfSidecarResidue() throws {
         let llm = try loadRepoTextFile("Epistemos/Engine/LLMService.swift")
         let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
         let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
@@ -1279,7 +1292,6 @@ struct RuntimeValidationTests {
             "LocalSidecar",
             "mlx-openai-server",
             "http://127.0.0.1",
-            "DeepSeek",
         ] {
             #expect(!llm.contains(banned))
             #expect(!triage.contains(banned))
@@ -1764,8 +1776,8 @@ struct RuntimeValidationTests {
         #expect(!miniChat.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
         #expect(!miniChat.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
         #expect(miniChat.contains("await orchestrator.submitTask(trimmed)"))
-        #expect(pipeline.contains("localReasoningMode: LocalReasoningMode = .fast"))
-        #expect(pipeline.contains("localReasoningMode: localReasoningMode"))
+        #expect(pipeline.contains("operatingMode: EpistemosOperatingMode = .fast"))
+        #expect(pipeline.contains("operatingMode: operatingMode"))
     }
 
     @Test("compact chat surfaces keep operating mode controls reachable with a horizontal control strip")
@@ -1839,14 +1851,36 @@ struct RuntimeValidationTests {
     func chatModelSelectorAlwaysExposesCloudModelsAndShowsConfigurationGuidance() throws {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(root.contains("title: \"Cloud Models\""))
-        #expect(root.contains("ForEach(CloudModelProvider.allCases"))
+        #expect(root.contains("title: \"Cloud Access\""))
+        #expect(root.contains("title: \"Provider\""))
+        #expect(root.contains("title: \"Models\""))
+        #expect(root.contains("ForEach(CloudModelProvider.preferredOrder"))
         #expect(root.contains("inference.activeCloudProvider"))
         #expect(root.contains("isEnabled: providerConfigured"))
         #expect(root.contains("\"Local Only\""))
-        #expect(root.contains("subtitle: cloudDisclosureSubtitle"))
-        #expect(root.contains("return \"Add a key to unlock\""))
-        #expect(root.contains("Open Inference Settings"))
+        #expect(root.contains("subtitle: cloudAccessSubtitle"))
+        #expect(root.contains("return \"Finish setup to unlock\""))
+        #expect(root.contains("CloudProviderSetupCard("))
+        #expect(root.contains("isExpanded: $showsCloudProviderOptions"))
+        #expect(root.contains("showsDismissTip: inference.shouldShowCloudSetupHint"))
+    }
+
+    @Test("provider setup automation extends beyond settings into landing onboarding and agent runtime")
+    func providerSetupAutomationExtendsBeyondSettings() throws {
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let setupAssistant = try loadRepoTextFile("Epistemos/Views/Onboarding/SetupAssistantView.swift")
+        let agentPanel = try loadRepoTextFile("Epistemos/Views/AgentSessionPanel.swift")
+        let sharedCard = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
+
+        #expect(landing.contains("CloudProviderSetupCard("))
+        #expect(setupAssistant.contains("CloudProviderSetupCard("))
+        #expect(setupAssistant.contains("ForEach(CloudModelProvider.preferredOrder"))
+        #expect(agentPanel.contains("CloudProviderSetupCard("))
+        #expect(sharedCard.contains("provider.accountActionTitle"))
+        #expect(sharedCard.contains("provider.manualCredentialTitle"))
+        #expect(sharedCard.contains("Button(\"Paste + Save\")"))
+        #expect(sharedCard.contains("Button(\"Open Inference Settings\")"))
+        #expect(sharedCard.contains("Button(provider.documentationActionTitle)"))
     }
 
     @Test("chat file picker defers panel presentation and reads files under a security scope")
@@ -2724,9 +2758,14 @@ struct InferenceCloudSelectionTests {
         "epistemos.preferredLocalTextModelID",
         "epistemos.preferredChatModelSelection",
         "epistemos.activeAIProvider",
+        "epistemos.cloudSetupHintShown",
         "epistemos.preferredCloudModel.openAI",
         "epistemos.preferredCloudModel.anthropic",
         "epistemos.preferredCloudModel.google",
+        "epistemos.preferredCloudModel.zai",
+        "epistemos.preferredCloudModel.kimi",
+        "epistemos.preferredCloudModel.minimax",
+        "epistemos.preferredCloudModel.deepseek",
     ]
 
     @MainActor
@@ -2790,6 +2829,10 @@ struct InferenceCloudSelectionTests {
             var keychainValues: [String: String] = [
                 CloudModelProvider.openAI.apiKeyKeychainKey: "openai-test-key",
                 CloudModelProvider.anthropic.apiKeyKeychainKey: "anthropic-test-key",
+                CloudModelProvider.zai.apiKeyKeychainKey: "zai-test-key",
+                CloudModelProvider.kimi.apiKeyKeychainKey: "kimi-test-key",
+                CloudModelProvider.minimax.apiKeyKeychainKey: "minimax-test-key",
+                CloudModelProvider.deepseek.apiKeyKeychainKey: "deepseek-test-key",
             ]
             let inference = InferenceState(
                 keychainLoad: { keychainValues[$0] },
@@ -2823,7 +2866,453 @@ struct InferenceCloudSelectionTests {
             inference.setActiveAIProvider(.openAI)
             inference.setActiveAIProvider(.anthropic)
             #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeHaiku35))
+
+            inference.setActiveAIProvider(.deepseek)
+            #expect(inference.activeCloudProvider == .deepseek)
+            #expect(inference.activeCloudModels == CloudTextModelID.models(for: .deepseek))
         }
+    }
+
+    @MainActor
+    @Test("cloud mode toggle keeps local-only routing explicit and restores the last cloud provider")
+    func cloudModeToggleKeepsLocalOnlyRoutingExplicit() async {
+        await withResetInferenceDefaults {
+            var keychainValues: [String: String] = [
+                CloudModelProvider.openAI.apiKeyKeychainKey: "openai-test-key",
+                CloudModelProvider.anthropic.apiKeyKeychainKey: "anthropic-test-key",
+            ]
+            let inference = InferenceState(
+                keychainLoad: { keychainValues[$0] },
+                keychainSave: { value, key in
+                    keychainValues[key] = value
+                    return true
+                },
+                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+            )
+
+            #expect(inference.activeAIProvider == .openAI)
+            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeSonnet4))
+            inference.setActiveAIProvider(.anthropic)
+            #expect(inference.activeAIProvider == .anthropic)
+
+            inference.setCloudModelsEnabled(false)
+            #expect(inference.activeAIProvider == .localOnly)
+            #expect(inference.preferredChatModelSelection == .localQwen(inference.preferredLocalTextModelID))
+
+            inference.setCloudModelsEnabled(true)
+            #expect(inference.activeAIProvider == .anthropic)
+        }
+    }
+
+    @MainActor
+    @Test("provider runtime controls and Firecrawl key persist through inference state")
+    func providerRuntimeControlsAndFirecrawlKeyPersistThroughInferenceState() async {
+        await withResetInferenceDefaults {
+            var keychainValues: [String: String] = [:]
+            let inference = InferenceState(
+                keychainLoad: { keychainValues[$0] },
+                keychainSave: { value, key in
+                    keychainValues[key] = value
+                    return true
+                },
+                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+            )
+
+            #expect(!inference.openAIWebSearchEnabled)
+            #expect(!inference.openAICodeInterpreterEnabled)
+            #expect(!inference.anthropicExtendedThinkingEnabled)
+            #expect(inference.anthropicThinkingBudgetTokens == 8_000)
+            #expect(!inference.googleGroundingEnabled)
+            #expect(inference.firecrawlAPIKey() == nil)
+
+            inference.setOpenAIWebSearchEnabled(true)
+            inference.setOpenAICodeInterpreterEnabled(true)
+            inference.setAnthropicExtendedThinkingEnabled(true)
+            inference.setAnthropicThinkingBudgetTokens(12_288)
+            inference.setGoogleGroundingEnabled(true)
+            _ = inference.setFirecrawlAPIKey("fc-test-key")
+
+            #expect(inference.openAIWebSearchEnabled)
+            #expect(inference.openAICodeInterpreterEnabled)
+            #expect(inference.anthropicExtendedThinkingEnabled)
+            #expect(inference.anthropicThinkingBudgetTokens == 12_288)
+            #expect(inference.googleGroundingEnabled)
+            #expect(inference.firecrawlAPIKey() == "fc-test-key")
+
+            _ = inference.setFirecrawlAPIKey("")
+            #expect(inference.firecrawlAPIKey() == nil)
+        }
+    }
+
+    @MainActor
+    @Test("cloud setup hint shows once and stays dismissed after first-use guidance")
+    func cloudSetupHintShowsOnceAndPersistsDismissal() async {
+        await withResetInferenceDefaults {
+            var keychainValues: [String: String] = [:]
+            let inference = InferenceState(
+                keychainLoad: { keychainValues[$0] },
+                keychainSave: { value, key in
+                    keychainValues[key] = value
+                    return true
+                },
+                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+            )
+
+            #expect(inference.shouldShowCloudSetupHint)
+            inference.markCloudSetupHintShown()
+            #expect(!inference.shouldShowCloudSetupHint)
+
+            let reloaded = InferenceState(
+                keychainLoad: { keychainValues[$0] },
+                keychainSave: { value, key in
+                    keychainValues[key] = value
+                    return true
+                },
+                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+            )
+            #expect(!reloaded.shouldShowCloudSetupHint)
+        }
+    }
+
+    @Test("inference settings keep openai first cloud controls advanced mode and remind-later hints")
+    func inferenceSettingsKeepOpenAIFirstCloudControlsAndHints() throws {
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(settings.contains("Settings Mode"))
+        #expect(settings.contains("Regular"))
+        #expect(settings.contains("Advanced"))
+        #expect(settings.contains("Enable Cloud Models"))
+        #expect(settings.contains("Active Cloud"))
+        #expect(settings.contains("Other Cloud Providers"))
+        #expect(settings.contains("OpenAI Recommended"))
+        #expect(settings.contains("Remind Me Later"))
+        #expect(settings.contains("Legacy API Key"))
+        #expect(settings.contains("showCloudSetupHint"))
+        #expect(settings.contains("cloudSetupHintPopover"))
+        #expect(settings.contains("CloudHintPopover"))
+        #expect(inference.contains("cloudSetupHintShownDefaultsKey"))
+        #expect(inference.contains("shouldShowCloudSetupHint"))
+        #expect(inference.contains("markCloudSetupHintShown"))
+        #expect(inference.contains("setCloudModelsEnabled"))
+        #expect(inference.contains("lastNonLocalAIProviderDefaultsKey"))
+    }
+
+    @Test("OpenAI OAuth checking has a hard timeout and explicit retry affordances")
+    func openAIOAuthCheckingHasTimeoutAndRetryAffordances() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("openAISignInTimeout: Duration = .seconds(90)"))
+        #expect(authService.contains("OpenAICodexRuntimeMetadata.url(appendingClientVersionTo:"))
+        #expect(authService.contains("Task.sleep(for: timeout)"))
+        #expect(authService.contains("throw CloudProviderAuthError.openAIDeviceCodeTimedOut"))
+        #expect(settings.contains("Retry OpenAI Sign In"))
+        #expect(sharedCard.contains("Retry OpenAI Sign In"))
+    }
+
+    @Test("OpenAI Codex auth and validation routes carry the required client version")
+    func openAICodexAuthAndValidationRoutesCarryTheRequiredClientVersion() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let llmService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/LLMService.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("enum OpenAICodexRuntimeMetadata"))
+        #expect(authService.contains("static let clientVersion"))
+        #expect(authService.contains("URLQueryItem(name: \"client_version\""))
+        #expect(llmService.contains("OpenAICodexRuntimeMetadata.url(appendingClientVersionTo:"))
+        #expect(llmService.contains("/backend-api/codex"))
+    }
+
+    @Test("OpenAI OAuth shows the device code directly in the app")
+    func openAIOAuthShowsTheDeviceCodeDirectlyInTheApp() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("onDeviceCodeReady"))
+        #expect(inference.contains("onDeviceCodeReady"))
+        #expect(settings.contains("@State private var openAIDeviceAuthorization"))
+        #expect(settings.contains("Copy Code"))
+        #expect(settings.contains("Open Verification Page"))
+        #expect(sharedCard.contains("@State private var openAIDeviceAuthorization"))
+        #expect(sharedCard.contains("Copy Code"))
+        #expect(sharedCard.contains("Open Verification Page"))
+    }
+
+    @Test("Anthropic import surfaces account status, retry, and connected account details")
+    func anthropicImportSurfacesAccountStatusRetryAndConnectedAccountDetails() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("AnthropicClaudeCodeImportResult"))
+        #expect(authService.contains("func anthropicClaudeCodeCredential(from data: Data)"))
+        #expect(authService.contains("accountLabel: Self.inferredAnthropicAccountLabel"))
+        #expect(inference.contains("cloudProviderValidationStates[.anthropic] = .checking"))
+        #expect(inference.contains("Connected as \\(accountLabel)."))
+        #expect(inference.contains("No account session connected"))
+        #expect(settings.contains("Retry Claude Code Import"))
+        #expect(settings.contains("CloudProviderAccountConnectionRow"))
+        #expect(sharedCard.contains("Retry Claude Code Import"))
+        #expect(sharedCard.contains("CloudProviderAccountConnectionRow"))
+    }
+
+    @Test("Google OAuth surfaces timeout, retry, and connected account confirmation")
+    func googleOAuthSurfacesTimeoutRetryAndConnectedAccountConfirmation() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("googleSignInTimeout: Duration = .seconds(90)"))
+        #expect(authService.contains("waitForAuthorizationResult(timeout: googleSignInTimeout)"))
+        #expect(authService.contains("throw CloudProviderAuthError.googleAuthorizationTimedOut"))
+        #expect(authService.contains("fetchGoogleAccountLabel"))
+        #expect(authService.contains("func googleAccountLabel(fromUserInfoData data: Data)"))
+        #expect(inference.contains("recordCloudProviderValidationFailure"))
+        #expect(inference.contains("Connected as \\(accountLabel)."))
+        #expect(settings.contains("Retry Google OAuth"))
+        #expect(settings.contains("CloudProviderAccountConnectionRow"))
+        #expect(sharedCard.contains("Retry Google OAuth"))
+    }
+
+    @Test("OAuth provider settings require verified access before activation")
+    func oauthProviderSettingsRequireVerifiedAccessBeforeActivation() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("func openAIAccountLabel(fromAccessToken token: String) -> String?"))
+        #expect(inference.contains("var isVerified: Bool"))
+        #expect(inference.contains("\"Saved\""))
+        #expect(inference.contains("\"Verified\""))
+        #expect(inference.contains("This check times out after 90 seconds."))
+        #expect(inference.contains("Run a live check before making this provider active."))
+        #expect(inference.contains("CloudProviderAccountConnectionState"))
+        #expect(inference.contains("If OpenAI asks you to enable access first"))
+        #expect(inference.contains("Claude Code needs to be signed in first"))
+        #expect(settings.contains(".disabled(!validationState.isVerified)"))
+        #expect(settings.contains("Verify live access before making this provider active."))
+        #expect(settings.contains("Connect Google OAuth first with the Desktop-app client JSON from Google Cloud Console and the matching Google Cloud project ID"))
+        #expect(sharedCard.contains("Verify live access before making this provider active."))
+    }
+
+    @Test("legacy keys and Google draft auth inputs surface explicit validation feedback")
+    func legacyKeysAndGoogleDraftAuthInputsSurfaceExplicitValidationFeedback() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("let projectID = (container[\"project_id\"] as? String)?"))
+        #expect(!authService.contains("guard !projectID.isEmpty"))
+        #expect(inference.contains("func resetCloudProviderValidationState(for provider: CloudModelProvider)"))
+        #expect(inference.contains("No Codex account session was found in ~/.codex/auth.json."))
+        #expect(inference.contains("cloudProviderValidationStates[.openAI] = .invalid"))
+        #expect(settings.contains("Paste or type a non-empty"))
+        #expect(settings.contains("Clipboard doesn't contain a non-empty"))
+        #expect(settings.contains("Couldn't read the selected Google OAuth client JSON file."))
+        #expect(settings.contains("Choose the Google OAuth client JSON you downloaded from Google Cloud Console for a Desktop app before connecting Google OAuth."))
+        #expect(settings.contains("Enter the Google Cloud project ID for the same project where Gemini API is enabled before connecting Google OAuth."))
+        #expect(settings.contains("Google OAuth client JSON verified."))
+        #expect(settings.contains("Clear Google OAuth JSON"))
+        #expect(settings.contains("CloudProviderSetupAutomation.loadGoogleOAuthClientConfigData()"))
+        #expect(settings.contains("CloudProviderSetupAutomation.loadGoogleOAuthClientFilename()"))
+        #expect(settings.contains("CloudProviderSetupAutomation.loadGoogleOAuthProjectIDDraft()"))
+        #expect(settings.contains("CloudProviderSetupAutomation.persistGoogleOAuthProjectIDDraft(newValue)"))
+        #expect(settings.contains("CloudProviderSetupAutomation.persistGoogleOAuthClientConfig("))
+        #expect(settings.contains("Removed the saved Google OAuth client JSON."))
+        #expect(sharedCard.contains("storedGoogleOAuthClientConfiguration()"))
+        #expect(sharedCard.contains("result = await inference.signInToGoogle(configuration: configuration)"))
+        #expect(sharedCard.contains("Clipboard doesn't contain a non-empty"))
+    }
+
+    @Test("Google OAuth setup copy explains the exact JSON file and project ID")
+    func googleOAuthSetupCopyExplainsTheExactJSONFileAndProjectID() throws {
+        let authService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/CloudProviderAuthService.swift",
+            testsFilePath: #filePath
+        )
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(authService.contains("installed.client_id"))
+        #expect(authService.contains("installed.client_secret"))
+        #expect(settings.contains("Choose Google OAuth JSON"))
+        #expect(settings.contains("Google Cloud project ID (not project number)"))
+        #expect(settings.contains("Choose the OAuth client JSON you downloaded from Google Cloud Console after creating an OAuth client ID for a Desktop app."))
+        #expect(settings.contains("Use the Google Cloud project ID for the same project where Gemini API is enabled. This is the project slug, not the numeric project number."))
+        #expect(inference.contains("create an OAuth client ID for a Desktop app"))
+        #expect(sharedCard.contains("Google OAuth client JSON"))
+        #expect(sharedCard.contains("Google Cloud project ID"))
+    }
+
+    @Test("saved provider access exposes a visible top-level check action")
+    func savedProviderAccessExposesAVisibleTopLevelCheckAction() throws {
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sharedCard = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(inference.contains("Tap Check Access before making this provider active."))
+        #expect(settings.contains("if hasOAuthSession || hasSavedAPIKey"))
+        #expect(settings.contains("Button(validationState.isVerified ? \"Re-check Access\" : \"Check Access\")"))
+        #expect(settings.contains("Task { _ = await inference.validateCloudAccess(for: provider) }"))
+        #expect(sharedCard.contains("if hasConfiguredAccess"))
+        #expect(sharedCard.contains("Button(validationState.isVerified ? \"Re-check Access\" : \"Check Access\")"))
+        #expect(sharedCard.contains("Task { _ = await inference.validateCloudAccess(for: provider) }"))
+    }
+
+    @Test("inference settings support regular and advanced presentation")
+    func inferenceSettingsSupportRegularAndAdvancedPresentation() throws {
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(settings.contains("@AppStorage(\"epistemos.inferenceAdvancedSettingsEnabled\")"))
+        #expect(settings.contains("Settings Mode"))
+        #expect(settings.contains("Text(\"Regular\")"))
+        #expect(settings.contains("Text(\"Advanced\")"))
+        #expect(settings.contains("if showsAdvancedSettings"))
+        #expect(settings.contains("Enable Cloud Models"))
+        #expect(settings.contains("Active Cloud"))
+        #expect(settings.contains("Other Cloud Providers"))
+    }
+
+    @Test("settings hints support native popovers and remind-later actions")
+    func settingsHintsSupportNativePopoversAndRemindLaterActions() throws {
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(settings.contains("SettingsHelpHeader"))
+        #expect(settings.contains("CloudHintPopover"))
+        #expect(settings.contains("showSettingsModeHint"))
+        #expect(settings.contains("showRoutingHint"))
+        #expect(settings.contains("showLocalAIHint"))
+        #expect(settings.contains("showOtherCloudProvidersHint"))
+        #expect(settings.contains("showResponseTokensHint"))
+        #expect(settings.contains("Button(\"Remind Me Later\")"))
+        #expect(settings.contains("Button(\"Got It\")"))
+        #expect(settings.contains("questionmark.circle"))
+        #expect(settings.contains(".popover("))
+    }
+
+    @Test("runtime popover uses available operating modes instead of disabled all-cases")
+    func runtimePopoverUsesAvailableOperatingModesInsteadOfDisabledAllCases() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/RootView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("ForEach(inference.availableOperatingModes"))
+        #expect(!source.contains("ForEach(EpistemosOperatingMode.allCases"))
+        #expect(source.contains(".easeInOut(duration: 0.15)"))
     }
 
     @MainActor
@@ -2837,5 +3326,22 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("if trimmed.isEmpty {"))
         #expect(source.contains("if case .cloud(let model) = preferredChatModelSelection, model.provider == provider"))
         #expect(source.contains("persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))"))
+    }
+
+    @Test("agent runtime route supports account-backed cloud credentials")
+    func agentRuntimeRouteSupportsAccountBackedCloudCredentials() throws {
+        let routeSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Agent/HermesSubprocessManager.swift",
+            testsFilePath: #filePath
+        )
+        let pythonSource = try loadRepoTextFileWithRetry(
+            relativePath: "hermes-agent/run_agent.py",
+            testsFilePath: #filePath
+        )
+
+        #expect(routeSource.contains("CloudProviderResolvedCredential"))
+        #expect(routeSource.contains("CLAUDE_CODE_OAUTH_TOKEN"))
+        #expect(routeSource.contains("HERMES_OPENAI_DEFAULT_HEADERS_JSON"))
+        #expect(pythonSource.contains("HERMES_OPENAI_DEFAULT_HEADERS_JSON"))
     }
 }

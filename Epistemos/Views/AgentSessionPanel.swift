@@ -3,6 +3,7 @@ import SwiftUI
 // Hermes session panel kept separate from the legacy Omega runtime surface.
 struct AgentSessionPanel: View {
     @Bindable var viewModel: AgentViewModel
+    @Environment(InferenceState.self) private var inference
     @State private var prompt = ""
     @State private var searchText = ""
     @FocusState private var promptFocused: Bool
@@ -534,7 +535,20 @@ struct AgentSessionPanel: View {
             )
 
         case .failed(let message):
-            ErrorBanner(message: message)
+            VStack(alignment: .leading, spacing: 12) {
+                ErrorBanner(message: message)
+                if shouldShowCloudProviderSetup(for: message) {
+                    CloudProviderSetupCard(
+                        provider: inference.activeCloudProvider ?? .google,
+                        title: "Reconnect \(inference.activeCloudProvider?.displayName ?? CloudModelProvider.google.displayName)",
+                        message: (inference.activeCloudProvider ?? .google).supportsAccountConnection
+                            ? "Hermes needs verified cloud access for agent work. Reconnect the provider account here, then use the legacy key disclosure only if you explicitly need the manual fallback."
+                            : "Hermes needs verified cloud access for agent work. Open the provider portal, create or copy a key, then use Paste + Save here.",
+                        compact: true,
+                        showsDismissTip: false
+                    )
+                }
+            }
         }
     }
 
@@ -724,6 +738,16 @@ struct AgentSessionPanel: View {
         guard !trimmed.isEmpty else { return }
         prompt = ""
         viewModel.send(prompt: trimmed)
+    }
+
+    private func shouldShowCloudProviderSetup(for message: String) -> Bool {
+        let lowered = message.lowercased()
+        return lowered.contains("api key")
+            || lowered.contains("account")
+            || lowered.contains("cloud access")
+            || lowered.contains("cloud model")
+            || lowered.contains("authentication failed")
+            || lowered.contains("settings → inference")
     }
 }
 
