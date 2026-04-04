@@ -15,6 +15,10 @@ struct GraphForceSettings: View {
 
     @State private var showAdvanced = false
     @State private var showLaboratory = false
+    @State private var showSavePresetAlert = false
+    @State private var newPresetName = ""
+    @State private var renameTargetId: UUID? = nil
+    @State private var renameDraft = ""
 
     private var isStatic: Bool { graphState.isStaticLayout }
 
@@ -28,14 +32,19 @@ struct GraphForceSettings: View {
                     staticLayoutBanner
                 }
 
-                performanceSection(gs: $gs)
-
-                Divider().opacity(0.3)
-
-                // ── Presets ──
+                // ── Presets (always visible at top) ──
                 presetSection
                     .opacity(isStatic ? 0.4 : 1.0)
                     .allowsHitTesting(!isStatic)
+
+                // ── Custom Presets ──
+                customPresetsSection
+                    .opacity(isStatic ? 0.4 : 1.0)
+                    .allowsHitTesting(!isStatic)
+
+                Divider().opacity(0.3)
+
+                performanceSection(gs: $gs)
 
                 Divider().opacity(0.3)
 
@@ -54,6 +63,7 @@ struct GraphForceSettings: View {
                     VStack(alignment: .leading, spacing: 16) {
                         advancedSection(gs: $gs)
                         clusterSection(gs: $gs)
+                        schedulerSection(gs: $gs)
                     }
                     .opacity(isStatic ? 0.4 : 1.0)
                     .allowsHitTesting(!isStatic)
@@ -154,6 +164,104 @@ struct GraphForceSettings: View {
                 ForEach(PhysicsPreset.allCases) { preset in
                     presetButton(preset)
                 }
+            }
+        }
+    }
+
+    // MARK: - Custom Presets
+
+    private var customPresetsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Custom")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button {
+                    newPresetName = ""
+                    showSavePresetAlert = true
+                } label: {
+                    Label("Save current", systemImage: "plus.circle")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                .disabled(graphState.customPhysicsPresets.count >= 32)
+            }
+
+            if graphState.customPhysicsPresets.isEmpty {
+                Text("No custom presets yet. Save the current physics setup to reuse it later.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(graphState.customPhysicsPresets) { preset in
+                        customPresetRow(preset)
+                    }
+                }
+            }
+        }
+        .alert("Save Custom Preset", isPresented: $showSavePresetAlert) {
+            TextField("Preset name", text: $newPresetName)
+            Button("Save") {
+                let trimmed = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    _ = graphState.saveCurrentAsCustomPreset(name: String(trimmed.prefix(40)))
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Captures all current physics, clustering, lab, and scheduler settings.")
+        }
+        .alert("Rename Preset", isPresented: Binding(
+            get: { renameTargetId != nil },
+            set: { if !$0 { renameTargetId = nil } }
+        )) {
+            TextField("New name", text: $renameDraft)
+            Button("Save") {
+                if let id = renameTargetId {
+                    let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        graphState.renameCustomPreset(id: id, newName: String(trimmed.prefix(40)))
+                    }
+                }
+                renameTargetId = nil
+            }
+            Button("Cancel", role: .cancel) { renameTargetId = nil }
+        }
+    }
+
+    private func customPresetRow(_ preset: CustomPhysicsPresetSnapshot) -> some View {
+        Button {
+            graphState.applyCustomPreset(preset)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Text(preset.name)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Color.primary.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .contextMenu {
+            Button("Rename") {
+                renameDraft = preset.name
+                renameTargetId = preset.id
+            }
+            Button("Delete", role: .destructive) {
+                graphState.deleteCustomPreset(id: preset.id)
             }
         }
     }
@@ -283,6 +391,20 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Clustering", icon: "circle.grid.3x3")
 
+            Toggle(isOn: gs.disableClusteringAndSemantics) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Disable clustering + semantics")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Zero both forces; toggle off to restore previous values")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+
+            let clusterDisabled = graphState.disableClusteringAndSemantics
+
             forceSlider(
                 label: "Cluster Bubbles",
                 value: gs.clusterStrength,
@@ -291,6 +413,8 @@ struct GraphForceSettings: View {
                 subtitle: "0 = off, 1 = strong bubbles",
                 onChange: { graphState.pushClusterChange() }
             )
+            .disabled(clusterDisabled)
+            .opacity(clusterDisabled ? 0.35 : 1.0)
 
             forceSlider(
                 label: "Semantic Attraction",
@@ -300,8 +424,10 @@ struct GraphForceSettings: View {
                 subtitle: "Similarity pull",
                 onChange: { graphState.pushSemanticChange() }
             )
+            .disabled(clusterDisabled)
+            .opacity(clusterDisabled ? 0.35 : 1.0)
 
-            if graphState.semanticStrength > 0.001 {
+            if graphState.semanticStrength > 0.001 && !clusterDisabled {
                 forceSlider(
                     label: "Cohesion",
                     value: gs.boidsCohesion,
@@ -329,6 +455,192 @@ struct GraphForceSettings: View {
                 }
             }
         }
+    }
+
+    // MARK: - Scheduler
+
+    private func schedulerSection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("Startup Scheduler", icon: "timer")
+
+            Picker("Mode", selection: gs.schedulerMode) {
+                Text("Simple").tag(PhysicsSchedulerMode.simple)
+                Text("Timeline").tag(PhysicsSchedulerMode.timeline)
+            }
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+            .onChange(of: graphState.schedulerMode) { graphState.pushSchedulerChange() }
+
+            if graphState.schedulerMode == .simple {
+                schedulerSimpleControls(gs: gs)
+            } else {
+                schedulerTimelineControls(gs: gs)
+            }
+
+            Divider().opacity(0.3)
+
+            Text("Interaction")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            forceSlider(
+                label: "Motion Hold",
+                value: Binding(
+                    get: { Float(graphState.interactionMotionHoldSeconds) },
+                    set: { graphState.interactionMotionHoldSeconds = Double($0) }
+                ),
+                range: 0...120,
+                format: "%.0fs",
+                subtitle: "How long interaction sustains motion",
+                onChange: { graphState.pushSchedulerChange() }
+            )
+
+            forceSlider(
+                label: "Interaction Alpha",
+                value: gs.interactionMotionAlphaTarget,
+                range: 0.001...0.1,
+                format: "%.3f",
+                subtitle: "Energy level during interaction",
+                onChange: { graphState.pushSchedulerChange() }
+            )
+        }
+    }
+
+    private func schedulerSimpleControls(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            presetKeyPicker(
+                label: "Opening",
+                selection: gs.simpleOpeningPresetKey,
+                onChange: { graphState.pushSchedulerChange() }
+            )
+            forceSlider(
+                label: "Opening Duration",
+                value: Binding(
+                    get: { Float(graphState.simpleOpeningDelaySeconds) },
+                    set: { graphState.simpleOpeningDelaySeconds = Double($0) }
+                ),
+                range: 0...60,
+                format: "%.1fs",
+                subtitle: "Delay before switching to resting",
+                onChange: { graphState.pushSchedulerChange() }
+            )
+            presetKeyPicker(
+                label: "Resting",
+                selection: gs.simpleRestingPresetKey,
+                onChange: { graphState.pushSchedulerChange() }
+            )
+        }
+    }
+
+    private func schedulerTimelineControls(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if graphState.timelineSteps.isEmpty {
+                Text("No steps yet. Add steps to sequence preset changes over time.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(graphState.timelineSteps.indices, id: \.self) { idx in
+                    timelineStepRow(index: idx)
+                }
+            }
+            Button {
+                let newStep = PhysicsScheduleStep(
+                    delaySeconds: 4.0,
+                    presetKey: "chaos"
+                )
+                graphState.timelineSteps.append(newStep)
+                graphState.pushSchedulerChange()
+            } label: {
+                Label("Add step", systemImage: "plus.circle")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .disabled(graphState.timelineSteps.count >= 16)
+        }
+    }
+
+    private func timelineStepRow(index: Int) -> some View {
+        let step = graphState.timelineSteps[index]
+        return HStack(spacing: 6) {
+            Text("#\(index + 1)")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 22, alignment: .leading)
+            Text("+\(String(format: "%.1f", step.delaySeconds))s")
+                .font(.system(size: 10).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 48, alignment: .leading)
+            Text(displayNameForPresetKey(step.presetKey))
+                .font(.system(size: 11, weight: .medium))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer()
+            Button {
+                graphState.timelineSteps.remove(at: index)
+                graphState.pushSchedulerChange()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Color.primary.opacity(0.04),
+            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+        )
+        .contextMenu {
+            ForEach(PhysicsPreset.allCases) { preset in
+                Button(preset.rawValue) {
+                    graphState.timelineSteps[index].presetKey = String(describing: preset)
+                    graphState.pushSchedulerChange()
+                }
+            }
+        }
+    }
+
+    private func presetKeyPicker(
+        label: String,
+        selection: Binding<String>,
+        onChange: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+            Picker(label, selection: selection) {
+                ForEach(PhysicsPreset.allCases) { preset in
+                    Text(preset.rawValue).tag(String(describing: preset))
+                }
+                if !graphState.customPhysicsPresets.isEmpty {
+                    Divider()
+                    ForEach(graphState.customPhysicsPresets) { custom in
+                        Text("Custom: \(custom.name)").tag("custom:\(custom.id.uuidString)")
+                    }
+                }
+            }
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .onChange(of: selection.wrappedValue) { onChange() }
+        }
+    }
+
+    private func displayNameForPresetKey(_ key: String) -> String {
+        if key.hasPrefix("custom:") {
+            let uuidStr = String(key.dropFirst("custom:".count))
+            if let uuid = UUID(uuidString: uuidStr),
+               let custom = graphState.customPhysicsPresets.first(where: { $0.id == uuid }) {
+                return "Custom: \(custom.name)"
+            }
+            return "Custom: (missing)"
+        }
+        if let builtin = PhysicsPreset.allCases.first(where: { String(describing: $0) == key }) {
+            return builtin.rawValue
+        }
+        return key
     }
 
     // MARK: - Laboratory Toggle
@@ -448,7 +760,7 @@ struct GraphForceSettings: View {
     private var resetButton: some View {
         HStack {
             Spacer()
-            Button("Reset to Crystal") {
+            Button("Reset to Deep Sea") {
                 graphState.startOverlayPhysicsCycle()
             }
             .font(.system(size: 11))

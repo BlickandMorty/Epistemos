@@ -20,12 +20,6 @@ struct GraphFloatingControls: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            typeFilterPills
-
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
-
             physicsToggle
 
             forceSettingsButton
@@ -51,28 +45,21 @@ struct GraphFloatingControls: View {
         .glassEffect(.regular.interactive(), in: Capsule())
         .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
         .fixedSize(horizontal: true, vertical: false)
-        .onAppear(perform: hideExcludedTypesIfNeeded)
+        .onAppear(perform: enforceDefaultFilters)
     }
 
-    // MARK: - Type Filter Pills
-
-    private var typeFilterPills: some View {
-        HStack(spacing: 6) {
-            ForEach(GraphOverlayControlsDisplay.filterTypes, id: \.rawValue) { type in
-                FilterPill(
-                    type: type,
-                    isActive: graphState.filter.activeNodeTypes.contains(type),
-                    action: {
-                        graphState.filter.toggleType(type)
-                        graphState.requestFilterSync()
-                    }
-                )
-            }
-        }
-    }
-
-    private func hideExcludedTypesIfNeeded() {
+    // MARK: - Default Filter Enforcement
+    // Manual filter toggling was removed — users no longer control node-type visibility.
+    // This enforces the canonical default: show the 5 visible types, hide tag/source/quote.
+    private func enforceDefaultFilters() {
         var changed = false
+        // Ensure all 5 visible types are on.
+        for type in GraphOverlayControlsDisplay.filterTypes
+            where !graphState.filter.activeNodeTypes.contains(type) {
+            graphState.filter.toggleType(type)
+            changed = true
+        }
+        // Ensure the 3 excluded types (tag/source/quote) stay off.
         for type in GraphOverlayControlsDisplay.excludedFilterTypes
             where graphState.filter.activeNodeTypes.contains(type) {
             graphState.filter.toggleType(type)
@@ -184,45 +171,6 @@ struct GraphFloatingControls: View {
         ) {
             NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
         }
-    }
-}
-
-// MARK: - FilterPill
-
-private struct FilterPill: View {
-    @Environment(GraphState.self) private var graphState
-    let type: GraphNodeType
-    let isActive: Bool
-    let action: () -> Void
-
-    private var usesDepthPalette: Bool {
-        graphState.visualTheme == .dialogue
-    }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 3) {
-                if !usesDepthPalette {
-                    Circle()
-                        .fill(type.swiftUIColor)
-                        .frame(width: 7, height: 7)
-                }
-
-                Text(type.displayName)
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                usesDepthPalette
-                    ? (isActive ? Color.primary.opacity(0.15) : Color.primary.opacity(0.05))
-                    : (isActive ? type.swiftUIColor.opacity(0.15) : Color.primary.opacity(0.05)),
-                in: Capsule()
-            )
-            .foregroundStyle(Color.primary.opacity(isActive ? 1.0 : 0.35))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(type.displayName) filter \(isActive ? "on" : "off")")
     }
 }
 

@@ -112,7 +112,11 @@
 - Bootstrap: Epistemos/App/AppBootstrap.swift
 
 ## Session Startup Protocol
-1. Read docs/AGENT_PROGRESS.md to see what's done and what's next
-2. Read the current sprint file from docs/sprint-sessions/
-3. After completing each task, run its verification command before moving to the next
-4. After completing all sprint tasks, update docs/AGENT_PROGRESS.md with ✅ and today's date
+1. Read docs/APP_ISSUES_AUTO_FIX.md — list of open runtime issues to opportunistically fix
+2. Read docs/AGENT_PROGRESS.md to see what's done and what's next
+3. Read the current sprint file from docs/sprint-sessions/
+4. After completing each task, run its verification command before moving to the next
+5. After completing all sprint tasks, update docs/AGENT_PROGRESS.md with ✅ and today's date
+
+## Auto-Fix Opportunities
+docs/APP_ISSUES_AUTO_FIX.md tracks runtime issues discovered during normal use. On every session start, check it for `Status: Open` issues and fix any you can address safely (non-destructive) without derailing the user's current request. Update the Investigation Log whenever you add context or attempt a fix.

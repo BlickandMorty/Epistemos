@@ -85,7 +85,65 @@ impl World {
             .rebuild(&world.entities, &world.transform);
         world.node_id_to_entity = id_map.clone();
         world.entity_to_node_id = id_map.into_iter().map(|(nid, eid)| (eid, nid)).collect();
+
+        // Compute folder nesting depth from containment edges (edge_type=1).
+        // BFS from root folders (those that are NOT contained by another folder).
+        world.compute_folder_depth();
+
         world
+    }
+
+    /// Compute `hierarchy.depth` for folder nodes by BFS over containment edges.
+    /// Root folders (not contained by any other folder) get depth 0.
+    /// Each nested folder increments depth by 1.
+    fn compute_folder_depth(&mut self) {
+        const FOLDER_TYPE: u8 = 4; // NodeType::Folder
+        const CONTAINS_EDGE: u8 = 1;
+
+        let n = self.entities.len();
+        if n == 0 {
+            return;
+        }
+
+        // Build containment parent map: child_entity → parent_entity.
+        // "contains" edge: source contains target → target's parent is source.
+        let mut parent_of: FxHashMap<u32, u32> = FxHashMap::default();
+        for edge in &self.edges {
+            if edge.edge_type == CONTAINS_EDGE {
+                parent_of.insert(edge.target, edge.source);
+            }
+        }
+
+        // For each folder, walk up the containment chain to compute depth.
+        for i in 0..n {
+            if self.hierarchy[i].node_type != FOLDER_TYPE {
+                continue;
+            }
+
+            let entity = self.entities[i];
+            let mut depth = 0u32;
+            let mut current = entity;
+
+            // Walk up the containment chain (max 20 to prevent cycles).
+            for _ in 0..20 {
+                if let Some(&parent_entity) = parent_of.get(&current) {
+                    // Only count parent if it's also a folder.
+                    if let Some(&parent_idx) = self.entity_to_index.get(&parent_entity) {
+                        if self.hierarchy[parent_idx].node_type == FOLDER_TYPE {
+                            depth += 1;
+                            current = parent_entity;
+                            continue;
+                        }
+                    }
+                }
+                break;
+            }
+
+            self.hierarchy[i].depth = depth;
+            if let Some(&parent_entity) = parent_of.get(&entity) {
+                self.hierarchy[i].parent = parent_entity;
+            }
+        }
     }
 
     /// Copy simulation cluster assignments into the ECS graph-node metadata.

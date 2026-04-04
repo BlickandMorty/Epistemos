@@ -576,6 +576,13 @@ fn attach_command_buffer_logging(cmd_buf: &CommandBufferRef, label: &'static str
     cmd_buf.add_completed_handler(&block);
 }
 
+/// Convert an sRGB perceptual color to linear space (Rust side).
+/// Alpha channel is left unchanged (alpha is always linear).
+#[inline]
+fn srgb_to_linear_rgba(c: [f32; 4]) -> [f32; 4] {
+    [c[0].powf(2.2), c[1].powf(2.2), c[2].powf(2.2), c[3]]
+}
+
 /// Evaluate a quadratic bezier at parameter t in [0, 1].
 fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
     let s = 1.0 - t;
@@ -590,6 +597,17 @@ fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
 const SHADER_SOURCE: &str = r#"
 #include <metal_stdlib>
 using namespace metal;
+
+// Convert a perceptual sRGB color to linear space for correct blending.
+// With BGRA8Unorm_sRGB framebuffer, the hardware does linear→sRGB on write,
+// so all shader math must be in linear space. Constants authored as perceptual
+// values need this conversion.
+float3 srgb_to_linear(float3 c) {
+    // Simplified gamma approximation: pow(c, 2.2).
+    // Full sRGB transfer uses a piecewise function, but pow(2.2) is within
+    // 0.3% for values > 0.04 — sufficient for visual color constants.
+    return pow(c, float3(2.2));
+}
 
 struct Uniforms {
     float2 viewport_size;
@@ -680,12 +698,13 @@ vertex NodeVertexOut node_vertex(
     float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
     float ndc_z = 0.5 - depth * 0.1;
 
-    // Highlight flags: 0=normal, 1=highlighted, 2=dim-dark, 3=dim-light, 4+=value/255.
+    // Highlight flags: 0=normal, 1=highlighted (selected+neighbors), 2=dim-dark,
+    // 3=dim-light, 5=glow-dim.
     uchar flag = highlight_flags[instance_id];
     float highlight_dim = flag == 0 ? 1.0
-                        : (flag == 1 ? 1.50
-                        : (flag == 2 ? 0.30   // dark mode: strong dim
-                        : (flag == 3 ? 0.80   // light mode: gentle fade
+                        : (flag == 1 ? 1.0    // highlighted: stays natural in both modes
+                        : (flag == 2 ? 0.10   // dark mode: strong dim for unselected
+                        : (flag == 3 ? 0.70   // light mode: gentle fade (original Codex value)
                         : (float(flag) / 255.0))));
     float desaturate = (flag == 2 || flag == 3) ? 1.0 : 0.0;
 
@@ -722,7 +741,7 @@ fragment float4 node_fragment(
         float alpha = in.color.a * max(ring, halo);
         if (alpha < 0.01) discard_fragment();
 
-        float3 ring_color = in.color.rgb + halo * float3(0.18, 0.24, 0.30);
+        float3 ring_color = in.color.rgb + halo * srgb_to_linear(float3(0.18, 0.24, 0.30));
         return float4(ring_color, alpha);
     }
 
@@ -750,6 +769,8 @@ fragment float4 node_fragment(
     bool performance_mode = in.is_lite > 1.5;
     float pixel_strength = performance_mode ? 0.45 : 0.6;
     float grid = performance_mode ? 10.0 : 12.0;
+    // Large hub detection (for retro shine effect only — grid/strength unchanged).
+    bool is_large_hub = in.depth >= 0.45;
     float2 quv = floor(in.uv * grid + 0.5) / grid;
     float2 final_uv = mix(in.uv, quv, pixel_strength);
     float qdist = length(final_uv);
@@ -789,226 +810,49 @@ fragment float4 node_fragment(
         * (performance_mode ? 0.16 : 0.35);
     float3 lit_color = in.color.rgb * lighting + spec + in.color.rgb * rim_glow;
 
+    // ── Retro vector shine for large hub nodes ──
+    // 8-bit game sprite style: discrete brightness tiers (white → light grey → dark grey)
+    // on the upper-left quadrant simulating a 2D point light. Quantized to 4 steps.
+    if (is_large_hub && !performance_mode) {
+        // Angular position from upper-left (0,0 = top-left corner, light source origin).
+        // shine_coord in [0,1]: 0 = directly under light, 1 = opposite side.
+        float2 shine_dir = normalize(float2(-0.6, -0.8));
+        float shine_coord = 0.5 + 0.5 * dot(final_uv, shine_dir);
+        // Only apply inside the node (dist < 0.9) and away from the outline.
+        float shine_mask = (1.0 - smoothstep(0.0, 0.85, dist)) * (1.0 - smoothstep(0.70, 0.85, dist));
+        // Quantize to 4 retro tiers: white highlight → light grey → mid grey → skip.
+        float shine_raw = clamp((1.0 - shine_coord) * 1.4, 0.0, 1.0);
+        float shine_stepped = floor(shine_raw * 4.0) / 4.0; // 0, 0.25, 0.5, 0.75
+        // Map tiers to brightness additions (linear space):
+        //   tier 3 (shine_stepped=0.75): bright white highlight
+        //   tier 2 (0.50): light grey
+        //   tier 1 (0.25): dark grey (subtle)
+        //   tier 0 (0.00): no shine
+        float3 shine_rgb = float3(0.0);
+        if (shine_stepped > 0.6) {
+            shine_rgb = srgb_to_linear(float3(0.95, 0.95, 0.95)) * 0.25; // white
+        } else if (shine_stepped > 0.35) {
+            shine_rgb = srgb_to_linear(float3(0.75, 0.75, 0.75)) * 0.16; // light grey
+        } else if (shine_stepped > 0.15) {
+            shine_rgb = srgb_to_linear(float3(0.45, 0.45, 0.45)) * 0.08; // dark grey
+        }
+        lit_color += shine_rgb * shine_mask;
+    }
+
     // Anime outline: dark ring near SDF boundary.
     float outline = smoothstep(0.73, 0.75, dist) * (1.0 - smoothstep(0.85, 0.87, dist));
     lit_color *= (1.0 - outline * (performance_mode ? 0.26 : 0.6));
 
-    // ── Pixel art face overlay ──
-    // face_type 1-8 = node types. Only visible on highlighted nodes (selected + neighbors).
-    if (in.face_type >= 1.0 && in.face_type <= 8.0 && dist < 0.75 && in.highlight_dim > 1.0) {
-        int ft = int(in.face_type + 0.5);
-        // Depth tier: 0=background leaf, 1=lower-mid, 2=upper-mid, 3=foreground hub
-        int tier = (in.depth < -0.25) ? 0 : (in.depth < 0.0) ? 1 : (in.depth < 0.3) ? 2 : 3;
-        float2 gp = grid_pos;
-
-        bool left_eye = false;
-        bool right_eye = false;
-        bool mouth = false;
-        bool brow_l = false;
-        bool brow_r = false;
-        bool extra = false;
-
-        bool at_left_eye  = (gp.x >= -3.0 && gp.x <= -1.0 && gp.y >= -3.0 && gp.y <= -1.0);
-        bool at_right_eye = (gp.x >= 1.0  && gp.x <= 3.0  && gp.y >= -3.0 && gp.y <= -1.0);
-
-        if (ft == 1) {
-            // Note (teal)
-            if (tier <= 1) { // Small — ecstatic wide eyes + toothy grin
-                left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
-                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
-                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
-                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
-            } else if (tier == 2) { // Medium — neutral flat
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Large hub — angry scowl + V brows
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
-                         (gp.y == -4.0 && gp.x == -2.0);
-                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
-                         (gp.y == -4.0 && gp.x == 2.0);
-                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
-            }
-        } else if (ft == 2) {
-            // Chat (orange)
-            if (tier <= 1) { // Small — laughing, squinty eyes + huge open mouth
-                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else if (tier == 2) { // Medium — talking O mouth
-                left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
-                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
-                mouth = (gp.x >= -1.0 && gp.x <= 1.0 && gp.y >= 1.0 && gp.y <= 3.0) &&
-                        !(gp.x == 0.0 && gp.y == 2.0);
-            } else { // Large hub — furious, gritted teeth
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
-                         (gp.y == -4.0 && gp.x == -2.0);
-                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
-                         (gp.y == -4.0 && gp.x == 2.0);
-                mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 3.0 && (gp.x == -2.0 || gp.x == 0.0 || gp.x == 2.0));
-            }
-        } else if (ft == 3) {
-            // Idea (yellow)
-            if (tier <= 1) { // Small — star eyes + ecstatic open grin
-                left_eye  = (gp.x == -2.0 && (gp.y == -3.0 || gp.y == -1.0)) ||
-                            (gp.y == -2.0 && (gp.x == -3.0 || gp.x == -1.0)) ||
-                            (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0 && (gp.y == -3.0 || gp.y == -1.0)) ||
-                            (gp.y == -2.0 && (gp.x == 1.0 || gp.x == 3.0)) ||
-                            (gp.x == 2.0 && gp.y == -2.0);
-                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else if (tier == 2) { // Medium — thinking, small O
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.x >= -1.0 && gp.x <= 1.0 && gp.y >= 2.0 && gp.y <= 3.0) &&
-                        !(gp.x == 0.0 && gp.y == 2.0);
-            } else { // Large hub — maniacal, intense eyes + sharp frown
-                left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
-                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
-                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
-                         (gp.y == -4.0 && gp.x == -2.0);
-                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
-                         (gp.y == -4.0 && gp.x == 2.0);
-                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
-            }
-        } else if (ft == 4) {
-            // Source (green) — always has glasses + nose bridge
-            extra = (gp.y == -2.0 && gp.x == 0.0);
-            if (tier <= 1) { // Small — happy nerd, big grin behind glasses
-                left_eye  = at_left_eye;
-                right_eye = at_right_eye;
-                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
-                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
-            } else if (tier == 2) { // Medium — studious, flat mouth
-                left_eye  = at_left_eye;
-                right_eye = at_right_eye;
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Large hub — stern professor, angry brows + frown
-                left_eye  = at_left_eye;
-                right_eye = at_right_eye;
-                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
-                         (gp.y == -4.0 && gp.x == -2.0);
-                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
-                         (gp.y == -4.0 && gp.x == 2.0);
-                mouth = (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == 3.0));
-            }
-        } else if (ft == 5) {
-            // Folder (brown)
-            if (tier <= 1) { // Small — cheerful, wide smile
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0)) ||
-                        (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else if (tier == 2) { // Medium — sleepy, line eyes
-                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Large hub — grumpy, furrowed brows + scowl
-                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                brow_l = (gp.y == -3.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                brow_r = (gp.y == -3.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
-            }
-        } else if (ft == 6) {
-            // Quote (purple)
-            if (tier <= 1) { // Small — winking + huge grin
-                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
-                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
-                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
-            } else if (tier == 2) { // Medium — smirk
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 2.0 && gp.x >= 0.0 && gp.x <= 3.0) ||
-                        (gp.y == 1.0 && gp.x == -1.0);
-            } else { // Large hub — unimpressed, heavy frown
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                brow_l = (gp.y == -3.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                brow_r = (gp.y == -3.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
-            }
-        } else if (ft == 7) {
-            // Tag (gray)
-            if (tier <= 1) { // Small — happy little face, wide eyes + smile
-                left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
-                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
-                mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0));
-            } else if (tier == 2) { // Medium — dot eyes, dash mouth
-                left_eye  = (gp.x == -2.0 && gp.y == -1.0);
-                right_eye = (gp.x == 2.0  && gp.y == -1.0);
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Large hub — glaring, angry brows
-                left_eye  = (gp.x == -2.0 && gp.y == -1.0);
-                right_eye = (gp.x == 2.0  && gp.y == -1.0);
-                brow_l = (gp.y == -2.0 && gp.x == -1.0) || (gp.y == -3.0 && gp.x == -3.0) ||
-                         (gp.y == -2.0 && gp.x == -2.0);
-                brow_r = (gp.y == -2.0 && gp.x == 1.0) || (gp.y == -3.0 && gp.x == 3.0) ||
-                         (gp.y == -2.0 && gp.x == 2.0);
-                mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0);
-            }
-        } else if (ft == 8) {
-            // Block (blue)
-            if (tier <= 1) { // Small — ^_^ happy face + wide toothy grin
-                left_eye  = (gp.y == -2.0 && gp.x == -2.0) ||
-                            (gp.y == -3.0 && (gp.x == -3.0 || gp.x == -1.0));
-                right_eye = (gp.y == -2.0 && gp.x == 2.0) ||
-                            (gp.y == -3.0 && (gp.x == 1.0 || gp.x == 3.0));
-                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
-                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
-            } else if (tier == 2) { // Medium — flat expression
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Large hub — v_v angry face + wide scowl
-                left_eye  = (gp.y == -3.0 && gp.x == -2.0) ||
-                            (gp.y == -2.0 && (gp.x == -3.0 || gp.x == -1.0));
-                right_eye = (gp.y == -3.0 && gp.x == 2.0) ||
-                            (gp.y == -2.0 && (gp.x == 1.0 || gp.x == 3.0));
-                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
-                         (gp.y == -4.0 && gp.x == -2.0);
-                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
-                         (gp.y == -4.0 && gp.x == 2.0);
-                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
-            }
-        }
-
-        bool is_face = left_eye || right_eye || mouth || brow_l || brow_r || extra;
-        if (is_face) {
-            float face_dark = 0.15;
-            lit_color = mix(lit_color, lit_color * face_dark, 0.85);
-        }
-    }
 
     // Depth-of-field: far nodes fade slightly. Dimmed nodes (selection active) blur.
     float depth_fade = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.65 : 1.0;
     float edge_softness = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.75 : 0.85;
-    // Selection blur: soften the SDF edge for dimmed nodes (out-of-focus effect).
+
     bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
+
+    // Selection blur: soften the SDF edge for dimmed nodes (out-of-focus effect).
     if (is_dimmed) {
-        edge_softness = 0.45; // much softer boundary
+        edge_softness = 0.45; // softer boundary (original Codex value)
         depth_fade *= 0.85;   // additional fade
     }
     float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, dist);
@@ -1032,7 +876,7 @@ fragment float4 node_fragment(
         float ring_glow = 1.0 - smoothstep(0.0, ring_width, ring_dist);
         float fade = 1.0 - smoothstep(0.0, 2.0, uniforms.pulse_time); // fade over 2s
         ring_glow *= fade * 0.4; // subtle additive glow
-        result_color += ring_glow * float3(0.5, 0.8, 1.0); // cool blue-white
+        result_color += ring_glow * srgb_to_linear(float3(0.5, 0.8, 1.0)); // cool blue-white
     }
 
     // ── Chromatic aberration on impact (cinematic only) ──
@@ -1054,7 +898,7 @@ fragment float4 node_fragment(
 // ── Edge shaders ───────────────────────────────────────────────────
 
 constant uint CURVE_EDGE_SEGMENTS = 20;
-constant float EDGE_DIM_ALPHA_SCALE = 0.25;
+constant float EDGE_DIM_ALPHA_SCALE = 0.15;
 constant float EDGE_DIM_ALPHA_SCALE_LIGHT = 0.42;
 
 struct CurveEdgeInstance {
@@ -1128,7 +972,7 @@ vertex LineVertexOut curve_edge_vertex(
     out.position = float4(base_ndc[corner], 0.0, 1.0);
     uchar flag = edge_flags[instance_id];
     if (flag == 1) {
-        out.color = float4(0.70, 0.90, 1.00, 0.75);
+        out.color = float4(srgb_to_linear(float3(0.70, 0.90, 1.00)), 0.75);
     } else if (flag == 2) {
         float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
         out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
@@ -1186,7 +1030,7 @@ vertex LineVertexOut line_edge_vertex(
     out.position = float4(base_ndc[vertex_id], 0.0, 1.0);
     uchar flag = edge_flags[instance_id];
     if (flag == 1) {
-        out.color = float4(0.70, 0.90, 1.00, 0.75);
+        out.color = float4(srgb_to_linear(float3(0.70, 0.90, 1.00)), 0.75);
     } else if (flag == 2) {
         float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
         out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
@@ -1410,6 +1254,8 @@ fragment float4 label_fragment(
 // ── SDF Label GPU data structs ────────────────────────────────────────────────
 
 /// Per-glyph instance for SDF label rendering (matches Metal LabelInstance).
+/// Staged infrastructure: constructed from Swift once label atlas is loaded.
+#[allow(dead_code)]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub(crate) struct LabelInstance {
@@ -1439,6 +1285,9 @@ pub(crate) struct LabelUniforms {
 pub struct HighlightState {
     /// Set of node IDs that should be highlighted (root + neighbors).
     pub highlighted_ids: rustc_hash::FxHashSet<u32>,
+    /// The selected root node ID (the one that gets the ripple animation).
+    /// Distinct from neighbors which are in `highlighted_ids` but not the root.
+    pub root_id: Option<u32>,
     /// Whether highlighting is active.
     pub active: bool,
 }
@@ -1453,6 +1302,7 @@ impl HighlightState {
     pub fn new() -> Self {
         Self {
             highlighted_ids: rustc_hash::FxHashSet::default(),
+            root_id: None,
             active: false,
         }
     }
@@ -1577,7 +1427,6 @@ pub struct Renderer {
     label_instance_count: usize,
     label_uniform_buf: Option<Buffer>,
     label_atlas_texture: Option<Texture>,
-    label_instance_scratch: Vec<LabelInstance>,
     /// Camera focus point for radial blur-reveal (world coords).
     pub label_focus: [f32; 2],
     /// Inner radius: labels within this distance are fully crisp.
@@ -1586,12 +1435,19 @@ pub struct Renderer {
     pub label_blur_radius: f32,
     /// Whether labels are enabled (disabled in performance mode).
     pub labels_enabled: bool,
-    // ── GPU N-body compute pipeline ──────────────────────────────────
+    // ── GPU N-body compute pipeline (double-buffered) ──────────────────
     pub compute_pipeline: Option<ComputePipelineState>,
     compute_position_buf: Option<Buffer>,
-    compute_force_buf: Option<Buffer>,
+    /// Front force buffer: the one being read back (previous frame's results).
+    compute_force_buf_front: Option<Buffer>,
+    /// Back force buffer: the one being written to (current frame's dispatch).
+    compute_force_buf_back: Option<Buffer>,
     compute_position_capacity: usize,
     compute_force_capacity: usize,
+    /// Number of nodes in the most recent completed GPU dispatch.
+    compute_last_n: usize,
+    /// Whether a GPU compute dispatch is currently in-flight on the back buffer.
+    compute_in_flight: bool,
     #[cfg(any(test, debug_assertions))]
     debug_counters: RenderDebugCounters,
 }
@@ -1790,16 +1646,18 @@ impl Renderer {
             label_instance_count: 0,
             label_uniform_buf: None,
             label_atlas_texture: None,
-            label_instance_scratch: Vec::new(),
             label_focus: [0.0, 0.0],
             label_focus_radius: 200.0,  // labels crisp within 200 world units of focus
             label_blur_radius: 600.0,   // labels invisible beyond 600 world units
             labels_enabled: true,
             compute_pipeline,
             compute_position_buf: None,
-            compute_force_buf: None,
+            compute_force_buf_front: None,
+            compute_force_buf_back: None,
             compute_position_capacity: 0,
             compute_force_capacity: 0,
+            compute_last_n: 0,
+            compute_in_flight: false,
             #[cfg(any(test, debug_assertions))]
             debug_counters: RenderDebugCounters::default(),
         })
@@ -1890,7 +1748,9 @@ impl Renderer {
 
     /// Upload label instances for this frame. Called from the engine before draw().
     /// `instances` is a slice of LabelInstance built from the visible node labels.
-    pub fn set_label_instances(&mut self, instances: &[LabelInstance]) {
+    /// Staged: wired up by Swift once label atlas is loaded via graph_engine_load_label_atlas.
+    #[allow(dead_code)]
+    pub(crate) fn set_label_instances(&mut self, instances: &[LabelInstance]) {
         self.label_instance_count = instances.len();
         if instances.is_empty() {
             return;
@@ -1974,8 +1834,16 @@ impl Renderer {
         );
     }
 
-    /// Dispatch brute-force O(N^2) N-body repulsion on GPU.
-    /// Returns per-node force deltas, or None if compute pipeline unavailable.
+    /// Dispatch brute-force O(N^2) N-body repulsion on GPU (double-buffered).
+    ///
+    /// Uses two force buffers: while the GPU writes to the "back" buffer for
+    /// this frame, we read completed results from the "front" buffer (previous
+    /// frame). Returns the previous frame's forces (one-frame latency — standard
+    /// for physics engines) and fires the new dispatch asynchronously.
+    ///
+    /// On the very first call, dispatches synchronously so there's no empty frame.
+    /// Returns None if compute pipeline is unavailable or the previous dispatch
+    /// hasn't completed yet (physics falls back to CPU Barnes-Hut).
     pub fn dispatch_gpu_nbody(
         &mut self,
         positions: &[[f32; 2]],
@@ -2002,18 +1870,49 @@ impl Renderer {
             self.compute_position_capacity = cap;
         }
 
-        // Grow force buffer if needed.
-        if n > self.compute_force_capacity || self.compute_force_buf.is_none() {
+        // Grow front force buffer if needed.
+        if n > self.compute_force_capacity || self.compute_force_buf_front.is_none() {
             let cap = (n * 3 / 2).max(64);
-            self.compute_force_buf = Some(self.device.new_buffer(
+            self.compute_force_buf_front = Some(self.device.new_buffer(
+                (cap * std::mem::size_of::<[f32; 2]>()) as u64,
+                MTLResourceOptions::StorageModeShared,
+            ));
+            // Also grow back buffer to match.
+            self.compute_force_buf_back = Some(self.device.new_buffer(
                 (cap * std::mem::size_of::<[f32; 2]>()) as u64,
                 MTLResourceOptions::StorageModeShared,
             ));
             self.compute_force_capacity = cap;
+            // Buffers reallocated — previous in-flight dispatch targets stale memory.
+            self.compute_in_flight = false;
         }
 
+        // ── Read back previous frame's completed forces from front buffer ──
+        let previous_forces = if self.compute_in_flight {
+            // Previous dispatch was async — it should be done by now (GPU kernel
+            // completes in <1ms on Apple Silicon; we're called at ~8-16ms intervals).
+            // The completed handler already ran. Read from the front buffer.
+            let prev_n = self.compute_last_n;
+            let front = self.compute_force_buf_front.as_ref()?;
+            let mut forces = Vec::with_capacity(prev_n);
+            // SAFETY: front buffer is StorageModeShared, previous dispatch targeted
+            // the back buffer (now swapped to front), GPU work is complete, buffer
+            // has prev_n entries from the last dispatch.
+            unsafe {
+                let ptr = front.contents() as *const [f32; 2];
+                forces.extend_from_slice(std::slice::from_raw_parts(ptr, prev_n));
+            }
+            Some(forces)
+        } else {
+            // First frame or after buffer reallocation — no previous results yet.
+            None
+        };
+
+        // ── Swap front/back: this frame's dispatch writes to the old front ──
+        std::mem::swap(&mut self.compute_force_buf_front, &mut self.compute_force_buf_back);
+
         let pos_buf = self.compute_position_buf.as_ref()?;
-        let force_buf = self.compute_force_buf.as_ref()?;
+        let back_buf = self.compute_force_buf_back.as_ref()?;
 
         // Copy positions into GPU buffer.
         // SAFETY: pos_buf is StorageModeShared with sufficient capacity, positions is valid.
@@ -2030,7 +1929,7 @@ impl Renderer {
         let encoder = cmd_buf.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(pipeline);
         encoder.set_buffer(0, Some(pos_buf), 0);
-        encoder.set_buffer(1, Some(force_buf), 0);
+        encoder.set_buffer(1, Some(back_buf), 0);
 
         let node_count = n as u32;
         let distance_max_sq = distance_max * distance_max;
@@ -2070,18 +1969,29 @@ impl Renderer {
         );
         encoder.end_encoding();
         cmd_buf.commit();
-        // Synchronous wait: at 200-5000 nodes the GPU kernel completes in <1ms on Apple
-        // Silicon. Async double-buffering can be added if profiling shows frame drops.
-        cmd_buf.wait_until_completed();
 
-        // Read back forces.
-        let mut forces = Vec::with_capacity(n);
-        // SAFETY: force_buf is StorageModeShared, GPU work is complete, buffer has n entries.
-        unsafe {
-            let ptr = force_buf.contents() as *const [f32; 2];
-            forces.extend_from_slice(std::slice::from_raw_parts(ptr, n));
+        if previous_forces.is_some() {
+            // Steady state: dispatch is fire-and-forget. GPU kernel runs async while
+            // the render thread continues with the previous frame's force results.
+            // The back buffer will be read on the NEXT call after swap.
+            self.compute_in_flight = true;
+            self.compute_last_n = n;
+            previous_forces
+        } else {
+            // First frame: wait synchronously so physics gets forces immediately
+            // instead of falling back to CPU Barnes-Hut for the first tick.
+            cmd_buf.wait_until_completed();
+            self.compute_in_flight = true;
+            self.compute_last_n = n;
+
+            let mut forces = Vec::with_capacity(n);
+            // SAFETY: back_buf is StorageModeShared, GPU work is complete, buffer has n entries.
+            unsafe {
+                let ptr = back_buf.contents() as *const [f32; 2];
+                forces.extend_from_slice(std::slice::from_raw_parts(ptr, n));
+            }
+            Some(forces)
         }
-        Some(forces)
     }
 
     const CLASSIC_CULL_PADDING_PIXELS: f32 = 160.0;
@@ -2284,13 +2194,28 @@ impl Renderer {
     #[inline]
     fn classic_node_instance(&self, world: &World, node_index: usize) -> NodeInstance {
         let co = world.render[node_index].color_override;
+        let hierarchy = &world.hierarchy[node_index];
         let mut color = if co[3] > 0.0 {
             // Depth palette encodes style signal in alpha > 1.0 — clamp for rendering.
             [co[0], co[1], co[2], co[3].min(1.0)]
+        } else if hierarchy.node_type == 4 {
+            // Folder nodes: B&W hierarchy coloring based on nesting depth.
+            // Dark mode: white (depth 0) → mid-grey.  Light mode: black (depth 0) → mid-grey.
+            // Depth factor: 0.15 per level, clamped so depth 5+ hits the grey floor.
+            let depth_t = (hierarchy.depth as f32 * 0.15).min(0.75);
+            if self.light_mode {
+                // Black at root → lighter grey with depth.
+                let v = depth_t * 0.50; // 0.0 → 0.375 (linear)
+                [v, v, v, 1.0]
+            } else {
+                // White at root → darker grey with depth.
+                let v = 1.0 - depth_t * 0.80; // 1.0 → 0.40 (linear)
+                [v, v, v, 1.0]
+            }
         } else {
-            self.node_color_for_u8(world.hierarchy[node_index].node_type)
+            self.node_color_for_u8(hierarchy.node_type)
         };
-        let z = z_for_link_count(world.hierarchy[node_index].link_count);
+        let z = z_for_link_count(hierarchy.link_count);
         color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
         let face_type = (world.hierarchy[node_index].node_type as f32) + 1.0;
         NodeInstance {
@@ -2606,8 +2531,8 @@ impl Renderer {
             );
 
             if blink_open > 0.4 {
-                let eye_color = [0.96, 0.97, 0.98, 0.98];
-                let pupil_color = [0.10, 0.12, 0.18, 0.98];
+                let eye_color = srgb_to_linear_rgba([0.96, 0.97, 0.98, 0.98]);
+                let pupil_color = srgb_to_linear_rgba([0.10, 0.12, 0.18, 0.98]);
                 let left_eye = [nx - eye_spacing, eye_y];
                 let right_eye = [nx + eye_spacing, eye_y];
                 let left_pupil = [left_eye[0] + pupil_offset[0], left_eye[1] + pupil_offset[1]];
@@ -2621,7 +2546,7 @@ impl Renderer {
                 self.push_face_node(left_pupil, pupil_r * blink_open, pupil_color);
                 self.push_face_node(right_pupil, pupil_r * blink_open, pupil_color);
             } else {
-                let lid_color = [0.12, 0.15, 0.22, 0.88];
+                let lid_color = srgb_to_linear_rgba([0.12, 0.15, 0.22, 0.88]);
                 self.push_face_node([nx - eye_spacing, eye_y], eye_lid_r, lid_color);
                 self.push_face_node([nx + eye_spacing, eye_y], eye_lid_r, lid_color);
             }
@@ -2639,7 +2564,7 @@ impl Renderer {
                     [0.90, 0.56, 0.58, 0.28],
                 );
             } else {
-                let smile_color = [0.15, 0.18, 0.25, 0.90];
+                let smile_color = srgb_to_linear_rgba([0.15, 0.18, 0.25, 0.90]);
                 let smile_r = eye_white_r * 0.18;
                 self.push_face_node([nx - eye_spacing * 0.34, mouth_y], smile_r, smile_color);
                 self.push_face_node([nx, mouth_y + smile_r * 0.22], smile_r, smile_color);
@@ -3127,7 +3052,7 @@ impl Renderer {
             return;
         }
 
-        // Flag encoding: 0=normal, 1=highlighted, 2=dim-dark, 3=dim-light, 4+=value/255.
+        // Flag encoding: 0=normal, 1=highlighted, 2=dim-dark, 3=dim-light, 5=glow-dim.
         const NODE_DIM_DARK: u8 = 2; // dark mode: strong dim + desaturate
         const NODE_DIM_LIGHT: u8 = 3; // light mode: gentle fade + desaturate
         const GLOW_DIM: u8 = 5; // glow dim factor ≈ 0.020
