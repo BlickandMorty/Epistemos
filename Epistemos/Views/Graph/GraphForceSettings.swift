@@ -463,6 +463,19 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Startup Scheduler", icon: "timer")
 
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Opens in")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Picker("Opens in", selection: gs.startupViewMode) {
+                    ForEach(GraphStartupViewMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+            }
+
             Picker("Mode", selection: gs.schedulerMode) {
                 Text("Simple").tag(PhysicsSchedulerMode.simple)
                 Text("Timeline").tag(PhysicsSchedulerMode.timeline)

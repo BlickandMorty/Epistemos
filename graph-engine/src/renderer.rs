@@ -849,20 +849,31 @@ fragment float4 node_fragment(
     float edge_softness = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.75 : 0.85;
 
     bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
+    // Distinguish light vs dark mode dim: dark dim = 0.20, light dim = 0.70.
+    // Use 0.40 as the midpoint threshold.
+    bool is_light_mode_dim = is_dimmed && in.highlight_dim >= 0.40;
 
     // Selection blur: soften the SDF edge for dimmed nodes (out-of-focus effect).
     if (is_dimmed) {
-        edge_softness = 0.45; // softer boundary (original Codex value)
-        depth_fade *= 0.85;   // additional fade
+        // Light mode needs MORE aggressive softening because nodes are more
+        // opaque (0.70 alpha vs dark's 0.20) — the blur has to fight the
+        // white background to read as "defocused."
+        edge_softness = is_light_mode_dim ? 0.20 : 0.45;
+        depth_fade *= is_light_mode_dim ? 0.75 : 0.85;
     }
+    // Zero pixel_strength for light-mode dims so the crisp pixel-art edge
+    // doesn't fight the soft cloud blur. Dark mode keeps its pixel boundary.
+    float effective_pixel_strength = is_light_mode_dim ? 0.0 : pixel_strength;
     float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, dist);
-    float final_alpha = mix(dof_alpha, alpha, pixel_strength);
+    float final_alpha = mix(dof_alpha, alpha, effective_pixel_strength);
 
     // Blur: flatten lighting detail on dimmed nodes.
     float3 result_color = lit_color;
     if (is_dimmed) {
         float lum = dot(lit_color, float3(0.299, 0.587, 0.114));
-        result_color = mix(lit_color, float3(lum) * 1.1, 0.35);
+        // Light mode: stronger luminance flatten for blur-into-bg effect.
+        float flatten_mix = is_light_mode_dim ? 0.55 : 0.35;
+        result_color = mix(lit_color, float3(lum) * 1.1, flatten_mix);
     }
 
     // ── Pulse wave glow ──
