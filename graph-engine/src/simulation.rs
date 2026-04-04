@@ -81,6 +81,17 @@ pub struct ForceParams {
     /// Orbital rotation speed: 0.0 = still, 1.0 = fast orbits.
     pub orbital_speed: f32,
 
+    // ── Shadow attraction (contextual gravity) ──
+    /// Per-node shadow attraction: pulls specific nodes toward a target point.
+    /// 0 = off globally. Used by contextual shadows (editing pulls related nodes closer).
+    pub shadow_enabled: bool,
+
+    // ── Mass-based drag ──
+    /// Enable mass-based drag resistance (heavier nodes = harder to move).
+    pub enable_mass_drag: bool,
+    /// Snap-back spring strength (impulse on release). 0.0 = no snap-back, 1.0 = full spring.
+    pub snap_back_strength: f32,
+
     // ── Internal simulation state ──
     pub alpha: f32,
     pub alpha_min: f32,
@@ -121,6 +132,10 @@ impl Default for ForceParams {
             wind_y: 0.0,
             enable_orbital: false,
             orbital_speed: 0.3,
+
+            shadow_enabled: false,
+            enable_mass_drag: false,
+            snap_back_strength: 0.3,
 
             // d3 default: alpha starts at 1.0, decays to alpha_min over ~300 ticks.
             alpha: 1.0,
@@ -379,6 +394,21 @@ pub struct Simulation {
     active_mask: Vec<bool>,
     /// Snapshot of viewport-only nodes before one-hop expansion.
     viewport_seed_mask: Vec<bool>,
+    // ── Shadow attraction (contextual gravity) ──
+    /// Per-node shadow attraction strength (0.0 = no attraction).
+    /// Set by Swift after embedding search; cleared when typing stops.
+    pub shadow_strength: Vec<f32>,
+    /// Shadow target position in world coords (nodes attract toward this point).
+    pub shadow_target: [f32; 2],
+
+    // ── Mass-based drag ──
+    /// Per-node mass: 1.0 + (child_count * 0.5) + (link_count * 0.2).
+    /// Used for drag resistance and snap-back impulse.
+    pub mass: Vec<f32>,
+    /// Per-node tether offset from last drag release (for snap-back spring).
+    /// Decays to zero over frames. [dx, dy] per node.
+    pub snap_back: Vec<[f32; 2]>,
+
     /// GPU-computed N-body forces to apply at next tick start, then drain.
     /// Render thread writes, physics thread reads+clears. Protected by the sim mutex.
     pub gpu_nbody_forces: Option<Vec<[f32; 2]>>,
@@ -468,6 +498,10 @@ impl Simulation {
             viewport_bounds: None,
             active_mask: Vec::new(),
             viewport_seed_mask: Vec::new(),
+            shadow_strength: Vec::new(),
+            shadow_target: [0.0, 0.0],
+            mass: Vec::new(),
+            snap_back: Vec::new(),
             gpu_nbody_forces: None,
             last_tick_instant: std::time::Instant::now(),
         }
@@ -491,6 +525,9 @@ impl Simulation {
         self.edge_weights.clear();
         self.edge_types.clear();
         self.graph_indices.clear();
+        self.shadow_strength.clear();
+        self.mass.clear();
+        self.snap_back.clear();
         self.tick_count = 0;
         self.interaction_motion_until = None;
         self.interaction_motion_alpha_target = 0.0;
@@ -515,6 +552,10 @@ impl Simulation {
             self.degrees.push(0); // computed below
             self.collision_radii.push(self.params.collision_radius);
             self.drift.push(0.0);
+            self.shadow_strength.push(0.0);
+            // Mass derived from link_count (set later after degree computation).
+            self.mass.push(1.0);
+            self.snap_back.push([0.0, 0.0]);
         }
 
         // Static layout for large graphs: no physics at all.
@@ -610,6 +651,12 @@ impl Simulation {
             if *d == 0 {
                 *d = 1;
             }
+        }
+
+        // Compute per-node mass from degree (for mass-based drag resistance).
+        // mass = 1.0 + degree * 0.2, giving hub nodes higher inertia.
+        for i in 0..self.mass.len() {
+            self.mass[i] = 1.0 + self.degrees[i] as f32 * 0.2;
         }
 
         // Reset simulation state for fresh run (skip if user-frozen).
@@ -920,6 +967,30 @@ impl Simulation {
             );
         }
 
+        // Shadow attraction: pull selected nodes toward a target point.
+        if !at_floor && self.params.shadow_enabled && !self.shadow_strength.is_empty() {
+            forces::force_shadow(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                &self.shadow_strength,
+                self.shadow_target,
+                alpha,
+            );
+        }
+
+        // Snap-back spring: decaying impulse after drag release.
+        if self.params.enable_mass_drag && !self.snap_back.is_empty() {
+            forces::force_snap_back(
+                &mut self.vx,
+                &mut self.vy,
+                &mut self.snap_back,
+                &self.mass,
+                self.params.snap_back_strength,
+            );
+        }
+
         // Fluid grid: diffuse/decay, then sample at each node to add wake velocity.
         if self.params.enable_fluid_dynamics && self.fluid_grid.is_active() {
             // Viscosity maps to decay: 0.0 (watery, fast dissipation) → 1.0 (honey, slow)
@@ -960,6 +1031,20 @@ impl Simulation {
         }
         // Take ownership of active mask to avoid borrow conflict with &mut self.
         let active = std::mem::take(&mut self.active_mask);
+
+        // Mass-based drag: heavier nodes get extra velocity damping.
+        // Applied as a pre-pass before integration so it works with both scalar and NEON paths.
+        if self.params.enable_mass_drag && self.mass.len() == n {
+            for i in 0..n {
+                if !active[i] || self.fx[i].is_some() {
+                    continue;
+                }
+                // mass_damping: mass=1 → 1.0 (no extra drag), mass=5 → 0.67, mass=10 → 0.5
+                let mass_damping = 1.0 / (1.0 + (self.mass[i] - 1.0) * 0.1);
+                self.vx[i] *= mass_damping;
+                self.vy[i] *= mass_damping;
+            }
+        }
 
         #[cfg(target_arch = "aarch64")]
         {

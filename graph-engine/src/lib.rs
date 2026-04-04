@@ -3196,6 +3196,114 @@ pub extern "C" fn graph_engine_btk_payload_rows(
     })
 }
 
+// ── Shadow Attraction FFI ──────────────────────────────────────────────────
+
+/// Set shadow attraction targets for specific nodes.
+/// `node_ids`: array of graph node IDs (u32, NOT simulation indices).
+/// `strengths`: parallel array of attraction strengths [0.0 - 1.0].
+/// `target_x`, `target_y`: world-space point to attract toward.
+/// `count`: number of elements in node_ids/strengths arrays.
+///
+/// Call with count=0 to clear all shadow attractions.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_shadow_targets(
+    engine: *mut Engine,
+    node_ids: *const u32,
+    strengths: *const f32,
+    target_x: f32,
+    target_y: f32,
+    count: u32,
+) {
+    ffi_catch_unwind!("graph_engine_set_shadow_targets", {
+        ffi_engine!(engine);
+        if count == 0 {
+            engine.set_shadow_targets(&[], &[], target_x, target_y);
+            return;
+        }
+        // SAFETY: caller guarantees node_ids and strengths are valid for `count` elements.
+        let node_id_slice = unsafe { std::slice::from_raw_parts(node_ids, count as usize) };
+        let strength_slice = unsafe { std::slice::from_raw_parts(strengths, count as usize) };
+        engine.set_shadow_targets(node_id_slice, strength_slice, target_x, target_y);
+    });
+}
+
+/// Enable or disable mass-based drag physics.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_mass_drag(
+    engine: *mut Engine,
+    enabled: u8,
+    snap_back_strength: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_mass_drag", {
+        ffi_engine!(engine);
+        engine.set_mass_drag(enabled != 0, snap_back_strength);
+    });
+}
+
+/// Set snap-back tether for a specific node (called on drag release).
+/// The tether decays over frames, creating a spring impulse.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_snap_back(
+    engine: *mut Engine,
+    node_id: u32,
+    tether_dx: f32,
+    tether_dy: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_snap_back", {
+        ffi_engine!(engine);
+        engine.set_snap_back(node_id, tether_dx, tether_dy);
+    });
+}
+
+/// Load SDF label atlas texture from raw RGBA pixel data.
+/// Returns 1 on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_load_label_atlas(
+    engine: *mut Engine,
+    width: u32,
+    height: u32,
+    data: *const u8,
+    data_len: u64,
+) -> u8 {
+    ffi_catch_unwind_or!("graph_engine_load_label_atlas", 0, {
+        ffi_engine_or!(engine, 0);
+        if data.is_null() || data_len == 0 {
+            return 0;
+        }
+        // SAFETY: caller guarantees data is valid for data_len bytes.
+        let slice = unsafe { std::slice::from_raw_parts(data, data_len as usize) };
+        if engine.load_label_atlas(width, height, slice) {
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Set label focus point and blur radii for the radial blur-reveal effect.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_label_focus(
+    engine: *mut Engine,
+    focus_x: f32,
+    focus_y: f32,
+    focus_radius: f32,
+    blur_radius: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_label_focus", {
+        ffi_engine!(engine);
+        engine.set_label_focus(focus_x, focus_y, focus_radius, blur_radius);
+    });
+}
+
+/// Enable or disable SDF label rendering.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_labels_enabled(engine: *mut Engine, enabled: u8) {
+    ffi_catch_unwind!("graph_engine_set_labels_enabled", {
+        ffi_engine!(engine);
+        engine.set_labels_enabled(enabled != 0);
+    });
+}
+
 #[cfg(test)]
 mod knowledge_core_ffi_tests {
     use std::ffi::CString;

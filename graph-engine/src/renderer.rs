@@ -1291,6 +1291,148 @@ fragment float4 dialogue_fragment(DialogueVertexOut in [[stage_in]]) {
 }
 "#;
 
+// ── SDF Label Shader (MTSDF atlas, radial blur-reveal) ────────────────────────
+
+const LABEL_SHADER_SOURCE: &str = r#"
+#include <metal_stdlib>
+using namespace metal;
+
+// Per-glyph instance: one quad per character in a label string.
+struct LabelInstance {
+    float2 position;    // world-space center of the glyph quad
+    float2 size;        // quad half-extents in world units
+    float4 uv_rect;     // atlas UV rect (x, y, w, h) — from JSON glyph metrics
+    float4 color;       // text color (linear RGB, alpha)
+    float  node_dist;   // precomputed: distance from this node to camera focus
+};
+
+struct LabelUniforms {
+    float2 viewport_size;
+    float2 camera_offset;
+    float  camera_zoom;
+    float  focus_radius;   // world-space radius of full-crisp zone
+    float  blur_radius;    // world-space radius of full-invisible zone
+    float  px_range;       // SDF pixel range (matches atlas gen: 6.0)
+};
+
+struct LabelVertexOut {
+    float4 position [[position]];
+    float2 uv;
+    float4 color;
+    float  blur;           // 0.0 = crisp, 1.0 = fully blurred/invisible
+    float  screen_px_range; // px_range scaled to screen pixels for this glyph
+};
+
+vertex LabelVertexOut label_vertex(
+    uint vertex_id [[vertex_id]],
+    uint instance_id [[instance_id]],
+    constant LabelInstance* instances [[buffer(0)]],
+    constant LabelUniforms& u [[buffer(1)]]
+) {
+    float2 corners[6] = {
+        float2(-1, -1), float2( 1, -1), float2(-1,  1),
+        float2(-1,  1), float2( 1, -1), float2( 1,  1)
+    };
+    float2 uvs[6] = {
+        float2(0, 1), float2(1, 1), float2(0, 0),
+        float2(0, 0), float2(1, 1), float2(1, 0)
+    };
+
+    LabelInstance inst = instances[instance_id];
+    float2 corner = corners[vertex_id];
+
+    // Radial blur-reveal: smooth transition based on distance to camera focus.
+    float blur = smoothstep(u.focus_radius, u.blur_radius, inst.node_dist);
+
+    // Early out: if fully invisible, collapse quad to zero size.
+    // The fragment shader also checks, but this saves vertex throughput.
+    float2 world_pos = inst.position + corner * inst.size * (1.0 - blur * 0.5);
+
+    float2 screen = (world_pos - u.camera_offset) * u.camera_zoom;
+    float2 ndc = screen / (u.viewport_size * 0.5) * float2(1, -1);
+
+    // Map UV to atlas rect.
+    float2 base_uv = uvs[vertex_id];
+    float2 atlas_uv = inst.uv_rect.xy + base_uv * inst.uv_rect.zw;
+
+    // Compute screen-space pixel range for proper SDF anti-aliasing.
+    float screen_glyph_size = inst.size.y * 2.0 * u.camera_zoom;
+    float atlas_glyph_px = inst.uv_rect.w * 1024.0; // assuming 1024px atlas height
+    float screen_px_range = max(screen_glyph_size / atlas_glyph_px * u.px_range, 1.0);
+
+    LabelVertexOut out;
+    out.position = float4(ndc, 0.1, 1.0); // z=0.1: in front of nodes (z≈0.5)
+    out.uv = atlas_uv;
+    out.color = inst.color;
+    out.blur = blur;
+    out.screen_px_range = screen_px_range;
+    return out;
+}
+
+// MTSDF median-of-three: the standard msdf-atlas-gen decoding.
+float mtsdf_median(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
+
+fragment float4 label_fragment(
+    LabelVertexOut in [[stage_in]],
+    texture2d<float> atlas [[texture(0)]]
+) {
+    // Early exit when fully invisible (zero cost for off-focus labels).
+    if (in.blur > 0.99) discard_fragment();
+
+    constexpr sampler s(filter::linear, address::clamp_to_edge);
+    float4 sample = atlas.sample(s, in.uv);
+
+    // MTSDF decode: use median of RGB channels as the distance.
+    float sd = mtsdf_median(sample.r, sample.g, sample.b);
+
+    // Adaptive smoothstep width based on screen-space pixel range.
+    float edge = 0.5;
+    float half_width = 0.5 / in.screen_px_range;
+
+    // Blur widens the smoothstep: crisp = tight band, blurred = wide band → fades out.
+    float blur_widen = in.blur * 0.4; // widen by up to 40% of range
+    float edge_min = edge - half_width - blur_widen;
+    float edge_max = edge + half_width + blur_widen;
+
+    float alpha = smoothstep(edge_min, edge_max, sd);
+
+    // Fade alpha further as blur increases (labels dissolve into nothing).
+    alpha *= 1.0 - in.blur;
+
+    if (alpha < 0.01) discard_fragment();
+
+    return float4(in.color.rgb * alpha, in.color.a * alpha); // premultiplied alpha
+}
+"#;
+
+// ── SDF Label GPU data structs ────────────────────────────────────────────────
+
+/// Per-glyph instance for SDF label rendering (matches Metal LabelInstance).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub(crate) struct LabelInstance {
+    pub position: [f32; 2], // world-space glyph center
+    pub size: [f32; 2],     // half-extents (world units)
+    pub uv_rect: [f32; 4],  // atlas UV rect [x, y, w, h]
+    pub color: [f32; 4],    // linear RGBA
+    pub node_dist: f32,     // distance from node to camera focus
+    pub _pad: [f32; 3],     // align to 64 bytes
+}
+
+/// Uniform data for the label render pass.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub(crate) struct LabelUniforms {
+    pub viewport_size: [f32; 2],
+    pub camera_offset: [f32; 2],
+    pub camera_zoom: f32,
+    pub focus_radius: f32,
+    pub blur_radius: f32,
+    pub px_range: f32,
+}
+
 // ── Highlight State ─────────────────────────────────────────────────────────
 
 /// Neighbor highlight state for shift+click.
@@ -1428,6 +1570,22 @@ pub struct Renderer {
     dialogue_vertex_buf: Option<Buffer>,
     dialogue_vertex_scratch: Vec<DialogueVertex>,
     dialogue_uniform_buf: Option<Buffer>,
+    // ── SDF label pipeline ────────────────────────────────────────────
+    label_pipeline: Option<RenderPipelineState>,
+    label_instance_buf: Option<Buffer>,
+    label_instance_capacity: usize,
+    label_instance_count: usize,
+    label_uniform_buf: Option<Buffer>,
+    label_atlas_texture: Option<Texture>,
+    label_instance_scratch: Vec<LabelInstance>,
+    /// Camera focus point for radial blur-reveal (world coords).
+    pub label_focus: [f32; 2],
+    /// Inner radius: labels within this distance are fully crisp.
+    pub label_focus_radius: f32,
+    /// Outer radius: labels beyond this distance are invisible.
+    pub label_blur_radius: f32,
+    /// Whether labels are enabled (disabled in performance mode).
+    pub labels_enabled: bool,
     // ── GPU N-body compute pipeline ──────────────────────────────────
     pub compute_pipeline: Option<ComputePipelineState>,
     compute_position_buf: Option<Buffer>,
@@ -1496,7 +1654,9 @@ impl Renderer {
             l
         };
 
-        layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+        // sRGB framebuffer: hardware-automatic gamma conversion on write.
+        // Shaders work in linear space, blending is correct (no dark fringe on glow).
+        layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm_sRGB);
         layer.set_device(&device);
 
         let command_queue = device.new_command_queue();
@@ -1520,7 +1680,7 @@ impl Renderer {
             desc.set_vertex_function(Some(vert));
             desc.set_fragment_function(Some(frag));
             let color_attach = desc.color_attachments().object_at(0)?;
-            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm_sRGB);
             color_attach.set_blending_enabled(true);
             color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
             color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
@@ -1623,6 +1783,18 @@ impl Renderer {
             dialogue_vertex_buf: None,
             dialogue_vertex_scratch: Vec::new(),
             dialogue_uniform_buf: None,
+            // SDF labels: pipeline created lazily when atlas is loaded.
+            label_pipeline: None,
+            label_instance_buf: None,
+            label_instance_capacity: 0,
+            label_instance_count: 0,
+            label_uniform_buf: None,
+            label_atlas_texture: None,
+            label_instance_scratch: Vec::new(),
+            label_focus: [0.0, 0.0],
+            label_focus_radius: 200.0,  // labels crisp within 200 world units of focus
+            label_blur_radius: 600.0,   // labels invisible beyond 600 world units
+            labels_enabled: true,
             compute_pipeline,
             compute_position_buf: None,
             compute_force_buf: None,
@@ -1646,6 +1818,160 @@ impl Renderer {
             .new_compute_pipeline_state_with_function(&func)
             .map_err(|e| eprintln!("compute pipeline: {e}"))
             .ok()
+    }
+
+    /// Load an MTSDF atlas texture from raw RGBA pixel data.
+    /// Call this once at startup from Swift after loading the atlas PNG.
+    /// `width`/`height` in pixels, `data` is RGBA8 (4 bytes per pixel).
+    pub fn load_label_atlas(&mut self, width: u32, height: u32, data: &[u8]) -> bool {
+        let desc = TextureDescriptor::new();
+        desc.set_pixel_format(MTLPixelFormat::RGBA8Unorm);
+        desc.set_width(width as u64);
+        desc.set_height(height as u64);
+        desc.set_storage_mode(MTLStorageMode::Shared);
+        desc.set_usage(MTLTextureUsage::ShaderRead);
+
+        let texture = self.device.new_texture(&desc);
+        let region = MTLRegion::new_2d(0, 0, width as u64, height as u64);
+        texture.replace_region(region, 0, data.as_ptr() as *const _, (width * 4) as u64);
+
+        // Create label pipeline lazily on first atlas load.
+        if self.label_pipeline.is_none() {
+            if let Some(pipeline) = Self::create_label_pipeline(&self.device) {
+                self.label_pipeline = Some(pipeline);
+            } else {
+                eprintln!("label pipeline creation failed");
+                return false;
+            }
+        }
+
+        // Allocate uniform buffer.
+        if self.label_uniform_buf.is_none() {
+            self.label_uniform_buf = Some(self.device.new_buffer(
+                std::mem::size_of::<LabelUniforms>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            ));
+        }
+
+        self.label_atlas_texture = Some(texture);
+        true
+    }
+
+    fn create_label_pipeline(device: &Device) -> Option<RenderPipelineState> {
+        let library = device
+            .new_library_with_source(LABEL_SHADER_SOURCE, &CompileOptions::new())
+            .map_err(|e| eprintln!("label shader compile: {e}"))
+            .ok()?;
+        let vert = library
+            .get_function("label_vertex", None)
+            .map_err(|e| eprintln!("label vertex lookup: {e}"))
+            .ok()?;
+        let frag = library
+            .get_function("label_fragment", None)
+            .map_err(|e| eprintln!("label fragment lookup: {e}"))
+            .ok()?;
+
+        let desc = RenderPipelineDescriptor::new();
+        desc.set_vertex_function(Some(&vert));
+        desc.set_fragment_function(Some(&frag));
+        let color_attach = desc.color_attachments().object_at(0)?;
+        color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm_sRGB);
+        // Premultiplied alpha blending (labels over graph).
+        color_attach.set_blending_enabled(true);
+        color_attach.set_source_rgb_blend_factor(MTLBlendFactor::One); // premultiplied
+        color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+        color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
+        color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+        device
+            .new_render_pipeline_state(&desc)
+            .map_err(|e| eprintln!("label pipeline: {e}"))
+            .ok()
+    }
+
+    /// Upload label instances for this frame. Called from the engine before draw().
+    /// `instances` is a slice of LabelInstance built from the visible node labels.
+    pub fn set_label_instances(&mut self, instances: &[LabelInstance]) {
+        self.label_instance_count = instances.len();
+        if instances.is_empty() {
+            return;
+        }
+
+        let byte_len = (instances.len() * std::mem::size_of::<LabelInstance>()) as u64;
+        if self.label_instance_buf.is_none() || self.label_instance_capacity < instances.len() {
+            let cap = (instances.len() * 3 / 2).max(256);
+            self.label_instance_buf = Some(self.device.new_buffer(
+                (cap * std::mem::size_of::<LabelInstance>()) as u64,
+                MTLResourceOptions::StorageModeShared,
+            ));
+            self.label_instance_capacity = cap;
+        }
+
+        if let Some(buf) = &self.label_instance_buf {
+            // SAFETY: buffer is StorageModeShared and we just ensured capacity.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    instances.as_ptr() as *const u8,
+                    buf.contents() as *mut u8,
+                    byte_len as usize,
+                );
+            }
+        }
+    }
+
+    /// Encode label draw commands into the current render encoder.
+    /// Called from draw() after nodes and before dialogue overlay.
+    fn draw_label_commands(&self, encoder: &RenderCommandEncoderRef) {
+        // Guard: labels disabled, no atlas, no pipeline, or nothing to draw.
+        if !self.labels_enabled || self.quality_level >= 2 {
+            return;
+        }
+        let pipeline = match &self.label_pipeline {
+            Some(p) => p,
+            None => return,
+        };
+        let atlas = match &self.label_atlas_texture {
+            Some(t) => t,
+            None => return,
+        };
+        if self.label_instance_count == 0 {
+            return;
+        }
+        let inst_buf = match &self.label_instance_buf {
+            Some(b) => b,
+            None => return,
+        };
+        let uniform_buf = match &self.label_uniform_buf {
+            Some(b) => b,
+            None => return,
+        };
+
+        // Update label uniforms.
+        let uniforms = LabelUniforms {
+            viewport_size: [self.last_viewport_width, self.last_viewport_height],
+            camera_offset: self.camera_offset,
+            camera_zoom: self.camera_zoom,
+            focus_radius: self.label_focus_radius,
+            blur_radius: self.label_blur_radius,
+            px_range: 6.0, // must match atlas gen -pxrange flag
+        };
+        // SAFETY: buffer is StorageModeShared and matches LabelUniforms layout.
+        unsafe {
+            let ptr = uniform_buf.contents() as *mut LabelUniforms;
+            *ptr = uniforms;
+        }
+
+        encoder.set_render_pipeline_state(pipeline);
+        encoder.set_vertex_buffer(0, Some(inst_buf), 0);
+        encoder.set_vertex_buffer(1, Some(uniform_buf), 0);
+        encoder.set_fragment_texture(0, Some(atlas));
+
+        let draw_count = self.label_instance_count.min(self.label_instance_capacity);
+        encoder.draw_primitives_instanced(
+            MTLPrimitiveType::Triangle,
+            0,
+            6, // 2 triangles = 1 quad per glyph
+            draw_count as u64,
+        );
     }
 
     /// Dispatch brute-force O(N^2) N-body repulsion on GPU.
@@ -3126,7 +3452,7 @@ impl Renderer {
 
         // Alpha blending (same as classic pipelines).
         if let Some(color_attach) = desc.color_attachments().object_at(0) {
-            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm_sRGB);
             color_attach.set_blending_enabled(true);
             color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
             color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
@@ -3528,7 +3854,10 @@ impl Renderer {
                 }
             }
 
-            // Draw dialogue box overlay (after nodes, on top).
+            // Draw SDF text labels (after nodes, before dialogue overlay).
+            self.draw_label_commands(encoder);
+
+            // Draw dialogue box overlay (after labels, on top).
             self.draw_dialogue_commands(encoder);
 
             encoder.end_encoding();

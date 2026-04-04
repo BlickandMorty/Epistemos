@@ -929,6 +929,69 @@ char* recovery_repair(const uint8_t* ptr, uint64_t len);
 /// Free a string returned by recovery_detect or recovery_repair.
 void recovery_free_string(char* ptr);
 
+// ── Shadow Attraction (Contextual Gravity) ─────────────────────────────────
+
+/// Set shadow attraction targets. Specific nodes are pulled toward (target_x, target_y).
+/// @param node_ids   Array of graph node IDs (u32).
+/// @param strengths  Parallel array of attraction strengths [0.0 - 1.0].
+/// @param target_x   World-space X of attraction point.
+/// @param target_y   World-space Y of attraction point.
+/// @param count      Number of elements. Pass 0 to clear all shadow attractions.
+void graph_engine_set_shadow_targets(
+    Engine* engine,
+    const uint32_t* node_ids,
+    const float* strengths,
+    float target_x,
+    float target_y,
+    uint32_t count
+);
+
+// ── Mass-Based Drag Physics ─────────────────────────────────────��──────────
+
+/// Enable or disable mass-based drag resistance.
+/// @param enabled           1 to enable, 0 to disable.
+/// @param snap_back_strength  Spring impulse strength on drag release [0.0 - 1.0].
+void graph_engine_set_mass_drag(Engine* engine, uint8_t enabled, float snap_back_strength);
+
+/// Set snap-back tether on a node (call on mouse-up after drag).
+/// @param node_id    Graph node ID.
+/// @param tether_dx  X displacement from rest position.
+/// @param tether_dy  Y displacement from rest position.
+void graph_engine_set_snap_back(Engine* engine, uint32_t node_id, float tether_dx, float tether_dy);
+
+// ── SDF Label Rendering ────────────────────────────────────────────────────
+
+/// Load MTSDF font atlas from raw RGBA pixel data.
+/// @param width     Atlas width in pixels.
+/// @param height    Atlas height in pixels.
+/// @param data      Pointer to RGBA8 pixel data.
+/// @param data_len  Byte length of data.
+/// @return 1 on success, 0 on failure.
+uint8_t graph_engine_load_label_atlas(
+    Engine* engine,
+    uint32_t width,
+    uint32_t height,
+    const uint8_t* data,
+    uint64_t data_len
+);
+
+/// Set the focal point for label blur-reveal effect.
+/// Labels within focus_radius are crisp; beyond blur_radius they're invisible.
+/// @param focus_x       World-space X of focus point (typically camera center).
+/// @param focus_y       World-space Y of focus point.
+/// @param focus_radius  Inner radius: fully crisp zone (world units).
+/// @param blur_radius   Outer radius: fully invisible zone (world units).
+void graph_engine_set_label_focus(
+    Engine* engine,
+    float focus_x,
+    float focus_y,
+    float focus_radius,
+    float blur_radius
+);
+
+/// Enable or disable SDF label rendering (disabled in performance mode).
+void graph_engine_set_labels_enabled(Engine* engine, uint8_t enabled);
+
 #ifdef __cplusplus
 }
 #endif

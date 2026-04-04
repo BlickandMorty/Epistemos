@@ -786,6 +786,81 @@ pub fn force_orbital(
     }
 }
 
+// ── Force: Shadow Attraction (contextual gravity toward a point) ────────────
+
+/// Pulls specific nodes toward a shadow target point.
+/// Each node has an individual `shadow_strength` (0.0 = no pull, 1.0 = max).
+/// Used for contextual editing: type in a note and related nodes drift toward it.
+///
+/// Force = (target - position) * strength * alpha * 0.05
+/// The 1/r falloff prevents distant nodes from overshooting.
+#[allow(clippy::too_many_arguments)]
+pub fn force_shadow(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    shadow_strength: &[f32],
+    shadow_target: [f32; 2],
+    alpha: f32,
+) {
+    let tx = shadow_target[0];
+    let ty = shadow_target[1];
+    for i in 0..x.len() {
+        let s = shadow_strength[i];
+        if s < 0.001 {
+            continue;
+        }
+        let dx = tx - x[i];
+        let dy = ty - y[i];
+        let dist_sq = dx * dx + dy * dy;
+        if dist_sq < 1e-4 {
+            continue;
+        }
+        // Gentle 1/sqrt(r) falloff: close nodes pull faster, distant ones drift slowly.
+        let inv_dist = 1.0 / dist_sq.sqrt();
+        let force = s * alpha * 0.05;
+        vx[i] += dx * inv_dist * force;
+        vy[i] += dy * inv_dist * force;
+    }
+}
+
+// ── Force: Snap-Back Spring (post-drag impulse) ────────────────────────────
+
+/// Applies a decaying spring impulse after drag release.
+/// Each node has a `snap_back` tether offset [dx, dy] set on release.
+/// Per tick: inject velocity proportional to tether, then decay tether.
+///
+/// This creates the "rubber band" feeling when you grab a heavy node and let go.
+pub fn force_snap_back(
+    vx: &mut [f32],
+    vy: &mut [f32],
+    snap_back: &mut [[f32; 2]],
+    mass: &[f32],
+    strength: f32,
+) {
+    if strength < 0.001 {
+        return;
+    }
+    for i in 0..vx.len() {
+        let sb = &mut snap_back[i];
+        let mag_sq = sb[0] * sb[0] + sb[1] * sb[1];
+        if mag_sq < 0.01 {
+            sb[0] = 0.0;
+            sb[1] = 0.0;
+            continue;
+        }
+        // Snap-back velocity injection, inversely proportional to mass.
+        let m = mass[i].max(0.5);
+        let factor = strength / m;
+        vx[i] += sb[0] * factor;
+        vy[i] += sb[1] * factor;
+        // Decay tether (spring relaxation).
+        sb[0] *= 0.85;
+        sb[1] *= 0.85;
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
