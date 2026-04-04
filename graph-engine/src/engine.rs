@@ -452,6 +452,7 @@ impl Engine {
         self.drag = None;
         self.renderer.highlight.active = false;
         self.renderer.highlight.highlighted_ids.clear();
+        self.renderer.highlight.root_id = None;
         self.highlight_dirty = true;
 
         // ── Start Physics ────────────────────────────────────────────
@@ -1107,6 +1108,7 @@ impl Engine {
 
     fn highlight_neighbors_by_id(&mut self, node_id: u32) {
         self.renderer.highlight.highlighted_ids = self.neighbor_ids(node_id);
+        self.renderer.highlight.root_id = Some(node_id);
         self.renderer.highlight.active = true;
         self.highlight_dirty = true;
         self.idle_frame_count = 0;

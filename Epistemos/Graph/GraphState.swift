@@ -26,7 +26,7 @@ enum GraphMode: Sendable {
 }
 
 enum GraphOverlayPhysicsPolicy {
-    static let openingPreset: PhysicsPreset = .crystal
+    static let openingPreset: PhysicsPreset = .deepSea
     static let restingPreset: PhysicsPreset = .chaos
     static let chaosDelaySeconds: TimeInterval = 4
     static let interactionMotionHoldSeconds: TimeInterval = 30
@@ -262,6 +262,69 @@ enum GraphInteractionMode: Equatable {
     case connecting(sourceNodeId: String)
 }
 
+// MARK: - Physics Scheduler Types
+
+enum PhysicsSchedulerMode: String, Codable {
+    case simple   // classic 2-stage: opening → delay → resting
+    case timeline // sequence of N steps, each with its own delay + preset
+}
+
+struct PhysicsScheduleStep: Identifiable, Codable, Equatable {
+    var id: UUID = UUID()
+    var delaySeconds: Double    // relative delay from previous step
+    var presetKey: String       // built-in preset rawValue or "custom:<UUID>"
+}
+
+// MARK: - Custom Physics Preset Snapshot
+
+/// Full snapshot of every user-editable physics setting — saved as a named custom preset.
+/// Version-independent persistence (kept across physicsVersion bumps).
+struct CustomPhysicsPresetSnapshot: Codable, Identifiable, Equatable {
+    var id: UUID
+    var name: String
+    var createdAt: Date
+
+    // Core 7
+    var linkDistance: Float
+    var chargeStrength: Float
+    var chargeRange: Float
+    var linkStrength: Float
+    var velocityDecay: Float
+    var centerStrength: Float
+    var collisionRadius: Float
+
+    // Clustering + semantics
+    var clusterStrength: Float
+    var semanticStrength: Float
+    var centerMode: UInt8
+    var useSemanticClustering: Bool
+    var disableClusteringAndSemantics: Bool
+    var savedClusterStrength: Float
+    var savedSemanticStrength: Float
+
+    // Laboratory (11)
+    var enableFluidDynamics: Bool
+    var enableTorsionalSprings: Bool
+    var enableElasticEdges: Bool
+    var fluidViscosity: Float
+    var edgeElasticity: Float
+    var torsionRigidity: Float
+    var boidsCohesion: Float
+    var windX: Float
+    var windY: Float
+    var enableOrbital: Bool
+    var orbitalSpeed: Float
+
+    // Scheduler
+    var schedulerMode: PhysicsSchedulerMode
+    var simpleOpeningPresetKey: String
+    var simpleOpeningDelaySeconds: Double
+    var simpleRestingPresetKey: String
+    var timelineSteps: [PhysicsScheduleStep]
+    var interactionMotionHoldSeconds: Double
+    var interactionMotionAlphaTarget: Float
+}
+
 // MARK: - Graph Vault Mode
 
 /// Multi-tenant vault mode for the knowledge graph.
@@ -363,6 +426,9 @@ final class GraphState {
         let svc = EmbeddingService()
         self.embeddingService = svc
         svc.graphState = self
+        // Load custom presets FIRST (outside version gate) so they survive
+        // any core-physics-settings reset triggered by a physicsVersion bump.
+        loadCustomPresetsFromDefaults()
         restorePhysicsSettings()
     }
 
@@ -650,6 +716,21 @@ final class GraphState {
         d.set(windY, forKey: "epistemos.physics.windY")
         d.set(enableOrbital, forKey: "epistemos.physics.enableOrbital")
         d.set(orbitalSpeed, forKey: "epistemos.physics.orbitalSpeed")
+        // Master toggle + saved strengths
+        d.set(disableClusteringAndSemantics, forKey: "epistemos.physics.disableClusteringAndSemantics")
+        d.set(savedClusterStrength, forKey: "epistemos.physics.savedClusterStrength")
+        d.set(savedSemanticStrength, forKey: "epistemos.physics.savedSemanticStrength")
+        // Scheduler
+        d.set(schedulerMode.rawValue, forKey: "epistemos.physics.schedulerMode")
+        d.set(simpleOpeningPresetKey, forKey: "epistemos.physics.simpleOpeningPresetKey")
+        d.set(simpleOpeningDelaySeconds, forKey: "epistemos.physics.simpleOpeningDelaySeconds")
+        d.set(simpleRestingPresetKey, forKey: "epistemos.physics.simpleRestingPresetKey")
+        d.set(interactionMotionHoldSeconds, forKey: "epistemos.physics.interactionMotionHoldSeconds")
+        d.set(interactionMotionAlphaTarget, forKey: "epistemos.physics.interactionMotionAlphaTarget")
+        // Timeline steps as JSON
+        if let stepsData = try? JSONEncoder().encode(timelineSteps) {
+            d.set(stepsData, forKey: "epistemos.physics.timelineSteps")
+        }
         if let selectedPhysicsPreset {
             d.set(selectedPhysicsPreset.rawValue, forKey: "epistemos.physics.selectedPreset")
         } else {
@@ -661,7 +742,7 @@ final class GraphState {
 
     /// Restore force parameters from UserDefaults. No-op if never saved.
     /// Uses a version key to force reset when defaults change across app updates.
-    private static let physicsVersion = 10  // Bump to force reset: tighter layout (linkDist 80, charge -300, range 400)
+    private static let physicsVersion = 11  // Bump: added master clustering toggle + scheduler
     private func restorePhysicsSettings() {
         let d = UserDefaults.standard
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }
@@ -704,6 +785,36 @@ final class GraphState {
         } else {
             selectedPhysicsPreset = nil
         }
+        // Master toggle + saved strengths
+        if d.object(forKey: "epistemos.physics.savedClusterStrength") != nil {
+            savedClusterStrength = d.float(forKey: "epistemos.physics.savedClusterStrength")
+            savedSemanticStrength = d.float(forKey: "epistemos.physics.savedSemanticStrength")
+            disableClusteringAndSemantics = d.bool(forKey: "epistemos.physics.disableClusteringAndSemantics")
+        }
+        // Scheduler
+        if let modeRaw = d.string(forKey: "epistemos.physics.schedulerMode"),
+           let mode = PhysicsSchedulerMode(rawValue: modeRaw) {
+            schedulerMode = mode
+        }
+        if let key = d.string(forKey: "epistemos.physics.simpleOpeningPresetKey") {
+            simpleOpeningPresetKey = key
+        }
+        if d.object(forKey: "epistemos.physics.simpleOpeningDelaySeconds") != nil {
+            simpleOpeningDelaySeconds = d.double(forKey: "epistemos.physics.simpleOpeningDelaySeconds")
+        }
+        if let key = d.string(forKey: "epistemos.physics.simpleRestingPresetKey") {
+            simpleRestingPresetKey = key
+        }
+        if d.object(forKey: "epistemos.physics.interactionMotionHoldSeconds") != nil {
+            interactionMotionHoldSeconds = d.double(forKey: "epistemos.physics.interactionMotionHoldSeconds")
+        }
+        if d.object(forKey: "epistemos.physics.interactionMotionAlphaTarget") != nil {
+            interactionMotionAlphaTarget = d.float(forKey: "epistemos.physics.interactionMotionAlphaTarget")
+        }
+        if let stepsData = d.data(forKey: "epistemos.physics.timelineSteps"),
+           let steps = try? JSONDecoder().decode([PhysicsScheduleStep].self, from: stepsData) {
+            timelineSteps = steps
+        }
         if isPhysicsFrozen { physicsFrozenVersion += 1 }
     }
 
@@ -716,11 +827,23 @@ final class GraphState {
     var clusterConfigVersion: Int = 0
     func pushClusterChange() {
         selectedPhysicsPreset = nil
+        // If user manually dragged the slider while the master toggle was ON,
+        // auto-flip the toggle OFF for consistency (toggle ON means "forced 0").
+        if disableClusteringAndSemantics && clusterStrength > 0.001 {
+            isRestoringPhysicsSettings = true  // prevent the toggle's didSet from zeroing us out
+            disableClusteringAndSemantics = false
+            isRestoringPhysicsSettings = false
+        }
         clusterConfigVersion += 1
         savePhysicsSettings()
     }
     func pushSemanticChange() {
         selectedPhysicsPreset = nil
+        if disableClusteringAndSemantics && semanticStrength > 0.001 {
+            isRestoringPhysicsSettings = true
+            disableClusteringAndSemantics = false
+            isRestoringPhysicsSettings = false
+        }
         semanticForceConfigVersion += 1
         savePhysicsSettings()
     }
@@ -789,25 +912,289 @@ final class GraphState {
         applyPreset(preset, persist: false, applyLabOverrides: false)
     }
 
-    private func finishOverlayPhysicsCycle() {
-        guard overlayPhysicsTask != nil else { return }
-        applyOverlayPreset(GraphOverlayPhysicsPolicy.restingPreset)
+    /// Apply a scheduler step non-persistently, resolving its presetKey to a preset.
+    /// Built-in keys match `PhysicsPreset.rawValue` (case-insensitive kebab/camel attempt).
+    /// Custom keys are "custom:<UUID>" and look up into `customPhysicsPresets`.
+    private func applyOverlayPresetByKey(_ key: String) {
+        if key.hasPrefix("custom:") {
+            let uuidStr = String(key.dropFirst("custom:".count))
+            if let uuid = UUID(uuidString: uuidStr),
+               let custom = customPhysicsPresets.first(where: { $0.id == uuid }) {
+                // Custom presets are applied by copying their core physics fields only during
+                // the overlay cycle (not persisted, no lab override). We reuse applyOverlayPreset
+                // by constructing a hypothetical PhysicsPreset-like application.
+                applyCustomPresetAsOverlay(custom)
+                return
+            }
+        }
+        // Try matching a built-in PhysicsPreset by rawValue or camelCase enum name.
+        if let builtin = PhysicsPreset.allCases.first(where: {
+            $0.rawValue == key || caseKey($0) == key
+        }) {
+            applyOverlayPreset(builtin)
+            return
+        }
+        // Fallback: chaos.
+        applyOverlayPreset(.chaos)
+    }
+
+    /// Apply a custom preset during the overlay cycle: copy core force params only,
+    /// skip persistence, skip lab overrides (same semantics as applyOverlayPreset).
+    private func applyCustomPresetAsOverlay(_ preset: CustomPhysicsPresetSnapshot) {
+        selectedPhysicsPreset = nil
+        linkDistance = preset.linkDistance
+        chargeStrength = preset.chargeStrength
+        chargeRange = preset.chargeRange
+        linkStrength = preset.linkStrength
+        velocityDecay = preset.velocityDecay
+        centerStrength = preset.centerStrength
+        collisionRadius = preset.collisionRadius
+        forceConfigVersion += 1
+        extendedForceConfigVersion += 1
+    }
+
+    /// Lowercase camelCase enum name for a preset (stable key format).
+    /// e.g. `.deepSea` → "deepSea", `.solarSystem` → "solarSystem".
+    private func caseKey(_ preset: PhysicsPreset) -> String {
+        String(describing: preset)
     }
 
     func startOverlayPhysicsCycle() {
         cancelOverlayPhysicsCycle()
-        applyOverlayPreset(GraphOverlayPhysicsPolicy.openingPreset)
-        let delayNs = UInt64(GraphOverlayPhysicsPolicy.chaosDelaySeconds * 1_000_000_000)
+        switch schedulerMode {
+        case .simple:
+            runSimpleScheduler()
+        case .timeline:
+            runTimelineScheduler()
+        }
+    }
+
+    private func runSimpleScheduler() {
+        applyOverlayPresetByKey(simpleOpeningPresetKey)
+        let delayNs = UInt64(max(0.0, simpleOpeningDelaySeconds) * 1_000_000_000)
+        let restingKey = simpleRestingPresetKey
         overlayPhysicsTask = Task.detached(priority: .utility) { [weak self] in
             try? await Task.sleep(nanoseconds: delayNs)
             guard !Task.isCancelled else { return }
-            await self?.finishOverlayPhysicsCycle()
+            await self?.applyOverlayPresetByKey(restingKey)
+        }
+    }
+
+    private func runTimelineScheduler() {
+        guard !timelineSteps.isEmpty else {
+            // Empty timeline falls back to the simple opening → chaos cycle.
+            runSimpleScheduler()
+            return
+        }
+        let steps = timelineSteps
+        overlayPhysicsTask = Task.detached(priority: .utility) { [weak self] in
+            for step in steps {
+                let delayNs = UInt64(max(0.0, step.delaySeconds) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: delayNs)
+                if Task.isCancelled { return }
+                await self?.applyOverlayPresetByKey(step.presetKey)
+            }
         }
     }
 
     func cancelOverlayPhysicsCycle() {
         overlayPhysicsTask?.cancel()
         overlayPhysicsTask = nil
+    }
+
+    // MARK: - Clustering + Semantics Master Toggle
+
+    /// When true, BOTH clusterStrength and semanticStrength are forced to 0, disabling both forces.
+    /// Toggling off restores the previously saved values.
+    var disableClusteringAndSemantics: Bool = false {
+        didSet {
+            guard !isRestoringPhysicsSettings, disableClusteringAndSemantics != oldValue else { return }
+            if disableClusteringAndSemantics {
+                // Snapshot previous values before zeroing (only if non-zero, so we don't overwrite
+                // a saved value with 0 when toggling repeatedly).
+                if clusterStrength > 0.001 { savedClusterStrength = clusterStrength }
+                if semanticStrength > 0.001 { savedSemanticStrength = semanticStrength }
+                clusterStrength = 0.0
+                semanticStrength = 0.0
+            } else {
+                // Restore previous values. Fallback to sensible defaults if none saved.
+                clusterStrength = savedClusterStrength > 0.001 ? savedClusterStrength : 0.3
+                semanticStrength = savedSemanticStrength > 0.001 ? savedSemanticStrength : 0.3
+            }
+            clusterConfigVersion += 1
+            semanticForceConfigVersion += 1
+            savePhysicsSettings()
+        }
+    }
+
+    /// Snapshot of clusterStrength captured when `disableClusteringAndSemantics` was flipped ON.
+    var savedClusterStrength: Float = 0.0
+    /// Snapshot of semanticStrength captured when `disableClusteringAndSemantics` was flipped ON.
+    var savedSemanticStrength: Float = 0.0
+
+    // MARK: - Physics Scheduler
+
+    /// Scheduler mode. `.simple` is the classic opening→resting 2-stage cycle.
+    /// `.timeline` plays an arbitrary sequence of preset changes.
+    var schedulerMode: PhysicsSchedulerMode = .simple
+    /// Opening preset key (built-in name like "deepSea" or "custom:<UUID>").
+    var simpleOpeningPresetKey: String = "deepSea"
+    /// Delay in seconds before switching from opening → resting in simple mode.
+    var simpleOpeningDelaySeconds: Double = 4.0
+    /// Resting preset key.
+    var simpleRestingPresetKey: String = "chaos"
+    /// Timeline mode: ordered steps to play when the overlay opens.
+    var timelineSteps: [PhysicsScheduleStep] = []
+    /// How long user-interaction-triggered motion is sustained (seconds).
+    var interactionMotionHoldSeconds: Double = 30.0
+    /// Alpha target during interaction-sustained motion (0.001-0.1).
+    var interactionMotionAlphaTarget: Float = 0.015
+    var schedulerConfigVersion: Int = 0
+
+    func pushSchedulerChange() {
+        schedulerConfigVersion += 1
+        savePhysicsSettings()
+    }
+
+    // MARK: - Custom Physics Presets
+
+    /// User-saved named physics configurations. Persisted as JSON under its own key,
+    /// independent of the core physics version gate.
+    private(set) var customPhysicsPresets: [CustomPhysicsPresetSnapshot] = []
+
+    private static let customPresetsKey = "epistemos.physics.customPresets"
+    private static let maxCustomPresets = 32
+
+    /// Snapshot the current physics state as a new named custom preset.
+    /// Returns the newly created snapshot, or nil if at the 32-preset limit.
+    @discardableResult
+    func saveCurrentAsCustomPreset(name: String) -> CustomPhysicsPresetSnapshot? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard customPhysicsPresets.count < Self.maxCustomPresets else { return nil }
+
+        let snapshot = CustomPhysicsPresetSnapshot(
+            id: UUID(),
+            name: String(trimmed.prefix(40)),
+            createdAt: Date(),
+            linkDistance: linkDistance,
+            chargeStrength: chargeStrength,
+            chargeRange: chargeRange,
+            linkStrength: linkStrength,
+            velocityDecay: velocityDecay,
+            centerStrength: centerStrength,
+            collisionRadius: collisionRadius,
+            clusterStrength: clusterStrength,
+            semanticStrength: semanticStrength,
+            centerMode: centerMode,
+            useSemanticClustering: useSemanticClustering,
+            disableClusteringAndSemantics: disableClusteringAndSemantics,
+            savedClusterStrength: savedClusterStrength,
+            savedSemanticStrength: savedSemanticStrength,
+            enableFluidDynamics: enableFluidDynamics,
+            enableTorsionalSprings: enableTorsionalSprings,
+            enableElasticEdges: enableElasticEdges,
+            fluidViscosity: fluidViscosity,
+            edgeElasticity: edgeElasticity,
+            torsionRigidity: torsionRigidity,
+            boidsCohesion: boidsCohesion,
+            windX: windX,
+            windY: windY,
+            enableOrbital: enableOrbital,
+            orbitalSpeed: orbitalSpeed,
+            schedulerMode: schedulerMode,
+            simpleOpeningPresetKey: simpleOpeningPresetKey,
+            simpleOpeningDelaySeconds: simpleOpeningDelaySeconds,
+            simpleRestingPresetKey: simpleRestingPresetKey,
+            timelineSteps: timelineSteps,
+            interactionMotionHoldSeconds: interactionMotionHoldSeconds,
+            interactionMotionAlphaTarget: interactionMotionAlphaTarget
+        )
+        customPhysicsPresets.insert(snapshot, at: 0)
+        saveCustomPresetsToDefaults()
+        return snapshot
+    }
+
+    /// Apply a saved custom preset to every matching GraphState field, then persist.
+    func applyCustomPreset(_ preset: CustomPhysicsPresetSnapshot) {
+        cancelOverlayPhysicsCycle()
+        isRestoringPhysicsSettings = true
+        defer { isRestoringPhysicsSettings = false }
+
+        selectedPhysicsPreset = nil
+        linkDistance = preset.linkDistance
+        chargeStrength = preset.chargeStrength
+        chargeRange = preset.chargeRange
+        linkStrength = preset.linkStrength
+        velocityDecay = preset.velocityDecay
+        centerStrength = preset.centerStrength
+        collisionRadius = preset.collisionRadius
+        clusterStrength = preset.clusterStrength
+        semanticStrength = preset.semanticStrength
+        centerMode = preset.centerMode
+        useSemanticClustering = preset.useSemanticClustering
+        disableClusteringAndSemantics = preset.disableClusteringAndSemantics
+        savedClusterStrength = preset.savedClusterStrength
+        savedSemanticStrength = preset.savedSemanticStrength
+        enableFluidDynamics = preset.enableFluidDynamics
+        enableTorsionalSprings = preset.enableTorsionalSprings
+        enableElasticEdges = preset.enableElasticEdges
+        fluidViscosity = preset.fluidViscosity
+        edgeElasticity = preset.edgeElasticity
+        torsionRigidity = preset.torsionRigidity
+        boidsCohesion = preset.boidsCohesion
+        windX = preset.windX
+        windY = preset.windY
+        enableOrbital = preset.enableOrbital
+        orbitalSpeed = preset.orbitalSpeed
+        schedulerMode = preset.schedulerMode
+        simpleOpeningPresetKey = preset.simpleOpeningPresetKey
+        simpleOpeningDelaySeconds = preset.simpleOpeningDelaySeconds
+        simpleRestingPresetKey = preset.simpleRestingPresetKey
+        timelineSteps = preset.timelineSteps
+        interactionMotionHoldSeconds = preset.interactionMotionHoldSeconds
+        interactionMotionAlphaTarget = preset.interactionMotionAlphaTarget
+
+        forceConfigVersion += 1
+        extendedForceConfigVersion += 1
+        clusterConfigVersion += 1
+        semanticForceConfigVersion += 1
+        labConfigVersion += 1
+        schedulerConfigVersion += 1
+        savePhysicsSettings()
+    }
+
+    func deleteCustomPreset(id: UUID) {
+        customPhysicsPresets.removeAll { $0.id == id }
+        saveCustomPresetsToDefaults()
+    }
+
+    func renameCustomPreset(id: UUID, newName: String) {
+        guard let idx = customPhysicsPresets.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        customPhysicsPresets[idx].name = String(trimmed.prefix(40))
+        saveCustomPresetsToDefaults()
+    }
+
+    private func saveCustomPresetsToDefaults() {
+        let encoder = JSONEncoder()
+        do {
+            let data = try encoder.encode(customPhysicsPresets)
+            UserDefaults.standard.set(data, forKey: Self.customPresetsKey)
+        } catch {
+            NSLog("[GraphState] Failed to encode custom presets: \(error)")
+        }
+    }
+
+    private func loadCustomPresetsFromDefaults() {
+        guard let data = UserDefaults.standard.data(forKey: Self.customPresetsKey) else { return }
+        let decoder = JSONDecoder()
+        do {
+            customPhysicsPresets = try decoder.decode([CustomPhysicsPresetSnapshot].self, from: data)
+        } catch {
+            NSLog("[GraphState] Failed to decode custom presets: \(error)")
+        }
     }
 
     // MARK: - Semantic Clustering

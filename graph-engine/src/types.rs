@@ -36,30 +36,35 @@ impl NodeType {
     }
 
     /// RGBA color for this node type (dark mode — vibrant pastels on dark background).
+    /// Values are in LINEAR space for correct blending with BGRA8Unorm_sRGB framebuffer.
+    /// Authored as sRGB then converted via pow(x, 1.8) — softer than full 2.2 gamma
+    /// to preserve the original visual intent while still enabling correct linear blending.
     pub fn color(&self) -> [f32; 4] {
         match self {
-            Self::Note => [0.39, 0.90, 0.85, 1.0],   // teal
-            Self::Chat => [1.00, 0.62, 0.04, 1.0],   // orange
-            Self::Idea => [1.00, 0.84, 0.04, 1.0],   // yellow
-            Self::Source => [0.20, 0.78, 0.35, 1.0], // green
-            Self::Folder => [0.64, 0.52, 0.37, 1.0], // brown
-            Self::Quote => [0.69, 0.32, 0.87, 1.0],  // purple
-            Self::Tag => [0.46, 0.46, 0.50, 1.0],    // gray
-            Self::Block => [0.55, 0.78, 0.90, 1.0],  // sky blue
+            Self::Note   => [0.18, 0.83, 0.75, 1.0], // teal
+            Self::Chat   => [0.58, 0.47, 0.83, 1.0], // soft lilac lavender
+            Self::Idea   => [1.00, 0.73, 0.00, 1.0], // yellow
+            Self::Source => [0.06, 0.64, 0.15, 1.0],  // green
+            Self::Folder => [0.45, 0.31, 0.17, 1.0],  // brown (overridden by depth B&W for folders)
+            Self::Quote  => [0.51, 0.13, 0.78, 1.0],  // purple
+            Self::Tag    => [0.25, 0.25, 0.29, 1.0],  // gray
+            Self::Block  => [0.34, 0.64, 0.83, 1.0],  // sky blue
         }
     }
 
     /// RGBA color for this node type (light mode — strong contrast on light background).
+    /// Values are in LINEAR space (pow 2.2 of authored sRGB values — deeper/darker
+    /// than pow 1.8 to stay visible when dimmed against the white background).
     pub fn color_light(&self) -> [f32; 4] {
         match self {
-            Self::Note => [0.05, 0.48, 0.44, 1.0],   // teal (darker)
-            Self::Chat => [0.72, 0.36, 0.00, 1.0],   // orange (darker)
-            Self::Idea => [0.65, 0.52, 0.00, 1.0],   // gold (darker)
-            Self::Source => [0.05, 0.46, 0.16, 1.0], // green (darker)
-            Self::Folder => [0.40, 0.28, 0.16, 1.0], // brown (darker)
-            Self::Quote => [0.42, 0.12, 0.58, 1.0],  // purple (darker)
-            Self::Tag => [0.25, 0.25, 0.30, 1.0],    // gray (darker)
-            Self::Block => [0.15, 0.42, 0.60, 1.0],  // blue (darker)
+            Self::Note   => [0.00, 0.20, 0.16, 1.0], // teal (darker)
+            Self::Chat   => [0.21, 0.13, 0.38, 1.0], // lilac lavender (keep this hue)
+            Self::Idea   => [0.39, 0.24, 0.00, 1.0], // gold (darker)
+            Self::Source => [0.00, 0.18, 0.02, 1.0],  // green (darker)
+            Self::Folder => [0.13, 0.06, 0.02, 1.0],  // brown (overridden by depth B&W for folders)
+            Self::Quote  => [0.15, 0.01, 0.30, 1.0],  // purple (darker)
+            Self::Tag    => [0.05, 0.05, 0.07, 1.0],  // gray (darker)
+            Self::Block  => [0.02, 0.15, 0.33, 1.0],  // blue (darker)
         }
     }
 }
@@ -81,21 +86,23 @@ pub fn radius_for_link_count(link_count: u32) -> f32 {
 /// RGBA color for an edge type (dark mode — subtle pastels on dark background).
 /// 12 types: 0=reference, 1=contains, 2=tagged, 3=mentions, 4=cites,
 /// 5=authored, 6=related, 7=quotes, 8=supports, 9=contradicts, 10=expands, 11=questions.
+/// Values are in LINEAR space (pow 1.8 of authored sRGB) for correct blending
+/// with BGRA8Unorm_sRGB framebuffer.
 pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
     match edge_type {
-        0 => [0.55, 0.55, 0.60, 0.35],  // reference — light gray
-        1 => [0.50, 0.40, 0.30, 0.35],  // contains — brown
-        2 => [0.46, 0.46, 0.50, 0.30],  // tagged — gray
-        3 => [0.40, 0.70, 0.90, 0.40],  // mentions — light blue
-        4 => [0.20, 0.78, 0.35, 0.45],  // cites — green
-        5 => [1.00, 0.62, 0.04, 0.40],  // authored — orange
-        6 => [0.69, 0.32, 0.87, 0.40],  // related — purple
-        7 => [1.00, 0.84, 0.04, 0.40],  // quotes — yellow
-        8 => [0.30, 0.90, 0.40, 0.50],  // supports — bright green
-        9 => [0.95, 0.25, 0.25, 0.50],  // contradicts — red
-        10 => [0.30, 0.85, 0.85, 0.45], // expands — cyan
-        11 => [0.95, 0.75, 0.10, 0.45], // questions — amber
-        _ => [0.55, 0.55, 0.60, 0.30],  // default — gray
+        0  => [0.34, 0.34, 0.40, 0.35], // reference — light gray
+        1  => [0.29, 0.19, 0.11, 0.35], // contains — brown
+        2  => [0.25, 0.25, 0.29, 0.30], // tagged — gray
+        3  => [0.19, 0.53, 0.83, 0.40], // mentions — light blue
+        4  => [0.06, 0.64, 0.15, 0.45], // cites — green
+        5  => [1.00, 0.42, 0.00, 0.40], // authored — orange
+        6  => [0.51, 0.13, 0.78, 0.40], // related — purple
+        7  => [1.00, 0.73, 0.00, 0.40], // quotes — yellow
+        8  => [0.11, 0.83, 0.19, 0.50], // supports — bright green
+        9  => [0.91, 0.08, 0.08, 0.50], // contradicts — red
+        10 => [0.11, 0.75, 0.75, 0.45], // expands — cyan
+        11 => [0.91, 0.60, 0.02, 0.45], // questions — amber
+        _  => [0.34, 0.34, 0.40, 0.30], // default — gray
     }
 }
 
@@ -941,15 +948,15 @@ mod tests {
 
     #[test]
     fn edge_type_color_default_for_invalid() {
-        // Unknown type should return default gray
+        // Unknown type should return default gray (linear space, pow 1.8)
         let def = edge_type_color(255);
         assert!(def[3] > 0.0);
-        assert_eq!(def, [0.55, 0.55, 0.60, 0.30]);
+        assert_eq!(def, [0.34, 0.34, 0.40, 0.30]);
     }
 
     #[test]
     fn edge_type_colors_opaque_enough() {
-        // All valid types should have reasonable opacity
+        // All valid types should have reasonable opacity (alpha is unchanged by sRGB conversion)
         for t in 0..=11u8 {
             let c = edge_type_color(t);
             assert!(
@@ -988,19 +995,19 @@ mod tests {
     #[test]
     fn edge_type_color_reference() {
         let c = edge_type_color(0);
-        assert_eq!(c, [0.55, 0.55, 0.60, 0.35]);
+        assert_eq!(c, [0.34, 0.34, 0.40, 0.35]); // linear space (pow 1.8)
     }
 
     #[test]
     fn edge_type_color_contradicts() {
         let c = edge_type_color(9);
-        assert_eq!(c, [0.95, 0.25, 0.25, 0.50]);
+        assert_eq!(c, [0.91, 0.08, 0.08, 0.50]); // linear space (pow 1.8)
     }
 
     #[test]
     fn edge_type_color_supports() {
         let c = edge_type_color(8);
-        assert_eq!(c, [0.30, 0.90, 0.40, 0.50]);
+        assert_eq!(c, [0.11, 0.83, 0.19, 0.50]); // linear space (pow 1.8)
     }
 
     #[test]

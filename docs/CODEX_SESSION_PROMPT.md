@@ -19,9 +19,10 @@ You are continuing work on **Epistemos** — a macOS-native cognitive exoskeleto
 
 ### Core Context
 1. `CLAUDE.md` — Project rules, constraints, file map
-2. `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` — Single source of truth: all phases, what's done, what's next
-3. `docs/CODEX_HANDOFF.md` — Full handoff: changes, runtime analysis, audit checklist, research context
-4. `docs/AGENT_PROGRESS.md` — Sprint status
+2. `docs/APP_ISSUES_AUTO_FIX.md` — **Open runtime issues to opportunistically fix** (check on every session start)
+3. `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` — Single source of truth: all phases, what's done, what's next
+4. `docs/CODEX_HANDOFF.md` — Full handoff: changes, runtime analysis, audit checklist, research context
+5. `docs/AGENT_PROGRESS.md` — Sprint status
 
 ### Agent System (historical plan + shipped follow-ons)
 5. `docs/BEST_OF_CLAW_AND_OPENCLAW.md` — source pattern doc; many items from this plan are already implemented, so verify against `docs/AGENT_PROGRESS.md`

@@ -145,6 +145,21 @@ pub async fn run_agent_loop(
 
         delegate.on_turn_started(turn_count, messages.len() as u32);
 
+        // Proactive compaction: compact BEFORE the API call if context is above 80%
+        // of the threshold. This prevents the API from rejecting an oversized request
+        // (reactive compaction only fires after tool results, which may be too late
+        // if a single large tool output pushed us past the limit).
+        let proactive_threshold = config.context_threshold * 4 / 5; // 80% of limit
+        let pre_flight_tokens = estimate_tokens(&messages);
+        if pre_flight_tokens > proactive_threshold {
+            delegate.on_context_compacting(pre_flight_tokens as u32);
+            messages = provider
+                .compact(&messages)
+                .await
+                .map_err(|_| AgentError::CompactionFailed)?;
+            delegate.on_context_compacted(messages.len() as u32);
+        }
+
         let tools = tool_registry.get_definitions();
         let mut turn_config = config.clone();
         turn_config.system_prompt = Some(system_prompt.clone());
