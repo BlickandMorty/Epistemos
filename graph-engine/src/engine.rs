@@ -1209,6 +1209,92 @@ impl Engine {
         self.renderer.wind_y = wind_y;
     }
 
+    // ── Shadow Attraction ──────────────────────────────────────────────
+
+    /// Set shadow attraction targets. `node_ids` are graph-level IDs (not sim indices).
+    /// Strengths are clamped to [0, 1]. Call with empty slice to clear.
+    pub fn set_shadow_targets(
+        &mut self,
+        node_ids: &[u32],
+        strengths: &[f32],
+        target_x: f32,
+        target_y: f32,
+    ) {
+        let mut sim = self.sim.lock();
+
+        // Clear all existing shadow strengths.
+        for s in sim.shadow_strength.iter_mut() {
+            *s = 0.0;
+        }
+
+        if node_ids.is_empty() {
+            sim.params.shadow_enabled = false;
+            return;
+        }
+
+        sim.shadow_target = [target_x, target_y];
+        sim.params.shadow_enabled = true;
+
+        // Map graph node IDs → simulation indices.
+        for (i, &nid) in node_ids.iter().enumerate() {
+            if let Some(&graph_idx) = self.graph.id_to_index.get(&nid) {
+                if let Some(sim_idx) = sim.graph_indices.iter().position(|&gi| gi == graph_idx) {
+                    if sim_idx < sim.shadow_strength.len() {
+                        sim.shadow_strength[sim_idx] =
+                            strengths.get(i).copied().unwrap_or(0.0).clamp(0.0, 1.0);
+                    }
+                }
+            }
+        }
+
+        // Wake physics if settled.
+        if sim.is_settled {
+            sim.params.alpha = sim.params.alpha.max(0.1);
+            sim.is_settled = false;
+        }
+        self.idle_frame_count = 0;
+    }
+
+    // ── Mass-Based Drag ──────────────────────────────────────────────
+
+    /// Enable or disable mass-based drag physics.
+    pub fn set_mass_drag(&mut self, enabled: bool, snap_back_strength: f32) {
+        let mut sim = self.sim.lock();
+        sim.params.enable_mass_drag = enabled;
+        sim.params.snap_back_strength = snap_back_strength.clamp(0.0, 1.0);
+    }
+
+    /// Set snap-back tether on a node after drag release.
+    pub fn set_snap_back(&mut self, node_id: u32, tether_dx: f32, tether_dy: f32) {
+        let mut sim = self.sim.lock();
+        if let Some(&graph_idx) = self.graph.id_to_index.get(&node_id) {
+            if let Some(sim_idx) = sim.graph_indices.iter().position(|&gi| gi == graph_idx) {
+                if sim_idx < sim.snap_back.len() {
+                    sim.snap_back[sim_idx] = [tether_dx, tether_dy];
+                }
+            }
+        }
+    }
+
+    // ── SDF Labels ───────────────────────────────────────────────────
+
+    /// Load SDF atlas texture from raw RGBA pixel data. Returns true on success.
+    pub fn load_label_atlas(&mut self, width: u32, height: u32, data: &[u8]) -> bool {
+        self.renderer.load_label_atlas(width, height, data)
+    }
+
+    /// Set label focus point and blur radii.
+    pub fn set_label_focus(&mut self, focus_x: f32, focus_y: f32, focus_radius: f32, blur_radius: f32) {
+        self.renderer.label_focus = [focus_x, focus_y];
+        self.renderer.label_focus_radius = focus_radius.max(0.0);
+        self.renderer.label_blur_radius = blur_radius.max(focus_radius);
+    }
+
+    /// Enable or disable SDF label rendering.
+    pub fn set_labels_enabled(&mut self, enabled: bool) {
+        self.renderer.labels_enabled = enabled;
+    }
+
     /// Clear neighbor highlighting.
     pub fn clear_highlight(&mut self) {
         if self.renderer.highlight.active {
