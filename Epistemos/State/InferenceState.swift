@@ -488,6 +488,28 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         provider.displayName
     }
 
+    /// Whether this model supports native structured output (JSON schema).
+    /// OpenAI GPT models support json_schema response format.
+    /// Anthropic supports structured output via tool_use with forced tool_choice.
+    /// Reasoning models (o3, o3-mini) may not support structured output.
+    var supportsStructuredOutput: Bool {
+        switch self {
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52,
+             .openAIGPT41, .openAIGPT41Mini:
+            return true
+        case .openAIO3, .openAIO3Mini:
+            return false // reasoning models — structured output not guaranteed
+        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+             .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
+            return true // via tool_use forced tool_choice
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
+             .googleGemini3ProPreview, .googleGemini31ProPreview:
+            return true // Gemini supports responseSchema
+        default:
+            return false
+        }
+    }
+
     var supportedOperatingModes: [EpistemosOperatingMode] {
         switch self {
         case .openAIGPT54:
