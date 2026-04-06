@@ -212,9 +212,12 @@ final class EmbeddingService {
             }
 
             Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
-            graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
-
+            // CRITICAL: recompute_semantic_neighbors mutates engine.semantic_neighbors
+            // (a Vec<(u32,u32,f32)>) which the render loop reads on the main thread.
+            // Calling from a background Task is a data race → BUG_IN_CLIENT_OF_LIBMALLOC.
+            // Dispatch to main to serialize with the render loop.
             await MainActor.run {
+                graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
                 Log.app.info("EmbeddingService: pushed \(completedEmbeddings.count) embeddings (dim=\(dim)) to Rust")
             }
         }
