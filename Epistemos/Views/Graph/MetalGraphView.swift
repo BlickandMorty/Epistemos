@@ -1127,9 +1127,11 @@ final class MetalGraphNSView: NSView {
         }
         guard let layer = metalLayer else { return }
 
-        // Triple-buffer gate: wait (non-blocking) for a frame slot.
-        // If all 3 are in flight, skip this tick rather than stalling.
-        guard inFlightSemaphore.wait(timeout: .now()) == .success else { return }
+        // In-flight tracking: acquire a slot. The semaphore allows up to
+        // 3 frames in the GPU pipeline (matching maximumDrawableCount=3).
+        // Use a short timeout instead of .now() to avoid dropping frames
+        // that just need one more millisecond to finish presenting.
+        guard inFlightSemaphore.wait(timeout: .now() + .milliseconds(2)) == .success else { return }
 
         switch graphInitialRenderBootstrapState(
             isCommitted: isCommitted,
@@ -1940,6 +1942,14 @@ final class MetalGraphNSView: NSView {
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.
         isInvalidated.store(true, ordering: .relaxed)
+
+        // Drain the in-flight semaphore: signal it back to its initial
+        // value (3) so deallocation doesn't hit the "BUG IN CLIENT OF
+        // LIBDISPATCH: semaphore object deallocated while in use" trap.
+        // Any in-flight frames will see isInvalidated=true and bail.
+        for _ in 0..<3 {
+            inFlightSemaphore.signal()
+        }
         if let backingPropertiesObserver {
             NotificationCenter.default.removeObserver(backingPropertiesObserver)
         }
