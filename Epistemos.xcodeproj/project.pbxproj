@@ -221,6 +221,7 @@
 		5D9B53729BDFF5D413840DF6 /* SyntheticDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59D82AEFED83F574BE81AC4 /* SyntheticDataTests.swift */; };
 		5DDBB34776B2611184A576B0 /* HologramController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32186F0FF89A179A2B0CC5E6 /* HologramController.swift */; };
 		5EA39F523812F677F8CD543A /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB5C2BD734F65B1E087FFEB /* MessageBubble.swift */; };
+		F054AA155F4F7739EDCF2DC3 /* ArtifactBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB54A455BA40FA5C7BDE8C2 /* ArtifactBlockView.swift */; };
 		5EE95F33E974564D70146274 /* ResearchModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32196B57827E9789BE33C9C /* ResearchModeTests.swift */; };
 		5FA0F33C75DFD88FF58D85BC /* sgmm_kernel.cpython-312.pyc in Resources */ = {isa = PBXBuildFile; fileRef = E909D3E80C0C6FE49ED562A6 /* sgmm_kernel.cpython-312.pyc */; };
 		5FD890BC095DBE86F5519396 /* AdapterSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F83053E2F36E60FA638AE9D9 /* AdapterSelectorView.swift */; };
@@ -650,6 +651,7 @@
 		2B245B94FA920DBE87BCA36F /* FilterEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterEngine.swift; sourceTree = "<group>"; };
 		2B9DBC3E5560184FE87C3AB7 /* OmegaAXSemanticSelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaAXSemanticSelectorTests.swift; sourceTree = "<group>"; };
 		2BB5C2BD734F65B1E087FFEB /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		7EB54A455BA40FA5C7BDE8C2 /* ArtifactBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactBlockView.swift; sourceTree = "<group>"; };
 		2C10A861861089A16C15C873 /* MLXInferenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceService.swift; sourceTree = "<group>"; };
 		2E1E19BF04C388E3D7546FC9 /* AgentDepthLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDepthLimiter.swift; sourceTree = "<group>"; };
 		2F31CC03F636E66B19F45B73 /* Screen2AXService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screen2AXService.swift; sourceTree = "<group>"; };
@@ -1497,6 +1499,7 @@
 				0718573D4BE2D44999758A16 /* ChatView.swift */,
 				D536B15336F9F7E0D777A0B4 /* ComposerReferenceBrowser.swift */,
 				2BB5C2BD734F65B1E087FFEB /* MessageBubble.swift */,
+				7EB54A455BA40FA5C7BDE8C2 /* ArtifactBlockView.swift */,
 				DB211887E2C199C35268119F /* NotesMentionDropdown.swift */,
 				FB24375B0C39C436B8F01641 /* TaggedMarkdownTextView.swift */,
 			);
@@ -2632,6 +2635,7 @@
 				06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */,
 				FC36FD7812AD986054186680 /* MemoryThreatScanner.swift in Sources */,
 				5EA39F523812F677F8CD543A /* MessageBubble.swift in Sources */,
+				F054AA155F4F7739EDCF2DC3 /* ArtifactBlockView.swift in Sources */,
 				57A1910B67F7C7677027F0EC /* MetalGraphView.swift in Sources */,
 				F6BB5A5E4618AF0964CA6E26 /* MetricEvaluator.swift in Sources */,
 				71B515B00D4223ADCB38F093 /* MiniChatView.swift in Sources */,

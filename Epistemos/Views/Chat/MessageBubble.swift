@@ -168,6 +168,15 @@ struct MessageBubble: View {
 
                 TaggedMarkdownTextView(content: displayContent, theme: theme)
 
+                // Structured artifacts — interactive cards for JSON, code, tables
+                if !message.artifacts.isEmpty {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        ForEach(message.artifacts) { artifact in
+                            ArtifactBlockView(artifact: artifact)
+                        }
+                    }
+                }
+
                 if !contextAttachments.isEmpty {
                     ContextAttachmentBadgeRow(attachments: contextAttachments)
                 }
