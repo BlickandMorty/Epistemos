@@ -426,6 +426,11 @@ final class MetalGraphNSView: NSView {
     /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
     private let framePending = Atomic<Bool>(false)
 
+    /// Triple-buffer in-flight semaphore: allows up to 3 frames queued
+    /// between CPU and GPU, matching maximumDrawableCount=3. Without
+    /// this, the atomic bool drops frames instead of pipelining them.
+    private let inFlightSemaphore = DispatchSemaphore(value: 3)
+
     /// Atomic render-needed flag. CVDisplayLink (background thread) reads this
     /// to skip dispatches when settled. Main thread writes it on user events
     /// and after graph_engine_render() returns.
@@ -564,7 +569,7 @@ final class MetalGraphNSView: NSView {
 
     override func makeBackingLayer() -> CALayer {
         let layer = CAMetalLayer()
-        layer.pixelFormat = .bgra8Unorm
+        layer.pixelFormat = .bgra8Unorm_srgb  // MUST match Rust renderer pipeline (BGRA8Unorm_sRGB)
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
         layer.maximumDrawableCount = 3     // Triple buffer: eliminates stutter from GPU/CPU contention.
@@ -1122,6 +1127,10 @@ final class MetalGraphNSView: NSView {
         }
         guard let layer = metalLayer else { return }
 
+        // Triple-buffer gate: wait (non-blocking) for a frame slot.
+        // If all 3 are in flight, skip this tick rather than stalling.
+        guard inFlightSemaphore.wait(timeout: .now()) == .success else { return }
+
         switch graphInitialRenderBootstrapState(
             isCommitted: isCommitted,
             isGraphLoaded: graphState?.isLoaded == true
@@ -1355,6 +1364,11 @@ final class MetalGraphNSView: NSView {
         }
 
         needsRender = result != 0
+
+        // Release the in-flight semaphore slot so the next frame can queue.
+        // graph_engine_render() calls commandBuffer.commit() + present()
+        // internally, so GPU work is submitted at this point.
+        inFlightSemaphore.signal()
     }
 
     // MARK: - Input Events
