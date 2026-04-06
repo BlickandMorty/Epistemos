@@ -50,6 +50,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var isVaultBriefing: Bool
     var loadedNoteTitles: [String]?
     var contextAttachments: [ContextAttachment]?
+    /// Structured artifacts extracted from this message (JSON, YAML, code, tables).
+    var artifacts: [Artifact]
 
     init(
         id: String = UUID().uuidString,
@@ -66,7 +68,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         createdAt: Date = .now,
         isVaultBriefing: Bool = false,
         loadedNoteTitles: [String]? = nil,
-        contextAttachments: [ContextAttachment]? = nil
+        contextAttachments: [ContextAttachment]? = nil,
+        artifacts: [Artifact] = []
     ) {
         self.id = id
         self.chatId = chatId
@@ -83,6 +86,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.isVaultBriefing = isVaultBriefing
         self.loadedNoteTitles = loadedNoteTitles
         self.contextAttachments = contextAttachments
+        self.artifacts = artifacts
     }
 }
 

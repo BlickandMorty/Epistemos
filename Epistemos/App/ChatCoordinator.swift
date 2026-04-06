@@ -1583,6 +1583,10 @@ final class ChatCoordinator {
             contextAttachments: assistantMessage?.contextAttachments
         )
         assistantMsg.inferenceMode = mode.rawValue
+        // Persist extracted artifacts (JSON, YAML, code blocks, etc.)
+        if let assistantMessage, !assistantMessage.artifacts.isEmpty {
+            assistantMsg.setArtifacts(assistantMessage.artifacts)
+        }
         assistantMsg.chat = chat
         context.insert(assistantMsg)
 
