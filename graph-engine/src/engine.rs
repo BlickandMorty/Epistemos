@@ -884,7 +884,7 @@ impl Engine {
             self.renderer.update_field_lines(None, &self.world, 0.0);
         }
 
-        if needs_frame || instance_buffers_changed {
+        if needs_frame || instance_buffers_changed || self.highlight_dirty {
             self.rebuild_label_instances(width, height);
         }
 
@@ -1404,6 +1404,12 @@ impl Engine {
         let effective_radius = (viewport_half_diag * radius_scale).max(1.0);
         let proximity_exp = 1.0 + shrink * focus_active * 1.0;
 
+        // Selection-aware labels: when a node is selected (highlight active),
+        // ONLY the selected node + its neighbors get labels. All other labels
+        // disappear. When nothing is selected, normal zoom-based scoring.
+        let selection_active = self.renderer.highlight.active;
+        let highlight_ids = &self.renderer.highlight.highlighted_ids;
+
         struct Scored<'a> { x: f32, y: f32, radius: f32, label: &'a str, score: f32, opacity: f32 }
         let mut scored: Vec<Scored<'_>> = Vec::new();
         scored.reserve(256);
@@ -1412,6 +1418,11 @@ impl Engine {
             if !node.visible { continue; }
             if node.x < vp.min_x || node.x > vp.max_x || node.y < vp.min_y || node.y > vp.max_y { continue; }
             if node.label.is_empty() { continue; }
+
+            // When a node is selected, only show labels for highlighted set
+            // (selected + neighbors). Everything else disappears.
+            let is_highlighted = selection_active && highlight_ids.contains(&node.id);
+            if selection_active && !is_highlighted { continue; }
 
             let r = node.radius.max(0.1);
             let size_component = if bias > 0.0 {
@@ -1423,12 +1434,19 @@ impl Engine {
 
             let link_boost = 1.0 + (node.link_count as f32).ln_1p() * 0.15;
 
-            let (is_inner, type_thresh) = match node.node_type {
-                crate::types::NodeType::Note => (true, note_thresh),
-                crate::types::NodeType::Chat => (true, chat_thresh),
-                _ => (false, folder_thresh),
-            };
-            let layer = if is_inner {
+            // When selection is active, bypass the zoom-layer filter — show
+            // highlighted labels regardless of zoom level.
+            let layer = if selection_active {
+                1.0
+            } else if match node.node_type {
+                crate::types::NodeType::Note | crate::types::NodeType::Chat => true,
+                _ => false,
+            } {
+                let type_thresh = match node.node_type {
+                    crate::types::NodeType::Note => note_thresh,
+                    crate::types::NodeType::Chat => chat_thresh,
+                    _ => 1.0,
+                };
                 let type_shift = pivot * (type_thresh - 1.0);
                 let lo = (inner_start_base + type_shift).max(0.1);
                 let hi = lo + inner_window;
@@ -1446,8 +1464,14 @@ impl Engine {
             let dx = node.x - camera[0];
             let dy = node.y - camera[1];
             let dist = (dx * dx + dy * dy).sqrt();
-            let prox_linear = 1.0 - (dist / effective_radius).clamp(0.0, 1.0);
-            let proximity = prox_linear.powf(proximity_exp);
+            // Skip proximity culling when selection is active — show all
+            // highlighted labels even if they're at the viewport edge.
+            let proximity = if selection_active {
+                1.0
+            } else {
+                let prox_linear = 1.0 - (dist / effective_radius).clamp(0.0, 1.0);
+                prox_linear.powf(proximity_exp)
+            };
             if proximity < 0.01 { continue; }
 
             let score = layer * size_component * link_boost * proximity;
@@ -1456,12 +1480,18 @@ impl Engine {
 
         scored.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
 
-        let outer_max = if self.label_max_nodes == 0 { scored.len() } else { self.label_max_nodes as usize };
-        let inner_max = if self.label_max_inner_nodes == 0 { outer_max } else { self.label_max_inner_nodes as usize };
-        let inner_t = ((zoom - inner_start_base) / inner_window).clamp(0.0, 1.0);
-        let inner_t_smooth = inner_t * inner_t * (3.0 - 2.0 * inner_t);
-        let cap_f = (outer_max as f32) * (1.0 - inner_t_smooth) + (inner_max as f32) * inner_t_smooth;
-        let max_nodes = (cap_f.round() as usize).max(1).min(scored.len());
+        // When selection is active, show ALL highlighted labels (no cap).
+        // Otherwise, lerp between outer and inner max based on zoom.
+        let max_nodes = if selection_active {
+            scored.len()
+        } else {
+            let outer_max = if self.label_max_nodes == 0 { scored.len() } else { self.label_max_nodes as usize };
+            let inner_max = if self.label_max_inner_nodes == 0 { outer_max } else { self.label_max_inner_nodes as usize };
+            let inner_t = ((zoom - inner_start_base) / inner_window).clamp(0.0, 1.0);
+            let inner_t_smooth = inner_t * inner_t * (3.0 - 2.0 * inner_t);
+            let cap_f = (outer_max as f32) * (1.0 - inner_t_smooth) + (inner_max as f32) * inner_t_smooth;
+            (cap_f.round() as usize).max(1).min(scored.len())
+        };
 
         let mut visible: Vec<(f32, f32, f32, &str, f32)> = Vec::with_capacity(max_nodes);
         for s in scored.iter().take(max_nodes) {
