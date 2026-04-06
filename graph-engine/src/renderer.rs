@@ -3659,8 +3659,9 @@ impl Renderer {
         }
     }
 
-    /// Camera smoothing factor. Higher = faster. 3.0 = gentle cinematic glide.
-    const CAMERA_LAMBDA: f32 = 3.0;
+    /// Camera smoothing factor. Higher = faster. 6.5 = snappy response
+    /// that still reads as smooth. Was 3.0 (too slow per user 2026-04-04).
+    const CAMERA_LAMBDA: f32 = 6.5;
 
     pub fn set_camera_immediately(&mut self, offset: [f32; 2], zoom: f32) {
         self.camera_offset = offset;
