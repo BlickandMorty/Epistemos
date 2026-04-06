@@ -546,6 +546,9 @@ extension ProseEditorRepresentable2 {
             noteChat.noteBodyProvider = { [weak self] in
                 self?.textView?.string ?? ""
             }
+            noteChat.graphStateProvider = { [graphState = parent.graphState] in
+                graphState
+            }
 
             noteChat.onStreamStart = { [weak self, pageId = noteChat.pageId] _ in
                 self?.startNoteChatStream(for: pageId)

@@ -83,6 +83,9 @@ final class NoteChatState {
     var onReplaceInlineResponse: ((_ text: String) -> Void)?
     /// Read the current note body from storage.
     var noteBodyProvider: (() -> String)?
+    /// Provides the current GraphState for graph context injection.
+    /// Set by the workspace view when the chat is created.
+    var graphStateProvider: (() -> GraphState?)?
     /// Insert text at the current cursor position (panel mode accept).
     var onInsertAtCursor: ((_ text: String) -> Void)?
     /// Test hook for overriding instant recall indexing.
@@ -486,11 +489,21 @@ final class NoteChatState {
         query: String
     ) -> String {
         var sections: [String] = []
-        sections.reserveCapacity(4)
+        sections.reserveCapacity(5)
 
         if !noteSnippet.isEmpty {
             sections.append("<note>\n\(noteSnippet)\n</note>")
         }
+
+        // Graph context: inject the current note's neighborhood from the
+        // knowledge graph so the model understands the note's position in
+        // the user's knowledge structure. This is the "beyond native"
+        // differentiator — the model sees connections, not just content.
+        let graphContext = buildGraphContext()
+        if !graphContext.isEmpty {
+            sections.append("<knowledge_graph>\n\(graphContext)\n</knowledge_graph>")
+        }
+
         if !recallContext.isEmpty {
             sections.append("<related_notes>\n\(recallContext)\n</related_notes>")
         }
@@ -500,6 +513,36 @@ final class NoteChatState {
 
         sections.append("Question: \(query)")
         return sections.joined(separator: "\n\n")
+    }
+
+    /// Build a compact graph neighborhood description for the current note.
+    /// Includes: node type, label, and edge types for immediate neighbors.
+    /// Capped at ~20 neighbors to stay within token budget.
+    private func buildGraphContext() -> String {
+        guard let graphState = graphStateProvider?() else { return "" }
+        let store = graphState.store
+
+        // Find the node for this note
+        guard let node = store.node(bySourceId: pageId, type: .note) else { return "" }
+        guard let neighbors = store.adjacency[node.id], !neighbors.isEmpty else { return "" }
+
+        var lines: [String] = []
+        lines.append("This note \"\(node.label)\" is connected to \(neighbors.count) nodes in the knowledge graph:")
+
+        let neighborNodes = neighbors.compactMap { store.nodes[$0] }
+            .sorted { $0.weight > $1.weight }
+            .prefix(20)
+
+        for neighbor in neighborNodes {
+            let type = neighbor.type.displayName
+            lines.append("- [\(type)] \(neighbor.label)")
+        }
+
+        if neighbors.count > 20 {
+            lines.append("(+ \(neighbors.count - 20) more connections)")
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     private func recallSnippet(from text: String, limit: Int = 220) -> String {
