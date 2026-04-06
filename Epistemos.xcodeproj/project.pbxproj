@@ -55,6 +55,7 @@
 		161F4C5CC609D325639A5D99 /* AXorcist in Frameworks */ = {isa = PBXBuildFile; productRef = 48BA6B15F3E86D3F10699011 /* AXorcist */; };
 		16AEAF1164900CEBD504674A /* OmegaExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFFF611C8FBAE6CA3C789D5E /* OmegaExtensions.swift */; };
 		16EC9F937CE7604D371DCE0B /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C55A4C135600B56A92857DEC /* LLMService.swift */; };
+		95384C52D2019392A8E19BD1 /* StructuredOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636EC8845C539C85928A2EDD /* StructuredOutput.swift */; };
 		17293621D693C0BCE3FE3D39 /* QueryAST.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38B3C558BCEA88C770DC766 /* QueryAST.swift */; };
 		17A27BC09C048D6D709A1635 /* TK1MigrationValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E363669BA218399A25C6CCEA /* TK1MigrationValidationTests.swift */; };
 		17DF24A4377228334A78D42B /* CurriculumSorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 916487A27FB5CA88236E6D69 /* CurriculumSorter.swift */; };
@@ -963,6 +964,7 @@
 		C40F56D97B2215B542F50144 /* EngineTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineTypes.swift; sourceTree = "<group>"; };
 		C5467DC782039DA54397330A /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		C55A4C135600B56A92857DEC /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
+		636EC8845C539C85928A2EDD /* StructuredOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuredOutput.swift; sourceTree = "<group>"; };
 		C55CDC3E98795AF3AC0BC24E /* QueryEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryEngine.swift; sourceTree = "<group>"; };
 		C595AA8DF702F63F1CE0DEB3 /* train_kto.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = train_kto.py; sourceTree = "<group>"; };
 		C61CAD2808C611F284E8BF51 /* EmbeddingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingService.swift; sourceTree = "<group>"; };
@@ -2101,6 +2103,7 @@
 				BD9F8FAF8C937C445D7C2152 /* Keychain.swift */,
 				D79E9597162DF8DD85E025B0 /* KnowledgeCoreBridge.swift */,
 				C55A4C135600B56A92857DEC /* LLMService.swift */,
+				636EC8845C539C85928A2EDD /* StructuredOutput.swift */,
 				08106EEB5DE62EDE140634A8 /* LocalModelInfrastructure.swift */,
 				BD39ADCBE426B353E3FA283B /* Log.swift */,
 				2C10A861861089A16C15C873 /* MLXInferenceService.swift */,
@@ -2599,6 +2602,7 @@
 				8F45976BF7A8AEF967427EF4 /* KnowledgeFusionViewModel.swift in Sources */,
 				5317EF59932A11B9B7B8F1D9 /* KnowledgeProfileStore.swift in Sources */,
 				16EC9F937CE7604D371DCE0B /* LLMService.swift in Sources */,
+				95384C52D2019392A8E19BD1 /* StructuredOutput.swift in Sources */,
 				31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */,
 				D2FB41E55F2DEE0892E84085 /* LineDiff.swift in Sources */,
 				B9459F26DD021E7EF1A16BEE /* LiquidGreeting.swift in Sources */,

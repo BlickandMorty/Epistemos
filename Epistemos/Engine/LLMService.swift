@@ -44,6 +44,53 @@ protocol CloudConfigurableLLMClient: LLMClientProtocol {
         maxTokens: Int,
         model: CloudTextModelID
     ) -> AsyncThrowingStream<String, Error>
+
+    /// Generate a structured response constrained to a JSON schema.
+    /// Returns the decoded value + raw JSON string for storage/export.
+    func generateStructured<T: Decodable & Sendable>(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID,
+        schema: CloudJSONSchema,
+        type: T.Type
+    ) async throws -> StructuredGenerationResult<T>
+}
+
+// Default fallback: parse generate() result as JSON. Providers that don't
+// support native structured output (Google, ZAI, Kimi, etc.) use this.
+extension CloudConfigurableLLMClient {
+    func generateStructured<T: Decodable & Sendable>(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID,
+        schema: CloudJSONSchema,
+        type: T.Type
+    ) async throws -> StructuredGenerationResult<T> {
+        // Augment prompt to request JSON output
+        let augmented = prompt + "\n\nRespond with valid JSON matching this schema: \(schema.name). Output ONLY the JSON object, no markdown fences."
+        let raw = try await generate(
+            prompt: augmented,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: model
+        )
+        // Strip markdown fences if the model wrapped the JSON
+        let cleaned = raw
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = cleaned.data(using: .utf8), !cleaned.isEmpty else {
+            throw StructuredOutputError.emptyResponse
+        }
+        do {
+            let value = try JSONDecoder().decode(T.self, from: data)
+            return StructuredGenerationResult(value: value, rawJSON: cleaned)
+        } catch {
+            throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: cleaned)
+        }
+    }
 }
 
 extension LocalConfigurableLLMClient {
@@ -630,6 +677,64 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
     }
 
+    // MARK: - Structured Output (provider-native)
+
+    func generateStructured<T: Decodable & Sendable>(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID,
+        schema: CloudJSONSchema,
+        type: T.Type
+    ) async throws -> StructuredGenerationResult<T> {
+        let credential = try await resolvedCredential(for: model.provider)
+        let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
+            from: systemPrompt,
+            modelID: model.vendorModelID
+        )
+
+        switch model.provider {
+        case .openAI:
+            // o3/o3-mini may not support json_schema — fall back to prompt-based
+            if !model.supportsStructuredOutput {
+                // Use default protocol extension (prompt-based fallback)
+                let augmented = prompt + "\n\nRespond with valid JSON matching schema: \(schema.name). Output ONLY the JSON, no fences."
+                let raw = try await generateOpenAI(model: model, credential: credential, prompt: augmented, systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens)
+                let cleaned = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let data = cleaned.data(using: .utf8) else { throw StructuredOutputError.emptyResponse }
+                do {
+                    let value = try JSONDecoder().decode(T.self, from: data)
+                    return StructuredGenerationResult(value: value, rawJSON: cleaned)
+                } catch {
+                    throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: cleaned)
+                }
+            }
+            return try await generateStructuredOpenAI(
+                model: model, credential: credential, prompt: prompt,
+                systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens,
+                schema: schema, type: type
+            )
+        case .anthropic:
+            return try await generateStructuredAnthropic(
+                model: model, credential: credential, prompt: prompt,
+                systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens,
+                schema: schema, type: type
+            )
+        default:
+            // Other providers: use prompt-based fallback (default protocol extension)
+            let augmented = prompt + "\n\nRespond with valid JSON matching schema: \(schema.name). Output ONLY the JSON, no fences."
+            let raw = try await generate(prompt: augmented, systemPrompt: systemPrompt, maxTokens: maxTokens, model: model)
+            let cleaned = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let data = cleaned.data(using: .utf8) else { throw StructuredOutputError.emptyResponse }
+            do {
+                let value = try JSONDecoder().decode(T.self, from: data)
+                return StructuredGenerationResult(value: value, rawJSON: cleaned)
+            } catch {
+                throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: cleaned)
+            }
+        }
+    }
+
     func testConnection() async -> ConnectionTestResult {
         do {
             let model = try selectedCloudModel()
@@ -899,6 +1004,90 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         throw CloudLLMError.invalidResponse
     }
 
+    /// OpenAI structured output via the Responses API `text.format` block.
+    /// Uses `json_schema` type to guarantee valid JSON matching the schema.
+    private func generateStructuredOpenAI<T: Decodable & Sendable>(
+        model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        schema: CloudJSONSchema,
+        type: T.Type
+    ) async throws -> StructuredGenerationResult<T> {
+        let input: [[String: String?]] = [
+            ["role": systemPrompt?.isEmpty == false ? "system" : nil, "content": systemPrompt],
+            ["role": "user", "content": prompt],
+        ].compactMap { entry in
+            guard let role = entry["role"] ?? nil,
+                  let content = entry["content"] ?? nil,
+                  !content.isEmpty else { return nil }
+            return ["role": role, "content": content]
+        }
+
+        var body: [String: Any] = [
+            "model": model.vendorModelID,
+            "input": input,
+        ]
+        if maxTokens > 0 {
+            body["max_output_tokens"] = maxTokens
+        }
+        let tools = openAIToolsConfiguration()
+        if !tools.isEmpty {
+            body["tools"] = tools
+        }
+
+        // Structured output: constrain response to JSON schema.
+        // https://platform.openai.com/docs/guides/structured-outputs
+        var formatSchema: [String: Any] = [
+            "type": "json_schema",
+            "name": schema.name,
+            "schema": schema.schema,
+            "strict": schema.strict,
+        ]
+        if let desc = schema.description {
+            formatSchema["description"] = desc
+        }
+        body["text"] = ["format": formatSchema]
+
+        guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
+            throw CloudLLMError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let json = try await sendJSON(request)
+        // Extract raw text from response
+        let rawText: String
+        if let text = json["output_text"] as? String, !text.isEmpty {
+            rawText = text
+        } else if let output = json["output"] as? [[String: Any]] {
+            let text = output
+                .compactMap { item in item["content"] as? [[String: Any]] }
+                .flatMap { $0 }
+                .compactMap { item in item["text"] as? String }
+                .joined()
+            guard !text.isEmpty else { throw StructuredOutputError.emptyResponse }
+            rawText = text
+        } else {
+            throw StructuredOutputError.emptyResponse
+        }
+
+        // Decode into the requested type
+        guard let data = rawText.data(using: .utf8) else {
+            throw StructuredOutputError.emptyResponse
+        }
+        do {
+            let value = try JSONDecoder().decode(T.self, from: data)
+            return StructuredGenerationResult(value: value, rawJSON: rawText)
+        } catch {
+            throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: rawText)
+        }
+    }
+
     private func streamOpenAI(
         model: CloudTextModelID,
         credential: CloudProviderResolvedCredential,
@@ -966,6 +1155,80 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             systemPrompt: systemPrompt,
             maxTokens: maxTokens
         )
+    }
+
+    /// Anthropic structured output via forced tool_use.
+    /// Defines a tool whose input_schema matches the desired JSON schema,
+    /// then forces the model to call it via tool_choice. The structured
+    /// JSON appears in the `input` field of the `tool_use` content block.
+    private func generateStructuredAnthropic<T: Decodable & Sendable>(
+        model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        schema: CloudJSONSchema,
+        type: T.Type
+    ) async throws -> StructuredGenerationResult<T> {
+        let resolvedMaxTokens = resolvedAnthropicMaxTokens(requestedMaxTokens: maxTokens)
+        var body: [String: Any] = [
+            "model": model.vendorModelID,
+            "messages": [["role": "user", "content": prompt]],
+            "max_tokens": resolvedMaxTokens,
+        ]
+        if let systemPrompt, !systemPrompt.isEmpty {
+            body["system"] = systemPrompt
+        }
+        if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
+            body["thinking"] = thinking
+        }
+        // Define a tool whose input_schema = the desired output schema
+        var toolDef: [String: Any] = [
+            "name": schema.name,
+            "input_schema": schema.schema,
+        ]
+        if let desc = schema.description {
+            toolDef["description"] = desc
+        }
+        body["tools"] = [toolDef]
+        // Force the model to call this specific tool
+        body["tool_choice"] = ["type": "tool", "name": schema.name]
+
+        guard let url = URL(string: anthropicBaseURL(for: .anthropic) + "/v1/messages") else {
+            throw CloudLLMError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        applyAnthropicAuthorization(credential, provider: .anthropic, to: &request)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let json = try await sendJSON(request)
+
+        // Find the tool_use content block and extract its input
+        guard let content = json["content"] as? [[String: Any]] else {
+            throw StructuredOutputError.emptyResponse
+        }
+        guard let toolBlock = content.first(where: { ($0["type"] as? String) == "tool_use" }),
+              let input = toolBlock["input"] else {
+            throw StructuredOutputError.emptyResponse
+        }
+        // Serialize input back to JSON Data for decoding
+        let inputData: Data
+        if let inputDict = input as? [String: Any] {
+            inputData = try JSONSerialization.data(withJSONObject: inputDict)
+        } else if let inputArray = input as? [Any] {
+            inputData = try JSONSerialization.data(withJSONObject: inputArray)
+        } else {
+            throw StructuredOutputError.emptyResponse
+        }
+        let rawJSON = String(data: inputData, encoding: .utf8) ?? "{}"
+        do {
+            let value = try JSONDecoder().decode(T.self, from: inputData)
+            return StructuredGenerationResult(value: value, rawJSON: rawJSON)
+        } catch {
+            throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: rawJSON)
+        }
     }
 
     private func generateAnthropicCompatible(
