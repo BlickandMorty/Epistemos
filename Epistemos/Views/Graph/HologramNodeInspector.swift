@@ -646,6 +646,21 @@ struct HologramNodeInspector: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
+                // Pin: creates a persistent panel attached to this node
+                Button {
+                    if let nodeId = graphState.selectedNodeId,
+                       let gnode = graphState.store.nodes[nodeId] {
+                        let mgr = PinnedInspectorManager.shared
+                        _ = mgr.pin(node: gnode, store: graphState.store, modelContext: modelContext)
+                    }
+                } label: {
+                    Image(systemName: "pin")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Pin inspector to this node")
+
                 Button {
                     graphState.selectNode(nil)
                 } label: {

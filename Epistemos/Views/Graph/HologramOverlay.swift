@@ -172,6 +172,9 @@ final class HologramOverlay {
     private var physicsCoordinator: PhysicsCoordinator?
     private var dialogueChatState: DialogueChatState?
     private let inspectorState = NodeInspectorState()
+    /// Pinned inspectors: persistent panels attached to specific nodes.
+    /// Each gets its own NSHostingView positioned at node screen coords.
+    private var pinnedInspectorViews: [String: NSHostingView<AnyView>] = [:]
 
     // Blur transition layers (stored for page mode animation).
     private var darkenLayer: NSView?
@@ -841,6 +844,8 @@ final class HologramOverlay {
         // Reposition immediately — no sleep, no task. The observation loop
         // already fires at screen-point change frequency (every rendered frame).
         repositionInspector()
+        // Update pinned inspector positions at the same cadence.
+        updatePinnedInspectorPositions()
     }
 
     private func inspectorDimensions(
@@ -896,40 +901,27 @@ final class HologramOverlay {
         let bounds = contentView.bounds
         let dimensions = inspectorDimensions(for: inspectorState.inspectorMode)
 
-        let topInset: CGFloat = 80  // keep clear of title bar / toolbar
+        let topInset: CGFloat = 80
         let bottomInset: CGFloat = 20
 
-        if let pt = graphState.selectedNodeScreenPoint {
-            let inspectorWidth = dimensions.width
-            let inspectorHeight = min(dimensions.height, bounds.height - topInset - bottomInset)
-            let gap: CGFloat = 24
-
-            let nodeRight = pt.x + gap
-            let fitsRight = nodeRight + inspectorWidth < bounds.width - 20
-            let x = fitsRight ? nodeRight : pt.x - inspectorWidth - gap
-            let y = max(bottomInset, min(bounds.height - inspectorHeight - topInset, pt.y - inspectorHeight * 0.4))
-
-            let targetFrame = CGRect(x: x, y: y, width: inspectorWidth, height: inspectorHeight)
-            guard shouldApplyInspectorFrame(targetFrame) else {
-                inspectorHostView.isHidden = false
-                return
-            }
-            inspectorHostView.frame = targetFrame
-            lastInspectorFrame = targetFrame
-            inspectorHostView.isHidden = false
-        } else {
-            let inspectorWidth = dimensions.width
-            let inspectorHeight = dimensions.height
-            let targetFrame = CGRect(
-                x: bounds.width - inspectorWidth - 40,
-                y: bottomInset,
-                width: inspectorWidth,
-                height: inspectorHeight
-            )
-            guard shouldApplyInspectorFrame(targetFrame) else { return }
-            inspectorHostView.frame = targetFrame
-            lastInspectorFrame = targetFrame
+        // Default inspector always sits in the top-right corner.
+        // Pinned inspectors (managed separately) follow their nodes.
+        // User 2026-04-04: "by default it should not be pinned to a node."
+        let inspectorWidth = dimensions.width
+        let inspectorHeight = min(dimensions.height, bounds.height - topInset - bottomInset)
+        let targetFrame = CGRect(
+            x: bounds.width - inspectorWidth - 40,
+            y: bounds.height - inspectorHeight - topInset,
+            width: inspectorWidth,
+            height: inspectorHeight
+        )
+        guard shouldApplyInspectorFrame(targetFrame) else {
+            inspectorHostView.isHidden = (graphState.selectedNodeId == nil)
+            return
         }
+        inspectorHostView.frame = targetFrame
+        lastInspectorFrame = targetFrame
+        inspectorHostView.isHidden = (graphState.selectedNodeId == nil)
     }
 
     private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool {
@@ -938,6 +930,89 @@ final class HologramOverlay {
             || abs(existing.origin.y - targetFrame.origin.y) >= 0.5
             || abs(existing.size.width - targetFrame.size.width) >= 0.5
             || abs(existing.size.height - targetFrame.size.height) >= 0.5
+    }
+
+    // MARK: - Pinned Inspectors
+
+    /// Pin the currently selected node's inspector. Creates a persistent
+    /// panel that survives deselection and follows the node on screen.
+    func pinCurrentNode() {
+        guard let nodeId = graphState.selectedNodeId,
+              let node = graphState.store.nodes[nodeId],
+              let modelContext = modelContainer?.mainContext else { return }
+        let mgr = PinnedInspectorManager.shared
+        let pinned = mgr.pin(node: node, store: graphState.store, modelContext: modelContext)
+        spawnPinnedInspectorView(for: pinned)
+    }
+
+    /// Unpin a specific inspector and remove its view.
+    func unpinInspector(id: String) {
+        PinnedInspectorManager.shared.unpin(inspectorId: id)
+        if let view = pinnedInspectorViews.removeValue(forKey: id) {
+            view.removeFromSuperview()
+        }
+    }
+
+    private func spawnPinnedInspectorView(for pinned: PinnedInspector) {
+        guard let contentView = window?.contentView else { return }
+        // Don't double-add
+        guard pinnedInspectorViews[pinned.id] == nil else { return }
+
+        let view = NSHostingView(
+            rootView: HologramOverlayHostedViewBuilder.root(
+                PinnedInspectorPanel(
+                    inspector: pinned,
+                    onClose: { [weak self] in self?.unpinInspector(id: pinned.id) }
+                )
+            )
+        )
+        view.wantsLayer = true
+        view.layer?.backgroundColor = .clear
+        let size = CGSize(width: 280, height: 340)
+        view.frame = CGRect(origin: .zero, size: size)
+        contentView.addSubview(view)
+        pinnedInspectorViews[pinned.id] = view
+    }
+
+    /// Update all pinned inspector positions based on their node's screen
+    /// coordinates. Called from the render-loop observation task.
+    func updatePinnedInspectorPositions() {
+        guard let contentView = window?.contentView,
+              let engineHandle = graphState.engineHandle else { return }
+        let mgr = PinnedInspectorManager.shared
+        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        let bounds = contentView.bounds
+
+        for pinned in mgr.pinnedInspectors {
+            guard let view = pinnedInspectorViews[pinned.id] else {
+                spawnPinnedInspectorView(for: pinned)
+                continue
+            }
+            var posBuf: [Float] = [0, 0]
+            let found = pinned.nodeId.withCString { ptr in
+                graph_engine_node_screen_pos(engineHandle, ptr, &posBuf)
+            }
+            if found != 0 {
+                let pt = CGPoint(
+                    x: CGFloat(posBuf[0]) / scale,
+                    y: bounds.height - CGFloat(posBuf[1]) / scale
+                )
+                let gap: CGFloat = 20
+                let size = view.frame.size
+                let x = min(pt.x + gap, bounds.width - size.width - 10)
+                let y = max(10, min(pt.y - size.height * 0.3, bounds.height - size.height - 10))
+                view.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
+                view.isHidden = false
+            } else {
+                view.isHidden = true
+            }
+        }
+
+        let activeIds = Set(mgr.pinnedInspectors.map(\.id))
+        for (id, view) in pinnedInspectorViews where !activeIds.contains(id) {
+            view.removeFromSuperview()
+            pinnedInspectorViews.removeValue(forKey: id)
+        }
     }
 
     // MARK: - Lazy Inspector (Node Selection)
