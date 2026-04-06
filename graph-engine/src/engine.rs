@@ -775,6 +775,9 @@ impl Engine {
             self.sync_all_positions();
         }
         self.last_sim_active = sim_active;
+        // Tell the renderer whether physics is running so it can disable
+        // viewport culling (prevents nodes popping in/out at edges).
+        self.renderer.sim_active = sim_active;
 
         // GPU N-body: dispatch brute-force repulsion on GPU for large graphs.
         // Forces are written to sim.gpu_nbody_forces; the physics thread drains them
