@@ -559,8 +559,13 @@ const BASE_NODE_ALPHA: f32 = 0.72;
 const DIM_ALPHA: f32 = 0.04;
 // ── Glow constants (shared between upload_graph and update_positions) ─────
 const HUB_GLOW_Z_OFFSET: f32 = -0.12;
-const HUB_GLOW_ALPHA: f32 = 0.08;
-const HUB_GLOW_RADIUS_FACTOR: f32 = 2.5;
+const HUB_GLOW_ALPHA: f32 = 0.06;       // lowered from 0.08 to reduce overdraw saturation
+const HUB_GLOW_RADIUS_FACTOR: f32 = 2.2; // tightened from 2.5 to reduce overlap area
+/// Max glow instances to prevent overdraw saturation in dense graphs.
+/// With 1131 nodes, ~50 may qualify as hubs — rendering all of them at
+/// 2.2x radius creates massive overlapping translucent quads. Cap to 24
+/// for a good visual effect without GPU fill-rate thrashing.
+const MAX_GLOW_INSTANCES: usize = 24;
 const CONF_GLOW_Z_OFFSET: f32 = -0.06;
 const CONF_GLOW_RADIUS_BASE: f32 = 1.5;
 const CONF_GLOW_RADIUS_SCALE: f32 = 1.0;
@@ -2487,7 +2492,9 @@ impl Renderer {
             // washed-out blobs against the white background.
             let draw_glow = lod.draw_glow && self.visual_theme != VisualTheme::Dialogue && !self.light_mode;
             if draw_glow {
+                let mut glow_emitted = 0usize;
                 for &node_index in &self.rendered_node_indices {
+                    if glow_emitted >= MAX_GLOW_INSTANCES { break; }
                     let pos = [world.transform[node_index].x, world.transform[node_index].y];
                     let node_instance = self.classic_node_instance(world, node_index);
                     let z = node_instance.z;
@@ -2506,9 +2513,10 @@ impl Renderer {
                             _pad: [0.0; 3],
                         });
                         self.classic_velocity_scratch.push([0.0, 0.0]);
+                        glow_emitted += 1;
                     }
 
-                    if confidence > 0.0 {
+                    if confidence > 0.0 && glow_emitted < MAX_GLOW_INSTANCES {
                         let conf = confidence.clamp(0.0, 1.0);
                         let glow_radius =
                             radius * (CONF_GLOW_RADIUS_BASE + conf * CONF_GLOW_RADIUS_SCALE);
@@ -2522,6 +2530,7 @@ impl Renderer {
                             _pad: [0.0; 3],
                         });
                         self.classic_velocity_scratch.push([0.0, 0.0]);
+                        glow_emitted += 1;
                     }
                 }
             }
