@@ -2262,7 +2262,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\"";
+			shellScript = "bash \"${SRCROOT}/build-rust.sh\"\nif [ \"${SHIP_MODE:-dev}\" != \"release\" ]; then\n  bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\"\nfi";
 		};
 		E7F099267B00E856637856A5 /* Bundle Runtime Assets */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -6,6 +6,20 @@ import os
 import QuartzCore
 import SwiftData
 
+// MARK: - Ship Mode Gate
+// When SHIP_MODE=release, agents (Hermes, MCP, Omega) are excluded from
+// the binary entirely (build-rust.sh skips agent crates). This flag
+// gates the Swift-side initialization so agent services never start.
+// Default: true (agents enabled for development). Set to false + rebuild
+// with SHIP_MODE=release for a clean release binary.
+//
+// To flip: change this ONE constant. Nothing else needs to change.
+// All agent code stays in the repo for future development.
+enum ShipGate {
+    /// Set to `false` to disable all agent subsystems for release.
+    static let agentsEnabled = true
+}
+
 // MARK: - App Bootstrap
 // Pure state/service factory. Creates state objects, services, and the dependency graph.
 // All behavioral orchestration is delegated to AppCoordinator and ChatCoordinator.
@@ -1062,27 +1076,32 @@ final class AppBootstrap {
         self._ambientCapture = AmbientCaptureService(config: epistemosConfig, screen2AXFusion: screen2AXFusion)
         self._frictionMonitor = FrictionMonitorService(config: epistemosConfig)
         FrictionMonitorService.shared = frictionMonitor
-        self._nightBrain = NightBrainService(
-            config: epistemosConfig,
-            searchIndexProvider: { @MainActor [weak vaultSync] in
-                vaultSync?.searchService
-            },
-            graphMemoryProvider: { @MainActor [weak self] in
-                self?._agentGraphMemory
-            },
-            cloudKnowledgeJob: { [cloudKnowledgeDistillationService] in
-                _ = try await cloudKnowledgeDistillationService.rebuildAllModelVaults()
-            }
-        )
-        self._agentHeartbeat = AgentHeartbeatService(
-            config: epistemosConfig,
-            hermesManagerProvider: { @MainActor [weak self] in
-                self?.hermesManager
-            },
-            costTrackerProvider: { @MainActor [weak self] in
-                self?.agentViewModel.costTracker
-            }
-        )
+        // Agent services: gated by ShipGate.agentsEnabled. When false,
+        // NightBrain and AgentHeartbeat never start — no Hermes subprocess,
+        // no MCP bridge, no background agent work. Zero runtime overhead.
+        if ShipGate.agentsEnabled {
+            self._nightBrain = NightBrainService(
+                config: epistemosConfig,
+                searchIndexProvider: { @MainActor [weak vaultSync] in
+                    vaultSync?.searchService
+                },
+                graphMemoryProvider: { @MainActor [weak self] in
+                    self?._agentGraphMemory
+                },
+                cloudKnowledgeJob: { [cloudKnowledgeDistillationService] in
+                    _ = try await cloudKnowledgeDistillationService.rebuildAllModelVaults()
+                }
+            )
+            self._agentHeartbeat = AgentHeartbeatService(
+                config: epistemosConfig,
+                hermesManagerProvider: { @MainActor [weak self] in
+                    self?.hermesManager
+                },
+                costTrackerProvider: { @MainActor [weak self] in
+                    self?.agentViewModel.costTracker
+                }
+            )
+        }
 
         if !Self.isRunningTests {
             wireLocalRuntimeLifecycle()
