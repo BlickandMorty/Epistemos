@@ -1389,6 +1389,9 @@ pub struct Renderer {
     pub target_offset: [f32; 2],
     pub target_zoom: f32,
     pub is_animating: bool,
+    /// Set by the engine each frame so the renderer can skip viewport
+    /// culling while physics is moving nodes (prevents edge flicker).
+    pub sim_active: bool,
     last_frame_time: std::time::Instant,
     // Counts (buffer layout: [glow_count glows] [node_count nodes] [highlight_count rings])
     glow_count: usize,
@@ -1641,6 +1644,7 @@ impl Renderer {
             target_offset: [0.0, 0.0],
             target_zoom: 1.0,
             is_animating: false,
+            sim_active: false,
             last_frame_time: std::time::Instant::now(),
             glow_count: 0,
             node_count: 0,
@@ -2065,7 +2069,10 @@ impl Renderer {
         }
     }
 
-    const CLASSIC_CULL_PADDING_PIXELS: f32 = 160.0;
+    // Generous padding so nodes at the viewport edge don't pop in/out as
+    // physics nudges them across the cull boundary. 400px covers the
+    // largest node radius (55) at any realistic zoom level.
+    const CLASSIC_CULL_PADDING_PIXELS: f32 = 400.0;
 
     pub fn set_viewport_size(&mut self, viewport_width: u32, viewport_height: u32) -> bool {
         let width = viewport_width as f32;
@@ -2095,6 +2102,9 @@ impl Renderer {
 
     #[inline]
     fn is_camera_motion_active(&self) -> bool {
+        // Disable culling when physics is running — nodes shift under
+        // simulation and cross the cull boundary, causing pop-in flicker.
+        if self.sim_active { return true; }
         let zoom_delta = (self.camera_zoom - self.prev_camera_zoom).abs();
         let dx = self.camera_offset[0] - self.prev_camera_offset[0];
         let dy = self.camera_offset[1] - self.prev_camera_offset[1];

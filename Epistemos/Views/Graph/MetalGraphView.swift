@@ -567,7 +567,7 @@ final class MetalGraphNSView: NSView {
         layer.pixelFormat = .bgra8Unorm
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
-        layer.maximumDrawableCount = 2     // Double buffer keeps graph memory lower when active.
+        layer.maximumDrawableCount = 3     // Triple buffer: eliminates stutter from GPU/CPU contention.
         layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         self.metalLayer = layer
         return layer
