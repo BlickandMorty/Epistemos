@@ -281,6 +281,8 @@ final class HologramOverlay {
                 let theme = GraphOverlayThemeStyle.resolvedTheme()
                 firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
             }
+            // Restart pinned panel timer — it was stopped on hide/teardown.
+            startPinnedPanelTimer()
             return
         }
 
