@@ -34,6 +34,7 @@ final class SDMessage {
     var attachmentsData: Data?          // Encoded [FileAttachment]
     var loadedNoteTitlesData: Data?     // Encoded [String]
     var contextAttachmentsData: Data?   // Encoded [ContextAttachment]
+    var artifactsData: Data?            // Encoded [Artifact] — structured output blocks
     var isError: Bool = false
     var isVaultBriefing: Bool = false
 
@@ -104,6 +105,31 @@ final class SDMessage {
         } catch {
             Log.db.error("Failed to decode [ContextAttachment] for message \(self.id): \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    @MainActor
+    func decodedArtifacts() -> [Artifact] {
+        guard let artifactsData else { return [] }
+        do {
+            return try JSONDecoder().decode([Artifact].self, from: artifactsData)
+        } catch {
+            Log.db.error("Failed to decode [Artifact] for message \(self.id): \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    @MainActor
+    func setArtifacts(_ artifacts: [Artifact]) {
+        guard !artifacts.isEmpty else {
+            self.artifactsData = nil
+            return
+        }
+        do {
+            self.artifactsData = try JSONEncoder().encode(artifacts)
+        } catch {
+            Log.db.error("Failed to encode [Artifact] for message \(self.id): \(error.localizedDescription)")
+            self.artifactsData = nil
         }
     }
 
@@ -183,7 +209,8 @@ final class SDMessage {
             createdAt: createdAt,
             isVaultBriefing: isVaultBriefing,
             loadedNoteTitles: decodedLoadedNoteTitles(),
-            contextAttachments: decodedContextAttachments()
+            contextAttachments: decodedContextAttachments(),
+            artifacts: decodedArtifacts()
         )
     }
 }

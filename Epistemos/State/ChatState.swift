@@ -195,6 +195,10 @@ final class ChatState {
 
         let metadata = consumeStreamingMessageMetadata()
 
+        // Extract structured artifacts (JSON, YAML, code blocks, tables)
+        // from the response text. These get rendered as interactive cards.
+        let artifacts = ArtifactExtractor.extract(from: answerText)
+
         let assistantMessage = ChatMessage(
             id: messageId,
             chatId: chatId,
@@ -203,7 +207,8 @@ final class ChatState {
             mode: mode,
             isVaultBriefing: metadata.briefing,
             loadedNoteTitles: metadata.noteTitles,
-            contextAttachments: metadata.contextAttachments
+            contextAttachments: metadata.contextAttachments,
+            artifacts: artifacts
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
