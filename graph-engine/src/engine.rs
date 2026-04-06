@@ -212,6 +212,13 @@ pub struct Engine {
     quality_rebuild_pending: bool,
     /// Rebuild per-node highlight flags only when highlight state changes.
     highlight_dirty: bool,
+    /// Label cache: last camera state when labels were rebuilt. Skip rebuild
+    /// if camera hasn't moved enough (< 5% of viewport) and zoom hasn't
+    /// crossed a threshold. Eliminates per-frame label recomputation during
+    /// smooth pans. Force-dirtied on selection/highlight changes.
+    label_cache_camera: [f32; 2],
+    label_cache_zoom: f32,
+    label_cache_highlight_gen: u32,
     cluster_cache: ClusterCache,
     /// Scratch buffer for GPU N-body position collection (avoids per-frame alloc).
     gpu_positions_scratch: Vec<[f32; 2]>,
@@ -268,6 +275,9 @@ impl Engine {
             camera_rebuild_pending: false,
             quality_rebuild_pending: false,
             highlight_dirty: true,
+            label_cache_camera: [f32::MAX, f32::MAX],
+            label_cache_zoom: 0.0,
+            label_cache_highlight_gen: 0,
             cluster_cache: ClusterCache::new(),
             gpu_positions_scratch: Vec::new(),
             search_highlight_ids_scratch: Vec::new(),
@@ -887,8 +897,31 @@ impl Engine {
             self.renderer.update_field_lines(None, &self.world, 0.0);
         }
 
-        if needs_frame || instance_buffers_changed || self.highlight_dirty {
+        // Label cache: only rebuild when camera moved significantly (>3% of
+        // viewport diagonal), zoom changed by >5%, or selection/highlight changed.
+        // This eliminates hundreds of redundant rebuilds during smooth pans.
+        let label_needs_rebuild = if self.highlight_dirty {
+            true
+        } else if !needs_frame && !instance_buffers_changed {
+            false
+        } else {
+            let cam = self.renderer.camera_offset;
+            let zm = self.renderer.camera_zoom;
+            let dx = cam[0] - self.label_cache_camera[0];
+            let dy = cam[1] - self.label_cache_camera[1];
+            let cam_dist_sq = dx * dx + dy * dy;
+            let vp_diag = ((width * width + height * height) as f32).sqrt() / zm.max(0.01);
+            let threshold = vp_diag * 0.03;
+            let cam_moved = cam_dist_sq > threshold * threshold;
+            let zoom_ratio = (zm / self.label_cache_zoom.max(0.001) - 1.0).abs();
+            let zoom_changed = zoom_ratio > 0.05;
+            let physics_tick = positions_changed && self.idle_frame_count % 6 == 0;
+            cam_moved || zoom_changed || physics_tick
+        };
+        if label_needs_rebuild {
             self.rebuild_label_instances(width, height);
+            self.label_cache_camera = self.renderer.camera_offset;
+            self.label_cache_zoom = self.renderer.camera_zoom;
         }
 
         // Issue draw commands — all themes use the classic renderer.
