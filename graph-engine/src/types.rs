@@ -70,11 +70,11 @@ impl NodeType {
 }
 
 /// Minimum node radius in world units.
-const MIN_RADIUS: f32 = 4.0;
+const MIN_RADIUS: f32 = 6.0;
 /// Maximum node radius in world units.
-const MAX_RADIUS: f32 = 40.0;
+const MAX_RADIUS: f32 = 55.0;
 /// Base radius multiplier for cbrt(link_count) scaling.
-const BASE_RADIUS: f32 = 8.0;
+const BASE_RADIUS: f32 = 11.0;
 
 /// Compute node radius from link count using LogSeq's formula:
 /// `radius = cbrt(link_count) * 8.0`, clamped to [4, 40].
@@ -859,23 +859,23 @@ mod tests {
 
     #[test]
     fn radius_eight() {
-        // cbrt(8) * 8 = 2 * 8 = 16
+        // cbrt(8) * 11 = 2 * 11 = 22
         let r = radius_for_link_count(8);
-        assert!((r - 16.0).abs() < 0.01, "Expected 16.0, got {}", r);
+        assert!((r - 22.0).abs() < 0.01, "Expected 22.0, got {}", r);
     }
 
     #[test]
     fn radius_twenty_seven() {
-        // cbrt(27) * 8 = 3 * 8 = 24
+        // cbrt(27) * 11 = 3 * 11 = 33
         let r = radius_for_link_count(27);
-        assert!((r - 24.0).abs() < 0.01, "Expected 24.0, got {}", r);
+        assert!((r - 33.0).abs() < 0.01, "Expected 33.0, got {}", r);
     }
 
     #[test]
     fn radius_sixty_four() {
-        // cbrt(64) * 8 = 4 * 8 = 32
+        // cbrt(64) * 11 = 4 * 11 = 44
         let r = radius_for_link_count(64);
-        assert!((r - 32.0).abs() < 0.01, "Expected 32.0, got {}", r);
+        assert!((r - 44.0).abs() < 0.01, "Expected 44.0, got {}", r);
     }
 
     #[test]
@@ -913,9 +913,9 @@ mod tests {
         g.add_node("a".into(), 0.0, 0.0, 0, 8, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 27, "B".into());
 
-        // Radius is computed from link_count
-        assert!((g.nodes[0].radius - 16.0).abs() < 0.1);
-        assert!((g.nodes[1].radius - 24.0).abs() < 0.1);
+        // Radius is computed from link_count (BASE_RADIUS=11)
+        assert!((g.nodes[0].radius - 22.0).abs() < 0.1);
+        assert!((g.nodes[1].radius - 33.0).abs() < 0.1);
     }
 
     #[test]

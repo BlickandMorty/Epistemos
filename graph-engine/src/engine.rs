@@ -154,6 +154,21 @@ pub struct Engine {
     // Reusable buffer for returning UUIDs through FFI.
     uuid_buf: Option<CString>,
 
+    /// SDF label glyph table pushed from Swift once at atlas load time.
+    pub(crate) label_glyph_table: Option<crate::labels::GlyphTable>,
+    pub(crate) label_instance_scratch: Vec<crate::renderer::LabelInstance>,
+    pub(crate) label_world_px_per_em: f32,
+    pub(crate) label_glyph_budget: usize,
+    pub(crate) label_max_nodes: u32,
+    pub(crate) label_max_inner_nodes: u32,
+    pub(crate) label_zoom_bias: f32,
+    pub(crate) label_zoom_pivot: f32,
+    pub(crate) label_focus_shrink: f32,
+    pub(crate) label_inner_offset: f32,
+    pub(crate) label_folder_threshold: f32,
+    pub(crate) label_note_threshold: f32,
+    pub(crate) label_chat_threshold: f32,
+
     /// Counts consecutive frames where the engine reported "no more frames needed."
     /// Used to throttle render calls when idle.
     idle_frame_count: u32,
@@ -225,6 +240,19 @@ impl Engine {
             mode: 0,
             anchor_rect: None,
             uuid_buf: None,
+            label_glyph_table: None,
+            label_instance_scratch: Vec::new(),
+            label_world_px_per_em: 28.0,
+            label_glyph_budget: 4096,
+            label_max_nodes: 64,
+            label_max_inner_nodes: 4,
+            label_zoom_bias: 0.4,
+            label_zoom_pivot: 2.5,
+            label_focus_shrink: 0.4,
+            label_inner_offset: 0.6,
+            label_folder_threshold: 1.0,
+            label_note_threshold: 1.0,
+            label_chat_threshold: 1.0,
             idle_frame_count: 0,
             commit_instant: Instant::now(),
             search_index: crate::search::SearchIndex::new(),
@@ -856,6 +884,10 @@ impl Engine {
             self.renderer.update_field_lines(None, &self.world, 0.0);
         }
 
+        if needs_frame || instance_buffers_changed {
+            self.rebuild_label_instances(width, height);
+        }
+
         // Issue draw commands — all themes use the classic renderer.
         self.renderer.draw(width, height, &self.world);
 
@@ -1019,7 +1051,7 @@ impl Engine {
     }
 
     /// Mouse/trackpad button released.
-    pub fn mouse_up(&mut self) {
+    pub fn mouse_up(&mut self, screen_x: f32, screen_y: f32) {
         self.idle_frame_count = 0;
         if let Some(drag) = self.drag.take() {
             // D3 behavior: unfix node on release, reset alphaTarget so sim cools down.
@@ -1039,6 +1071,25 @@ impl Engine {
                 self.highlight_neighbors_by_id(drag.node_id);
             }
         }
+        
+        // Background click (not on node) - check if it was a click vs drag
+        if self.pan_active {
+            let dx = screen_x - self.pan_origin_mouse[0];
+            let dy = screen_y - self.pan_origin_mouse[1];
+            let dist_sq = dx * dx + dy * dy;
+            let click_threshold = 10.0f32; // pixels
+            
+            // If it was a click (not a drag) and physics is frozen, zoom to fit
+            if dist_sq < click_threshold * click_threshold {
+                let sim = self.sim.lock();
+                let is_frozen = sim.user_frozen;
+                drop(sim);
+                if is_frozen {
+                    self.zoom_to_fit();
+                }
+            }
+        }
+        
         self.pan_active = false;
     }
 
@@ -1295,6 +1346,160 @@ impl Engine {
     /// Enable or disable SDF label rendering.
     pub fn set_labels_enabled(&mut self, enabled: bool) {
         self.renderer.labels_enabled = enabled;
+    }
+
+    pub(crate) fn set_label_instances(&mut self, instances: &[crate::renderer::LabelInstance]) {
+        self.renderer.set_label_instances(instances);
+    }
+
+    pub fn set_label_glyph_table(
+        &mut self,
+        metrics: &[crate::labels::CGlyphMetric],
+        line_height_em: f32,
+        px_range: f32,
+    ) {
+        self.label_glyph_table = Some(crate::labels::GlyphTable::from_c_metrics(
+            metrics, line_height_em, px_range,
+        ));
+    }
+
+    pub fn clear_label_glyph_table(&mut self) {
+        self.label_glyph_table = None;
+        self.label_instance_scratch.clear();
+        self.renderer.set_label_instances(&[]);
+    }
+
+    pub fn set_label_world_px_per_em(&mut self, px_per_em: f32) {
+        self.label_world_px_per_em = px_per_em.max(1.0);
+    }
+
+    fn rebuild_label_instances(&mut self, width: u32, height: u32) {
+        let Some(ref table) = self.label_glyph_table else { return };
+        let camera = self.renderer.camera_offset;
+        let zoom = self.renderer.camera_zoom;
+        let vp = crate::renderer::viewport_bounds(camera, zoom, [width as f32, height as f32], 64.0);
+
+        let zoom_t = ((zoom - self.label_zoom_pivot) / self.label_zoom_pivot).clamp(0.0, 1.0);
+        let bias = self.label_zoom_bias;
+        let pivot = self.label_zoom_pivot.max(0.1);
+        let shrink = self.label_focus_shrink.clamp(0.0, 1.0);
+
+        let folder_thresh = self.label_folder_threshold;
+        let note_thresh = self.label_note_threshold;
+        let chat_thresh = self.label_chat_threshold;
+        let inner_offset = self.label_inner_offset.max(0.0);
+        let outer_end_zoom = pivot * folder_thresh;
+        let outer_fade_width = pivot * 0.4;
+        let outer_fade_end = outer_end_zoom + outer_fade_width;
+        let inner_start_base = outer_fade_end + pivot * inner_offset;
+        let inner_window = (pivot * 0.6).max(0.1);
+
+        let focus_active = ((zoom / pivot) - 1.0).max(0.0);
+        let radius_scale = 1.0 / (1.0 + focus_active * shrink * 0.8);
+        let viewport_half_diag = {
+            let dx = (vp.max_x - vp.min_x) * 0.5;
+            let dy = (vp.max_y - vp.min_y) * 0.5;
+            (dx * dx + dy * dy).sqrt().max(1.0)
+        };
+        let effective_radius = (viewport_half_diag * radius_scale).max(1.0);
+        let proximity_exp = 1.0 + shrink * focus_active * 1.0;
+
+        struct Scored<'a> { x: f32, y: f32, radius: f32, label: &'a str, score: f32, opacity: f32 }
+        let mut scored: Vec<Scored<'_>> = Vec::new();
+        scored.reserve(256);
+
+        for node in &self.graph.nodes {
+            if !node.visible { continue; }
+            if node.x < vp.min_x || node.x > vp.max_x || node.y < vp.min_y || node.y > vp.max_y { continue; }
+            if node.label.is_empty() { continue; }
+
+            let r = node.radius.max(0.1);
+            let size_component = if bias > 0.0 {
+                let inverted = 20.0 / r;
+                r * (1.0 - zoom_t * bias) + inverted * (zoom_t * bias)
+            } else if bias < 0.0 {
+                r * (1.0 + zoom_t * (-bias))
+            } else { r };
+
+            let link_boost = 1.0 + (node.link_count as f32).ln_1p() * 0.15;
+
+            let (is_inner, type_thresh) = match node.node_type {
+                crate::types::NodeType::Note => (true, note_thresh),
+                crate::types::NodeType::Chat => (true, chat_thresh),
+                _ => (false, folder_thresh),
+            };
+            let layer = if is_inner {
+                let type_shift = pivot * (type_thresh - 1.0);
+                let lo = (inner_start_base + type_shift).max(0.1);
+                let hi = lo + inner_window;
+                let t = ((zoom - lo) / (hi - lo).max(0.0001)).clamp(0.0, 1.0);
+                t * t * (3.0 - 2.0 * t)
+            } else {
+                let lo = outer_end_zoom;
+                let hi = outer_end_zoom + pivot * 0.4;
+                let t = ((zoom - lo) / (hi - lo).max(0.0001)).clamp(0.0, 1.0);
+                let s = t * t * (3.0 - 2.0 * t);
+                1.0 - s
+            };
+            if layer < 0.02 { continue; }
+
+            let dx = node.x - camera[0];
+            let dy = node.y - camera[1];
+            let dist = (dx * dx + dy * dy).sqrt();
+            let prox_linear = 1.0 - (dist / effective_radius).clamp(0.0, 1.0);
+            let proximity = prox_linear.powf(proximity_exp);
+            if proximity < 0.01 { continue; }
+
+            let score = layer * size_component * link_boost * proximity;
+            scored.push(Scored { x: node.x, y: node.y, radius: node.radius, label: node.label.as_str(), score, opacity: layer * proximity });
+        }
+
+        scored.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+        let outer_max = if self.label_max_nodes == 0 { scored.len() } else { self.label_max_nodes as usize };
+        let inner_max = if self.label_max_inner_nodes == 0 { outer_max } else { self.label_max_inner_nodes as usize };
+        let inner_t = ((zoom - inner_start_base) / inner_window).clamp(0.0, 1.0);
+        let inner_t_smooth = inner_t * inner_t * (3.0 - 2.0 * inner_t);
+        let cap_f = (outer_max as f32) * (1.0 - inner_t_smooth) + (inner_max as f32) * inner_t_smooth;
+        let max_nodes = (cap_f.round() as usize).max(1).min(scored.len());
+
+        let mut visible: Vec<(f32, f32, f32, &str, f32)> = Vec::with_capacity(max_nodes);
+        for s in scored.iter().take(max_nodes) {
+            visible.push((s.x, s.y, s.radius, s.label, s.opacity));
+        }
+
+        let label_color = if self.renderer.light_mode { [0.06, 0.06, 0.08, 1.0] } else { [0.92, 0.92, 0.92, 1.0] };
+
+        self.renderer.label_focus = camera;
+        self.renderer.label_focus_radius = effective_radius * 0.8;
+        self.renderer.label_blur_radius = effective_radius;
+
+        let mut scratch = std::mem::take(&mut self.label_instance_scratch);
+        let screen_constant_px = self.label_world_px_per_em / zoom.max(0.01);
+        crate::labels::build_instances(&visible, table, camera, screen_constant_px, label_color, self.label_glyph_budget, &mut scratch);
+        self.renderer.set_label_instances(&scratch);
+        self.label_instance_scratch = scratch;
+    }
+
+    pub fn set_label_policy(&mut self, max_nodes: u32, zoom_bias: f32, zoom_pivot: f32, focus_shrink: f32, folder_threshold: f32, note_threshold: f32, chat_threshold: f32) {
+        self.label_max_nodes = max_nodes;
+        self.label_zoom_bias = zoom_bias.clamp(-1.0, 1.0);
+        self.label_zoom_pivot = zoom_pivot.max(0.1);
+        self.label_focus_shrink = focus_shrink.clamp(0.0, 1.0);
+        self.label_folder_threshold = folder_threshold.clamp(0.2, 5.0);
+        self.label_note_threshold = note_threshold.clamp(0.2, 5.0);
+        self.label_chat_threshold = chat_threshold.clamp(0.2, 5.0);
+    }
+
+    pub fn set_label_extras(&mut self, max_inner_nodes: u32, inner_offset: f32) {
+        self.label_max_inner_nodes = max_inner_nodes;
+        self.label_inner_offset = inner_offset.clamp(0.0, 5.0);
+    }
+
+    pub fn set_water_nodes(&mut self, style: f32, wobble: f32) {
+        self.renderer.water_style = style.clamp(0.0, 1.0);
+        self.renderer.water_wobble = wobble.clamp(0.0, 1.0);
+        self.idle_frame_count = 0;
     }
 
     /// Clear neighbor highlighting.

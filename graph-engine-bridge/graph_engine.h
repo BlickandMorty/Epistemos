@@ -120,7 +120,9 @@ void graph_engine_mouse_down(Engine* engine, float screen_x, float screen_y, uin
 void graph_engine_mouse_moved(Engine* engine, float screen_x, float screen_y);
 
 /// Mouse/trackpad button released.
-void graph_engine_mouse_up(Engine* engine);
+/// @param screen_x Current mouse X position in screen coordinates.
+/// @param screen_y Current mouse Y position in screen coordinates.
+void graph_engine_mouse_up(Engine* engine, float screen_x, float screen_y);
 
 /// Two-finger scroll: pan the camera.
 void graph_engine_scroll(Engine* engine, float delta_x, float delta_y);
@@ -961,6 +963,24 @@ void graph_engine_set_snap_back(Engine* engine, uint32_t node_id, float tether_d
 
 // ── SDF Label Rendering ────────────────────────────────────────────────────
 
+/// Per-glyph metric pushed from Swift once at atlas load time (40 bytes).
+typedef struct GraphEngineGlyphMetric {
+    uint32_t codepoint;
+    float uv_x, uv_y, uv_w, uv_h;
+    float half_w_em, half_h_em;
+    float bearing_x_em, bearing_y_em;
+    float advance_em;
+} GraphEngineGlyphMetric;
+
+/// Push per-character glyph metrics (call once after atlas load).
+void graph_engine_set_label_glyph_table(
+    Engine* engine,
+    const GraphEngineGlyphMetric* metrics,
+    uint32_t count,
+    float line_height_em,
+    float px_range
+);
+
 /// Load MTSDF font atlas from raw RGBA pixel data.
 /// @param width     Atlas width in pixels.
 /// @param height    Atlas height in pixels.
@@ -991,6 +1011,27 @@ void graph_engine_set_label_focus(
 
 /// Enable or disable SDF label rendering (disabled in performance mode).
 void graph_engine_set_labels_enabled(Engine* engine, uint8_t enabled);
+
+/// Configure label density + zoom layering + focus shrink + per-type thresholds.
+void graph_engine_set_label_policy(
+    Engine* engine,
+    uint32_t max_nodes,
+    float zoom_bias,
+    float zoom_pivot,
+    float focus_shrink,
+    float folder_threshold,
+    float note_threshold,
+    float chat_threshold
+);
+
+/// Set label extras: max inner (zoomed-in) labels and the dead zone offset.
+void graph_engine_set_label_extras(Engine* engine, uint32_t max_inner_nodes, float inner_offset);
+
+/// Set the world-space pixels-per-em for SDF label sizing.
+void graph_engine_set_label_world_px_per_em(Engine* engine, float px_per_em);
+
+/// Set water node rendering style and wobble amount.
+void graph_engine_set_water_nodes(Engine* engine, float style, float wobble);
 
 #ifdef __cplusplus
 }

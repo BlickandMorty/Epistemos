@@ -396,7 +396,7 @@ mod tests {
 
         // Should compute radius correctly for zero links
         let node = &g.nodes[0];
-        assert!(node.radius >= 4.0, "Minimum radius should be enforced");
+        assert!(node.radius >= 6.0, "Minimum radius should be enforced");
     }
 
     #[test]
@@ -405,7 +405,7 @@ mod tests {
         g.add_node("a".into(), 0.0, 0.0, 0, u32::MAX, "Hub".into());
 
         let node = &g.nodes[0];
-        assert!(node.radius <= 40.0, "Maximum radius should be enforced");
+        assert!(node.radius <= 55.0, "Maximum radius should be enforced");
     }
 
     #[test]

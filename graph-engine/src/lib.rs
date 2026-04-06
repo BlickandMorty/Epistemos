@@ -11,6 +11,7 @@ pub mod embedding;
 pub mod engine;
 pub mod forces;
 pub mod knowledge_core;
+pub mod labels;
 pub mod markdown;
 pub mod quadtree;
 pub mod recovery;
@@ -891,11 +892,12 @@ pub extern "C" fn graph_engine_mouse_moved(engine: *mut Engine, screen_x: f32, s
 }
 
 /// Mouse/trackpad button released.
+/// `screen_x`, `screen_y`: current mouse position in screen coordinates.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_mouse_up(engine: *mut Engine) {
+pub extern "C" fn graph_engine_mouse_up(engine: *mut Engine, screen_x: f32, screen_y: f32) {
     ffi_catch_unwind!("graph_engine_mouse_up", {
         ffi_engine!(engine);
-        engine.mouse_up();
+        engine.mouse_up(screen_x, screen_y);
     });
 }
 
@@ -3255,6 +3257,52 @@ pub extern "C" fn graph_engine_set_snap_back(
     });
 }
 
+/// Configure label density + zoom-aware importance bias + per-type thresholds.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_label_policy(
+    engine: *mut Engine,
+    max_nodes: u32,
+    zoom_bias: f32,
+    zoom_pivot: f32,
+    focus_shrink: f32,
+    folder_threshold: f32,
+    note_threshold: f32,
+    chat_threshold: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_label_policy", {
+        ffi_engine!(engine);
+        engine.set_label_policy(
+            max_nodes, zoom_bias, zoom_pivot, focus_shrink,
+            folder_threshold, note_threshold, chat_threshold,
+        );
+    });
+}
+
+/// Push per-character glyph metrics from the SDF atlas JSON. Call once
+/// after loading the atlas PNG. Rust stores these in a hash table and
+/// uses them each frame in rebuild_label_instances().
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_label_glyph_table(
+    engine: *mut Engine,
+    metrics: *const crate::labels::CGlyphMetric,
+    count: u32,
+    line_height_em: f32,
+    px_range: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_label_glyph_table", {
+        ffi_engine!(engine);
+        if metrics.is_null() || count == 0 {
+            return;
+        }
+        // SAFETY: caller guarantees `metrics` points to `count` contiguous
+        // CGlyphMetric structs. We copy into our own HashMap immediately.
+        let slice = unsafe {
+            std::slice::from_raw_parts(metrics, count as usize)
+        };
+        engine.set_label_glyph_table(slice, line_height_em, px_range);
+    });
+}
+
 /// Load SDF label atlas texture from raw RGBA pixel data.
 /// Returns 1 on success, 0 on failure.
 #[unsafe(no_mangle)]
@@ -3301,6 +3349,30 @@ pub extern "C" fn graph_engine_set_labels_enabled(engine: *mut Engine, enabled: 
     ffi_catch_unwind!("graph_engine_set_labels_enabled", {
         ffi_engine!(engine);
         engine.set_labels_enabled(enabled != 0);
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_label_extras(engine: *mut Engine, max_inner_nodes: u32, inner_offset: f32) {
+    ffi_catch_unwind!("graph_engine_set_label_extras", {
+        ffi_engine!(engine);
+        engine.set_label_extras(max_inner_nodes, inner_offset);
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_label_world_px_per_em(engine: *mut Engine, px_per_em: f32) {
+    ffi_catch_unwind!("graph_engine_set_label_world_px_per_em", {
+        ffi_engine!(engine);
+        engine.set_label_world_px_per_em(px_per_em);
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_water_nodes(engine: *mut Engine, style: f32, wobble: f32) {
+    ffi_catch_unwind!("graph_engine_set_water_nodes", {
+        ffi_engine!(engine);
+        engine.set_water_nodes(style, wobble);
     });
 }
 

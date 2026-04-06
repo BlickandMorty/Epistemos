@@ -81,6 +81,15 @@ struct GraphForceSettings: View {
                 }
 
                 Divider().opacity(0.3)
+                titleOverlaySection(gs: $gs)
+
+                Divider().opacity(0.3)
+                waterNodesSection(gs: $gs)
+
+                Divider().opacity(0.3)
+                labelsSection(gs: $gs)
+
+                Divider().opacity(0.3)
                 resetButton
                     .opacity(isStatic ? 0.4 : 1.0)
                     .allowsHitTesting(!isStatic)
@@ -766,6 +775,81 @@ struct GraphForceSettings: View {
 
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    // MARK: - Title Overlay
+
+    private func titleOverlaySection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Title Overlay", icon: "textformat")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Show Title")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Picker("Show Title", selection: gs.graphTitleMode) {
+                    ForEach(GraphTitleMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+            }
+        }
+    }
+
+    // MARK: - Water Nodes
+
+    private func waterNodesSection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Water Nodes", icon: "drop.triangle")
+
+            labToggle(
+                label: "Water Nodes",
+                isOn: gs.waterNodesEnabled,
+                onChange: {}
+            )
+
+            if graphState.waterNodesEnabled {
+                forceSlider(
+                    label: "Wobble",
+                    value: gs.waterNodesWobble,
+                    range: 0...1,
+                    format: "%.2f",
+                    subtitle: "Still \u{2194} Wavy",
+                    onChange: { graphState.waterNodesVersion += 1 }
+                )
+            }
+        }
+    }
+
+    // MARK: - Labels
+
+    private func labelsSection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Labels", icon: "textformat.abc")
+
+            forceSlider(
+                label: "Dead Zone",
+                value: gs.labelInnerOffset,
+                range: 0...3,
+                format: "%.2f",
+                subtitle: "Gap between outer and inner labels",
+                onChange: { graphState.labelPolicyVersion += 1; graphState.saveLabelPolicy() }
+            )
+
+            forceSlider(
+                label: "Max Inner Labels",
+                value: Binding(
+                    get: { Float(graphState.labelMaxInnerNodes) },
+                    set: { graphState.labelMaxInnerNodes = UInt32($0) }
+                ),
+                range: 0...20,
+                format: "%.0f",
+                subtitle: "Labels visible when zoomed in",
+                onChange: { graphState.labelPolicyVersion += 1; graphState.saveLabelPolicy() }
+            )
+        }
     }
 
     // MARK: - Reset

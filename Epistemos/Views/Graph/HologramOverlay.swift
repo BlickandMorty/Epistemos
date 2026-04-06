@@ -57,7 +57,7 @@ enum GraphOverlayThemeStyle {
         // as true glass instead of being hidden behind an opaque tint.
         theme.isDark
             ? NSColor.black.withAlphaComponent(0.32)
-            : NSColor.white.withAlphaComponent(0.26)
+            : NSColor.white.withAlphaComponent(0.72)
     }
 
     static func miniTintColor(for theme: EpistemosTheme) -> NSColor {
@@ -65,7 +65,7 @@ enum GraphOverlayThemeStyle {
         // the NSVisualEffectView blur defines the look.
         theme.isDark
             ? NSColor.black.withAlphaComponent(0.22)
-            : NSColor.white.withAlphaComponent(0.20)
+            : NSColor.white.withAlphaComponent(0.65)
     }
 
     static func lightModeEnabled(for theme: EpistemosTheme) -> Bool {
@@ -218,6 +218,7 @@ final class HologramOverlay {
     /// The very first open uses a longer delay to hide engine initialization.
     private var hasShownBefore = false
     private var fadeInTask: Task<Void, Never>?
+    private let firstOpenTitleHost = GraphFirstOpenTitleHost()
 
     init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
         self.graphState = graphState
@@ -265,6 +266,13 @@ final class HologramOverlay {
                 ctx.duration = 0.2
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 window.animator().alphaValue = 1.0
+            }
+            // Title overlay on fast-path: supports everyOpen mode even when
+            // the engine is still warm from a soft-hide.
+            if graphState.graphTitleMode == .everyOpen,
+               let contentView = window.contentView {
+                let theme = GraphOverlayThemeStyle.resolvedTheme()
+                firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
             }
             return
         }
@@ -322,6 +330,20 @@ final class HologramOverlay {
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 window.animator().alphaValue = 1.0
             }, completionHandler: {})
+            // Title overlay — show on first or every open depending on user setting.
+            if let self, let contentView = window.contentView {
+                let shouldShow: Bool = {
+                    switch self.graphState.graphTitleMode {
+                    case .off: return false
+                    case .firstOpen: return isFirstOpen
+                    case .everyOpen: return true
+                    }
+                }()
+                if shouldShow {
+                    let theme = GraphOverlayThemeStyle.resolvedTheme()
+                    self.firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
+                }
+            }
             self?.fadeInTask = nil
         }
     }

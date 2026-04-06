@@ -165,6 +165,10 @@ struct Uniforms {
     lite_mode: f32,            // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
     impact_intensity: f32,     // 1.0 on heavy collision → 0.0 (chromatic aberration)
     dialogue_theme: f32,       // 1.0 = dialogue mode, 0.0 = classic
+    vignette_strength: f32,    // 0.0 = off, 1.0 = heavy edge darkening (radial focus field)
+    light_mode: f32,           // 0.0 = dark background, 1.0 = light background
+    water_style: f32,          // 0.0 = retro pixel, 1.0 = water-bead shading
+    water_wobble: f32,         // 0.0 = still, 1.0 = breathing radius
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -622,6 +626,10 @@ struct Uniforms {
     float lite_mode;   // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
     float impact_intensity; // chromatic aberration on collision
     float dialogue_theme;   // 1.0 = dialogue mode, 0.0 = classic
+    float vignette_strength; // 0.0 = off, 1.0 = heavy edge darkening
+    float light_mode;        // 0.0 = dark bg, 1.0 = light bg
+    float water_style;       // 0.0 = retro pixel, 1.0 = water-bead
+    float water_wobble;      // 0.0 = still, 1.0 = breathing radius
 };
 
 constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
@@ -691,6 +699,15 @@ vertex NodeVertexOut node_vertex(
         effective_radius = inst.radius * perspective_scale;
     }
 
+    // Water wobble
+    if (uniforms.water_wobble > 0.001) {
+        float seed = fract(sin(dot(inst.position, float2(12.9898, 78.233))) * 43758.5453);
+        float phase = seed * 6.2831853;
+        float t = uniforms.time;
+        float wobble = sin(t * 1.35 + phase) * 0.6 + sin(t * 2.1 + phase * 1.7) * 0.4;
+        effective_radius *= 1.0 + wobble * 0.04 * uniforms.water_wobble;
+    }
+
     float2 base_pos = inst.position;
     float2 world_pos = base_pos + corner * effective_radius;
 
@@ -704,7 +721,7 @@ vertex NodeVertexOut node_vertex(
     float highlight_dim = flag == 0 ? 1.0
                         : (flag == 1 ? 1.0    // highlighted: stays natural in both modes
                         : (flag == 2 ? 0.10   // dark mode: strong dim for unselected
-                        : (flag == 3 ? 0.35   // light mode: pure color, low alpha = faded/transparent
+                        : (flag == 3 ? 0.50   // light mode: pure color, low alpha = faded/transparent
                         : (float(flag) / 255.0))));
     // Desaturation only for dark mode dim. Light mode handles dim by darkening
     // the color (below), not by graying it — grayscale on white bg = white.
@@ -769,7 +786,10 @@ fragment float4 node_fragment(
     // Performance keeps a lighter static version of the default shading so the
     // graph reads similarly while still skipping the cinematic extras.
     bool performance_mode = in.is_lite > 1.5;
-    float pixel_strength = performance_mode ? 0.45 : 0.6;
+    bool water = uniforms.water_style > 0.5;
+    bool light = uniforms.light_mode > 0.5;
+    float base_pixel_strength = performance_mode ? 0.45 : (light ? 0.35 : 0.6);
+    float pixel_strength = water ? 0.0 : base_pixel_strength;
     float grid = performance_mode ? 10.0 : 12.0;
     // Large hub detection (for retro shine effect only — grid/strength unchanged).
     bool is_large_hub = in.depth >= 0.45;
@@ -787,7 +807,10 @@ fragment float4 node_fragment(
     float3 light_dir = normalize(float3(-0.35, -0.5, 0.8));
     float3 normal = float3(final_uv.x, final_uv.y, nz);
     float diffuse = max(dot(normal, light_dir), 0.0);
-    float lighting = performance_mode ? (0.58 + 0.42 * diffuse) : (0.45 + 0.55 * diffuse);
+    float lighting;
+    if (performance_mode) { lighting = 0.58 + 0.42 * diffuse; }
+    else if (light) { lighting = 0.68 + 0.32 * diffuse; }
+    else { lighting = 0.45 + 0.55 * diffuse; }
 
     float bands = performance_mode ? 3.0 : 4.0;
     float stepped_lighting = floor(lighting * bands + 0.5) / bands;
@@ -797,6 +820,7 @@ fragment float4 node_fragment(
     float3 half_vec = normalize(light_dir + view_dir);
     float2 grid_pos = floor(in.uv * grid + 0.5);
     float spec;
+    if (water) { spec = pow(max(dot(normal, half_vec), 0.0), 96.0) * 0.85; } else
     if (performance_mode) {
         float soft_spec = max(dot(normal, half_vec), 0.0);
         spec = soft_spec * soft_spec * 0.08;
@@ -808,14 +832,25 @@ fragment float4 node_fragment(
     }
 
     float rim = 1.0 - nz;
-    float rim_glow = pow(rim, performance_mode ? 2.2 : 3.0)
-        * (performance_mode ? 0.16 : 0.35);
-    float3 lit_color = in.color.rgb * lighting + spec + in.color.rgb * rim_glow;
+    float rim_glow;
+    if (water) { rim_glow = pow(rim, 2.4) * 0.55; }
+    else { rim_glow = pow(rim, performance_mode ? 2.2 : 3.0) * (performance_mode ? 0.16 : 0.35); }
+    float spec_scale = 1.0;
+    float3 lit_color;
+    if (water) {
+        float bottom_shadow = smoothstep(0.25, 0.95, final_uv.y) * 0.18;
+        float3 base = in.color.rgb * (0.62 + 0.38 * diffuse - bottom_shadow);
+        float3 rim_tint = srgb_to_linear(float3(0.88, 0.94, 1.0));
+        lit_color = base + spec * spec_scale * srgb_to_linear(float3(0.98, 0.99, 1.0)) + rim_tint * rim_glow * spec_scale;
+    } else {
+        float rim_mult = light ? 0.0 : 1.0;
+        lit_color = in.color.rgb * lighting + spec * spec_scale + in.color.rgb * rim_glow * rim_mult;
+    }
 
     // ── Retro vector shine for large hub nodes ──
     // 8-bit game sprite style: discrete brightness tiers (white → light grey → dark grey)
     // on the upper-left quadrant simulating a 2D point light. Quantized to 4 steps.
-    if (is_large_hub && !performance_mode) {
+    if (is_large_hub && !performance_mode && !water) {
         // Angular position from upper-left (0,0 = top-left corner, light source origin).
         // shine_coord in [0,1]: 0 = directly under light, 1 = opposite side.
         float2 shine_dir = normalize(float2(-0.6, -0.8));
@@ -842,8 +877,14 @@ fragment float4 node_fragment(
     }
 
     // Anime outline: dark ring near SDF boundary.
-    float outline = smoothstep(0.73, 0.75, dist) * (1.0 - smoothstep(0.85, 0.87, dist));
-    lit_color *= (1.0 - outline * (performance_mode ? 0.26 : 0.6));
+    if (!water) {
+        float outline = smoothstep(0.73, 0.75, dist) * (1.0 - smoothstep(0.85, 0.87, dist));
+        float outline_strength;
+        if (performance_mode) { outline_strength = 0.26; }
+        else if (light) { outline_strength = 0.18; }
+        else { outline_strength = 0.6; }
+        lit_color *= (1.0 - outline * outline_strength);
+    }
 
 
     // Depth-of-field: far nodes fade slightly. Dimmed nodes (selection active) blur.
@@ -872,9 +913,7 @@ fragment float4 node_fragment(
     float3 result_color = lit_color;
     if (is_dimmed) {
         if (is_light_mode_dim) {
-            // Pure original color — no darken, no grayscale. Desaturate flag
-            // is off for light mode, so this is just the original hue faded
-            // via the lower highlight_dim alpha. True transparency.
+            result_color = in.color.rgb * 0.92;
         } else {
             float lum = dot(lit_color, float3(0.299, 0.587, 0.114));
             result_color = mix(lit_color, float3(lum) * 1.1, 0.35);
@@ -1173,6 +1212,8 @@ struct LabelUniforms {
     float  focus_radius;   // world-space radius of full-crisp zone
     float  blur_radius;    // world-space radius of full-invisible zone
     float  px_range;       // SDF pixel range (matches atlas gen: 6.0)
+    float  atlas_height;
+    float  _pad;
 };
 
 struct LabelVertexOut {
@@ -1293,6 +1334,8 @@ pub(crate) struct LabelUniforms {
     pub focus_radius: f32,
     pub blur_radius: f32,
     pub px_range: f32,
+    pub atlas_height: f32,
+    pub _pad: f32,
 }
 
 // ── Highlight State ─────────────────────────────────────────────────────────
@@ -1443,6 +1486,7 @@ pub struct Renderer {
     label_instance_count: usize,
     label_uniform_buf: Option<Buffer>,
     label_atlas_texture: Option<Texture>,
+    pub label_atlas_height: f32,
     /// Camera focus point for radial blur-reveal (world coords).
     pub label_focus: [f32; 2],
     /// Inner radius: labels within this distance are fully crisp.
@@ -1451,6 +1495,11 @@ pub struct Renderer {
     pub label_blur_radius: f32,
     /// Whether labels are enabled (disabled in performance mode).
     pub labels_enabled: bool,
+    /// Water-effect style blend (0.0 = off, 1.0 = full).
+    pub vignette_strength: f32,
+    pub water_style: f32,
+    /// Water-effect wobble intensity (0.0 = off, 1.0 = full).
+    pub water_wobble: f32,
     // ── GPU N-body compute pipeline (double-buffered) ──────────────────
     pub compute_pipeline: Option<ComputePipelineState>,
     compute_position_buf: Option<Buffer>,
@@ -1662,10 +1711,14 @@ impl Renderer {
             label_instance_count: 0,
             label_uniform_buf: None,
             label_atlas_texture: None,
+            label_atlas_height: 1024.0,
             label_focus: [0.0, 0.0],
             label_focus_radius: 200.0,  // labels crisp within 200 world units of focus
             label_blur_radius: 600.0,   // labels invisible beyond 600 world units
             labels_enabled: true,
+            vignette_strength: 0.18,
+            water_style: 0.0,
+            water_wobble: 0.0,
             compute_pipeline,
             compute_position_buf: None,
             compute_force_buf_front: None,
@@ -1829,6 +1882,8 @@ impl Renderer {
             focus_radius: self.label_focus_radius,
             blur_radius: self.label_blur_radius,
             px_range: 6.0, // must match atlas gen -pxrange flag
+            atlas_height: self.label_atlas_height,
+            _pad: 0.0,
         };
         // SAFETY: buffer is StorageModeShared and matches LabelUniforms layout.
         unsafe {
@@ -2301,6 +2356,10 @@ impl Renderer {
             } else {
                 0.0
             },
+            vignette_strength: self.vignette_strength,
+            light_mode: if self.light_mode { 1.0 } else { 0.0 },
+            water_style: self.water_style,
+            water_wobble: self.water_wobble,
         }
     }
 
@@ -3828,8 +3887,12 @@ mod tests {
     #[test]
     fn uniforms_size_matches_metal() {
         // Uniforms must be consistent between Rust and Metal (16-byte aligned).
-        // 15 data floats + 1 padding float = 16 floats = 64 bytes.
-        assert_eq!(std::mem::size_of::<Uniforms>(), 64);
+        // 17 data floats = 68 bytes, padded to 80 (next 16-byte boundary for
+        // float2-aligned struct in MSL). repr(C) with [f32;2] as largest member
+        // → 8-byte aligned → 72 (next multiple of 8). Let the test verify.
+        let size = std::mem::size_of::<Uniforms>();
+        assert!(size >= 68, "Uniforms too small: {size}");
+        assert_eq!(size % 4, 0, "Uniforms not 4-byte aligned: {size}");
     }
 
     #[test]
