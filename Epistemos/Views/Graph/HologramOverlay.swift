@@ -200,6 +200,10 @@ final class HologramOverlay {
     private(set) var isMinimized = false
     private var selectionObserverTask: Task<Void, Never>?
     private var inspectorPositionTask: Task<Void, Never>?
+    /// Dedicated timer for pinned panel position tracking. Runs at ~30fps
+    /// independently of node selection so pinned panels follow their nodes
+    /// even when nothing is selected. Started when overlay shows, stopped on hide.
+    private var pinnedPanelTimer: Timer?
     private var inspectorRepositionTask: Task<Void, Never>?
     private var lastInspectorFrame: CGRect?
     private var lastQueuedInspectorAnchor: CGPoint?
@@ -512,6 +516,7 @@ final class HologramOverlay {
 
         window.makeFirstResponder(metalView)
         observeNodeSelection()
+        startPinnedPanelTimer()
     }
 
     /// Restore the mini panel back to the full-screen overlay.
@@ -664,6 +669,7 @@ final class HologramOverlay {
 
         // Observe node selection to lazily show/hide inspector.
         observeNodeSelection()
+        startPinnedPanelTimer()
     }
 
     // MARK: - Mini Panel Creation
@@ -1015,6 +1021,20 @@ final class HologramOverlay {
         }
     }
 
+    private func startPinnedPanelTimer() {
+        pinnedPanelTimer?.invalidate()
+        pinnedPanelTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updatePinnedInspectorPositions()
+            }
+        }
+    }
+
+    private func stopPinnedPanelTimer() {
+        pinnedPanelTimer?.invalidate()
+        pinnedPanelTimer = nil
+    }
+
     // MARK: - Lazy Inspector (Node Selection)
 
     private func observeNodeSelection() {
@@ -1319,6 +1339,7 @@ final class HologramOverlay {
         inspectorPositionTask = nil
         inspectorRepositionTask?.cancel()
         inspectorRepositionTask = nil
+        stopPinnedPanelTimer()
         // Invalidate appearance KVO observer.
         appearanceObserver?.invalidate()
         appearanceObserver = nil
