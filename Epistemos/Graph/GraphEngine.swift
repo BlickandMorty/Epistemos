@@ -156,9 +156,9 @@ final class GraphEngine {
     }
 
     /// Mouse/trackpad button released.
-    func mouseUp() {
+    func mouseUp(x: Float, y: Float) {
         guard let h = handle else { return }
-        graph_engine_mouse_up(h)
+        graph_engine_mouse_up(h, x, y)
     }
 
     /// Two-finger scroll: pan the camera.
@@ -474,6 +474,11 @@ final class GraphEngine {
     func recomputeSemanticNeighbors(k: UInt32 = 8, threshold: Float = 0.3) {
         guard let h = handle else { return }
         graph_engine_recompute_semantic_neighbors(h, k, threshold)
+    }
+
+    func setLabelExtras(maxInnerNodes: UInt32, innerOffset: Float) {
+        guard let h = handle else { return }
+        graph_engine_set_label_extras(h, maxInnerNodes, innerOffset)
     }
 }
 

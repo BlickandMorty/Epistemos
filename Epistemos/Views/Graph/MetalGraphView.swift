@@ -587,8 +587,66 @@ final class MetalGraphNSView: NSView {
         graphState?.engineHandle = engine
         graphState?.isWarmed = true
 
+        // Load the SDF label atlas once at engine init. Failure is non-fatal
+        // — labels just stay hidden until the atlas is regenerated + rebuilt.
+        loadSDFLabelAtlasIfAvailable()
+
         refreshPowerModeObserver()
         startDisplayLink()
+    }
+
+    // MARK: - SDF Label Atlas
+
+    private func pushSDFGlyphTable(atlas: SDFLabelAtlas, engineHandle: OpaquePointer) {
+        var metrics: [GraphEngineGlyphMetric] = []
+        metrics.reserveCapacity(atlas.glyphs.count)
+        for (char, glyph) in atlas.glyphs {
+            guard let scalar = char.unicodeScalars.first else { continue }
+            var m = GraphEngineGlyphMetric()
+            m.codepoint = scalar.value
+            m.uv_x = glyph.uvRect.x
+            m.uv_y = glyph.uvRect.y
+            m.uv_w = glyph.uvRect.z
+            m.uv_h = glyph.uvRect.w
+            m.half_w_em = glyph.halfWidthEm
+            m.half_h_em = glyph.halfHeightEm
+            m.bearing_x_em = glyph.bearingXEm
+            m.bearing_y_em = glyph.bearingYEm
+            m.advance_em = glyph.advanceEm
+            metrics.append(m)
+        }
+        metrics.withUnsafeBufferPointer { buf in
+            graph_engine_set_label_glyph_table(
+                engineHandle,
+                buf.baseAddress,
+                UInt32(buf.count),
+                atlas.lineHeightEm,
+                atlas.pxRange
+            )
+        }
+    }
+
+    private func loadSDFLabelAtlasIfAvailable() {
+        guard let engineHandle = engine else { return }
+        let resourceName = graphState?.labelFontFamily.atlasResourceName ?? "sdf_labels"
+        do {
+            let atlas = try SDFLabelAtlasLoader.load(
+                resourceName: resourceName,
+                pushPixels: { width, height, ptr, byteCount in
+                    graph_engine_load_label_atlas(
+                        engineHandle,
+                        UInt32(width),
+                        UInt32(height),
+                        ptr,
+                        UInt64(byteCount)
+                    ) != 0
+                }
+            )
+            pushSDFGlyphTable(atlas: atlas, engineHandle: engineHandle)
+            graph_engine_set_labels_enabled(engineHandle, 1)
+        } catch {
+            graph_engine_set_labels_enabled(engineHandle, 0)
+        }
     }
 
     private func refreshPowerModeObserver() {
@@ -879,6 +937,9 @@ final class MetalGraphNSView: NSView {
     var lastModeVersion: Int = 0
     var lastPhysicsFrozenVersion: Int = 0
     var lastLabConfigVersion: Int = -1
+    var lastLabelPolicyVersion: Int = -1
+    var lastWaterNodesVersion: Int = -1
+    var lastLabelFontVersion: Int = -1
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -1117,6 +1178,29 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastLabConfigVersion != graphState.labConfigVersion {
             lastLabConfigVersion = graphState.labConfigVersion
             pushLabParams()
+        }
+
+        // Sync SDF label policy (density + layer transition + focus shrink + font size).
+        if let graphState, lastLabelPolicyVersion != graphState.labelPolicyVersion {
+            lastLabelPolicyVersion = graphState.labelPolicyVersion
+            graph_engine_set_label_policy(
+                engine,
+                graphState.labelMaxNodes,
+                graphState.labelZoomBias,
+                graphState.labelZoomPivot,
+                graphState.labelFocusShrink,
+                graphState.labelFolderThreshold,
+                graphState.labelNoteThreshold,
+                graphState.labelChatThreshold
+            )
+            graph_engine_set_label_extras(engine, graphState.labelMaxInnerNodes, graphState.labelInnerOffset)
+            graph_engine_set_label_world_px_per_em(engine, graphState.labelFontSizePx)
+        }
+
+        // Sync water nodes style.
+        if let graphState, lastWaterNodesVersion != graphState.waterNodesVersion {
+            lastWaterNodesVersion = graphState.waterNodesVersion
+            graph_engine_set_water_nodes(engine, graphState.waterNodesEnabled ? 1.0 : 0.0, graphState.waterNodesWobble)
         }
 
         // Sync cluster params (cluster strength, center mode).
@@ -1367,7 +1451,9 @@ final class MetalGraphNSView: NSView {
             return
         }
 
-        graph_engine_mouse_up(engine)
+        let loc = convert(event.locationInWindow, from: nil)
+        let scale = metalLayer?.contentsScale ?? 2.0
+        graph_engine_mouse_up(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
 
         // Sync selection state: node click → select, background click → deselect.
         // Rust mouse_up already highlights neighbors on click and clears on background.

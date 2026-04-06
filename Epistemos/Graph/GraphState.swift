@@ -262,6 +262,25 @@ enum GraphInteractionMode: Equatable {
     case connecting(sourceNodeId: String)
 }
 
+// MARK: - Label Font Family
+
+enum LabelFontFamily: String, CaseIterable, Identifiable, Codable {
+    case retro
+    var id: String { rawValue }
+    var displayName: String { "Retro" }
+    var atlasResourceName: String { "sdf_labels" }
+}
+
+// MARK: - Graph Title Mode
+
+enum GraphTitleMode: String, Codable, CaseIterable, Identifiable {
+    case off, firstOpen, everyOpen
+    var id: String { rawValue }
+    var displayName: String {
+        switch self { case .off: return "Off"; case .firstOpen: return "First open"; case .everyOpen: return "Every open" }
+    }
+}
+
 // MARK: - Graph Startup View Mode
 
 /// Which graph view opens when the user presses Cmd+G.
@@ -449,6 +468,7 @@ final class GraphState {
         // any core-physics-settings reset triggered by a physicsVersion bump.
         loadCustomPresetsFromDefaults()
         restorePhysicsSettings()
+        restoreLabelPolicy()
     }
 
     func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
@@ -643,6 +663,139 @@ final class GraphState {
         }
     }
     var visualThemeVersion: Int = 0
+
+    // MARK: - Label Policy
+
+    var labelMaxNodes: UInt32 = 6 {
+        didSet { if labelMaxNodes != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelZoomBias: Float = 0.4 {
+        didSet { if labelZoomBias != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelZoomPivot: Float = 2.5 {
+        didSet { if labelZoomPivot != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelFontSizePx: Float = 28.0 {
+        didSet { if labelFontSizePx != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelFocusShrink: Float = 0.4 {
+        didSet { if labelFocusShrink != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelFolderThreshold: Float = 1.0 {
+        didSet { if labelFolderThreshold != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelNoteThreshold: Float = 1.0 {
+        didSet { if labelNoteThreshold != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelChatThreshold: Float = 1.0 {
+        didSet { if labelChatThreshold != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelInnerOffset: Float = 0.6 {
+        didSet { if labelInnerOffset != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelMaxInnerNodes: UInt32 = 4 {
+        didSet { if labelMaxInnerNodes != oldValue { labelPolicyVersion += 1; saveLabelPolicy() } }
+    }
+    var labelFontFamily: LabelFontFamily = .retro {
+        didSet { labelFontVersion += 1 }
+    }
+    var labelFontVersion: Int = 0
+    var labelPolicyVersion: Int = 0
+
+    // MARK: - Water Nodes
+
+    var waterNodesEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(waterNodesEnabled, forKey: "epistemos.waterNodes.enabled")
+            waterNodesVersion += 1
+        }
+    }
+    var waterNodesWobble: Float = 0.0 {
+        didSet {
+            UserDefaults.standard.set(waterNodesWobble, forKey: "epistemos.waterNodes.wobble")
+            waterNodesVersion += 1
+        }
+    }
+    var waterNodesVersion: Int = 0
+
+    // MARK: - Graph Title
+
+    var graphTitleMode: GraphTitleMode = .firstOpen {
+        didSet {
+            UserDefaults.standard.set(graphTitleMode.rawValue, forKey: "epistemos.graph.titleMode")
+        }
+    }
+
+    // MARK: - Label Policy Persistence
+
+    private static let labelPolicyVersion = 6
+
+    func saveLabelPolicy() {
+        let d = UserDefaults.standard
+        d.set(Int(labelMaxNodes), forKey: "epistemos.label.maxNodes")
+        d.set(labelZoomBias, forKey: "epistemos.label.zoomBias")
+        d.set(labelZoomPivot, forKey: "epistemos.label.zoomPivot")
+        d.set(labelFontSizePx, forKey: "epistemos.label.fontSizePx")
+        d.set(labelFocusShrink, forKey: "epistemos.label.focusShrink")
+        d.set(labelFolderThreshold, forKey: "epistemos.label.folderThreshold")
+        d.set(labelNoteThreshold, forKey: "epistemos.label.noteThreshold")
+        d.set(labelChatThreshold, forKey: "epistemos.label.chatThreshold")
+        d.set(labelInnerOffset, forKey: "epistemos.label.innerOffset")
+        d.set(Int(labelMaxInnerNodes), forKey: "epistemos.label.maxInnerNodes")
+        d.set(labelFontFamily.rawValue, forKey: "epistemos.label.fontFamily")
+        d.set(Self.labelPolicyVersion, forKey: "epistemos.label.version")
+    }
+
+    func restoreLabelPolicy() {
+        let d = UserDefaults.standard
+        guard d.integer(forKey: "epistemos.label.version") == Self.labelPolicyVersion else { return }
+        if d.object(forKey: "epistemos.label.maxNodes") != nil {
+            labelMaxNodes = UInt32(d.integer(forKey: "epistemos.label.maxNodes"))
+        }
+        if d.object(forKey: "epistemos.label.zoomBias") != nil {
+            labelZoomBias = d.float(forKey: "epistemos.label.zoomBias")
+        }
+        if d.object(forKey: "epistemos.label.zoomPivot") != nil {
+            labelZoomPivot = d.float(forKey: "epistemos.label.zoomPivot")
+        }
+        if d.object(forKey: "epistemos.label.fontSizePx") != nil {
+            labelFontSizePx = d.float(forKey: "epistemos.label.fontSizePx")
+        }
+        if d.object(forKey: "epistemos.label.focusShrink") != nil {
+            labelFocusShrink = d.float(forKey: "epistemos.label.focusShrink")
+        }
+        if d.object(forKey: "epistemos.label.folderThreshold") != nil {
+            labelFolderThreshold = d.float(forKey: "epistemos.label.folderThreshold")
+        }
+        if d.object(forKey: "epistemos.label.noteThreshold") != nil {
+            labelNoteThreshold = d.float(forKey: "epistemos.label.noteThreshold")
+        }
+        if d.object(forKey: "epistemos.label.chatThreshold") != nil {
+            labelChatThreshold = d.float(forKey: "epistemos.label.chatThreshold")
+        }
+        if d.object(forKey: "epistemos.label.innerOffset") != nil {
+            labelInnerOffset = d.float(forKey: "epistemos.label.innerOffset")
+        }
+        if d.object(forKey: "epistemos.label.maxInnerNodes") != nil {
+            labelMaxInnerNodes = UInt32(d.integer(forKey: "epistemos.label.maxInnerNodes"))
+        }
+        if let raw = d.string(forKey: "epistemos.label.fontFamily"),
+           let family = LabelFontFamily(rawValue: raw) {
+            labelFontFamily = family
+        }
+        // Restore water nodes
+        if d.object(forKey: "epistemos.waterNodes.enabled") != nil {
+            waterNodesEnabled = d.bool(forKey: "epistemos.waterNodes.enabled")
+        }
+        if d.object(forKey: "epistemos.waterNodes.wobble") != nil {
+            waterNodesWobble = d.float(forKey: "epistemos.waterNodes.wobble")
+        }
+        // Restore graph title mode
+        if let raw = d.string(forKey: "epistemos.graph.titleMode"),
+           let mode = GraphTitleMode(rawValue: raw) {
+            graphTitleMode = mode
+        }
+    }
 
     // MARK: - Force Parameters
     // Core 4 params (basic panel) + 5 extended params (advanced panel).
