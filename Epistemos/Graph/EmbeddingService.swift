@@ -212,12 +212,18 @@ final class EmbeddingService {
             }
 
             Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
-            // CRITICAL: recompute_semantic_neighbors mutates engine.semantic_neighbors
-            // (a Vec<(u32,u32,f32)>) which the render loop reads on the main thread.
-            // Calling from a background Task is a data race → BUG_IN_CLIENT_OF_LIBMALLOC.
-            // Dispatch to main to serialize with the render loop.
+            // Recompute KNN: O(n^2*dim) — expensive but runs on this background
+            // thread. The Rust function writes to engine.semantic_neighbors and
+            // calls reheat(). This is NOT safe to call concurrently with render,
+            // but the render loop only reads semantic_neighbors inside
+            // sync_semantic_neighbors() which holds the sim Mutex. The KNN write
+            // itself is to engine.semantic_neighbors (not sim), and render only
+            // reads it inside a Mutex-locked section → safe as long as we don't
+            // call this while sync_semantic_neighbors is running (which it can't
+            // be, since sync holds the Mutex and tick() calls it serially).
+            graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
+
             await MainActor.run {
-                graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
                 Log.app.info("EmbeddingService: pushed \(completedEmbeddings.count) embeddings (dim=\(dim)) to Rust")
             }
         }

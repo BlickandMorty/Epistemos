@@ -103,6 +103,94 @@ Investigation Log:
 
 ---
 
+### ISSUE-2026-04-06-001: Pinned Inspector Panels Freeze When No Node Selected
+
+Status: Investigating
+Priority: P2
+First Observed: 2026-04-06
+Affected Version: main @ cdd931e4+
+
+Symptom:
+When user pins an inspector to a node, then deselects (clicks background), the pinned
+panel freezes in place and no longer follows its node as physics settles or camera moves.
+Panel DOES follow when a node is selected (any node, not just the pinned one).
+
+Suspected Cause:
+The 30fps RunLoop timer (`pinnedPanelTimer`) calls `updatePinnedInspectorPositions()` which
+queries `graph_engine_node_screen_pos(engineHandle, nodeId, &posBuf)`. The function reads
+stored world positions + camera state — should work even when engine is idle.
+
+The real issue is likely the RENDER LOOP being idle. When nothing is selected and physics
+has settled, `graph_engine_render()` returns 0. Even though `needsRender` stays true for
+pinned panels (MetalGraphView.swift:1380), the Rust engine's internal idle skip
+(engine.rs:854 `idle_frame_count > 3 → return 0`) means the engine stops calling
+`renderer.draw()`. The camera animation (lerp toward target) stops updating because
+`update_camera()` only runs inside render(). So `node_screen_pos()` returns coordinates
+based on a stale camera state.
+
+The fix: either (a) force the engine to stay "alive" when pinned panels exist (add a flag
+the engine checks in the idle skip), or (b) compute screen positions entirely from known
+camera state on the Swift side without going through Rust.
+
+Relevant files:
+- HologramOverlay.swift:985 (updatePinnedInspectorPositions)
+- HologramOverlay.swift:1024 (startPinnedPanelTimer)
+- MetalGraphView.swift:1380 (needsRender = result != 0 || hasPinnedPanels)
+- engine.rs:850 (idle_frame_count skip — returns 0 before draw)
+- engine.rs:947 (node_screen_pos — reads renderer.camera_offset/zoom)
+- engine.rs:830 (update_camera called inside render path)
+
+Investigation Log:
+- 2026-04-06: Timer confirmed running via code inspection. engineHandle confirmed non-nil.
+  Root cause narrowed to Rust idle skip preventing camera state refresh. The timer queries
+  node_screen_pos which uses renderer.camera_offset/zoom — these stop updating when the
+  engine is idle because update_camera() is inside the render path that gets skipped.
+
+---
+
+### ISSUE-2026-04-06-002: Beach Ball Spinner During Graph Interaction
+
+Status: Investigating
+Priority: P1
+First Observed: 2026-04-06
+Affected Version: main @ 025db832
+
+Symptom:
+macOS spinning beach ball appears during certain graph interactions, indicating the main
+thread is blocked for >2 seconds. Happens sporadically, especially after graph has been
+open for a while.
+
+Suspected Cause:
+Two main-thread blocking operations:
+
+1. `graph_engine_commit()` runs a synchronous pre-settle physics loop on the main thread.
+   For 1131 nodes: up to 120 ticks with 16ms budget. NOT likely the beach ball cause alone
+   (16ms is one frame, not 2 seconds).
+
+2. `graph_engine_recompute_semantic_neighbors` — runs KNN cosine similarity across all
+   embeddings. With 1131 nodes and 768-dim embeddings, that's O(n^2 * dim) ≈ 1 billion
+   float ops. This was recently moved to MainActor dispatch (commit 025db832) to fix a
+   data race, which means it now blocks the main thread during the entire computation.
+   THIS IS THE BEACH BALL.
+
+Fix approach: Split into compute (background) + swap (main, instant). Rust computes the
+new Vec<(u32,u32,f32)> on the calling thread, then uses a Mutex or atomic swap to install
+it. The render loop reads through the Mutex. No main-thread blocking, no data race.
+
+Relevant files:
+- EmbeddingService.swift:215 (call site — moved to MainActor.run)
+- lib.rs:1640 (graph_engine_recompute_semantic_neighbors)
+- engine.rs (engine.semantic_neighbors assignment)
+- embedding.rs (all_knn_pairs — the O(n^2) computation)
+- engine.rs:commit() lines 421-439 (pre-settle loop)
+
+Investigation Log:
+- 2026-04-06: Traced beach ball to commit 025db832 which moved recompute_semantic_neighbors
+  to MainActor. The KNN computation is O(n^2*dim) — for 1131 nodes * 768 dims this is
+  ~1 billion float ops, easily >2 seconds on main thread. Need to split compute from swap.
+
+---
+
 ## Resolved Issues
 
 _(none yet — move entries here as they are Verified Fixed)_
