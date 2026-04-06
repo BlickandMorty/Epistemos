@@ -1023,11 +1023,17 @@ final class HologramOverlay {
 
     private func startPinnedPanelTimer() {
         pinnedPanelTimer?.invalidate()
-        pinnedPanelTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
+        // Use RunLoop-scheduled timer (fires on main thread directly,
+        // no Task hop). Runs at 30fps to keep pinned panels tracking
+        // their nodes even when the graph is at rest and the render
+        // loop has gone idle.
+        pinnedPanelTimer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            // Timer fires on main thread — safe to access UI.
+            MainActor.assumeIsolated {
                 self?.updatePinnedInspectorPositions()
             }
         }
+        RunLoop.main.add(pinnedPanelTimer!, forMode: .common)
     }
 
     private func stopPinnedPanelTimer() {

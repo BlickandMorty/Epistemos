@@ -2491,10 +2491,18 @@ impl Renderer {
             // Light mode: skip the bloom/glow halos entirely — they read as
             // washed-out blobs against the white background.
             let draw_glow = lod.draw_glow && self.visual_theme != VisualTheme::Dialogue && !self.light_mode;
-            if draw_glow {
+            // Glow only for highlighted nodes (selected + neighbors). At
+            // rest no glows render — clean, calm graph. When a node is
+            // selected, its neighborhood lights up with the glow aura.
+            // User 2026-04-06: "only selected node and its connected nodes glow"
+            let draw_selection_glow = draw_glow && self.highlight.active;
+            if draw_selection_glow {
                 let mut glow_emitted = 0usize;
                 for &node_index in &self.rendered_node_indices {
                     if glow_emitted >= MAX_GLOW_INSTANCES { break; }
+                    // Only glow for highlighted (selected + neighbor) nodes
+                    let node_id = world.graph_node[node_index].node_id;
+                    if !self.highlight.highlighted_ids.contains(&node_id) { continue; }
                     let pos = [world.transform[node_index].x, world.transform[node_index].y];
                     let node_instance = self.classic_node_instance(world, node_index);
                     let z = node_instance.z;
@@ -2503,7 +2511,9 @@ impl Renderer {
                     let confidence = world.graph_node[node_index].confidence;
                     let link_count = world.hierarchy[node_index].link_count;
                     let _node_type = world.hierarchy[node_index].node_type;
-                    if link_count >= 9 {
+                    let is_root = self.highlight.root_id == Some(node_id);
+                    // Glow for hubs in the neighborhood OR the selected root node
+                    if link_count >= 9 || is_root {
                         self.classic_node_scratch.push(NodeInstance {
                             position: pos,
                             radius: radius * HUB_GLOW_RADIUS_FACTOR,
