@@ -1354,9 +1354,21 @@ final class MetalGraphNSView: NSView {
                         x: CGFloat(posBuf[0]) / scale,
                         y: bounds.height - CGFloat(posBuf[1]) / scale
                     )
-                    // Publish every frame for smooth inspector tracking.
-                    lastPublishedSelectedNodeScreenPoint = pt
-                    graphState?.selectedNodeScreenPoint = pt
+                    // Throttle @Observable writes: only publish when the point
+                    // moved >2px. Writing every frame at 120Hz causes an
+                    // observation storm that starves the main thread.
+                    let delta: CGFloat
+                    if let last = lastPublishedSelectedNodeScreenPoint {
+                        let dx = pt.x - last.x
+                        let dy = pt.y - last.y
+                        delta = (dx * dx + dy * dy).squareRoot()
+                    } else {
+                        delta = .greatestFiniteMagnitude
+                    }
+                    if delta > 2.0 {
+                        lastPublishedSelectedNodeScreenPoint = pt
+                        graphState?.selectedNodeScreenPoint = pt
+                    }
                 } else if graphState?.selectedNodeScreenPoint != nil || sampledSelectedNodeId != nil {
                     resetSelectedNodeScreenPointTracking(for: graphState)
                 }
