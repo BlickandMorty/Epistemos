@@ -236,11 +236,11 @@ final class WorkspaceSummaryService {
         for note in digest.editedNotes.prefix(5) {
             let body = NoteWindowManager.shared.currentBody(for: note.pageId, mapped: true)
             let paragraphs = body.components(separatedBy: "\n\n")
-            let changedSnippets = paragraphs.prefix(note.totalParagraphs)
-                .enumerated()
-                .prefix(3)  // limit to first 3 changed paragraphs for token budget
-                .map { "  Paragraph \($0.offset + 1): \(String($0.element.prefix(100)))" }
-            diffLines.append("- \"\(note.title)\": \(note.changedParagraphCount)/\(note.totalParagraphs) paragraphs modified\n\(changedSnippets.joined(separator: "\n"))")
+            // Show the LAST few paragraphs (most likely recently edited) rather than
+            // the first 3 (which are often just the title/header and never change).
+            let recentSnippets = paragraphs.suffix(min(3, paragraphs.count))
+                .map { "  \(String($0.prefix(100)))" }
+            diffLines.append("- \"\(note.title)\": \(note.changedParagraphCount)/\(note.totalParagraphs) paragraphs modified\n\(recentSnippets.joined(separator: "\n"))")
         }
         if digest.chatMessageCount > 0 {
             diffLines.append("- \(digest.chatMessageCount) AI chat message\(digest.chatMessageCount == 1 ? "" : "s") exchanged")
