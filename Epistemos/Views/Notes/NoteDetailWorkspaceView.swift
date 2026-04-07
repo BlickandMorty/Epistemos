@@ -964,7 +964,8 @@ struct NoteDetailWorkspaceView: View {
         if let path = page.filePath,
            let lang = CodeLanguage.detect(from: path) {
             CodeEditorView(
-                content: currentModeBodySnapshot(for: page.id) ?? page.body,
+                content: currentModeBodySnapshot(for: page.id)
+                    ?? NoteWindowManager.shared.currentBody(for: page.id),
                 language: lang
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
