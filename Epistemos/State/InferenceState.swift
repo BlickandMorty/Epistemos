@@ -2457,9 +2457,16 @@ final class InferenceState {
     func cloudFallbackChain(for operatingMode: EpistemosOperatingMode) -> [CloudTextModelID] {
         guard case .cloud(let primaryModel) = preferredChatModelSelection else { return [] }
 
-        var chain: [CloudTextModelID] = [
-            primaryModel.resolvedModel(for: operatingMode)
-        ]
+        // In manual mode: use the exact selected model, no mode-based resolution
+        // (user picks GPT-5.4, they get GPT-5.4, not GPT-5.4-mini in fast mode)
+        let primaryResolved = cloudAutoFallback
+            ? primaryModel.resolvedModel(for: operatingMode)
+            : primaryModel
+
+        var chain: [CloudTextModelID] = [primaryResolved]
+
+        // Only build fallback chain in auto mode
+        guard cloudAutoFallback else { return chain }
 
         for provider in CloudModelProvider.fallbackPriority(after: primaryModel.provider) {
             guard hasConfiguredCloudAccess(for: provider) else { continue }
