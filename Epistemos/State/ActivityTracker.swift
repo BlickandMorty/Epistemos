@@ -344,6 +344,120 @@ final class ActivityTracker {
     }
 }
 
+// MARK: - Per-Node Activity Scoring
+
+extension ActivityTracker {
+
+    /// Activity score for a specific page (0.0 to 1.0).
+    /// Combines edit frequency, visit frequency, and recency of activity.
+    /// Used by WeightedContextEngine to boost nodes the user actively works on.
+    func activityScore(for pageId: String) -> Double {
+        let now = Date()
+        let thirtyDaysAgo = now.addingTimeInterval(-30 * 24 * 3600)
+        let sevenDaysAgo = now.addingTimeInterval(-7 * 24 * 3600)
+
+        var editCount7d = 0
+        var editCount30d = 0
+        var openCount7d = 0
+        var openCount30d = 0
+        var lastActivity: Date?
+
+        for event in events {
+            guard event.timestamp >= thirtyDaysAgo else { continue }
+            switch event.kind {
+            case .noteEdited(let pid, _, _, _) where pid == pageId:
+                editCount30d += 1
+                if event.timestamp >= sevenDaysAgo { editCount7d += 1 }
+                if lastActivity == nil || event.timestamp > (lastActivity ?? .distantPast) {
+                    lastActivity = event.timestamp
+                }
+            case .noteOpened(let pid, _) where pid == pageId:
+                openCount30d += 1
+                if event.timestamp >= sevenDaysAgo { openCount7d += 1 }
+                if lastActivity == nil || event.timestamp > (lastActivity ?? .distantPast) {
+                    lastActivity = event.timestamp
+                }
+            default:
+                break
+            }
+        }
+
+        // No activity → baseline 0
+        guard editCount30d > 0 || openCount30d > 0 else { return 0 }
+
+        // Score components (each 0 to 1):
+        // Recent edit intensity (7-day, normalized: 10+ edits = max)
+        let recentEditScore = min(Double(editCount7d) / 10.0, 1.0)
+        // Total engagement (30-day, normalized: 20+ interactions = max)
+        let totalEngagement = min(Double(editCount30d + openCount30d) / 20.0, 1.0)
+        // Recency of last activity (exponential decay, 7-day half-life)
+        let recencyScore: Double
+        if let last = lastActivity {
+            let days = now.timeIntervalSince(last) / (24 * 3600)
+            recencyScore = exp(-days / 7.0)
+        } else {
+            recencyScore = 0
+        }
+
+        // Weighted combination
+        return recentEditScore * 0.4 + totalEngagement * 0.3 + recencyScore * 0.3
+    }
+
+    /// Global activity profile — cross-node patterns for AI context.
+    func globalActivityProfile() -> GlobalActivityProfile {
+        let now = Date()
+        let sevenDaysAgo = now.addingTimeInterval(-7 * 24 * 3600)
+        let recentEvents = events.filter { $0.timestamp >= sevenDaysAgo }
+
+        var editsByPage: [String: Int] = [:]
+        var opensByPage: [String: Int] = [:]
+        var chatCount = 0
+
+        for event in recentEvents {
+            switch event.kind {
+            case .noteEdited(let pid, _, _, _):
+                editsByPage[pid, default: 0] += 1
+            case .noteOpened(let pid, _):
+                opensByPage[pid, default: 0] += 1
+            case .chatMessageSent:
+                chatCount += 1
+            case .noteClosed:
+                break
+            }
+        }
+
+        let topEditedIds = editsByPage.sorted { $0.value > $1.value }.prefix(5).map(\.key)
+        let topVisitedIds = opensByPage.sorted { $0.value > $1.value }.prefix(5).map(\.key)
+        let totalEdits = editsByPage.values.reduce(0, +)
+        let totalVisits = opensByPage.values.reduce(0, +)
+
+        return GlobalActivityProfile(
+            topEditedPageIds: Array(topEditedIds),
+            topVisitedPageIds: Array(topVisitedIds),
+            totalEdits7d: totalEdits,
+            totalVisits7d: totalVisits,
+            chatMessages7d: chatCount,
+            activePageCount: editsByPage.count
+        )
+    }
+}
+
+struct GlobalActivityProfile {
+    let topEditedPageIds: [String]
+    let topVisitedPageIds: [String]
+    let totalEdits7d: Int
+    let totalVisits7d: Int
+    let chatMessages7d: Int
+    let activePageCount: Int
+
+    /// Formats as context for AI prompt injection.
+    func formatForPrompt() -> String {
+        var lines: [String] = []
+        lines.append("Activity (7d): \(totalEdits7d) edits, \(totalVisits7d) visits, \(chatMessages7d) chats across \(activePageCount) notes")
+        return lines.joined(separator: "\n")
+    }
+}
+
 // MARK: - Activity Event Types
 
 struct ActivityEvent: Codable {

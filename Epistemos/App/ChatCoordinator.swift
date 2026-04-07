@@ -1256,6 +1256,12 @@ final class ChatCoordinator {
             }
         }
 
+        // Global activity profile (7-day engagement patterns)
+        let profile = tracker.globalActivityProfile()
+        if profile.totalEdits7d > 0 || profile.totalVisits7d > 0 {
+            parts.append("[Activity Profile] \(profile.formatForPrompt())")
+        }
+
         // Graph topology for open notes
         if !openPageIds.isEmpty {
             let store = bootstrap.graphState.store

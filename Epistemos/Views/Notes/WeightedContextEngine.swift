@@ -24,9 +24,10 @@ struct WeightedSemanticMatch: Identifiable, Comparable {
     let nodeWeight: Double
     let complexityScore: Double
     let connectionStrength: Double
+    let activityScore: Double
     let recencyScore: Double
     let finalScore: Double
-    
+
     static func < (lhs: WeightedSemanticMatch, rhs: WeightedSemanticMatch) -> Bool {
         lhs.finalScore < rhs.finalScore
     }
@@ -155,12 +156,13 @@ final class WeightedContextEngine {
     private let embeddingService: EmbeddingService
     private let metalEngine = MetalComputeEngine.shared
 
-    // Context weight configuration
-    var semanticWeight: Double = 0.35
-    var nodeWeightFactor: Double = 0.25
-    var complexityWeight: Double = 0.20
-    var connectionWeight: Double = 0.15
-    var recencyWeight: Double = 0.05
+    // Context weight configuration (sums to 1.0)
+    var semanticWeight: Double = 0.30
+    var nodeWeightFactor: Double = 0.20
+    var complexityWeight: Double = 0.15
+    var connectionWeight: Double = 0.10
+    var activityWeight: Double = 0.15      // User engagement: edits, visits, recency
+    var recencyWeight: Double = 0.10
 
     init(graphState: GraphState?, embeddingService: EmbeddingService? = nil) {
         self.graphState = graphState
@@ -218,30 +220,24 @@ final class WeightedContextEngine {
             let doc = documents[index]
             let node = doc.node
             
-            // Base semantic score
             let semanticScore = Double(similarity)
-            
-            // Node weight from graph (importance/relevance score)
             let nodeWeight = node?.weight ?? 0.5
-            
-            // Complexity alignment (prefer nodes matching current code complexity)
             let nodeComplexity = estimateNodeComplexity(node)
             let complexityAlignment = 1.0 - abs(nodeComplexity - complexity.overallScore)
-            
-            // Connection strength (how connected is this node in the graph)
             let connectionStrength = calculateConnectionStrength(nodeId: doc.id)
-            
-            // Recency (prefer recently updated nodes)
             let recency = calculateRecency(node: node, now: now)
-            
-            // Calculate final weighted score
+
+            // Activity score from user engagement (edits, visits, recency of interaction)
+            let activity = calculateActivityScore(sourceId: node?.sourceId)
+
             let finalScore =
                 semanticScore * semanticWeight +
                 nodeWeight * nodeWeightFactor +
                 complexityAlignment * complexityWeight +
                 connectionStrength * connectionWeight +
+                activity * activityWeight +
                 recency * recencyWeight
-            
+
             weightedMatches.append(WeightedSemanticMatch(
                 nodeId: doc.id,
                 title: node?.label ?? "Unknown",
@@ -250,6 +246,7 @@ final class WeightedContextEngine {
                 nodeWeight: nodeWeight,
                 complexityScore: nodeComplexity,
                 connectionStrength: connectionStrength,
+                activityScore: activity,
                 recencyScore: recency,
                 finalScore: finalScore
             ))
@@ -332,6 +329,12 @@ final class WeightedContextEngine {
         return min(Double(edgeCount) / 20.0, 1.0)
     }
     
+    private func calculateActivityScore(sourceId: String?) -> Double {
+        guard let sourceId = sourceId,
+              let tracker = AppBootstrap.shared?.activityTracker else { return 0 }
+        return tracker.activityScore(for: sourceId)
+    }
+
     private func calculateRecency(node: GraphNodeRecord?, now: Date) -> Double {
         guard let node = node else { return 0.5 }
         
@@ -444,6 +447,7 @@ extension WeightedContext {
                     nodeWeight: 0.95,
                     complexityScore: 0.75,
                     connectionStrength: 0.8,
+                    activityScore: 0.7,
                     recencyScore: 0.9,
                     finalScore: 0.89
                 ),
@@ -455,6 +459,7 @@ extension WeightedContext {
                     nodeWeight: 0.88,
                     complexityScore: 0.9,
                     connectionStrength: 0.7,
+                    activityScore: 0.5,
                     recencyScore: 0.85,
                     finalScore: 0.84
                 )
