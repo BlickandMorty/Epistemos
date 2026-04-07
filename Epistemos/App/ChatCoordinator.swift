@@ -439,7 +439,7 @@ final class ChatCoordinator {
         switch inferenceState.activeAIProvider {
         case .anthropic:  return "claude_sonnet"
         case .openAI:     return "openai_gpt4o"
-        case .google:     return "claude_sonnet" // Gemini not yet in Rust — fallback to Claude
+        case .google:     return "gemini_flash"
         default:          return "claude_sonnet"
         }
     }
