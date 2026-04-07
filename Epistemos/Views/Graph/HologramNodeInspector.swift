@@ -152,17 +152,27 @@ struct HologramNodeInspector: View {
             Divider().opacity(0.3)
 
             // Editor content
-            if editorDisplay == .raw {
-                TextEditor(text: $editorText)
-                    .font(.system(size: 14))
-                    .lineSpacing(4)
-                    .scrollContentBackground(.hidden)
-                    .padding(16)
+            if let lang = detectedCodeLanguage(pageId: pageId) {
+                // Code file: syntax-highlighted view
+                if editorDisplay == .raw {
+                    CodeInspectorEditor(text: $editorText, language: lang, theme: theme)
+                } else {
+                    CodeInspectorPreview(content: editorText, language: lang, theme: theme)
+                }
             } else {
-                ScrollView {
-                    formattedMarkdownView(editorText)
+                // Prose file: original editor
+                if editorDisplay == .raw {
+                    TextEditor(text: $editorText)
+                        .font(.system(size: 14))
+                        .lineSpacing(4)
+                        .scrollContentBackground(.hidden)
                         .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    ScrollView {
+                        formattedMarkdownView(editorText)
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
         }
@@ -195,6 +205,16 @@ struct HologramNodeInspector: View {
 
     private func currentBody(for pageId: String) -> String {
         NoteWindowManager.shared.currentBody(for: pageId)
+    }
+
+    /// Detect code language for a page by looking up its file path.
+    private func detectedCodeLanguage(pageId: String) -> String? {
+        let predicate = #Predicate<SDPage> { $0.id == pageId }
+        var desc = FetchDescriptor(predicate: predicate)
+        desc.fetchLimit = 1
+        guard let page = try? modelContext.fetch(desc).first,
+              let path = page.filePath else { return nil }
+        return CodeLanguage.detect(from: path)
     }
 
     // MARK: - Editor Save Pipeline
