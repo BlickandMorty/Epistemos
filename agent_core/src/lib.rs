@@ -36,11 +36,13 @@ pub mod shared_memory;
 
 pub mod tools {
     pub mod chunk_reduce;
+    pub mod computer_use;
     pub mod file_ops;
     pub mod memory;
     pub mod registry;
     pub mod skills;
     pub mod think;
+    pub mod web_fetch;
     pub mod workspace_search;
 }
 
