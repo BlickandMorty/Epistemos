@@ -387,9 +387,13 @@ final class ChatCoordinator {
                 chatState.appendStreamingText(text)
 
             case .toolStarted(_, let name, _):
-                chatState.appendStreamingText("\n> Using tool: **\(name)**\n")
+                chatState.activeToolName = name
+                chatState.isAgentExecuting = true
+                chatState.appendStreamingText("\n> **\(name)**\n")
 
             case .toolCompleted(_, let result, let isError):
+                chatState.activeToolName = nil
+                chatState.isAgentExecuting = false
                 if isError {
                     chatState.appendStreamingText("\n> Tool error: \(String(result.prefix(200)))\n")
                 }
@@ -443,8 +447,14 @@ final class ChatCoordinator {
             case .error(let error):
                 chatState.addErrorMessage("Agent error: \(error.message)")
 
-            case .toolInputStreaming, .subagentSpawned, .contextCompacting, .contextCompacted, .turnStarted:
-                break // Internal events — not surfaced in main chat
+            case .turnStarted(let turn, _):
+                chatState.agentTurnCount = turn
+
+            case .contextCompacting:
+                chatState.appendStreamingText("\n> *Compacting context...*\n")
+
+            case .toolInputStreaming, .subagentSpawned, .contextCompacted:
+                break
             }
         }
     }
