@@ -36,6 +36,7 @@ pub mod shared_memory;
 
 pub mod tools {
     pub mod chunk_reduce;
+    pub mod memory;
     pub mod registry;
     pub mod think;
     pub mod workspace_search;
