@@ -17,7 +17,7 @@ final class SDChat {
 
     // MARK: - Content
     var title: String = "New Chat"
-    var chatType: String = "chat"       // "chat", "notes"
+    var chatType: String = "chat"       // "chat", "notes", "dialogue", "codeAsk", "aiPartner"
     /// Page ID of the note this chat is linked to (note chats + cross-system association).
     var linkedPageId: String?
 

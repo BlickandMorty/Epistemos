@@ -655,6 +655,7 @@ final class DialogueChatState {
         insight: DialogueNodeInsight? = nil
     ) {
         if activeNodeId != nodeId {
+            persistIfMeaningful()
             streamingTaskToken = UUID()
             streamingTask?.cancel()
             streamingTask = nil
@@ -723,6 +724,7 @@ final class DialogueChatState {
     }
 
     func close() {
+        persistIfMeaningful()
         streamingTaskToken = UUID()
         streamingTask?.cancel()
         streamingTask = nil
@@ -733,6 +735,35 @@ final class DialogueChatState {
         activeProfile = .placeholder
         isStreaming = false
         onStreamingChanged = nil
+    }
+
+    // MARK: - Persistence (Chat Unification)
+
+    /// Persists dialogue chat to SDChat/SDMessage if it had meaningful content.
+    /// Threshold: 3+ messages (at least one user + one assistant exchange).
+    private func persistIfMeaningful() {
+        guard messages.count >= 3 else { return }
+        guard let nodeId = activeNodeId else { return }
+        guard let context = AppBootstrap.shared?.modelContainer.mainContext else { return }
+
+        let chat = SDChat(title: "Dialogue: \(activeNodeLabel)", chatType: "dialogue")
+        chat.linkedPageId = nodeId
+        context.insert(chat)
+
+        for msg in messages {
+            let sdMsg = SDMessage(
+                role: msg.role == .user ? "user" : "assistant",
+                content: msg.text
+            )
+            sdMsg.chat = chat
+            context.insert(sdMsg)
+        }
+
+        do {
+            try context.save()
+        } catch {
+            // Non-fatal — dialogue persistence is best-effort
+        }
     }
 
     // MARK: - Query
