@@ -3,6 +3,8 @@ pub enum CloudProvider {
     ClaudeHaiku,
     ClaudeSonnet,
     ClaudeOpus,
+    GeminiFlash,
+    GeminiPro,
     Perplexity,
     OpenAI,
 }

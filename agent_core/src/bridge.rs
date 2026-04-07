@@ -6,6 +6,7 @@ use crate::agent_loop::{
 use crate::error::HttpStatusError;
 use crate::provider::AgentProvider;
 use crate::providers::claude::ClaudeProvider;
+use crate::providers::gemini::GeminiProvider;
 use crate::providers::openai::OpenAIProvider;
 use crate::providers::perplexity::PerplexityProvider;
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
@@ -203,6 +204,8 @@ fn cloud_provider_name(provider: CloudProvider) -> &'static str {
         CloudProvider::ClaudeHaiku => "claude_haiku",
         CloudProvider::ClaudeSonnet => "claude_sonnet",
         CloudProvider::ClaudeOpus => "claude_opus",
+        CloudProvider::GeminiFlash => "gemini_flash",
+        CloudProvider::GeminiPro => "gemini_pro",
         CloudProvider::Perplexity => "perplexity",
         CloudProvider::OpenAI => "openai",
     }
@@ -230,6 +233,8 @@ fn resolve_provider_selection_preview(
                     CloudProvider::ClaudeHaiku
                         | CloudProvider::ClaudeSonnet
                         | CloudProvider::ClaudeOpus
+                        | CloudProvider::GeminiFlash
+                        | CloudProvider::GeminiPro
                         | CloudProvider::Perplexity
                         | CloudProvider::OpenAI
                 );
@@ -249,6 +254,7 @@ fn resolve_provider_selection_preview(
                 let supported = matches!(
                     fallback,
                     CloudProvider::ClaudeHaiku | CloudProvider::ClaudeSonnet | CloudProvider::ClaudeOpus
+                        | CloudProvider::GeminiFlash | CloudProvider::GeminiPro
                 );
                 preview(
                     requested,
@@ -285,6 +291,8 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         "claude_sonnet" => Ok(Arc::new(ClaudeProvider::sonnet())),
         "claude_opus" => Ok(Arc::new(ClaudeProvider::opus())),
         "claude_haiku" => Ok(Arc::new(ClaudeProvider::haiku())),
+        "gemini_flash" => Ok(Arc::new(GeminiProvider::flash())),
+        "gemini_pro" => Ok(Arc::new(GeminiProvider::pro())),
         "perplexity" => Ok(Arc::new(PerplexityProvider::sonar_pro())),
         "openai" | "openai_gpt4o" => Ok(Arc::new(OpenAIProvider::gpt4o())),
         "openai_gpt4o_mini" => Ok(Arc::new(OpenAIProvider::gpt4o_mini())),
