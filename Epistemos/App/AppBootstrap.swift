@@ -1429,6 +1429,15 @@ final class AppBootstrap {
             }
         }
 
+        // One-time meaning anchor backfill for existing chats
+        if !UserDefaults.standard.bool(forKey: "epistemos.anchorBackfillComplete") {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(30))
+                await self?.meaningAnchorService?.backfillExistingChats()
+                UserDefaults.standard.set(true, forKey: "epistemos.anchorBackfillComplete")
+            }
+        }
+
         startDeferredRuntimeServicesIfNeeded()
     }
 
