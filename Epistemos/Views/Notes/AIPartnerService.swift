@@ -487,7 +487,7 @@ final class AIPartnerService {
     
     func acceptCurrentSuggestion() {
         guard let suggestion = currentSuggestion else { return }
-        
+
         logInteraction(
             type: .suggestionAccepted,
             codeSnippet: "",
@@ -497,11 +497,12 @@ final class AIPartnerService {
             analysisDuration: 0,
             semanticDuration: 0
         )
-        
+
+        persistSuggestionExchange(suggestion: suggestion, accepted: true)
+
         currentSuggestion = nil
         retroResponse = nil
-        
-        // Show next if available
+
         if !suggestionQueue.isEmpty {
             showNextSuggestion()
         }
@@ -564,8 +565,37 @@ final class AIPartnerService {
         currentLines.count
     }
     
+    // MARK: - Chat Persistence (Unification)
+
+    /// Persists an AI partner suggestion exchange to SDChat.
+    private func persistSuggestionExchange(suggestion: InlineSuggestion, accepted: Bool) {
+        guard let ctx = AppBootstrap.shared?.modelContainer.mainContext else { return }
+
+        let action = accepted ? "Accepted" : "Dismissed"
+        let chat = SDChat(title: "\(action) AI suggestion (\(currentLanguage))", chatType: "aiPartner")
+        if let path = currentFilePath {
+            chat.linkedPageId = path
+        }
+        ctx.insert(chat)
+
+        // Store the code context as the "user" message
+        let contextSnippet = extractRelevantCodeContext()
+        let userMsg = SDMessage(role: "user", content: "[\(currentLanguage)] \(contextSnippet.prefix(500))")
+        userMsg.chat = chat
+        ctx.insert(userMsg)
+
+        // Store the suggestion as the "assistant" message
+        let assistantMsg = SDMessage(role: "assistant", content: suggestion.text)
+        assistantMsg.chat = chat
+        ctx.insert(assistantMsg)
+
+        do { try ctx.save() } catch {
+            logger.error("AI partner persistence failed: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Logging
-    
+
     private func saveInteractionLog() {
         // Persist to disk for analysis
         do {

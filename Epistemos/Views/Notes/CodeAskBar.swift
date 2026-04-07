@@ -221,24 +221,44 @@ final class CodeAskBarService {
     
     private func processQuery(_ query: String, code: String, language: String, cursorLine: Int) async {
         defer { isQuerying = false }
-        
-        // Gather context
+
         let context = extractContext(code: code, aroundLine: cursorLine)
-        
-        // Build prompt based on response mode
         let prompt = buildPrompt(query: query, context: context, language: language)
-        
+
         do {
             let response = try await generateResponse(prompt: prompt, language: language)
-            
+
             switch responseMode {
             case .focused:
                 showFocusedResponse(query: query, response: response, code: code)
             case .inline:
                 createInlineAnnotations(query: query, response: response, code: code)
             }
+
+            // Persist query + response to SDChat for chat unification
+            persistCodeAskExchange(query: query, response: response, language: language)
         } catch {
             logger.error("Query failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Persists a code ask bar exchange to SDChat for unified chat history.
+    private func persistCodeAskExchange(query: String, response: String, language: String) {
+        guard let ctx = AppBootstrap.shared?.modelContainer.mainContext else { return }
+
+        let chat = SDChat(title: "Code Ask: \(language)", chatType: "codeAsk")
+        ctx.insert(chat)
+
+        let userMsg = SDMessage(role: "user", content: query)
+        userMsg.chat = chat
+        ctx.insert(userMsg)
+
+        let assistantMsg = SDMessage(role: "assistant", content: response)
+        assistantMsg.chat = chat
+        ctx.insert(assistantMsg)
+
+        do { try ctx.save() } catch {
+            logger.error("Code ask persistence failed: \(error.localizedDescription)")
         }
     }
     
