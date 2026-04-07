@@ -89,7 +89,7 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         case .localMLX: "memorychip"
         case .openAI: "sparkles.rectangle.stack"
         case .anthropic: "brain.head.profile"
-        case .google: "cloud"
+        case .google: "diamond"
         case .zai: "bolt.horizontal.circle"
         case .kimi: "moon.stars"
         case .minimax: "paperplane.circle"

@@ -163,9 +163,123 @@ final class ContextHighlightView: NSView {
     }
 }
 
-// MARK: - Inline Suggestion View (SwiftUI)
+// MARK: - Suggestion Popover Content (NSPopover)
 
-/// SwiftUI view for displaying inline suggestions as an overlay
+/// Content view for native NSPopover suggestion display.
+/// NSPopover handles chrome (shadow, arrow, dismiss-on-click-outside).
+struct SuggestionPopoverContent: View {
+    let suggestion: InlineSuggestion
+    let onAccept: () -> Void
+    let onDismiss: () -> Void
+    let onExplain: () -> Void
+
+    @State private var showDetails = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: suggestion.type.icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 24, height: 24)
+                    .background(iconColor.opacity(0.1))
+                    .cornerRadius(6)
+
+                Text(suggestion.type.description)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+
+                Spacer()
+
+                ConfidenceIndicator(confidence: suggestion.confidence)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+
+            Divider()
+
+            // Code suggestion
+            Text(suggestion.text)
+                .font(.system(size: 12, design: .monospaced))
+                .lineSpacing(2)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(NSColor.textBackgroundColor))
+                .textSelection(.enabled)
+
+            if showDetails {
+                Divider()
+                HStack(spacing: 6) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 9))
+                    Text("Context from \(suggestion.context.relatedNoteIds.count) notes")
+                        .font(.system(size: 10))
+                    Spacer()
+                    Text("Semantic: \(String(format: "%.0f%%", suggestion.context.semanticScore * 100))")
+                        .font(.system(size: 9, design: .monospaced))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+            }
+
+            Divider()
+
+            // Actions
+            HStack(spacing: 6) {
+                Button { onAccept() } label: {
+                    Label("Accept", systemImage: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                Button { onDismiss() } label: {
+                    Label("Dismiss", systemImage: "xmark")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button { onExplain() } label: {
+                    Label("Explain", systemImage: "text.bubble")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Spacer()
+
+                Button {
+                    withAnimation { showDetails.toggle() }
+                } label: {
+                    Image(systemName: showDetails ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 9))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .frame(width: 380)
+    }
+
+    private var iconColor: Color {
+        switch suggestion.type {
+        case .completion: .blue
+        case .insertion: .green
+        case .replacement: .orange
+        case .multiLine: .purple
+        case .refactor: .pink
+        }
+    }
+}
+
+// MARK: - Inline Suggestion View (Legacy ZStack overlay)
+
 struct InlineSuggestionOverlay: View {
     let suggestion: InlineSuggestion
     let onAccept: () -> Void

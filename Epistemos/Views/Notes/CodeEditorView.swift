@@ -1108,14 +1108,16 @@ struct CodeEditorView: View {
     // MARK: - Editor Preferences (persisted via AppStorage)
     
     @AppStorage("codeEditor.wrapLines") private var wrapLines = false
-    @AppStorage("codeEditor.showMinimap") private var showMinimap = true
+    // Minimap removed — outline navigator replaces it
     @AppStorage("codeEditor.showInvisibles") private var showInvisibles = false
     @AppStorage("codeEditor.fontSize") private var fontSize: Double = 13
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
     
     // MARK: - UI State
-    
+
+    @State private var showSuggestionPopover = false
+    @State private var suggestionPopoverAnchor: CGPoint?
     @State private var showSemanticSidebar = false
     @State private var showSearchBar = false
     @State private var showGoToLineSheet = false
@@ -1231,130 +1233,80 @@ struct CodeEditorView: View {
                 semanticSidebar
             }
             
-            // AI Partner inline suggestion overlay
-            aiPartnerOverlay
-            
-            // AI Partner retro response box
-            retroResponseBox
-            
-            // Code Ask Bar - Focused Response Panel (blurred background)
-            codeAskBarFocusedPanel
-            
-            // Code Ask Bar - Inline Response Highlighter
-            codeAskBarInlineHighlighter
         }
         .environment(aiPartner)
         .environment(codeAskBar)
-    }
-    
-    // MARK: - Code Ask Bar UI
-    
-    /// Focused mode: Blurred background with detailed response panel
-    @ViewBuilder
-    private var codeAskBarFocusedPanel: some View {
-        if codeAskBar.showFocusedPanel, let response = codeAskBar.focusedResponse {
-            ZStack {
-                // Blurred background
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        codeAskBar.dismissFocusedPanel()
-                    }
-                
-                // Focused response panel
-                FocusedResponsePanel(
-                    response: response,
-                    onDismiss: {
-                        codeAskBar.dismissFocusedPanel()
-                    },
-                    onApplyCode: { code in
-                        // Apply code to editor
-                        text += "\n\n" + code
-                        onContentChange?(text)
-                        codeAskBar.dismissFocusedPanel()
-                    },
-                    onNavigateToLine: { line in
-                        // Navigate to specific line
-                        cursorLine = line
-                        goToLine(line: line)
-                    }
-                )
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.95)))
-        }
-    }
-    
-    /// Inline mode: Highlights on code with hover tooltips
-    @ViewBuilder
-    private var codeAskBarInlineHighlighter: some View {
-        if askBarResponseMode == .inline && !codeAskBar.inlineAnnotations.isEmpty {
-            GeometryReader { geometry in
-                InlineResponseHighlighter(
-                    annotations: codeAskBar.inlineAnnotations,
-                    code: text,
-                    onHoverAnnotation: { annotation in
-                        codeAskBar.hoveredAnnotation = annotation?.id
-                    },
-                    onDismissAnnotation: { id in
-                        codeAskBar.removeAnnotation(id: id)
-                    },
-                    onNavigateToLine: { line in
-                        goToLine(line: line)
-                    }
-                )
-                .frame(width: geometry.size.width, height: geometry.size.height)
-            }
-        }
-    }
-    
-    // MARK: - AI Partner UI
-    
-    @ViewBuilder
-    private var aiPartnerOverlay: some View {
-        if let suggestion = aiPartner.currentSuggestion, !aiPartnerConfiguration.useRetroStyling {
-            GeometryReader { geometry in
-                InlineSuggestionOverlay(
+        .appKitPopover(isPresented: $showSuggestionPopover, location: suggestionPopoverAnchor) {
+            if let suggestion = aiPartner.currentSuggestion {
+                SuggestionPopoverContent(
                     suggestion: suggestion,
                     onAccept: {
                         applySuggestion(suggestion)
                         aiPartner.acceptCurrentSuggestion()
+                        showSuggestionPopover = false
                     },
                     onDismiss: {
                         aiPartner.dismissCurrentSuggestion()
+                        showSuggestionPopover = false
                     },
-                    onViewAlternatives: {
-                        // Would show alternative suggestions
+                    onExplain: {
+                        aiPartner.explainCurrentSuggestion()
                     }
                 )
-                .position(
-                    x: geometry.size.width * 0.7,
-                    y: geometry.size.height * 0.3
-                )
+            }
+        }
+        .onChange(of: aiPartner.currentSuggestion?.id) { _, newId in
+            if newId != nil {
+                let lineHeight = fontSize * 1.35
+                let y = CGFloat(cursorLine) * lineHeight
+                suggestionPopoverAnchor = CGPoint(x: 160, y: y)
+                showSuggestionPopover = true
+            } else {
+                showSuggestionPopover = false
             }
         }
     }
     
+    // MARK: - Code Ask Bar Response Panels (inline in editor, not overlays)
+
+    /// Direct answer mode: flat "Epistemos" answer box above the editor
     @ViewBuilder
-    private var retroResponseBox: some View {
-        if let response = aiPartner.retroResponse, aiPartnerConfiguration.useRetroStyling {
-            GeometryReader { geometry in
-                RetroAIResponseBox(
-                    title: response.title,
-                    content: response.content,
-                    actions: response.actions,
-                    onDismiss: {
-                        aiPartner.dismissCurrentSuggestion()
-                    }
-                )
-                .frame(maxWidth: 400)
-                .position(
-                    x: geometry.size.width * 0.7,
-                    y: geometry.size.height * 0.25
-                )
-            }
+    private var codeAskBarAnswerBox: some View {
+        if askBarResponseMode == .focused, codeAskBar.showFocusedPanel, let response = codeAskBar.focusedResponse {
+            EpistemosAnswerBox(
+                response: response,
+                onDismiss: { codeAskBar.dismissFocusedPanel() },
+                onApplyCode: { code in
+                    text += "\n\n" + code
+                    onContentChange?(text)
+                    codeAskBar.dismissFocusedPanel()
+                },
+                onNavigateToLine: { line in goToLine(line: line) }
+            )
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    /// Line analysis mode: per-line breakdown panel above the editor
+    @ViewBuilder
+    private var codeAskBarLineBreakdown: some View {
+        if askBarResponseMode == .inline && !codeAskBar.inlineAnnotations.isEmpty {
+            LineBreakdownPanel(
+                annotations: codeAskBar.inlineAnnotations,
+                onNavigateToLine: { line in goToLine(line: line) },
+                onExplainFurther: { annotation in
+                    askBarQuery = "Explain further: \(annotation.text)"
+                    submitAskBarQuery()
+                },
+                onDismiss: { id in codeAskBar.removeAnnotation(id: id) },
+                onClearAll: { codeAskBar.clearInlineAnnotations() }
+            )
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
     
+    // MARK: - AI Partner (suggestions shown via NSPopover on editorContent)
+
     private func applySuggestion(_ suggestion: InlineSuggestion) {
         // Apply the suggestion to the code
         // This would integrate with the editor to insert/replace text
@@ -1385,16 +1337,21 @@ struct CodeEditorView: View {
     private var mainEditorPane: some View {
         VStack(spacing: 0) {
             breadcrumbBar
+
+            // AI response panels (flat, inline — not overlays)
+            codeAskBarAnswerBox
+            codeAskBarLineBreakdown
+
             editorWithSearch
-            
-            // Code Ask Bar Input (different from prose editor)
+
+            // Code Ask Bar Input
             if showAskBar {
                 codeAskBarInput
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(.bar)
             }
-            
+
             statusBar
         }
     }
@@ -1818,7 +1775,6 @@ struct CodeEditorView: View {
         Menu {
             Section("View") {
                 Toggle("Word Wrap", isOn: $wrapLines)
-                Toggle("Minimap", isOn: $showMinimap)
                 Toggle("Outline Navigator", isOn: $showOutlineNavigator)
                 Toggle("Show Invisibles", isOn: $showInvisibles)
             }
@@ -1939,7 +1895,7 @@ struct CodeEditorView: View {
             behavior: .init(),
             peripherals: .init(
                 showGutter: true,
-                showMinimap: showMinimap,
+                showMinimap: false,
                 showFoldingRibbon: true
             )
         )
@@ -2007,14 +1963,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     }
 
     func prepareCoordinator(controller: TextViewController) {
-        // Phase F: Optimize minimap — prevent CPU redraw on every scroll event.
-        optimizeMinimapPerformance(in: controller.view)
-        
-        // Add indentation guide overlay
         setupIndentationGuides(controller: controller)
-        
-        // DEBUG: Log minimap status
-        NSLog("[CodeEditor] Coordinator prepared, showMinimap: \(controller.showMinimap)")
     }
     
     /// Sets up VS Code-style segmented indentation guide overlay
@@ -2084,21 +2033,6 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         // Update the segmented guide with current text and cursor position
         // This parses the text and draws segmented lines per line
         guideView.updateFromText(text, cursorLine: cursorLine, scrollOffset: scrollOffset)
-    }
-
-    /// Recursively finds the minimap view in the hierarchy and optimizes its layer policy.
-    private func optimizeMinimapPerformance(in view: NSView) {
-        let typeName = String(describing: type(of: view))
-        if typeName.contains("Minimap") || typeName.contains("minimap") {
-            view.isHidden = false
-            view.layerContentsRedrawPolicy = .onSetNeedsDisplay
-            view.layer?.drawsAsynchronously = true  // Enable async layer rendering
-            NSLog("[CodeEditor] Minimap found and optimized: \(typeName), frame: \(view.frame)")
-            return
-        }
-        for subview in view.subviews {
-            optimizeMinimapPerformance(in: subview)
-        }
     }
 
     func textViewDidChangeSelection(controller: TextViewController, newPositions: [CursorPosition]) {
