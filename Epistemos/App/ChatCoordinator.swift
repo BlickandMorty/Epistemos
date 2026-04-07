@@ -236,51 +236,67 @@ final class ChatCoordinator {
 
                 let pendingAssistantId = UUID().uuidString
                 let capturedChatId = chatState.activeChatId
-                let stream = pipeline.run(
-                    query: effectiveQuery,
-                    mode: mode,
-                    notesContext: effectiveNotesContextWithWorkspace,
-                    conversationHistory: conversationHistory,
-                    operatingMode: operatingMode
-                )
 
-                for try await event in stream {
-                    switch event {
-                    case .textDelta(let token):
-                        chatState.appendStreamingText(token)
+                // Route: cloud queries → Rust agent_core (full tool loop)
+                //        local queries → PipelineService (Swift inference)
+                if mode == .api {
+                    try await self.runRustAgentPath(
+                        query: effectiveQuery,
+                        notesContext: effectiveNotesContextWithWorkspace,
+                        conversationHistory: conversationHistory,
+                        chatState: chatState,
+                        chatId: capturedChatId,
+                        originalQuery: query,
+                        hasVault: hasVault,
+                        pendingAssistantId: pendingAssistantId
+                    )
+                } else {
+                    let stream = pipeline.run(
+                        query: effectiveQuery,
+                        mode: mode,
+                        notesContext: effectiveNotesContextWithWorkspace,
+                        conversationHistory: conversationHistory,
+                        operatingMode: operatingMode
+                    )
 
-                    case .completed:
-                        chatState.completeProcessing(
-                            messageId: pendingAssistantId,
-                            mode: mode
-                        )
+                    for try await event in stream {
+                        switch event {
+                        case .textDelta(let token):
+                            chatState.appendStreamingText(token)
 
-                        if let lastMsg = chatState.messages.last {
-                            let processed = self.executeVaultActions(in: lastMsg.content)
-                            if processed != lastMsg.content {
-                                chatState.updateLastMessageContent(processed)
-                            }
-                        }
-
-                        eventBus.emit(.pipelineComplete)
-
-                        if !chatState.isIncognito {
-                            self.persistChatCompletion(
-                                chatId: capturedChatId,
-                                query: query,
-                                answer: chatState.messages.last?.content ?? "",
-                                mode: mode,
-                                assistantMessage: chatState.messages.last,
-                                isNotes: hasVault
+                        case .completed:
+                            chatState.completeProcessing(
+                                messageId: pendingAssistantId,
+                                mode: mode
                             )
-                        }
 
-                        if chatState.chatTitle == nil {
-                            self.generateChatTitle(query: query, chatId: capturedChatId, chatState: chatState)
-                        }
+                            if let lastMsg = chatState.messages.last {
+                                let processed = self.executeVaultActions(in: lastMsg.content)
+                                if processed != lastMsg.content {
+                                    chatState.updateLastMessageContent(processed)
+                                }
+                            }
 
-                    case .error(let msg):
-                        chatState.addErrorMessage(msg)
+                            eventBus.emit(.pipelineComplete)
+
+                            if !chatState.isIncognito {
+                                self.persistChatCompletion(
+                                    chatId: capturedChatId,
+                                    query: query,
+                                    answer: chatState.messages.last?.content ?? "",
+                                    mode: mode,
+                                    assistantMessage: chatState.messages.last,
+                                    isNotes: hasVault
+                                )
+                            }
+
+                            if chatState.chatTitle == nil {
+                                self.generateChatTitle(query: query, chatId: capturedChatId, chatState: chatState)
+                            }
+
+                        case .error(let msg):
+                            chatState.addErrorMessage(msg)
+                        }
                     }
                 }
             } catch is CancellationError {
@@ -288,6 +304,143 @@ final class ChatCoordinator {
             } catch {
                 chatState.addErrorMessage("Analysis failed: \(error.localizedDescription)")
             }
+        }
+    }
+
+    // MARK: - Rust Agent Core Path (Goose-Style Autonomous Loop)
+
+    /// Routes cloud queries through the Rust agent_core for full autonomous tool execution.
+    /// The Rust loop handles: provider routing, tool calling, context compaction, security scanning.
+    private func runRustAgentPath(
+        query: String,
+        notesContext: String?,
+        conversationHistory: String?,
+        chatState: ChatState,
+        chatId: String?,
+        originalQuery: String,
+        hasVault: Bool,
+        pendingAssistantId: String
+    ) async throws {
+        let sessionId = UUID().uuidString
+
+        // Build system prompt with context
+        var systemParts: [String] = []
+        systemParts.append("You are Epistemos, an intelligent knowledge assistant. Be concise and actionable.")
+        if let ctx = notesContext {
+            systemParts.append("Context from the user's vault:\n\(ctx)")
+        }
+        if let history = conversationHistory {
+            systemParts.append("Conversation history:\n\(history)")
+        }
+
+        // Resolve provider name from current inference configuration
+        let providerName = resolveRustProviderName()
+
+        let vaultPath = bootstrap.vaultSync.vaultURL?.path ?? ""
+        let toolConfig = ToolConfig(
+            vaultPath: vaultPath,
+            enableBash: true,
+            enableWebSearch: true
+        )
+
+        let agentConfig = AgentConfigFFI(
+            maxTurns: 25,
+            maxOutputTokens: 16384,
+            contextThreshold: 150_000,
+            enableThinking: true,
+            effort: "medium",
+            systemPrompt: systemParts.joined(separator: "\n\n"),
+            autoApproveReads: true,
+            autoApproveWrites: false
+        )
+
+        // Create async stream via StreamingDelegate
+        let stream = AsyncStream<AgentStreamEvent> { continuation in
+            let delegate = StreamingDelegate(continuation: continuation)
+
+            Task.detached {
+                do {
+                    _ = try await runAgentSession(
+                        sessionId: sessionId,
+                        objective: query,
+                        providerName: providerName,
+                        toolConfig: toolConfig,
+                        agentConfig: agentConfig,
+                        delegate: delegate
+                    )
+                } catch {
+                    continuation.yield(.error(AgentRuntimeError(message: error.localizedDescription)))
+                    continuation.finish()
+                }
+            }
+        }
+
+        // Process the agent stream — same pattern as AgentViewModel
+        for await event in stream {
+            switch event {
+            case .thinkingDelta:
+                break // Thinking deltas not shown in main chat (keep it clean)
+
+            case .textDelta(let text):
+                chatState.appendStreamingText(text)
+
+            case .toolStarted(_, let name, _):
+                chatState.appendStreamingText("\n> Using tool: \(name)...\n")
+
+            case .toolCompleted(_, _, _):
+                break // Tool results are incorporated by the agent loop
+
+            case .permissionRequired(let request):
+                // For now, auto-approve reads, show inline for writes
+                chatState.appendStreamingText("\n> Approval needed: \(request.toolName)\n")
+
+            case .complete(_, let inputTokens, let outputTokens, _):
+                chatState.completeProcessing(
+                    messageId: pendingAssistantId,
+                    mode: .api
+                )
+
+                if let lastMsg = chatState.messages.last {
+                    let processed = self.executeVaultActions(in: lastMsg.content)
+                    if processed != lastMsg.content {
+                        chatState.updateLastMessageContent(processed)
+                    }
+                }
+
+                eventBus.emit(.pipelineComplete)
+                Log.pipeline.info("Agent session complete: \(inputTokens)in/\(outputTokens)out")
+
+                if !chatState.isIncognito {
+                    self.persistChatCompletion(
+                        chatId: chatId,
+                        query: originalQuery,
+                        answer: chatState.messages.last?.content ?? "",
+                        mode: .api,
+                        assistantMessage: chatState.messages.last,
+                        isNotes: hasVault
+                    )
+                }
+
+                if chatState.chatTitle == nil {
+                    self.generateChatTitle(query: originalQuery, chatId: chatId, chatState: chatState)
+                }
+
+            case .error(let error):
+                chatState.addErrorMessage("Agent error: \(error.message)")
+
+            case .toolInputStreaming, .subagentSpawned, .contextCompacting, .contextCompacted, .turnStarted:
+                break // Internal events — not surfaced in main chat
+            }
+        }
+    }
+
+    /// Maps the current cloud provider selection to a Rust provider name string.
+    private func resolveRustProviderName() -> String {
+        switch inferenceState.activeAIProvider {
+        case .anthropic:  return "claude_sonnet"
+        case .openAI:     return "openai_gpt4o"
+        case .google:     return "claude_sonnet" // Gemini not yet in Rust — fallback to Claude
+        default:          return "claude_sonnet"
         }
     }
 

@@ -612,6 +612,23 @@ final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
+    /// Populates process env vars from Keychain so the in-process Rust agent_core
+    /// providers (Claude, OpenAI, Perplexity, Gemini) can read API keys via std::env::var.
+    /// Called once at launch before any agent session can start.
+    private static func populateAgentCoreEnvironment() {
+        let mappings: [(envVar: String, keychainKey: String)] = [
+            ("ANTHROPIC_API_KEY", "epistemos.anthropic.apiKey"),
+            ("OPENAI_API_KEY", "epistemos.openai.apiKey"),
+            ("GOOGLE_API_KEY", "epistemos.google.apiKey"),
+            ("PERPLEXITY_API_KEY", "epistemos.perplexity.apiKey"),
+        ]
+        for mapping in mappings {
+            if let value = Keychain.load(for: mapping.keychainKey), !value.isEmpty {
+                setenv(mapping.envVar, value, 1)
+            }
+        }
+    }
     #if DEBUG
     private nonisolated static let isDebugBuild = true
     #else
@@ -1415,6 +1432,10 @@ final class AppBootstrap {
     func performPrimaryLaunchInitialization() async {
         guard !didStartPrimaryLaunchInitialization else { return }
         didStartPrimaryLaunchInitialization = true
+
+        // Populate process environment with API keys from Keychain so the
+        // in-process Rust agent_core providers can read them via std::env::var.
+        Self.populateAgentCoreEnvironment()
 
         activityTracker.loadFlushedEvents()
         workspaceService.autoRestore()
