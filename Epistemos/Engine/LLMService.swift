@@ -1095,19 +1095,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int
     ) -> AsyncThrowingStream<String, Error> {
-        let input: [[String: String?]] = [
-            ["role": systemPrompt?.isEmpty == false ? "system" : nil, "content": systemPrompt],
+        // OpenAI Responses API: system prompt goes in top-level "instructions",
+        // not as a message role in the "input" array.
+        let input: [[String: String]] = [
             ["role": "user", "content": prompt],
-        ].compactMap { entry in
-            guard let role = entry["role"] ?? nil,
-                  let content = entry["content"] ?? nil,
-                  !content.isEmpty else { return nil }
-            return ["role": role, "content": content]
-        }
+        ]
 
         var body: [String: Any] = [
             "model": model.vendorModelID,
             "input": input,
+            "instructions": systemPrompt ?? "You are a helpful assistant.",
             "stream": true,
         ]
         if maxTokens > 0 {
