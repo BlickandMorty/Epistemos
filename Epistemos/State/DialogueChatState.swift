@@ -761,6 +761,11 @@ final class DialogueChatState {
 
         do {
             try context.save()
+
+            // Trigger meaning anchor generation in background
+            if let anchorService = AppBootstrap.shared?.meaningAnchorService {
+                Task { await anchorService.generateAnchor(for: chat.id) }
+            }
         } catch {
             // Non-fatal — dialogue persistence is best-effort
         }

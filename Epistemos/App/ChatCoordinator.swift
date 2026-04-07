@@ -1599,6 +1599,12 @@ final class ChatCoordinator {
         do {
             try context.save()
             Log.db.info("Persisted chat \(chatId, privacy: .public): user + assistant messages")
+
+            // Generate meaning anchor if chat has enough exchanges
+            let messageCount = chat.messages?.count ?? 0
+            if messageCount >= 3, let anchorService = AppBootstrap.shared?.meaningAnchorService {
+                Task { await anchorService.generateAnchor(for: chatId) }
+            }
         } catch {
             Log.db.error("Failed to persist chat: \(error.localizedDescription, privacy: .public)")
         }

@@ -805,6 +805,7 @@ final class AppBootstrap {
     let vaultSync: VaultSyncService
     let noteInsightService: NoteInsightService
     let cloudKnowledgeDistillationService: CloudKnowledgeDistillationService
+    private(set) var meaningAnchorService: MeaningAnchorService?
 
     // MARK: - Coordinators
     private var _coordinator: AppCoordinator?
@@ -977,6 +978,13 @@ final class AppBootstrap {
 
         // Cloud Knowledge Distillation — compiles per-model vault documents from local notes
         self.cloudKnowledgeDistillationService = CloudKnowledgeDistillationService(modelContainer: container)
+
+        // Meaning Anchor Service — generates structured chat snapshots for graph intelligence
+        self.meaningAnchorService = MeaningAnchorService(
+            triageService: triage,
+            graphState: graphState,
+            modelContainer: container
+        )
 
         // PipelineService — direct local answer streaming
         let pipeline = PipelineService(
