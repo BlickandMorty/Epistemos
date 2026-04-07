@@ -86,9 +86,15 @@ final class ActivityTracker {
                     // Only scan if user was recently active and is now idle
                     Task {
                         guard await self.activityFlagState.isActive() else { return }
-                        let idleSeconds = CGEventSource.secondsSinceLastEventType(
+                        // Check idle across ALL input types — not just keyDown.
+                        // Mouse edits (click, drag, paste via menu) don't register as keyDown.
+                        let keyIdle = CGEventSource.secondsSinceLastEventType(
                             .combinedSessionState, eventType: .keyDown
                         )
+                        let mouseIdle = CGEventSource.secondsSinceLastEventType(
+                            .combinedSessionState, eventType: .leftMouseDown
+                        )
+                        let idleSeconds = min(keyIdle, mouseIdle)
                         guard idleSeconds >= 5 else { return }
 
                         await self.activityFlagState.clear()
