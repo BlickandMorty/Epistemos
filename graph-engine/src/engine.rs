@@ -218,6 +218,7 @@ pub struct Engine {
     /// smooth pans. Force-dirtied on selection/highlight changes.
     label_cache_camera: [f32; 2],
     label_cache_zoom: f32,
+    #[allow(dead_code)]
     label_cache_highlight_gen: u32,
     cluster_cache: ClusterCache,
     /// Scratch buffer for GPU N-body position collection (avoids per-frame alloc).
@@ -1384,6 +1385,7 @@ impl Engine {
         self.renderer.labels_enabled = enabled;
     }
 
+    #[allow(dead_code)]
     pub(crate) fn set_label_instances(&mut self, instances: &[crate::renderer::LabelInstance]) {
         self.renderer.set_label_instances(instances);
     }

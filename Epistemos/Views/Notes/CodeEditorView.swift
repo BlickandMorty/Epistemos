@@ -249,16 +249,14 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             name: NSTextView.didChangeSelectionNotification,
             object: textView
         )
-        // Scroll sync for gutter
-        if let clipView = scrollView.contentView as? NSClipView {
-            clipView.postsBoundsChangedNotifications = true
-            NotificationCenter.default.addObserver(
-                context.coordinator,
-                selector: #selector(Coordinator.scrollDidChange(_:)),
-                name: NSView.boundsDidChangeNotification,
-                object: clipView
-            )
-        }
+        // Scroll sync for gutter + minimap
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.scrollDidChange(_:)),
+            name: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView
+        )
 
         // Initial highlighting + minimap
         textView.highlightSyntax(theme: theme)
