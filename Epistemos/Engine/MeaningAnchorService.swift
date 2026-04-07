@@ -198,14 +198,18 @@ final class MeaningAnchorService {
             graphState.requestIncrementalAddEdge(edge)
         }
 
-        // Compute embedding for semantic search
-        Task {
-            let content = "\(anchor.topic). \(anchor.summary). \(anchor.keyInsights.joined(separator: ". "))"
-            let embeddings = graphState.embeddingService.computeBlockVectors(
-                blocks: [(id: nodeId, content: content)]
+        // Compute embedding off main thread, push result back on MainActor
+        let embeddingSvc = graphState.embeddingService
+        let content = "\(anchor.topic). \(anchor.summary). \(anchor.keyInsights.joined(separator: ". "))"
+        let embeddingNodeId = nodeId
+        Task.detached(priority: .utility) {
+            // computeBlockVectors is nonisolated — safe to call off-main
+            let embeddings = embeddingSvc.computeBlockVectors(
+                blocks: [(id: embeddingNodeId, content: content)]
             )
-            if !embeddings.isEmpty {
-                graphState.embeddingService.pushBlockEmbeddings(embeddings)
+            guard !embeddings.isEmpty else { return }
+            await MainActor.run {
+                embeddingSvc.pushBlockEmbeddings(embeddings)
             }
         }
     }
@@ -238,9 +242,13 @@ final class MeaningAnchorService {
         for (index, chat) in chatsToProcess.enumerated() {
             await generateAnchor(for: chat.id)
 
-            // Yield every 5 chats to avoid blocking the main thread
-            if index % 5 == 4 {
-                try? await Task.sleep(for: .milliseconds(100))
+            // Yield between each chat — inference takes seconds, so this is
+            // primarily to let SwiftUI animations and user interactions breathe
+            try? await Task.sleep(for: .milliseconds(500))
+
+            // Log progress every 10 chats
+            if index % 10 == 9 {
+                Self.log.info("Backfill progress: \(index + 1)/\(chatsToProcess.count)")
             }
         }
 

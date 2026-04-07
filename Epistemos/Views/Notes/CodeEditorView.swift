@@ -286,7 +286,7 @@ actor MetalComputeEngine {
         MTLDevice?, MTLCommandQueue?, MTLComputePipelineState?, MTLComputePipelineState?
     ) {
         guard let device = MTLCreateSystemDefaultDevice() else {
-            print("Metal not available - using CPU fallback")
+            os_log(.info, "Metal not available — using CPU fallback")
             return (nil, nil, nil, nil)
         }
         

@@ -226,7 +226,7 @@ final class CodeAskBarService {
         let prompt = buildPrompt(query: query, context: context, language: language)
 
         do {
-            let response = try await generateResponse(prompt: prompt, language: language)
+            let response = try await generateResponse(prompt: prompt, userQuery: query, language: language)
 
             switch responseMode {
             case .focused:
@@ -380,18 +380,18 @@ final class CodeAskBarService {
         """
     }
     
-    private func generateResponse(prompt: String, language: String) async throws -> String {
+    private func generateResponse(prompt: String, userQuery: String, language: String) async throws -> String {
         guard let triageService = triageService else {
             throw NSError(domain: "CodeAskBar", code: -1, userInfo: [NSLocalizedDescriptionKey: "TriageService not available"])
         }
-        
+
         return try await triageService.generate(
             prompt: prompt,
             systemPrompt: """
             You are an expert coding assistant. Provide clear, actionable advice.
             When referencing code, be specific about line numbers and provide concrete examples.
             """,
-            operation: .ask(query: prompt),
+            operation: .ask(query: userQuery),
             contentLength: prompt.count
         )
     }
