@@ -18,6 +18,7 @@ nonisolated enum ArtifactKind: String, Codable, Sendable, CaseIterable {
     case codeBlock
     case table
     case markdown
+    case fileEdit
 
     var displayName: String {
         switch self {
@@ -27,6 +28,7 @@ nonisolated enum ArtifactKind: String, Codable, Sendable, CaseIterable {
         case .codeBlock: "Code"
         case .table: "Table"
         case .markdown: "Markdown"
+        case .fileEdit: "File Edit"
         }
     }
 
@@ -38,6 +40,7 @@ nonisolated enum ArtifactKind: String, Codable, Sendable, CaseIterable {
         case .codeBlock: "chevron.left.forwardslash.chevron.right"
         case .table: "tablecells.badge.ellipsis"
         case .markdown: "doc.richtext"
+        case .fileEdit: "doc.text.fill.viewfinder"
         }
     }
 
@@ -49,6 +52,7 @@ nonisolated enum ArtifactKind: String, Codable, Sendable, CaseIterable {
         case .codeBlock: "txt"
         case .table: "csv"
         case .markdown: "md"
+        case .fileEdit: "diff"
         }
     }
 }

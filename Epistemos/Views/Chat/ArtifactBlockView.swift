@@ -127,6 +127,8 @@ struct ArtifactBlockView: View {
             tableContent
         case .markdown:
             markdownContent
+        case .fileEdit:
+            codeContent // File edit diffs use code-style rendering
         }
     }
 
@@ -310,6 +312,7 @@ enum ArtifactExporter {
         case .codeBlock: return .sourceCode
         case .table: return .commaSeparatedText
         case .markdown: return .plainText
+        case .fileEdit: return .plainText
         }
     }
 
