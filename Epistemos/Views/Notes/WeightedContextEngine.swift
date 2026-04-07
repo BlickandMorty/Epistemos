@@ -152,18 +152,19 @@ struct CodeComplexityAnalyzer {
 final class WeightedContextEngine {
     
     private let graphState: GraphState?
-    private let embeddingService = EmbeddingService()
+    private let embeddingService: EmbeddingService
     private let metalEngine = MetalComputeEngine.shared
-    
+
     // Context weight configuration
     var semanticWeight: Double = 0.35
     var nodeWeightFactor: Double = 0.25
     var complexityWeight: Double = 0.20
     var connectionWeight: Double = 0.15
     var recencyWeight: Double = 0.05
-    
-    init(graphState: GraphState?) {
+
+    init(graphState: GraphState?, embeddingService: EmbeddingService? = nil) {
         self.graphState = graphState
+        self.embeddingService = embeddingService ?? graphState?.embeddingService ?? EmbeddingService()
     }
     
     // MARK: - Weighted Semantic Search

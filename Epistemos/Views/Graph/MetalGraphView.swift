@@ -50,6 +50,8 @@ struct GraphRenderWakeSignature: Equatable {
     let semanticClusterVersion: Int
     let labConfigVersion: Int
     let physicsFrozenVersion: Int
+    let labelPolicyVersion: Int
+    let waterNodesVersion: Int
     let pendingCenterNodeId: String?
     let pendingRebuild: Bool
     let selectedNodeId: String?
@@ -69,6 +71,8 @@ struct GraphRenderWakeSignature: Equatable {
         self.semanticClusterVersion = graphState.semanticClusterVersion
         self.labConfigVersion = graphState.labConfigVersion
         self.physicsFrozenVersion = graphState.physicsFrozenVersion
+        self.labelPolicyVersion = graphState.labelPolicyVersion
+        self.waterNodesVersion = graphState.waterNodesVersion
         self.pendingCenterNodeId = graphState.pendingCenterNodeId
         self.pendingRebuild = graphState.pendingRebuild
         self.selectedNodeId = graphState.selectedNodeId

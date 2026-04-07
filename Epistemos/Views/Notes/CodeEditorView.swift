@@ -759,7 +759,7 @@ final class CodeCompanionService: ObservableObject {
     /// GPU-accelerated semantic analysis with parallel result building
     private func performSemanticAnalysisAsync() async -> SemanticContext {
         // Get embedding for current code
-        let embeddingService = EmbeddingService()
+        let embeddingService = graphState?.embeddingService ?? EmbeddingService()
         guard let codeEmbedding = embeddingService.queryEmbedding(for: currentCode) else {
             return SemanticContext.empty
         }
