@@ -70,24 +70,31 @@ final class ActivityTracker {
         }
 
         // Adaptive scan loop: check idle time, scan only after activity + idle
-        scanTask = Task { @MainActor [weak self] in
+        scanTask = Task { [weak self] in
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: .seconds(2))
                 } catch {
                     break
                 }
-                guard !Task.isCancelled, let self else { break }
+                guard !Task.isCancelled else { break }
+                
+                // Ensure we're on MainActor and self is still alive
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    
+                    // Only scan if user was recently active and is now idle
+                    Task {
+                        guard await self.activityFlagState.isActive() else { return }
+                        let idleSeconds = CGEventSource.secondsSinceLastEventType(
+                            .combinedSessionState, eventType: .keyDown
+                        )
+                        guard idleSeconds >= 5 else { return }
 
-                // Only scan if user was recently active and is now idle
-                guard await self.activityFlagState.isActive() else { continue }
-                let idleSeconds = CGEventSource.secondsSinceLastEventType(
-                    .combinedSessionState, eventType: .keyDown
-                )
-                guard idleSeconds >= 5 else { continue }
-
-                await self.activityFlagState.clear()
-                self.scanOpenNotes()
+                        await self.activityFlagState.clear()
+                        self.scanOpenNotes()
+                    }
+                }
             }
         }
         Self.log.info("Activity tracking started (adaptive idle detection)")
@@ -163,10 +170,11 @@ final class ActivityTracker {
 
     // MARK: - Paragraph Scanning
 
-    private func scanOpenNotes() {
-        let pageIds = Array(NoteWindowManager.shared.orderedPageIds().prefix(Self.maxTrackedTabs))
-        guard !pageIds.isEmpty else { return }
-
+    /// Collects scan results before applying to minimize @Observable churn.
+    /// Returns: [(pageId, hashes, changedCount, paragraphs, title)]
+    private func collectScanResults(for pageIds: [String]) -> [(String, [UInt64], Int, [String], String)] {
+        var results: [(String, [UInt64], Int, [String], String)] = []
+        
         for pageId in pageIds {
             let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
             guard !body.isEmpty else { continue }
@@ -174,29 +182,48 @@ final class ActivityTracker {
             let paragraphs = body.components(separatedBy: "\n\n")
             let hashes = paragraphs.map { hashParagraph($0) }
 
-            guard let previous = paragraphHashes[pageId] else {
-                paragraphHashes[pageId] = hashes
-                continue
-            }
-
-            // Detect changed paragraphs
-            let maxCount = max(hashes.count, previous.count)
+            let previous = paragraphHashes[pageId]
             var changedCount = 0
-            for i in 0..<maxCount {
-                let oldHash: UInt64 = i < previous.count ? previous[i] : 0
-                let newHash: UInt64 = i < hashes.count ? hashes[i] : 0
-                if oldHash != newHash { changedCount += 1 }
+            
+            if let prev = previous {
+                let maxCount = max(hashes.count, prev.count)
+                for i in 0..<maxCount {
+                    let oldHash: UInt64 = i < prev.count ? prev[i] : 0
+                    let newHash: UInt64 = i < hashes.count ? hashes[i] : 0
+                    if oldHash != newHash { changedCount += 1 }
+                }
             }
 
+            let title = fetchPageTitle(pageId: pageId) ?? "Untitled"
+            results.append((pageId, hashes, changedCount, paragraphs, title))
+        }
+        
+        return results
+    }
+
+    private func scanOpenNotes() {
+        let pageIds = Array(NoteWindowManager.shared.orderedPageIds().prefix(Self.maxTrackedTabs))
+        guard !pageIds.isEmpty else { return }
+
+        // Collect results first (reads paragraphHashes, doesn't modify)
+        let results = collectScanResults(for: pageIds)
+        
+        // Apply all modifications in a single batch to minimize @Observable churn
+        // and ensure proper isolation
+        applyScanResults(results)
+    }
+    
+    private func applyScanResults(_ results: [(String, [UInt64], Int, [String], String)]) {
+        for (pageId, hashes, changedCount, paragraphs, title) in results {
+            // Record edit event if changes detected
             if changedCount > 0 {
-                // Fetch title from SwiftData
-                let title = fetchPageTitle(pageId: pageId) ?? "Untitled"
                 appendEvent(.noteEdited(
                     pageId: pageId, title: title,
                     changedParagraphs: changedCount, totalParagraphs: paragraphs.count
                 ))
             }
-
+            
+            // Update paragraph hashes - this is the @Observable modification point
             paragraphHashes[pageId] = hashes
         }
     }

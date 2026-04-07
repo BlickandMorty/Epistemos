@@ -344,11 +344,17 @@ enum NotesSidebarGlyph: Sendable {
 
 struct NotesSidebarHoverTickState {
     private(set) var isHovering = false
+    private var lastTickTime: Date = .distantPast
+    private let minimumInterval: TimeInterval = 0.08
 
     mutating func update(hovering: Bool) -> Bool {
         guard hovering != isHovering else { return false }
         isHovering = hovering
-        return hovering
+        guard hovering else { return false }
+        let now = Date()
+        guard now.timeIntervalSince(lastTickTime) >= minimumInterval else { return false }
+        lastTickTime = now
+        return true
     }
 }
 

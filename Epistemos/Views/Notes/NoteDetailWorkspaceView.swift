@@ -911,13 +911,24 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
+    /// Whether the current page is a code file (routed to CodeEditorView).
+    private var isCodeFile: Bool {
+        guard let page = pages.first,
+              let path = page.filePath,
+              CodeLanguage.detect(from: path) != nil else { return false }
+        return true
+    }
+
     private var noteFooter: some View {
         HStack(spacing: NoteWorkspaceFooterDisplay.chipSpacing) {
-            noteFooterBubble {
-                Text("\(wordCount) words")
-                    .font(AppDisplayTypography.font(size: 13))
-                    .monospacedDigit()
-                    .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
+            // Code files have their own status bar — hide the word count overlay
+            if !isCodeFile {
+                noteFooterBubble {
+                    Text("\(wordCount) words")
+                        .font(AppDisplayTypography.font(size: 13))
+                        .monospacedDigit()
+                        .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
+                }
             }
 
             if NoteWorkspaceFooterDisplay.showsShortcutHints {
@@ -949,6 +960,13 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
+    private var codeFileLineCount: Int {
+        guard let page = pages.first,
+              let path = page.filePath else { return 0 }
+        let content = codeFileContent(page: page, filePath: path)
+        return content.components(separatedBy: "\n").count
+    }
+
     private func noteFooterBubble<Content: View>(
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -965,7 +983,11 @@ struct NoteDetailWorkspaceView: View {
            let lang = CodeLanguage.detect(from: path) {
             CodeEditorView(
                 content: codeFileContent(page: page, filePath: path),
-                language: lang
+                language: lang,
+                filePath: path,
+                onContentChange: { newContent in
+                    saveCodeFileContent(page: page, filePath: path, content: newContent)
+                }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
@@ -975,6 +997,26 @@ struct NoteDetailWorkspaceView: View {
                 initialBodyOverride: currentModeBodySnapshot(for: page.id)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+    
+    /// Saves code file content back to disk and updates associated page state
+    private func saveCodeFileContent(page: SDPage, filePath: String, content: String) {
+        // Write to file
+        do {
+            try content.write(toFile: filePath, atomically: true, encoding: .utf8)
+            
+            // Update the page body to match (for consistency with rest of app)
+            page.body = content
+            page.updatedAt = Date()
+            page.needsVaultSync = true
+            
+            // Persist to SwiftData
+            try? modelContext.save()
+            
+            NSLog("[CodeEditor] Saved code file: \(filePath)")
+        } catch {
+            NSLog("[CodeEditor] Failed to save code file: \(error)")
         }
     }
 
