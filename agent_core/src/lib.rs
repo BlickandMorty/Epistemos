@@ -38,6 +38,7 @@ pub mod tools {
     pub mod chunk_reduce;
     pub mod memory;
     pub mod registry;
+    pub mod skills;
     pub mod think;
     pub mod workspace_search;
 }
