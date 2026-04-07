@@ -101,6 +101,18 @@ nonisolated struct GoogleOAuthClientConfiguration: Codable, Sendable, Equatable 
     }
 }
 
+extension GoogleOAuthClientConfiguration {
+    /// Embedded development credentials loaded from a bundled `google_oauth_client.json`.
+    /// Users can override by loading their own OAuth client JSON in Settings.
+    static let embeddedDefault: GoogleOAuthClientConfiguration? = {
+        guard let url = Bundle.main.url(forResource: "google_oauth_client", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        return try? GoogleOAuthClientConfiguration.parse(from: data)
+    }()
+}
+
 nonisolated enum OAuthTokenMetadata {
     static func expirationDate(fromJWT token: String) -> Date? {
         guard let payload = payload(fromJWT: token) else { return nil }

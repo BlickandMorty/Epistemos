@@ -1138,20 +1138,38 @@ private struct InferenceDetailView: View {
             }
 
             if provider == .google {
-                VStack(alignment: .leading, spacing: 6) {
-                    TextField("Google Cloud project ID (not project number)", text: $googleOAuthProjectID)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(minWidth: 220)
-                    Text(
-                        googleOAuthClientFilename.isEmpty
-                            ? "Choose the OAuth client JSON you downloaded from Google Cloud Console after creating an OAuth client ID for a Desktop app."
-                            : "Google OAuth client JSON: \(googleOAuthClientFilename). This should be the Desktop app client file from Google Cloud Console."
-                    )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Use the Google Cloud project ID for the same project where Gemini API is enabled. This is the project slug, not the numeric project number.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                VStack(alignment: .leading, spacing: 8) {
+                    // Quick sign-in button (uses embedded or stored OAuth config)
+                    if !hasOAuthSession {
+                        let hasConfig = CloudProviderSetupAutomation.storedGoogleOAuthClientConfiguration() != nil
+                            || GoogleOAuthClientConfiguration.embeddedDefault != nil
+
+                        if hasConfig {
+                            Button(action: { signInWithGoogleQuick() }) {
+                                Label("Sign in with Google", systemImage: "person.badge.key")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+
+                    // Advanced OAuth setup (project ID + JSON file picker)
+                    if showsAdvancedSettings || !hasOAuthSession {
+                        DisclosureGroup("Google OAuth Setup") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("Google Cloud project ID (not project number)", text: $googleOAuthProjectID)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(minWidth: 220)
+                                Text(
+                                    googleOAuthClientFilename.isEmpty
+                                        ? "Choose the OAuth client JSON you downloaded from Google Cloud Console after creating an OAuth client ID for a Desktop app."
+                                        : "OAuth client JSON: \(googleOAuthClientFilename)"
+                                )
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
                     if let googleOAuthClientStatusMessage {
                         CloudProviderGuidanceRow(
                             text: googleOAuthClientStatusMessage,
@@ -1178,8 +1196,8 @@ private struct InferenceDetailView: View {
                 )
             }
 
-            if provider.supportsAccountConnection, showsAdvancedSettings {
-                DisclosureGroup(provider.manualCredentialTitle) {
+            if provider.supportsAccountConnection {
+                DisclosureGroup("API Key (manual)") {
                     manualCredentialEditor(
                         for: provider,
                         text: text,
@@ -1666,6 +1684,51 @@ private struct InferenceDetailView: View {
                 for: .google,
                 message: error.localizedDescription
             )
+        }
+    }
+
+    /// Quick sign-in using stored or embedded Google OAuth credentials.
+    private func signInWithGoogleQuick() {
+        Task {
+            accountActionInFlightProvider = .google
+            defer { accountActionInFlightProvider = nil }
+
+            // Try stored config first, then embedded fallback
+            let config: GoogleOAuthClientConfiguration?
+            if let storedData = googleOAuthClientConfigData {
+                config = try? GoogleOAuthClientConfiguration.parse(from: storedData)
+            } else {
+                config = CloudProviderSetupAutomation.storedGoogleOAuthClientConfiguration()
+                    ?? GoogleOAuthClientConfiguration.embeddedDefault
+            }
+
+            guard let config else {
+                googleOAuthClientStatusMessage = "No Google OAuth credentials found. Load an OAuth client JSON in the setup section below, or get an API key from aistudio.google.com."
+                googleOAuthClientStatusIsSuccess = false
+                return
+            }
+
+            // Use project ID from config or from the text field
+            let projectID = normalizedCredentialDraft(googleOAuthProjectID)
+                ?? normalizedCredentialDraft(config.projectID)
+                ?? config.projectID
+
+            let finalConfig = GoogleOAuthClientConfiguration(
+                clientID: config.clientID,
+                clientSecret: config.clientSecret,
+                projectID: projectID
+            )
+
+            googleOAuthClientStatusMessage = nil
+            let result = await inference.signInToGoogle(configuration: finalConfig)
+
+            if result.success {
+                googleOAuthClientStatusMessage = "Connected to Google successfully."
+                googleOAuthClientStatusIsSuccess = true
+            } else {
+                googleOAuthClientStatusMessage = result.message
+                googleOAuthClientStatusIsSuccess = false
+            }
         }
     }
 

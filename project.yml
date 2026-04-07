@@ -82,6 +82,7 @@ targets:
         product: MLXLMCommon
       - package: MLX-LM
         product: MLXLLM
+      - package: CodeEditSourceEditor
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -133,6 +134,9 @@ packages:
   MLX-LM:
     url: https://github.com/ml-explore/mlx-swift-lm
     revision: bc3c20ef4644c86f2b347debcfe1efe4308712a6
+  CodeEditSourceEditor:
+    url: https://github.com/CodeEditApp/CodeEditSourceEditor
+    from: "0.15.2"
 
 schemes:
   Epistemos:

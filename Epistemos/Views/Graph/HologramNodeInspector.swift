@@ -73,7 +73,8 @@ struct HologramNodeInspector: View {
         VStack(alignment: .leading, spacing: 0) {
             headerSection(node)
 
-            if node.type == .note, node.sourceId != nil {
+            // Only show mode picker for prose files (.txt, .md), not code files
+            if node.type == .note, node.sourceId != nil, !isCodeFile(pageId: node.sourceId!) {
                 modePicker
             }
 
@@ -110,55 +111,55 @@ struct HologramNodeInspector: View {
     }
 
     private func noteEditorBody(pageId: String) -> some View {
-        VStack(spacing: 0) {
-            // Toolbar
-            HStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    ForEach(EditorDisplay.allCases, id: \.self) { display in
-                        Button {
-                            guard editorDisplay != display else { return }
-                            editorDisplay = display
-                            editorDisplayTrigger += 1
-                        } label: {
-                            ASCIIRippleText(
-                                text: display.label,
-                                font: .system(size: 12, weight: .semibold),
-                                color: editorDisplay == display ? .primary : .secondary,
-                                manualTrigger: editorDisplay == display ? editorDisplayTrigger : 0
-                            )
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 10)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(editorDisplay == display ? Color.primary.opacity(0.12) : Color.clear)
+        let isCode = isCodeFile(pageId: pageId)
+        
+        return VStack(spacing: 0) {
+            // Toolbar - only show toggle for prose files, not code files
+            if !isCode {
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        ForEach(EditorDisplay.allCases, id: \.self) { display in
+                            Button {
+                                guard editorDisplay != display else { return }
+                                editorDisplay = display
+                                editorDisplayTrigger += 1
+                            } label: {
+                                ASCIIRippleText(
+                                    text: display.label,
+                                    font: .system(size: 12, weight: .semibold),
+                                    color: editorDisplay == display ? .primary : .secondary,
+                                    manualTrigger: editorDisplay == display ? editorDisplayTrigger : 0
                                 )
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(editorDisplay == display ? Color.primary.opacity(0.12) : Color.clear)
+                                    )
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
+                    )
+                    .frame(width: 164)
+
+                    Spacer()
                 }
-                .padding(4)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(0.06))
-                )
-                .frame(width: 164)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
 
-                Spacer()
+                Divider().opacity(0.3)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-
-            Divider().opacity(0.3)
 
             // Editor content
             if let lang = detectedCodeLanguage(pageId: pageId) {
-                // Code file: syntax-highlighted view
-                if editorDisplay == .raw {
-                    CodeInspectorEditor(text: $editorText, language: lang, theme: theme)
-                } else {
-                    CodeInspectorPreview(content: editorText, language: lang, theme: theme)
-                }
+                // Code file: Only show Preview, no Edit mode
+                CodeInspectorPreview(content: editorText, language: lang, theme: theme)
             } else {
                 // Prose file: original editor
                 if editorDisplay == .raw {
@@ -215,6 +216,22 @@ struct HologramNodeInspector: View {
         guard let page = try? modelContext.fetch(desc).first,
               let path = page.filePath else { return nil }
         return CodeLanguage.detect(from: path)
+    }
+    
+    /// Checks if the page is a code file (not .txt or .md)
+    private func isCodeFile(pageId: String) -> Bool {
+        let predicate = #Predicate<SDPage> { $0.id == pageId }
+        var desc = FetchDescriptor(predicate: predicate)
+        desc.fetchLimit = 1
+        guard let page = try? modelContext.fetch(desc).first,
+              let path = page.filePath else { return false }
+        
+        let ext = (path as NSString).pathExtension.lowercased()
+        // Code files are those that CodeLanguage detects AND are not .txt or .md
+        if ext == "txt" || ext == "md" || ext == "markdown" {
+            return false
+        }
+        return CodeLanguage.detect(from: path) != nil
     }
 
     // MARK: - Editor Save Pipeline

@@ -1878,14 +1878,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if inference.openAIWebSearchEnabled {
             tools.append(["type": "web_search"])
         }
-        if inference.openAICodeInterpreterEnabled {
-            tools.append(
-                [
-                    "type": "code_interpreter",
-                    "container": ["type": "auto"]
-                ]
-            )
-        }
+        // NOTE: code_interpreter removed — causes "Unsupported tool type" 400 errors
+        // on many GPT-5.4 accounts/regions. The Responses API tool type name may have
+        // changed or require specific account-level feature enablement.
+        // If needed in future, re-add with the verified API format.
         return tools
     }
 
