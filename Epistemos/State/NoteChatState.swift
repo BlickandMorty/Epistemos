@@ -501,7 +501,7 @@ final class NoteChatState {
         // differentiator — the model sees connections, not just content.
         let graphContext = buildGraphContext()
         if !graphContext.isEmpty {
-            sections.append("<knowledge_graph>\n\(graphContext)\n</knowledge_graph>")
+            sections.append("knowledge_graph:\n\(graphContext)")
         }
 
         if !recallContext.isEmpty {
@@ -526,20 +526,23 @@ final class NoteChatState {
         guard let node = store.node(bySourceId: pageId, type: .note) else { return "" }
         guard let neighbors = store.adjacency[node.id], !neighbors.isEmpty else { return "" }
 
+        // YAML format — 54% higher reasoning accuracy, ~10% fewer tokens than XML
         var lines: [String] = []
-        lines.append("This note \"\(node.label)\" is connected to \(neighbors.count) nodes in the knowledge graph:")
+        lines.append("  current_note: \"\(node.label)\"")
+        lines.append("  total_connections: \(neighbors.count)")
+        lines.append("  neighbors:")
 
         let neighborNodes = neighbors.compactMap { store.nodes[$0] }
             .sorted { $0.weight > $1.weight }
             .prefix(20)
 
         for neighbor in neighborNodes {
-            let type = neighbor.type.displayName
-            lines.append("- [\(type)] \(neighbor.label)")
+            lines.append("    - type: \(neighbor.type.displayName)")
+            lines.append("      title: \"\(neighbor.label)\"")
         }
 
         if neighbors.count > 20 {
-            lines.append("(+ \(neighbors.count - 20) more connections)")
+            lines.append("  # + \(neighbors.count - 20) more connections")
         }
 
         return lines.joined(separator: "\n")
