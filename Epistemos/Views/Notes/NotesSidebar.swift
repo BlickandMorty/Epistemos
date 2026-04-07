@@ -28,6 +28,8 @@ private struct SidebarPageItem: Identifiable, Equatable {
     /// Denormalized subfolder path from SDPage.subfolder — always a plain String,
     /// never depends on relationship faulting. Used as fallback matching.
     let subfolder: String?
+    /// Detected code language from filePath (e.g. "swift", "python"), nil for prose.
+    let codeLanguage: String?
     /// FTS snippet from body/block search. Nil for title-only matches.
     var snippet: String?
     /// Category label for search results (e.g. "Body Match", "Block Match").
@@ -48,6 +50,11 @@ private struct SidebarPageItem: Identifiable, Equatable {
         normalizedTags = page.tags.map { $0.lowercased() }
         folderId = page.folder?.id
         subfolder = page.subfolder
+        if let path = page.filePath {
+            codeLanguage = CodeLanguage.detect(from: path)
+        } else {
+            codeLanguage = nil
+        }
     }
 }
 
@@ -2047,6 +2054,13 @@ private struct FileRow: View {
                         Text(item.emoji)
                             .font(.epCaption)
                             .frame(width: 14)
+                    } else if let lang = item.codeLanguage {
+                        Image(systemName: Self.sfSymbolForLanguage(lang))
+                            .font(.epCaption)
+                            .foregroundStyle(
+                                isActive ? theme.resolved.accent.color : Self.colorForLanguage(lang)
+                            )
+                            .frame(width: 14)
                     } else {
                         Image(
                             systemName: item.isJournal ? "calendar" : "doc.text"
@@ -2166,6 +2180,44 @@ private struct FileRow: View {
             onAction(.renamePage(id: item.id, newTitle: trimmed))
         }
         isRenaming = false
+    }
+
+    static func sfSymbolForLanguage(_ lang: String) -> String {
+        switch lang {
+        case "swift":       return "swift"
+        case "python":      return "p.circle.fill"
+        case "rust":        return "r.square.fill"
+        case "javascript":  return "j.circle.fill"
+        case "typescript":  return "t.circle.fill"
+        case "html":        return "chevron.left.forwardslash.chevron.right"
+        case "css":         return "paintbrush"
+        case "go":          return "g.circle.fill"
+        case "c":           return "c.circle.fill"
+        case "cpp":         return "c.square.fill"
+        case "java":        return "j.square.fill"
+        case "ruby":        return "r.circle.fill"
+        case "bash", "zsh": return "terminal"
+        case "json":        return "curlybraces"
+        case "yaml", "toml": return "list.bullet.indent"
+        case "sql":         return "cylinder"
+        case "markdown":    return "doc.text"
+        default:            return "\(lang.prefix(1).lowercased()).circle.fill"
+        }
+    }
+
+    static func colorForLanguage(_ lang: String) -> Color {
+        switch lang {
+        case "swift":       Color.orange
+        case "python":      Color(red: 0.24, green: 0.52, blue: 0.80)
+        case "rust":        Color(red: 0.73, green: 0.34, blue: 0.16)
+        case "javascript":  Color.yellow
+        case "typescript":  Color(red: 0.19, green: 0.47, blue: 0.80)
+        case "html":        Color(red: 0.89, green: 0.35, blue: 0.21)
+        case "css":         Color(red: 0.15, green: 0.44, blue: 0.74)
+        case "go":          Color(red: 0.0, green: 0.67, blue: 0.84)
+        case "ruby":        Color.red
+        default:            Color.secondary
+        }
     }
 }
 
