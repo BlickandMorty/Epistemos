@@ -964,8 +964,7 @@ struct NoteDetailWorkspaceView: View {
         if let path = page.filePath,
            let lang = CodeLanguage.detect(from: path) {
             CodeEditorView(
-                content: currentModeBodySnapshot(for: page.id)
-                    ?? NoteWindowManager.shared.currentBody(for: page.id),
+                content: codeFileContent(page: page, filePath: path),
                 language: lang
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1321,6 +1320,20 @@ struct NoteDetailWorkspaceView: View {
 
     private func currentModeBodySnapshot(for pageId: String) -> String? {
         modeBodySnapshot?.body(ifMatches: pageId)
+    }
+
+    /// Load code file content: try managed storage first, fall back to reading the source file directly.
+    private func codeFileContent(page: SDPage, filePath: String) -> String {
+        if let snapshot = currentModeBodySnapshot(for: page.id), !snapshot.isEmpty {
+            return snapshot
+        }
+        let managed = NoteWindowManager.shared.currentBody(for: page.id)
+        if !managed.isEmpty {
+            return managed
+        }
+        // Direct file read as final fallback (covers newly imported code files
+        // whose body hasn't been written to NoteFileStorage yet)
+        return (try? String(contentsOfFile: filePath, encoding: .utf8)) ?? ""
     }
 
     private func currentEditorBody(for page: SDPage) -> String? {
