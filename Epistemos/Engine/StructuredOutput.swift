@@ -115,3 +115,128 @@ nonisolated enum StructuredOutputError: Error, LocalizedError, Sendable {
         }
     }
 }
+
+// MARK: - File Edit Tools
+
+/// Tool definitions for AI-mediated file editing.
+/// For Anthropic: each schema maps to `tools[].input_schema`.
+/// For OpenAI: each schema maps to `response_format.json_schema.schema`.
+nonisolated enum FileEditTool {
+    static let editFile = CloudJSONSchema(
+        name: "edit_file",
+        description: "Replace a range of lines in the active file. Use for targeted edits.",
+        schema: [
+            "type": "object",
+            "properties": [
+                "start_line": ["type": "integer", "description": "First line to replace (1-indexed)"],
+                "end_line": ["type": "integer", "description": "Last line to replace (1-indexed, inclusive)"],
+                "replacement": ["type": "string", "description": "New content for the replaced lines"],
+                "explanation": ["type": "string", "description": "Why this edit was made"]
+            ],
+            "required": ["start_line", "end_line", "replacement", "explanation"]
+        ]
+    )
+
+    static let replaceFile = CloudJSONSchema(
+        name: "replace_file",
+        description: "Replace the entire file content. Use only when the edit affects more than 60% of lines.",
+        schema: [
+            "type": "object",
+            "properties": [
+                "content": ["type": "string", "description": "Complete new file content"],
+                "explanation": ["type": "string", "description": "Why the full replacement was needed"]
+            ],
+            "required": ["content", "explanation"]
+        ]
+    )
+
+    static let insertAtLine = CloudJSONSchema(
+        name: "insert_at_line",
+        description: "Insert new lines before a given line number.",
+        schema: [
+            "type": "object",
+            "properties": [
+                "line": ["type": "integer", "description": "Insert BEFORE this line (1-indexed)"],
+                "content": ["type": "string", "description": "Content to insert"],
+                "explanation": ["type": "string", "description": "Why this insertion was made"]
+            ],
+            "required": ["line", "content", "explanation"]
+        ]
+    )
+
+    static let deleteLines = CloudJSONSchema(
+        name: "delete_lines",
+        description: "Delete a range of lines from the file.",
+        schema: [
+            "type": "object",
+            "properties": [
+                "start_line": ["type": "integer", "description": "First line to delete (1-indexed)"],
+                "end_line": ["type": "integer", "description": "Last line to delete (1-indexed, inclusive)"],
+                "explanation": ["type": "string", "description": "Why these lines were deleted"]
+            ],
+            "required": ["start_line", "end_line", "explanation"]
+        ]
+    )
+
+    static let all: [CloudJSONSchema] = [editFile, replaceFile, insertAtLine, deleteLines]
+}
+
+// MARK: - File Edit Operation Model
+
+struct FileEditOperation: Codable, Sendable {
+    let startLine: Int
+    let endLine: Int
+    let replacement: String
+    let explanation: String?
+
+    enum CodingKeys: String, CodingKey {
+        case startLine = "start_line"
+        case endLine = "end_line"
+        case replacement
+        case explanation
+    }
+
+    func validate(against fileLineCount: Int) throws {
+        guard startLine >= 1 else {
+            throw FileEditError.invalidRange(startLine, endLine, fileLineCount)
+        }
+        guard endLine <= fileLineCount else {
+            throw FileEditError.invalidRange(startLine, endLine, fileLineCount)
+        }
+        guard startLine <= endLine else {
+            throw FileEditError.invalidRange(startLine, endLine, fileLineCount)
+        }
+    }
+}
+
+enum FileEditError: LocalizedError {
+    case invalidRange(Int, Int, Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidRange(let start, let end, let total):
+            return "Invalid line range \(start)–\(end) for file with \(total) lines"
+        }
+    }
+}
+
+// MARK: - File Edit Executor
+
+/// Applies file edit operations bottom-to-top to preserve line numbers.
+enum FileEditExecutor {
+    /// Apply operations to an editor via the noteRangeWriter closure.
+    /// Operations are sorted descending by startLine before application.
+    static func apply(
+        operations: [FileEditOperation],
+        writer: (ClosedRange<Int>, String) -> Void,
+        lineCount: Int
+    ) throws {
+        let sorted = try operations
+            .map { op -> FileEditOperation in try op.validate(against: lineCount); return op }
+            .sorted { $0.startLine > $1.startLine }
+
+        for op in sorted {
+            writer(op.startLine...op.endLine, op.replacement)
+        }
+    }
+}

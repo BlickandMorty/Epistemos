@@ -83,6 +83,12 @@ final class NoteChatState {
     var onReplaceInlineResponse: ((_ text: String) -> Void)?
     /// Read the current note body from storage.
     var noteBodyProvider: (() -> String)?
+    /// Write a full replacement body to the active editor.
+    /// Uses shouldChangeText → replaceCharacters → didChangeText for undo support.
+    var noteBodyWriter: ((String) -> Void)?
+    /// Replace a 1-indexed line range in the active editor.
+    /// Uses shouldChangeText → replaceCharacters → didChangeText for undo support.
+    var noteRangeWriter: ((ClosedRange<Int>, String) -> Void)?
     /// Provides the current GraphState for graph context injection.
     /// Set by the workspace view when the chat is created.
     var graphStateProvider: (() -> GraphState?)?

@@ -95,6 +95,7 @@ struct CodeEditorView: View {
     let onContentChange: ((String) -> Void)?
 
     @Environment(UIState.self) private var ui
+    @Environment(NoteChatState.self) private var noteChatState: NoteChatState?
 
     @State private var cursorLine: Int = 1
     @State private var cursorCol: Int = 1
@@ -113,7 +114,8 @@ struct CodeEditorView: View {
                 theme: ui.theme,
                 cursorLine: $cursorLine,
                 cursorCol: $cursorCol,
-                onContentChange: onContentChange
+                onContentChange: onContentChange,
+                noteChatState: noteChatState
             )
 
             // Status bar
@@ -148,6 +150,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
     @Binding var cursorLine: Int
     @Binding var cursorCol: Int
     let onContentChange: ((String) -> Void)?
+    weak var noteChatState: NoteChatState?
 
     func makeNSView(context: Context) -> NSView {
         let container = NSView()
@@ -260,6 +263,33 @@ struct CodeEditorRepresentable: NSViewRepresentable {
         // Initial highlighting + minimap
         textView.highlightSyntax(theme: theme)
         minimapView.rebuildTokenRects(theme: theme)
+
+        // Wire AI chat writer closures (undo-safe via shouldChangeText triad)
+        if let chatState = noteChatState {
+            chatState.noteBodyProvider = { [weak textView] in
+                textView?.string ?? ""
+            }
+
+            chatState.noteBodyWriter = { [weak textView] newContent in
+                DispatchQueue.main.async {
+                    guard let tv = textView else { return }
+                    let fullRange = NSRange(location: 0, length: tv.string.utf16.count)
+                    tv.shouldChangeText(in: fullRange, replacementString: newContent)
+                    tv.textStorage?.replaceCharacters(in: fullRange, with: newContent)
+                    tv.didChangeText()
+                }
+            }
+
+            chatState.noteRangeWriter = { [weak textView] lineRange, replacement in
+                DispatchQueue.main.async {
+                    guard let tv = textView else { return }
+                    let nsRange = tv.nsRange(forLineRange: lineRange)
+                    tv.shouldChangeText(in: nsRange, replacementString: replacement)
+                    tv.textStorage?.replaceCharacters(in: nsRange, with: replacement)
+                    tv.didChangeText()
+                }
+            }
+        }
 
         return container
     }
@@ -527,6 +557,30 @@ class CodeTextView: NSTextView {
     // Tab key inserts 4 spaces (like Xcode)
     override func insertTab(_ sender: Any?) {
         insertText("    ", replacementRange: selectedRange())
+    }
+
+    /// Convert a 1-indexed inclusive line range to an NSRange for text mutations.
+    func nsRange(forLineRange lineRange: ClosedRange<Int>) -> NSRange {
+        let nsStr = string as NSString
+        var lineStart = 0
+        var currentLine = 1
+        var rangeStart = 0
+        var rangeEnd = nsStr.length
+
+        while lineStart < nsStr.length {
+            let lineEnd = nsStr.lineRange(for: NSRange(location: lineStart, length: 0))
+            if currentLine == lineRange.lowerBound {
+                rangeStart = lineEnd.location
+            }
+            if currentLine == lineRange.upperBound {
+                rangeEnd = NSMaxRange(lineEnd)
+                break
+            }
+            lineStart = NSMaxRange(lineEnd)
+            currentLine += 1
+        }
+
+        return NSRange(location: rangeStart, length: rangeEnd - rangeStart)
     }
 }
 
