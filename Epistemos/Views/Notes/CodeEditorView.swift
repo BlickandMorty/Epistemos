@@ -167,7 +167,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
         let textView = CodeTextView()
         textView.isEditable = true
         textView.isSelectable = true
-        textView.isRichText = false
+        textView.isRichText = true  // required for per-token syntax highlighting colors
         textView.allowsUndo = true
         textView.usesFindBar = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
