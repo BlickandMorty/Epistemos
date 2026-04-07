@@ -1262,6 +1262,21 @@ final class ChatCoordinator {
             parts.append("[Activity Profile] \(profile.formatForPrompt())")
         }
 
+        // Recent meaning anchors (structured chat insights from graph)
+        let store = bootstrap.graphState.store
+        let recentAnchors = store.nodes.values
+            .filter { $0.type == .idea && $0.metadata.originChatId != nil }
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(5)
+        if !recentAnchors.isEmpty {
+            let anchorLines = recentAnchors.map { node in
+                let summary = node.metadata.abstract ?? ""
+                let theme = node.metadata.clusterTheme ?? ""
+                return "- \(node.label): \(summary)\(theme.isEmpty ? "" : " [\(theme)]")"
+            }
+            parts.append("[Recent Insights]\n\(anchorLines.joined(separator: "\n"))")
+        }
+
         // Graph topology for open notes
         if !openPageIds.isEmpty {
             let store = bootstrap.graphState.store
@@ -1315,6 +1330,14 @@ final class ChatCoordinator {
         if HologramController.shared.isVisible {
             let nodeCount = bootstrap.graphState.store.nodes.count
             parts.append("[Knowledge Graph] Open with \(nodeCount) nodes")
+        }
+
+        // Proactive intelligence: suggest connections from recent anchors
+        if !recentAnchors.isEmpty && deepContext {
+            let themes = Set(recentAnchors.compactMap { $0.metadata.clusterTheme }).prefix(3)
+            if !themes.isEmpty {
+                parts.append("[Proactive Hint] The user has been exploring these themes recently: \(themes.joined(separator: ", ")). Look for connections between their current question and these themes. Adapt your communication style to be concise and direct — the user works intensively and prefers actionable insights over lengthy explanations.")
+            }
         }
 
         return parts.joined(separator: "\n\n")
