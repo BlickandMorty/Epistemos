@@ -187,8 +187,8 @@ final class WeightedContextEngine {
 
         let complexity = precomputedComplexity ?? CodeComplexityAnalyzer.analyze(code: code, language: language)
         
-        // Get all candidate nodes with embeddings
-        let candidates = graphState.semanticSearch(query: "semantic:", limit: 100)
+        // Get candidate nodes by semantic similarity to the actual query
+        let candidates = graphState.semanticSearch(query: query, limit: 100)
         guard !candidates.isEmpty else { return [] }
         
         // Collect embeddings and metadata
@@ -319,14 +319,10 @@ final class WeightedContextEngine {
     
     private func calculateConnectionStrength(nodeId: String) -> Double {
         guard let graphState = graphState else { return 0.5 }
-        
-        // Count connections (simplified)
-        let edgeCount = graphState.store.edges.values.filter { edge in
-            edge.sourceNodeId == nodeId || edge.targetNodeId == nodeId
-        }.count
-        
-        // Normalize (assuming max 20 connections is "highly connected")
-        return min(Double(edgeCount) / 20.0, 1.0)
+
+        // O(1) lookup via adjacency index instead of O(edges) linear scan
+        let neighborCount = graphState.store.adjacency[nodeId]?.count ?? 0
+        return min(Double(neighborCount) / 20.0, 1.0)
     }
     
     private func calculateActivityScore(sourceId: String?) -> Double {

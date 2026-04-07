@@ -1262,12 +1262,20 @@ final class ChatCoordinator {
             parts.append("[Activity Profile] \(profile.formatForPrompt())")
         }
 
-        // Recent meaning anchors (structured chat insights from graph)
+        // Recent meaning anchors — O(n) linear scan with fixed-size heap for top 5
         let store = bootstrap.graphState.store
-        let recentAnchors = store.nodes.values
-            .filter { $0.type == .idea && $0.metadata.originChatId != nil }
-            .sorted { $0.createdAt > $1.createdAt }
-            .prefix(5)
+        var anchorHeap: [GraphNodeRecord] = []
+        anchorHeap.reserveCapacity(6)
+        for node in store.nodes.values where node.type == .idea && node.metadata.originChatId != nil {
+            anchorHeap.append(node)
+            if anchorHeap.count > 5 {
+                // Remove oldest (keep 5 most recent)
+                if let minIdx = anchorHeap.indices.min(by: { anchorHeap[$0].createdAt < anchorHeap[$1].createdAt }) {
+                    anchorHeap.remove(at: minIdx)
+                }
+            }
+        }
+        let recentAnchors = anchorHeap.sorted { $0.createdAt > $1.createdAt }
         if !recentAnchors.isEmpty {
             let anchorLines = recentAnchors.map { node in
                 let summary = node.metadata.abstract ?? ""

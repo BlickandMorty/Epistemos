@@ -13,6 +13,7 @@
 // 2026-04-07.
 
 import SwiftUI
+import SwiftData
 import Combine
 import os.log
 
@@ -573,8 +574,14 @@ final class AIPartnerService {
 
         let action = accepted ? "Accepted" : "Dismissed"
         let chat = SDChat(title: "\(action) AI suggestion (\(currentLanguage))", chatType: "aiPartner")
+
+        // Resolve filePath → pageId for proper graph association
         if let path = currentFilePath {
-            chat.linkedPageId = path
+            let targetPath = path
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate { $0.filePath == targetPath }
+            )
+            chat.linkedPageId = (try? ctx.fetch(descriptor).first)?.id
         }
         ctx.insert(chat)
 
@@ -600,8 +607,10 @@ final class AIPartnerService {
         // Persist to disk for analysis
         do {
             let data = try JSONEncoder().encode(interactionLog)
-            let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("ai_partner_log.json")
+            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Epistemos")
+            try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+            let url = appSupport.appendingPathComponent("ai_partner_log.json")
             try data.write(to: url)
         } catch {
             logger.error("Failed to save interaction log: \(error.localizedDescription)")
