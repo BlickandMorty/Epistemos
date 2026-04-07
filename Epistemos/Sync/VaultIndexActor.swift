@@ -179,9 +179,22 @@ actor VaultIndexActor {
         excludedDirs.contains(name) || excludedSuffixes.contains(where: { name.hasSuffix($0) })
     }
 
+    private static let importableExtensions: Set<String> = [
+        // Notes
+        "md", "markdown", "txt",
+        // Code files
+        "swift", "rs", "py", "pyw", "js", "mjs", "cjs", "jsx", "ts", "mts", "tsx",
+        "json", "jsonl", "html", "htm", "css", "scss", "less",
+        "sh", "bash", "zsh", "fish",
+        "go", "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "mm",
+        "yaml", "yml", "toml", "xml", "plist", "svg",
+        "gd", "lua", "rb", "java", "kt", "kts", "sql",
+        "r", "zig", "wgsl", "glsl", "metal", "hlsl",
+    ]
+
     nonisolated static func isImportableNoteFile(_ fileURL: URL) -> Bool {
         let ext = fileURL.pathExtension.lowercased()
-        return ext == "md" || ext == "markdown" || ext == "txt"
+        return importableExtensions.contains(ext)
     }
 
     nonisolated static func countImportableNoteFiles(in url: URL) -> Int {

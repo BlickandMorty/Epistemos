@@ -386,15 +386,15 @@ class CodeTextView: NSTextView {
         (NSColor.labelColor.withAlphaComponent(0.06)).set()
         highlightRect.fill()
 
-        // --- Indent guides ---
+        // --- Indent guides (batched into single path for performance) ---
         let visibleGlyphRange = lm.glyphRange(forBoundingRect: rect, in: tc)
         let visibleCharRange = lm.characterRange(forGlyphRange: visibleGlyphRange, actualGlyphRange: nil)
         let nsStr = string as NSString
-        let indentWidth: CGFloat = 4 // spaces per indent level
+        let indentWidth: CGFloat = 4
         let monoFont = font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
         let spaceWidth: CGFloat = (" " as NSString).size(withAttributes: [.font: monoFont]).width
-        let guideColor = NSColor.separatorColor.withAlphaComponent(0.15)
-        guideColor.set()
+        let guidePath = NSBezierPath()
+        guidePath.lineWidth = 0.5
 
         nsStr.enumerateSubstrings(
             in: visibleCharRange,
@@ -411,13 +411,13 @@ class CodeTextView: NSTextView {
 
             for level in 1...indentLevels {
                 let x = self.textContainerInset.width + CGFloat(level) * indentWidth * spaceWidth
-                let path = NSBezierPath()
-                path.move(to: NSPoint(x: x, y: lineY))
-                path.line(to: NSPoint(x: x, y: lineY + lineRect.height))
-                path.lineWidth = 0.5
-                path.stroke()
+                guidePath.move(to: NSPoint(x: x, y: lineY))
+                guidePath.line(to: NSPoint(x: x, y: lineY + lineRect.height))
             }
         }
+
+        NSColor.separatorColor.withAlphaComponent(0.15).set()
+        guidePath.stroke()
     }
 
     // MARK: - Bracket Matching
