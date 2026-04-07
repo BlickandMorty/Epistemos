@@ -30,6 +30,11 @@ final class SDMessage {
     var safetyState: String?            // "green", "yellow", "orange", "red"
     var inferenceMode: String?          // "local", "api", "appleIntelligence"
 
+    // MARK: - Content Blocks
+    /// JSON-encoded [MessageContentBlock]. When present, `content` is a backward-compat
+    /// computed join of .text blocks. New code should prefer contentBlocks.
+    var contentBlocksData: Data?
+
     // MARK: - Attachments
     var attachmentsData: Data?          // Encoded [FileAttachment]
     var loadedNoteTitlesData: Data?     // Encoded [String]
@@ -105,6 +110,33 @@ final class SDMessage {
         } catch {
             Log.db.error("Failed to decode [ContextAttachment] for message \(self.id): \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    @MainActor
+    func decodedContentBlocks() -> [MessageContentBlock]? {
+        guard let contentBlocksData else { return nil }
+        do {
+            return try JSONDecoder().decode([MessageContentBlock].self, from: contentBlocksData)
+        } catch {
+            Log.db.error("Failed to decode [MessageContentBlock] for message \(self.id): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    @MainActor
+    func setContentBlocks(_ blocks: [MessageContentBlock]?) {
+        guard let blocks, !blocks.isEmpty else {
+            self.contentBlocksData = nil
+            return
+        }
+        do {
+            self.contentBlocksData = try JSONEncoder().encode(blocks)
+            // Keep content in sync as joined text for backward compatibility
+            self.content = blocks.joinedText
+        } catch {
+            Log.db.error("Failed to encode [MessageContentBlock] for message \(self.id): \(error.localizedDescription)")
+            self.contentBlocksData = nil
         }
     }
 
@@ -210,7 +242,8 @@ final class SDMessage {
             isVaultBriefing: isVaultBriefing,
             loadedNoteTitles: decodedLoadedNoteTitles(),
             contextAttachments: decodedContextAttachments(),
-            artifacts: decodedArtifacts()
+            artifacts: decodedArtifacts(),
+            contentBlocks: decodedContentBlocks()
         )
     }
 }
