@@ -716,6 +716,22 @@ private struct InferenceDetailView: View {
             }
 
             Section {
+                Toggle(isOn: Binding(
+                    get: { inference.cloudAutoFallback },
+                    set: { inference.cloudAutoFallback = $0 }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto-route on failure")
+                        Text("When off, cloud requests use only the selected model and show errors instead of falling back to other models silently.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Cloud Routing")
+            }
+
+            Section {
                 SettingsDescriptionText(
                     text: "Local AI manages the on-device models installed on this Mac, shows the active local tier, and lets you choose which local runtime the chat surfaces should prefer."
                 )

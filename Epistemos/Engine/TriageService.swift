@@ -572,6 +572,16 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
     }
 }
 
+nonisolated enum CloudRoutingError: LocalizedError {
+    case modelFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .modelFailed(let detail): return detail
+        }
+    }
+}
+
 // MARK: - Triage Service
 
 /// Routes AI operations between Apple Intelligence and the local model runtime
@@ -584,6 +594,13 @@ final class TriageService {
     Do not claim to have browsing, external tool use, research mode, or hidden capabilities you do not actually have.
     Do not claim to be a different model.
     If asked about your identity, say you are the local Epistemos assistant running on-device.
+    If the answer is uncertain, say so plainly instead of fabricating confidence.
+    """
+
+    private static let cloudBaselineSystemPrompt = """
+    You are a helpful assistant inside Epistemos, a personal knowledge management app.
+    Answer directly and concisely.
+    You have access to the user's knowledge graph context when provided.
     If the answer is uncertain, say so plainly instead of fabricating confidence.
     """
 
@@ -1406,6 +1423,14 @@ final class TriageService {
         systemPrompt: String?,
         model: CloudTextModelID
     ) -> AsyncThrowingStream<String, Error> {
+        // Ensure cloud models always have a baseline identity prompt
+        let effectiveSystemPrompt: String = {
+            if let sp = systemPrompt, !sp.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return "\(Self.cloudBaselineSystemPrompt)\n\n\(sp)"
+            }
+            return Self.cloudBaselineSystemPrompt
+        }()
+
         if let error = cloudConfigurationError(for: model) {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: error)
@@ -1419,14 +1444,14 @@ final class TriageService {
         if let configurable = cloudLLMService as? any CloudConfigurableLLMClient {
             return configurable.stream(
                 prompt: prompt,
-                systemPrompt: systemPrompt,
+                systemPrompt: effectiveSystemPrompt,
                 maxTokens: inference.chatOutputTokens,
                 model: model
             )
         }
         return cloudLLMService.stream(
             prompt: prompt,
-            systemPrompt: systemPrompt,
+            systemPrompt: effectiveSystemPrompt,
             maxTokens: inference.chatOutputTokens
         )
     }
@@ -1499,12 +1524,19 @@ final class TriageService {
                     return
                 }
 
+                let fallbackChain = self.inference.cloudFallbackChain(for: operatingMode)
+                let useAutoFallback = self.inference.cloudAutoFallback
+
+                // In manual mode, only try the first model (the user's selection).
+                // In auto mode, try all models in the fallback chain.
+                let modelsToTry = useAutoFallback ? fallbackChain : Array(fallbackChain.prefix(1))
                 var lastCloudError: Error?
 
-                for model in self.inference.cloudFallbackChain(for: operatingMode) {
+                for model in modelsToTry {
                     var emittedAnyTokens = false
                     do {
                         self.lastDecision = .cloud
+                        Log.engine.info("Cloud request → \(model.vendorModelID, privacy: .public) (\(model.provider.displayName, privacy: .public))")
                         let stream = self.cloudStream(
                             prompt: prompt,
                             systemPrompt: systemPrompt,
@@ -1523,11 +1555,30 @@ final class TriageService {
                             return
                         }
                         Log.engine.warning(
-                            "Cloud stream route \(model.vendorModelID, privacy: .public) failed before yielding output, trying the next fallback: \(error.localizedDescription, privacy: .public)"
+                            "Cloud stream route \(model.vendorModelID, privacy: .public) failed before yielding output: \(error.localizedDescription, privacy: .public)"
                         )
                     }
                 }
 
+                // Manual mode: fail with descriptive error, no silent fallback
+                guard useAutoFallback else {
+                    let modelName = modelsToTry.first?.vendorModelID ?? "unknown"
+                    let reason = (lastCloudError as? LLMError)?.errorDescription
+                        ?? lastCloudError?.localizedDescription
+                        ?? "Unknown error"
+                    let message = """
+                    \(modelName) failed: \(reason)
+
+                    Suggestions:
+                    • Check your API key in Settings → AI
+                    • Verify your account has access to this model
+                    • Enable "Auto-route" in Settings to try other models automatically
+                    """
+                    continuation.finish(throwing: CloudRoutingError.modelFailed(message))
+                    return
+                }
+
+                // Auto mode: fall through to Apple Intelligence / local
                 if self.inference.appleIntelligenceAvailable {
                     self.lastDecision = .appleIntelligence
                     let appleFallback = self.appleIntelligenceStreamWithFallback(
