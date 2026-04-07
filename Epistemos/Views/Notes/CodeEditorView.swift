@@ -361,8 +361,8 @@ class CodeTextView: NSTextView {
         let visibleCharRange = lm.characterRange(forGlyphRange: visibleGlyphRange, actualGlyphRange: nil)
         let nsStr = string as NSString
         let indentWidth: CGFloat = 4 // spaces per indent level
-        let spaceWidth: CGFloat = (font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular))
-            .advancement(forGlyph: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular).glyph(withName: "space")).width
+        let monoFont = font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        let spaceWidth: CGFloat = (" " as NSString).size(withAttributes: [.font: monoFont]).width
         let guideColor = NSColor.separatorColor.withAlphaComponent(0.15)
         guideColor.set()
 
@@ -791,5 +791,203 @@ class MinimapView: NSView {
 
         sv.contentView.scroll(to: NSPoint(x: 0, y: clampedY))
         sv.reflectScrolledClipView(sv.contentView)
+    }
+}
+
+// MARK: - Code Inspector Views (Graph Node Preview)
+// Lightweight syntax-highlighted views for the graph inspector panel.
+// No minimap, no line numbers — just clean colored code.
+
+/// Read-only syntax-highlighted code preview for the graph inspector.
+struct CodeInspectorPreview: NSViewRepresentable {
+    let content: String
+    let language: String
+    let theme: EpistemosTheme
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        let textView = NSTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.usesFindBar = true
+        textView.drawsBackground = true
+
+        let fontSize: CGFloat = 12
+        textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        textView.textColor = theme.isDark ? .white : NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1)
+        textView.backgroundColor = theme.isDark
+            ? NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1)
+            : NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
+        textView.textContainerInset = NSSize(width: 12, height: 12)
+
+        textView.string = content
+        scrollView.documentView = textView
+        context.coordinator.textView = textView
+
+        applySyntaxHighlighting(to: textView)
+
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        guard let tv = context.coordinator.textView else { return }
+        if tv.string != content {
+            tv.string = content
+            applySyntaxHighlighting(to: tv)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    class Coordinator {
+        weak var textView: NSTextView?
+    }
+
+    fileprivate func applySyntaxHighlighting(to textView: NSTextView) {
+        CodeSyntaxHighlighter.apply(to: textView, language: language, theme: theme)
+    }
+}
+
+/// Shared syntax highlighting logic for inspector views.
+enum CodeSyntaxHighlighter {
+    static func apply(to textView: NSTextView, language: String, theme: EpistemosTheme) {
+        let text = textView.string
+        guard !text.isEmpty, !language.isEmpty else { return }
+
+        let nsString = text as NSString
+        let fullRange = NSRange(location: 0, length: nsString.length)
+        let storage = textView.textStorage ?? NSTextStorage()
+
+        storage.beginEditing()
+        storage.addAttribute(.font, value: textView.font ?? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular), range: fullRange)
+        storage.addAttribute(.foregroundColor, value: textView.textColor ?? .white, range: fullRange)
+
+        let maxTokens: UInt32 = 16384
+        let buffer = UnsafeMutablePointer<CodeToken>.allocate(capacity: Int(maxTokens))
+        defer { buffer.deallocate() }
+
+        let tokenCount = language.withCString { langPtr in
+            text.withCString { codePtr in
+                markdown_parse_code_tokens(codePtr, UInt32(text.utf8.count), langPtr, buffer, maxTokens)
+            }
+        }
+
+        let utf8 = Array(text.utf8)
+        var utf8ToUtf16 = [Int](repeating: 0, count: utf8.count + 1)
+        var utf16Pos = 0
+        var i = 0
+        while i < utf8.count {
+            utf8ToUtf16[i] = utf16Pos
+            let byte = utf8[i]
+            let seqLen: Int
+            if byte < 0x80 { seqLen = 1 }
+            else if byte < 0xE0 { seqLen = 2 }
+            else if byte < 0xF0 { seqLen = 3 }
+            else { seqLen = 4 }
+            utf16Pos += (seqLen == 4) ? 2 : 1
+            i += seqLen
+        }
+        utf8ToUtf16[utf8.count] = utf16Pos
+
+        for ti in 0..<Int(tokenCount) {
+            let token = buffer[ti]
+            let start8 = Int(token.start)
+            let end8 = min(Int(token.end), utf8.count)
+            guard start8 < utf8.count, start8 < end8 else { continue }
+            let start16 = utf8ToUtf16[start8]
+            let end16 = utf8ToUtf16[end8]
+            let range = NSRange(location: start16, length: end16 - start16)
+            guard range.location + range.length <= nsString.length else { continue }
+
+            let color = theme.nsColorForTokenType(token.token_type)
+            storage.addAttribute(.foregroundColor, value: color, range: range)
+
+            if token.token_type == 3, let baseFont = textView.font {
+                let italic = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
+                storage.addAttribute(.font, value: italic, range: range)
+            }
+        }
+
+        storage.endEditing()
+    }
+}
+
+/// Editable syntax-highlighted code editor for the graph inspector.
+/// Lightweight: no minimap, no gutter — just colored code with undo support.
+struct CodeInspectorEditor: NSViewRepresentable {
+    @Binding var text: String
+    let language: String
+    let theme: EpistemosTheme
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        let textView = NSTextView()
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.usesFindBar = true
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isContinuousSpellCheckingEnabled = false
+        textView.drawsBackground = true
+
+        let fontSize: CGFloat = 12
+        textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        textView.textColor = theme.isDark ? .white : NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1)
+        textView.backgroundColor = theme.isDark
+            ? NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1)
+            : NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
+        textView.insertionPointColor = theme.isDark ? .white : .black
+        textView.textContainerInset = NSSize(width: 12, height: 12)
+
+        textView.string = text
+        scrollView.documentView = textView
+        context.coordinator.textView = textView
+        context.coordinator.parent = self
+
+        CodeSyntaxHighlighter.apply(to: textView, language: language, theme: theme)
+
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.textDidChange(_:)),
+            name: NSText.didChangeNotification,
+            object: textView
+        )
+
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        // Avoid feedback loop
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    class Coordinator: NSObject {
+        weak var textView: NSTextView?
+        var parent: CodeInspectorEditor?
+
+        @objc func textDidChange(_ notification: Notification) {
+            guard let tv = textView else { return }
+            parent?.text = tv.string
+            // Re-highlight after edit
+            if let p = parent {
+                CodeSyntaxHighlighter.apply(to: tv, language: p.language, theme: p.theme)
+            }
+        }
     }
 }
