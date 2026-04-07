@@ -1613,6 +1613,10 @@ final class InferenceState {
 
     var inferenceMode: InferenceMode = .api
     var routingMode: LocalRoutingMode = .auto
+    /// When false (default), cloud requests use only the selected model and fail with
+    /// a descriptive error instead of silently falling back to other models.
+    /// When true, enables the automatic fallback chain across cloud providers and local models.
+    var cloudAutoFallback: Bool = false
     var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     var preferredChatModelSelection: ChatModelSelection = .localQwen(
         LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
