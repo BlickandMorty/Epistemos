@@ -1312,7 +1312,20 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "stream": true,
         ]
         if let systemPrompt, !systemPrompt.isEmpty {
-            body["system"] = systemPrompt
+            if provider == .anthropic {
+                // Prompt caching: send system as content blocks with cache_control.
+                // The ephemeral marker on the last block enables prefix caching.
+                // Subsequent turns with identical prefix get 90% input cost reduction.
+                body["system"] = [
+                    [
+                        "type": "text",
+                        "text": systemPrompt,
+                        "cache_control": ["type": "ephemeral"]
+                    ] as [String: Any]
+                ]
+            } else {
+                body["system"] = systemPrompt
+            }
         }
         if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
             body["thinking"] = thinking
@@ -1589,6 +1602,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             } else {
                 request.setValue(token, forHTTPHeaderField: "x-api-key")
+                // Enable prompt caching + structured outputs for direct API key auth
+                request.setValue(
+                    "prompt-caching-2024-07-31,structured-outputs-2025-11-13",
+                    forHTTPHeaderField: "anthropic-beta"
+                )
             }
         case .anthropicOAuth(let accessToken):
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")

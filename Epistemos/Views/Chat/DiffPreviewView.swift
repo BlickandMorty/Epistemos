@@ -10,15 +10,15 @@ import SwiftUI
 
 // MARK: - Diff Line Model
 
-enum DiffLineKind {
+enum EditDiffKind {
     case context
     case removed
     case added
 }
 
-struct DiffLine: Identifiable {
+struct EditDiffLine: Identifiable {
     let id = UUID()
-    let kind: DiffLineKind
+    let kind: EditDiffKind
     let text: String
     let lineNumber: Int?
 }
@@ -119,38 +119,38 @@ struct DiffPreviewView: View {
 
     // MARK: - Diff Computation
 
-    private var diffLines: [DiffLine] {
-        var lines: [DiffLine] = []
+    private var diffLines: [EditDiffLine] {
+        var lines: [EditDiffLine] = []
         for op in operations {
             let startIdx = max(0, op.startLine - 1)
             let endIdx = min(op.endLine, originalLines.count)
 
             // Context before (1 line)
             if startIdx > 0 {
-                lines.append(DiffLine(kind: .context, text: originalLines[startIdx - 1], lineNumber: op.startLine - 1))
+                lines.append(EditDiffLine(kind: .context, text: originalLines[startIdx - 1], lineNumber: op.startLine - 1))
             }
 
             // Removed lines
             for i in startIdx..<endIdx {
-                lines.append(DiffLine(kind: .removed, text: originalLines[i], lineNumber: i + 1))
+                lines.append(EditDiffLine(kind: .removed, text: originalLines[i], lineNumber: i + 1))
             }
 
             // Added lines
             let replacementLines = op.replacement.components(separatedBy: "\n")
             for (i, line) in replacementLines.enumerated() {
-                lines.append(DiffLine(kind: .added, text: line, lineNumber: op.startLine + i))
+                lines.append(EditDiffLine(kind: .added, text: line, lineNumber: op.startLine + i))
             }
 
             // Context after (1 line)
             if endIdx < originalLines.count {
-                lines.append(DiffLine(kind: .context, text: originalLines[endIdx], lineNumber: endIdx + 1))
+                lines.append(EditDiffLine(kind: .context, text: originalLines[endIdx], lineNumber: endIdx + 1))
             }
         }
         return lines
     }
 
     @ViewBuilder
-    private func diffLineRow(_ line: DiffLine) -> some View {
+    private func diffLineRow(_ line: EditDiffLine) -> some View {
         HStack(spacing: 0) {
             // Line number
             Text(line.lineNumber.map { String($0) } ?? "")
@@ -177,7 +177,7 @@ struct DiffPreviewView: View {
         .background(background(for: line.kind))
     }
 
-    private func prefix(for kind: DiffLineKind) -> String {
+    private func prefix(for kind: EditDiffKind) -> String {
         switch kind {
         case .context: " "
         case .removed: "-"
@@ -185,7 +185,7 @@ struct DiffPreviewView: View {
         }
     }
 
-    private func color(for kind: DiffLineKind) -> Color {
+    private func color(for kind: EditDiffKind) -> Color {
         switch kind {
         case .context: .secondary
         case .removed: .red
@@ -193,7 +193,7 @@ struct DiffPreviewView: View {
         }
     }
 
-    private func background(for kind: DiffLineKind) -> Color {
+    private func background(for kind: EditDiffKind) -> Color {
         switch kind {
         case .context: .clear
         case .removed: .red.opacity(0.08)

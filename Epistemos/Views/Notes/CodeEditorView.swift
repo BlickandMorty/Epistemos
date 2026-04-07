@@ -430,7 +430,7 @@ class CodeTextView: NSTextView {
     }
 
     private func updateBracketMatching() {
-        // Clear previous matches
+        // Clear previous matches on main thread
         guard let lm = layoutManager else { return }
         for range in matchedBracketRanges {
             lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: range)
@@ -438,17 +438,20 @@ class CodeTextView: NSTextView {
         matchedBracketRanges.removeAll()
 
         let loc = selectedRange().location
-        let nsStr = string as NSString
+        let text = string
+        let nsStr = text as NSString
         guard nsStr.length > 0 else { return }
 
         // Check character at cursor and before cursor
         let positions = [loc, loc > 0 ? loc - 1 : -1].filter { $0 >= 0 && $0 < nsStr.length }
+
+        // Scan synchronously — 10K char cap keeps it fast even on large files
         for pos in positions {
             let ch = Character(UnicodeScalar(nsStr.character(at: pos))!)
             guard Self.openBrackets.contains(ch) || Self.closeBrackets.contains(ch) else { continue }
             guard let match = Self.bracketMap[ch] else { continue }
 
-            if let matchPos = findMatchingBracket(for: ch, matching: match, at: pos, in: nsStr) {
+            if let matchPos = Self.findMatchingBracketStatic(for: ch, matching: match, at: pos, in: nsStr) {
                 let matchColor = NSColor.systemYellow.withAlphaComponent(0.25)
                 let r1 = NSRange(location: pos, length: 1)
                 let r2 = NSRange(location: matchPos, length: 1)
@@ -460,7 +463,7 @@ class CodeTextView: NSTextView {
         }
     }
 
-    private func findMatchingBracket(for bracket: Character, matching target: Character, at position: Int, in nsStr: NSString) -> Int? {
+    private static func findMatchingBracketStatic(for bracket: Character, matching target: Character, at position: Int, in nsStr: NSString) -> Int? {
         let isOpen = Self.openBrackets.contains(bracket)
         let direction = isOpen ? 1 : -1
         var depth = 0

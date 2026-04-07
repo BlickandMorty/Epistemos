@@ -168,6 +168,11 @@ struct MessageBubble: View {
 
                 TaggedMarkdownTextView(content: displayContent, theme: theme)
 
+                // Extended thinking trail — collapsible reasoning section
+                if let thinking = message.contentBlocks?.thinkingContent, !thinking.isEmpty {
+                    ThinkingTrailView(content: thinking)
+                }
+
                 // Structured artifacts — interactive cards for JSON, code, tables
                 if !message.artifacts.isEmpty {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
