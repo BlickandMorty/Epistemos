@@ -959,13 +959,23 @@ struct NoteDetailWorkspaceView: View {
             .glassEffect(.regular.interactive(), in: Capsule())
     }
 
+    @ViewBuilder
     private func noteEditorSurface(page: SDPage) -> some View {
-        ProseEditorView(
-            page: page,
-            isEditable: true,
-            initialBodyOverride: currentModeBodySnapshot(for: page.id)
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        if let path = page.filePath,
+           let lang = CodeLanguage.detect(from: path) {
+            CodeEditorView(
+                content: currentModeBodySnapshot(for: page.id) ?? page.body,
+                language: lang
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        } else {
+            ProseEditorView(
+                page: page,
+                isEditable: true,
+                initialBodyOverride: currentModeBodySnapshot(for: page.id)
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
     }
 
     private var noteToolbarAskItem: some View {

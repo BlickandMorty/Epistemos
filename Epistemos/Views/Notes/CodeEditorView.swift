@@ -205,6 +205,12 @@ struct CodeEditorRepresentable: NSViewRepresentable {
         container.addSubview(gutterView)
         container.addSubview(scrollView)
 
+        // Minimap
+        let minimapView = MinimapView(textView: textView, scrollView: scrollView)
+        minimapView.translatesAutoresizingMaskIntoConstraints = false
+        minimapView.backgroundColor = textView.backgroundColor
+        container.addSubview(minimapView)
+
         NSLayoutConstraint.activate([
             gutterView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             gutterView.topAnchor.constraint(equalTo: container.topAnchor),
@@ -214,12 +220,18 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             scrollView.leadingAnchor.constraint(equalTo: gutterView.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: container.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: minimapView.leadingAnchor),
+
+            minimapView.topAnchor.constraint(equalTo: container.topAnchor),
+            minimapView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            minimapView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            minimapView.widthAnchor.constraint(equalToConstant: 80),
         ])
 
         context.coordinator.textView = textView
         context.coordinator.gutterView = gutterView
         context.coordinator.scrollView = scrollView
+        context.coordinator.minimapView = minimapView
 
         // Observe text changes for highlighting + cursor tracking
         NotificationCenter.default.addObserver(
@@ -245,8 +257,9 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             )
         }
 
-        // Initial highlighting
+        // Initial highlighting + minimap
         textView.highlightSyntax(theme: theme)
+        minimapView.rebuildTokenRects(theme: theme)
 
         return container
     }
@@ -265,6 +278,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
         weak var textView: CodeTextView?
         weak var gutterView: LineNumberGutter?
         weak var scrollView: NSScrollView?
+        weak var minimapView: MinimapView?
 
         init(parent: CodeEditorRepresentable) {
             self.parent = parent
@@ -274,6 +288,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             guard let tv = textView else { return }
             tv.highlightSyntax(theme: parent.theme)
             gutterView?.setNeedsDisplay(gutterView?.bounds ?? .zero)
+            minimapView?.rebuildTokenRects(theme: parent.theme)
             parent.onContentChange?(tv.string)
         }
 
@@ -282,10 +297,13 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             let (line, col) = tv.cursorPosition()
             parent.cursorLine = line
             parent.cursorCol = col
+            tv.needsDisplay = true // redraw current line highlight
+            gutterView?.setNeedsDisplay(gutterView?.bounds ?? .zero)
         }
 
         @objc func scrollDidChange(_ notification: Notification) {
             gutterView?.setNeedsDisplay(gutterView?.bounds ?? .zero)
+            minimapView?.setNeedsDisplay(minimapView?.bounds ?? .zero)
         }
     }
 }
@@ -296,12 +314,141 @@ class CodeTextView: NSTextView {
     var language: String = ""
     private var lastHighlightHash: Int = 0
 
+    // Bracket matching state
+    private var matchedBracketRanges: [NSRange] = []
+    private static let bracketPairs: [(open: Character, close: Character)] = [
+        ("(", ")"), ("[", "]"), ("{", "}")
+    ]
+    private static let openBrackets: Set<Character> = ["(", "[", "{"]
+    private static let closeBrackets: Set<Character> = [")", "]", "}"]
+    private static let bracketMap: [Character: Character] = [
+        "(": ")", ")": "(",
+        "[": "]", "]": "[",
+        "{": "}", "}": "{"
+    ]
+    private static let maxBracketScan = 10_000
+
     func cursorPosition() -> (line: Int, col: Int) {
         let loc = selectedRange().location
         guard loc <= string.count else { return (1, 1) }
         let prefix = (string as NSString).substring(to: loc)
         let lines = prefix.components(separatedBy: "\n")
         return (lines.count, (lines.last?.count ?? 0) + 1)
+    }
+
+    // MARK: - Current Line Highlight + Indent Guides
+
+    override func drawBackground(in rect: NSRect) {
+        super.drawBackground(in: rect)
+        guard let lm = layoutManager, let tc = textContainer else { return }
+
+        // --- Current line highlight ---
+        let insertionLoc = selectedRange().location
+        let lineRange = (string as NSString).lineRange(for: NSRange(location: insertionLoc, length: 0))
+        let glyphRange = lm.glyphRange(forCharacterRange: lineRange, actualCharacterRange: nil)
+        let lineRect = lm.boundingRect(forGlyphRange: glyphRange, in: tc)
+        let highlightRect = NSRect(
+            x: 0,
+            y: lineRect.origin.y + textContainerInset.height,
+            width: bounds.width,
+            height: lineRect.height
+        )
+        (NSColor.labelColor.withAlphaComponent(0.06)).set()
+        highlightRect.fill()
+
+        // --- Indent guides ---
+        let visibleGlyphRange = lm.glyphRange(forBoundingRect: rect, in: tc)
+        let visibleCharRange = lm.characterRange(forGlyphRange: visibleGlyphRange, actualGlyphRange: nil)
+        let nsStr = string as NSString
+        let indentWidth: CGFloat = 4 // spaces per indent level
+        let spaceWidth: CGFloat = (font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular))
+            .advancement(forGlyph: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular).glyph(withName: "space")).width
+        let guideColor = NSColor.separatorColor.withAlphaComponent(0.15)
+        guideColor.set()
+
+        nsStr.enumerateSubstrings(
+            in: visibleCharRange,
+            options: [.byParagraphs, .substringNotRequired]
+        ) { _, substringRange, _, _ in
+            let lineStr = nsStr.substring(with: substringRange)
+            let leadingSpaces = lineStr.prefix(while: { $0 == " " }).count
+            let indentLevels = leadingSpaces / Int(indentWidth)
+            guard indentLevels > 0 else { return }
+
+            let gRange = lm.glyphRange(forCharacterRange: substringRange, actualCharacterRange: nil)
+            let lineRect = lm.boundingRect(forGlyphRange: gRange, in: tc)
+            let lineY = lineRect.origin.y + self.textContainerInset.height
+
+            for level in 1...indentLevels {
+                let x = self.textContainerInset.width + CGFloat(level) * indentWidth * spaceWidth
+                let path = NSBezierPath()
+                path.move(to: NSPoint(x: x, y: lineY))
+                path.line(to: NSPoint(x: x, y: lineY + lineRect.height))
+                path.lineWidth = 0.5
+                path.stroke()
+            }
+        }
+    }
+
+    // MARK: - Bracket Matching
+
+    override func setSelectedRange(_ charRange: NSRange, affinity: NSSelectionAffinity, stillSelecting: Bool) {
+        super.setSelectedRange(charRange, affinity: affinity, stillSelecting: stillSelecting)
+        if !stillSelecting {
+            updateBracketMatching()
+        }
+    }
+
+    private func updateBracketMatching() {
+        // Clear previous matches
+        guard let lm = layoutManager else { return }
+        for range in matchedBracketRanges {
+            lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: range)
+        }
+        matchedBracketRanges.removeAll()
+
+        let loc = selectedRange().location
+        let nsStr = string as NSString
+        guard nsStr.length > 0 else { return }
+
+        // Check character at cursor and before cursor
+        let positions = [loc, loc > 0 ? loc - 1 : -1].filter { $0 >= 0 && $0 < nsStr.length }
+        for pos in positions {
+            let ch = Character(UnicodeScalar(nsStr.character(at: pos))!)
+            guard Self.openBrackets.contains(ch) || Self.closeBrackets.contains(ch) else { continue }
+            guard let match = Self.bracketMap[ch] else { continue }
+
+            if let matchPos = findMatchingBracket(for: ch, matching: match, at: pos, in: nsStr) {
+                let matchColor = NSColor.systemYellow.withAlphaComponent(0.25)
+                let r1 = NSRange(location: pos, length: 1)
+                let r2 = NSRange(location: matchPos, length: 1)
+                lm.addTemporaryAttribute(.backgroundColor, value: matchColor, forCharacterRange: r1)
+                lm.addTemporaryAttribute(.backgroundColor, value: matchColor, forCharacterRange: r2)
+                matchedBracketRanges.append(contentsOf: [r1, r2])
+                break
+            }
+        }
+    }
+
+    private func findMatchingBracket(for bracket: Character, matching target: Character, at position: Int, in nsStr: NSString) -> Int? {
+        let isOpen = Self.openBrackets.contains(bracket)
+        let direction = isOpen ? 1 : -1
+        var depth = 0
+        var current = position + direction
+        var scanned = 0
+
+        while current >= 0, current < nsStr.length, scanned < Self.maxBracketScan {
+            let ch = Character(UnicodeScalar(nsStr.character(at: current))!)
+            if ch == bracket {
+                depth += 1
+            } else if ch == target {
+                if depth == 0 { return current }
+                depth -= 1
+            }
+            current += direction
+            scanned += 1
+        }
+        return nil
     }
 
     func highlightSyntax(theme: EpistemosTheme) {
@@ -465,5 +612,184 @@ class LineNumberGutter: NSView {
             let drawPoint = NSPoint(x: bounds.width - size.width - 8, y: y)
             numStr.draw(at: drawPoint, withAttributes: isCurrentLine ? currentAttrs : attrs)
         }
+    }
+}
+
+// MARK: - Minimap
+
+class MinimapView: NSView {
+    private weak var textView: CodeTextView?
+    private weak var scrollView: NSScrollView?
+    var backgroundColor: NSColor = .clear
+
+    /// Precomputed token rectangles in minimap coordinates.
+    private var tokenRects: [(rect: CGRect, color: NSColor)] = []
+    private var totalDocumentLines: Int = 1
+
+    init(textView: CodeTextView, scrollView: NSScrollView) {
+        self.textView = textView
+        self.scrollView = scrollView
+        super.init(frame: .zero)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var isFlipped: Bool { true }
+
+    /// Rebuild token rects asynchronously. Call on textDidChange, not on scroll.
+    func rebuildTokenRects(theme: EpistemosTheme) {
+        guard let tv = textView, !tv.string.isEmpty, !tv.language.isEmpty else {
+            tokenRects.removeAll()
+            setNeedsDisplay(bounds)
+            return
+        }
+
+        let text = tv.string
+        let language = tv.language
+        let lines = text.components(separatedBy: "\n")
+        totalDocumentLines = max(lines.count, 1)
+
+        // Tokenize via FFI
+        let maxTokens: UInt32 = 16384
+        let buffer = UnsafeMutablePointer<CodeToken>.allocate(capacity: Int(maxTokens))
+        defer { buffer.deallocate() }
+
+        let tokenCount = language.withCString { langPtr in
+            text.withCString { codePtr in
+                markdown_parse_code_tokens(
+                    codePtr, UInt32(text.utf8.count),
+                    langPtr, buffer, maxTokens
+                )
+            }
+        }
+
+        // Build line start offsets (UTF-8)
+        let utf8 = Array(text.utf8)
+        var lineStartOffsets: [Int] = [0]
+        for (i, byte) in utf8.enumerated() where byte == 0x0A {
+            lineStartOffsets.append(i + 1)
+        }
+
+        // Map tokens to minimap rects
+        var rects: [(rect: CGRect, color: NSColor)] = []
+        let lineHeight: CGFloat = 2.0 // each line is 2px tall in minimap
+        let charWidth: CGFloat = 0.8  // each char is <1px wide
+
+        for ti in 0..<Int(tokenCount) {
+            let token = buffer[ti]
+            let start8 = Int(token.start)
+            let end8 = min(Int(token.end), utf8.count)
+            guard start8 < end8 else { continue }
+
+            // Find which line this token starts on via binary search
+            var lo = 0, hi = lineStartOffsets.count - 1
+            while lo < hi {
+                let mid = (lo + hi + 1) / 2
+                if lineStartOffsets[mid] <= start8 { lo = mid } else { hi = mid - 1 }
+            }
+            let line = lo
+            let col = start8 - lineStartOffsets[line]
+            let tokenLen = end8 - start8
+
+            let rect = CGRect(
+                x: 4 + CGFloat(col) * charWidth,
+                y: CGFloat(line) * lineHeight,
+                width: CGFloat(tokenLen) * charWidth,
+                height: lineHeight
+            )
+            let color = theme.nsColorForTokenType(token.token_type)
+            rects.append((rect, color))
+        }
+
+        tokenRects = rects
+        setNeedsDisplay(bounds)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        // Background
+        backgroundColor.set()
+        dirtyRect.fill()
+
+        // Separator on left edge
+        NSColor.separatorColor.withAlphaComponent(0.2).set()
+        NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
+
+        guard !tokenRects.isEmpty else { return }
+
+        let lineHeight: CGFloat = 2.0
+        let totalHeight = CGFloat(totalDocumentLines) * lineHeight
+
+        // Scale factor to fit content into view height
+        let scale: CGFloat = totalHeight > bounds.height
+            ? bounds.height / totalHeight
+            : 1.0
+
+        // Draw token rects
+        for (rect, color) in tokenRects {
+            let scaledRect = CGRect(
+                x: rect.origin.x,
+                y: rect.origin.y * scale,
+                width: min(rect.width, bounds.width - rect.origin.x - 2),
+                height: max(rect.height * scale, 1)
+            )
+            guard scaledRect.intersects(dirtyRect) else { continue }
+            color.withAlphaComponent(0.7).set()
+            scaledRect.fill()
+        }
+
+        // Viewport indicator
+        if let sv = scrollView, let tv = textView {
+            let contentHeight = tv.frame.height
+            guard contentHeight > 0 else { return }
+            let visibleRect = sv.contentView.bounds
+            let yRatio = visibleRect.origin.y / contentHeight
+            let hRatio = visibleRect.height / contentHeight
+            let drawableHeight = totalHeight * scale
+
+            let vpRect = NSRect(
+                x: 0,
+                y: yRatio * drawableHeight,
+                width: bounds.width,
+                height: max(hRatio * drawableHeight, 20)
+            )
+            NSColor.labelColor.withAlphaComponent(0.08).set()
+            vpRect.fill()
+
+            // Top/bottom edges
+            NSColor.labelColor.withAlphaComponent(0.15).set()
+            NSRect(x: 0, y: vpRect.origin.y, width: bounds.width, height: 1).fill()
+            NSRect(x: 0, y: vpRect.maxY, width: bounds.width, height: 1).fill()
+        }
+    }
+
+    // Click-to-scroll
+    override func mouseDown(with event: NSEvent) {
+        scrollToClick(event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        scrollToClick(event)
+    }
+
+    private func scrollToClick(_ event: NSEvent) {
+        guard let sv = scrollView, let tv = textView else { return }
+        let localPoint = convert(event.locationInWindow, from: nil)
+
+        let lineHeight: CGFloat = 2.0
+        let totalHeight = CGFloat(totalDocumentLines) * lineHeight
+        let scale: CGFloat = totalHeight > bounds.height
+            ? bounds.height / totalHeight
+            : 1.0
+        let drawableHeight = totalHeight * scale
+        guard drawableHeight > 0 else { return }
+
+        let ratio = localPoint.y / drawableHeight
+        let contentHeight = tv.frame.height
+        let targetY = ratio * contentHeight - sv.contentView.bounds.height / 2
+        let clampedY = max(0, min(targetY, contentHeight - sv.contentView.bounds.height))
+
+        sv.contentView.scroll(to: NSPoint(x: 0, y: clampedY))
+        sv.reflectScrolledClipView(sv.contentView)
     }
 }
