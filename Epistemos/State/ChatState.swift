@@ -32,6 +32,17 @@ final class ChatState {
     /// When true, chat messages are kept in-memory only — not persisted to SwiftData.
     var isIncognito = false
 
+    // MARK: - Agent State (Goose-style tool execution tracking)
+
+    /// Active tool executions shown inline in the chat stream.
+    var activeToolName: String?
+
+    /// Whether the agent is currently executing (vs just streaming text).
+    var isAgentExecuting = false
+
+    /// Number of agent turns completed in current session.
+    var agentTurnCount = 0
+
     // MARK: - Vault Context (Ambient)
     /// Page IDs of notes whose full bodies have been loaded into context via @-mentions.
     var loadedNoteIds: Set<String> = []
