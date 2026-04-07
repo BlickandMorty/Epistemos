@@ -153,90 +153,46 @@ struct CodeEditorRepresentable: NSViewRepresentable {
     weak var noteChatState: NoteChatState?
 
     func makeNSView(context: Context) -> NSView {
-        let container = NSView()
-        container.wantsLayer = true
-
-        // Build the code text view
+        // MINIMAL TEST: Just an NSScrollView + NSTextView, no container, no gutter, no minimap
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
-        scrollView.drawsBackground = false
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = theme.isDark
+            ? NSColor(srgbRed: 0.122, green: 0.122, blue: 0.141, alpha: 1)
+            : .white
 
         let textView = CodeTextView()
         textView.isEditable = true
         textView.isSelectable = true
-        textView.isRichText = true  // required for per-token syntax highlighting colors
+        textView.isRichText = false  // plain text — simplest possible
         textView.allowsUndo = true
-        textView.usesFindBar = true
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
-        textView.isAutomaticSpellingCorrectionEnabled = false
-        textView.isContinuousSpellCheckingEnabled = false
+        textView.drawsBackground = true
+        textView.usesAdaptiveColorMappingForDarkAppearance = false
 
-        let fontSize: CGFloat = 13
-        textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        textView.textColor = theme.isDark ? .white : NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1)
+        let codeFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        let fgColor: NSColor = theme.isDark
+            ? NSColor(srgbRed: 0.875, green: 0.875, blue: 0.878, alpha: 1)
+            : NSColor(srgbRed: 0.110, green: 0.110, blue: 0.125, alpha: 1)
+
+        textView.font = codeFont
+        textView.textColor = fgColor
         textView.backgroundColor = theme.isDark
-            ? NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1)
-            : NSColor(red: 0.98, green: 0.98, blue: 0.99, alpha: 1)
-        textView.insertionPointColor = theme.isDark ? .white : .black
-        textView.selectedTextAttributes = [
-            .backgroundColor: NSColor.selectedTextBackgroundColor
-        ]
-
-        // No word wrap — horizontal scroll like Xcode
-        textView.isHorizontallyResizable = true
-        textView.textContainer?.widthTracksTextView = false
-        textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            ? NSColor(srgbRed: 0.122, green: 0.122, blue: 0.141, alpha: 1)
+            : .white
+        textView.insertionPointColor = fgColor
 
         textView.string = content
         textView.language = language
 
         scrollView.documentView = textView
 
-        // Line number gutter
-        let gutterView = LineNumberGutter(textView: textView)
-        gutterView.backgroundColor = textView.backgroundColor
-
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        gutterView.translatesAutoresizingMaskIntoConstraints = false
-
-        container.addSubview(gutterView)
-        container.addSubview(scrollView)
-
-        // Minimap
-        let minimapView = MinimapView(textView: textView, scrollView: scrollView)
-        minimapView.translatesAutoresizingMaskIntoConstraints = false
-        minimapView.backgroundColor = textView.backgroundColor
-        container.addSubview(minimapView)
-
-        NSLayoutConstraint.activate([
-            gutterView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            gutterView.topAnchor.constraint(equalTo: container.topAnchor),
-            gutterView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            gutterView.widthAnchor.constraint(equalToConstant: 48),
-
-            scrollView.leadingAnchor.constraint(equalTo: gutterView.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: container.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: minimapView.leadingAnchor),
-
-            minimapView.topAnchor.constraint(equalTo: container.topAnchor),
-            minimapView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            minimapView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            minimapView.widthAnchor.constraint(equalToConstant: 80),
-        ])
-
         context.coordinator.textView = textView
-        context.coordinator.gutterView = gutterView
         context.coordinator.scrollView = scrollView
-        context.coordinator.minimapView = minimapView
 
-        // Observe text changes for highlighting + cursor tracking
+        // Observers
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.textDidChange(_:)),
@@ -249,7 +205,6 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             name: NSTextView.didChangeSelectionNotification,
             object: textView
         )
-        // Scroll sync for gutter + minimap
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
             context.coordinator,
@@ -257,10 +212,6 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             name: NSView.boundsDidChangeNotification,
             object: scrollView.contentView
         )
-
-        // Initial highlighting + minimap
-        textView.highlightSyntax(theme: theme)
-        minimapView.rebuildTokenRects(theme: theme)
 
         // Wire AI chat writer closures (undo-safe via shouldChangeText triad)
         if let chatState = noteChatState {
@@ -289,12 +240,31 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             }
         }
 
-        return container
+        return scrollView
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        // Theme changes: re-highlight
-        context.coordinator.textView?.highlightSyntax(theme: theme)
+        // Only re-highlight on actual theme changes, NOT every SwiftUI state update
+        guard context.coordinator.lastAppliedTheme != theme else { return }
+        context.coordinator.lastAppliedTheme = theme
+
+        if let tv = context.coordinator.textView {
+            let xc = theme.xcodeColors
+            let fgColor = xc.editorForeground.usingColorSpace(.sRGB) ?? xc.editorForeground
+            let bgColor = xc.editorBackground.usingColorSpace(.sRGB) ?? xc.editorBackground
+            tv.textColor = fgColor
+            tv.backgroundColor = bgColor
+            tv.insertionPointColor = xc.insertionPoint
+            tv.typingAttributes = [
+                .font: tv.font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+                .foregroundColor: fgColor
+            ]
+            tv.lastHighlightHash = 0 // force re-highlight
+            tv.highlightSyntax(theme: theme)
+            tv.setNeedsDisplay(tv.bounds)
+        }
+        context.coordinator.gutterView?.setNeedsDisplay(context.coordinator.gutterView?.bounds ?? .zero)
+        context.coordinator.minimapView?.rebuildTokenRects(theme: theme)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -307,6 +277,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
         weak var gutterView: LineNumberGutter?
         weak var scrollView: NSScrollView?
         weak var minimapView: MinimapView?
+        var lastAppliedTheme: EpistemosTheme?
 
         init(parent: CodeEditorRepresentable) {
             self.parent = parent
@@ -334,6 +305,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
         @objc func scrollDidChange(_ notification: Notification) {
             gutterView?.setNeedsDisplay(gutterView?.bounds ?? .zero)
             minimapView?.setNeedsDisplay(minimapView?.bounds ?? .zero)
+            // Note: highlightSyntax is expensive - only call on text changes, not scroll
         }
     }
 }
@@ -342,7 +314,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
 
 class CodeTextView: NSTextView {
     var language: String = ""
-    private var lastHighlightHash: Int = 0
+    var lastHighlightHash: Int = 0
 
     // Bracket matching state
     private var matchedBracketRanges: [NSRange] = []
@@ -509,9 +481,10 @@ class CodeTextView: NSTextView {
     func highlightSyntax(theme: EpistemosTheme) {
         guard !language.isEmpty, !string.isEmpty else { return }
 
-        // Skip if content hasn't changed
+        // Skip if content hasn't changed (but allow first run with hash=0)
         let hash = string.hashValue &+ language.hashValue
-        guard hash != lastHighlightHash else { return }
+        let isFirstRun = lastHighlightHash == 0
+        guard isFirstRun || hash != lastHighlightHash else { return }
         lastHighlightHash = hash
 
         let text = string
@@ -519,10 +492,17 @@ class CodeTextView: NSTextView {
         let fullRange = NSRange(location: 0, length: nsString.length)
 
         // Reset to base monospace font + color
-        let storage = textStorage ?? NSTextStorage()
+        guard let storage = textStorage else {
+            NSLog("[CodeEditor] highlightSyntax: textStorage is nil!")
+            return
+        }
+        // Use a guaranteed-visible foreground color — never rely on textColor which may be nil/stale
+        let baseFg: NSColor = textColor
+            ?? NSColor(srgbRed: 0.875, green: 0.875, blue: 0.878, alpha: 1) // #DFDFE0 fallback
+
         storage.beginEditing()
         storage.addAttribute(.font, value: font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular), range: fullRange)
-        storage.addAttribute(.foregroundColor, value: textColor ?? .white, range: fullRange)
+        storage.addAttribute(.foregroundColor, value: baseFg, range: fullRange)
 
         // Call tree-sitter via FFI
         let maxTokens: UInt32 = 16384

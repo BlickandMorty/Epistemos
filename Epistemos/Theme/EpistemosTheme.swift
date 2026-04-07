@@ -189,6 +189,90 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    // MARK: - Xcode Code Editor Colors (extracted from Default Dark/Light .xccolortheme plists)
+
+    // @unchecked: NSColor is thread-safe for reads; instances are created once as static lets.
+    struct XcodeCodeColors: @unchecked Sendable {
+        let keyword: NSColor
+        let string: NSColor
+        let number: NSColor
+        let comment: NSColor
+        let function: NSColor
+        let type: NSColor
+        let op: NSColor
+        let punctuation: NSColor
+        let variable: NSColor
+        let property: NSColor
+        let constant: NSColor
+        let tag: NSColor
+        let attribute: NSColor
+        let editorBackground: NSColor
+        let editorForeground: NSColor
+        let currentLineHighlight: NSColor
+        let insertionPoint: NSColor
+        let selection: NSColor
+        let gutterBackground: NSColor
+        let gutterForeground: NSColor
+        let gutterForegroundActive: NSColor
+        let gutterSeparator: NSColor
+
+        /// Xcode Default (Dark) — direct .xccolortheme plist extraction
+        static let defaultDark = XcodeCodeColors(
+            keyword:              NSColor(srgbRed: 0.988, green: 0.373, blue: 0.639, alpha: 1), // #FC5FA3
+            string:               NSColor(srgbRed: 0.122, green: 0.914, blue: 0.024, alpha: 1), // #1FE906
+            number:               NSColor(srgbRed: 0.588, green: 0.527, blue: 0.961, alpha: 1), // #9686F5
+            comment:              NSColor(srgbRed: 0.424, green: 0.475, blue: 0.525, alpha: 1), // #6C7986
+            function:             NSColor(srgbRed: 0.800, green: 1.000, blue: 0.608, alpha: 1), // #CCFF9B
+            type:                 NSColor(srgbRed: 0.510, green: 0.812, blue: 0.945, alpha: 1), // #82CFF1
+            op:                   NSColor(srgbRed: 0.875, green: 0.875, blue: 0.878, alpha: 0.7), // foreground 70%
+            punctuation:          NSColor(srgbRed: 0.875, green: 0.875, blue: 0.878, alpha: 0.5), // foreground 50%
+            variable:             NSColor(srgbRed: 0.306, green: 0.694, blue: 0.800, alpha: 1), // #4EB1CC
+            property:             NSColor(srgbRed: 0.514, green: 0.788, blue: 0.737, alpha: 1), // #83C9BC
+            constant:             NSColor(srgbRed: 0.839, green: 0.769, blue: 0.333, alpha: 1), // #D6C455
+            tag:                  NSColor(srgbRed: 0.992, green: 0.561, blue: 0.247, alpha: 1), // #FD8F3F
+            attribute:            NSColor(srgbRed: 0.459, green: 0.706, blue: 0.573, alpha: 1), // #75B492
+            editorBackground:     NSColor(srgbRed: 0.122, green: 0.122, blue: 0.141, alpha: 1), // #1F1F24
+            editorForeground:     NSColor(srgbRed: 0.875, green: 0.875, blue: 0.878, alpha: 1), // #DFDFE0
+            currentLineHighlight: NSColor(srgbRed: 0.137, green: 0.145, blue: 0.169, alpha: 1), // #23252B
+            insertionPoint:       .white,
+            selection:            NSColor(srgbRed: 0.318, green: 0.357, blue: 0.439, alpha: 0.6), // #515B70 @ 60%
+            gutterBackground:     NSColor(srgbRed: 0.122, green: 0.122, blue: 0.141, alpha: 1), // match editor
+            gutterForeground:     NSColor(srgbRed: 0.875, green: 0.875, blue: 0.878, alpha: 0.33),
+            gutterForegroundActive: NSColor(srgbRed: 0.875, green: 0.875, blue: 0.878, alpha: 1),
+            gutterSeparator:      NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.10)
+        )
+
+        /// Xcode Default (Light) — derived counterpart
+        static let defaultLight = XcodeCodeColors(
+            keyword:              NSColor(srgbRed: 0.678, green: 0.239, blue: 0.643, alpha: 1), // #AD3DA4
+            string:               NSColor(srgbRed: 0.769, green: 0.102, blue: 0.086, alpha: 1), // #C41A16
+            number:               NSColor(srgbRed: 0.110, green: 0.000, blue: 0.812, alpha: 1), // #1C00CF
+            comment:              NSColor(srgbRed: 0.361, green: 0.431, blue: 0.455, alpha: 1), // #5C6E74
+            function:             NSColor(srgbRed: 0.180, green: 0.427, blue: 0.557, alpha: 1), // #2E6D8E
+            type:                 NSColor(srgbRed: 0.243, green: 0.600, blue: 0.624, alpha: 1), // #3E999F
+            op:                   NSColor(srgbRed: 0.110, green: 0.110, blue: 0.125, alpha: 0.7),
+            punctuation:          NSColor(srgbRed: 0.110, green: 0.110, blue: 0.125, alpha: 0.5),
+            variable:             NSColor(srgbRed: 0.153, green: 0.306, blue: 0.396, alpha: 1), // #274E65
+            property:             NSColor(srgbRed: 0.243, green: 0.502, blue: 0.529, alpha: 1), // #3E8087
+            constant:             NSColor(srgbRed: 0.165, green: 0.165, blue: 0.647, alpha: 1), // #2A2AA5
+            tag:                  NSColor(srgbRed: 0.388, green: 0.220, blue: 0.125, alpha: 1), // #633820
+            attribute:            NSColor(srgbRed: 0.718, green: 0.224, blue: 0.600, alpha: 1), // #B73999
+            editorBackground:     .white,
+            editorForeground:     NSColor(srgbRed: 0.110, green: 0.110, blue: 0.125, alpha: 1), // #1C1C20
+            currentLineHighlight: NSColor(srgbRed: 0.925, green: 0.961, blue: 1.000, alpha: 1), // #ECF5FF
+            insertionPoint:       .black,
+            selection:            NSColor.selectedTextBackgroundColor,
+            gutterBackground:     NSColor(srgbRed: 0.961, green: 0.961, blue: 0.961, alpha: 1), // #F5F5F5
+            gutterForeground:     NSColor(srgbRed: 0.651, green: 0.651, blue: 0.651, alpha: 1), // #A6A6A6
+            gutterForegroundActive: NSColor(srgbRed: 0.157, green: 0.157, blue: 0.157, alpha: 1), // #282828
+            gutterSeparator:      NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.08)
+        )
+    }
+
+    @MainActor var xcodeColors: XcodeCodeColors {
+        isDark ? .defaultDark : .defaultLight
+    }
+
     nonisolated private static let resolvedCache: [EpistemosTheme: ResolvedTheme] = {
         Dictionary(
             EpistemosTheme.allCases.map { ($0, $0.buildResolved()) },
@@ -817,22 +901,25 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     var codeAttribute: Color { emerald }
 
     /// Map a CodeToken token_type (UInt8) to an NSColor for syntax highlighting.
+    /// Uses exact Xcode Default Dark/Light palette extracted from .xccolortheme plists.
+    @MainActor
     func nsColorForTokenType(_ tokenType: UInt8) -> NSColor {
+        let xc = xcodeColors
         switch tokenType {
-        case 0:   return NSColor(codeKeyword)    // keyword
-        case 1:   return NSColor(codeString)     // string
-        case 2:   return NSColor(codeNumber)     // number
-        case 3:   return NSColor(codeComment)    // comment
-        case 4:   return NSColor(codeFunction)   // function
-        case 5:   return NSColor(codeType)       // type
-        case 6:   return resolved.foreground.nsColor.withAlphaComponent(0.6) // operator
-        case 7:   return resolved.foreground.nsColor.withAlphaComponent(0.5) // punctuation
-        case 8:   return resolved.foreground.nsColor     // variable
-        case 9:   return NSColor(codeProperty)   // property
-        case 10:  return NSColor(codeConstant)   // constant
-        case 11:  return NSColor(codeTag)        // tag
-        case 12:  return NSColor(codeAttribute)  // attribute
-        default:  return resolved.foreground.nsColor     // plain
+        case 0:   return xc.keyword      // keyword — hot pink (dark) / magenta (light)
+        case 1:   return xc.string       // string — bright green (dark) / deep red (light)
+        case 2:   return xc.number       // number — purple (dark) / blue (light)
+        case 3:   return xc.comment      // comment — slate gray
+        case 4:   return xc.function     // function — lime (dark) / steel blue (light)
+        case 5:   return xc.type         // type — sky blue (dark) / teal (light)
+        case 6:   return xc.op           // operator — foreground at 70%
+        case 7:   return xc.punctuation  // punctuation — foreground at 50%
+        case 8:   return xc.variable     // variable — steel blue-cyan
+        case 9:   return xc.property     // property — seafoam
+        case 10:  return xc.constant     // constant — warm gold
+        case 11:  return xc.tag          // tag/macro — orange
+        case 12:  return xc.attribute    // attribute — green (dark) / pink-violet (light)
+        default:  return xc.editorForeground // plain text
         }
     }
 
