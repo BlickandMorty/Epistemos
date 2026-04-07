@@ -195,13 +195,14 @@ final class CodeAskBarService {
     // Services
     private let triageService: TriageService?
     private let graphState: GraphState?
-    private let embeddingService = EmbeddingService()
+    private let embeddingService: EmbeddingService
     private let logger = Logger(subsystem: "app.epistemos", category: "CodeAskBar")
     private var queryTask: Task<Void, Never>?
-    
+
     init(triageService: TriageService?, graphState: GraphState?) {
         self.triageService = triageService
         self.graphState = graphState
+        self.embeddingService = graphState?.embeddingService ?? EmbeddingService()
     }
     
     // MARK: - Query Processing

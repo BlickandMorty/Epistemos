@@ -451,6 +451,7 @@ struct NotesSidebar: View {
     }
     private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
 
+
     /// Coalesces multiple `setNeedsRebuild()` calls into a single `rebuildCache()`
     /// on the next run loop tick. Prevents 13+ redundant rebuilds per event cycle.
     private func setNeedsRebuild() {
@@ -461,13 +462,21 @@ struct NotesSidebar: View {
     }
 
     private func rebuildCache() {
+        // Early exit: if sidebar-relevant properties haven't changed, skip the
+        // expensive rebuild. This prevents the 5s prose editor save cycle from
+        // triggering full cache reconstruction when only body/updatedAt changed.
+        let newItems = allPages.map { SidebarPageItem($0) }
+        if newItems == cachedPageItems && allFolders.count == cachedFolderItems.count {
+            return
+        }
+
         // Deduplicate by ID to prevent SwiftUI FAULT-level duplicate ID errors.
         // SwiftData @Query can return the same SDPage multiple times during merges.
         var seenPageIds = Set<String>()
-        cachedPageItems = allPages.compactMap { page in
-            guard !seenPageIds.contains(page.id) else { return nil }
-            seenPageIds.insert(page.id)
-            return SidebarPageItem(page)
+        cachedPageItems = newItems.filter { item in
+            guard !seenPageIds.contains(item.id) else { return false }
+            seenPageIds.insert(item.id)
+            return true
         }
         cachedPageById = Dictionary(
             cachedPageItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })

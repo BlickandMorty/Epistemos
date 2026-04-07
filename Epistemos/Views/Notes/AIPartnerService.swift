@@ -97,11 +97,10 @@ final class AIPartnerService {
     private let triageService: TriageService?
     private let graphState: GraphState?
     private let metalEngine = MetalComputeEngine.shared
-    private let embeddingService = EmbeddingService()
+    private let embeddingService: EmbeddingService
     private let analysisQueue = AnalysisQueue.shared
     private let logger = Logger(subsystem: "app.epistemos", category: "AIPartner")
-    
-    // NEW: Weighted context engine for uncanny understanding
+
     private var weightedContextEngine: WeightedContextEngine?
     
     // MARK: - State
@@ -165,7 +164,9 @@ final class AIPartnerService {
     init(triageService: TriageService?, graphState: GraphState?) {
         self.triageService = triageService
         self.graphState = graphState
-        self.weightedContextEngine = WeightedContextEngine(graphState: graphState)
+        let svc = graphState?.embeddingService ?? EmbeddingService()
+        self.embeddingService = svc
+        self.weightedContextEngine = WeightedContextEngine(graphState: graphState, embeddingService: svc)
     }
     
     // MARK: - Session Management
