@@ -1634,6 +1634,8 @@ final class AppBootstrap {
         ambientManifest = nil
         vaultSync.ambientManifest = nil
         _ = await vaultSync.stopWatchingAsync(preserveData: false)
+        vaultSync.clearPersistedVaultSelection()
+        NoteWindowManager.shared.resetForVaultRebuild()
 
         let context = modelContainer.mainContext
         do {

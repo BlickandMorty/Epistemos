@@ -1801,6 +1801,13 @@ final class VaultSyncService {
         let interval = Log.vaultPerf.beginInterval("switchToVaultAsync")
         defer { Log.vaultPerf.endInterval("switchToVaultAsync", interval) }
 
+        // Already watching this exact vault — no-op
+        if isWatching,
+           let current = self.vaultURL,
+           current.standardizedFileURL == vaultURL.standardizedFileURL {
+            return true
+        }
+
         if isWatching {
             let didClear = await stopWatchingAsync(preserveData: false)
             guard didClear else {
@@ -3094,13 +3101,21 @@ enum VaultConnectionActions {
 
             guard shouldProceedWithVaultSelection(url: url, assessment: assessment) else { return }
 
-            beforeSwitch()
             let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
             if didSwitch {
+                // Reset UI only after successful switch
+                beforeSwitch()
+                NoteWindowManager.shared.resetForVaultRebuild()
                 vaultSync.persistVaultSelection(
                     url,
                     userConfirmedSuspiciousFolder: assessment.shouldConfirmSelection
                 )
+            } else {
+                // Switch failed — old vault already stopped, show clean disconnected state
+                beforeSwitch()
+                NoteWindowManager.shared.resetForVaultRebuild()
+                AppBootstrap.shared?.uiState.setActivePanel(.home)
+                log.error("Vault switch to \(url.lastPathComponent, privacy: .public) failed")
             }
         }
     }
@@ -3114,20 +3129,29 @@ enum VaultConnectionActions {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
+        // Same folder already connected — no-op
+        if let current = vaultSync.vaultURL,
+           current.standardizedFileURL == url.standardizedFileURL { return }
+
         connectSelectedVault(url: url, vaultSync: vaultSync) {
             notesUI.resetForVaultSwitch()
         }
     }
 
     static func disconnect(notesUI: NotesUIState, vaultSync: VaultSyncService) {
-        notesUI.resetForVaultSwitch()
         Task { @MainActor in
+            // Teardown vault first so vaultURL is nil before UI resets
             let didClear = await vaultSync.stopWatchingAsync(preserveData: false)
             if didClear {
                 vaultSync.dismissRecoveryIssue()
             }
             vaultSync.clearPersistedVaultSelection()
+
+            // Now reset UI — vaultURL is already nil, SwiftUI will reflect immediately
+            notesUI.resetForVaultSwitch()
+            NoteWindowManager.shared.resetForVaultRebuild()
             AppBootstrap.shared?.ambientManifest = nil
+            AppBootstrap.shared?.uiState.setActivePanel(.home)
         }
     }
 
