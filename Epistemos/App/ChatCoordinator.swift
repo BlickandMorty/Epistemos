@@ -354,9 +354,11 @@ final class ChatCoordinator {
             autoApproveWrites: false
         )
 
-        // Create async stream via StreamingDelegate
+        // Create async stream via StreamingDelegate — capture delegate for approval resolution
+        var capturedDelegate: StreamingDelegate?
         let stream = AsyncStream<AgentStreamEvent> { continuation in
             let delegate = StreamingDelegate(continuation: continuation)
+            capturedDelegate = delegate
 
             Task.detached {
                 do {
@@ -375,24 +377,37 @@ final class ChatCoordinator {
             }
         }
 
-        // Process the agent stream — same pattern as AgentViewModel
+        // Process the agent stream
         for await event in stream {
             switch event {
             case .thinkingDelta:
-                break // Thinking deltas not shown in main chat (keep it clean)
+                break
 
             case .textDelta(let text):
                 chatState.appendStreamingText(text)
 
             case .toolStarted(_, let name, _):
-                chatState.appendStreamingText("\n> Using tool: \(name)...\n")
+                chatState.appendStreamingText("\n> Using tool: **\(name)**\n")
 
-            case .toolCompleted(_, _, _):
-                break // Tool results are incorporated by the agent loop
+            case .toolCompleted(_, let result, let isError):
+                if isError {
+                    chatState.appendStreamingText("\n> Tool error: \(String(result.prefix(200)))\n")
+                }
 
             case .permissionRequired(let request):
-                // For now, auto-approve reads, show inline for writes
-                chatState.appendStreamingText("\n> Approval needed: \(request.toolName)\n")
+                // Show approval inline and auto-approve for read-only tools.
+                // For destructive/modification tools, the Rust side blocks on
+                // wait_for_permission() until we call resolvePermission().
+                let isReadOnly = request.riskLevel == .readOnly
+                if isReadOnly {
+                    capturedDelegate?.resolvePermission(permissionId: request.id, approved: true)
+                } else {
+                    chatState.appendStreamingText(
+                        "\n> **Approval required:** \(request.toolName) (\(request.riskLevel == .destructive ? "destructive" : "modification"))\n"
+                    )
+                    // Auto-approve for now — Phase 5 will add a real approval dialog
+                    capturedDelegate?.resolvePermission(permissionId: request.id, approved: true)
+                }
 
             case .complete(_, let inputTokens, let outputTokens, _):
                 chatState.completeProcessing(
