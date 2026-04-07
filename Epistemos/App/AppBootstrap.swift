@@ -938,8 +938,13 @@ final class AppBootstrap {
             setupComplete: setupComplete,
             backgroundDisabled: PowerGuard.shared.shouldDisableBackground
         ) {
-            Task.detached(priority: .utility) { [hermesManager] in
-                await hermesManager.preWarm()
+            // Hermes is now OPTIONAL — main chat uses Rust agent_core directly.
+            // Only pre-warm if user has explicitly used the legacy Agent panel.
+            let shouldPreWarm = UserDefaults.standard.bool(forKey: "epistemos.hermesPreWarm")
+            if shouldPreWarm {
+                Task.detached(priority: .utility) { [hermesManager] in
+                    await hermesManager.preWarm()
+                }
             }
         }
 
