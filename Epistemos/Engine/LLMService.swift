@@ -1106,6 +1106,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "input": input,
             "instructions": systemPrompt ?? "You are a helpful assistant.",
             "stream": true,
+            "store": false,
         ]
         if maxTokens > 0 {
             body["max_output_tokens"] = maxTokens

@@ -316,6 +316,7 @@ struct CodeEditorRepresentable: NSViewRepresentable {
 
         @objc func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
+            tv.invalidateGuideCache()
             tv.highlightSyntax(theme: parent.theme)
             gutterView?.setNeedsDisplay(gutterView?.bounds ?? .zero)
             minimapView?.rebuildTokenRects(theme: parent.theme)
@@ -327,7 +328,8 @@ struct CodeEditorRepresentable: NSViewRepresentable {
             let (line, col) = tv.cursorPosition()
             parent.cursorLine = line
             parent.cursorCol = col
-            tv.needsDisplay = true // redraw current line highlight
+            // Only redraw the visible area for line highlight — guides are cached
+            tv.setNeedsDisplay(tv.visibleRect)
             gutterView?.setNeedsDisplay(gutterView?.bounds ?? .zero)
         }
 
@@ -368,6 +370,16 @@ class CodeTextView: NSTextView {
 
     // MARK: - Current Line Highlight + Indent Guides
 
+    // Cache indent guide paths — only rebuild on text change, not on scroll/selection
+    private var cachedGuidePath: NSBezierPath?
+    private var cachedGuideHash: Int = 0
+    private var cachedSpaceWidth: CGFloat = 0
+
+    func invalidateGuideCache() {
+        cachedGuidePath = nil
+        cachedGuideHash = 0
+    }
+
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
         guard let lm = layoutManager, let tc = textContainer else { return }
@@ -386,18 +398,31 @@ class CodeTextView: NSTextView {
         (NSColor.labelColor.withAlphaComponent(0.06)).set()
         highlightRect.fill()
 
-        // --- Indent guides (batched into single path for performance) ---
-        let visibleGlyphRange = lm.glyphRange(forBoundingRect: rect, in: tc)
-        let visibleCharRange = lm.characterRange(forGlyphRange: visibleGlyphRange, actualGlyphRange: nil)
+        // --- Indent guides (cached, only rebuilt on text change) ---
+        let contentHash = string.hashValue
+        if cachedGuidePath == nil || cachedGuideHash != contentHash {
+            let monoFont = font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+            cachedSpaceWidth = (" " as NSString).size(withAttributes: [.font: monoFont]).width
+            cachedGuideHash = contentHash
+            cachedGuidePath = buildGuidePath(lm: lm, tc: tc)
+        }
+
+        if let path = cachedGuidePath {
+            NSColor.separatorColor.withAlphaComponent(0.15).set()
+            path.stroke()
+        }
+    }
+
+    private func buildGuidePath(lm: NSLayoutManager, tc: NSTextContainer) -> NSBezierPath {
         let nsStr = string as NSString
         let indentWidth: CGFloat = 4
-        let monoFont = font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        let spaceWidth: CGFloat = (" " as NSString).size(withAttributes: [.font: monoFont]).width
-        let guidePath = NSBezierPath()
-        guidePath.lineWidth = 0.5
+        let sw = cachedSpaceWidth
+        let fullRange = NSRange(location: 0, length: nsStr.length)
+        let path = NSBezierPath()
+        path.lineWidth = 0.5
 
         nsStr.enumerateSubstrings(
-            in: visibleCharRange,
+            in: fullRange,
             options: [.byParagraphs, .substringNotRequired]
         ) { _, substringRange, _, _ in
             let lineStr = nsStr.substring(with: substringRange)
@@ -410,14 +435,13 @@ class CodeTextView: NSTextView {
             let lineY = lineRect.origin.y + self.textContainerInset.height
 
             for level in 1...indentLevels {
-                let x = self.textContainerInset.width + CGFloat(level) * indentWidth * spaceWidth
-                guidePath.move(to: NSPoint(x: x, y: lineY))
-                guidePath.line(to: NSPoint(x: x, y: lineY + lineRect.height))
+                let x = self.textContainerInset.width + CGFloat(level) * indentWidth * sw
+                path.move(to: NSPoint(x: x, y: lineY))
+                path.line(to: NSPoint(x: x, y: lineY + lineRect.height))
             }
         }
 
-        NSColor.separatorColor.withAlphaComponent(0.15).set()
-        guidePath.stroke()
+        return path
     }
 
     // MARK: - Bracket Matching
