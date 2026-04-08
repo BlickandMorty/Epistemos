@@ -1738,20 +1738,22 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         return roundedMemoryGB >= model.minimumRecommendedMemoryGB
     }
 
+    /// Recommends the best local model for the available memory.
+    /// Uses 2026 frontier models: Gemma 4 for small/multimodal, Qwopus for coding.
     nonisolated var recommendedLocalTextModelID: LocalTextModelID {
         switch roundedMemoryGB {
         case ..<12:
-            .qwen35_0_8B4Bit
+            .gemma4_2B4Bit           // Best 2B: multimodal, 256K context (was Qwen 0.8B)
         case ..<16:
-            .qwen35_2B4Bit
+            .gemma4_4B4Bit           // Best 4B: multimodal, 131K context (was Qwen 2B)
+        case ..<18:
+            .deepseekR1Distill7B     // Best 7B: reasoning specialist (was Qwen 4B)
         case ..<24:
-            .qwen35_4B4Bit
+            .gemma4_27BA4B4Bit       // Best 18GB: MoE 4B active, 262K, multimodal (was Qwen 9B)
         case ..<48:
-            .qwen35_9B4Bit
-        case ..<64:
-            .qwen35_27B4Bit
+            .qwopus27Bv3             // Best 24GB: 95.73% HumanEval, tool calling (was Qwen 27B)
         default:
-            .qwen35_35BA3B4Bit
+            .qwopusMoE35BA3B         // Best 48GB+: fast MoE with Opus reasoning (was Qwen 35B)
         }
     }
 
@@ -1767,19 +1769,21 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         smallerLocalTextModelID(than: recommendedLocalTextModelID)
     }
 
+    /// Content length derived from the recommended model's actual context window.
+    /// Uses a fraction of the model's max to leave room for output + KV cache.
     nonisolated var baseLocalRuntimeContentLength: Int {
-        switch roundedMemoryGB {
-        case ..<12:
-            3_200
-        case ..<16:
-            4_800
-        case ..<24:
-            8_000
-        case ..<36:
-            12_000
-        default:
-            min(maxRecommendedLocalContentLength, 22_000)
+        let model = recommendedLocalTextModelID
+        // Use 60% of the model's context window for input, leaving 40% for output + overhead
+        let modelBudget = Int(Double(model.maxContextTokens) * 0.6)
+        // Cap at a practical maximum to avoid VRAM pressure from KV cache
+        let vramCap: Int = switch roundedMemoryGB {
+        case ..<12:  4_000
+        case ..<16:  6_000
+        case ..<24:  12_000
+        case ..<48:  20_000
+        default:     32_000
         }
+        return min(modelBudget, vramCap)
     }
 
     nonisolated func recommendedLocalTextModelID(for conditions: LocalRuntimeConditions) -> LocalTextModelID {
