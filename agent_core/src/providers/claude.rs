@@ -205,6 +205,15 @@ impl AgentProvider for ClaudeProvider {
         if config.enable_code_execution {
             api_tools.push(json!({ "type": "code_execution_20250825" }));
         }
+        if config.enable_computer_use && self.model != "claude-haiku-4-5" {
+            api_tools.push(json!({
+                "type": "computer_20251124",
+                "name": "computer",
+                "display_width_px": 1280,
+                "display_height_px": 720,
+                "display_number": 1,
+            }));
+        }
 
         // Build system prompt with cache breakpoint (breakpoint 1 of 4).
         let system_value = config.system_prompt.as_deref()

@@ -52,6 +52,13 @@ impl GeminiProvider {
         )
     }
 
+    pub fn computer_use() -> Self {
+        Self::new(
+            std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
+            "gemini-2.5-flash-preview-native-audio-dialog",
+        )
+    }
+
     fn streaming_url(&self) -> String {
         format!(
             "{}/{}:streamGenerateContent?alt=sse&key={}",

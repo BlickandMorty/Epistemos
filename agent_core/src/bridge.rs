@@ -159,6 +159,7 @@ impl AgentConfig {
             enable_web_search: false,
             enable_web_fetch: false,
             enable_code_execution: false,
+            enable_computer_use: true,
             mcp_servers: None,
             parallel_tool_execution: true,
             permissions: PermissionConfig {
