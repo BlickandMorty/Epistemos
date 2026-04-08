@@ -12,10 +12,10 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case qwen35_35BA3B4Bit = "mlx-community/Qwen3.5-35B-A3B-4bit"
 
     // MARK: - Gemma 4 Family (2026 frontier)
-    case gemma4_2B4Bit = "mlx-community/gemma-4-2b-it-4bit"
-    case gemma4_4B4Bit = "mlx-community/gemma-4-4b-it-4bit"
-    case gemma4_12B4Bit = "mlx-community/gemma-4-12b-it-4bit"
-    case gemma4_27BA4B4Bit = "mlx-community/gemma-4-27b-a4b-it-4bit"
+    case gemma4_2B4Bit = "mlx-community/gemma-4-e2b-it-4bit"
+    case gemma4_4B4Bit = "mlx-community/gemma-4-e4b-it-4bit"
+    case gemma4_12B4Bit = "mlx-community/gemma-4-12b-it-4bit"  // May not exist yet — placeholder
+    case gemma4_27BA4B4Bit = "mlx-community/gemma-4-26b-a4b-it-4bit"
     case gemma4_31BJANG = "dealignai/Gemma-4-31B-JANG_4M-CRACK"
 
     // MARK: - Qwopus (Claude Opus distilled — best coding/tool-calling)
