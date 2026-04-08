@@ -482,7 +482,11 @@ final class ChatCoordinator {
         case .anthropic:  return "claude_sonnet"
         case .openAI:     return "openai_gpt4o"
         case .google:     return "gemini_flash"
-        default:          return "claude_sonnet"
+        case .zai:        return "zai"
+        case .kimi:       return "kimi_coding"
+        case .minimax:    return "minimax"
+        case .deepseek:   return "deepseek"
+        case .localOnly:  return "ollama"
         }
     }
 
