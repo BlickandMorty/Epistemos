@@ -16,8 +16,13 @@ import SwiftData
 // To flip: change this ONE constant. Nothing else needs to change.
 // All agent code stays in the repo for future development.
 enum ShipGate {
-    /// Set to `false` to disable all agent subsystems for release.
+    /// Controls whether Omega/Hermes agent subsystems are compiled in.
+    /// Debug: enabled for development. Release: disabled for size + stability.
+    #if DEBUG
     static let agentsEnabled = true
+    #else
+    static let agentsEnabled = false
+    #endif
 }
 
 // MARK: - App Bootstrap
