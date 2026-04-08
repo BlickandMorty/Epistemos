@@ -446,14 +446,23 @@ nonisolated enum LocalAgentToolTier: String, Sendable {
 
 extension LocalTextModelID {
     /// What tool tier this model is capable of handling reliably.
+    /// Specialist models (Coder, R1) get elevated access despite smaller size.
     var agentToolTier: LocalAgentToolTier {
         switch self {
-        // Small models (≤4B): vault only — too small for tool chains
-        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .gemma4_2B4Bit,
-             .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit:
+        // Tiny models (≤2B): vault only — too small for tool chains
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .gemma4_2B4Bit, .smolLM3_3B4Bit:
             .readOnly
-        // Medium models (7-12B): can read files and search web
-        case .deepseekR1Distill7B, .qwen25Coder7B, .qwen35_9B4Bit, .gemma4_12B4Bit:
+        // Small general models (4B): vault + read
+        case .qwen35_4B4Bit, .gemma4_4B4Bit:
+            .readWrite
+        // Specialist 7B models: elevated to full agent — these are specifically
+        // trained for tool calling (Coder) and reasoning (R1)
+        case .qwen25Coder7B:
+            .fullAgent    // Best sub-10B coding model, native tool calling
+        case .deepseekR1Distill7B:
+            .readWrite    // Strong reasoning but tool call JSON can be unreliable
+        // Medium models (9-12B): can read files and search web
+        case .qwen35_9B4Bit, .gemma4_12B4Bit:
             .readWrite
         // Large models (27B+): full tool set — smart enough for shell/browser
         case .qwopus27Bv3, .qwopusMoE35BA3B,
