@@ -1135,7 +1135,7 @@ final class MetalGraphNSView: NSView {
         // 2 frames in the GPU pipeline (matching maximumDrawableCount=2).
         // Use a short timeout instead of .now() to avoid dropping frames
         // that just need one more millisecond to finish presenting.
-        guard inFlightSemaphore.wait(timeout: .now() + .milliseconds(2)) == .success else { return }
+        guard inFlightSemaphore.wait(timeout: .now()) == .success else { return }
 
         switch graphInitialRenderBootstrapState(
             isCommitted: isCommitted,
@@ -1965,10 +1965,9 @@ final class MetalGraphNSView: NSView {
         isInvalidated.store(true, ordering: .relaxed)
 
         // Drain the in-flight semaphore: signal it back to its initial
-        // value (3) so deallocation doesn't hit the "BUG IN CLIENT OF
-        // LIBDISPATCH: semaphore object deallocated while in use" trap.
-        // Any in-flight frames will see isInvalidated=true and bail.
-        for _ in 0..<3 {
+        // Drain semaphore to its initial value (2) so deallocation doesn't
+        // hit the "BUG IN CLIENT OF LIBDISPATCH" trap.
+        for _ in 0..<2 {
             inFlightSemaphore.signal()
         }
         if let backingPropertiesObserver {

@@ -424,8 +424,7 @@ enum MainChatSubmissionRouter {
         _ query: String,
         operatingMode: EpistemosOperatingMode,
         chat: ChatState,
-        orchestrator: OrchestratorState,
-        showOmegaPanel: () -> Void = { UtilityWindowManager.shared.show(.omega) }
+        orchestrator: OrchestratorState
     ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

@@ -300,7 +300,10 @@ final class EmbeddingService {
         guard !payload.isEmpty else { return }
         let engineHandle = SendableEngineHandle(raw: engine)
 
-        Task.detached(priority: .utility) {
+        // SAFETY: FFI calls MUST run on MainActor to prevent use-after-free.
+        // The payload construction above is the expensive part (already done).
+        // The FFI push below is fast — safe to run on main.
+        Task { @MainActor in
             guard Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else { return }
             Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
         }
