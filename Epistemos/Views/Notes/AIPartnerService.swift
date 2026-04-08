@@ -190,8 +190,12 @@ final class AIPartnerService {
     }
     
     func updateCode(_ code: String, cursorLine: Int, cursorColumn: Int) {
-        currentCode = code
-        currentLines = code.components(separatedBy: .newlines)
+        // Content hash guard: skip expensive re-split if code hasn't changed
+        let hash = code.hashValue
+        if hash != currentCode.hashValue || currentLines.isEmpty {
+            currentCode = code
+            currentLines = code.components(separatedBy: .newlines)
+        }
         cursorPosition = CursorPosition(
             line: cursorLine,
             column: cursorColumn,
