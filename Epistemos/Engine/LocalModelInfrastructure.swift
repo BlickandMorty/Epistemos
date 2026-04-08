@@ -249,6 +249,130 @@ enum LocalModelCatalog {
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
             ]
         ),
+        // MARK: - Gemma 4 Family (2026 frontier, multimodal)
+        LocalModelDescriptor(
+            id: LocalTextModelID.gemma4_2B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.gemma4_2B4Bit.displayName,
+            familyName: LocalTextModelID.gemma4_2B4Bit.familyName,
+            summary: "Best 2B model of 2026. Multimodal (text+vision), 128K context. Ideal for routing and quick tasks.",
+            approximateDownloadBytes: 1_614_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.gemma4_2B4Bit.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA from mlx-community
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.gemma4_4B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.gemma4_4B4Bit.displayName,
+            familyName: LocalTextModelID.gemma4_4B4Bit.familyName,
+            summary: "Best 4B model of 2026. Multimodal, 128K context. Replaces Qwen 4B as default light assistant.",
+            approximateDownloadBytes: 3_010_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.gemma4_4B4Bit.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.gemma4_12B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.gemma4_12B4Bit.displayName,
+            familyName: LocalTextModelID.gemma4_12B4Bit.familyName,
+            summary: "Mid-range Gemma 4 with thinking mode and multimodal. 256K context, strong reasoning.",
+            approximateDownloadBytes: 8_590_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.gemma4_12B4Bit.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.gemma4_27BA4B4Bit.displayName,
+            familyName: LocalTextModelID.gemma4_27BA4B4Bit.familyName,
+            summary: "Gemma 4 MoE: 27B total, only 4B active per token. Fits 18GB M2 Pro. 256K context, multimodal, fast.",
+            approximateDownloadBytes: 19_327_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.gemma4_27BA4B4Bit.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.gemma4_31BJANG.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.gemma4_31BJANG.displayName,
+            familyName: LocalTextModelID.gemma4_31BJANG.familyName,
+            summary: "Abliterated Gemma 4 31B dense. JANG mixed-precision (5.1-bit avg). Uncensored, 256K context. Requires vMLX 1.3.26+.",
+            approximateDownloadBytes: 19_327_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.gemma4_31BJANG.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        // MARK: - Qwopus (Claude Opus 4.6 distilled — GGUF via Ollama)
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwopus27Bv3.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwopus27Bv3.displayName,
+            familyName: LocalTextModelID.qwopus27Bv3.familyName,
+            summary: "Claude Opus 4.6 reasoning distilled. 95.73% HumanEval. Best coding model. GGUF format — served via Ollama.",
+            approximateDownloadBytes: 18_253_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwopus27Bv3.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA
+            matchingGlobs: ["*.gguf"]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwopusMoE35BA3B.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwopusMoE35BA3B.displayName,
+            familyName: LocalTextModelID.qwopusMoE35BA3B.familyName,
+            summary: "Qwopus MoE: 35B total, 3B active. Fastest reasoning MoE with Opus distillation. GGUF via Ollama.",
+            approximateDownloadBytes: 20_972_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwopusMoE35BA3B.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA
+            matchingGlobs: ["*.gguf"]
+        ),
+        // MARK: - Specialist Models
+        LocalModelDescriptor(
+            id: LocalTextModelID.deepseekR1Distill7B.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.deepseekR1Distill7B.displayName,
+            familyName: LocalTextModelID.deepseekR1Distill7B.familyName,
+            summary: "DeepSeek R1 reasoning distilled into 7B. Beats many 14B models on math and logic. Native thinking mode.",
+            approximateDownloadBytes: 4_831_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.deepseekR1Distill7B.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA from mlx-community
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen25Coder7B.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen25Coder7B.displayName,
+            familyName: LocalTextModelID.qwen25Coder7B.familyName,
+            summary: "Best sub-10B coding model. Optimized for code generation, debugging, and tool calling.",
+            approximateDownloadBytes: 4_730_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen25Coder7B.minimumRecommendedMemoryGB,
+            revision: "main", // TODO: verify revision SHA from mlx-community
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
+        // MARK: - Other Families
         LocalModelDescriptor(
             id: LocalTextModelID.smolLM3_3B4Bit.rawValue,
             kind: .text,

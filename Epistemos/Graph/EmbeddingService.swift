@@ -206,24 +206,21 @@ final class EmbeddingService {
 
             guard !Task.isCancelled,
                   let engineHandle,
-                  !payload.isEmpty,
-                  Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else {
+                  !payload.isEmpty else {
                 return
             }
 
-            Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
-            // Recompute KNN: O(n^2*dim) — expensive but runs on this background
-            // thread. The Rust function writes to engine.semantic_neighbors and
-            // calls reheat(). This is NOT safe to call concurrently with render,
-            // but the render loop only reads semantic_neighbors inside
-            // sync_semantic_neighbors() which holds the sim Mutex. The KNN write
-            // itself is to engine.semantic_neighbors (not sim), and render only
-            // reads it inside a Mutex-locked section → safe as long as we don't
-            // call this while sync_semantic_neighbors is running (which it can't
-            // be, since sync holds the Mutex and tick() calls it serially).
-            graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
-
+            // SAFETY: All FFI calls to the Rust engine MUST be serialized on
+            // MainActor to prevent double-free / use-after-free when the engine
+            // is deallocated while background work is in flight.
+            // The embedding computation (expensive) runs off-main above;
+            // only the FFI push + KNN recompute runs on main.
             await MainActor.run {
+                guard Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else {
+                    return
+                }
+                Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
+                graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
                 Log.app.info("EmbeddingService: pushed \(completedEmbeddings.count) embeddings (dim=\(dim)) to Rust")
             }
         }
