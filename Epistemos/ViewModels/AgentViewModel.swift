@@ -726,7 +726,7 @@ final class AgentViewModel {
         }
 
         // Try local agent route (agent-capable local model → local inference server).
-        if case .localQwen(let modelID) = inferenceState.preferredChatModelSelection,
+        if case .localMLX(let modelID) = inferenceState.preferredChatModelSelection,
            let port = localInferencePort,
            let route = HermesRuntimeRoute.resolveLocal(modelID: modelID, inferencePort: port) {
             applyRoute(route, to: &payload)
@@ -753,7 +753,7 @@ final class AgentViewModel {
 
         guard let port = localInferencePort else { return false }
 
-        if case .localQwen(let modelID) = inferenceState.preferredChatModelSelection,
+        if case .localMLX(let modelID) = inferenceState.preferredChatModelSelection,
            HermesRuntimeRoute.resolveLocal(modelID: modelID, inferencePort: port) != nil {
             return true
         }
@@ -787,7 +787,7 @@ final class AgentViewModel {
 
         guard let port = localInferencePort else { return nil }
 
-        if case .localQwen(let modelID) = inferenceState.preferredChatModelSelection,
+        if case .localMLX(let modelID) = inferenceState.preferredChatModelSelection,
            let route = HermesRuntimeRoute.resolveLocal(modelID: modelID, inferencePort: port) {
             return route
         }
@@ -822,7 +822,7 @@ final class AgentViewModel {
         switch inferenceState.preferredChatModelSelection {
         case .appleIntelligence:
             return "apple-intelligence"
-        case .localQwen(let modelID):
+        case .localMLX(let modelID):
             return modelID
         case .cloud(let model):
             return model.vendorModelID

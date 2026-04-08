@@ -25,22 +25,40 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
         return min(max(1, maxTokens), maxAllowed)
     }
 
+    /// Per-model chat template context for thinking mode activation.
+    /// Qwen 3.5/Qwopus: uses "enable_thinking" Jinja variable.
+    /// DeepSeek R1: thinking is always on via its template — no key needed.
+    /// Gemma 4: thinking requires specific template setup not in MLX pipeline.
     var chatTemplateContext: [String: Bool]? {
         guard let model = LocalTextModelID(rawValue: modelID),
               model.supportsThinkingMode else {
             return nil
         }
-        return ["enable_thinking": reasoningMode == .thinking]
+        // Qwen-family and Qwopus use the "enable_thinking" Jinja key
+        switch model {
+        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .qwopus27Bv3, .qwopusMoE35BA3B:
+            return ["enable_thinking": reasoningMode == .thinking]
+        case .deepseekR1Distill7B:
+            // DeepSeek R1 Distill: thinking is its primary mode, always active.
+            // The model template handles <think> tags natively — no key needed.
+            return nil
+        default:
+            return ["enable_thinking": reasoningMode == .thinking]
+        }
     }
 }
 
 nonisolated enum LocalMLXLoopMitigation {
-    static let qwen4BThinkingFallback =
-        "Qwen 4B thinking mode was stopped because it entered a repetition loop before reaching a usable answer. Retry in Fast mode or use a larger local model for deeper reasoning."
+    static func thinkingLoopFallback(for modelID: String) -> String {
+        let name = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+        return "\(name) thinking mode was stopped because it entered a repetition loop before reaching a usable answer. Retry in Fast mode or use a larger local model for deeper reasoning."
+    }
 
     static func isEnabled(for request: LocalMLXRequest) -> Bool {
-        request.reasoningMode == .thinking
-            && LocalTextModelID(rawValue: request.modelID) == .qwen35_4B4Bit
+        guard request.reasoningMode == .thinking else { return false }
+        return LocalTextModelID(rawValue: request.modelID)?
+            .requiresThinkingLoopGuard == true
     }
 
     static func appendFallbackIfNeeded(
@@ -49,7 +67,7 @@ nonisolated enum LocalMLXLoopMitigation {
     ) -> String {
         guard isEnabled(for: request) else { return rawOutput }
         guard UserFacingModelOutput.finalVisibleText(from: rawOutput).isEmpty else { return rawOutput }
-        return rawOutput + "\n\nFinal answer: " + qwen4BThinkingFallback
+        return rawOutput + "\n\nFinal answer: " + thinkingLoopFallback(for: request.modelID)
     }
 }
 
@@ -984,7 +1002,14 @@ actor MLXInferenceService: LocalMLXRuntime {
         let model = LocalTextModelID(rawValue: request.modelID)
 
         let kvSize = model?.optimalKVCacheSize ?? 1_536
-        let temp = model?.optimalTemperature ?? 0.45
+        // Use thinking temperature when in thinking mode, fast temperature otherwise
+        let temp: Float
+        if request.reasoningMode == .thinking,
+           let thinkingTemp = model?.thinkingTemperature {
+            temp = thinkingTemp
+        } else {
+            temp = model?.optimalTemperature ?? 0.7
+        }
         let topP = model?.optimalTopP ?? 0.95
 
         return GenerateParameters(

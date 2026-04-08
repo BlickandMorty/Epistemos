@@ -173,31 +173,33 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     // vision, tool calling, optimal generation parameters, KV cache sizing.
     // Based on research: Gemma 4, Qwopus, Qwen 3.5, DeepSeek R1 specs.
 
-    /// Maximum context window in tokens (input + output combined).
-    /// Models are capped at their ACTUAL limits, not a universal ceiling.
+    /// Maximum context window in tokens — actual architecture spec per model.
+    /// Sources: Gemma 4 model card, Qwen 3.5 Unsloth docs, DeepSeek R1 HF card.
     var maxContextTokens: Int {
         switch self {
-        // Gemma 4: 256K context for all variants
-        case .gemma4_27BA4B4Bit, .gemma4_31BJANG: 262_144
-        case .gemma4_12B4Bit: 131_072
-        case .gemma4_4B4Bit: 131_072
-        case .gemma4_2B4Bit: 262_144
-        // Qwopus: 131K (Qwen 3.5 base)
-        case .qwopus27Bv3: 131_072
+        // Gemma 4: all variants support 128K-256K (model card: 256K with p-RoPE)
+        case .gemma4_2B4Bit: 128_000       // E2B: 128K (model card)
+        case .gemma4_4B4Bit: 128_000       // E4B: 128K
+        case .gemma4_12B4Bit: 256_000      // 12B: 256K
+        case .gemma4_27BA4B4Bit: 256_000   // 27B MoE: 256K
+        case .gemma4_31BJANG: 256_000      // 31B JANG: 256K
+        // Qwen 3.5: ALL variants support 262K (Unsloth docs, architecture spec)
+        case .qwen35_0_8B4Bit: 262_144
+        case .qwen35_2B4Bit: 262_144
+        case .qwen35_4B4Bit: 262_144
+        case .qwen35_9B4Bit: 262_144
+        case .qwen35_27B4Bit: 262_144
+        case .qwen35_35BA3B4Bit: 262_144
+        // Qwopus: Qwen 3.5 base → 262K / MoE → 131K
+        case .qwopus27Bv3: 262_144
         case .qwopusMoE35BA3B: 131_072
-        // Qwen 3.5: 131K for all
-        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit: 131_072
-        case .qwen35_9B4Bit: 131_072
-        case .qwen35_4B4Bit: 32_768
-        case .qwen35_2B4Bit: 32_768
-        case .qwen35_0_8B4Bit: 32_768
         // Specialists
-        case .deepseekR1Distill7B: 65_536
-        case .qwen25Coder7B: 131_072
+        case .deepseekR1Distill7B: 128_000   // DeepSeek R1 HF card: 128K
+        case .qwen25Coder7B: 131_072         // Qwen 2.5 Coder: 131K
         // Others
-        case .smolLM3_3B4Bit: 8_192
-        case .devstralSmall2505_4Bit: 131_072
-        case .mistralSmall31_24B4Bit: 131_072
+        case .smolLM3_3B4Bit: 128_000        // SmolLM3: 128K (with YaRN)
+        case .devstralSmall2505_4Bit: 256_000 // Devstral: 256K
+        case .mistralSmall31_24B4Bit: 128_000 // Mistral Small 3.1: 128K
         case .gemma3_27BQAT4Bit: 131_072
         case .llama4Scout17B16E4Bit: 131_072
         }
@@ -238,26 +240,53 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// Optimal temperature for this model's architecture and training.
-    /// Research-informed: Qwopus needs 0.6, small models need higher, Gemma needs lower.
+    /// Optimal temperature for FAST (non-thinking) mode.
+    /// Sources: Gemma 4 model card (trained at 1.0), Qwen 3.5 spec (0.7),
+    /// DeepSeek R1 card (0.6), Devstral/Mistral (0.4 for code).
     var optimalTemperature: Float {
         switch self {
+        // Gemma 4: trained at temp=1.0 (official model card spec)
+        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_12B4Bit,
+             .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            1.0
+        // Qwen 3.5: official spec recommends 0.7 for fast mode
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit,
+             .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
+            0.7
+        // Qwopus: Qwen base, 0.7 for instruction following
         case .qwopus27Bv3, .qwopusMoE35BA3B:
-            0.6   // Qwopus research: locked at 0.6 for sharp tool outputs
+            0.7
+        // DeepSeek R1: 0.6 in fast mode (HF card recommendation)
         case .deepseekR1Distill7B:
-            0.5   // DeepSeek R1: low temp for deterministic reasoning chains
+            0.6
+        // Code models: low temp for correct code
         case .qwen25Coder7B:
-            0.3   // Coder models: very low temp for correct code
-        case .gemma4_31BJANG:
-            0.7   // Abliterated: slightly higher for creative/uncensored
-        case .gemma4_2B4Bit, .gemma4_4B4Bit:
-            0.7   // Small Gemma: moderate temp
-        case .qwen35_0_8B4Bit, .qwen35_2B4Bit:
-            0.8   // Very small models: higher temp to avoid repetition
+            0.4
+        case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
+            0.4
+        // SmolLM3: moderate
         case .smolLM3_3B4Bit:
-            0.7   // SmolLM: moderate
+            0.7
+        // Others
+        case .gemma3_27BQAT4Bit:
+            0.7
+        case .llama4Scout17B16E4Bit:
+            0.6
+        }
+    }
+
+    /// Optimal temperature for THINKING mode. Nil if model doesn't support thinking.
+    /// Qwen 3.5 spec: thinking temp = 0.0 (greedy). DeepSeek R1: 0.1.
+    var thinkingTemperature: Float? {
+        switch self {
+        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
+            0.0   // Qwen 3.5 official: temp=0.0 for thinking mode
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            0.0   // Qwopus inherits Qwen thinking behavior
+        case .deepseekR1Distill7B:
+            0.1   // DeepSeek R1: very low but not greedy (HF card)
         default:
-            0.45  // Default for medium/large models
+            nil   // No thinking mode
         }
     }
 
@@ -265,11 +294,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var optimalTopP: Float {
         switch self {
         case .qwopus27Bv3, .qwopusMoE35BA3B:
-            0.90  // Qwopus: tighter top-p for deterministic output
+            0.90
         case .deepseekR1Distill7B, .qwen25Coder7B:
-            0.85  // Reasoning/coding: tight sampling
+            0.85
+        case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
+            0.90
         default:
-            0.95  // Standard
+            0.95
         }
     }
 
@@ -277,9 +308,30 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var optimalTopK: Int {
         switch self {
         case .qwopus27Bv3, .qwopusMoE35BA3B:
-            20  // Qwopus research: top-k=20 for sharp tool output
+            20
         default:
-            0   // Disabled (use top-p only)
+            0
+        }
+    }
+
+    /// Whether thinking mode loop detection should be enabled.
+    /// Small/MoE thinking models are most prone to repetition loops.
+    var requiresThinkingLoopGuard: Bool {
+        switch self {
+        case .qwen35_4B4Bit:         true  // Small thinking model, loop-prone
+        case .deepseekR1Distill7B:   true  // Notorious for thinking loops
+        case .qwopusMoE35BA3B:       true  // MoE can loop in thinking
+        case .qwen35_35BA3B4Bit:     true  // MoE thinking, loop-prone
+        default:                     false
+        }
+    }
+
+    /// Whether this model has been abliterated (refusal-removal fine-tune).
+    /// Abliterated models should NOT receive refusal-coaching system prompts.
+    var isAbliterated: Bool {
+        switch self {
+        case .gemma4_31BJANG: true   // JANG_4M-CRACK abliteration
+        default:              false
         }
     }
 
@@ -1428,7 +1480,7 @@ extension CloudModelProvider {
 
 nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
     case appleIntelligence
-    case localQwen(String)
+    case localMLX(String)
     case cloud(CloudTextModelID)
 
     init?(rawValue: String) {
@@ -1446,14 +1498,14 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
             return
         }
         guard LocalTextModelID(rawValue: rawValue) != nil else { return nil }
-        self = .localQwen(rawValue)
+        self = .localMLX(rawValue)
     }
 
     var rawValue: String {
         switch self {
         case .appleIntelligence:
             "apple-intelligence"
-        case .localQwen(let modelID):
+        case .localMLX(let modelID):
             modelID
         case .cloud(let model):
             "cloud:\(model.rawValue)"
@@ -1464,7 +1516,7 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
         switch self {
         case .appleIntelligence:
             "Apple Intelligence"
-        case .localQwen(let modelID):
+        case .localMLX(let modelID):
             LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
         case .cloud(let model):
             model.displayName
@@ -1475,7 +1527,7 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
         switch self {
         case .appleIntelligence:
             "Apple Intelligence"
-        case .localQwen(let modelID):
+        case .localMLX(let modelID):
             LocalTextModelID(rawValue: modelID)?.compactDisplayName ?? modelID
         case .cloud(let model):
             model.compactDisplayName
@@ -1857,7 +1909,7 @@ final class InferenceState {
     /// When true, enables the automatic fallback chain across cloud providers and local models.
     var cloudAutoFallback: Bool = false
     var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
-    var preferredChatModelSelection: ChatModelSelection = .localQwen(
+    var preferredChatModelSelection: ChatModelSelection = .localMLX(
         LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     )
     var activeAIProvider: AIProviderSelection = .openAI
@@ -1926,7 +1978,7 @@ final class InferenceState {
             // If the saved selection is a cloud model but there's no cloud access for it,
             // fall back to local Qwen to avoid unusable cloud routing.
             if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
-                self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
+                self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
             } else {
                 self.preferredChatModelSelection = selection
             }
@@ -1937,7 +1989,7 @@ final class InferenceState {
                 forKey: "epistemos.preferredChatModelSelection"
             )
         } else {
-            self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
+            self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
         }
         if let savedProvider = defaults.string(forKey: Self.activeAIProviderDefaultsKey),
            let provider = AIProviderSelection(rawValue: savedProvider) {
@@ -1950,7 +2002,7 @@ final class InferenceState {
         if case .cloud(let model) = self.preferredChatModelSelection {
             persistPreferredCloudModel(model, defaults: defaults)
             if activeAIProvider == .localOnly {
-                self.preferredChatModelSelection = .localQwen(preferredLocalTextModelID)
+                self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
             } else if activeAIProvider.cloudProvider != model.provider {
                 self.activeAIProvider = AIProviderSelection(cloudProvider: model.provider)
             }
@@ -2160,7 +2212,7 @@ final class InferenceState {
             return OperatingModeCapabilities(availableModes: [.fast])
         case .cloud(let model):
             return OperatingModeCapabilities(availableModes: model.supportedOperatingModes)
-        case .localQwen(let modelID):
+        case .localMLX(let modelID):
             let activeModelID = LocalTextModelID(rawValue: modelID) != nil ? modelID : activeLocalTextModelID
             guard let activeModelID,
                   let model = LocalTextModelID(rawValue: activeModelID) else {
@@ -2317,7 +2369,7 @@ final class InferenceState {
     private func persistPreferredChatModelSelection(_ selection: ChatModelSelection) {
         preferredChatModelSelection = selection
         UserDefaults.standard.set(selection.rawValue, forKey: "epistemos.preferredChatModelSelection")
-        if case .localQwen(let modelID) = selection {
+        if case .localMLX(let modelID) = selection {
             preferredLocalTextModelID = modelID
             UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
         } else if case .cloud(let model) = selection {
@@ -2339,7 +2391,7 @@ final class InferenceState {
             if case .cloud(let model) = preferredChatModelSelection,
                model.provider == provider,
                !hasConfiguredCloudAccess(for: provider) {
-                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
             }
             return true
         }
@@ -2369,7 +2421,7 @@ final class InferenceState {
             if case .cloud(let model) = preferredChatModelSelection,
                model.provider == provider,
                !hasConfiguredCloudAccess(for: provider) {
-                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
             }
             return true
         }
@@ -2633,11 +2685,11 @@ final class InferenceState {
         persistActiveAIProvider(provider)
 
         switch preferredChatModelSelection {
-        case .appleIntelligence, .localQwen:
+        case .appleIntelligence, .localMLX:
             return
         case .cloud(let currentModel):
             guard let activeCloudProvider = provider.cloudProvider else {
-                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
                 return
             }
             guard currentModel.provider != activeCloudProvider else {
@@ -2645,7 +2697,7 @@ final class InferenceState {
                 return
             }
             guard hasConfiguredCloudAccess(for: activeCloudProvider) else {
-                persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
                 return
             }
             persistPreferredChatModelSelection(.cloud(loadPreferredCloudModel(for: activeCloudProvider)))
@@ -2676,8 +2728,8 @@ final class InferenceState {
         guard LocalTextModelID(rawValue: modelID) != nil else { return }
         preferredLocalTextModelID = modelID
         UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
-        if case .localQwen = preferredChatModelSelection {
-            preferredChatModelSelection = .localQwen(modelID)
+        if case .localMLX = preferredChatModelSelection {
+            preferredChatModelSelection = .localMLX(modelID)
             UserDefaults.standard.set(
                 preferredChatModelSelection.rawValue,
                 forKey: "epistemos.preferredChatModelSelection"
@@ -2687,7 +2739,7 @@ final class InferenceState {
 
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
         if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
-            persistPreferredChatModelSelection(.localQwen(preferredLocalTextModelID))
+            persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
             return
         }
         persistPreferredChatModelSelection(selection)

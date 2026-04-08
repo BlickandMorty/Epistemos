@@ -1729,7 +1729,7 @@ final class AppBootstrap {
             inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
         )
         inferenceState.setPreferredChatModelSelection(
-            .localQwen(inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue)
+            .localMLX(inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue)
         )
 
         uiState.setActivePanel(.home)

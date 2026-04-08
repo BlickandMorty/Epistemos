@@ -391,7 +391,7 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var selectedDescriptor: LocalModelDescriptor? {
-        if case .localQwen(let modelID) = inference.preferredChatModelSelection,
+        if case .localMLX(let modelID) = inference.preferredChatModelSelection,
            let descriptor = LocalModelCatalog.descriptor(for: modelID),
            installedSelectableModels.contains(descriptor) {
             return descriptor
@@ -581,7 +581,7 @@ struct LocalModelToolbarMenu: View {
                                             systemImage: "memorychip",
                                             isSelected: selectedMenuItem == .inProcess(model)
                                         ) {
-                                            inference.setPreferredChatModelSelection(.localQwen(model.id))
+                                            inference.setPreferredChatModelSelection(.localMLX(model.id))
                                             isPresented = false
                                         }
                                     }

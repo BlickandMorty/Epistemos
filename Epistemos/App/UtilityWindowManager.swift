@@ -345,7 +345,7 @@ private struct ThemedUtilityRoot: View {
                 switch bootstrap.inferenceState.preferredChatModelSelection {
                 case .cloud:
                     AgentPanelContainer(viewModel: bootstrap.agentViewModel)
-                case .localQwen(let modelID):
+                case .localMLX(let modelID):
                     if let model = LocalTextModelID(rawValue: modelID), model.supportsHermesAgentMode {
                         AgentPanelContainer(viewModel: bootstrap.agentViewModel)
                     } else {
