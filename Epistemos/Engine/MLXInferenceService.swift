@@ -975,30 +975,26 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     private func generationParameters(for request: LocalMLXRequest) -> GenerateParameters {
-        let maxKVSize: Int?
-        switch LocalTextModelID(rawValue: request.modelID) {
-        case .qwen35_0_8B4Bit?,
-             .qwen35_2B4Bit?,
-             .smolLM3_3B4Bit?:
-            maxKVSize = 4_096
-        case .qwen35_4B4Bit?:
-            maxKVSize = 3_072
-        case .qwen35_9B4Bit?,
-             .devstralSmall2505_4Bit?,
-             .mistralSmall31_24B4Bit?:
-            maxKVSize = 2_048
-        default:
-            maxKVSize = 1_536
-        }
+        // Per-model optimal parameters from LocalTextModelID capabilities.
+        // Each model has been tuned based on architecture research:
+        // - Qwopus: temp=0.6, top-k=20 (Act-Then-Refine paper)
+        // - DeepSeek R1: temp=0.5 (deterministic reasoning)
+        // - Qwen Coder: temp=0.3 (correct code generation)
+        // - Small models: higher temp to avoid repetition
+        let model = LocalTextModelID(rawValue: request.modelID)
+
+        let kvSize = model?.optimalKVCacheSize ?? 1_536
+        let temp = model?.optimalTemperature ?? 0.45
+        let topP = model?.optimalTopP ?? 0.95
 
         return GenerateParameters(
             maxTokens: request.resolvedMaxTokens,
-            maxKVSize: maxKVSize,
+            maxKVSize: kvSize,
             kvBits: 4,
             kvGroupSize: 64,
             quantizedKVStart: 0,
-            temperature: 0.45,
-            topP: 0.95,
+            temperature: temp,
+            topP: topP,
             prefillStepSize: 256
         )
     }

@@ -167,6 +167,221 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             false
         }
     }
+
+    // MARK: - Per-Model Native Capabilities
+    // Ensures each model is utilized to its full potential — context windows,
+    // vision, tool calling, optimal generation parameters, KV cache sizing.
+    // Based on research: Gemma 4, Qwopus, Qwen 3.5, DeepSeek R1 specs.
+
+    /// Maximum context window in tokens (input + output combined).
+    /// Models are capped at their ACTUAL limits, not a universal ceiling.
+    var maxContextTokens: Int {
+        switch self {
+        // Gemma 4: 256K context for all variants
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG: 262_144
+        case .gemma4_12B4Bit: 131_072
+        case .gemma4_4B4Bit: 131_072
+        case .gemma4_2B4Bit: 262_144
+        // Qwopus: 131K (Qwen 3.5 base)
+        case .qwopus27Bv3: 131_072
+        case .qwopusMoE35BA3B: 131_072
+        // Qwen 3.5: 131K for all
+        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit: 131_072
+        case .qwen35_9B4Bit: 131_072
+        case .qwen35_4B4Bit: 32_768
+        case .qwen35_2B4Bit: 32_768
+        case .qwen35_0_8B4Bit: 32_768
+        // Specialists
+        case .deepseekR1Distill7B: 65_536
+        case .qwen25Coder7B: 131_072
+        // Others
+        case .smolLM3_3B4Bit: 8_192
+        case .devstralSmall2505_4Bit: 131_072
+        case .mistralSmall31_24B4Bit: 131_072
+        case .gemma3_27BQAT4Bit: 131_072
+        case .llama4Scout17B16E4Bit: 131_072
+        }
+    }
+
+    /// Whether the model natively supports vision (image/video input).
+    var supportsVision: Bool {
+        switch self {
+        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_12B4Bit,
+             .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            true  // All Gemma 4 are multimodal
+        case .gemma3_27BQAT4Bit:
+            true  // Gemma 3 is multimodal
+        case .llama4Scout17B16E4Bit:
+            true  // Llama 4 Scout supports images
+        default:
+            false // Qwen, Qwopus, DeepSeek, SmolLM, Mistral, Devstral = text only
+        }
+    }
+
+    /// Whether the model can reliably produce structured tool calls (JSON function calling).
+    /// This is distinct from canActAsAgent — agent mode uses text-based tool descriptions,
+    /// while this flag indicates native JSON tool call output parsing.
+    var supportsNativeToolCalling: Bool {
+        switch self {
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            true  // Trained with RL specifically for tool calling
+        case .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            true  // Gemma 4 supports native JSON tool use
+        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
+            true  // Qwen 3.5 large supports tool calling
+        case .devstralSmall2505_4Bit:
+            true  // Devstral designed for coding + tool use
+        case .qwen25Coder7B:
+            true  // Qwen Coder supports function calling
+        default:
+            false // Small models lack reliable tool call formatting
+        }
+    }
+
+    /// Optimal temperature for this model's architecture and training.
+    /// Research-informed: Qwopus needs 0.6, small models need higher, Gemma needs lower.
+    var optimalTemperature: Float {
+        switch self {
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            0.6   // Qwopus research: locked at 0.6 for sharp tool outputs
+        case .deepseekR1Distill7B:
+            0.5   // DeepSeek R1: low temp for deterministic reasoning chains
+        case .qwen25Coder7B:
+            0.3   // Coder models: very low temp for correct code
+        case .gemma4_31BJANG:
+            0.7   // Abliterated: slightly higher for creative/uncensored
+        case .gemma4_2B4Bit, .gemma4_4B4Bit:
+            0.7   // Small Gemma: moderate temp
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit:
+            0.8   // Very small models: higher temp to avoid repetition
+        case .smolLM3_3B4Bit:
+            0.7   // SmolLM: moderate
+        default:
+            0.45  // Default for medium/large models
+        }
+    }
+
+    /// Optimal top-p for this model.
+    var optimalTopP: Float {
+        switch self {
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            0.90  // Qwopus: tighter top-p for deterministic output
+        case .deepseekR1Distill7B, .qwen25Coder7B:
+            0.85  // Reasoning/coding: tight sampling
+        default:
+            0.95  // Standard
+        }
+    }
+
+    /// Optimal top-k for this model (0 = disabled).
+    var optimalTopK: Int {
+        switch self {
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            20  // Qwopus research: top-k=20 for sharp tool output
+        default:
+            0   // Disabled (use top-p only)
+        }
+    }
+
+    /// Optimal KV cache size for this model on the target hardware.
+    /// Balances VRAM usage against context capacity.
+    var optimalKVCacheSize: Int {
+        switch self {
+        // Tiny models: can afford large KV
+        case .qwen35_0_8B4Bit, .gemma4_2B4Bit:
+            8_192
+        case .qwen35_2B4Bit, .smolLM3_3B4Bit:
+            6_144
+        // Small models: moderate KV
+        case .qwen35_4B4Bit, .gemma4_4B4Bit:
+            4_096
+        // Medium models: balanced KV
+        case .deepseekR1Distill7B, .qwen25Coder7B:
+            3_072
+        case .qwen35_9B4Bit, .gemma4_12B4Bit:
+            2_560
+        // Large models: conservative KV (VRAM constrained)
+        case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
+            2_048
+        case .gemma3_27BQAT4Bit:
+            2_048
+        case .gemma4_27BA4B4Bit:
+            2_048  // MoE: 4B active = can handle more KV
+        case .gemma4_31BJANG:
+            1_536  // Dense 31B: very VRAM tight at 18GB
+        case .qwen35_27B4Bit:
+            1_536
+        case .qwopus27Bv3:
+            1_536
+        // MoE large: sparse activation = more KV headroom
+        case .qwen35_35BA3B4Bit, .qwopusMoE35BA3B:
+            2_048
+        case .llama4Scout17B16E4Bit:
+            1_024
+        }
+    }
+
+    /// Whether this model uses a Mixture of Experts architecture.
+    /// MoE models are faster per token due to sparse activation.
+    var isMoE: Bool {
+        switch self {
+        case .gemma4_27BA4B4Bit, .qwen35_35BA3B4Bit, .qwopusMoE35BA3B,
+             .llama4Scout17B16E4Bit:
+            true
+        default:
+            false
+        }
+    }
+
+    /// Active parameters per token (for MoE models, much less than total).
+    var activeParametersBillions: Float {
+        switch self {
+        case .qwen35_0_8B4Bit: 0.8
+        case .qwen35_2B4Bit, .gemma4_2B4Bit: 2.0
+        case .smolLM3_3B4Bit: 3.0
+        case .qwen35_4B4Bit, .gemma4_4B4Bit: 4.0
+        case .deepseekR1Distill7B, .qwen25Coder7B: 7.0
+        case .qwen35_9B4Bit: 9.0
+        case .gemma4_12B4Bit: 12.0
+        case .gemma4_27BA4B4Bit: 4.0  // MoE: 27B total, 4B active
+        case .qwen35_27B4Bit, .qwopus27Bv3: 27.0
+        case .gemma4_31BJANG, .gemma3_27BQAT4Bit: 27.0
+        case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit: 24.0
+        case .qwen35_35BA3B4Bit, .qwopusMoE35BA3B: 3.0  // MoE: 35B total, 3B active
+        case .llama4Scout17B16E4Bit: 17.0
+        }
+    }
+
+    /// Best use case for this model — used for smart routing.
+    var primaryUseCase: LocalModelUseCase {
+        switch self {
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            .coding       // Claude Opus distilled, 95.73% HumanEval
+        case .qwen25Coder7B:
+            .coding       // Coding specialist
+        case .deepseekR1Distill7B:
+            .reasoning    // DeepSeek R1 reasoning distilled
+        case .gemma4_31BJANG:
+            .general      // Abliterated: unconstrained general use
+        case .gemma4_27BA4B4Bit, .gemma4_12B4Bit:
+            .multimodal   // Vision + reasoning
+        case .gemma4_2B4Bit, .gemma4_4B4Bit:
+            .routing      // Fast intent classification
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .smolLM3_3B4Bit:
+            .routing      // Ultra-fast routing
+        default:
+            .general      // General assistant
+        }
+    }
+}
+
+/// Use case categories for smart model routing.
+nonisolated enum LocalModelUseCase: String, Sendable {
+    case coding      // Code generation, debugging, refactoring
+    case reasoning   // Math, logic, multi-step deduction
+    case multimodal  // Vision + text tasks
+    case routing     // Intent classification, quick responses
+    case general     // Catch-all assistant tasks
 }
 
 nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
