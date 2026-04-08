@@ -392,14 +392,14 @@ final class ChatCoordinator {
             case .textDelta(let text):
                 chatState.appendStreamingText(text)
 
-            case .toolStarted(let id, let name, let inputJson):
+            case .toolStarted(_, let name, let inputJson):
                 chatState.activeToolName = name
                 chatState.isAgentExecuting = true
                 chatState.appendStreamingText("\n> **\(name)**\n")
 
                 // Computer use: intercept and execute natively via ComputerUseBridge
                 if name == "computer" {
-                    let result = await ComputerUseBridge.shared.execute(actionJSON: inputJson)
+                    _ = await ComputerUseBridge.shared.execute(actionJSON: inputJson)
                     // The result (screenshot + AX tree) is now available.
                     // The Rust stub returns a placeholder, but the real result
                     // is injected into the stream so the LLM sees it next turn.
