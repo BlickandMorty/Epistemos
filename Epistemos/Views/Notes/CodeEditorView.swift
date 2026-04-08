@@ -2403,8 +2403,6 @@ enum CodeSyntaxHighlighter {
             guard range.location + range.length <= totalLength else { continue }
             
             let color = theme.nsColorForTokenType(token.token_type)
-            let font: NSFont? = token.token_type == 3 ? nil : nil  // Italic for comments handled separately
-            
             attrs.append(TokenAttributes(range: range, color: color, font: nil))
         }
         

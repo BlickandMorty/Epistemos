@@ -429,10 +429,6 @@ enum MainChatSubmissionRouter {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        let contextAttachments = chat.pendingContextAttachments.isEmpty
-            ? nil
-            : chat.pendingContextAttachments
-
         switch operatingMode {
         case .agent:
             // Agent mode now routes through the main chat pipeline with cloud
