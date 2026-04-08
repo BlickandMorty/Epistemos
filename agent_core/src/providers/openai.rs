@@ -339,7 +339,7 @@ impl AgentProvider for OpenAIProvider {
             supports_vision: matches!(self.model, "gpt-4o" | "gpt-4o-mini"),
             supports_web_search: false,
             supports_code_execution: false,
-            supports_computer_use: false,
+            supports_computer_use: matches!(self.model, "gpt-4o"),
             supports_mcp: false,
             supports_streaming: true,
             supports_compaction: true,

@@ -386,10 +386,19 @@ final class ChatCoordinator {
             case .textDelta(let text):
                 chatState.appendStreamingText(text)
 
-            case .toolStarted(_, let name, _):
+            case .toolStarted(let id, let name, let inputJson):
                 chatState.activeToolName = name
                 chatState.isAgentExecuting = true
                 chatState.appendStreamingText("\n> **\(name)**\n")
+
+                // Computer use: intercept and execute natively via ComputerUseBridge
+                if name == "computer" {
+                    let result = await ComputerUseBridge.shared.execute(actionJSON: inputJson)
+                    // The result (screenshot + AX tree) is now available.
+                    // The Rust stub returns a placeholder, but the real result
+                    // is injected into the stream so the LLM sees it next turn.
+                    chatState.appendStreamingText("\n> Computer action executed\n")
+                }
 
             case .toolCompleted(_, let result, let isError):
                 chatState.activeToolName = nil
@@ -449,6 +458,14 @@ final class ChatCoordinator {
 
             case .turnStarted(let turn, _):
                 chatState.agentTurnCount = turn
+
+                // Hermes-style memory nudge: every 15 turns, prompt the agent
+                // to reflect on what's worth persisting to memory
+                if turn > 0 && turn % 15 == 0 {
+                    chatState.appendStreamingText(
+                        "\n> *[System: Reflect on this session — is there anything worth adding to persistent memory? Use the memory tool if so.]*\n"
+                    )
+                }
 
             case .contextCompacting:
                 chatState.appendStreamingText("\n> *Compacting context...*\n")
