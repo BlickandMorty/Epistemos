@@ -1,0 +1,20 @@
+[package]
+name = "substrate-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Canonical entity store + AppAction event log. Rust owns the truth; Swift projects."
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+slotmap = "1.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+thiserror = "1"
+parking_lot = "0.12"
+
+[dev-dependencies]
+tempfile = "3"
