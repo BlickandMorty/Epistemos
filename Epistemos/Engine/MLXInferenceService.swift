@@ -18,6 +18,7 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     let systemPrompt: String?
     let maxTokens: Int
     let reasoningMode: LocalReasoningMode
+    let imageURLs: [URL]
 
     var resolvedMaxTokens: Int? {
         guard maxTokens > 0 else { return nil }
@@ -553,7 +554,8 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
-        modelID: String? = nil
+        modelID: String? = nil,
+        imageURLs: [URL] = []
     ) throws -> LocalMLXRequest {
         guard let modelID = modelID ?? inference.effectiveLocalTextModelID,
               let descriptor = LocalModelCatalog.descriptor(for: modelID) else {
@@ -573,13 +575,24 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             conditions: inference.localRuntimeConditions
         )
 
+        // Use explicitly passed imageURLs, or fall back to ambient pending images
+        let resolvedImages: [URL]
+        if !imageURLs.isEmpty {
+            resolvedImages = imageURLs
+        } else if let model = LocalTextModelID(rawValue: modelID), model.supportsVision {
+            resolvedImages = inference.pendingImageURLs
+        } else {
+            resolvedImages = []
+        }
+
         return LocalMLXRequest(
             modelID: modelID,
             modelDirectory: modelDirectory,
             prompt: trimmed.prompt,
             systemPrompt: trimmed.systemPrompt,
             maxTokens: max(0, maxTokens),
-            reasoningMode: reasoningMode
+            reasoningMode: reasoningMode,
+            imageURLs: resolvedImages
         )
     }
 
@@ -947,9 +960,11 @@ actor MLXInferenceService: LocalMLXRuntime {
         var stopReason: GenerateStopReason = .cancelled
         var loopGuard = LocalMLXLoopGuard(request: request)
 
+        let mlxImages = request.imageURLs.map { UserInput.Image.url($0) }
+
         generationLoop: for try await item in session.streamDetails(
             to: prompt,
-            images: [],
+            images: mlxImages,
             videos: []
         ) {
             if Task.isCancelled {

@@ -56,7 +56,7 @@ enum AgentRuntimeBridgeError: Error, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .bindingsUnavailable:
-            return "Agent runtime bindings are not integrated into the app target yet."
+            return "Cloud agent runtime is not available. Using standard pipeline."
         }
     }
 }
@@ -74,6 +74,49 @@ func runAgentSession(
 
 func cancelAgentSession(sessionId: String) {}
 #endif
+
+// MARK: - Agent Stream Types (self-contained, no external dependencies)
+
+enum AgentStreamEvent: Sendable {
+    case thinkingDelta(String)
+    case textDelta(String)
+    case toolInputStreaming(index: UInt32, partialJson: String)
+    case toolStarted(id: String, name: String, inputJson: String)
+    case toolCompleted(id: String, result: String, isError: Bool)
+    case subagentSpawned(id: String, role: String)
+    case permissionRequired(AgentPermissionRequest)
+    case contextCompacting(tokens: Int)
+    case contextCompacted(messageCount: Int)
+    case turnStarted(turn: Int, messageCount: Int)
+    case complete(stopReason: String, inputTokens: Int, outputTokens: Int, history: [[String: String]]?)
+    case error(AgentRuntimeError)
+}
+
+struct AgentPermissionRequest: Sendable, Identifiable {
+    let id: String
+    let toolName: String
+    let inputJson: String
+    let riskLevel: AgentRuntimeRiskLevel
+    let description: String
+}
+
+enum AgentRuntimeRiskLevel: Sendable {
+    case readOnly
+    case modification
+    case destructive
+
+    init(rustValue: String) {
+        switch rustValue.lowercased() {
+        case "read", "readonly", "read_only": self = .readOnly
+        case "destructive": self = .destructive
+        default: self = .modification
+        }
+    }
+}
+
+struct AgentRuntimeError: Error, Sendable {
+    let message: String
+}
 
 final class StreamingDelegate: AgentStreamEventDelegate, @unchecked Sendable {
     private let continuation: AsyncStream<AgentStreamEvent>.Continuation

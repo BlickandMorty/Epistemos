@@ -380,6 +380,7 @@ struct LocalModelToolbarMenu: View {
     @State private var showsCloudModels = true
     @State private var showsCloudProviderOptions = false
     @State private var showsActiveCloudModelOptions = false
+    @State private var aboutSelection: ChatModelSelection?
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -575,14 +576,27 @@ struct LocalModelToolbarMenu: View {
                                         .padding(.top, 2)
                                 } else {
                                     ForEach(installedSelectableModels, id: \.id) { model in
-                                        selectionRow(
-                                            title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
-                                            subtitle: localModelSubtitle(for: model),
-                                            systemImage: "memorychip",
-                                            isSelected: selectedMenuItem == .inProcess(model)
-                                        ) {
-                                            inference.setPreferredChatModelSelection(.localMLX(model.id))
-                                            isPresented = false
+                                        HStack(spacing: 0) {
+                                            selectionRow(
+                                                title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                                subtitle: localModelSubtitle(for: model),
+                                                systemImage: "memorychip",
+                                                isSelected: selectedMenuItem == .inProcess(model)
+                                            ) {
+                                                inference.setPreferredChatModelSelection(.localMLX(model.id))
+                                                isPresented = false
+                                            }
+
+                                            Button {
+                                                aboutSelection = .localMLX(model.id)
+                                            } label: {
+                                                Image(systemName: "info.circle")
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(.secondary)
+                                                    .frame(width: 24, height: 24)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Model details")
                                         }
                                     }
                                 }
@@ -633,15 +647,28 @@ struct LocalModelToolbarMenu: View {
                                             VStack(alignment: .leading, spacing: 6) {
                                                 if providerConfigured {
                                                     ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
-                                                        selectionRow(
-                                                            title: model.compactDisplayName,
-                                                            subtitle: cloudModelSubtitle(for: model),
-                                                            systemImage: provider.systemImage,
-                                                            isSelected: selectedMenuItem == .cloud(model),
-                                                            isEnabled: providerConfigured
-                                                        ) {
-                                                            inference.setPreferredChatModelSelection(.cloud(model))
-                                                            isPresented = false
+                                                        HStack(spacing: 0) {
+                                                            selectionRow(
+                                                                title: model.compactDisplayName,
+                                                                subtitle: cloudModelSubtitle(for: model),
+                                                                systemImage: provider.systemImage,
+                                                                isSelected: selectedMenuItem == .cloud(model),
+                                                                isEnabled: providerConfigured
+                                                            ) {
+                                                                inference.setPreferredChatModelSelection(.cloud(model))
+                                                                isPresented = false
+                                                            }
+
+                                                            Button {
+                                                                aboutSelection = .cloud(model)
+                                                            } label: {
+                                                                Image(systemName: "info.circle")
+                                                                    .font(.system(size: 11))
+                                                                    .foregroundStyle(.secondary)
+                                                                    .frame(width: 24, height: 24)
+                                                            }
+                                                            .buttonStyle(.plain)
+                                                            .help("Model details")
                                                         }
                                                     }
                                                 } else {
@@ -729,6 +756,9 @@ struct LocalModelToolbarMenu: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(theme.resolved.accent.color)
             }
+        }
+        .popover(item: $aboutSelection) { selection in
+            ModelAboutSheet(selection: selection)
         }
     }
 
@@ -847,7 +877,7 @@ struct LocalModelToolbarMenu: View {
         if modelID.supportsThinkingMode {
             features.append("Thinking")
         }
-        if modelID.supportsHermesAgentMode {
+        if modelID.supportsAgentMode {
             features.append("Agent")
         }
         let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")

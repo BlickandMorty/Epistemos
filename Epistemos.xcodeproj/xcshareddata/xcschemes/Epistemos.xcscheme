@@ -100,5 +100,23 @@
    <ArchiveAction
       buildConfiguration = "Release"
       revealArchiveInOrganizer = "YES">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Set SHIP_MODE for release archive"
+               scriptText = "export SHIP_MODE=release">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "973D4C8C4633FC9F5CEF0985"
+                     BuildableName = "Epistemos.app"
+                     BlueprintName = "Epistemos"
+                     ReferencedContainer = "container:Epistemos.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
    </ArchiveAction>
 </Scheme>

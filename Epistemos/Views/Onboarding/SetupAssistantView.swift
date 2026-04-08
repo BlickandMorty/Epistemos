@@ -12,7 +12,6 @@ struct SetupAssistantView: View {
     @Environment(InferenceState.self) private var inference
 
     @State private var currentStep: SetupStep = .welcome
-    @State private var hermesSetup = HermesSetupService()
 
     let onComplete: () -> Void
 
@@ -180,17 +179,17 @@ struct SetupAssistantView: View {
         .padding(.vertical, 24)
     }
 
-    // MARK: - Agent Runtime
+    // MARK: - Cloud AI Setup
 
     @ViewBuilder
     private var agentRuntimeStep: some View {
         VStack(spacing: 16) {
-            Image(systemName: "terminal.fill")
+            Image(systemName: "cloud.fill")
                 .font(.system(size: 40))
-                .foregroundStyle(.orange)
-            Text("Agent Runtime")
+                .foregroundStyle(.blue)
+            Text("Cloud AI (Optional)")
                 .font(.title2.bold())
-            Text("Epistemos uses a Python-based agent for cloud AI, tool use, and deep research. Setting up the runtime takes about a minute.")
+            Text("Connect a cloud AI provider for advanced capabilities like tool use, deep research, and extended reasoning. Local models work great on their own.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -220,98 +219,19 @@ struct SetupAssistantView: View {
 
             Spacer()
 
-            // Status display
-            Group {
-                switch hermesSetup.state {
-                case .idle:
-                    EmptyView()
-                case .ready:
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(hermesSetup.wasAlreadySetUp ? "Agent runtime already configured" : "Agent runtime installed successfully")
-                                .font(.subheadline.bold())
-                            if let version = hermesSetup.pythonVersion {
-                                Text(version)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(.green.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                case .failed(let reason):
-                    VStack(spacing: 8) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.yellow)
-                            Text("Setup issue")
-                                .font(.subheadline.bold())
-                        }
-                        Text(reason)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                        Text("You can retry from Settings later. The app works fine for notes without the agent.")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding()
-                    .background(.yellow.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                default:
-                    VStack(spacing: 8) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text(hermesSetup.state.displayMessage)
-                            .font(.subheadline)
-                        if !hermesSetup.detailMessage.isEmpty {
-                            Text(hermesSetup.detailMessage)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding()
-                }
-            }
-
-            Spacer()
-
             HStack(spacing: 12) {
-                if hermesSetup.state.isTerminal {
-                    Button("Next") {
-                        withAnimation(Self.stepTransition) { currentStep = .done }
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else if hermesSetup.state == .idle {
-                    Button("Skip") {
-                        withAnimation(Self.stepTransition) { currentStep = .done }
-                    }
-                    .buttonStyle(.bordered)
-                } else {
-                    // Setup in progress — show skip but not prominent
-                    Button("Skip") {
-                        withAnimation(Self.stepTransition) { currentStep = .done }
-                    }
-                    .buttonStyle(.bordered)
+                Button("Skip") {
+                    withAnimation(Self.stepTransition) { currentStep = .done }
                 }
+                .buttonStyle(.bordered)
+
+                Button("Next") {
+                    withAnimation(Self.stepTransition) { currentStep = .done }
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
         .padding(.vertical, 24)
-        .task {
-            guard hermesSetup.state == .idle else { return }
-            if inference.shouldShowCloudSetupHint {
-                inference.markCloudSetupHintShown()
-            }
-            await hermesSetup.runSetup()
-            // Auto-advance on success after a brief pause
-            if hermesSetup.state == .ready {
-                try? await Task.sleep(for: .seconds(1.5))
-                withAnimation(Self.stepTransition) { currentStep = .done }
-            }
-        }
     }
 
     // MARK: - Done
@@ -328,7 +248,7 @@ struct SetupAssistantView: View {
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault", done: vaultSync.vaultURL != nil)
                 statusRow("Local AI", done: !inference.installedLocalTextModelIDs.isEmpty)
-                statusRow("Agent Runtime", done: hermesSetup.state == .ready)
+                statusRow("Cloud AI", done: inference.activeCloudProvider != nil)
             }
 
             Text("You can change any of these in Settings at any time.")

@@ -7,16 +7,11 @@ import QuartzCore
 import SwiftData
 
 // MARK: - Ship Mode Gate
-// When SHIP_MODE=release, agents (Hermes, MCP, Omega) are excluded from
+// When SHIP_MODE=release, agent subsystems are excluded from
 // the binary entirely (build-rust.sh skips agent crates). This flag
 // gates the Swift-side initialization so agent services never start.
-// Default: true (agents enabled for development). Set to false + rebuild
-// with SHIP_MODE=release for a clean release binary.
-//
-// To flip: change this ONE constant. Nothing else needs to change.
-// All agent code stays in the repo for future development.
 enum ShipGate {
-    /// Controls whether Omega/Hermes agent subsystems are compiled in.
+    /// Controls whether agent subsystems are compiled in.
     /// Debug: enabled for development. Release: disabled for size + stability.
     #if DEBUG
     static let agentsEnabled = true
@@ -115,8 +110,6 @@ nonisolated struct StartupAutoDiscoveryCredentialStatus: Sendable, Equatable {
 nonisolated struct StartupAutoDiscoveryReport: Sendable, Equatable {
     let credentialStatuses: [StartupAutoDiscoveryCredentialStatus]
     let browserToolAvailable: Bool
-    let dotHermesCreated: Bool
-    let dotHermesURL: URL
     let localModelDirectories: [URL]
     let huggingFaceModelDirectories: [URL]
 
@@ -144,9 +137,7 @@ enum StartupAutoDiscovery {
 
     static var keyMappings: [StartupAutoDiscoveryKeyMapping] {
         var seen = Set<StartupAutoDiscoveryKeyMapping>()
-        return (HermesConfig.toolGateKeychainMappings.map {
-            StartupAutoDiscoveryKeyMapping(envVar: $0.envVar, keychainKey: $0.keychainKey)
-        } + browserbaseKeychainMappings).filter { seen.insert($0).inserted }
+        return browserbaseKeychainMappings.filter { seen.insert($0).inserted }
     }
 
     private static let configAliases: [String: [String]] = [
@@ -298,21 +289,9 @@ enum StartupAutoDiscovery {
             )
         }
 
-        let dotHermesURL = resolvedHomeURL.appendingPathComponent(".hermes", isDirectory: true)
-        let dotHermesAlreadyExists = fileManager.fileExists(atPath: dotHermesURL.path)
-        if !dotHermesAlreadyExists {
-            do {
-                try fileManager.createDirectory(at: dotHermesURL, withIntermediateDirectories: true)
-            } catch {
-                Log.app.error(
-                    "AppBootstrap: failed to create auto-discovery directory \(dotHermesURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-            }
-        }
-
         let browserToolAvailable = isExecutableAvailable(
             named: "agent-browser",
-            path: HermesConfig.normalizedExecutablePath(existingPath: environment["PATH"]),
+            path: environment["PATH"] ?? "/usr/local/bin:/usr/bin:/bin",
             fileManager: fileManager
         )
 
@@ -322,8 +301,6 @@ enum StartupAutoDiscovery {
         return StartupAutoDiscoveryReport(
             credentialStatuses: statuses,
             browserToolAvailable: browserToolAvailable,
-            dotHermesCreated: !dotHermesAlreadyExists && fileManager.fileExists(atPath: dotHermesURL.path),
-            dotHermesURL: dotHermesURL,
             localModelDirectories: discoverLocalModelDirectories(
                 rootDirectory: modelRootURL,
                 fileManager: fileManager
@@ -338,10 +315,6 @@ enum StartupAutoDiscovery {
     static func testHostReport(
         temporaryRootURL: URL = FileManager.default.temporaryDirectory
     ) -> StartupAutoDiscoveryReport {
-        let dotHermesURL = temporaryRootURL
-            .appendingPathComponent("Epistemos-TestRuntime", isDirectory: true)
-            .appendingPathComponent(".hermes", isDirectory: true)
-
         return StartupAutoDiscoveryReport(
             credentialStatuses: keyMappings.map { mapping in
                 StartupAutoDiscoveryCredentialStatus(
@@ -352,8 +325,6 @@ enum StartupAutoDiscovery {
                 )
             },
             browserToolAvailable: false,
-            dotHermesCreated: false,
-            dotHermesURL: dotHermesURL.standardizedFileURL,
             localModelDirectories: [],
             huggingFaceModelDirectories: []
         )
@@ -542,7 +513,6 @@ enum StartupAutoDiscovery {
             AppBootstrap: auto-discovery available [\(available, privacy: .public)] \
             missing [\(missing, privacy: .public)] \
             agent-browser=\(report.browserToolAvailable, privacy: .public) \
-            dot-hermes-created=\(report.dotHermesCreated, privacy: .public) \
             local-model-dirs=\(report.localModelDirectories.count, privacy: .public) \
             hf-model-dirs=\(report.huggingFaceModelDirectories.count, privacy: .public)
             """
@@ -664,23 +634,6 @@ final class AppBootstrap {
         return discover()
     }
 
-    nonisolated static func shouldPrewarmHermesAtLaunch(
-        setupComplete: Bool,
-        backgroundDisabled: Bool,
-        isRunningTests: Bool = AppBootstrap.isRunningTests,
-        isDebugBuild: Bool = AppBootstrap.isDebugBuild
-    ) -> Bool {
-        !isRunningTests && !isDebugBuild && setupComplete && !backgroundDisabled
-    }
-
-    nonisolated static func shouldSuperviseHermesAtLaunch(
-        setupComplete: Bool,
-        backgroundDisabled: Bool,
-        isRunningTests: Bool = AppBootstrap.isRunningTests,
-        isDebugBuild: Bool = AppBootstrap.isDebugBuild
-    ) -> Bool {
-        !isRunningTests && !isDebugBuild && setupComplete && !backgroundDisabled
-    }
 
     nonisolated static func shouldScheduleMetalShaderWarmupAtLaunch(
         isRunningTests: Bool = AppBootstrap.isRunningTests,
@@ -729,9 +682,6 @@ final class AppBootstrap {
     let dialogueChatState = DialogueChatState()
     let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
-    let hermesManager = HermesSubprocessManager()
-    let agentViewModel: AgentViewModel
-    let hermesAdminViewModel: HermesAdminViewModel
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
     private var _deviceAgent: DeviceAgentService?
@@ -773,8 +723,6 @@ final class AppBootstrap {
     var frictionMonitor: FrictionMonitorService { Self.requireInitialized(_frictionMonitor, name: "frictionMonitor") }
     private var _nightBrain: NightBrainService?
     var nightBrain: NightBrainService { Self.requireInitialized(_nightBrain, name: "nightBrain") }
-    private var _agentHeartbeat: AgentHeartbeatService?
-    var agentHeartbeat: AgentHeartbeatService { Self.requireInitialized(_agentHeartbeat, name: "agentHeartbeat") }
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
@@ -939,33 +887,6 @@ final class AppBootstrap {
             cloudLLMClient: cloudLLMClient
         )
         self.llmService = llm
-        let adminVM = HermesAdminViewModel(hermesManager: hermesManager)
-        self.hermesAdminViewModel = adminVM
-        let agentVM = AgentViewModel(
-            hermesManager: hermesManager,
-            inferenceState: inference,
-            localLLMClient: localLLMClient
-        )
-        agentVM.adminViewModel = adminVM
-        self.agentViewModel = agentVM
-
-        // Pre-warm the Hermes subprocess only if first-launch setup is complete.
-        // If setup hasn't run yet, the Python venv likely doesn't exist and
-        // pre-warm would fail silently. SetupAssistantView handles installation.
-        let setupComplete = UserDefaults.standard.bool(forKey: "epistemos.setupComplete")
-        if Self.shouldPrewarmHermesAtLaunch(
-            setupComplete: setupComplete,
-            backgroundDisabled: PowerGuard.shared.shouldDisableBackground
-        ) {
-            // Hermes is now OPTIONAL — main chat uses Rust agent_core directly.
-            // Only pre-warm if user has explicitly used the legacy Agent panel.
-            let shouldPreWarm = UserDefaults.standard.bool(forKey: "epistemos.hermesPreWarm")
-            if shouldPreWarm {
-                Task.detached(priority: .utility) { [hermesManager] in
-                    await hermesManager.preWarm()
-                }
-            }
-        }
 
         // Start centralized power authority — must be before any subsystem that
         // checks PowerGuard.shared.currentMode during init.
@@ -979,25 +900,6 @@ final class AppBootstrap {
         // Start centralized thermal authority before any inference work.
         Task { await ThermalGuard.shared.start() }
 
-        // Register supervised children and start OTP-style supervisor.
-        // Hermes stays fully lazy during debug / test / background-disabled launch
-        // so idle memory does not pay for a resident Python bridge up front.
-        if Self.shouldSuperviseHermesAtLaunch(
-            setupComplete: setupComplete,
-            backgroundDisabled: PowerGuard.shared.shouldDisableBackground
-        ) {
-            supervisor.register(ChildSpec(
-                id: "hermesSubprocess",
-                policy: .permanent,
-                restartWindow: 60.0,
-                maxRestarts: 3,
-                factory: { @Sendable [hermesManager] in
-                    // Long-running: block until Hermes exits or is cancelled.
-                    // runSupervised() is @MainActor-isolated, await handles the hop.
-                    try await hermesManager.runSupervised()
-                }
-            ))
-        }
         supervisor.start()
 
         // TriageService routes between Apple Intelligence and local Qwen.
@@ -1126,8 +1028,7 @@ final class AppBootstrap {
         self._frictionMonitor = FrictionMonitorService(config: epistemosConfig)
         FrictionMonitorService.shared = frictionMonitor
         // Agent services: gated by ShipGate.agentsEnabled. When false,
-        // NightBrain and AgentHeartbeat never start — no Hermes subprocess,
-        // no MCP bridge, no background agent work. Zero runtime overhead.
+        // NightBrain never starts — no background agent work. Zero runtime overhead.
         if ShipGate.agentsEnabled {
             self._nightBrain = NightBrainService(
                 config: epistemosConfig,
@@ -1139,15 +1040,6 @@ final class AppBootstrap {
                 },
                 cloudKnowledgeJob: { [cloudKnowledgeDistillationService] in
                     _ = try await cloudKnowledgeDistillationService.rebuildAllModelVaults()
-                }
-            )
-            self._agentHeartbeat = AgentHeartbeatService(
-                config: epistemosConfig,
-                hermesManagerProvider: { @MainActor [weak self] in
-                    self?.hermesManager
-                },
-                costTrackerProvider: { @MainActor [weak self] in
-                    self?.agentViewModel.costTracker
                 }
             )
         }
@@ -1191,7 +1083,6 @@ final class AppBootstrap {
         self._recipeGraphSkills = RecipeGraphSkills(graphStore: graphState.store, mcpBridge: mcpBridge)
         self._ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
         orchestratorState.agentGraphMemory = agentGraphMemory
-        agentViewModel.agentGraphMemory = agentGraphMemory
 
         // Instant recall now hydrates on first real recall use instead of
         // rebuilding its vault index during idle launch.
@@ -1555,7 +1446,6 @@ final class AppBootstrap {
             guard let self else { return }
 
             await self.nightBrain.start()
-            await self.agentHeartbeat.start()
             KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()
 
             if self.epistemosConfig.captureEnabled {

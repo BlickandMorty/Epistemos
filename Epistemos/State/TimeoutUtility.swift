@@ -254,7 +254,6 @@ enum BreakerDomain: String, Sendable, CaseIterable {
     case cloud
     case foundationModels
     case mlx
-    case hermes
     case vault
 }
 
@@ -308,15 +307,6 @@ nonisolated func breakerConfig(for domain: BreakerDomain) -> BreakerConfig {
             resetTimeout: 15.0,
             requiredHalfOpenSuccesses: 2,
             degradedMode: .degradedAI,
-            additionalNeutralErrors: []
-        )
-    case .hermes:
-        BreakerConfig(
-            capacity: 8,
-            failureRateThreshold: 0.50,
-            resetTimeout: 10.0,
-            requiredHalfOpenSuccesses: 1,
-            degradedMode: .localOnly,
             additionalNeutralErrors: []
         )
     case .vault:
@@ -648,7 +638,6 @@ final class BreakerRegistry {
     let cloud = AgentCircuitBreaker(domain: .cloud)
     let foundationModels = AgentCircuitBreaker(domain: .foundationModels)
     let mlx = AgentCircuitBreaker(domain: .mlx)
-    let hermes = AgentCircuitBreaker(domain: .hermes)
     let vault = AgentCircuitBreaker(domain: .vault)
 
     /// Get breaker by domain enum.
@@ -657,14 +646,13 @@ final class BreakerRegistry {
         case .cloud: cloud
         case .foundationModels: foundationModels
         case .mlx: mlx
-        case .hermes: hermes
         case .vault: vault
         }
     }
 
     /// Wire all breakers to the mode machine for degradation notifications.
     func wireModeMachine(_ machine: ModeMachine) {
-        let allBreakers = [cloud, foundationModels, mlx, hermes, vault]
+        let allBreakers = [cloud, foundationModels, mlx, vault]
         for breaker in allBreakers {
             Task { await breaker.setModeMachine(machine) }
         }
@@ -672,7 +660,7 @@ final class BreakerRegistry {
 
     /// All domain breakers for iteration.
     var allBreakers: [AgentCircuitBreaker] {
-        [cloud, foundationModels, mlx, hermes, vault]
+        [cloud, foundationModels, mlx, vault]
     }
 }
 

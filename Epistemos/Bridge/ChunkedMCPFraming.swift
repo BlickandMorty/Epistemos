@@ -340,7 +340,7 @@ enum ShmWriter {
     }
 
     /// Clean up all TCC proxy SHM segments created during this process lifetime.
-    /// Called from `HermesSubprocessManager.cleanupPipes()` on subprocess termination
+    /// Called on subprocess termination
     /// to prevent zombie POSIX shared memory segments leaking in the kernel.
     static func cleanupTccProxySegments() {
         let segments = registry.withLock { segments -> [String] in

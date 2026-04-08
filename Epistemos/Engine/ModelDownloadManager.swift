@@ -80,7 +80,10 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
     }
 
     private func verifySnapshot(at directory: URL, descriptor: LocalModelDescriptor) throws {
-        guard descriptor.revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil else {
+        // Allow both full 40-char SHA revisions and branch names like "main"
+        let isValidRevision = descriptor.revision == "main"
+            || descriptor.revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil
+        guard isValidRevision else {
             throw LocalModelManagerError.invalidInstall(descriptor.id)
         }
 

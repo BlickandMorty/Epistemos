@@ -45,29 +45,6 @@ enum LandingCoordinateSpace {
     static let root = "LandingRoot"
 }
 
-// MARK: - Hermes Setup Banner
-
-/// Inline prompt shown when Hermes reports an auth failure (401, missing account access).
-/// One tap opens Settings so the user can reconnect the provider account — no terminal needed.
-private struct HermesSetupBanner: View {
-    let provider: CloudModelProvider
-    let failureMessage: String
-
-    var body: some View {
-        CloudProviderSetupCard(
-            provider: provider,
-            title: "Reconnect Cloud Access",
-            message: provider.supportsAccountConnection
-                ? "Hermes hit an authentication error. Reconnect your \(provider.displayName) account here. Legacy keys stay tucked under the fallback disclosure if you explicitly need them."
-                : "Hermes needs working \(provider.displayName) access here. Open the provider portal, create or copy a key, then use Paste + Save.",
-            footer: failureMessage,
-            compact: true,
-            showsDismissTip: false
-        )
-        .frame(maxWidth: 400)
-    }
-}
-
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 
@@ -252,10 +229,6 @@ struct LandingView: View {
 
     // MARK: - Greeting Content (normal landing state)
 
-    private var hermesAuthFailure: String? {
-        AppBootstrap.shared?.hermesManager.authFailureMessage
-    }
-
     private var greetingContent: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -265,15 +238,6 @@ struct LandingView: View {
             }
             .padding(.horizontal, Spacing.xxl)
             .allowsHitTesting(false)
-
-            if let hermesAuthFailure {
-                HermesSetupBanner(
-                    provider: inference.activeCloudProvider ?? .google,
-                    failureMessage: hermesAuthFailure
-                )
-                .padding(.top, 16)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
 
             Spacer()
 

@@ -44,7 +44,7 @@ struct CognitiveSettingsSection: View {
                     Toggle("Require AC Power", isOn: $config.nightBrainRequiresAC)
                     Toggle("Keep Running in Menu Bar", isOn: $config.nightBrainMenuBarAgent)
                     SettingsDescriptionText(
-                        text: "Current jobs include WAL checkpointing, artifact deduplication, and snapshot compaction. Requiring AC power keeps those jobs from draining the battery. Menu bar mode keeps the app alive so Hermes cron jobs can fire even when all windows are closed."
+                        text: "Current jobs include WAL checkpointing, artifact deduplication, and snapshot compaction. Requiring AC power keeps those jobs from draining the battery. Menu bar mode keeps the app alive so background jobs can fire even when all windows are closed."
                     )
                 }
             }

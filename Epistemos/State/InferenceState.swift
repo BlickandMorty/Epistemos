@@ -148,7 +148,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var canActAsAgent: Bool {
         switch self {
-        case .qwen35_4B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
              .gemma4_4B4Bit, .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B, .qwen25Coder7B,
@@ -159,9 +159,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
-    var supportsHermesAgentMode: Bool {
+    var supportsAgentMode: Bool {
         switch self {
-        case .qwen35_9B4Bit, .qwopus27Bv3, .qwopusMoE35BA3B:
+        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .gemma4_4B4Bit, .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .qwopus27Bv3, .qwopusMoE35BA3B,
+             .deepseekR1Distill7B, .qwen25Coder7B,
+             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit:
             true
         default:
             false
@@ -238,6 +242,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         default:
             false // Small models lack reliable tool call formatting
         }
+    }
+
+    /// File types this model can process natively.
+    /// Vision models handle images; all models handle text, CSV, and PDF.
+    var supportedFileTypes: Set<AttachmentType> {
+        supportsVision ? [.text, .csv, .pdf, .image] : [.text, .csv, .pdf]
     }
 
     /// Optimal temperature for FAST (non-thinking) mode.
@@ -461,8 +471,11 @@ extension LocalTextModelID {
             .fullAgent    // Best sub-10B coding model, native tool calling
         case .deepseekR1Distill7B:
             .readWrite    // Strong reasoning but tool call JSON can be unreliable
-        // Medium models (9-12B): can read files and search web
-        case .qwen35_9B4Bit, .gemma4_12B4Bit:
+        // Medium models (9-12B): Qwen 9B gets full agent (thinking + 262K),
+        // Gemma 12B gets readWrite (no thinking, vision-focused)
+        case .qwen35_9B4Bit:
+            .fullAgent
+        case .gemma4_12B4Bit:
             .readWrite
         // Large models (27B+): full tool set — smart enough for shell/browser
         case .qwopus27Bv3, .qwopusMoE35BA3B,
@@ -899,6 +912,63 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .deepseekReasoner:
             [.thinking, .pro, .agent]
         }
+    }
+
+    var maxContextTokens: Int {
+        switch self {
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52, .openAIGPT41:
+            1_048_576  // 1M tokens
+        case .openAIGPT54Nano, .openAIGPT41Mini:
+            131_072
+        case .openAIO3, .openAIO3Mini:
+            200_000
+        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4:
+            200_000
+        case .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
+            200_000
+        case .googleGemini25Pro, .googleGemini25Flash:
+            1_048_576
+        case .googleGemini3FlashPreview, .googleGemini3ProPreview, .googleGemini31ProPreview:
+            1_048_576
+        case .zaiGLM5, .zaiGLM45Flash:
+            128_000
+        case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
+            131_072
+        case .minimaxM25, .minimaxM25HighSpeed, .minimaxM21:
+            1_048_576
+        case .deepseekChat, .deepseekReasoner:
+            128_000
+        }
+    }
+
+    var supportsVision: Bool {
+        switch self {
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52,
+             .openAIGPT41, .openAIGPT41Mini:
+            true
+        case .openAIO3, .openAIO3Mini:
+            false  // reasoning-only, no vision
+        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+             .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
+            true
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
+             .googleGemini3ProPreview, .googleGemini31ProPreview:
+            true
+        case .zaiGLM5:
+            true
+        case .zaiGLM45Flash:
+            false
+        case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
+            true
+        case .minimaxM25, .minimaxM25HighSpeed, .minimaxM21:
+            false
+        case .deepseekChat, .deepseekReasoner:
+            false
+        }
+    }
+
+    var supportedFileTypes: Set<AttachmentType> {
+        supportsVision ? [.text, .csv, .pdf, .image] : [.text, .csv, .pdf]
     }
 
     func resolvedModel(for operatingMode: EpistemosOperatingMode) -> CloudTextModelID {
@@ -1526,7 +1596,8 @@ extension CloudModelProvider {
     }
 }
 
-nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
+nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable {
+    var id: String { rawValue }
     case appleIntelligence
     case localMLX(String)
     case cloud(CloudTextModelID)
@@ -1568,6 +1639,30 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable {
             LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
         case .cloud(let model):
             model.displayName
+        }
+    }
+
+    var activeMaxContextTokens: Int {
+        switch self {
+        case .appleIntelligence: 128_000
+        case .localMLX(let id): LocalTextModelID(rawValue: id)?.maxContextTokens ?? 128_000
+        case .cloud(let model): model.maxContextTokens
+        }
+    }
+
+    var activeSupportsVision: Bool {
+        switch self {
+        case .appleIntelligence: false
+        case .localMLX(let id): LocalTextModelID(rawValue: id)?.supportsVision ?? false
+        case .cloud(let model): model.supportsVision
+        }
+    }
+
+    var activeSupportedFileTypes: Set<AttachmentType> {
+        switch self {
+        case .appleIntelligence: [.text, .csv, .pdf]
+        case .localMLX(let id): LocalTextModelID(rawValue: id)?.supportedFileTypes ?? [.text, .csv, .pdf]
+        case .cloud(let model): model.supportedFileTypes
         }
     }
 
@@ -1762,7 +1857,7 @@ nonisolated struct LocalModelSelection: Sendable, Equatable {
         guard let model = LocalTextModelID(rawValue: modelID) else {
             return false
         }
-        return model.supportsHermesAgentMode
+        return model.supportsAgentMode
     }
 }
 
@@ -1950,7 +2045,17 @@ final class InferenceState {
     private nonisolated static let cloudSetupHintShownDefaultsKey = "epistemos.cloudSetupHintShown"
     private nonisolated static let cloudValidationTimeout: Duration = .seconds(90)
 
-    var inferenceMode: InferenceMode = .api
+    /// Transient image URLs for the current inference request.
+    /// Set by ChatCoordinator before inference, consumed by MLXInferenceService, cleared after.
+    var pendingImageURLs: [URL] = []
+
+    var inferenceMode: InferenceMode {
+        switch preferredChatModelSelection {
+        case .appleIntelligence: return .appleIntelligence
+        case .localMLX: return .local
+        case .cloud: return .api
+        }
+    }
     var routingMode: LocalRoutingMode = .auto
     /// When false (default), cloud requests use only the selected model and fail with
     /// a descriptive error instead of silently falling back to other models.
@@ -2206,7 +2311,6 @@ final class InferenceState {
         return .openAI
     }
 
-    func setInferenceMode(_ mode: InferenceMode) { inferenceMode = mode }
 
     var localModelInstallStateSummary: LocalModelInstallStateSummary {
         installedLocalTextModelIDs.isEmpty ? .none : .installed
@@ -2250,7 +2354,7 @@ final class InferenceState {
             return false
         }
 
-        return model.supportsHermesAgentMode
+        return model.supportsAgentMode
     }
 
     var operatingModeCapabilities: OperatingModeCapabilities {
@@ -2271,7 +2375,7 @@ final class InferenceState {
             if model.supportsThinkingMode {
                 modes.append(.thinking)
             }
-            if model.supportsHermesAgentMode {
+            if model.supportsAgentMode {
                 modes.append(.agent)
             }
             return OperatingModeCapabilities(availableModes: modes)

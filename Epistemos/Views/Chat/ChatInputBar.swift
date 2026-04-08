@@ -197,6 +197,17 @@ struct ChatInputBar: View {
     }
     var body: some View {
         VStack(spacing: 0) {
+            // Context window usage indicator
+            if chat.hasMessages {
+                ContextWindowIndicator(
+                    usageFraction: chat.contextUsageFraction,
+                    usedTokens: chat.estimatedContextTokens,
+                    maxTokens: chat.maxContextTokens
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+            }
+
             // Pending attachments preview — collapsed to 0 height when empty
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -224,7 +235,14 @@ struct ChatInputBar: View {
                     }
 
                     ForEach(chat.pendingAttachments) { att in
+                        let isSupported = inference.preferredChatModelSelection
+                            .activeSupportedFileTypes.contains(att.type)
                         HStack(spacing: 4) {
+                            if !isSupported {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.orange)
+                            }
                             Image(systemName: iconForType(att.type))
                                 .font(.epSmall)
                             Text(att.name)
@@ -242,8 +260,12 @@ struct ChatInputBar: View {
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(theme.mutedForeground.opacity(0.08), in: Capsule())
-                        .foregroundStyle(theme.mutedForeground.opacity(0.7))
+                        .background(
+                            (isSupported ? theme.mutedForeground.opacity(0.08) : Color.orange.opacity(0.1)),
+                            in: Capsule()
+                        )
+                        .foregroundStyle(isSupported ? theme.mutedForeground.opacity(0.7) : .orange)
+                        .help(isSupported ? att.name : "Current model doesn't support \(att.type.rawValue) files")
                     }
                 }
                 .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
@@ -253,6 +275,25 @@ struct ChatInputBar: View {
             .frame(height: (chat.pendingAttachments.isEmpty && chat.pendingContextAttachments.isEmpty) ? 0 : nil)
             .clipped()
             .animation(Motion.quick, value: chat.pendingAttachments.count + chat.pendingContextAttachments.count)
+
+            // Image attachment warning for text-only models
+            if chat.pendingAttachments.contains(where: { $0.type == .image }),
+               !inference.preferredChatModelSelection.activeSupportsVision {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text("Current model doesn't support images. Switch to Gemma 4 or a cloud vision model.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 4)
+            }
 
             VStack(alignment: .leading, spacing: 0) {
                 if chat.isIncognito {

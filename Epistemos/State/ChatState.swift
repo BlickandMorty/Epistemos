@@ -23,6 +23,19 @@ final class ChatState {
     var hasMessages = false
     private(set) var transcriptRevision: UInt = 0
 
+    // MARK: - Context Window Tracking
+    var estimatedContextTokens: Int = 0
+    var maxContextTokens: Int = 128_000
+
+    var contextUsageFraction: Double {
+        guard maxContextTokens > 0 else { return 0 }
+        return min(1.0, Double(estimatedContextTokens) / Double(maxContextTokens))
+    }
+
+    func recalculateContextEstimate() {
+        estimatedContextTokens = messages.reduce(0) { $0 + $1.content.count } / 4
+    }
+
     /// Controls whether the landing page or chat view is shown on the Home panel.
     /// `true` = landing page visible (even if messages exist in memory).
     /// Messages stay alive while the user navigates away and back.
