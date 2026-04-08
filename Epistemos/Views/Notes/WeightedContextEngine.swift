@@ -35,9 +35,13 @@ struct WeightedSemanticMatch: Identifiable, Comparable {
 
 // MARK: - Code Complexity Analysis
 
-/// Analyzes code complexity to help AI prioritize understanding
+/// Analyzes code complexity to help AI prioritize understanding.
+/// Results are cached per (lineCount, contentHash) with 30-second TTL
+/// to avoid re-parsing on every analysis cycle for large files.
 struct CodeComplexityAnalyzer {
-    
+
+    private static var cache: (key: Int, score: ComplexityScore, expiry: Date)?
+
     struct ComplexityScore: Sendable {
         let cyclomaticComplexity: Int
         let cognitiveComplexity: Int
@@ -51,6 +55,12 @@ struct CodeComplexityAnalyzer {
     }
     
     static func analyze(code: String, language: String) -> ComplexityScore {
+        // Cache check: reuse result if same content within 30s TTL
+        let cacheKey = code.hashValue
+        if let cached = cache, cached.key == cacheKey, cached.expiry > Date() {
+            return cached.score
+        }
+
         let lines = code.components(separatedBy: .newlines)
         let lineCount = lines.count
         
@@ -115,7 +125,7 @@ struct CodeComplexityAnalyzer {
         score += hasAsync ? 0.05 : 0
         score += hasConcurrency ? 0.05 : 0
         
-        return ComplexityScore(
+        let result = ComplexityScore(
             cyclomaticComplexity: cyclomatic,
             cognitiveComplexity: cognitive,
             nestingDepth: maxNesting,
@@ -126,6 +136,10 @@ struct CodeComplexityAnalyzer {
             hasRecursion: hasRecursion,
             overallScore: min(score, 1.0)
         )
+
+        // Cache for 30 seconds
+        cache = (key: cacheKey, score: result, expiry: Date().addingTimeInterval(30))
+        return result
     }
     
     private static func extractFunctionName(from line: String) -> String? {
