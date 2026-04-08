@@ -81,7 +81,7 @@ nonisolated enum InferenceTaskIntent: Sendable, Equatable {
 
 nonisolated enum InferenceRouteKind: String, Sendable, Equatable {
     case appleIntelligence
-    case localQwen
+    case localMLX
 }
 
 nonisolated enum InferenceComplexityTier: String, Sendable, Equatable {
@@ -395,7 +395,7 @@ nonisolated struct InferencePolicyEngine {
     ) -> InferenceRouteKind {
         _ = selection
         _ = context
-        return .localQwen
+        return .localMLX
     }
 
     private func explicitRoute(
@@ -407,8 +407,8 @@ nonisolated struct InferencePolicyEngine {
         switch context.preferredChatModelSelection {
         case .appleIntelligence:
             return context.appleIntelligenceAvailable ? .appleIntelligence : nil
-        case .localQwen(_):
-            return localSelection != nil ? .localQwen : nil
+        case .localMLX(_):
+            return localSelection != nil ? .localMLX : nil
         case .cloud(_):
             return nil
         }
@@ -588,13 +588,20 @@ nonisolated enum CloudRoutingError: LocalizedError {
 /// based on automatic complexity scoring and prepared role availability.
 @MainActor @Observable
 final class TriageService {
-    private static let localQwenBaselineSystemPrompt = """
+    private static let localMLXBaselineSystemPrompt = """
     You are Epistemos' local on-device assistant.
     Answer directly and concisely.
     Do not claim to have browsing, external tool use, research mode, or hidden capabilities you do not actually have.
     Do not claim to be a different model.
     If asked about your identity, say you are the local Epistemos assistant running on-device.
     If the answer is uncertain, say so plainly instead of fabricating confidence.
+    """
+
+    /// Shorter system prompt for abliterated models (JANG, etc.).
+    /// No refusal-coaching lines that conflict with the model's fine-tuning.
+    private static let localAbliteratedBaselineSystemPrompt = """
+    You are Epistemos' local on-device assistant.
+    Answer directly and concisely.
     """
 
     private static let cloudBaselineSystemPrompt = """
@@ -1270,7 +1277,7 @@ final class TriageService {
         switch route {
         case .appleIntelligence:
             .appleIntelligence
-        case .localQwen:
+        case .localMLX:
             .localMLX
         }
     }
@@ -1699,12 +1706,20 @@ final class TriageService {
         }
     }
 
-    private static func effectiveLocalSystemPrompt(_ systemPrompt: String?) -> String {
+    private static func effectiveLocalSystemPrompt(_ systemPrompt: String?, modelID: String? = nil) -> String {
+        // Use shorter prompt for abliterated models (no refusal-coaching needed)
+        let baseline: String
+        if let modelID,
+           LocalTextModelID(rawValue: modelID)?.isAbliterated == true {
+            baseline = localAbliteratedBaselineSystemPrompt
+        } else {
+            baseline = localMLXBaselineSystemPrompt
+        }
         guard let systemPrompt,
               !systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return localQwenBaselineSystemPrompt
+            return baseline
         }
-        return "\(localQwenBaselineSystemPrompt)\n\n\(systemPrompt)"
+        return "\(baseline)\n\n\(systemPrompt)"
     }
 
     private func userFacingStream(
