@@ -37,6 +37,5 @@ extension View {
             .environment(bootstrap.visualVerifyLoop)
             .environment(bootstrap.ghostBrainCoauthor)
             .environment(bootstrap.epistemosConfig)
-            .environment(bootstrap.hermesAdminViewModel)
     }
 }

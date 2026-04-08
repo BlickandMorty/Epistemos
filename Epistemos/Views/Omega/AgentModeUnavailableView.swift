@@ -65,18 +65,18 @@ struct AgentModeUnavailableView: View {
     private var explanationText: String {
         switch reason {
         case .appleIntelligenceNoAgent:
-            "Apple Intelligence provides fast local replies but does not support multi-step agent execution. Switch to a cloud model for full Hermes agent mode."
+            "Apple Intelligence provides fast local replies but does not support multi-step tool execution. Switch to a cloud or larger local model for full capabilities."
         case .localModelLacksAgentCapability:
-            "\(modelName) is not certified for agentic tool use. Choose a larger local model (4B+ with agent support) or a cloud model for Hermes agent mode."
+            "\(modelName) does not support agentic tool use. Choose a larger local model (4B+ with tool support) or a cloud model."
         }
     }
 
     private var suggestionText: String {
         switch reason {
         case .appleIntelligenceNoAgent:
-            "Cloud models (Claude, GPT, Gemini) connect to the Hermes runtime for persistent sessions, tool execution, and memory."
+            "Cloud models (Claude, GPT, Gemini) support persistent sessions, tool execution, and memory. Larger local models like Qwen 3.5 4B+ also work."
         case .localModelLacksAgentCapability:
-            "Models like Qwen 3.5 4B+, Devstral, or Mistral Small support local agent loops. Cloud models give you the full Hermes experience."
+            "Models like Qwen 3.5 4B+, Devstral, or Mistral Small support local tool loops. Cloud models give the most capable experience."
         }
     }
 }

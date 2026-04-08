@@ -158,6 +158,10 @@ final class ChatCoordinator {
                 let hasVault = bootstrap.ambientManifest != nil
                 Log.pipeline.info("handleQuery — hasVault=\(hasVault)")
 
+                // Sync context window size from active model
+                chatState.maxContextTokens = inferenceState.preferredChatModelSelection.activeMaxContextTokens
+                chatState.recalculateContextEstimate()
+
                 let notesContext: String?
                 let resolvedQuery: String
                 if hasVault, Self.queryContainsExplicitContext(query, attachments: chatState.pendingContextAttachments) {
@@ -175,9 +179,17 @@ final class ChatCoordinator {
                     chatState.loadedNoteTitles = []
                 }
 
-                let fileAttachmentContext = Self.buildFileAttachmentContext(
-                    from: chatState.messages.last(where: { $0.role == .user })?.attachments ?? []
-                )
+                let userAttachments = chatState.messages.last(where: { $0.role == .user })?.attachments ?? []
+                let fileAttachmentContext = Self.buildFileAttachmentContext(from: userAttachments)
+
+                // Extract image URLs for vision-capable models
+                if inferenceState.preferredChatModelSelection.activeSupportsVision {
+                    inferenceState.pendingImageURLs = userAttachments
+                        .filter { $0.type == .image }
+                        .compactMap { Self.resolvedFileAttachmentURL(from: $0.uri) }
+                } else {
+                    inferenceState.pendingImageURLs = []
+                }
 
                 // For vault briefing, override notesContext with full manifest (includes bodies)
                 let effectiveNotesContext: String?
@@ -238,7 +250,9 @@ final class ChatCoordinator {
                 let capturedChatId = chatState.activeChatId
 
                 // Route: cloud queries → Rust agent_core (full tool loop)
-                //        local queries → PipelineService (Swift inference)
+                //        local / Apple Intelligence → PipelineService (Swift inference)
+                //        Rust agent fallback → PipelineService (cloud via Swift pipeline)
+                var usedRustAgent = false
                 if mode == .api {
                     do {
                         try await self.runRustAgentPath(
@@ -251,12 +265,13 @@ final class ChatCoordinator {
                             hasVault: hasVault,
                             pendingAssistantId: pendingAssistantId
                         )
+                        usedRustAgent = true
                     } catch {
-                        // Graceful fallback: if Rust agent_core is not linked or fails,
-                        // fall through to the standard cloud pipeline below.
                         Log.pipeline.warning("Rust agent path unavailable, falling back to cloud pipeline: \(error.localizedDescription)")
                     }
-                } else {
+                }
+
+                if !usedRustAgent {
                     let stream = pipeline.run(
                         query: effectiveQuery,
                         mode: mode,
@@ -275,6 +290,7 @@ final class ChatCoordinator {
                                 messageId: pendingAssistantId,
                                 mode: mode
                             )
+                            chatState.recalculateContextEstimate()
 
                             if let lastMsg = chatState.messages.last {
                                 let processed = self.executeVaultActions(in: lastMsg.content)
@@ -310,6 +326,7 @@ final class ChatCoordinator {
             } catch {
                 chatState.addErrorMessage("Analysis failed: \(error.localizedDescription)")
             }
+            inferenceState.pendingImageURLs = []
         }
     }
 

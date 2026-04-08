@@ -603,17 +603,6 @@ final class AppSupervisor {
             await inferenceCircuitBreaker.reset()
             subsystemStatus["inference"] = true
 
-        case "hermesSubprocess":
-            if let hermes = AppBootstrap.shared?.hermesManager {
-                do {
-                    try await hermes.restart()
-                    subsystemStatus["hermesSubprocess"] = true
-                } catch {
-                    subsystemStatus["hermesSubprocess"] = false
-                    Self.log.error("Manual Hermes restart failed: \(error.localizedDescription)")
-                }
-            }
-
         default:
             // If it's a registered child, respawn it
             if let spec = childSpecs.first(where: { $0.id == name }) {

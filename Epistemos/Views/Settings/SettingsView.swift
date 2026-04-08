@@ -1474,7 +1474,7 @@ private struct InferenceDetailView: View {
             }
 
             SettingsDescriptionText(
-                text: "Optional web extraction key for Hermes and related research tooling."
+                text: "Optional web extraction key for deep research tooling."
             )
 
             HStack(spacing: 6) {
@@ -1923,11 +1923,19 @@ private struct LocalModelRow: View {
 
             switch state {
             case .installed:
-                Button("Delete") {
-                    try? localModelManager.uninstall(modelID: descriptor.id)
+                HStack(spacing: 6) {
+                    Button("Reinstall") {
+                        try? localModelManager.uninstall(modelID: descriptor.id)
+                        Task { try? await localModelManager.install(modelID: descriptor.id) }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    Button("Delete") {
+                        try? localModelManager.uninstall(modelID: descriptor.id)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             case .installing:
                 ProgressView()
                     .controlSize(.small)

@@ -687,7 +687,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         bootstrap.workspaceService.stopAutoSave()
         bootstrap.workspaceService.autoSave()
         bootstrap.vaultSync.stopWatching(preserveData: true)
-        bootstrap.hermesManager.terminate()
         StatusBar.shared.remove()
         HologramController.shared.teardown()
     }

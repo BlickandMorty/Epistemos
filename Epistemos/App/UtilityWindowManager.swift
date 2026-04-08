@@ -342,24 +342,7 @@ private struct ThemedUtilityRoot: View {
             switch kind {
             case .notes: NotesBrowserView()
             case .omega:
-                switch bootstrap.inferenceState.preferredChatModelSelection {
-                case .cloud:
-                    AgentPanelContainer(viewModel: bootstrap.agentViewModel)
-                case .localMLX(let modelID):
-                    if let model = LocalTextModelID(rawValue: modelID), model.supportsHermesAgentMode {
-                        AgentPanelContainer(viewModel: bootstrap.agentViewModel)
-                    } else {
-                        AgentModeUnavailableView(
-                            reason: .localModelLacksAgentCapability,
-                            modelName: LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-                        )
-                    }
-                case .appleIntelligence:
-                    AgentModeUnavailableView(
-                        reason: .appleIntelligenceNoAgent,
-                        modelName: "Apple Intelligence"
-                    )
-                }
+                OmegaPanel()
             case .settings: SettingsView()
             }
         }
