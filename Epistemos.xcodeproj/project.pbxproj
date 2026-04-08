@@ -21,6 +21,7 @@
 		06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */; };
 		07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A4402EB228D73EF547EC7D /* FolderEntity.swift */; };
 		08857849A064CDE0E60185F4 /* VaultChangesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */; };
+		08CFEC49DDE029458AC7834E /* ModelVaultsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34ECFC47F56D6F89928ADB6F /* ModelVaultsSettingsView.swift */; };
 		0967503B72180CCD8C3F4B3C /* IncrementalToolCallDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA206212055075DC496DB89 /* IncrementalToolCallDetectorTests.swift */; };
 		09C925B05E89E8CE0FA4F249 /* ThreadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56735F8C49D2024C45FFE4F9 /* ThreadState.swift */; };
 		0A579516CA8304642E9B59CB /* GraphBuilderComprehensiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A672CDFBD4A0220ED86FC1F /* GraphBuilderComprehensiveTests.swift */; };
@@ -663,6 +664,7 @@
 		3397972547C089AC5376CEB8 /* QueryRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryRuntime.swift; sourceTree = "<group>"; };
 		344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultOrganizerView.swift; sourceTree = "<group>"; };
 		34C944883A72B7AE9FF0970B /* __init__.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		34ECFC47F56D6F89928ADB6F /* ModelVaultsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelVaultsSettingsView.swift; sourceTree = "<group>"; };
 		3589BFD6400552883FBD1175 /* ToolbarGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarGlass.swift; sourceTree = "<group>"; };
 		35BF21AF29C3723FF46B717F /* CloudKnowledgeCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKnowledgeCompiler.swift; sourceTree = "<group>"; };
 		364DABC76721F27B9259F44B /* FallbackChainResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FallbackChainResolver.swift; sourceTree = "<group>"; };
@@ -2014,6 +2016,7 @@
 			children = (
 				6CA62AF34D83703AE13F1F66 /* CognitiveSettingsSection.swift */,
 				508DA5342ED6CB23EF097143 /* HermesAdminPanel.swift */,
+				34ECFC47F56D6F89928ADB6F /* ModelVaultsSettingsView.swift */,
 				3D9314F092AC7747696FBBF1 /* OmegaSettingsDetailView.swift */,
 				93154842DAC1AF484D8456B6 /* SettingsView.swift */,
 			);
@@ -2624,6 +2627,7 @@
 				383D0DB758B8A446D7DB831A /* ModelProfileDetailView.swift in Sources */,
 				2E78862817D547A53C799394 /* ModelProfileManager.swift in Sources */,
 				15E6FE532E1DC03AA9B0B71C /* ModelProfileSidebar.swift in Sources */,
+				08CFEC49DDE029458AC7834E /* ModelVaultsSettingsView.swift in Sources */,
 				712416E96D29259BB742D560 /* NLAnalysisService.swift in Sources */,
 				E5E92F094F60B3861D3EF394 /* NativeButtonStyles.swift in Sources */,
 				E16E0654FCDC29BAFDEEE708 /* NavigationIntents.swift in Sources */,

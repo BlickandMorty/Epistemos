@@ -15,8 +15,7 @@ struct SettingsView: View {
         case cognitive = "Cognitive"
         case inference = "Inference"
         case knowledgeFusion = "Knowledge Fusion (Experimental)"
-        case omega = "Agent Runtime"
-        case hermesAdmin = "Hermes Admin"
+        case modelVaults = "Model Vaults"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -28,8 +27,7 @@ struct SettingsView: View {
             .cognitive,
             .inference,
             .knowledgeFusion,
-            .omega,
-            .hermesAdmin,
+            .modelVaults,
             .landing,
             .appearance,
             .vault,
@@ -41,8 +39,7 @@ struct SettingsView: View {
             case .cognitive: "brain"
             case .inference: "cpu"
             case .knowledgeFusion: "brain.head.profile.fill"
-            case .omega: "waveform.path.ecg.rectangle"
-            case .hermesAdmin: "server.rack"
+            case .modelVaults: "tray.2.fill"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -80,8 +77,6 @@ struct SettingsView: View {
         }
     }
 
-    @Environment(HermesAdminViewModel.self) private var hermesAdmin
-
     @ViewBuilder
     private var settingsDetail: some View {
         switch selection {
@@ -89,8 +84,7 @@ struct SettingsView: View {
         case .cognitive: CognitiveSettingsSection()
         case .inference: InferenceDetailView()
         case .knowledgeFusion: KnowledgeFusionDetailView()
-        case .omega: OmegaSettingsDetailView()
-        case .hermesAdmin: HermesAdminPanel(viewModel: hermesAdmin)
+        case .modelVaults: ModelVaultsSettingsView()
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()

@@ -436,6 +436,45 @@ nonisolated enum LocalModelUseCase: String, Sendable {
     case general     // Catch-all assistant tasks
 }
 
+/// Tool capability tiers for local agent — larger models get more tools.
+/// Prevents small models from attempting complex tool chains they can't handle.
+nonisolated enum LocalAgentToolTier: String, Sendable {
+    case readOnly      // Vault search/read only — safe for any model
+    case readWrite     // + Read-only file system + web search
+    case fullAgent     // + Shell, browser, file write, computer use
+}
+
+extension LocalTextModelID {
+    /// What tool tier this model is capable of handling reliably.
+    var agentToolTier: LocalAgentToolTier {
+        switch self {
+        // Small models (≤4B): vault only — too small for tool chains
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .gemma4_2B4Bit,
+             .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit:
+            .readOnly
+        // Medium models (7-12B): can read files and search web
+        case .deepseekR1Distill7B, .qwen25Coder7B, .qwen35_9B4Bit, .gemma4_12B4Bit:
+            .readWrite
+        // Large models (27B+): full tool set — smart enough for shell/browser
+        case .qwopus27Bv3, .qwopusMoE35BA3B,
+             .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit,
+             .gemma3_27BQAT4Bit, .llama4Scout17B16E4Bit:
+            .fullAgent
+        }
+    }
+
+    /// Whether this model can use shell/bash commands.
+    var canUseShell: Bool { agentToolTier == .fullAgent }
+
+    /// Whether this model can browse the web (beyond search).
+    var canUseBrowser: Bool { agentToolTier == .fullAgent }
+
+    /// Whether this model can write files outside the vault.
+    var canWriteFiles: Bool { agentToolTier == .fullAgent }
+}
+
 nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
     case openAI
     case anthropic
