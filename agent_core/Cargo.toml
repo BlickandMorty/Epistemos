@@ -37,12 +37,14 @@ walkdir = "2.5"
 uuid = { version = "1.11", features = ["serde", "v4"] }
 
 [profile.release]
-# SAFETY: agent_core is the UniFFI FFI boundary crate. It MUST use "unwind"
-# so that catch_unwind can actually intercept panics and return typed errors
-# to Swift instead of aborting the entire macOS process.
-# Other crates (omega-mcp, epistemos-core, graph-engine) keep panic="abort"
-# because they have no FFI exports of their own.
+# SAFETY: agent_core MUST use "unwind" so catch_unwind can intercept panics
+# and return typed AgentErrorFFI to Swift instead of aborting the process.
 panic = "unwind"
+# Binary size optimizations — target: 8-12MB stripped
+opt-level = "z"        # Optimize for size (smallest binary)
+lto = true             # Link-time optimization across all crates
+codegen-units = 1      # Single codegen unit for maximum LTO effectiveness
+strip = "symbols"      # Strip debug symbols from release binary
 
 [build-dependencies]
 uniffi = { version = "0.28", features = ["build"] }

@@ -41,6 +41,8 @@ tree-sitter-cpp = "0.23"
 usearch = "2.24"
 
 [profile.release]
-opt-level = 3
-lto = "thin"
+opt-level = "z"        # Optimize for size
+lto = true             # Full LTO (was "thin")
+codegen-units = 1      # Single codegen unit
+strip = "symbols"      # Strip debug symbols
 panic = "abort"
