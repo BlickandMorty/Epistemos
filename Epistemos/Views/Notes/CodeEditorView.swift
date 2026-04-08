@@ -1072,7 +1072,6 @@ struct CodeCompanionToast: View {
         .padding()
         .frame(width: 320)
         .background(.ultraThinMaterial)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
         .overlay(
@@ -1257,9 +1256,14 @@ struct CodeEditorView: View {
         }
         .onChange(of: aiPartner.currentSuggestion?.id) { _, newId in
             if newId != nil {
+                // Pin popover to the actual cursor line in the editor.
+                // X: gutter width (~60) + some indent for readability
+                // Y: line * lineHeight + offset for breadcrumb/panels above editor
                 let lineHeight = fontSize * 1.35
-                let y = CGFloat(cursorLine) * lineHeight
-                suggestionPopoverAnchor = CGPoint(x: 160, y: y)
+                let gutterOffset: CGFloat = 70
+                let headerOffset: CGFloat = 36  // breadcrumb bar height
+                let y = headerOffset + CGFloat(cursorLine) * lineHeight
+                suggestionPopoverAnchor = CGPoint(x: gutterOffset, y: min(y, 400))
                 showSuggestionPopover = true
             } else {
                 showSuggestionPopover = false
@@ -1346,10 +1350,10 @@ struct CodeEditorView: View {
 
             // Code Ask Bar Input
             if showAskBar {
+                Divider()
                 codeAskBarInput
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.bar)
+                    .padding(.vertical, 6)
             }
 
             statusBar
@@ -1885,7 +1889,7 @@ struct CodeEditorView: View {
         SourceEditorConfiguration(
             appearance: .init(
                 theme: editorTheme,
-                useThemeBackground: false,
+                useThemeBackground: true,
                 font: .monospacedSystemFont(ofSize: fontSize, weight: .regular),
                 lineHeightMultiple: 1.35,
                 wrapLines: wrapLines,
@@ -3855,7 +3859,6 @@ struct SearchBar: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
         .cornerRadius(8)
         .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
         .frame(maxWidth: 400)
