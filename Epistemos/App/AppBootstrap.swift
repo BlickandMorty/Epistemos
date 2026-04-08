@@ -618,10 +618,24 @@ final class AppBootstrap {
     /// Called once at launch before any agent session can start.
     private static func populateAgentCoreEnvironment() {
         let mappings: [(envVar: String, keychainKey: String)] = [
+            // Core providers
             ("ANTHROPIC_API_KEY", "epistemos.anthropic.apiKey"),
             ("OPENAI_API_KEY", "epistemos.openai.apiKey"),
             ("GOOGLE_API_KEY", "epistemos.google.apiKey"),
             ("PERPLEXITY_API_KEY", "epistemos.perplexity.apiKey"),
+            // Universal gateway
+            ("OPENROUTER_API_KEY", "epistemos.openrouter.apiKey"),
+            // Chinese providers
+            ("GLM_API_KEY", "epistemos.zai.apiKey"),
+            ("KIMI_API_KEY", "epistemos.kimi.apiKey"),
+            ("DEEPSEEK_API_KEY", "epistemos.deepseek.apiKey"),
+            ("MINIMAX_API_KEY", "epistemos.minimax.apiKey"),
+            // Western providers
+            ("XAI_API_KEY", "epistemos.xai.apiKey"),
+            ("MISTRAL_API_KEY", "epistemos.mistral.apiKey"),
+            ("GROQ_API_KEY", "epistemos.groq.apiKey"),
+            // HuggingFace
+            ("HF_TOKEN", "epistemos.huggingface.apiKey"),
         ]
         for mapping in mappings {
             if let value = Keychain.load(for: mapping.keychainKey), !value.isEmpty {

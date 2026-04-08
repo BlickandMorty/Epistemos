@@ -19,6 +19,7 @@ pub mod providers {
     pub mod claude;
     pub mod gemini;
     pub mod openai;
+    pub mod openai_compatible;
     pub mod perplexity;
 }
 

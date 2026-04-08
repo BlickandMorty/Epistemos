@@ -8,6 +8,7 @@ use crate::provider::AgentProvider;
 use crate::providers::claude::ClaudeProvider;
 use crate::providers::gemini::GeminiProvider;
 use crate::providers::openai::OpenAIProvider;
+use crate::providers::openai_compatible::OpenAICompatibleProvider;
 use crate::providers::perplexity::PerplexityProvider;
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
 use crate::session::GlobalSessions;
@@ -289,18 +290,49 @@ fn resolve_provider_selection_preview(
 
 fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentErrorFFI> {
     match name {
+        // Anthropic Claude (native API)
         "claude_sonnet" => Ok(Arc::new(ClaudeProvider::sonnet())),
         "claude_opus" => Ok(Arc::new(ClaudeProvider::opus())),
         "claude_haiku" => Ok(Arc::new(ClaudeProvider::haiku())),
+        // Google Gemini (native API)
         "gemini_flash" => Ok(Arc::new(GeminiProvider::flash())),
         "gemini_pro" => Ok(Arc::new(GeminiProvider::pro())),
+        // Perplexity (native API)
         "perplexity" => Ok(Arc::new(PerplexityProvider::sonar_pro())),
+        // OpenAI (native API)
         "openai" | "openai_gpt4o" => Ok(Arc::new(OpenAIProvider::gpt4o())),
         "openai_gpt4o_mini" => Ok(Arc::new(OpenAIProvider::gpt4o_mini())),
         "openai_o1" => Ok(Arc::new(OpenAIProvider::o1())),
         "openai_o3_mini" => Ok(Arc::new(OpenAIProvider::o3_mini())),
+        // OpenRouter (200+ models via universal gateway)
+        "openrouter" => Ok(Arc::new(OpenAICompatibleProvider::openrouter("anthropic/claude-sonnet-4"))),
+        // Local providers (no API key needed)
+        "ollama" => Ok(Arc::new(OpenAICompatibleProvider::ollama("llama3.3"))),
+        "llama_cpp" => Ok(Arc::new(OpenAICompatibleProvider::llama_cpp("default"))),
+        // Chinese AI providers
+        "zai" | "glm" => Ok(Arc::new(OpenAICompatibleProvider::zai())),
+        "kimi" | "kimi_coding" => Ok(Arc::new(OpenAICompatibleProvider::kimi_coding())),
+        "deepseek" => Ok(Arc::new(OpenAICompatibleProvider::deepseek())),
+        "minimax" => Ok(Arc::new(OpenAICompatibleProvider::minimax())),
+        // Western AI providers
+        "xai" | "grok" => Ok(Arc::new(OpenAICompatibleProvider::xai())),
+        "mistral" => Ok(Arc::new(OpenAICompatibleProvider::mistral())),
+        "groq" => Ok(Arc::new(OpenAICompatibleProvider::groq())),
+        // HuggingFace (any model via Inference API)
+        "huggingface" | "hf" => Ok(Arc::new(OpenAICompatibleProvider::huggingface("meta-llama/Llama-3.3-70B-Instruct"))),
+        // Dynamic: provider_name/model format for OpenRouter + HuggingFace
+        name if name.contains('/') => {
+            // Auto-detect: openrouter/model or hf/model
+            if name.starts_with("hf/") || name.starts_with("huggingface/") {
+                let model = name.splitn(2, '/').nth(1).unwrap_or("meta-llama/Llama-3.3-70B-Instruct");
+                Ok(Arc::new(OpenAICompatibleProvider::huggingface(model)))
+            } else {
+                // Default to OpenRouter for any provider/model format
+                Ok(Arc::new(OpenAICompatibleProvider::openrouter(name)))
+            }
+        }
         _ => Err(AgentErrorFFI::AgentError {
-            message: format!("Unsupported provider in agent_core bridge: {name}"),
+            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, deepseek, minimax, xai, mistral, groq, huggingface, or any provider/model slug."),
         }),
     }
 }
