@@ -37,6 +37,7 @@ pub mod shared_memory;
 pub mod tools {
     pub mod chunk_reduce;
     pub mod computer_use;
+    pub mod delegate_task;
     pub mod file_ops;
     pub mod memory;
     pub mod registry;

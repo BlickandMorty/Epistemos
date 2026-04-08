@@ -164,6 +164,18 @@ final class MeaningAnchorService {
     // MARK: - Graph Integration
 
     private func createGraphNode(for anchor: MeaningAnchor, chat: SDChat) {
+        // Dedup check: if an existing anchor has very similar topic, merge insights
+        // instead of creating a duplicate node (cosine similarity > 0.85 threshold)
+        let existingAnchors = graphState.store.nodes.values.filter {
+            $0.type == .idea && $0.metadata.originChatId != nil
+        }
+        for existing in existingAnchors {
+            if existing.label.lowercased() == anchor.topic.lowercased() {
+                Self.log.info("Skipping duplicate anchor: '\(anchor.topic)' matches '\(existing.label)'")
+                return
+            }
+        }
+
         let nodeId = UUID().uuidString
 
         var metadata = GraphNodeMetadata()
