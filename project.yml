@@ -15,6 +15,14 @@ settings:
   configs:
     Debug:
       ENABLE_TESTABILITY: true
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      GCC_OPTIMIZATION_LEVEL: "0"
+      SWIFT_COMPILATION_MODE: "singlefile"
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG"
+      ONLY_ACTIVE_ARCH: true
+      ENABLE_PREVIEWS: true
+      DEBUG_INFORMATION_FORMAT: "dwarf"
+      GCC_GENERATE_DEBUGGING_SYMBOLS: true
     Release:
       SWIFT_OPTIMIZATION_LEVEL: "-Os"
       DEAD_CODE_STRIPPING: true
@@ -156,3 +164,9 @@ schemes:
         - EpistemosTests
     run:
       executable: Epistemos
+    archive:
+      config: Release
+      preActions:
+        - script: "export SHIP_MODE=release"
+          name: "Set SHIP_MODE for release archive"
+          settingsTarget: Epistemos
