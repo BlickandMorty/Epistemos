@@ -382,25 +382,31 @@ extension ActivityTracker {
             }
         }
 
-        // No activity → baseline 0
         guard editCount30d > 0 || openCount30d > 0 else { return 0 }
 
-        // Score components (each 0 to 1):
-        // Recent edit intensity (7-day, normalized: 10+ edits = max)
-        let recentEditScore = min(Double(editCount7d) / 10.0, 1.0)
-        // Total engagement (30-day, normalized: 20+ interactions = max)
-        let totalEngagement = min(Double(editCount30d + openCount30d) / 20.0, 1.0)
-        // Recency of last activity (exponential decay, 7-day half-life)
-        let recencyScore: Double
+        // Dual decay scoring (from research synthesis):
+        // Fast signal (7-day half-life): captures "currently working on"
+        // Slow signal (90-day half-life): captures "long-term importance"
+        let fastDecay: Double
+        let slowDecay: Double
         if let last = lastActivity {
             let days = now.timeIntervalSince(last) / (24 * 3600)
-            recencyScore = exp(-days / 7.0)
+            fastDecay = exp(-days / 7.0)   // 7-day half-life
+            slowDecay = exp(-days / 90.0)  // 90-day half-life
         } else {
-            recencyScore = 0
+            fastDecay = 0
+            slowDecay = 0
         }
 
-        // Weighted combination
-        return recentEditScore * 0.4 + totalEngagement * 0.3 + recencyScore * 0.3
+        // Edit intensity (7-day, normalized)
+        let recentEditScore = min(Double(editCount7d) / 10.0, 1.0)
+        // Total engagement (30-day, normalized)
+        let totalEngagement = min(Double(editCount30d + openCount30d) / 20.0, 1.0)
+
+        // Combined: fast decay weighted 70%, slow decay 30% (per research)
+        let recencyBlend = fastDecay * 0.7 + slowDecay * 0.3
+
+        return recentEditScore * 0.35 + totalEngagement * 0.25 + recencyBlend * 0.40
     }
 
     /// Global activity profile — cross-node patterns for AI context.

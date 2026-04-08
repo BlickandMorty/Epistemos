@@ -34,6 +34,8 @@ pub mod storage {
 
 pub mod shared_memory;
 
+pub mod mcp;
+
 pub mod tools {
     pub mod chunk_reduce;
     pub mod computer_use;
