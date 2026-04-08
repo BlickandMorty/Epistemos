@@ -42,7 +42,6 @@ targets:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
       - path: config/model_manifest.json
-      - path: hermes-agent/requirements.txt
     settings:
       base:
         PRODUCT_NAME: Epistemos
@@ -74,7 +73,7 @@ targets:
           ENABLE_HARDENED_RUNTIME: true
     preBuildScripts:
       - name: Build Rust Engine
-        script: bash "${SRCROOT}/build-rust.sh" && bash "${SRCROOT}/build-omega-mcp.sh" && bash "${SRCROOT}/build-omega-ax.sh" && bash "${SRCROOT}/build-epistemos-core.sh"
+        script: "bash \"${SRCROOT}/build-rust.sh\" && if [ \"${SHIP_MODE}\" != \"release\" ]; then bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\"; else echo \"SHIP_MODE=release: skipping agent crates (52MB saved)\"; fi"
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
