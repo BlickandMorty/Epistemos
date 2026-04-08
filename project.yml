@@ -15,6 +15,15 @@ settings:
   configs:
     Debug:
       ENABLE_TESTABILITY: true
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-Os"
+      DEAD_CODE_STRIPPING: true
+      LLVM_LTO: "YES"
+      STRIP_INSTALLED_PRODUCT: true
+      STRIP_SWIFT_SYMBOLS: true
+      DEPLOYMENT_POSTPROCESSING: true
+      GCC_OPTIMIZATION_LEVEL: "-Os"
+      COPY_PHASE_STRIP: true
 
 targets:
   Epistemos:
