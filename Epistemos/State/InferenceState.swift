@@ -1601,7 +1601,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         case .pro:
             "Use the provider's highest-quality route before falling back to on-device reasoning."
         case .agent:
-            "Hand off the task to the agent runtime for visible multi-step execution."
+            "Use cloud AI with full tool execution (web search, file ops, code, computer use)."
         }
     }
 
@@ -1609,14 +1609,14 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         switch self {
         case .fast: .fast
         case .thinking, .pro: .thinking
-        case .agent: nil
+        case .agent: .thinking  // Agent mode uses cloud with thinking enabled
         }
     }
 
     var handoffMessage: String? {
         switch self {
         case .agent:
-            "Handing this off to the agent runtime for multi-step execution. Follow progress in the Agent Runtime panel."
+            nil  // No handoff needed — agent runs inline in main chat
         case .fast, .thinking, .pro:
             nil
         }

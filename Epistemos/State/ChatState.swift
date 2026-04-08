@@ -436,18 +436,9 @@ enum MainChatSubmissionRouter {
 
         switch operatingMode {
         case .agent:
-            chat.appendLocalMessage(
-                role: .user,
-                content: trimmed,
-                contextAttachments: contextAttachments
-            )
-            if let handoffMessage = operatingMode.handoffMessage {
-                chat.appendLocalMessage(role: .assistant, content: handoffMessage)
-            }
-            showOmegaPanel()
-            Task {
-                await orchestrator.submitTask(trimmed)
-            }
+            // Agent mode now routes through the main chat pipeline with cloud
+            // providers + Rust agent_core tool execution. No separate panel needed.
+            chat.submitQuery(trimmed, operatingMode: operatingMode)
 
         case .fast, .thinking, .pro:
             chat.submitQuery(trimmed, operatingMode: operatingMode)
