@@ -240,16 +240,22 @@ final class ChatCoordinator {
                 // Route: cloud queries → Rust agent_core (full tool loop)
                 //        local queries → PipelineService (Swift inference)
                 if mode == .api {
-                    try await self.runRustAgentPath(
-                        query: effectiveQuery,
-                        notesContext: effectiveNotesContextWithWorkspace,
-                        conversationHistory: conversationHistory,
-                        chatState: chatState,
-                        chatId: capturedChatId,
-                        originalQuery: query,
-                        hasVault: hasVault,
-                        pendingAssistantId: pendingAssistantId
-                    )
+                    do {
+                        try await self.runRustAgentPath(
+                            query: effectiveQuery,
+                            notesContext: effectiveNotesContextWithWorkspace,
+                            conversationHistory: conversationHistory,
+                            chatState: chatState,
+                            chatId: capturedChatId,
+                            originalQuery: query,
+                            hasVault: hasVault,
+                            pendingAssistantId: pendingAssistantId
+                        )
+                    } catch {
+                        // Graceful fallback: if Rust agent_core is not linked or fails,
+                        // fall through to the standard cloud pipeline below.
+                        Log.pipeline.warning("Rust agent path unavailable, falling back to cloud pipeline: \(error.localizedDescription)")
+                    }
                 } else {
                     let stream = pipeline.run(
                         query: effectiveQuery,

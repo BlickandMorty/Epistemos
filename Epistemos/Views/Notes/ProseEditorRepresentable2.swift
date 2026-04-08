@@ -724,7 +724,15 @@ extension ProseEditorRepresentable2 {
 
         // MARK: - Dismantle
 
+        private var isDismantled = false
+
         func handleDismantle() {
+            // Re-entrancy guard: SwiftUI may call dismantleNSView twice
+            // in rapid succession (documented AppKit race). Second call would
+            // crash on nil textView accesses without this guard.
+            guard !isDismantled else { return }
+            isDismantled = true
+
             // Cancel pending tasks FIRST — prevents races where a debounced sync
             // fires mid-dismantle and writes to the binding during teardown.
             bindingSyncTask?.cancel()
