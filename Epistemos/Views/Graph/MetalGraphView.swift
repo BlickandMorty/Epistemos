@@ -433,7 +433,7 @@ final class MetalGraphNSView: NSView {
     /// Triple-buffer in-flight semaphore: allows up to 3 frames queued
     /// between CPU and GPU, matching maximumDrawableCount=3. Without
     /// this, the atomic bool drops frames instead of pipelining them.
-    private let inFlightSemaphore = DispatchSemaphore(value: 3)
+    private let inFlightSemaphore = DispatchSemaphore(value: 2)
 
     /// Atomic render-needed flag. CVDisplayLink (background thread) reads this
     /// to skip dispatches when settled. Main thread writes it on user events
@@ -576,7 +576,7 @@ final class MetalGraphNSView: NSView {
         layer.pixelFormat = .bgra8Unorm_srgb  // MUST match Rust renderer pipeline (BGRA8Unorm_sRGB)
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
-        layer.maximumDrawableCount = 3     // Triple buffer: eliminates stutter from GPU/CPU contention.
+        layer.maximumDrawableCount = 2     // Double buffer: lower latency, matches standard Metal pipeline.
         layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         self.metalLayer = layer
         return layer
@@ -1132,7 +1132,7 @@ final class MetalGraphNSView: NSView {
         guard let layer = metalLayer else { return }
 
         // In-flight tracking: acquire a slot. The semaphore allows up to
-        // 3 frames in the GPU pipeline (matching maximumDrawableCount=3).
+        // 2 frames in the GPU pipeline (matching maximumDrawableCount=2).
         // Use a short timeout instead of .now() to avoid dropping frames
         // that just need one more millisecond to finish presenting.
         guard inFlightSemaphore.wait(timeout: .now() + .milliseconds(2)) == .success else { return }
