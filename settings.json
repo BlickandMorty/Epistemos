@@ -1,0 +1,77 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(sed *)",
+      "Bash(cargo check *)",
+      "Bash(cargo test *)",
+      "Bash(cargo build *)",
+      "Bash(xcodebuild *)",
+      "Bash(swift test *)",
+      "Bash(swiftlint *)",
+      "Bash(xcbeautify *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat .claude/context-essentials.txt 2>/dev/null || echo 'WARNING: .claude/context-essentials.txt missing — re-read CLAUDE.md NOW'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; [ -z \"$FILE\" ] && exit 0; [[ \"$FILE\" != *.swift ]] && exit 0; grep -qE \"Process\\(\\)|NSTask\\(\\)|posix_spawn\" \"$FILE\" 2>/dev/null && echo \"⚠️ SIDECAR WARNING: $FILE contains Process()/NSTask/posix_spawn — verify this is NOT for inference\" || exit 0'"
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; [ -z \"$FILE\" ] && exit 0; [[ \"$FILE\" != *.rs ]] && exit 0; grep -q \"unsafe\" \"$FILE\" 2>/dev/null && ! grep -q \"SAFETY\" \"$FILE\" 2>/dev/null && echo \"⚠️ UNSAFE WARNING: $FILE has unsafe block without // SAFETY: comment\" || exit 0'"
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; [ -z \"$FILE\" ] && exit 0; grep -qE \"^import Anthropic$|^import OpenAI$\" \"$FILE\" 2>/dev/null && echo \"❌ BLOCKED: $FILE imports a nonexistent SDK. Anthropic and OpenAI have NO Swift SDKs. Use raw URLSession.\" && exit 2 || exit 0'"
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; [ -z \"$FILE\" ] && exit 0; grep -qiE \"UserDefaults.*(api.?key|token|secret)\" \"$FILE\" 2>/dev/null && echo \"❌ BLOCKED: $FILE stores credentials in UserDefaults. Use macOS Keychain.\" && exit 2 || exit 0'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CMD=\"$CLAUDE_TOOL_INPUT_COMMAND\"; case \"$CMD\" in *\"rm -rf /\"*|*\"rm -rf ~\"*|*\"drop table\"*|*\"truncate \"*|*\"mkfs\"*|*\"dd if=\"*) echo \"❌ BLOCKED: Dangerous command rejected\" && exit 2;; *) exit 0;; esac'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c '[ \"$CLAUDE_STOP_HOOK_ACTIVE\" = \"true\" ] && exit 0; echo \"⚠️ REMINDER: Before stopping, verify your work compiled. Run: cargo check --manifest-path agent_core/Cargo.toml 2>&1 | tail -5\"'"
+          }
+        ]
+      }
+    ]
+  }
+}
