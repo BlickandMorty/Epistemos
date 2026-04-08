@@ -3,12 +3,30 @@ import Observation
 import os
 
 nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
+    // MARK: - Qwen 3.5 Family (base models)
     case qwen35_0_8B4Bit = "mlx-community/Qwen3.5-0.8B-4bit"
     case qwen35_2B4Bit = "mlx-community/Qwen3.5-2B-4bit"
     case qwen35_4B4Bit = "mlx-community/Qwen3.5-4B-4bit"
     case qwen35_9B4Bit = "mlx-community/Qwen3.5-9B-4bit"
     case qwen35_27B4Bit = "mlx-community/Qwen3.5-27B-4bit"
     case qwen35_35BA3B4Bit = "mlx-community/Qwen3.5-35B-A3B-4bit"
+
+    // MARK: - Gemma 4 Family (2026 frontier)
+    case gemma4_2B4Bit = "mlx-community/gemma-4-2b-it-4bit"
+    case gemma4_4B4Bit = "mlx-community/gemma-4-4b-it-4bit"
+    case gemma4_12B4Bit = "mlx-community/gemma-4-12b-it-4bit"
+    case gemma4_27BA4B4Bit = "mlx-community/gemma-4-27b-a4b-it-4bit"
+    case gemma4_31BJANG = "dealignai/Gemma-4-31B-JANG_4M-CRACK"
+
+    // MARK: - Qwopus (Claude Opus distilled — best coding/tool-calling)
+    case qwopus27Bv3 = "Jackrong/Qwopus3.5-27B-v3-GGUF"
+    case qwopusMoE35BA3B = "samuelcardillo/Qwopus-MoE-35B-A3B-GGUF"
+
+    // MARK: - Specialist Models
+    case deepseekR1Distill7B = "mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit"
+    case qwen25Coder7B = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+
+    // MARK: - Other Families
     case smolLM3_3B4Bit = "mlx-community/SmolLM3-3B-4bit"
     case devstralSmall2505_4Bit = "mlx-community/Devstral-Small-2505-4bit"
     case mistralSmall31_24B4Bit = "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-4bit"
@@ -17,17 +35,26 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .qwen35_0_8B4Bit: "Qwen 3.5 0.8B 4-bit"
-        case .qwen35_2B4Bit: "Qwen 3.5 2B 4-bit"
-        case .qwen35_4B4Bit: "Qwen 3.5 4B 4-bit"
-        case .qwen35_9B4Bit: "Qwen 3.5 9B 4-bit"
-        case .qwen35_27B4Bit: "Qwen 3.5 27B 4-bit"
-        case .qwen35_35BA3B4Bit: "Qwen 3.5 35B-A3B 4-bit"
-        case .smolLM3_3B4Bit: "SmolLM3 3B 4-bit"
-        case .devstralSmall2505_4Bit: "Devstral Small 2505 4-bit"
-        case .mistralSmall31_24B4Bit: "Mistral Small 3.1 24B 4-bit"
-        case .gemma3_27BQAT4Bit: "Gemma 3 27B QAT 4-bit"
-        case .llama4Scout17B16E4Bit: "Llama 4 Scout 17B-16E 4-bit"
+        case .qwen35_0_8B4Bit: "Qwen 3.5 0.8B"
+        case .qwen35_2B4Bit: "Qwen 3.5 2B"
+        case .qwen35_4B4Bit: "Qwen 3.5 4B"
+        case .qwen35_9B4Bit: "Qwen 3.5 9B"
+        case .qwen35_27B4Bit: "Qwen 3.5 27B"
+        case .qwen35_35BA3B4Bit: "Qwen 3.5 35B MoE"
+        case .gemma4_2B4Bit: "Gemma 4 2B"
+        case .gemma4_4B4Bit: "Gemma 4 4B"
+        case .gemma4_12B4Bit: "Gemma 4 12B"
+        case .gemma4_27BA4B4Bit: "Gemma 4 27B MoE"
+        case .gemma4_31BJANG: "Gemma 4 31B JANG"
+        case .qwopus27Bv3: "Qwopus 27B v3"
+        case .qwopusMoE35BA3B: "Qwopus MoE 35B"
+        case .deepseekR1Distill7B: "DeepSeek R1 7B"
+        case .qwen25Coder7B: "Qwen 2.5 Coder 7B"
+        case .smolLM3_3B4Bit: "SmolLM3 3B"
+        case .devstralSmall2505_4Bit: "Devstral Small"
+        case .mistralSmall31_24B4Bit: "Mistral Small 24B"
+        case .gemma3_27BQAT4Bit: "Gemma 3 27B"
+        case .llama4Scout17B16E4Bit: "Llama 4 Scout"
         }
     }
 
@@ -39,23 +66,37 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_9B4Bit: "Qwen 9B"
         case .qwen35_27B4Bit: "Qwen 27B"
         case .qwen35_35BA3B4Bit: "Qwen 35B"
+        case .gemma4_2B4Bit: "Gemma 2B"
+        case .gemma4_4B4Bit: "Gemma 4B"
+        case .gemma4_12B4Bit: "Gemma 12B"
+        case .gemma4_27BA4B4Bit: "Gemma 27B"
+        case .gemma4_31BJANG: "Gemma 31B"
+        case .qwopus27Bv3: "Qwopus 27B"
+        case .qwopusMoE35BA3B: "Qwopus 35B"
+        case .deepseekR1Distill7B: "R1 7B"
+        case .qwen25Coder7B: "Coder 7B"
         case .smolLM3_3B4Bit: "SmolLM3"
         case .devstralSmall2505_4Bit: "Devstral"
         case .mistralSmall31_24B4Bit: "Mistral 24B"
-        case .gemma3_27BQAT4Bit: "Gemma 27B"
+        case .gemma3_27BQAT4Bit: "Gemma3 27B"
         case .llama4Scout17B16E4Bit: "Llama 4"
         }
     }
 
     var familyName: String {
         switch self {
-        case .qwen35_0_8B4Bit,
-             .qwen35_2B4Bit,
-             .qwen35_4B4Bit,
-             .qwen35_9B4Bit,
-             .qwen35_27B4Bit,
-             .qwen35_35BA3B4Bit:
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit,
+             .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             "Qwen 3.5"
+        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_12B4Bit,
+             .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            "Gemma 4"
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            "Qwopus"
+        case .deepseekR1Distill7B:
+            "DeepSeek R1"
+        case .qwen25Coder7B:
+            "Qwen Coder"
         case .smolLM3_3B4Bit:
             "SmolLM3"
         case .devstralSmall2505_4Bit:
@@ -71,17 +112,16 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var minimumRecommendedMemoryGB: Int {
         switch self {
-        case .qwen35_0_8B4Bit: 8
+        case .qwen35_0_8B4Bit, .gemma4_2B4Bit: 8
         case .qwen35_2B4Bit: 12
-        case .qwen35_4B4Bit: 16
-        case .qwen35_9B4Bit: 24
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit: 8
+        case .deepseekR1Distill7B, .qwen25Coder7B: 16
+        case .gemma4_12B4Bit, .qwen35_9B4Bit: 18
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG: 18
+        case .qwopus27Bv3, .devstralSmall2505_4Bit,
+             .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit: 24
         case .qwen35_27B4Bit: 48
-        case .qwen35_35BA3B4Bit: 64
-        case .smolLM3_3B4Bit: 8
-        case .devstralSmall2505_4Bit: 24
-        case .mistralSmall31_24B4Bit: 24
-        case .gemma3_27BQAT4Bit: 24
-        case .llama4Scout17B16E4Bit: 64
+        case .qwen35_35BA3B4Bit, .qwopusMoE35BA3B, .llama4Scout17B16E4Bit: 24
         }
     }
 
@@ -96,54 +136,34 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportsThinkingMode: Bool {
         switch self {
-        case .qwen35_4B4Bit,
-             .qwen35_9B4Bit,
-             .qwen35_27B4Bit,
-             .qwen35_35BA3B4Bit:
+        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .qwopus27Bv3, .qwopusMoE35BA3B,
+             .deepseekR1Distill7B:
             true
-        case .qwen35_0_8B4Bit,
-             .qwen35_2B4Bit,
-             .smolLM3_3B4Bit,
-             .devstralSmall2505_4Bit,
-             .mistralSmall31_24B4Bit,
-             .gemma3_27BQAT4Bit,
-             .llama4Scout17B16E4Bit:
+        default:
             false
         }
     }
 
     var canActAsAgent: Bool {
         switch self {
-        case .qwen35_4B4Bit,
-             .qwen35_27B4Bit,
-             .qwen35_35BA3B4Bit,
-             .devstralSmall2505_4Bit,
-             .mistralSmall31_24B4Bit,
-             .gemma3_27BQAT4Bit:
+        case .qwen35_4B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .gemma4_4B4Bit, .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .qwopus27Bv3, .qwopusMoE35BA3B,
+             .deepseekR1Distill7B, .qwen25Coder7B,
+             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit:
             true
-        case .qwen35_0_8B4Bit,
-             .qwen35_2B4Bit,
-             .qwen35_9B4Bit,
-             .smolLM3_3B4Bit,
-             .llama4Scout17B16E4Bit:
+        default:
             false
         }
     }
 
     var supportsHermesAgentMode: Bool {
         switch self {
-        case .qwen35_9B4Bit:
+        case .qwen35_9B4Bit, .qwopus27Bv3, .qwopusMoE35BA3B:
             true
-        case .qwen35_0_8B4Bit,
-             .qwen35_2B4Bit,
-             .qwen35_4B4Bit,
-             .qwen35_27B4Bit,
-             .qwen35_35BA3B4Bit,
-             .smolLM3_3B4Bit,
-             .devstralSmall2505_4Bit,
-             .mistralSmall31_24B4Bit,
-             .gemma3_27BQAT4Bit,
-             .llama4Scout17B16E4Bit:
+        default:
             false
         }
     }
