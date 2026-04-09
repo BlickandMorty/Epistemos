@@ -55,6 +55,8 @@ pub mod tools {
     pub mod todo;
     pub mod clarify;
     pub mod code_execution;
+    pub mod graph_query;
+    pub mod note_tools;
 }
 
 uniffi::setup_scaffolding!();
