@@ -208,6 +208,53 @@ impl ProcessRegistry {
         before - inner.finished.len()
     }
 
+    /// Kill a running process by sending SIGTERM (or SIGKILL if force=true).
+    /// Returns true if the process was found and a signal was sent.
+    #[cfg(unix)]
+    pub fn kill(&self, id: &str, force: bool) -> bool {
+        let inner = self.inner.lock().expect("process registry poisoned");
+        if let Some(entry) = inner.running.get(id) {
+            if let Some(pid) = entry.pid {
+                let signal = if force {
+                    libc::SIGKILL
+                } else {
+                    libc::SIGTERM
+                };
+                // SAFETY: Sending a signal to a known PID. The PID was obtained
+                // from a process we spawned. Worst case: the process already exited
+                // and the signal goes nowhere (kill returns -1 with ESRCH).
+                let result = unsafe { libc::kill(pid as i32, signal) };
+                return result == 0;
+            }
+        }
+        false
+    }
+
+    /// Kill a running process (non-unix stub).
+    #[cfg(not(unix))]
+    pub fn kill(&self, _id: &str, _force: bool) -> bool {
+        false
+    }
+
+    /// Check if a process is still alive by probing its PID.
+    #[cfg(unix)]
+    pub fn is_alive(&self, id: &str) -> bool {
+        let inner = self.inner.lock().expect("process registry poisoned");
+        if let Some(entry) = inner.running.get(id) {
+            if let Some(pid) = entry.pid {
+                // SAFETY: kill(pid, 0) checks if process exists without sending a signal.
+                let result = unsafe { libc::kill(pid as i32, 0) };
+                return result == 0;
+            }
+        }
+        false
+    }
+
+    #[cfg(not(unix))]
+    pub fn is_alive(&self, _id: &str) -> bool {
+        false
+    }
+
     /// Number of currently running processes.
     pub fn running_count(&self) -> usize {
         let inner = self.inner.lock().expect("process registry poisoned");

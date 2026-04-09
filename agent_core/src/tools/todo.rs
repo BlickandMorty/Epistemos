@@ -15,11 +15,46 @@ pub struct TodoTool {
     items: Mutex<Vec<TodoItem>>,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+enum TodoStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Cancelled,
+}
+
+impl TodoStatus {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::InProgress => "in_progress",
+            Self::Completed => "completed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+    fn from_str(s: &str) -> Self {
+        match s {
+            "in_progress" => Self::InProgress,
+            "completed" => Self::Completed,
+            "cancelled" => Self::Cancelled,
+            _ => Self::Pending,
+        }
+    }
+    fn marker(&self) -> &'static str {
+        match self {
+            Self::Pending => "- [ ]",
+            Self::InProgress => "- [~]",
+            Self::Completed => "- [x]",
+            Self::Cancelled => "- [-]",
+        }
+    }
+}
+
 #[derive(Clone)]
 struct TodoItem {
     id: u32,
     text: String,
-    completed: bool,
+    status: TodoStatus,
     priority: String,
     created_at: String,
 }
@@ -41,25 +76,26 @@ impl TodoTool {
 
         for line in content.lines() {
             let line = line.trim();
-            if line.starts_with("- [x] ") {
-                items.push(TodoItem {
-                    id: next_id,
-                    text: line[6..].to_string(),
-                    completed: true,
-                    priority: "normal".into(),
-                    created_at: String::new(),
-                });
-                next_id += 1;
+            let (status, text) = if line.starts_with("- [x] ") {
+                (TodoStatus::Completed, &line[6..])
+            } else if line.starts_with("- [~] ") {
+                (TodoStatus::InProgress, &line[6..])
+            } else if line.starts_with("- [-] ") {
+                (TodoStatus::Cancelled, &line[6..])
             } else if line.starts_with("- [ ] ") {
-                items.push(TodoItem {
-                    id: next_id,
-                    text: line[6..].to_string(),
-                    completed: false,
-                    priority: "normal".into(),
-                    created_at: String::new(),
-                });
-                next_id += 1;
-            }
+                (TodoStatus::Pending, &line[6..])
+            } else {
+                continue;
+            };
+
+            items.push(TodoItem {
+                id: next_id,
+                text: text.to_string(),
+                status,
+                priority: "normal".into(),
+                created_at: String::new(),
+            });
+            next_id += 1;
         }
         items
     }
@@ -68,13 +104,21 @@ impl TodoTool {
         if let Some(parent) = file_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let mut content = String::from("# Todos\n\n## Active\n");
-        for item in items.iter().filter(|i| !i.completed) {
-            content.push_str(&format!("- [ ] {}\n", item.text));
+        let mut content = String::from("# Todos\n\n## In Progress\n");
+        for item in items.iter().filter(|i| i.status == TodoStatus::InProgress) {
+            content.push_str(&format!("{} {}\n", item.status.marker(), item.text));
+        }
+        content.push_str("\n## Pending\n");
+        for item in items.iter().filter(|i| i.status == TodoStatus::Pending) {
+            content.push_str(&format!("{} {}\n", item.status.marker(), item.text));
         }
         content.push_str("\n## Completed\n");
-        for item in items.iter().filter(|i| i.completed) {
-            content.push_str(&format!("- [x] {}\n", item.text));
+        for item in items.iter().filter(|i| i.status == TodoStatus::Completed) {
+            content.push_str(&format!("{} {}\n", item.status.marker(), item.text));
+        }
+        content.push_str("\n## Cancelled\n");
+        for item in items.iter().filter(|i| i.status == TodoStatus::Cancelled) {
+            content.push_str(&format!("{} {}\n", item.status.marker(), item.text));
         }
         let _ = std::fs::write(file_path, content);
     }
@@ -95,23 +139,57 @@ impl ToolHandler for TodoTool {
                 items.push(TodoItem {
                     id,
                     text: text.to_string(),
-                    completed: false,
+                    status: TodoStatus::Pending,
                     priority: priority.to_string(),
                     created_at: chrono::Utc::now().to_rfc3339(),
                 });
                 Self::save_to_disk_at(&self.file_path, &items);
                 Ok(json!({"added": text, "id": id, "total": items.len()}).to_string())
             }
+            "start" => {
+                let id = input["id"].as_u64()
+                    .ok_or_else(|| ToolError::InvalidArguments("id required for start".into()))? as u32;
+                // Enforce: only ONE item in_progress at a time (Hermes rule).
+                for item in items.iter_mut() {
+                    if item.status == TodoStatus::InProgress {
+                        item.status = TodoStatus::Pending;
+                    }
+                }
+                let found = items.iter_mut().find(|i| i.id == id).map(|item| {
+                    item.status = TodoStatus::InProgress;
+                    item.text.clone()
+                });
+                if let Some(text) = found {
+                    Self::save_to_disk_at(&self.file_path, &items);
+                    Ok(json!({"started": text, "id": id}).to_string())
+                } else {
+                    Ok(json!({"error": format!("Todo #{id} not found")}).to_string())
+                }
+            }
             "complete" => {
                 let id = input["id"].as_u64()
                     .ok_or_else(|| ToolError::InvalidArguments("id required for complete".into()))? as u32;
                 let found = items.iter_mut().find(|i| i.id == id).map(|item| {
-                    item.completed = true;
+                    item.status = TodoStatus::Completed;
                     item.text.clone()
                 });
                 if let Some(text) = found {
                     Self::save_to_disk_at(&self.file_path, &items);
                     Ok(json!({"completed": text}).to_string())
+                } else {
+                    Ok(json!({"error": format!("Todo #{id} not found")}).to_string())
+                }
+            }
+            "cancel" => {
+                let id = input["id"].as_u64()
+                    .ok_or_else(|| ToolError::InvalidArguments("id required for cancel".into()))? as u32;
+                let found = items.iter_mut().find(|i| i.id == id).map(|item| {
+                    item.status = TodoStatus::Cancelled;
+                    item.text.clone()
+                });
+                if let Some(text) = found {
+                    Self::save_to_disk_at(&self.file_path, &items);
+                    Ok(json!({"cancelled": text}).to_string())
                 } else {
                     Ok(json!({"error": format!("Todo #{id} not found")}).to_string())
                 }
@@ -125,21 +203,40 @@ impl ToolHandler for TodoTool {
                 Ok(json!({"removed": before != items.len(), "remaining": items.len()}).to_string())
             }
             "list" => {
-                let active: Vec<_> = items.iter().filter(|i| !i.completed)
+                let counts = |s: &TodoStatus| items.iter().filter(|i| &i.status == s).count();
+                let in_progress: Vec<_> = items.iter().filter(|i| i.status == TodoStatus::InProgress)
                     .map(|i| json!({"id": i.id, "text": i.text, "priority": i.priority}))
                     .collect();
-                let completed: Vec<_> = items.iter().filter(|i| i.completed)
+                let pending: Vec<_> = items.iter().filter(|i| i.status == TodoStatus::Pending)
+                    .map(|i| json!({"id": i.id, "text": i.text, "priority": i.priority}))
+                    .collect();
+                let completed: Vec<_> = items.iter().filter(|i| i.status == TodoStatus::Completed)
                     .map(|i| json!({"id": i.id, "text": i.text}))
                     .collect();
-                Ok(json!({"active": active, "completed": completed}).to_string())
+                let cancelled: Vec<_> = items.iter().filter(|i| i.status == TodoStatus::Cancelled)
+                    .map(|i| json!({"id": i.id, "text": i.text}))
+                    .collect();
+                Ok(json!({
+                    "in_progress": in_progress,
+                    "pending": pending,
+                    "completed": completed,
+                    "cancelled": cancelled,
+                    "summary": {
+                        "total": items.len(),
+                        "in_progress": counts(&TodoStatus::InProgress),
+                        "pending": counts(&TodoStatus::Pending),
+                        "completed": counts(&TodoStatus::Completed),
+                        "cancelled": counts(&TodoStatus::Cancelled),
+                    }
+                }).to_string())
             }
             "clear_completed" => {
                 let before = items.len();
-                items.retain(|i| !i.completed);
+                items.retain(|i| i.status != TodoStatus::Completed && i.status != TodoStatus::Cancelled);
                 Self::save_to_disk_at(&self.file_path, &items);
                 Ok(json!({"cleared": before - items.len(), "remaining": items.len()}).to_string())
             }
-            _ => Ok(json!({"error": format!("Unknown action: {action}")}).to_string()),
+            _ => Ok(json!({"error": format!("Unknown action: {action}. Available: add, start, complete, cancel, remove, list, clear_completed")}).to_string()),
         }
     }
 }
@@ -153,8 +250,8 @@ pub fn todo_tool_schema() -> crate::types::ToolSchema {
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add", "complete", "remove", "list", "clear_completed"],
-                    "description": "Action to perform"
+                    "enum": ["add", "start", "complete", "cancel", "remove", "list", "clear_completed"],
+                    "description": "Action to perform. Use 'start' to mark in_progress (only ONE at a time). Use 'cancel' to mark cancelled."
                 },
                 "text": { "type": "string", "description": "Todo text (for add)" },
                 "id": { "type": "integer", "description": "Todo ID (for complete/remove)" },
