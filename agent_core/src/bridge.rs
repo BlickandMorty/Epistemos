@@ -97,6 +97,10 @@ pub trait AgentEventDelegate: Send + Sync {
     fn on_complete(&self, stop_reason: String, input_tokens: u32, output_tokens: u32);
     fn on_error(&self, message: String);
     fn wait_for_permission(&self, permission_id: String) -> bool;
+    /// Called when the agent needs user clarification (via the clarify tool).
+    /// `question` is the clarification question, `options_json` is a JSON array of suggested answers.
+    /// Returns the user's response text.
+    fn on_clarification_needed(&self, question: String, options_json: String) -> String;
 }
 
 #[derive(uniffi::Record)]

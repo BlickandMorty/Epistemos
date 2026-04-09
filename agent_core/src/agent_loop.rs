@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 use crate::bridge::AgentEventDelegate;
 use crate::prompts::{build_system_prompt, PromptMode};
 use crate::provider::{AgentProvider, StreamEvent};
+use crate::rate_limit_tracker::RateLimitTracker;
 use crate::tools::registry::{RiskLevel, ToolRegistry};
 use crate::types::{ContentBlock, Message, StopReason, TokenUsage, ToolResult, ToolResultContent};
 
@@ -125,6 +126,8 @@ pub async fn run_agent_loop(
     let mut turn_count = 0_u32;
     let mut total_usage = TokenUsage::default();
     let max_turns = config.max_turns.unwrap_or(25);
+    let rate_tracker = RateLimitTracker::new();
+    let provider_name = provider.name();
 
     let context_notes = tool_registry
         .vault_search(&objective, 5)
@@ -143,6 +146,17 @@ pub async fn run_agent_loop(
 
         if cancel.is_cancelled() {
             return Err(AgentError::Cancelled);
+        }
+
+        // Rate limit: wait if the provider is throttled before making the call.
+        if let Some(wait_duration) = rate_tracker.should_wait(&provider_name) {
+            let wait_secs = wait_duration.as_secs().min(120);
+            tracing::info!(
+                provider = %provider_name,
+                wait_secs,
+                "Rate-limited, backing off before next API call"
+            );
+            tokio::time::sleep(wait_duration).await;
         }
 
         delegate.on_turn_started(turn_count, messages.len() as u32);
@@ -166,9 +180,23 @@ pub async fn run_agent_loop(
         let mut turn_config = config.clone();
         turn_config.system_prompt = Some(system_prompt.clone());
 
-        let mut stream = provider
+        let stream_result = provider
             .stream_message(&messages, &tools, &turn_config)
-            .await?;
+            .await;
+
+        let mut stream = match stream_result {
+            Ok(s) => {
+                rate_tracker.record_success(&provider_name);
+                s
+            }
+            Err(e) => {
+                // Check if this is a 429 rate limit error.
+                if let AgentError::ApiError { status: 429, .. } = &e {
+                    rate_tracker.record_429(&provider_name);
+                }
+                return Err(e);
+            }
+        };
 
         let mut response_blocks = Vec::new();
         let mut stop_reason = StopReason::EndTurn;
@@ -269,7 +297,10 @@ pub async fn run_agent_loop(
                     .await?
                 };
 
-                for result in &results {
+                // Post-process results: detect clarification markers and
+                // replace with actual user responses.
+                let mut final_results = Vec::with_capacity(results.len());
+                for mut result in results {
                     let result_text = result
                         .content
                         .iter()
@@ -279,14 +310,44 @@ pub async fn run_agent_loop(
                         })
                         .collect::<Vec<_>>()
                         .join("");
+
+                    // Intercept clarification markers from the clarify tool.
+                    if result_text.contains("[CLARIFICATION_NEEDED]") {
+                        let question = result_text
+                            .strip_prefix("[CLARIFICATION_NEEDED]: ")
+                            .unwrap_or(&result_text)
+                            .to_string();
+                        // Extract options if present (format: "\nOptions: a, b, c")
+                        let (q, options_json) = if let Some(idx) = question.find("\nOptions: ") {
+                            let opts_str = &question[idx + 10..];
+                            let opts: Vec<&str> = opts_str.split(", ").collect();
+                            let json = serde_json::to_string(&opts).unwrap_or_default();
+                            (question[..idx].to_string(), json)
+                        } else {
+                            (question, "[]".to_string())
+                        };
+                        let user_response = delegate.on_clarification_needed(q, options_json);
+                        result.content = vec![ToolResultContent::Text {
+                            text: format!("User responded: {user_response}"),
+                        }];
+                    }
+
                     delegate.on_tool_completed(
                         result.tool_use_id.clone(),
-                        result_text,
+                        result.content
+                            .iter()
+                            .filter_map(|c| match c {
+                                ToolResultContent::Text { text } => Some(text.as_str()),
+                                ToolResultContent::Image { .. } => None,
+                            })
+                            .collect::<Vec<_>>()
+                            .join(""),
                         result.is_error,
                     );
+                    final_results.push(result);
                 }
 
-                messages.push(Message::user_tool_results(results));
+                messages.push(Message::user_tool_results(final_results));
 
                 let estimated_tokens = estimate_tokens(&messages);
                 if estimated_tokens > config.context_threshold {

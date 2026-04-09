@@ -153,6 +153,10 @@ fn extract_tool_actions(messages: &[Message]) -> Vec<ToolAction> {
 }
 
 /// Build the structured summary from the compactable middle section.
+///
+/// Template aligned with Hermes agent/context_compressor.py:
+///   Goal → Constraints & Preferences → Progress (Done/In Progress/Blocked)
+///   → Key Decisions → Files Modified → Tool Actions → Next Steps → Open Questions
 fn build_structured_summary(
     objective_message: &Message,
     middle: &[Message],
@@ -177,12 +181,26 @@ fn build_structured_summary(
     summary.push_str(&truncate_excerpt(&goal_text, 500));
     summary.push('\n');
 
-    // Progress: extract key assistant text responses from the middle.
+    // Constraints & Preferences: extract from thinking blocks (look for constraint language).
+    let constraints = extract_constraints(middle);
+    if !constraints.is_empty() {
+        summary.push_str("\n## Constraints & Preferences\n");
+        for c in &constraints {
+            if summary.len() > SUMMARY_BUDGET - 2000 {
+                break;
+            }
+            summary.push_str("- ");
+            summary.push_str(c);
+            summary.push('\n');
+        }
+    }
+
+    // Progress: split into Done / In Progress based on tool success.
     let progress_lines = extract_progress(middle);
     if !progress_lines.is_empty() {
-        summary.push_str("\n## Progress\n");
+        summary.push_str("\n## Progress\n### Done\n");
         for line in &progress_lines {
-            if summary.len() + line.len() > SUMMARY_BUDGET - 1000 {
+            if summary.len() + line.len() > SUMMARY_BUDGET - 1500 {
                 summary.push_str("(earlier progress truncated)\n");
                 break;
             }
@@ -192,11 +210,39 @@ fn build_structured_summary(
         }
     }
 
+    // Key Decisions: extract from thinking blocks.
+    let decisions = extract_decisions(middle);
+    if !decisions.is_empty() {
+        summary.push_str("\n## Key Decisions\n");
+        for decision in &decisions {
+            if summary.len() > SUMMARY_BUDGET - 1200 {
+                break;
+            }
+            summary.push_str("- ");
+            summary.push_str(decision);
+            summary.push('\n');
+        }
+    }
+
+    // Files Modified: extract file paths from file_ops / bash tool calls.
+    let files_modified = extract_files_modified(tool_actions);
+    if !files_modified.is_empty() {
+        summary.push_str("\n## Files Modified\n");
+        for f in &files_modified {
+            if summary.len() > SUMMARY_BUDGET - 800 {
+                break;
+            }
+            summary.push_str("- ");
+            summary.push_str(f);
+            summary.push('\n');
+        }
+    }
+
     // Tool Actions: compact record of what tools were called.
     if !tool_actions.is_empty() {
         summary.push_str("\n## Tool Actions\n");
         for action in tool_actions {
-            if summary.len() > SUMMARY_BUDGET - 200 {
+            if summary.len() > SUMMARY_BUDGET - 400 {
                 summary.push_str("(earlier tool actions truncated)\n");
                 break;
             }
@@ -208,16 +254,30 @@ fn build_structured_summary(
         }
     }
 
-    // Decisions: extract from thinking blocks.
-    let decisions = extract_decisions(middle);
-    if !decisions.is_empty() {
-        summary.push_str("\n## Key Decisions\n");
-        for decision in &decisions {
+    // Next Steps: extract from thinking blocks (language like "Next", "Then", "After this").
+    let next_steps = extract_next_steps(middle);
+    if !next_steps.is_empty() {
+        summary.push_str("\n## Next Steps\n");
+        for step in &next_steps {
+            if summary.len() > SUMMARY_BUDGET - 200 {
+                break;
+            }
+            summary.push_str("- ");
+            summary.push_str(step);
+            summary.push('\n');
+        }
+    }
+
+    // Open Questions: extract from thinking blocks (language like "?", "not sure", "unclear").
+    let questions = extract_open_questions(middle);
+    if !questions.is_empty() {
+        summary.push_str("\n## Open Questions\n");
+        for q in &questions {
             if summary.len() > SUMMARY_BUDGET - 100 {
                 break;
             }
             summary.push_str("- ");
-            summary.push_str(decision);
+            summary.push_str(q);
             summary.push('\n');
         }
     }
@@ -263,6 +323,115 @@ fn extract_progress(messages: &[Message]) -> Vec<String> {
         }
     }
     lines
+}
+
+/// Extract constraints and preferences from thinking blocks.
+fn extract_constraints(messages: &[Message]) -> Vec<String> {
+    let mut constraints = Vec::new();
+    for message in messages {
+        if let Message::Assistant { content } = message {
+            for block in content {
+                if let ContentBlock::Thinking { thinking, .. } = block {
+                    for line in thinking.lines() {
+                        let trimmed = line.trim();
+                        if (trimmed.starts_with("Constraint:")
+                            || trimmed.starts_with("Must ")
+                            || trimmed.starts_with("Never ")
+                            || trimmed.starts_with("Always ")
+                            || trimmed.starts_with("Preference:")
+                            || trimmed.starts_with("The user wants")
+                            || trimmed.starts_with("Important:")
+                            || trimmed.starts_with("Requirement:"))
+                            && trimmed.len() > 10
+                        {
+                            constraints.push(truncate_excerpt(trimmed, 150));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    constraints.truncate(8);
+    constraints
+}
+
+/// Extract file paths from file_ops and bash tool actions.
+fn extract_files_modified(tool_actions: &[ToolAction]) -> Vec<String> {
+    let mut files = Vec::new();
+    for action in tool_actions {
+        if action.name == "file_ops" || action.name == "bash_execute" || action.name == "execute_code" {
+            // Look for file path patterns in the excerpt.
+            for word in action.excerpt.split_whitespace() {
+                if (word.contains('/') || word.contains('.'))
+                    && word.len() > 3
+                    && !word.starts_with("http")
+                    && !word.starts_with("//")
+                {
+                    let path = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.' && c != '_' && c != '-');
+                    if !path.is_empty() && !files.contains(&path.to_string()) {
+                        files.push(path.to_string());
+                    }
+                }
+            }
+        }
+    }
+    files.truncate(20);
+    files
+}
+
+/// Extract next steps from thinking blocks.
+fn extract_next_steps(messages: &[Message]) -> Vec<String> {
+    let mut steps = Vec::new();
+    for message in messages {
+        if let Message::Assistant { content } = message {
+            for block in content {
+                if let ContentBlock::Thinking { thinking, .. } = block {
+                    for line in thinking.lines() {
+                        let trimmed = line.trim();
+                        if (trimmed.starts_with("Next,")
+                            || trimmed.starts_with("Next:")
+                            || trimmed.starts_with("Then ")
+                            || trimmed.starts_with("After this,")
+                            || trimmed.starts_with("TODO:")
+                            || trimmed.starts_with("Remaining:"))
+                            && trimmed.len() > 10
+                        {
+                            steps.push(truncate_excerpt(trimmed, 150));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    steps.truncate(8);
+    steps
+}
+
+/// Extract open questions from thinking blocks.
+fn extract_open_questions(messages: &[Message]) -> Vec<String> {
+    let mut questions = Vec::new();
+    for message in messages {
+        if let Message::Assistant { content } = message {
+            for block in content {
+                if let ContentBlock::Thinking { thinking, .. } = block {
+                    for line in thinking.lines() {
+                        let trimmed = line.trim();
+                        if trimmed.ends_with('?') && trimmed.len() > 15
+                            || (trimmed.starts_with("Not sure")
+                                || trimmed.starts_with("Unclear")
+                                || trimmed.starts_with("Need to check")
+                                || trimmed.starts_with("Question:"))
+                                && trimmed.len() > 10
+                        {
+                            questions.push(truncate_excerpt(trimmed, 150));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    questions.truncate(5);
+    questions
 }
 
 /// Extract key decisions from thinking blocks.
