@@ -137,7 +137,11 @@ pub enum AgentError {
 
 /// Run the agent loop with full infrastructure: credential rotation, provider fallback,
 /// and session persistence. This is the production-grade entry point.
+/// Provider factory for fallback instantiation.
+pub type ProviderFactory = Box<dyn Fn(&str) -> Result<Arc<dyn AgentProvider>, AgentError> + Send + Sync>;
+
 pub async fn run_agent_loop(
+    session_id: String,
     objective: String,
     provider: Arc<dyn AgentProvider>,
     tool_registry: Arc<ToolRegistry>,
@@ -146,19 +150,20 @@ pub async fn run_agent_loop(
     cancel: CancellationToken,
     credential_manager: Option<Arc<CredentialManager>>,
     session_persistence: Option<Arc<tokio::sync::Mutex<SessionPersistence>>>,
+    provider_factory: Option<ProviderFactory>,
 ) -> Result<AgentResult, AgentError> {
     let mut messages = vec![Message::user_text(&objective)];
     let mut turn_count = 0_u32;
     let mut total_usage = TokenUsage::default();
     let max_turns = config.max_turns.unwrap_or(25);
     let rate_tracker = RateLimitTracker::new();
-    let provider_name = provider.name().to_string();
-    let current_provider = provider;
+    let mut provider_name = provider.name().to_string();
+    let mut current_provider = provider;
 
     // ── Session persistence: record session start ────────────────────
     if let Some(ref persistence) = session_persistence {
         let mut p = persistence.lock().await;
-        let _ = p.record_session_start("session", &objective, &provider_name);
+        let _ = p.record_session_start(&session_id, &objective, &provider_name);
     }
 
     let context_notes = tool_registry
@@ -279,6 +284,40 @@ pub async fn run_agent_loop(
                                 );
                                 api_retry_count = 0; // Reset retry count for fresh key
                                 continue 'api_retry;
+                            }
+                        }
+                    }
+
+                    // ── Provider fallback via TriageService (P0.2 + P0.3) ──────
+                    if classified.should_fallback {
+                        if let Some(ref factory) = provider_factory {
+                            let fallback_name = delegate.on_provider_failed(
+                                provider_name.clone(),
+                                classified.reason.as_str().to_string(),
+                                estimate_tokens(&messages) as u32,
+                            );
+
+                            if !fallback_name.is_empty() && fallback_name != provider_name {
+                                match factory(&fallback_name) {
+                                    Ok(new_provider) => {
+                                        tracing::info!(
+                                            from_provider = %provider_name,
+                                            to_provider = %fallback_name,
+                                            "Switching to fallback provider via TriageService"
+                                        );
+                                        provider_name = fallback_name;
+                                        current_provider = new_provider;
+                                        api_retry_count = 0; // Reset for new provider
+                                        continue 'api_retry;
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            provider = %fallback_name,
+                                            error = %e,
+                                            "Failed to instantiate fallback provider"
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -409,13 +448,13 @@ pub async fn run_agent_loop(
                 if let Some(ref persistence) = session_persistence {
                     let mut p = persistence.lock().await;
                     let _ = p.record_session_complete(
-                        "session",
+                        &session_id,
                         turn_count,
                         total_usage.input_tokens,
                         total_usage.output_tokens,
                         "completed",
                     );
-                    let _ = p.delete_session_checkpoints("session");
+                    let _ = p.delete_session_checkpoints(&session_id);
                 }
 
                 return Ok(AgentResult {
@@ -512,7 +551,7 @@ pub async fn run_agent_loop(
                 // ── Session persistence: save checkpoint (HIGH gap #3) ────
                 if let Some(ref persistence) = session_persistence {
                     let checkpoint = build_checkpoint(
-                        "session",
+                        &session_id,
                         turn_count,
                         &messages,
                         &total_usage,
