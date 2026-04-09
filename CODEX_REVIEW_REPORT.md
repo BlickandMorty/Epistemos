@@ -100,8 +100,8 @@ After a deep line-by-line audit against Hermes `run_agent.py` (9700 lines), `too
 ### What we DON'T match (honest gaps):
 | Area | Gap | Severity | Why |
 |------|-----|----------|-----|
-| Credential rotation | No API key pool/rotation on auth failure | HIGH | Needs credential pool from Swift |
-| Fallback provider chain | No auto-switch to backup provider | HIGH | Needs provider list in config |
+| Credential rotation | ✅ API key pool with auto-rotation on auth failure | — | Implemented in `credential_pool.rs` |
+| Fallback provider chain | ✅ Auto-switch via `on_provider_failed` callback — Swift/TriageService decides fallback | — | Callback returns provider name, Rust instantiates |
 | Code execution RPC | No tool chaining inside scripts | MEDIUM | Fundamentally different architecture |
 | Terminal multi-backend | No docker/modal/ssh/sandbox | LOW for PKM | macOS app doesn't need containers |
 | Browser automation | No Hermes browser_* tools | LOW | Handled by Swift computer_use |
@@ -116,9 +116,14 @@ After a deep line-by-line audit against Hermes `run_agent.py` (9700 lines), `too
 2. **Fallback provider chain** ✅ — `ProviderChain` with ordered fallbacks (primary → Claude Sonnet → OpenAI → Gemini Flash) — `advance()` on provider failure
 3. **Session persistence** ✅ — `SessionPersistence` with SQLite backend — checkpoint after each turn, resume on crash, prune old checkpoints, list incomplete sessions
 
+**P0 Fixes (post-audit):**
+1. ✅ **Session UUIDs** — `session_id` passed from Swift through full stack; checkpoints use real UUIDs
+2. ✅ **TriageService integration** — `on_provider_failed` callback lets Swift use `InferencePolicyEngine` to select fallback provider
+3. ✅ **Apple Intelligence fallback** — Swift can return `"apple_intelligence"` for on-device fallback when cloud exhausted
+
 **Test results:** 207 tests, 3/3 consecutive passes
 
-These 3 items bring us to **95%+ production parity** with Hermes on agent infrastructure.
+These items bring us to **95%+ production parity** with Hermes on agent infrastructure.
 
 ---
 

@@ -104,6 +104,16 @@ pub trait AgentEventDelegate: Send + Sync {
     /// `question` is the clarification question, `options_json` is a JSON array of suggested answers.
     /// Returns the user's response text.
     fn on_clarification_needed(&self, question: String, options_json: String) -> String;
+    /// Called when the current provider has failed and all retries/credential rotations
+    /// are exhausted. Swift uses TriageService to recommend a fallback provider.
+    /// Returns provider name (e.g., "claude_sonnet", "openai", "apple_intelligence")
+    /// or empty string if no fallback is available.
+    fn on_provider_failed(
+        &self,
+        failed_provider: String,
+        reason: String,
+        token_count: u32,
+    ) -> String;
 }
 
 #[derive(uniffi::Record)]
@@ -466,9 +476,14 @@ async fn run_agent_session_inner(
         }
     };
 
+    // Provider factory for fallback instantiation (P0.2 + P0.3)
+    let provider_factory: Option<crate::agent_loop::ProviderFactory> = Some(Box::new(|name| {
+        instantiate_provider(name).map_err(|e| AgentError::Provider(e.to_string()))
+    }));
+
     let result = run_agent_loop(
-        objective, provider, tool_registry, delegate, config, cancel,
-        credential_manager, session_persistence,
+        session_id.clone(), objective, provider, tool_registry, delegate, config, cancel,
+        credential_manager, session_persistence, provider_factory,
     ).await;
     match result {
         Ok(result) => {

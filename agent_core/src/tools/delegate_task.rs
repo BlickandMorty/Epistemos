@@ -68,6 +68,10 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
         // Subagents cannot ask for user clarification; return empty.
         String::new()
     }
+    fn on_provider_failed(&self, _: String, _: String, _: u32) -> String {
+        // Subagents don't do fallback — return empty.
+        String::new()
+    }
 }
 
 #[async_trait::async_trait]
@@ -104,6 +108,7 @@ impl ToolHandler for DelegateTaskTool {
         let delegate: Arc<dyn crate::bridge::AgentEventDelegate> = Arc::new(SilentDelegate);
 
         let result = run_agent_loop(
+            format!("delegate_{}", uuid::Uuid::new_v4()),
             objective.clone(),
             self.provider.clone(),
             self.tool_registry.clone(),
@@ -112,6 +117,7 @@ impl ToolHandler for DelegateTaskTool {
             cancel,
             None, // credential_manager
             None, // session_persistence
+            None, // provider_factory
         )
         .await;
 
