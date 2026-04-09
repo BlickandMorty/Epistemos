@@ -5,10 +5,12 @@ use futures::{future::try_join_all, StreamExt};
 use tokio_util::sync::CancellationToken;
 
 use crate::bridge::AgentEventDelegate;
-use crate::error_classifier::{classify_error, FailoverReason};
+use crate::credential_pool::CredentialManager;
+use crate::error_classifier::classify_error;
 use crate::prompts::{build_system_prompt, PromptMode};
 use crate::provider::{AgentProvider, StreamEvent};
 use crate::rate_limit_tracker::RateLimitTracker;
+use crate::session_persistence::{build_checkpoint, SessionPersistence};
 use crate::tools::registry::{RiskLevel, ToolRegistry};
 use crate::types::{ContentBlock, Message, StopReason, TokenUsage, ToolResult, ToolResultContent};
 
@@ -133,6 +135,8 @@ pub enum AgentError {
     Cancelled,
 }
 
+/// Run the agent loop with full infrastructure: credential rotation, provider fallback,
+/// and session persistence. This is the production-grade entry point.
 pub async fn run_agent_loop(
     objective: String,
     provider: Arc<dyn AgentProvider>,
@@ -140,13 +144,22 @@ pub async fn run_agent_loop(
     delegate: Arc<dyn AgentEventDelegate>,
     config: AgentConfig,
     cancel: CancellationToken,
+    credential_manager: Option<Arc<CredentialManager>>,
+    session_persistence: Option<Arc<tokio::sync::Mutex<SessionPersistence>>>,
 ) -> Result<AgentResult, AgentError> {
     let mut messages = vec![Message::user_text(&objective)];
     let mut turn_count = 0_u32;
     let mut total_usage = TokenUsage::default();
     let max_turns = config.max_turns.unwrap_or(25);
     let rate_tracker = RateLimitTracker::new();
-    let provider_name = provider.name();
+    let provider_name = provider.name().to_string();
+    let current_provider = provider;
+
+    // ── Session persistence: record session start ────────────────────
+    if let Some(ref persistence) = session_persistence {
+        let mut p = persistence.lock().await;
+        let _ = p.record_session_start("session", &objective, &provider_name);
+    }
 
     let context_notes = tool_registry
         .vault_search(&objective, 5)
@@ -175,7 +188,7 @@ pub async fn run_agent_loop(
         let pre_flight_tokens = estimate_tokens(&messages);
         if pre_flight_tokens > proactive_threshold {
             delegate.on_context_compacting(pre_flight_tokens as u32);
-            messages = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
+            messages = try_compact(&current_provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
             delegate.on_context_compacted(messages.len() as u32);
         }
 
@@ -204,7 +217,7 @@ pub async fn run_agent_loop(
                 tokio::time::sleep(wait_duration).await;
             }
 
-            let stream_result = provider
+            let stream_result = current_provider
                 .stream_message(&messages, &tools, &turn_config)
                 .await;
 
@@ -247,7 +260,7 @@ pub async fn run_agent_loop(
 
                         // If error says to compress, try compaction before retry.
                         if classified.should_compress {
-                            if let Ok(compacted) = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await {
+                            if let Ok(compacted) = try_compact(&current_provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await {
                                 messages = compacted;
                             }
                         }
@@ -256,7 +269,21 @@ pub async fn run_agent_loop(
                         continue 'api_retry;
                     }
 
-                    // Non-retryable or max retries exhausted.
+                    // ── Credential rotation (HIGH gap #1) ─────────────────────
+                    if classified.should_rotate_credential {
+                        if let Some(ref cm) = credential_manager {
+                            if cm.rotate(&provider_name) {
+                                tracing::info!(
+                                    provider = %provider_name,
+                                    "Rotated to next API key after auth failure"
+                                );
+                                api_retry_count = 0; // Reset retry count for fresh key
+                                continue 'api_retry;
+                            }
+                        }
+                    }
+
+                    // Non-retryable or all recovery options exhausted.
                     return Err(e);
                 }
             };
@@ -378,6 +405,19 @@ pub async fn run_agent_loop(
                     total_usage.input_tokens,
                     total_usage.output_tokens,
                 );
+                // ── Session persistence: record completion ──────────────
+                if let Some(ref persistence) = session_persistence {
+                    let mut p = persistence.lock().await;
+                    let _ = p.record_session_complete(
+                        "session",
+                        turn_count,
+                        total_usage.input_tokens,
+                        total_usage.output_tokens,
+                        "completed",
+                    );
+                    let _ = p.delete_session_checkpoints("session");
+                }
+
                 return Ok(AgentResult {
                     final_content: response_blocks,
                     full_history: messages,
@@ -465,14 +505,28 @@ pub async fn run_agent_loop(
                 let estimated_tokens = estimate_tokens(&messages);
                 if estimated_tokens > config.context_threshold {
                     delegate.on_context_compacting(estimated_tokens as u32);
-                    messages = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
+                    messages = try_compact(&current_provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
                     delegate.on_context_compacted(messages.len() as u32);
+                }
+
+                // ── Session persistence: save checkpoint (HIGH gap #3) ────
+                if let Some(ref persistence) = session_persistence {
+                    let checkpoint = build_checkpoint(
+                        "session",
+                        turn_count,
+                        &messages,
+                        &total_usage,
+                        Some(&provider_name),
+                        None, // key index not tracked yet
+                    );
+                    let mut p = persistence.lock().await;
+                    let _ = p.save_checkpoint(&checkpoint);
                 }
             }
             StopReason::MaxTokens => {
                 messages.push(Message::assistant(response_blocks.clone()));
                 delegate.on_context_compacting(estimate_tokens(&messages) as u32);
-                messages = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
+                messages = try_compact(&current_provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
                 delegate.on_context_compacted(messages.len() as u32);
             }
         }

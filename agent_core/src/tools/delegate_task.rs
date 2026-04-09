@@ -110,6 +110,8 @@ impl ToolHandler for DelegateTaskTool {
             delegate,
             config,
             cancel,
+            None, // credential_manager
+            None, // session_persistence
         )
         .await;
 
