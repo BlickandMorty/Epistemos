@@ -8,6 +8,7 @@ pub mod prompt_caching;
 pub mod prompts;
 pub mod provider;
 pub mod pty;
+pub mod rate_limit_tracker;
 pub mod routing;
 pub mod security;
 pub mod session;
