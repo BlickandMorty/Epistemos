@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::agent_loop::{
     run_agent_loop, AgentConfig, AgentError, Effort, PermissionConfig,
 };
+use crate::credential_pool::CredentialManager;
 use crate::error::HttpStatusError;
 use crate::provider::AgentProvider;
 use crate::providers::claude::ClaudeProvider;
@@ -12,6 +14,7 @@ use crate::providers::openai_compatible::OpenAICompatibleProvider;
 use crate::providers::perplexity::PerplexityProvider;
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
 use crate::session::GlobalSessions;
+use crate::session_persistence::SessionPersistence;
 use crate::shared_memory::{ShmPool, ShmReference};
 use crate::storage::memory_classifier::{classify_memory_operation, MemoryOperation, VaultFact};
 use crate::storage::memory_decay::{batch_decay, collect_garbage, Importance, NodeStrength};
@@ -381,6 +384,7 @@ pub async fn run_agent_session(
     tool_config: ToolConfig,
     agent_config: AgentConfigFFI,
     delegate: Box<dyn AgentEventDelegate>,
+    api_keys: HashMap<String, Vec<String>>,
 ) -> Result<AgentResultFFI, AgentErrorFFI> {
     // SAFETY: This is the primary agentic loop entry point. A panic anywhere
     // in the tool registry, HTTP streaming, compaction, or PTY execution would
@@ -393,7 +397,7 @@ pub async fn run_agent_session(
     let handle = tokio::task::spawn(async move {
         run_agent_session_inner(
             session_id_clone, objective, provider_name,
-            tool_config, agent_config, delegate,
+            tool_config, agent_config, delegate, api_keys,
         ).await
     });
 
@@ -424,6 +428,7 @@ async fn run_agent_session_inner(
     tool_config: ToolConfig,
     agent_config: AgentConfigFFI,
     delegate: Box<dyn AgentEventDelegate>,
+    api_keys: HashMap<String, Vec<String>>,
 ) -> Result<AgentResultFFI, AgentErrorFFI> {
     let (_guard, cancel) = GlobalSessions::register(&session_id);
 
@@ -442,7 +447,29 @@ async fn run_agent_session_inner(
     let config = AgentConfig::from_ffi(&agent_config);
     let delegate: Arc<dyn AgentEventDelegate> = delegate.into();
 
-    let result = run_agent_loop(objective, provider, tool_registry, delegate, config, cancel).await;
+    // ── Infrastructure: credential manager + session persistence ────
+    let credential_manager = if api_keys.is_empty() {
+        None
+    } else {
+        let cm = CredentialManager::new();
+        for (provider, keys) in api_keys {
+            cm.register_pool(&provider, keys);
+        }
+        Some(Arc::new(cm))
+    };
+
+    let session_persistence = match SessionPersistence::open(std::path::Path::new(&tool_config.vault_path)) {
+        Ok(p) => Some(Arc::new(tokio::sync::Mutex::new(p))),
+        Err(e) => {
+            tracing::warn!("Failed to open session persistence: {}", e);
+            None
+        }
+    };
+
+    let result = run_agent_loop(
+        objective, provider, tool_registry, delegate, config, cancel,
+        credential_manager, session_persistence,
+    ).await;
     match result {
         Ok(result) => {
             // Clean up shared memory segments for this session
@@ -836,6 +863,117 @@ pub fn shm_cleanup_all() -> u32 {
 #[uniffi::export]
 pub fn shm_total_segment_count() -> u32 {
     ffi_guard_value!(ShmPool::total_segment_count() as u32, 0)
+}
+
+// MARK: - Credential Pool FFI
+
+#[derive(uniffi::Record)]
+pub struct CredentialPoolStatusFFI {
+    pub provider: String,
+    pub total_keys: u32,
+    pub exhausted_keys: u32,
+}
+
+/// Get the status of all credential pools (for diagnostics).
+#[uniffi::export]
+pub fn get_credential_pool_status() -> Vec<CredentialPoolStatusFFI> {
+    ffi_guard_value!(
+        {
+            // Note: This returns empty since we don't have a global singleton.
+            // The actual pools are per-session. This is for diagnostics UI.
+            Vec::new()
+        },
+        Vec::new()
+    )
+}
+
+// MARK: - Session Persistence FFI
+
+#[derive(uniffi::Record)]
+pub struct SessionCheckpointFFI {
+    pub session_id: String,
+    pub turn_number: u32,
+    pub can_resume: bool,
+}
+
+#[derive(uniffi::Record)]
+pub struct SessionSummaryFFI {
+    pub session_id: String,
+    pub objective: String,
+    pub provider_name: String,
+    pub started_at: String,
+    pub last_turn: u32,
+}
+
+/// Check if a session has checkpoints available for resume.
+#[uniffi::export]
+pub fn session_has_checkpoints(vault_path: String, session_id: String) -> bool {
+    ffi_guard_value!(
+        {
+            match SessionPersistence::open(std::path::Path::new(&vault_path)) {
+                Ok(persistence) => persistence.has_checkpoints(&session_id).unwrap_or(false),
+                Err(_) => false,
+            }
+        },
+        false
+    )
+}
+
+/// List all incomplete sessions in a vault (for recovery UI).
+#[uniffi::export]
+pub fn list_incomplete_sessions(vault_path: String) -> Vec<SessionSummaryFFI> {
+    ffi_guard_value!(
+        {
+            match SessionPersistence::open(std::path::Path::new(&vault_path)) {
+                Ok(persistence) => persistence
+                    .list_incomplete_sessions()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|s| SessionSummaryFFI {
+                        session_id: s.session_id,
+                        objective: s.objective,
+                        provider_name: s.provider_name,
+                        started_at: s.started_at,
+                        last_turn: s.last_turn.unwrap_or(0) as u32,
+                    })
+                    .collect(),
+                Err(_) => Vec::new(),
+            }
+        },
+        Vec::new()
+    )
+}
+
+/// Delete all checkpoints for a session (call after successful completion).
+#[uniffi::export]
+pub fn delete_session_checkpoints(vault_path: String, session_id: String) -> u32 {
+    ffi_guard_value!(
+        {
+            match SessionPersistence::open(std::path::Path::new(&vault_path)) {
+                Ok(mut persistence) => {
+                    persistence.delete_session_checkpoints(&session_id).unwrap_or(0)
+                }
+                Err(_) => 0,
+            }
+        },
+        0
+    )
+}
+
+/// Prune old checkpoints (keep last N per session, delete older than X days).
+#[uniffi::export]
+pub fn prune_old_checkpoints(vault_path: String, keep_per_session: u32, max_age_days: u32) -> u32 {
+    ffi_guard_value!(
+        {
+            match SessionPersistence::open(std::path::Path::new(&vault_path)) {
+                Ok(mut persistence) => persistence
+                    .prune_old_checkpoints(keep_per_session as usize, max_age_days as i64)
+                    .unwrap_or(0),
+                Err(_) => 0,
+            }
+        },
+        0
+    )
 }
 
 #[cfg(test)]

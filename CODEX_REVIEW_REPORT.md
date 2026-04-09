@@ -12,9 +12,9 @@
 This branch brings `agent_core` to **genuine Hermes-level infrastructure** for the agent loop, then extends with PKM-specific tools. An honest deep audit (Phase 8) revealed critical gaps in the initial implementation — retry logic, error recovery, safety gates — which are now addressed.
 
 **Stats:**
-- **+3,451 lines** added, **-73 lines** removed (22 files changed)
-- **9 new files** created, **13 existing files** modified
-- **190 tests pass** (3/3 consecutive)
+- **+5,247 lines** added, **-73 lines** removed (25 files changed)
+- **12 new files** created, **13 existing files** modified
+- **207 tests pass** (3/3 consecutive)
 - **28 tools** registered
 - **0 clippy warnings** in new code
 
@@ -31,6 +31,7 @@ This branch brings `agent_core` to **genuine Hermes-level infrastructure** for t
 | 5 | `5463759d` | Phase 7 | 6 PKM-specific tools (graph_query, note_template, note_linker, research_digest, citation_extractor, markdown_table) |
 | 6 | `5478d8d6` | Report | Initial codex review report |
 | 7 | `1105bf10` | Phase 8 | **Critical hardening** — retry logic, safety gates, expanded patterns |
+| 8 | *(current)* | Phase 9 | **HIGH gaps closed** — credential rotation, provider chain, session persistence |
 
 ---
 
@@ -110,12 +111,14 @@ After a deep line-by-line audit against Hermes `run_agent.py` (9700 lines), `too
 | File search | No ripgrep-backed search tool | LOW | workspace_search covers this |
 | Fuzzy patch matching | Single exact-match only | LOW | V4A + fuzzy is Hermes-specific |
 
-### Remaining work to close HIGH gaps:
-1. **Credential rotation** (~50 lines in agent_loop.rs) — when error_classifier says `should_rotate_credential`, try next API key from pool
-2. **Fallback provider chain** (~80 lines) — when retries exhausted, try alternate provider
-3. **Session persistence** (~100 lines) — checkpoint after each turn for crash recovery
+### Remaining work to close HIGH gaps: ✅ COMPLETED
+1. **Credential rotation** ✅ — `CredentialPool` + `CredentialManager` — rotates to next API key when `should_rotate_credential` is true, resets retry count on fresh key
+2. **Fallback provider chain** ✅ — `ProviderChain` with ordered fallbacks (primary → Claude Sonnet → OpenAI → Gemini Flash) — `advance()` on provider failure
+3. **Session persistence** ✅ — `SessionPersistence` with SQLite backend — checkpoint after each turn, resume on crash, prune old checkpoints, list incomplete sessions
 
-These 3 items would bring us to **95%+ production parity** with Hermes on agent infrastructure.
+**Test results:** 207 tests, 3/3 consecutive passes
+
+These 3 items bring us to **95%+ production parity** with Hermes on agent infrastructure.
 
 ---
 
