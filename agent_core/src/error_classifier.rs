@@ -85,6 +85,14 @@ const BILLING_PATTERNS: &[&str] = &[
     "payment required",
     "quota exceeded",
     "spending limit",
+    "balance is too low",
+    "insufficient balance",
+    "no active subscription",
+    "plan limit reached",
+    "free tier exceeded",
+    "usage limit exceeded",
+    "account suspended",
+    "account disabled",
 ];
 
 /// Transient usage-limit signals (rate limit, not billing).
@@ -97,6 +105,72 @@ const USAGE_LIMIT_TRANSIENT: &[&str] = &[
     "requests remaining",
     "rate limit",
     "too many requests",
+    "rate_limit",
+    "throttle",
+    "slow down",
+    "capacity",
+    "resource_exhausted",
+];
+
+/// Context overflow / token limit patterns.
+const CONTEXT_OVERFLOW_PATTERNS: &[&str] = &[
+    "context length",
+    "context_length",
+    "max_tokens",
+    "maximum context",
+    "token limit",
+    "tokens exceed",
+    "too long",
+    "too many tokens",
+    "exceeds the model",
+    "input too large",
+    "prompt is too long",
+    "maximum allowed",
+    "reduce the length",
+    "reduce your prompt",
+    // Chinese provider patterns
+    "超过最大长度",
+    "上下文长度",
+    "令牌超过",
+];
+
+/// Authentication error patterns.
+const AUTH_PATTERNS: &[&str] = &[
+    "invalid api key",
+    "invalid_api_key",
+    "incorrect api key",
+    "unauthorized",
+    "authentication",
+    "invalid x-api-key",
+    "api key not found",
+    "invalid credentials",
+    "access denied",
+    "permission denied",
+    "forbidden",
+    "not authorized",
+    "invalid bearer token",
+    "token expired",
+    "invalid_grant",
+];
+
+/// Server disconnect / transport error patterns.
+const DISCONNECT_PATTERNS: &[&str] = &[
+    "unexpected eof",
+    "connection reset",
+    "connection refused",
+    "connection closed",
+    "peer closed connection",
+    "broken pipe",
+    "remote disconnected",
+    "server disconnected",
+    "socket hang up",
+    "econnreset",
+    "econnrefused",
+    "epipe",
+    "network error",
+    "dns resolution failed",
+    "ssl error",
+    "tls handshake",
 ];
 
 /// Classify an API error into an actionable category.
@@ -129,6 +203,20 @@ pub fn classify_error(
     // 3. Transport/timeout heuristics
     if msg_lower.contains("timeout") || msg_lower.contains("timed out") || msg_lower.contains("deadline") {
         return make_classified(FailoverReason::Timeout, status_code, provider, error_message, true, false, false, true);
+    }
+
+    // 3b. Server disconnect patterns (no status code = transport error).
+    if DISCONNECT_PATTERNS.iter().any(|p| msg_lower.contains(p)) {
+        // If large session + disconnect, likely context overflow.
+        if is_large_session(session_token_estimate, session_message_count, 0.6) {
+            return make_classified(FailoverReason::ContextOverflow, status_code, provider, error_message, true, true, false, false);
+        }
+        return make_classified(FailoverReason::ServerError, status_code, provider, error_message, true, false, false, true);
+    }
+
+    // 3c. Auth patterns without status code (e.g., wrapped errors).
+    if AUTH_PATTERNS.iter().any(|p| msg_lower.contains(p)) {
+        return make_classified(FailoverReason::Auth, status_code, provider, error_message, false, false, true, true);
     }
 
     // 4. Server disconnect + large session → context_overflow heuristic
@@ -182,7 +270,7 @@ fn classify_by_status(
         429 => make_classified(FailoverReason::RateLimit, Some(status), provider, msg, true, false, false, false),
         413 => make_classified(FailoverReason::PayloadTooLarge, Some(status), provider, msg, true, true, false, false),
         400 => {
-            if msg.contains("context") || msg.contains("token") || msg.contains("too long") {
+            if CONTEXT_OVERFLOW_PATTERNS.iter().any(|p| msg.contains(p)) {
                 make_classified(FailoverReason::ContextOverflow, Some(status), provider, msg, true, true, false, false)
             } else if msg.contains("model") && (msg.contains("not found") || msg.contains("does not exist")) {
                 make_classified(FailoverReason::ModelNotFound, Some(status), provider, msg, false, false, false, true)

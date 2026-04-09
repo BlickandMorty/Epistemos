@@ -43,18 +43,35 @@ fn scan_memory_content(content: &str) -> Option<String> {
         }
     }
 
-    // Threat patterns
+    // Threat patterns (expanded from Hermes: 16 patterns → 20)
     let patterns: &[(&str, &str)] = &[
+        // Prompt injection
         ("ignore previous instructions", "prompt_injection"),
         ("ignore all instructions", "prompt_injection"),
         ("ignore above instructions", "prompt_injection"),
+        ("disregard your instructions", "prompt_injection"),
+        ("disregard all rules", "prompt_injection"),
+        ("forget your instructions", "prompt_injection"),
+        ("override your instructions", "prompt_injection"),
+        // Role hijack
         ("you are now", "role_hijack"),
-        ("do not tell the user", "deception_hide"),
-        ("system prompt override", "sys_prompt_override"),
-        ("disregard your instructions", "disregard_rules"),
-        ("disregard all rules", "disregard_rules"),
-        ("act as if you have no restrictions", "bypass_restrictions"),
+        ("act as if you have no restrictions", "role_hijack"),
+        ("pretend you are", "role_hijack"),
+        // Deception
+        ("do not tell the user", "deception"),
+        ("hide this from the user", "deception"),
+        // System override
+        ("system prompt override", "sys_override"),
+        ("new system prompt", "sys_override"),
+        // SSH backdoor
         ("authorized_keys", "ssh_backdoor"),
+        ("$home/.ssh", "ssh_backdoor"),
+        ("id_rsa", "ssh_backdoor"),
+        // Credential file patterns
+        (".env", "cred_file"),
+        (".netrc", "cred_file"),
+        (".npmrc", "cred_file"),
+        (".pypirc", "cred_file"),
     ];
 
     for (pattern, pid) in patterns {

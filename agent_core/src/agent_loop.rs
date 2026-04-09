@@ -1,14 +1,33 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::{future::try_join_all, StreamExt};
 use tokio_util::sync::CancellationToken;
 
 use crate::bridge::AgentEventDelegate;
+use crate::error_classifier::{classify_error, FailoverReason};
 use crate::prompts::{build_system_prompt, PromptMode};
 use crate::provider::{AgentProvider, StreamEvent};
 use crate::rate_limit_tracker::RateLimitTracker;
 use crate::tools::registry::{RiskLevel, ToolRegistry};
 use crate::types::{ContentBlock, Message, StopReason, TokenUsage, ToolResult, ToolResultContent};
+
+/// Maximum retries for transient API errors (Hermes uses 5).
+const MAX_API_RETRIES: u32 = 5;
+
+/// Maximum compaction retry attempts before giving up.
+const MAX_COMPACTION_ATTEMPTS: u32 = 3;
+
+/// Stream read timeout — if no event received for this long, abort.
+const STREAM_TIMEOUT: Duration = Duration::from_secs(90);
+
+/// Jittered exponential backoff (Hermes: jittered_backoff).
+fn jittered_backoff(attempt: u32, base_secs: f64, max_secs: f64) -> Duration {
+    let delay = (base_secs * 2.0_f64.powi(attempt as i32)).min(max_secs);
+    // Add 0-25% jitter to prevent thundering herd.
+    let jitter = delay * 0.25 * (attempt as f64 % 4.0) / 4.0;
+    Duration::from_secs_f64(delay + jitter)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Effort {
@@ -148,31 +167,15 @@ pub async fn run_agent_loop(
             return Err(AgentError::Cancelled);
         }
 
-        // Rate limit: wait if the provider is throttled before making the call.
-        if let Some(wait_duration) = rate_tracker.should_wait(&provider_name) {
-            let wait_secs = wait_duration.as_secs().min(120);
-            tracing::info!(
-                provider = %provider_name,
-                wait_secs,
-                "Rate-limited, backing off before next API call"
-            );
-            tokio::time::sleep(wait_duration).await;
-        }
-
         delegate.on_turn_started(turn_count, messages.len() as u32);
 
         // Proactive compaction: compact BEFORE the API call if context is above 80%
-        // of the threshold. This prevents the API from rejecting an oversized request
-        // (reactive compaction only fires after tool results, which may be too late
-        // if a single large tool output pushed us past the limit).
-        let proactive_threshold = config.context_threshold * 4 / 5; // 80% of limit
+        // of the threshold. Uses retry logic (up to MAX_COMPACTION_ATTEMPTS).
+        let proactive_threshold = config.context_threshold * 4 / 5;
         let pre_flight_tokens = estimate_tokens(&messages);
         if pre_flight_tokens > proactive_threshold {
             delegate.on_context_compacting(pre_flight_tokens as u32);
-            messages = provider
-                .compact(&messages)
-                .await
-                .map_err(|_| AgentError::CompactionFailed)?;
+            messages = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
             delegate.on_context_compacted(messages.len() as u32);
         }
 
@@ -180,64 +183,174 @@ pub async fn run_agent_loop(
         let mut turn_config = config.clone();
         turn_config.system_prompt = Some(system_prompt.clone());
 
-        let stream_result = provider
-            .stream_message(&messages, &tools, &turn_config)
-            .await;
-
-        let mut stream = match stream_result {
-            Ok(s) => {
-                rate_tracker.record_success(&provider_name);
-                s
-            }
-            Err(e) => {
-                // Check if this is a 429 rate limit error.
-                if let AgentError::ApiError { status: 429, .. } = &e {
-                    rate_tracker.record_429(&provider_name);
-                }
-                return Err(e);
-            }
-        };
-
+        // ── API call with retry + error classification ──────────────────
         let mut response_blocks = Vec::new();
         let mut stop_reason = StopReason::EndTurn;
         let mut turn_usage = TokenUsage::default();
+        let mut api_retry_count = 0u32;
 
-        while let Some(event_result) = stream.next().await {
+        'api_retry: loop {
             if cancel.is_cancelled() {
                 return Err(AgentError::Cancelled);
             }
 
-            match event_result? {
-                StreamEvent::ThinkingDelta { text, .. } => {
-                    delegate.on_thinking_delta(text);
+            // Rate limit pre-check.
+            if let Some(wait_duration) = rate_tracker.should_wait(&provider_name) {
+                tracing::info!(
+                    provider = %provider_name,
+                    wait_ms = wait_duration.as_millis() as u64,
+                    "Rate-limited, waiting before retry"
+                );
+                tokio::time::sleep(wait_duration).await;
+            }
+
+            let stream_result = provider
+                .stream_message(&messages, &tools, &turn_config)
+                .await;
+
+            let mut stream = match stream_result {
+                Ok(s) => {
+                    rate_tracker.record_success(&provider_name);
+                    s
                 }
-                StreamEvent::TextDelta { text, .. } => {
-                    delegate.on_text_delta(text);
-                }
-                StreamEvent::InputJsonDelta {
-                    index,
-                    partial_json,
-                } => {
-                    delegate.on_tool_input_delta(index as u32, partial_json);
-                }
-                StreamEvent::SignatureDelta { .. } => {}
-                StreamEvent::ContentBlockComplete { block } => {
-                    if let ContentBlock::ToolUse { id, name, input } = &block {
-                        let input_json = serde_json::to_string(input)
-                            .map_err(|error| AgentError::Serialization(error.to_string()))?;
-                        delegate.on_tool_started(id.clone(), name.clone(), input_json);
+                Err(e) => {
+                    let (status, body_owned) = match &e {
+                        AgentError::ApiError { status, body } => (Some(*status), body.clone()),
+                        AgentError::HttpError(msg) => (None, msg.clone()),
+                        AgentError::StreamError(msg) => (None, msg.clone()),
+                        _ => (None, String::new()),
+                    };
+
+                    if status == Some(429) {
+                        rate_tracker.record_429(&provider_name);
                     }
-                    response_blocks.push(block);
+
+                    let classified = classify_error(
+                        status,
+                        &body_owned,
+                        &provider_name,
+                        estimate_tokens(&messages),
+                        messages.len(),
+                    );
+
+                    // If retryable and under retry limit, back off and retry.
+                    if classified.retryable && api_retry_count < MAX_API_RETRIES {
+                        api_retry_count += 1;
+                        let backoff = jittered_backoff(api_retry_count, 2.0, 120.0);
+                        tracing::warn!(
+                            provider = %provider_name,
+                            reason = %classified.reason.as_str(),
+                            attempt = api_retry_count,
+                            backoff_ms = backoff.as_millis() as u64,
+                            "Retrying after classified error"
+                        );
+
+                        // If error says to compress, try compaction before retry.
+                        if classified.should_compress {
+                            if let Ok(compacted) = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await {
+                                messages = compacted;
+                            }
+                        }
+
+                        tokio::time::sleep(backoff).await;
+                        continue 'api_retry;
+                    }
+
+                    // Non-retryable or max retries exhausted.
+                    return Err(e);
                 }
-                StreamEvent::MessageStop {
-                    stop_reason: reason,
-                    usage,
-                } => {
-                    stop_reason = reason;
-                    turn_usage = usage;
-                    break;
+            };
+
+            // ── Stream consumption with timeout ─────────────────────────
+            response_blocks.clear();
+
+            loop {
+                if cancel.is_cancelled() {
+                    return Err(AgentError::Cancelled);
+                }
+
+                // Timeout: if no event for STREAM_TIMEOUT, treat as stall.
+                let event = tokio::time::timeout(STREAM_TIMEOUT, stream.next()).await;
+
+                match event {
+                    Err(_elapsed) => {
+                        // Stream stalled — classify as timeout and retry.
+                        if api_retry_count < MAX_API_RETRIES {
+                            api_retry_count += 1;
+                            tracing::warn!(
+                                provider = %provider_name,
+                                "Stream stalled for {}s, retrying (attempt {})",
+                                STREAM_TIMEOUT.as_secs(), api_retry_count
+                            );
+                            let backoff = jittered_backoff(api_retry_count, 2.0, 60.0);
+                            tokio::time::sleep(backoff).await;
+                            continue 'api_retry;
+                        }
+                        return Err(AgentError::StreamError(format!(
+                            "Stream stalled for {}s after {} retries",
+                            STREAM_TIMEOUT.as_secs(), api_retry_count
+                        )));
+                    }
+                    Ok(None) => {
+                        // Stream ended without MessageStop — treat as empty response.
+                        break;
+                    }
+                    Ok(Some(event_result)) => {
+                        match event_result {
+                            Err(ref e) => {
+                                // Stream error mid-response — retry if possible.
+                                let (status, body) = match e {
+                                    AgentError::ApiError { status, body } => (Some(*status), body.as_str()),
+                                    _ => (None, &e.to_string() as &str),
+                                };
+                                let classified = classify_error(
+                                    status, body, &provider_name,
+                                    estimate_tokens(&messages), messages.len(),
+                                );
+                                if classified.retryable && api_retry_count < MAX_API_RETRIES {
+                                    api_retry_count += 1;
+                                    let backoff = jittered_backoff(api_retry_count, 2.0, 60.0);
+                                    tracing::warn!(
+                                        provider = %provider_name,
+                                        reason = %classified.reason.as_str(),
+                                        "Mid-stream error, retrying (attempt {})", api_retry_count
+                                    );
+                                    tokio::time::sleep(backoff).await;
+                                    continue 'api_retry;
+                                }
+                                return Err(event_result.unwrap_err());
+                            }
+                            Ok(event) => match event {
+                                StreamEvent::ThinkingDelta { text, .. } => {
+                                    delegate.on_thinking_delta(text);
+                                }
+                                StreamEvent::TextDelta { text, .. } => {
+                                    delegate.on_text_delta(text);
+                                }
+                                StreamEvent::InputJsonDelta { index, partial_json } => {
+                                    delegate.on_tool_input_delta(index as u32, partial_json);
+                                }
+                                StreamEvent::SignatureDelta { .. } => {}
+                                StreamEvent::ContentBlockComplete { block } => {
+                                    if let ContentBlock::ToolUse { id, name, input } = &block {
+                                        let input_json = serde_json::to_string(input)
+                                            .map_err(|error| AgentError::Serialization(error.to_string()))?;
+                                        delegate.on_tool_started(id.clone(), name.clone(), input_json);
+                                    }
+                                    response_blocks.push(block);
+                                }
+                                StreamEvent::MessageStop { stop_reason: reason, usage } => {
+                                    stop_reason = reason;
+                                    turn_usage = usage;
+                                    break;
+                                }
+                            },
+                        }
+                    }
                 }
             }
+            // If we reach here, stream completed successfully — exit retry loop.
+            break 'api_retry;
         }
 
         total_usage.input_tokens = total_usage
@@ -352,20 +465,14 @@ pub async fn run_agent_loop(
                 let estimated_tokens = estimate_tokens(&messages);
                 if estimated_tokens > config.context_threshold {
                     delegate.on_context_compacting(estimated_tokens as u32);
-                    messages = provider
-                        .compact(&messages)
-                        .await
-                        .map_err(|_| AgentError::CompactionFailed)?;
+                    messages = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
                     delegate.on_context_compacted(messages.len() as u32);
                 }
             }
             StopReason::MaxTokens => {
                 messages.push(Message::assistant(response_blocks.clone()));
                 delegate.on_context_compacting(estimate_tokens(&messages) as u32);
-                messages = provider
-                    .compact(&messages)
-                    .await
-                    .map_err(|_| AgentError::CompactionFailed)?;
+                messages = try_compact(&provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
                 delegate.on_context_compacted(messages.len() as u32);
             }
         }
@@ -565,6 +672,37 @@ fn estimate_tokens(messages: &[Message]) -> usize {
         .sum::<usize>();
 
     characters / 4
+}
+
+/// Try compaction with up to `max_attempts` retries. Returns CompactionFailed only
+/// after all attempts are exhausted (Hermes retries 3 times before giving up).
+async fn try_compact(
+    provider: &Arc<dyn AgentProvider>,
+    messages: &[Message],
+    delegate: &Arc<dyn AgentEventDelegate>,
+    max_attempts: u32,
+) -> Result<Vec<Message>, AgentError> {
+    for attempt in 1..=max_attempts {
+        match provider.compact(messages).await {
+            Ok(compacted) => return Ok(compacted),
+            Err(_) if attempt < max_attempts => {
+                tracing::warn!(
+                    attempt,
+                    max_attempts,
+                    "Compaction failed, retrying"
+                );
+                delegate.on_error(format!(
+                    "Compaction attempt {attempt}/{max_attempts} failed, retrying..."
+                ));
+                // Brief pause before retry.
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            Err(_) => {
+                return Err(AgentError::CompactionFailed);
+            }
+        }
+    }
+    Err(AgentError::CompactionFailed)
 }
 
 fn truncate_tool_output(output: String, max_chars: usize) -> String {
