@@ -64,6 +64,10 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
         // Auto-approve everything in subagents (parent already approved)
         true
     }
+    fn on_clarification_needed(&self, _: String, _: String) -> String {
+        // Subagents cannot ask for user clarification; return empty.
+        String::new()
+    }
 }
 
 #[async_trait::async_trait]
