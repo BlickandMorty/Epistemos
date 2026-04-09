@@ -131,6 +131,9 @@ impl ToolRegistry {
         self.register_web_fetch();
         self.register_memory_tool();
         self.register_skills_tool();
+        self.register_todo_tool();
+        self.register_clarify_tool();
+        self.register_code_execution();
     }
 
     fn register_file_ops(&mut self) {
@@ -182,6 +185,42 @@ impl ToolRegistry {
             parameters: skills::skills_tool_schema().parameters,
             handler: Box::new(skills::SkillsTool::new(skills_dir)),
             risk_level: RiskLevel::Modification,
+        });
+    }
+
+    fn register_todo_tool(&mut self) {
+        use crate::tools::todo;
+        let vault_root = self.vault
+            .root_path()
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        self.register(RegisteredTool {
+            name: "todo".to_string(),
+            description: "Manage a persistent todo list. Add, complete, remove, or list tasks that persist across sessions.".to_string(),
+            parameters: todo::todo_tool_schema().parameters,
+            handler: Box::new(todo::TodoTool::new(vault_root)),
+            risk_level: RiskLevel::Modification,
+        });
+    }
+
+    fn register_clarify_tool(&mut self) {
+        use crate::tools::clarify;
+        self.register(RegisteredTool {
+            name: "clarify".to_string(),
+            description: "Ask the user a clarification question when the task is ambiguous. Pauses execution until the user responds.".to_string(),
+            parameters: clarify::clarify_tool_schema().parameters,
+            handler: Box::new(clarify::ClarifyTool),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_code_execution(&mut self) {
+        use crate::tools::code_execution;
+        self.register(RegisteredTool {
+            name: "execute_code".to_string(),
+            description: "Execute code in a sandboxed temp directory. Supports python3, node, ruby, bash, swift. 30-second timeout, 10MB output cap.".to_string(),
+            parameters: code_execution::code_execution_tool_schema().parameters,
+            handler: Box::new(code_execution::CodeExecutionTool),
+            risk_level: RiskLevel::Destructive,
         });
     }
 
