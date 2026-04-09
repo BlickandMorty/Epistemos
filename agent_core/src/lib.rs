@@ -48,6 +48,9 @@ pub mod tools {
     pub mod think;
     pub mod web_fetch;
     pub mod workspace_search;
+    pub mod todo;
+    pub mod clarify;
+    pub mod code_execution;
 }
 
 uniffi::setup_scaffolding!();
