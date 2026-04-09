@@ -57,6 +57,11 @@ pub trait VaultBackend: Send + Sync {
     async fn exists(&self, path: &str) -> Result<bool, VaultError>;
 
     async fn delete(&self, path: &str) -> Result<bool, VaultError>;
+
+    /// Return the vault root path (needed by tools that create subdirectories).
+    fn root_path(&self) -> Option<std::path::PathBuf> {
+        None
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -428,5 +433,9 @@ impl VaultBackend for VaultStore {
             .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
 
         Ok(true)
+    }
+
+    fn root_path(&self) -> Option<std::path::PathBuf> {
+        Some(self.vault_root.clone())
     }
 }
