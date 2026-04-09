@@ -125,6 +125,64 @@ impl ToolRegistry {
             self.register_bash_execute();
         }
         self.register_web_search();
+
+        // Hermes-parity tools — previously implemented but not registered
+        self.register_file_ops();
+        self.register_web_fetch();
+        self.register_memory_tool();
+        self.register_skills_tool();
+    }
+
+    fn register_file_ops(&mut self) {
+        use crate::tools::file_ops;
+        self.register(RegisteredTool {
+            name: "file_ops".to_string(),
+            description: "Read, write, patch, or list files with stale detection and security guards.".to_string(),
+            parameters: file_ops::file_ops_tool_schema().parameters,
+            handler: Box::new(file_ops::FileOpsTool::new()),
+            risk_level: RiskLevel::Modification,
+        });
+    }
+
+    fn register_web_fetch(&mut self) {
+        use crate::tools::web_fetch;
+        self.register(RegisteredTool {
+            name: "web_fetch".to_string(),
+            description: "Fetch a web page and extract its text content. Blocks private IPs and SSRF.".to_string(),
+            parameters: web_fetch::web_fetch_tool_schema().parameters,
+            handler: Box::new(web_fetch::WebFetchTool::new()),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_memory_tool(&mut self) {
+        use crate::tools::memory;
+        let memory_dir = self.vault
+            .root_path()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("memory");
+        self.register(RegisteredTool {
+            name: "memory".to_string(),
+            description: "Persistent memory store. Add, replace, remove, or read curated facts that persist across sessions. Entries survive restarts.".to_string(),
+            parameters: memory::memory_tool_schema().parameters,
+            handler: Box::new(memory::MemoryTool::new(memory_dir)),
+            risk_level: RiskLevel::Modification,
+        });
+    }
+
+    fn register_skills_tool(&mut self) {
+        use crate::tools::skills;
+        let skills_dir = self.vault
+            .root_path()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("skills");
+        self.register(RegisteredTool {
+            name: "skills".to_string(),
+            description: "Manage procedural skills. Create, edit, patch, delete, or list reusable skill documents that teach you how to handle specific task types.".to_string(),
+            parameters: skills::skills_tool_schema().parameters,
+            handler: Box::new(skills::SkillsTool::new(skills_dir)),
+            risk_level: RiskLevel::Modification,
+        });
     }
 
     fn register_think_tool(&mut self) {
