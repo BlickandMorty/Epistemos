@@ -134,6 +134,14 @@ impl ToolRegistry {
         self.register_todo_tool();
         self.register_clarify_tool();
         self.register_code_execution();
+
+        // PKM-specific tools — beyond Hermes parity
+        self.register_graph_query();
+        self.register_note_template();
+        self.register_note_linker();
+        self.register_research_digest();
+        self.register_citation_extractor();
+        self.register_markdown_table();
     }
 
     fn register_file_ops(&mut self) {
@@ -221,6 +229,72 @@ impl ToolRegistry {
             parameters: code_execution::code_execution_tool_schema().parameters,
             handler: Box::new(code_execution::CodeExecutionTool),
             risk_level: RiskLevel::Destructive,
+        });
+    }
+
+    fn register_graph_query(&mut self) {
+        use crate::tools::graph_query;
+        self.register(RegisteredTool {
+            name: "graph_query".to_string(),
+            description: "Query the knowledge graph: backlinks, orphan notes, tag clusters, shortest paths, vault statistics.".to_string(),
+            parameters: graph_query::graph_query_tool_schema().parameters,
+            handler: Box::new(graph_query::GraphQueryTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_note_template(&mut self) {
+        use crate::tools::note_tools;
+        self.register(RegisteredTool {
+            name: "note_template".to_string(),
+            description: "Create notes from templates with {{variable}} interpolation. Built-in: {{date}}, {{datetime}}, {{year}}.".to_string(),
+            parameters: note_tools::note_template_schema().parameters,
+            handler: Box::new(note_tools::NoteTemplateTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::Modification,
+        });
+    }
+
+    fn register_note_linker(&mut self) {
+        use crate::tools::note_tools;
+        self.register(RegisteredTool {
+            name: "note_linker".to_string(),
+            description: "Scan a note and suggest wikilinks to other vault notes. Finds unlinked mentions.".to_string(),
+            parameters: note_tools::note_linker_schema().parameters,
+            handler: Box::new(note_tools::NoteLinkerTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_research_digest(&mut self) {
+        use crate::tools::note_tools;
+        self.register(RegisteredTool {
+            name: "research_digest".to_string(),
+            description: "Aggregate multiple vault notes into a structured research digest with excerpts, shared tags, and key findings.".to_string(),
+            parameters: note_tools::research_digest_schema().parameters,
+            handler: Box::new(note_tools::ResearchDigestTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_citation_extractor(&mut self) {
+        use crate::tools::note_tools;
+        self.register(RegisteredTool {
+            name: "citation_extractor".to_string(),
+            description: "Extract and format citations (URLs, DOIs, parenthetical refs) from text as markdown, BibTeX, or plain text.".to_string(),
+            parameters: note_tools::citation_extractor_schema().parameters,
+            handler: Box::new(note_tools::CitationExtractorTool),
+            risk_level: RiskLevel::ReadOnly,
+        });
+    }
+
+    fn register_markdown_table(&mut self) {
+        use crate::tools::note_tools;
+        self.register(RegisteredTool {
+            name: "markdown_table".to_string(),
+            description: "Generate markdown tables from JSON arrays or CSV data.".to_string(),
+            parameters: note_tools::markdown_table_schema().parameters,
+            handler: Box::new(note_tools::MarkdownTableTool),
+            risk_level: RiskLevel::ReadOnly,
         });
     }
 
