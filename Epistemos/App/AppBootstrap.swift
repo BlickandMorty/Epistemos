@@ -678,6 +678,8 @@ final class AppBootstrap {
     let mcpBridge = MCPBridge()
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
+    private var _iMessageDriver: IMessageDriverService?
+    var iMessageDriver: IMessageDriverService { Self.requireInitialized(_iMessageDriver, name: "iMessageDriver") }
     private var _deviceAgent: DeviceAgentService?
     var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
     private var _dualBrainRouter: DualBrainRouter?
@@ -949,13 +951,18 @@ final class AppBootstrap {
             modelContainer: container
         )
 
-        // PipelineService — direct local answer streaming
+        // PipelineService — direct local answer streaming + tool-enabled loop
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: llm,
             triageService: triage,
             inference: inference,
-            eventBus: eventBus
+            eventBus: eventBus,
+            localModelClient: localMLXClient,
+            constrainedDecoding: constrainedDecoding,
+            vaultPathProvider: { [weak vaultSync] in
+                vaultSync?.vaultURL?.path
+            }
         )
 
         // Wire event bus to chat state
@@ -1013,6 +1020,22 @@ final class AppBootstrap {
         // Configure Knowledge Fusion at boot so the inference bridge is ready.
         // State loading is deferred until after the primary launch path settles.
         KnowledgeFusionViewModel.shared.configure(triageService: triage)
+
+        // Initialize iMessage driver (starts disabled — user toggles via Settings).
+        // Local-model contacts route through `LocalAgentLoop` via the
+        // localModelClientProvider; cloud contacts continue to use
+        // `runAgentSession` against agent_core.
+        self._iMessageDriver = IMessageDriverService(
+            vaultPathProvider: { [weak vaultSync] in
+                vaultSync?.vaultURL?.path
+            },
+            localModelClientProvider: { [weak self] in
+                self?.localMLXClient
+            },
+            constrainedDecodingProvider: { [weak self] in
+                self?.constrainedDecoding
+            }
+        )
 
         // Initialize dual-brain infrastructure
         self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)

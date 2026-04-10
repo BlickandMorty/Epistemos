@@ -33,6 +33,9 @@ final class PipelineService {
     private let triageService: TriageService
     private let inference: InferenceState
     private let eventBus: EventBus
+    private let localModelClient: (any LocalConfigurableLLMClient)?
+    private let constrainedDecoding: ConstrainedDecodingService?
+    private let vaultPathProvider: @MainActor () -> String?
     private var pipelineTask: Task<Void, Never>?
     private var activeRunID: UUID?
 
@@ -41,13 +44,19 @@ final class PipelineService {
         llmService: any LLMClientProtocol,
         triageService: TriageService,
         inference: InferenceState,
-        eventBus: EventBus
+        eventBus: EventBus,
+        localModelClient: (any LocalConfigurableLLMClient)? = nil,
+        constrainedDecoding: ConstrainedDecodingService? = nil,
+        vaultPathProvider: @escaping @MainActor () -> String? = { nil }
     ) {
         self.pipelineState = pipelineState
         self.llmService = llmService
         self.triageService = triageService
         self.inference = inference
         self.eventBus = eventBus
+        self.localModelClient = localModelClient
+        self.constrainedDecoding = constrainedDecoding
+        self.vaultPathProvider = vaultPathProvider
     }
 
     func run(
@@ -77,17 +86,44 @@ final class PipelineService {
                 do {
                     pipelineState.startProcessing()
 
+                    let useToolLoop = shouldUseToolLoop(operatingMode: operatingMode)
+                    let isLocalModelSelected: Bool = {
+                        if case .localMLX = inference.preferredChatModelSelection { return true }
+                        return false
+                    }()
                     var emittedVisibleText = ""
-                    let directStream = generateDirectStream(
-                        query: query,
-                        notesContext: notesContext,
-                        conversationHistory: conversationHistory,
-                        operatingMode: operatingMode
-                    )
 
-                    for try await token in directStream {
-                        emittedVisibleText += token
-                        continuation.yield(.textDelta(token))
+                    if useToolLoop,
+                       isLocalModelSelected,
+                       let localClient = localModelClient,
+                       let vaultPath = vaultPathProvider(),
+                       !vaultPath.isEmpty {
+                        // Tool-enabled local path: LocalAgentLoop handles
+                        // multi-turn tool execution via the Rust FFI.
+                        emittedVisibleText = try await runToolLoop(
+                            query: query,
+                            notesContext: notesContext,
+                            conversationHistory: conversationHistory,
+                            operatingMode: operatingMode,
+                            vaultPath: vaultPath,
+                            localClient: localClient,
+                            onToken: { token in
+                                continuation.yield(.textDelta(token))
+                            }
+                        )
+                    } else {
+                        // Legacy direct-stream path (cloud models in non-agent
+                        // mode, or when localClient / vault aren't available).
+                        let directStream = generateDirectStream(
+                            query: query,
+                            notesContext: notesContext,
+                            conversationHistory: conversationHistory,
+                            operatingMode: operatingMode
+                        )
+                        for try await token in directStream {
+                            emittedVisibleText += token
+                            continuation.yield(.textDelta(token))
+                        }
                     }
 
                     guard !Task.isCancelled else {
@@ -125,6 +161,110 @@ final class PipelineService {
                 }
             }
         }
+    }
+
+    /// Decide whether the current turn should route through `LocalAgentLoop`
+    /// with tier-filtered tools. Fast / Thinking / Pro all qualify when a
+    /// local model client is wired. Agent mode goes through the Rust
+    /// agent loop instead (handled by ChatCoordinator, not here).
+    private func shouldUseToolLoop(operatingMode: EpistemosOperatingMode) -> Bool {
+        switch operatingMode {
+        case .fast, .thinking, .pro:
+            return true
+        case .agent:
+            // Agent mode is handled by ChatCoordinator via runRustAgentPath
+            // before it ever reaches PipelineService.run. If we somehow land
+            // here in agent mode, fall back to the legacy stream.
+            return false
+        }
+    }
+
+    /// Tool-enabled local-model path. Builds a tier-filtered tool registry
+    /// via the Rust FFI, then drives a LocalAgentLoop with the incoming
+    /// query. Tokens are forwarded to the caller via `onToken`.
+    private func runToolLoop(
+        query: String,
+        notesContext: String?,
+        conversationHistory: String?,
+        operatingMode: EpistemosOperatingMode,
+        vaultPath: String,
+        localClient: any LocalConfigurableLLMClient,
+        onToken: @escaping @MainActor (String) -> Void
+    ) async throws -> String {
+        let tier = ChatToolTier.from(operatingMode: operatingMode)
+        let bridge = ToolTierBridge(vaultPath: vaultPath, tier: tier)
+        let tools = bridge.loadTools()
+
+        // If no tools loaded (bindings missing, empty registry), fall back
+        // to the legacy stream so we don't break builds that haven't linked
+        // the Rust FFI yet.
+        if tools.isEmpty {
+            Log.pipeline.warning("No tools available for tier \(tier.rawValue) — falling back to direct stream")
+            var accumulated = ""
+            let stream = generateDirectStream(
+                query: query,
+                notesContext: notesContext,
+                conversationHistory: conversationHistory,
+                operatingMode: operatingMode
+            )
+            for try await token in stream {
+                accumulated += token
+                onToken(token)
+            }
+            return accumulated
+        }
+
+        // Build the objective: include notes context and history inline so
+        // the loop sees a single self-contained prompt. LocalAgentLoop
+        // manages its own turn history internally once the loop starts.
+        var objectiveParts: [String] = []
+        if let notesContext, !notesContext.isEmpty {
+            objectiveParts.append(notesContext)
+        }
+        if let conversationHistory, !conversationHistory.isEmpty {
+            objectiveParts.append(conversationHistory)
+        }
+        objectiveParts.append(query)
+        let objective = objectiveParts.joined(separator: "\n\n")
+
+        let reasoningMode: LocalReasoningMode = switch operatingMode {
+        case .thinking: .thinking
+        case .pro:      .thinking
+        default:        .fast
+        }
+
+        let modelID: String? = {
+            if case .localMLX(let id) = inference.preferredChatModelSelection {
+                return id
+            }
+            return nil
+        }()
+        let loop = LocalAgentLoop.liveLoop(
+            using: localClient,
+            constrainedDecoding: constrainedDecoding,
+            toolExecutor: bridge.toolExecutor(),
+            modelID: modelID,
+            defaultReasoningMode: reasoningMode
+        )
+
+        Log.pipeline.info(
+            "🔧 Tool loop starting — tier=\(tier.rawValue) tools=\(tools.count) mode=\(String(describing: operatingMode))"
+        )
+
+        let additional: String? = nil
+        let result = try await loop.run(
+            objective: objective,
+            tools: tools,
+            maxTurns: 6,
+            reasoningMode: reasoningMode,
+            additionalSystemPrompt: additional,
+            onToken: { token in
+                Task { @MainActor in
+                    onToken(token)
+                }
+            }
+        )
+        return result
     }
 
     func cancelActiveRun() {

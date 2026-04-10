@@ -18,7 +18,10 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 // MARK: - SSRF Protection
 
-fn is_private_url(url: &str) -> bool {
+/// Returns true when the URL targets a private / internal address. Exposed
+/// so the Phase 3 web tools can share the same blocklist without duplicating
+/// the constants.
+pub(crate) fn is_private_url(url: &str) -> bool {
     let lower = url.to_lowercase();
     // Block private/internal IPs and localhost
     let blocked = [
@@ -33,7 +36,7 @@ fn is_private_url(url: &str) -> bool {
     blocked.iter().any(|b| lower.contains(b))
 }
 
-fn validate_url(url: &str) -> Result<(), String> {
+pub(crate) fn validate_url(url: &str) -> Result<(), String> {
     if url.is_empty() {
         return Err("URL is required.".to_string());
     }
@@ -50,7 +53,7 @@ fn validate_url(url: &str) -> Result<(), String> {
 
 /// Strips HTML tags and extracts readable text.
 /// Removes script, style, nav, header, footer elements entirely.
-fn html_to_text(html: &str) -> String {
+pub(crate) fn html_to_text(html: &str) -> String {
     let mut result = String::with_capacity(html.len() / 3);
     let mut in_tag = false;
     let mut in_skip_element = false;

@@ -51,14 +51,30 @@ pub mod shared_memory;
 pub mod mcp;
 
 pub mod tools {
+    pub mod apple;
     pub mod chunk_reduce;
+    pub mod clarify;
+    pub mod communication;
     pub mod computer_use;
     pub mod delegate_task;
     pub mod file_ops;
+    pub mod filesystem;
+    pub mod graph;
+    pub mod imessage;
+    pub mod imessage_contacts;
+    pub mod inference;
+    pub mod intelligence;
+    pub mod knowledge;
+    pub mod macos;
+    pub mod media;
     pub mod memory;
     pub mod registry;
+    pub mod scheduling;
     pub mod skills;
+    pub mod terminal;
     pub mod think;
+    pub mod todo;
+    pub mod web;
     pub mod web_fetch;
     pub mod workspace_search;
 }

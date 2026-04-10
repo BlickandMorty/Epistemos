@@ -407,7 +407,8 @@ final class ChatCoordinator {
         let toolConfig = ToolConfig(
             vaultPath: vaultPath,
             enableBash: true,
-            enableWebSearch: true
+            enableWebSearch: true,
+            toolTier: "agent"
         )
 
         let agentConfig = AgentConfigFFI(
