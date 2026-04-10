@@ -166,6 +166,10 @@ struct MessageBubble: View {
                         .foregroundStyle(theme.fontAccent)
                 }
 
+                if let contentBlocks = message.contentBlocks {
+                    ToolExecutionPreviewList(blocks: contentBlocks)
+                }
+
                 TaggedMarkdownTextView(content: displayContent, theme: theme)
 
                 // Extended thinking trail — collapsible reasoning section
@@ -325,6 +329,282 @@ private struct MessageToolbar: View {
             .replacingOccurrences(of: "\\*\\*|\\*|`|^#+\\s*", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return String(cleaned.prefix(50))
+    }
+}
+
+private struct ToolExecutionPreview: Identifiable {
+    let id: String
+    let name: String
+    let input: [String: JSONValue]
+    var result: String?
+    var isError = false
+}
+
+struct ToolExecutionPreviewList: View {
+    let blocks: [MessageContentBlock]
+    var isStreaming = false
+
+    private var previews: [ToolExecutionPreview] {
+        var orderedIDs: [String] = []
+        var previewsByID: [String: ToolExecutionPreview] = [:]
+
+        for block in blocks {
+            switch block {
+            case .toolUse(let id, let name, let input):
+                orderedIDs.append(id)
+                previewsByID[id] = ToolExecutionPreview(id: id, name: name, input: input)
+            case .toolResult(let toolUseId, let content, let isError):
+                if var preview = previewsByID[toolUseId] {
+                    preview.result = normalizedResult(content)
+                    preview.isError = isError
+                    previewsByID[toolUseId] = preview
+                } else {
+                    orderedIDs.append(toolUseId)
+                    previewsByID[toolUseId] = ToolExecutionPreview(
+                        id: toolUseId,
+                        name: "tool",
+                        input: [:],
+                        result: normalizedResult(content),
+                        isError: isError
+                    )
+                }
+            default:
+                continue
+            }
+        }
+
+        return orderedIDs.compactMap { previewsByID[$0] }
+    }
+
+    var body: some View {
+        if !previews.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(Array(previews.enumerated()), id: \.element.id) { index, preview in
+                    ToolExecutionPreviewCard(
+                        preview: preview,
+                        isStreaming: isStreaming && index == previews.count - 1 && preview.result == nil
+                    )
+                }
+            }
+        }
+    }
+
+    private static func normalizedResult(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func normalizedResult(_ raw: String) -> String {
+        Self.normalizedResult(raw)
+    }
+}
+
+private struct ToolExecutionPreviewCard: View {
+    let preview: ToolExecutionPreview
+    let isStreaming: Bool
+
+    @State private var isExpanded = true
+
+    private var iconName: String {
+        if preview.name.localizedCaseInsensitiveContains("bash")
+            || preview.name.localizedCaseInsensitiveContains("shell")
+            || preview.name.localizedCaseInsensitiveContains("command") {
+            return "terminal"
+        }
+        if preview.name.localizedCaseInsensitiveContains("file")
+            || preview.name.localizedCaseInsensitiveContains("patch")
+            || preview.name.localizedCaseInsensitiveContains("write") {
+            return "doc.text"
+        }
+        if preview.name.localizedCaseInsensitiveContains("search")
+            || preview.name.localizedCaseInsensitiveContains("find") {
+            return "magnifyingglass"
+        }
+        return "wrench.and.screwdriver"
+    }
+
+    private var statusLabel: String {
+        if preview.isError { return "Error" }
+        if preview.result != nil { return "Finished" }
+        if isStreaming { return "Running" }
+        return "Planned"
+    }
+
+    private var statusColor: Color {
+        if preview.isError { return .red }
+        if preview.result != nil { return .green }
+        if isStreaming { return .orange }
+        return .secondary
+    }
+
+    private var planSummary: String? {
+        if let command = stringValue(forAnyOf: ["command", "cmd", "shell_command"]) {
+            return command
+        }
+
+        if let path = stringValue(forAnyOf: ["path", "file_path", "filePath", "target_path", "targetPath"]) {
+            if hasAnyValue(forAnyOf: ["patch", "replacement", "content", "diff", "new_content", "updated_content"]) {
+                return "Will update \(path)"
+            }
+            return path
+        }
+
+        if let query = stringValue(forAnyOf: ["query", "url", "title", "note_id", "noteId"]) {
+            return query
+        }
+
+        let preview = prettyPrintedJSON(preview.input)
+        return preview.isEmpty ? nil : String(preview.prefix(180))
+    }
+
+    private var planDetail: String? {
+        if let snippet = stringValue(forAnyOf: ["patch", "replacement", "content", "diff", "new_content", "updated_content"]) {
+            return snippet
+        }
+        if let command = stringValue(forAnyOf: ["command", "cmd", "shell_command"]) {
+            return command
+        }
+        let preview = prettyPrintedJSON(preview.input)
+        return preview.isEmpty ? nil : preview
+    }
+
+    private var resultDetail: String? {
+        guard let result = preview.result, !result.isEmpty else { return nil }
+        return String(result.prefix(400))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.18)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: iconName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(preview.name.replacingOccurrences(of: "_", with: " ").capitalized)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        if let planSummary, !planSummary.isEmpty {
+                            Text(planSummary)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer()
+
+                    Text(statusLabel)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(statusColor)
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                Divider().opacity(0.15)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    if let planDetail, !planDetail.isEmpty {
+                        toolSection(title: "Planned Action", content: planDetail)
+                    }
+
+                    if let resultDetail, !resultDetail.isEmpty {
+                        toolSection(title: "Result", content: resultDetail)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+        }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func toolSection(title: String, content: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(content)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+
+    private func stringValue(forAnyOf keys: [String]) -> String? {
+        for key in keys {
+            guard let value = preview.input[key] else { continue }
+            switch value {
+            case .string(let string):
+                let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    return trimmed
+                }
+            case .int(let int):
+                return String(int)
+            case .double(let double):
+                return String(double)
+            case .bool(let bool):
+                return String(bool)
+            default:
+                continue
+            }
+        }
+        return nil
+    }
+
+    private func hasAnyValue(forAnyOf keys: [String]) -> Bool {
+        keys.contains { preview.input[$0] != nil }
+    }
+
+    private func prettyPrintedJSON(_ object: [String: JSONValue]) -> String {
+        guard !object.isEmpty else { return "" }
+        guard JSONSerialization.isValidJSONObject(jsonObject(object)),
+              let data = try? JSONSerialization.data(withJSONObject: jsonObject(object), options: [.prettyPrinted, .sortedKeys]),
+              let string = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        return string
+    }
+
+    private func jsonObject(_ value: JSONValue) -> Any {
+        switch value {
+        case .string(let string): return string
+        case .int(let int): return int
+        case .double(let double): return double
+        case .bool(let bool): return bool
+        case .null: return NSNull()
+        case .array(let values): return values.map(jsonObject)
+        case .object(let object): return jsonObject(object)
+        }
+    }
+
+    private func jsonObject(_ object: [String: JSONValue]) -> [String: Any] {
+        object.mapValues { jsonObject($0) }
     }
 }
 

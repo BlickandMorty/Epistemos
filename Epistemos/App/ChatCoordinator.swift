@@ -460,23 +460,17 @@ final class ChatCoordinator {
                 receivedAgentContent = true
                 chatState.appendStreamingText(text)
 
-            case .toolStarted(_, let name, _):
+            case .toolStarted(let id, let name, let inputJson):
                 receivedAgentContent = true
                 chatState.activeToolName = name
                 chatState.isAgentExecuting = true
-                chatState.appendStreamingText("\n> **\(name)**\n")
+                chatState.recordToolUse(id: id, name: name, inputJson: inputJson)
 
-                if name == "computer" {
-                    chatState.appendStreamingText("\n> Waiting for native computer observation…\n")
-                }
-
-            case .toolCompleted(_, let result, let isError):
+            case .toolCompleted(let id, let result, let isError):
                 receivedAgentContent = true
                 chatState.activeToolName = nil
                 chatState.isAgentExecuting = false
-                if isError {
-                    chatState.appendStreamingText("\n> Tool error: \(String(result.prefix(200)))\n")
-                }
+                chatState.recordToolResult(toolUseId: id, result: result, isError: isError)
 
             case .permissionRequired(let request):
                 receivedAgentContent = true
@@ -2074,6 +2068,9 @@ final class ChatCoordinator {
         // Persist extracted artifacts (JSON, YAML, code blocks, etc.)
         if let assistantMessage, !assistantMessage.artifacts.isEmpty {
             assistantMsg.setArtifacts(assistantMessage.artifacts)
+        }
+        if let assistantMessage {
+            assistantMsg.setContentBlocks(assistantMessage.contentBlocks)
         }
         assistantMsg.chat = chat
         context.insert(assistantMsg)

@@ -254,6 +254,17 @@ struct RuntimeValidationTests {
         #expect(config.contains("private func decodeBundleList"))
     }
 
+    @Test("capture config also recovers legacy delimited bundle lists")
+    func captureConfigRecoversLegacyDelimitedLists() throws {
+        let config = try loadRepoTextFile("Epistemos/State/EpistemosConfig.swift")
+
+        #expect(config.contains("private func decodeLegacyBundleList"))
+        #expect(config.contains("CharacterSet(charactersIn: \",;\\n\")"))
+        #expect(config.contains("private func deduplicatedBundleList"))
+        #expect(config.contains("persistDecodedBundleList"))
+        #expect(config.contains("resetMalformedBundleList"))
+    }
+
     @MainActor
     @Test("thinking operating mode sanitizes unsupported chat model selections")
     func thinkingOperatingModeSanitizesUnsupportedSelections() async {
@@ -2489,14 +2500,26 @@ struct RuntimeValidationTests {
         #expect(source.contains("systemPrompt: nil"))
     }
 
-    @Test("code editor release path keeps only the focused ask-bar mode")
-    func codeEditorReleasePathKeepsOnlyTheFocusedAskBarMode() throws {
+    @Test("code editor release path removes embedded ask-bar policy")
+    func codeEditorReleasePathRemovesEmbeddedAskBarPolicy() throws {
         let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
-        let askBar = try loadRepoTextFile("Epistemos/Views/Notes/InlineResponseHighlighter.swift")
 
-        #expect(codeEditor.contains("static let availableAskBarResponseModes: [CodeAskBarResponseMode] = [.focused]"))
-        #expect(codeEditor.contains("private func sanitizedAskBarResponseMode("))
-        #expect(askBar.contains("if availableModes.count > 1"))
+        #expect(!codeEditor.contains("availableAskBarResponseModes"))
+        #expect(!codeEditor.contains("private func sanitizedAskBarResponseMode("))
+        #expect(!codeEditor.contains("CodeAskBarService("))
+    }
+
+    @Test("code editor theme normalizes transparent and system colors into RGB space")
+    func codeEditorThemeNormalizesTransparentAndSystemColorsIntoRGBSpace() {
+        let transparentBackground = NSColor.clear.rgbSafeForCodeEditorTheme()
+        let systemSelection = NSColor.selectedTextBackgroundColor
+            .withAlphaComponent(0.28)
+            .rgbSafeForCodeEditorTheme()
+
+        #expect(transparentBackground.colorSpace.colorSpaceModel == .rgb)
+        #expect(systemSelection.colorSpace.colorSpaceModel == .rgb)
+        #expect(abs(transparentBackground.alphaComponent - NSColor.clear.alphaComponent) < 0.0001)
+        #expect(abs(systemSelection.alphaComponent - 0.28) < 0.0001)
     }
 
     @Test("harness perf hotspots reuse shared timestamp helpers")
@@ -3312,16 +3335,17 @@ struct InferenceCloudSelectionTests {
         #expect(loop.contains("delegate.execute_computer_action(input_json.clone())"))
     }
 
-    @Test("code editor tears down AI partner sessions and mounts inline suggestions")
-    func codeEditorTearsDownAIPartnerSessionsAndMountsInlineSuggestions() throws {
+    @Test("code editor strips embedded assistant surfaces and stays focused on editing")
+    func codeEditorStripsEmbeddedAssistantSurfacesAndStaysFocusedOnEditing() throws {
         let source = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Views/Notes/CodeEditorView.swift",
             testsFilePath: #filePath
         )
 
         #expect(source.contains(".onDisappear"))
-        #expect(source.contains("aiPartner.endSession()"))
-        #expect(source.contains("InlineSuggestionOverlay("))
+        #expect(!source.contains("InlineSuggestionOverlay("))
+        #expect(!source.contains("CodeAskBarService("))
+        #expect(!source.contains("AIPartnerService("))
     }
 
     @Test("code editor binds note chat prompts to the live code buffer")
@@ -3335,6 +3359,74 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("noteChatState?.noteBodyProvider = { capturedText }"))
         #expect(source.contains("noteChatState?.graphStateProvider = { capturedGraphState }"))
         #expect(source.contains("clearNoteChatContextBindings()"))
+    }
+
+    @Test("code editor inherits the note canvas and removes the old bottom chrome")
+    func codeEditorInheritsNoteCanvasAndRemovesBottomChrome() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/CodeEditorView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme)"))
+        #expect(source.contains("MarkdownPreviewSurfaceStyle"))
+        #expect(source.contains(".canvasNSColor(for: ui.theme)"))
+        #expect(source.contains("useThemeBackground: true"))
+        #expect(!source.contains("@State private var showAskBar"))
+        #expect(!source.contains("@AppStorage(\"codeEditor.askBarResponseMode\")"))
+        #expect(!source.contains("private var statusBar: some View"))
+    }
+
+    @Test("main chat surfaces structured tool previews instead of markdown-only tool logs")
+    func mainChatSurfacesStructuredToolPreviewsInsteadOfMarkdownOnlyToolLogs() throws {
+        let coordinator = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/ChatCoordinator.swift",
+            testsFilePath: #filePath
+        )
+        let state = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/ChatState.swift",
+            testsFilePath: #filePath
+        )
+        let bubble = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Chat/MessageBubble.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(coordinator.contains("recordToolUse("))
+        #expect(coordinator.contains("recordToolResult("))
+        #expect(!coordinator.contains("chatState.appendStreamingText(\"\\n> **\\(name)**\\n\")"))
+        #expect(state.contains("var pendingContentBlocks: [MessageContentBlock] = []"))
+        #expect(state.contains("contentBlocks: completedContentBlocks"))
+        #expect(bubble.contains("ToolExecutionPreviewList("))
+    }
+
+    @Test("outline navigator uses flattened native rows instead of recursive hover state")
+    func outlineNavigatorUsesFlattenedNativeRows() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/OutlineNavigatorView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("private struct FlattenedOutlineItem"))
+        #expect(source.contains("@State private var flattenedItems: [FlattenedOutlineItem] = []"))
+        #expect(source.contains("refreshFlattenedItems()"))
+        #expect(source.contains("NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme)"))
+        #expect(source.contains("ScrollView(.vertical)"))
+        #expect(source.contains("LazyVStack(spacing: 0)"))
+        #expect(!source.contains("@State private var hoveredItem"))
+        #expect(!source.contains("struct OutlineItemRow"))
+        #expect(!source.contains(".listStyle(.sidebar)"))
+    }
+
+    @Test("outline navigator preserves manual expansion state across refreshes")
+    func outlineNavigatorPreservesManualExpansionStateAcrossRefreshes() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/OutlineNavigatorView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("expandedItems.intersection(nextExpandableItems)"))
+        #expect(source.contains("if preservedExpandedItems.isEmpty"))
     }
 
     @Test("model vault settings reflect configured cloud providers and installed local models")

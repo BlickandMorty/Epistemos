@@ -249,3 +249,112 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         self.createdAt = createdAt
     }
 }
+
+enum ChatPreviewText {
+    static let emptyPreview = "No messages yet."
+
+    static func preview(for thread: ChatThread, streamingText: String? = nil) -> String? {
+        if let streamingText,
+           let preview = cleanedPreview(from: streamingText, role: .assistant) {
+            return preview
+        }
+
+        if let assistantMessage = thread.messages.last(where: { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.role == .assistant }) {
+            return cleanedPreview(from: assistantMessage.content, role: assistantMessage.role)
+        }
+
+        if let latestMessage = thread.messages.last(where: { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+            return cleanedPreview(from: latestMessage.content, role: latestMessage.role)
+        }
+
+        return nil
+    }
+
+    static func preview(for messages: [ChatMessage], streamingText: String? = nil) -> String? {
+        if let streamingText,
+           let preview = cleanedPreview(from: streamingText, role: .assistant) {
+            return preview
+        }
+
+        if let assistantMessage = messages.last(where: { $0.role == .assistant && hasPreviewContent($0) }) {
+            return cleanedPreview(from: assistantMessage)
+        }
+
+        if let latestMessage = messages.last(where: hasPreviewContent) {
+            return cleanedPreview(from: latestMessage)
+        }
+
+        return nil
+    }
+
+    static func preview(for chat: SDChat) -> String? {
+        if let assistantMessage = chat.sortedMessages.last(where: { $0.role == MessageRole.assistant.rawValue && hasPreviewContent($0) }) {
+            return cleanedPreview(from: assistantMessage)
+        }
+
+        if let latestMessage = chat.sortedMessages.last(where: hasPreviewContent) {
+            return cleanedPreview(from: latestMessage)
+        }
+
+        return nil
+    }
+
+    private static func cleanedPreview(from message: ChatMessage) -> String? {
+        if let preview = cleanedPreview(from: message.effectiveText, role: message.role) {
+            return preview
+        }
+        return toolSummaryPreview(from: message.contentBlocks)
+    }
+
+    private static func cleanedPreview(from message: SDMessage) -> String? {
+        let role = MessageRole(rawValue: message.role) ?? .assistant
+        if let preview = cleanedPreview(from: message.content, role: role) {
+            return preview
+        }
+        return toolSummaryPreview(from: message.decodedContentBlocks())
+    }
+
+    private static func cleanedPreview(from text: String, role: MessageRole) -> String? {
+        let visibleText = role == .assistant
+            ? UserFacingModelOutput.finalVisibleText(from: text)
+            : text
+        let compact = visibleText
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else { return nil }
+        return String(compact.prefix(140))
+    }
+
+    private static func toolSummaryPreview(from blocks: [MessageContentBlock]?) -> String? {
+        guard let blocks else { return nil }
+
+        for block in blocks {
+            switch block {
+            case .toolResult(_, let content, _):
+                if let preview = cleanedPreview(from: content, role: .assistant) {
+                    return preview
+                }
+            case .toolUse(_, let name, _):
+                return "Used \(name.replacingOccurrences(of: "_", with: " "))"
+            default:
+                continue
+            }
+        }
+
+        return nil
+    }
+
+    private static func hasPreviewContent(_ message: ChatMessage) -> Bool {
+        if !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        return toolSummaryPreview(from: message.contentBlocks) != nil
+    }
+
+    private static func hasPreviewContent(_ message: SDMessage) -> Bool {
+        if !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        return toolSummaryPreview(from: message.decodedContentBlocks()) != nil
+    }
+}

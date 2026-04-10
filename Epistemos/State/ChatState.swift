@@ -49,6 +49,7 @@ final class ChatState {
 
     /// Active tool executions shown inline in the chat stream.
     var activeToolName: String?
+    var pendingContentBlocks: [MessageContentBlock] = []
 
     /// Whether the agent is currently executing (vs just streaming text).
     var isAgentExecuting = false
@@ -124,6 +125,9 @@ final class ChatState {
         loadedNoteTitles = []
         pendingContextAttachments = []
         vaultBriefingManifest = nil
+        pendingContentBlocks = []
+        activeToolName = nil
+        isAgentExecuting = false
     }
 
     /// Maximum user query length (chars). Local context windows are large enough,
@@ -218,6 +222,7 @@ final class ChatState {
         let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
 
         let metadata = consumeStreamingMessageMetadata()
+        let completedContentBlocks = completedContentBlocks(for: answerText)
 
         // Extract structured artifacts (JSON, YAML, code blocks, tables)
         // from the response text. These get rendered as interactive cards.
@@ -232,7 +237,8 @@ final class ChatState {
             isVaultBriefing: metadata.briefing,
             loadedNoteTitles: metadata.noteTitles,
             contextAttachments: metadata.contextAttachments,
-            artifacts: artifacts
+            artifacts: artifacts,
+            contentBlocks: completedContentBlocks
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
@@ -241,6 +247,9 @@ final class ChatState {
         streamBuffer.reset(releaseCapacity: true)
         releaseStreamingTextStorage()
         isStreaming = false
+        pendingContentBlocks = []
+        activeToolName = nil
+        isAgentExecuting = false
         eventBus?.emit(.queryCompleted(chatId: ChatId(chatId), messageId: MessageId(assistantMessage.id)))
     }
 
@@ -254,11 +263,15 @@ final class ChatState {
         let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let metadata = consumeStreamingMessageMetadata()
+        let completedContentBlocks = completedContentBlocks(for: answerText)
 
         defer {
             streamBuffer.reset(releaseCapacity: true)
             releaseStreamingTextStorage()
             isStreaming = false
+            pendingContentBlocks = []
+            activeToolName = nil
+            isAgentExecuting = false
         }
 
         guard let chatId = activeChatId, !answerText.isEmpty else { return false }
@@ -271,7 +284,8 @@ final class ChatState {
             mode: mode,
             isVaultBriefing: metadata.briefing,
             loadedNoteTitles: metadata.noteTitles,
-            contextAttachments: metadata.contextAttachments
+            contextAttachments: metadata.contextAttachments,
+            contentBlocks: completedContentBlocks
         )
         messages.append(assistantMessage)
         markTranscriptChanged()
@@ -301,6 +315,9 @@ final class ChatState {
         streamBuffer.reset(releaseCapacity: true)
         releaseStreamingTextStorage()
         isStreaming = false
+        pendingContentBlocks = []
+        activeToolName = nil
+        isAgentExecuting = false
     }
 
     // MARK: - Streaming
@@ -316,6 +333,9 @@ final class ChatState {
         isStreaming = true
         streamBuffer.reset()
         streamingText.reserveCapacity(16_384)
+        pendingContentBlocks = []
+        activeToolName = nil
+        isAgentExecuting = false
     }
 
     func stopStreaming() {
@@ -333,6 +353,35 @@ final class ChatState {
 
     private func flushStreamingTokens() {
         streamBuffer.flushNow()
+    }
+
+    func recordToolUse(id: String, name: String, inputJson: String) {
+        let input = Self.decodeToolInput(inputJson)
+        pendingContentBlocks.append(.toolUse(id: id, name: name, input: input))
+        markTranscriptChanged()
+    }
+
+    func recordToolResult(toolUseId: String, result: String, isError: Bool) {
+        pendingContentBlocks.append(
+            .toolResult(toolUseId: toolUseId, content: result, isError: isError)
+        )
+        markTranscriptChanged()
+    }
+
+    private func completedContentBlocks(for answerText: String) -> [MessageContentBlock]? {
+        var completedContentBlocks = pendingContentBlocks
+        if !answerText.isEmpty {
+            completedContentBlocks.append(.text(answerText))
+        }
+        return completedContentBlocks.isEmpty ? nil : completedContentBlocks
+    }
+
+    private nonisolated static func decodeToolInput(_ inputJson: String) -> [String: JSONValue] {
+        guard let data = inputJson.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data) else {
+            return ["raw": .string(inputJson)]
+        }
+        return decoded
     }
 
     private func consumeStreamingMessageMetadata() -> (
@@ -377,6 +426,9 @@ final class ChatState {
         showLanding = msgs.isEmpty
         pendingAttachments = []
         restoreConversationContext(from: msgs)
+        pendingContentBlocks = []
+        activeToolName = nil
+        isAgentExecuting = false
     }
 
     func clearMessages() {
@@ -395,6 +447,9 @@ final class ChatState {
         loadedNoteIds = []
         loadedNoteTitles = []
         vaultBriefingManifest = nil
+        pendingContentBlocks = []
+        activeToolName = nil
+        isAgentExecuting = false
         activeChatId = nil
         chatTitle = nil
 

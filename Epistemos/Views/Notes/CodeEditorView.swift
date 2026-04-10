@@ -25,19 +25,26 @@ import Accelerate
 // Minimal syntax highlighting - uses Epistemos theme colors for consistency
 // with the note system. No layered/Xcode-style color complexity.
 extension EditorTheme {
+    private static func normalized(_ color: NSColor) -> NSColor {
+        color.rgbSafeForCodeEditorTheme()
+    }
+
     /// Flat light theme - matches prose editor's simplicity
-    static func flatLight(accent: NSColor) -> EditorTheme {
-        let textColor = NSColor(hex: "1C1C1E")
-        let subtleColor = NSColor(hex: "6B6B6B")
-        let backgroundColor = NSColor(hex: "FFFFFF")
-        let lineHighlightColor = NSColor(hex: "F5F5F7")
-        let selectionColor = NSColor(hex: "B2D7FF")
-        
+    static func flatLight(accent: NSColor, background: NSColor) -> EditorTheme {
+        let accent = normalized(accent)
+        let background = normalized(background)
+        let textColor = normalized(NSColor(hex: "1C1C1E"))
+        let subtleColor = normalized(NSColor(hex: "6B6B6B"))
+        let lineHighlightColor = normalized(
+            background.blended(withFraction: 0.05, of: .black) ?? NSColor(hex: "F5F5F7")
+        )
+        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.28))
+
         return EditorTheme(
             text: .init(color: textColor),
             insertionPoint: accent,
-            invisibles: .init(color: NSColor(hex: "D1D1D6")),
-            background: backgroundColor,
+            invisibles: .init(color: normalized(NSColor(hex: "D1D1D6"))),
+            background: background,
             lineHighlight: lineHighlightColor,
             selection: selectionColor,
             // Minimal syntax highlighting - just accent for keywords, rest are text color
@@ -55,18 +62,21 @@ extension EditorTheme {
     }
     
     /// Flat dark theme - matches prose editor's simplicity
-    static func flatDark(accent: NSColor) -> EditorTheme {
-        let textColor = NSColor(hex: "DFDFE0")
-        let subtleColor = NSColor(hex: "8A8A8A")
-        let backgroundColor = NSColor(hex: "1C1C1E")
-        let lineHighlightColor = NSColor(hex: "2C2C2E")
-        let selectionColor = NSColor(hex: "3A3A3C")
+    static func flatDark(accent: NSColor, background: NSColor) -> EditorTheme {
+        let accent = normalized(accent)
+        let background = normalized(background)
+        let textColor = normalized(NSColor(hex: "DFDFE0"))
+        let subtleColor = normalized(NSColor(hex: "8A8A8A"))
+        let lineHighlightColor = normalized(
+            background.blended(withFraction: 0.07, of: .white) ?? NSColor(hex: "2C2C2E")
+        )
+        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.22))
         
         return EditorTheme(
             text: .init(color: textColor),
             insertionPoint: accent,
-            invisibles: .init(color: NSColor(hex: "535353")),
-            background: backgroundColor,
+            invisibles: .init(color: normalized(NSColor(hex: "535353"))),
+            background: background,
             lineHighlight: lineHighlightColor,
             selection: selectionColor,
             // Minimal syntax highlighting - just accent for keywords, rest are text color
@@ -84,17 +94,18 @@ extension EditorTheme {
     }
     
     /// Ultra-minimal: no syntax highlighting at all (everything same color)
-    static func minimalLight(accent: NSColor) -> EditorTheme {
-        let textColor = NSColor(hex: "1C1C1E")
-        let backgroundColor = NSColor(hex: "FFFFFF")
-        let selectionColor = NSColor(hex: "B2D7FF")
+    static func minimalLight(accent: NSColor, background: NSColor) -> EditorTheme {
+        let accent = normalized(accent)
+        let background = normalized(background)
+        let textColor = normalized(NSColor(hex: "1C1C1E"))
+        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.28))
         
         return EditorTheme(
             text: .init(color: textColor),
             insertionPoint: accent,
-            invisibles: .init(color: textColor.withAlphaComponent(0.3)),
-            background: backgroundColor,
-            lineHighlight: .clear,  // No line highlight
+            invisibles: .init(color: normalized(textColor.withAlphaComponent(0.3))),
+            background: background,
+            lineHighlight: normalized(.clear),  // No line highlight
             selection: selectionColor,
             // Everything same color - truly no syntax highlighting
             keywords: .init(color: textColor),
@@ -106,22 +117,23 @@ extension EditorTheme {
             numbers: .init(color: textColor),
             strings: .init(color: textColor),
             characters: .init(color: textColor),
-            comments: .init(color: textColor.withAlphaComponent(0.6))
+            comments: .init(color: normalized(textColor.withAlphaComponent(0.6)))
         )
     }
     
     /// Ultra-minimal dark: no syntax highlighting at all
-    static func minimalDark(accent: NSColor) -> EditorTheme {
-        let textColor = NSColor(hex: "DFDFE0")
-        let backgroundColor = NSColor(hex: "1C1C1E")
-        let selectionColor = NSColor(hex: "3A3A3C")
+    static func minimalDark(accent: NSColor, background: NSColor) -> EditorTheme {
+        let accent = normalized(accent)
+        let background = normalized(background)
+        let textColor = normalized(NSColor(hex: "DFDFE0"))
+        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.22))
         
         return EditorTheme(
             text: .init(color: textColor),
             insertionPoint: accent,
-            invisibles: .init(color: textColor.withAlphaComponent(0.3)),
-            background: backgroundColor,
-            lineHighlight: .clear,  // No line highlight
+            invisibles: .init(color: normalized(textColor.withAlphaComponent(0.3))),
+            background: background,
+            lineHighlight: normalized(.clear),  // No line highlight
             selection: selectionColor,
             // Everything same color - truly no syntax highlighting
             keywords: .init(color: textColor),
@@ -133,7 +145,7 @@ extension EditorTheme {
             numbers: .init(color: textColor),
             strings: .init(color: textColor),
             characters: .init(color: textColor),
-            comments: .init(color: textColor.withAlphaComponent(0.6))
+            comments: .init(color: normalized(textColor.withAlphaComponent(0.6)))
         )
     }
 }
@@ -162,6 +174,44 @@ extension NSColor {
             alpha: CGFloat(a) / 255
         )
     }
+
+    func rgbSafeForCodeEditorTheme() -> NSColor {
+        if let converted = usingColorSpace(.deviceRGB) {
+            return converted
+        }
+        if let converted = usingColorSpace(.sRGB) {
+            return converted
+        }
+        if let converted = usingColorSpace(.extendedSRGB) {
+            return converted
+        }
+        if let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+           let convertedCGColor = cgColor.converted(
+               to: colorSpace,
+               intent: .defaultIntent,
+               options: nil
+           ),
+           let converted = NSColor(cgColor: convertedCGColor) {
+            return converted
+        }
+        if let components = cgColor.components {
+            switch components.count {
+            case 2:
+                let gray = components[0]
+                return NSColor(deviceRed: gray, green: gray, blue: gray, alpha: cgColor.alpha)
+            case 4:
+                return NSColor(
+                    deviceRed: components[0],
+                    green: components[1],
+                    blue: components[2],
+                    alpha: components[3]
+                )
+            default:
+                break
+            }
+        }
+        return NSColor(deviceRed: 0, green: 0, blue: 0, alpha: alphaComponent)
+    }
 }
 
 // MARK: - SwiftUI Color → NSColor
@@ -169,7 +219,7 @@ extension NSColor {
 extension Color {
     /// Converts SwiftUI Color to NSColor (macOS only)
     func toNSColor() -> NSColor {
-        NSColor(self)
+        NSColor(self).rgbSafeForCodeEditorTheme()
     }
 }
 
@@ -240,7 +290,6 @@ enum CodeEditorPerformancePolicy {
 enum CodeEditorReleasePolicy {
     static let semanticSidebarEnabled = false
     static let aiPartnerEnabled = false
-    static let availableAskBarResponseModes: [CodeAskBarResponseMode] = [.focused]
 }
 
 // MARK: - Language Detection
@@ -1188,8 +1237,6 @@ struct CodeEditorView: View {
     
     // MARK: - UI State
 
-    @State private var showSuggestionPopover = false
-    @State private var suggestionPopoverAnchor: CGPoint?
     @State private var showSemanticSidebar = false
     @State private var showSearchBar = false
     @State private var showGoToLineSheet = false
@@ -1197,29 +1244,10 @@ struct CodeEditorView: View {
     @State private var searchCaseSensitive = false
     @State private var goToLineNumber = ""
     @State private var codeContextBridge: CodeContextBridge?
-    @State private var aiExplanationSheet: AIExplanationSheet?
     
     // MARK: - Outline Navigation (Xcode-style)
     @State private var outlineItems: [OutlineItem] = []
     @State private var showOutlineNavigator = false
-    @State private var expandedOutlineSections: Set<UUID> = []
-    
-    // MARK: - AI Coding Partner
-    @State private var aiPartner = AIPartnerService(
-        triageService: nil,
-        graphState: nil
-    )
-    @State private var showPartnerControlPanel = false
-    @State private var aiPartnerConfiguration = AIPartnerConfiguration.default
-
-    // MARK: - Code Ask Bar
-    @State private var codeAskBar = CodeAskBarService(
-        triageService: nil,
-        graphState: nil
-    )
-    @State private var askBarQuery = ""
-    @State private var showAskBar = true // Always visible for code editor
-    @AppStorage("codeEditor.askBarResponseMode") private var askBarResponseMode: CodeAskBarResponseMode = .focused
 
     init(
         content: String,
@@ -1238,92 +1266,26 @@ struct CodeEditorView: View {
     var body: some View {
         editorContent
             .onAppear {
-                askBarResponseMode = sanitizedAskBarResponseMode(askBarResponseMode)
                 ensureEditorCoordinator()
                 bindNoteChatContext(with: text)
-                if CodeEditorReleasePolicy.aiPartnerEnabled {
-                    initializeAIPartner()
-                } else {
-                    aiPartner.endSession()
-                    showSuggestionPopover = false
-                    showPartnerControlPanel = false
-                }
                 showSemanticSidebar = false
-                initializeCodeAskBar()
                 scheduleOutlineRefresh(for: text, immediate: true)
             }
             .onDisappear {
                 outlineRefreshTask?.cancel()
                 semanticRefreshTask?.cancel()
                 codeContextBridge?.cancelPendingWork()
-                aiPartner.endSession()
                 clearNoteChatContextBindings()
                 sourceEditorCoordinator?.destroy()
                 sourceEditorCoordinator = nil
-                showSuggestionPopover = false
             }
             .onChange(of: text) { _, newText in
                 bindNoteChatContext(with: newText)
-                if CodeEditorReleasePolicy.aiPartnerEnabled {
-                    aiPartner.updateCode(newText, cursorLine: cursorLine, cursorColumn: cursorCol)
-                }
                 scheduleOutlineRefresh(for: newText)
             }
             .onChange(of: cursorLine) { _, newLine in
-                if CodeEditorReleasePolicy.aiPartnerEnabled {
-                    aiPartner.updateCode(text, cursorLine: newLine, cursorColumn: cursorCol)
-                }
                 updateBreadcrumbs()
             }
-            .onChange(of: askBarResponseMode) { _, newMode in
-                let sanitizedMode = sanitizedAskBarResponseMode(newMode)
-                if sanitizedMode != newMode {
-                    askBarResponseMode = sanitizedMode
-                    return
-                }
-                codeAskBar.responseMode = sanitizedMode
-            }
-            .sheet(item: $aiExplanationSheet) { sheet in
-                AIExplanationView(
-                    code: sheet.code,
-                    language: sheet.language,
-                    explanation: sheet.explanation
-                )
-            }
-    }
-    
-    // MARK: - AI Partner Initialization
-    
-    private func initializeAIPartner() {
-        guard CodeEditorReleasePolicy.aiPartnerEnabled else {
-            aiPartner.endSession()
-            return
-        }
-        let partner = AIPartnerService(
-            triageService: triageService,
-            graphState: graphState
-        )
-        partner.configuration = aiPartnerConfiguration
-        aiPartner = partner
-        aiPartner.startSession(code: text, language: language, filePath: filePath)
-    }
-    
-    // MARK: - Code Ask Bar Initialization
-    
-    private func initializeCodeAskBar() {
-        let askBar = CodeAskBarService(
-            triageService: triageService,
-            graphState: graphState
-        )
-        askBar.responseMode = sanitizedAskBarResponseMode(askBarResponseMode)
-        codeAskBar = askBar
-    }
-
-    private func sanitizedAskBarResponseMode(_ mode: CodeAskBarResponseMode) -> CodeAskBarResponseMode {
-        guard CodeEditorReleasePolicy.availableAskBarResponseModes.contains(mode) else {
-            return CodeEditorReleasePolicy.availableAskBarResponseModes.first ?? .focused
-        }
-        return mode
     }
 
     private func bindNoteChatContext(with text: String) {
@@ -1349,11 +1311,6 @@ struct CodeEditorView: View {
                 updateSemanticContext(newText)
             }
         )
-        coordinator.onSelectionChange = { selectedText in
-            if selectedText.count > 1 {
-                self.selectedCode = selectedText
-            }
-        }
         sourceEditorCoordinator = coordinator
     }
     
@@ -1389,177 +1346,13 @@ struct CodeEditorView: View {
             }
             
         }
-        .environment(aiPartner)
-        .environment(codeAskBar)
-        .overlay(alignment: .topLeading) {
-            if CodeEditorReleasePolicy.aiPartnerEnabled,
-               showSuggestionPopover,
-               let suggestion = aiPartner.currentSuggestion {
-                InlineSuggestionOverlay(
-                    suggestion: suggestion,
-                    onAccept: {
-                        applySuggestion(suggestion)
-                        aiPartner.acceptCurrentSuggestion()
-                        showSuggestionPopover = false
-                    },
-                    onDismiss: {
-                        aiPartner.dismissCurrentSuggestion()
-                        showSuggestionPopover = false
-                    },
-                    onViewAlternatives: {
-                        aiPartner.explainCurrentSuggestion()
-                    }
-                )
-                .frame(width: 380)
-                .offset(
-                    x: suggestionPopoverAnchor?.x ?? 70,
-                    y: suggestionPopoverAnchor?.y ?? 36
-                )
-            }
-        }
-        .onChange(of: aiPartner.currentSuggestion?.id) { _, newId in
-            guard CodeEditorReleasePolicy.aiPartnerEnabled else {
-                showSuggestionPopover = false
-                return
-            }
-            if newId != nil {
-                // Pin the inline suggestion card to the active cursor line.
-                // X: gutter width (~60) + some indent for readability
-                // Y: line * lineHeight + offset for breadcrumb/panels above editor
-                let lineHeight = fontSize * 1.35
-                let gutterOffset: CGFloat = 70
-                let headerOffset: CGFloat = 36  // breadcrumb bar height
-                let y = headerOffset + CGFloat(cursorLine) * lineHeight
-                suggestionPopoverAnchor = CGPoint(x: gutterOffset, y: min(y, 400))
-                showSuggestionPopover = true
-            } else {
-                showSuggestionPopover = false
-            }
-        }
-    }
-    
-    // MARK: - Code Ask Bar Response Panels (inline in editor, not overlays)
-
-    /// Direct answer mode: flat "Epistemos" answer box above the editor
-    @ViewBuilder
-    private var codeAskBarAnswerBox: some View {
-        if askBarResponseMode == .focused, codeAskBar.showFocusedPanel, let response = codeAskBar.focusedResponse {
-            EpistemosAnswerBox(
-                response: response,
-                onDismiss: { codeAskBar.dismissFocusedPanel() },
-                onApplyCode: { code in
-                    text += "\n\n" + code
-                    onContentChange?(text)
-                    codeAskBar.dismissFocusedPanel()
-                },
-                onNavigateToLine: { line in goToLine(line: line) }
-            )
-            .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
-
-    /// Line analysis mode: per-line breakdown panel above the editor
-    @ViewBuilder
-    private var codeAskBarLineBreakdown: some View {
-        if askBarResponseMode == .inline && !codeAskBar.inlineAnnotations.isEmpty {
-            LineBreakdownPanel(
-                annotations: codeAskBar.inlineAnnotations,
-                onNavigateToLine: { line in goToLine(line: line) },
-                onExplainFurther: { annotation in
-                    askBarQuery = "Explain further: \(annotation.text)"
-                    submitAskBarQuery()
-                },
-                onDismiss: { id in codeAskBar.removeAnnotation(id: id) },
-                onClearAll: { codeAskBar.clearInlineAnnotations() }
-            )
-            .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
-    
-    // MARK: - AI Partner (suggestions shown via NSPopover on editorContent)
-
-    private func applySuggestion(_ suggestion: InlineSuggestion) {
-        // Apply the suggestion to the code
-        // This would integrate with the editor to insert/replace text
-        var newText = text
-        
-        if let range = suggestion.range {
-            let nsRange = range
-            if let swiftRange = Range(nsRange, in: newText) {
-                newText.replaceSubrange(swiftRange, with: suggestion.text)
-            }
-        } else {
-            // Insert at cursor position
-            let lines = newText.components(separatedBy: .newlines)
-            var position = 0
-            for i in 0..<min(cursorLine - 1, lines.count) {
-                position += lines[i].count + 1
-            }
-            position += cursorCol - 1
-            
-            let insertIndex = newText.index(newText.startIndex, offsetBy: min(position, newText.count))
-            newText.insert(contentsOf: suggestion.text, at: insertIndex)
-        }
-        
-        text = newText
-        onContentChange?(newText)
     }
     
     private var mainEditorPane: some View {
         VStack(spacing: 0) {
             breadcrumbBar
-
-            // AI response panels (flat, inline — not overlays)
-            codeAskBarAnswerBox
-            codeAskBarLineBreakdown
-
             editorWithSearch
-
-            // Code Ask Bar Input
-            if showAskBar {
-                Divider()
-                codeAskBarInput
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-            }
-
-            statusBar
         }
-    }
-    
-    /// Code Ask Bar input with mode toggle (Focused vs Inline)
-    private var codeAskBarInput: some View {
-        CodeAskBarInput(
-            query: $askBarQuery,
-            responseMode: $askBarResponseMode,
-            availableModes: CodeEditorReleasePolicy.availableAskBarResponseModes,
-            isQuerying: codeAskBar.isQuerying,
-            onSubmit: {
-                submitAskBarQuery()
-            },
-            onModeChange: { newMode in
-                // Mode changed - clear existing responses if switching
-                if newMode == .inline {
-                    codeAskBar.dismissFocusedPanel()
-                } else {
-                    codeAskBar.clearInlineAnnotations()
-                }
-            }
-        )
-    }
-    
-    private func submitAskBarQuery() {
-        guard !askBarQuery.isEmpty else { return }
-        
-        codeAskBar.submitQuery(
-            askBarQuery,
-            code: text,
-            language: language,
-            cursorLine: cursorLine
-        )
-        
-        // Clear query after submission
-        askBarQuery = ""
     }
     
     private func goToLine(line: Int) {
@@ -1575,7 +1368,7 @@ struct CodeEditorView: View {
             outlineItems: outlineItems,
             currentLine: cursorLine
         )
-        
+
         return EditorBreadcrumbBar(
             items: breadcrumbs,
             currentLine: cursorLine,
@@ -1583,6 +1376,44 @@ struct CodeEditorView: View {
                 navigateToLine(item.lineNumber)
             }
         )
+        .overlay(alignment: .trailing) {
+            HStack(spacing: 6) {
+                Button {
+                    showSearchBar.toggle()
+                } label: {
+                    Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                        .foregroundStyle(showSearchBar ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Find (Cmd-F)")
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        showOutlineNavigator.toggle()
+                    }
+                } label: {
+                    Image(systemName: showOutlineNavigator ? "sidebar.trailing" : "sidebar.right")
+                        .foregroundStyle(showOutlineNavigator ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Toggle Outline")
+
+                viewOptionsMenu
+                editorSettingsMenu
+            }
+            .padding(.trailing, 12)
+        }
+        .sheet(isPresented: $showGoToLineSheet) {
+            GoToLineSheet(
+                lineNumber: $goToLineNumber,
+                totalLines: totalLines,
+                onGoToLine: { line in
+                    goToLine(line: line)
+                    goToLineNumber = ""
+                    showGoToLineSheet = false
+                }
+            )
+        }
     }
     
     // MARK: - Outline Navigator
@@ -1617,6 +1448,7 @@ struct CodeEditorView: View {
             
             searchBarOverlay
         }
+        .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
     }
     
     @ViewBuilder
@@ -1653,28 +1485,6 @@ struct CodeEditorView: View {
         }
     }
     
-    // MARK: - AI Partner Status Indicator
-    
-    @ViewBuilder
-    private var partnerStatusIndicator: some View {
-        if aiPartner.isAnalyzing {
-            HStack(spacing: 6) {
-                Image(systemName: aiPartner.partnerStatus.icon)
-                    .font(.system(size: 10))
-                    .foregroundStyle(aiPartner.partnerStatus.color)
-                
-                Text(aiPartner.partnerStatus.rawValue)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(.ultraThinMaterial)
-            .cornerRadius(4)
-            .transition(.opacity)
-        }
-    }
-    
     // MARK: - Search Functions
     
     private func findNext() {
@@ -1700,196 +1510,16 @@ struct CodeEditorView: View {
         _ = direction
     }
     
-    // MARK: - Selected Code Explanation
-    
-    @State private var selectedCode: String = ""
-    @State private var showSelectionExplanation = false
-    @State private var selectionExplanation: String = ""
-    @State private var isExplainingSelection = false
-    
-    /// Explains the currently selected code using AI
-    private func explainSelectedCode() {
-        guard !selectedCode.isEmpty else { return }
-        
-        isExplainingSelection = true
-        selectionExplanation = ""
-        showSelectionExplanation = true
-        
-        Task {
-            await generateExplanationForSelection()
-        }
-    }
-    
-    private func generateExplanationForSelection() async {
-        guard let triageService = triageService else {
-            await MainActor.run { isExplainingSelection = false }
-            return
-        }
-        
-        let prompt = """
-        Explain this \(language) code snippet:
-        
-        ```\(language)
-        \(selectedCode)
-        ```
-        
-        Provide a clear, concise explanation of what this code does.
-        """
-        
-        do {
-            var explanation = ""
-            for try await chunk in triageService.streamGeneral(
-                prompt: prompt,
-                systemPrompt: "You are a helpful coding assistant. Explain code clearly and concisely.",
-                operation: .brainstorm,
-                contentLength: prompt.count
-            ) {
-                explanation += chunk
-                await MainActor.run {
-                    selectionExplanation = explanation
-                }
-            }
-        } catch {
-            await MainActor.run {
-                selectionExplanation = "Error generating explanation: \(error.localizedDescription)"
-            }
-        }
-        
-        await MainActor.run {
-            isExplainingSelection = false
-        }
-    }
-    
-    // MARK: - Status Bar
-    
-    private var statusBar: some View {
-        HStack(spacing: 16) {
-            // Cursor position with go-to-line button
-            Button {
-                showGoToLineSheet = true
-            } label: {
-                Text("Ln \(cursorLine), Col \(cursorCol)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Go to Line (⌘L)")
-            
-            Text("\(totalLines) lines")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(.tertiary)
-            
-            Divider()
-                .frame(height: 12)
-            
-            // Search button
-            Button {
-                showSearchBar.toggle()
-            } label: {
-                Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
-                    .foregroundStyle(showSearchBar ? Color.accentColor : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Find (⌘F)")
-
-            Spacer()
-            
-            // Editor settings menu
-            editorSettingsMenu
-            
-            // View options menu
-            viewOptionsMenu
-            
-            Divider()
-                .frame(height: 12)
-            
-            // Outline navigator toggle (Xcode-style)
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showOutlineNavigator.toggle()
-                    if showOutlineNavigator && CodeEditorReleasePolicy.semanticSidebarEnabled {
-                        showSemanticSidebar = false
-                    }
-                }
-            } label: {
-                Image(systemName: showOutlineNavigator ? "list.bullet.indent.fill" : "list.bullet.indent")
-                    .foregroundStyle(showOutlineNavigator ? Color.accentColor : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Toggle Outline Navigator (⌘⇧O)")
-            
-            if CodeEditorReleasePolicy.semanticSidebarEnabled {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showSemanticSidebar.toggle()
-                        if showSemanticSidebar {
-                            showOutlineNavigator = false
-                            initializeCodeContextBridge()
-                            updateSemanticContext(text, immediate: true)
-                        } else {
-                            semanticRefreshTask?.cancel()
-                            codeContextBridge?.cancelPendingWork()
-                        }
-                    }
-                } label: {
-                    Image(systemName: showSemanticSidebar ? "brain.head.profile.fill" : "brain.head.profile")
-                        .foregroundStyle(showSemanticSidebar ? Color.accentColor : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Toggle Semantic Context Sidebar")
-            }
-
-            if CodeEditorReleasePolicy.aiPartnerEnabled {
-                AIPartnerCompactControl(configuration: $aiPartnerConfiguration) {
-                    showPartnerControlPanel = true
-                }
-                .popover(isPresented: $showPartnerControlPanel) {
-                    AIPartnerControlPanel(
-                        configuration: $aiPartnerConfiguration,
-                        onApply: {
-                            aiPartner.configuration = aiPartnerConfiguration
-                            showPartnerControlPanel = false
-                        },
-                        onReset: {
-                            aiPartnerConfiguration = AIPartnerConfiguration.default
-                            aiPartner.configuration = aiPartnerConfiguration
-                        }
-                    )
-                }
-            }
-
-            Divider()
-                .frame(height: 12)
-
-            Text(CodeLanguage.displayName(for: language))
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-
-            Text("UTF-8")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
-        .background(.bar)
-        .sheet(isPresented: $showGoToLineSheet) {
-            GoToLineSheet(
-                lineNumber: $goToLineNumber,
-                totalLines: totalLines,
-                onGoToLine: { line in
-                    // Navigate to line using editor state
-                    // Note: SourceEditorState may have different API
-                    goToLineNumber = ""
-                    showGoToLineSheet = false
-                }
-            )
-        }
-    }
-    
     // MARK: - Editor Settings Menu
     
     private var editorSettingsMenu: some View {
         Menu {
+            Button {
+                showGoToLineSheet = true
+            } label: {
+                Label("Go to Line", systemImage: "text.line.first.and.arrowtriangle.forward")
+            }
+
             // Indentation settings
             Section("Indentation") {
                 Toggle("Use Spaces", isOn: $useSpaces)
@@ -1938,13 +1568,6 @@ struct CodeEditorView: View {
                 Toggle("Show Invisibles", isOn: $showInvisibles)
             }
 
-            if CodeEditorReleasePolicy.aiPartnerEnabled {
-                Section("AI Partner") {
-                    Toggle("Enabled", isOn: $aiPartner.isEnabled)
-                    Toggle("Context Highlights", isOn: $aiPartnerConfiguration.showContextHighlights)
-                    Toggle("Retro Styling", isOn: $aiPartnerConfiguration.useRetroStyling)
-                }
-            }
         } label: {
             Image(systemName: "eye")
                 .foregroundStyle(.secondary)
@@ -2081,11 +1704,18 @@ struct CodeEditorView: View {
     private let useMinimalTheme = false  // Set to true for no syntax highlighting at all
 
     @MainActor private var editorTheme: EditorTheme {
-        let accent = ui.theme.resolved.accent.color.toNSColor()
+        let accent = ui.theme.resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
+        let background = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: ui.theme)
+            .rgbSafeForCodeEditorTheme()
         if useMinimalTheme {
-            return ui.theme.isDark ? .minimalDark(accent: accent) : .minimalLight(accent: accent)
+            return ui.theme.isDark
+                ? .minimalDark(accent: accent, background: background)
+                : .minimalLight(accent: accent, background: background)
         } else {
-            return ui.theme.isDark ? .flatDark(accent: accent) : .flatLight(accent: accent)
+            return ui.theme.isDark
+                ? .flatDark(accent: accent, background: background)
+                : .flatLight(accent: accent, background: background)
         }
     }
 }
@@ -2690,67 +2320,6 @@ struct CodeInspectorEditor: NSViewRepresentable {
 }
 
 
-// MARK: - AI Explanation Sheet
-
-struct AIExplanationSheet: Identifiable {
-    let id = UUID()
-    let code: String
-    let language: String
-    let explanation: String
-}
-
-// MARK: - AI Explanation View
-
-struct AIExplanationView: View {
-    let code: String
-    let language: String
-    let explanation: String
-    
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            // Header
-            HStack {
-                Label("AI Explanation", systemImage: "sparkles")
-                    .font(.headline)
-                
-                Spacer()
-                
-                Button("Done") {
-                    dismiss()
-                }
-            }
-            .padding()
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Explanation
-                    Text(explanation)
-                        .font(.body)
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(8)
-                    
-                    // Code reference
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Referenced Code")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        
-                        Text("```\(language)\n\(code.prefix(500))\n```")
-                            .font(.system(size: 11, design: .monospaced))
-                            .padding()
-                            .background(Color(NSColor.textBackgroundColor))
-                            .cornerRadius(4)
-                    }
-                }
-                .padding()
-            }
-        }
-        .frame(width: 600, height: 500)
-    }
-}
 
 
 // MARK: - Code Semantic Match

@@ -343,6 +343,11 @@ private struct StreamingIndicator: View {
 
     private var streamingView: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
+            ToolExecutionPreviewList(
+                blocks: chat.pendingContentBlocks,
+                isStreaming: chat.isStreaming
+            )
+
             let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(from: chat.streamingText)
             let finalStreamingText = UserFacingModelOutput.finalVisibleText(from: chat.streamingText)
 

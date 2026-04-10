@@ -174,7 +174,7 @@ struct IMessageDriverServiceRoutingTests {
             IMessageDriverService.localDispatchPlan(
                 for: .qwen35_2B4Bit,
                 hasLocalClient: true
-            ) == .directGenerate
+            ) == .agentLoop
         )
         #expect(
             IMessageDriverService.localDispatchPlan(

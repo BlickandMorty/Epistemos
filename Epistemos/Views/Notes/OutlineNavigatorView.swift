@@ -17,18 +17,29 @@ struct OutlineItem: Identifiable, Equatable {
     let type: OutlineItemType
     let lineNumber: Int
     let level: Int  // Hierarchy level (0 = root, 1 = first level, etc.)
+    var stableID: String = ""
     var isExpanded: Bool = true
     var children: [OutlineItem] = []
+
+    var outlineIdentity: String {
+        if !stableID.isEmpty {
+            return stableID
+        }
+        return "\(type.stableKey)-\(level)-\(lineNumber)-\(title)"
+    }
     
     static func == (lhs: OutlineItem, rhs: OutlineItem) -> Bool {
-        lhs.id == rhs.id &&
+        lhs.outlineIdentity == rhs.outlineIdentity &&
         lhs.title == rhs.title &&
+        lhs.type == rhs.type &&
         lhs.lineNumber == rhs.lineNumber &&
-        lhs.isExpanded == rhs.isExpanded
+        lhs.level == rhs.level &&
+        lhs.isExpanded == rhs.isExpanded &&
+        lhs.children == rhs.children
     }
 }
 
-enum OutlineItemType: Sendable {
+enum OutlineItemType: Sendable, Equatable {
     case markdownHeader(level: Int)  // #, ##, ###
     case markComment                 // MARK: -
     case symbol(kind: SymbolKind)    // Functions, classes, etc.
@@ -69,9 +80,22 @@ enum OutlineItemType: Sendable {
             return .secondary
         }
     }
+
+    var stableKey: String {
+        switch self {
+        case .markdownHeader(let level):
+            "markdown-\(level)"
+        case .markComment:
+            "mark"
+        case .symbol(let kind):
+            "symbol-\(kind.stableKey)"
+        case .section(let title):
+            "section-\(title.lowercased())"
+        }
+    }
 }
 
-enum SymbolKind: Sendable {
+enum SymbolKind: Sendable, Equatable {
     case function
     case method
     case property
@@ -108,6 +132,21 @@ enum SymbolKind: Sendable {
         case .protocolType: return .pink
         case .extensionType: return .gray
         case .constant: return .cyan
+        }
+    }
+
+    var stableKey: String {
+        switch self {
+        case .function: "function"
+        case .method: "method"
+        case .property: "property"
+        case .classType: "class"
+        case .structType: "struct"
+        case .enumType: "enum"
+        case .protocolType: "protocol"
+        case .extensionType: "extension"
+        case .variable: "variable"
+        case .constant: "constant"
         }
     }
 }
@@ -158,7 +197,7 @@ struct OutlineParser {
             }
         }
 
-        return items
+        return assignStableIDs(to: items, parentPath: "root")
     }
 
     private static func parseMarkdownHeader(line: String, lineNumber: Int) -> OutlineItem? {
@@ -182,12 +221,13 @@ struct OutlineParser {
 
     private static func parseMarkComment(line: String, lineNumber: Int) -> OutlineItem? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let indentLevel = indentationLevel(for: line)
 
         for regex in markCommentRegexes {
             if let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
                let titleRange = Range(match.range(at: 1), in: trimmed) {
                 let title = String(trimmed[titleRange]).trimmingCharacters(in: .whitespaces)
-                return OutlineItem(title: title, type: .markComment, lineNumber: lineNumber, level: 0)
+                return OutlineItem(title: title, type: .markComment, lineNumber: lineNumber, level: indentLevel)
             }
         }
 
@@ -196,36 +236,37 @@ struct OutlineParser {
 
     private static func parseSymbol(line: String, lineNumber: Int, language: String) -> OutlineItem? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let indentLevel = indentationLevel(for: line)
 
         switch language {
         case "swift":
-            return parseSwiftSymbol(line: trimmed, lineNumber: lineNumber)
+            return parseSwiftSymbol(line: trimmed, lineNumber: lineNumber, indentLevel: indentLevel)
         case "rust":
-            return parseRustSymbol(line: trimmed, lineNumber: lineNumber)
+            return parseRustSymbol(line: trimmed, lineNumber: lineNumber, indentLevel: indentLevel)
         case "python":
-            return parsePythonSymbol(line: trimmed, lineNumber: lineNumber)
+            return parsePythonSymbol(line: trimmed, lineNumber: lineNumber, indentLevel: indentLevel)
         default:
             return nil
         }
     }
 
-    private static func parseSwiftSymbol(line: String, lineNumber: Int) -> OutlineItem? {
+    private static func parseSwiftSymbol(line: String, lineNumber: Int, indentLevel: Int) -> OutlineItem? {
         if line.starts(with: "func ") || line.contains(" func ") {
             return OutlineItem(
                 title: extractSymbolName(line: line, keyword: "func") ?? "function",
-                type: .symbol(kind: .function), lineNumber: lineNumber, level: 1
+                type: .symbol(kind: .function), lineNumber: lineNumber, level: max(1, indentLevel)
             )
         }
         if line.starts(with: "class ") || line.contains(" class ") {
             return OutlineItem(
                 title: extractSymbolName(line: line, keyword: "class") ?? "Class",
-                type: .symbol(kind: .classType), lineNumber: lineNumber, level: 0
+                type: .symbol(kind: .classType), lineNumber: lineNumber, level: indentLevel
             )
         }
         if line.starts(with: "struct ") || line.contains(" struct ") {
             return OutlineItem(
                 title: extractSymbolName(line: line, keyword: "struct") ?? "Struct",
-                type: .symbol(kind: .structType), lineNumber: lineNumber, level: 0
+                type: .symbol(kind: .structType), lineNumber: lineNumber, level: indentLevel
             )
         }
         return nil
@@ -242,7 +283,7 @@ struct OutlineParser {
         return String(line[nameRange]).trimmingCharacters(in: .whitespaces)
     }
 
-    private static func parseRustSymbol(line: String, lineNumber: Int) -> OutlineItem? {
+    private static func parseRustSymbol(line: String, lineNumber: Int, indentLevel: Int) -> OutlineItem? {
         guard line.starts(with: "fn ") || line.starts(with: "pub fn ") ||
               line.starts(with: "struct ") || line.starts(with: "pub struct ") else { return nil }
 
@@ -254,10 +295,11 @@ struct OutlineParser {
         let name = String(line[nameRange]).trimmingCharacters(in: .whitespaces)
         let kind: SymbolKind = keyword == "fn" ? .function : .structType
 
-        return OutlineItem(title: name, type: .symbol(kind: kind), lineNumber: lineNumber, level: kind == .function ? 1 : 0)
+        let level = kind == .function ? max(1, indentLevel) : indentLevel
+        return OutlineItem(title: name, type: .symbol(kind: kind), lineNumber: lineNumber, level: level)
     }
 
-    private static func parsePythonSymbol(line: String, lineNumber: Int) -> OutlineItem? {
+    private static func parsePythonSymbol(line: String, lineNumber: Int, indentLevel: Int) -> OutlineItem? {
         guard line.starts(with: "def ") || line.starts(with: "class ") else { return nil }
 
         guard let match = pythonSymbolRegex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
@@ -268,7 +310,24 @@ struct OutlineParser {
         let name = String(line[nameRange]).trimmingCharacters(in: .whitespaces)
         let kind: SymbolKind = keyword == "def" ? .function : .classType
 
-        return OutlineItem(title: name, type: .symbol(kind: kind), lineNumber: lineNumber, level: kind == .function ? 1 : 0)
+        let level = kind == .function ? max(1, indentLevel) : indentLevel
+        return OutlineItem(title: name, type: .symbol(kind: kind), lineNumber: lineNumber, level: level)
+    }
+
+    private static func indentationLevel(for line: String) -> Int {
+        var width = 0
+
+        for character in line {
+            if character == " " {
+                width += 1
+            } else if character == "\t" {
+                width += 4
+            } else {
+                break
+            }
+        }
+
+        return width / 4
     }
     
     private static func appendItem(
@@ -276,47 +335,95 @@ struct OutlineParser {
         to items: inout [OutlineItem],
         using stack: inout [OutlineItem]
     ) -> [OutlineItem] {
-        if item.level == 0 || stack.isEmpty {
-            items.append(item)
-            stack = [item]
-        } else {
-            // Find the appropriate parent
-            while !stack.isEmpty && stack.last!.level >= item.level {
-                stack.removeLast()
-            }
-            
-            if stack.last != nil {
-                if var lastItem = items.last {
-                    var newChildren = lastItem.children
-                    newChildren.append(item)
-                    lastItem.children = newChildren
-                    items[items.count - 1] = lastItem
-                }
-            } else {
+        while let last = stack.last, last.level >= item.level {
+            stack.removeLast()
+        }
+
+        if let parent = stack.last {
+            if !insertChild(item, into: &items, parentID: parent.id) {
                 items.append(item)
             }
-            
-            stack.append(item)
+        } else {
+            items.append(item)
         }
-        
+
+        stack.append(item)
         return items
+    }
+
+    private static func insertChild(
+        _ child: OutlineItem,
+        into items: inout [OutlineItem],
+        parentID: UUID
+    ) -> Bool {
+        for index in items.indices {
+            if items[index].id == parentID {
+                items[index].children.append(child)
+                return true
+            }
+            if insertChild(child, into: &items[index].children, parentID: parentID) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func assignStableIDs(to items: [OutlineItem], parentPath: String) -> [OutlineItem] {
+        var siblingOccurrences: [String: Int] = [:]
+
+        return items.map { item in
+            var item = item
+            let component = stableComponent(for: item)
+            let occurrence = siblingOccurrences[component, default: 0]
+            siblingOccurrences[component] = occurrence + 1
+            let path = "\(parentPath)/\(component)#\(occurrence)"
+            item.stableID = path
+            item.children = assignStableIDs(to: item.children, parentPath: path)
+            return item
+        }
+    }
+
+    private static func stableComponent(for item: OutlineItem) -> String {
+        let sanitizedTitle = item.title
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        let titleComponent = sanitizedTitle.isEmpty ? "item" : sanitizedTitle
+        return "\(item.type.stableKey)-\(item.level)-\(titleComponent)"
     }
 }
 
 // MARK: - Outline Navigator View
 
+private struct FlattenedOutlineItem: Identifiable {
+    let item: OutlineItem
+    let depth: Int
+
+    var id: String { item.outlineIdentity }
+}
+
 /// Xcode-style outline navigator sidebar
 struct OutlineNavigatorView: View {
+    @Environment(UIState.self) private var ui
+
     let items: [OutlineItem]
     let currentLine: Int
     let onSelect: (OutlineItem) -> Void
     
-    @State private var expandedItems: Set<UUID> = []
-    @State private var hoveredItem: UUID?
+    @State private var expandedItems: Set<String> = []
+    @State private var flattenedItems: [FlattenedOutlineItem] = []
+    @State private var allFlattenedItems: [FlattenedOutlineItem] = []
+    @State private var hasInitializedExpandedItems = false
+
+    private var activeItemID: String? {
+        allFlattenedItems
+            .last(where: { $0.item.lineNumber <= currentLine })?
+            .item.outlineIdentity
+    }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 Text("Outline")
                     .font(.system(size: 11, weight: .semibold))
@@ -334,40 +441,70 @@ struct OutlineNavigatorView: View {
                 .help("Expand All")
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
             
             Divider()
             
-            // Outline list
             ScrollViewReader { proxy in
-                List {
-                    ForEach(items) { item in
-                        OutlineItemRow(
-                            item: item,
-                            currentLine: currentLine,
-                            isExpanded: expandedItems.contains(item.id),
-                            isHovered: hoveredItem == item.id,
-                            onToggle: { toggleItem(item.id) },
-                            onSelect: { onSelect(item) },
-                            onHover: { isHovered in
-                                hoveredItem = isHovered ? item.id : nil
-                            }
-                        )
-                        .id(item.id)
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(flattenedItems) { entry in
+                            OutlineNavigatorRow(
+                                entry: entry,
+                                isExpanded: expandedItems.contains(entry.item.outlineIdentity),
+                                isActive: entry.item.outlineIdentity == activeItemID,
+                                onToggle: { toggleItem(entry.item.outlineIdentity) },
+                                onSelect: { onSelect(entry.item) }
+                            )
+                            .id(entry.id)
+                        }
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 6)
+                }
+                .onChange(of: activeItemID) { _, newActiveItemID in
+                    scrollToActiveItem(proxy: proxy, activeItemID: newActiveItemID)
+                }
+                .onAppear {
+                    if !hasInitializedExpandedItems {
+                        let initialExpandedItems = expandableItemIDs(in: items)
+                        expandedItems = initialExpandedItems
+                        hasInitializedExpandedItems = true
+                        refreshFlattenedItems(expandedIDs: initialExpandedItems)
+                    } else {
+                        refreshFlattenedItems()
                     }
                 }
-                .listStyle(.sidebar)
-                .scrollContentBackground(.hidden)
-                .onChange(of: currentLine) { _, newLine in
-                    scrollToCurrentLine(proxy: proxy, line: newLine)
+                .onChange(of: items) { _, newItems in
+                    let nextExpandableItems = expandableItemIDs(in: newItems)
+                    let preservedExpandedItems = expandedItems.intersection(nextExpandableItems)
+
+                    if preservedExpandedItems.isEmpty, !hasInitializedExpandedItems {
+                        expandedItems = nextExpandableItems
+                        hasInitializedExpandedItems = true
+                        refreshFlattenedItems(expandedIDs: nextExpandableItems)
+                    } else {
+                        expandedItems = preservedExpandedItems
+                        refreshFlattenedItems(expandedIDs: preservedExpandedItems)
+                    }
+                }
+                .onChange(of: expandedItems) { _, _ in
+                    refreshFlattenedItems()
                 }
             }
         }
-        .frame(width: 220)
-        .background(Color(NSColor.controlBackgroundColor))
+        .frame(width: 232)
+        .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(.separator)
+                .frame(width: 0.5)
+                .opacity(0.35)
+        }
     }
     
-    private func toggleItem(_ id: UUID) {
+    private func toggleItem(_ id: String) {
         if expandedItems.contains(id) {
             expandedItems.remove(id)
         } else {
@@ -376,7 +513,7 @@ struct OutlineNavigatorView: View {
     }
     
     private func expandAll() {
-        let allIds = Set(items.map { $0.id })
+        let allIds = expandableItemIDs(in: items)
         if expandedItems.count == allIds.count {
             expandedItems.removeAll()
         } else {
@@ -384,100 +521,124 @@ struct OutlineNavigatorView: View {
         }
     }
     
-    private func scrollToCurrentLine(proxy: ScrollViewProxy, line: Int) {
-        // Find the item closest to current line
-        if let nearestItem = items.min(by: {
-            abs($0.lineNumber - line) < abs($1.lineNumber - line)
-        }) {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                proxy.scrollTo(nearestItem.id, anchor: .center)
+    private func scrollToActiveItem(proxy: ScrollViewProxy, activeItemID: String?) {
+        guard let activeItemID else {
+            return
+        }
+        proxy.scrollTo(activeItemID, anchor: .center)
+    }
+
+    private func refreshFlattenedItems(expandedIDs: Set<String>? = nil) {
+        allFlattenedItems = flattenAll(items, depth: 0)
+        flattenedItems = flatten(items, depth: 0, expandedIDs: expandedIDs ?? expandedItems)
+    }
+
+    private func flatten(_ items: [OutlineItem], depth: Int, expandedIDs: Set<String>) -> [FlattenedOutlineItem] {
+        var result: [FlattenedOutlineItem] = []
+        result.reserveCapacity(items.count)
+
+        for item in items {
+            result.append(FlattenedOutlineItem(item: item, depth: depth))
+            if !item.children.isEmpty, expandedIDs.contains(item.outlineIdentity) {
+                result.append(contentsOf: flatten(item.children, depth: depth + 1, expandedIDs: expandedIDs))
             }
         }
+
+        return result
+    }
+
+    private func flattenAll(_ items: [OutlineItem], depth: Int) -> [FlattenedOutlineItem] {
+        var result: [FlattenedOutlineItem] = []
+        result.reserveCapacity(items.count)
+
+        for item in items {
+            result.append(FlattenedOutlineItem(item: item, depth: depth))
+            if !item.children.isEmpty {
+                result.append(contentsOf: flattenAll(item.children, depth: depth + 1))
+            }
+        }
+
+        return result
+    }
+
+    private func expandableItemIDs(in items: [OutlineItem]) -> Set<String> {
+        var ids: Set<String> = []
+        for item in items where !item.children.isEmpty {
+            ids.insert(item.outlineIdentity)
+            ids.formUnion(expandableItemIDs(in: item.children))
+        }
+        return ids
     }
 }
 
-// MARK: - Outline Item Row
+// MARK: - Outline Row
 
-struct OutlineItemRow: View {
-    let item: OutlineItem
-    let currentLine: Int
+private struct OutlineNavigatorRow: View {
+    let entry: FlattenedOutlineItem
     let isExpanded: Bool
-    let isHovered: Bool
+    let isActive: Bool
     let onToggle: () -> Void
     let onSelect: () -> Void
-    let onHover: (Bool) -> Void
-    
-    private var isActive: Bool {
-        currentLine >= item.lineNumber &&
-        (item.children.isEmpty || currentLine < (item.children.first?.lineNumber ?? Int.max))
-    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                // Expand/collapse button (if has children)
-                if !item.children.isEmpty {
-                    Button {
-                        onToggle()
-                    } label: {
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 14)
-                } else {
-                    Color.clear
-                        .frame(width: 14)
+        rowContent
+            .onTapGesture {
+                onSelect()
+            }
+    }
+
+    private var rowContent: some View {
+        let item = entry.item
+
+        return HStack(spacing: 0) {
+            Color.clear
+                .frame(width: CGFloat(entry.depth) * 12)
+
+            if !item.children.isEmpty {
+                Button {
+                    onToggle()
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12, height: 12)
                 }
-                
-                // Icon
-                Image(systemName: item.type.icon)
-                    .font(.system(size: 11))
-                    .foregroundStyle(item.type.color)
-                    .frame(width: 16, alignment: .center)
-                
-                // Title
+                .buttonStyle(.plain)
+            } else {
+                Color.clear
+                    .frame(width: 12, height: 12)
+            }
+
+            Image(systemName: item.type.icon)
+                .font(.system(size: 11))
+                .foregroundStyle(item.type.color)
+                .frame(width: 14, alignment: .center)
+
+            HStack(spacing: 6) {
                 Text(item.title)
                     .font(.system(size: 12))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .foregroundStyle(isActive ? .primary : .secondary)
-                
+                    .foregroundStyle(.primary)
+
                 Spacer()
-                
-                // Line number
+
                 Text("\(item.lineNumber)")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(isActive ? Color.accentColor.opacity(0.15) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
-            .contentShape(Rectangle())
-            .onTapGesture {
-                onSelect()
-            }
-            .onHover { hovering in
-                onHover(hovering)
-            }
-            
-            // Children — each gets its own expand/hover state
-            if isExpanded && !item.children.isEmpty {
-                ForEach(item.children) { child in
-                    OutlineItemRow(
-                        item: child,
-                        currentLine: currentLine,
-                        isExpanded: false,
-                        isHovered: false,
-                        onToggle: {},
-                        onSelect: { onSelect() },
-                        onHover: { _ in }
-                    )
-                    .padding(.leading, 16)
-                }
-            }
+            .padding(.leading, 8)
+            .padding(.trailing, 10)
+            .padding(.vertical, 6)
         }
+        .contentShape(Rectangle())
+        .padding(.horizontal, 2)
+        .background(selectionBackground)
+    }
+
+    private var selectionBackground: some View {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(isActive ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.68) : .clear)
     }
 }
 

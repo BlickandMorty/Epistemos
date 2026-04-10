@@ -603,6 +603,9 @@ final class IMessageDriverService {
         hasLocalClient: Bool
     ) -> LocalModelDispatchPlan {
         guard hasLocalClient else { return .unavailable }
+        if localModelID == .qwen35_2B4Bit {
+            return .agentLoop
+        }
         return localModelID.canActAsAgent ? .agentLoop : .directGenerate
     }
 
