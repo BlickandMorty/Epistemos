@@ -4,6 +4,7 @@ use std::time::Duration;
 use futures::{future::try_join_all, StreamExt};
 use tokio_util::sync::CancellationToken;
 
+use crate::approval::{SmartApproval, SmartApprovalConfig};
 use crate::bridge::AgentEventDelegate;
 use crate::credential_pool::CredentialManager;
 use crate::error_classifier::classify_error;
@@ -77,6 +78,8 @@ pub struct AgentConfig {
     pub mcp_servers: Option<Vec<McpServerConfig>>,
     pub parallel_tool_execution: bool,
     pub permissions: PermissionConfig,
+    /// Total token budget for this session (input + output). Warnings at 70% and 90%.
+    pub token_budget: Option<u32>,
 }
 
 impl Default for AgentConfig {
@@ -95,6 +98,7 @@ impl Default for AgentConfig {
             mcp_servers: None,
             parallel_tool_execution: true,
             permissions: PermissionConfig::default(),
+            token_budget: None,
         }
     }
 }
@@ -151,12 +155,15 @@ pub async fn run_agent_loop(
     credential_manager: Option<Arc<CredentialManager>>,
     session_persistence: Option<Arc<tokio::sync::Mutex<SessionPersistence>>>,
     provider_factory: Option<ProviderFactory>,
+    smart_approval: Option<Arc<SmartApproval>>,
 ) -> Result<AgentResult, AgentError> {
     let mut messages = vec![Message::user_text(&objective)];
     let mut turn_count = 0_u32;
     let mut total_usage = TokenUsage::default();
     let max_turns = config.max_turns.unwrap_or(25);
     let rate_tracker = RateLimitTracker::new();
+    let token_budget = config.token_budget;
+    let mut budget_warning_sent = false; // Track if 70% warning was sent
     let mut provider_name = provider.name().to_string();
     let mut current_provider = provider;
 
@@ -432,6 +439,22 @@ pub async fn run_agent_loop(
             .cache_read_input_tokens
             .saturating_add(turn_usage.cache_read_input_tokens);
 
+        // ── Session persistence: checkpoint BEFORE processing (P1.9) ───
+        // This enables mid-turn crash recovery — if we crash during tool execution
+        // or compaction, we can resume from this checkpoint.
+        if let Some(ref persistence) = session_persistence {
+            let checkpoint = build_checkpoint(
+                &session_id,
+                turn_count,
+                &messages,
+                &total_usage,
+                Some(&provider_name),
+                None,
+            );
+            let mut p = persistence.lock().await;
+            let _ = p.save_checkpoint(&checkpoint);
+        }
+
         match stop_reason {
             StopReason::EndTurn | StopReason::StopSequence => {
                 messages.push(Message::assistant(response_blocks.clone()));
@@ -444,9 +467,19 @@ pub async fn run_agent_loop(
                     total_usage.input_tokens,
                     total_usage.output_tokens,
                 );
-                // ── Session persistence: record completion ──────────────
+                // ── Session persistence: save checkpoint on EndTurn ────
+                // Also record completion and clean up
                 if let Some(ref persistence) = session_persistence {
                     let mut p = persistence.lock().await;
+                    let checkpoint = build_checkpoint(
+                        &session_id,
+                        turn_count,
+                        &messages,
+                        &total_usage,
+                        Some(&provider_name),
+                        None,
+                    );
+                    let _ = p.save_checkpoint(&checkpoint);
                     let _ = p.record_session_complete(
                         &session_id,
                         turn_count,
@@ -476,6 +509,8 @@ pub async fn run_agent_loop(
                         &delegate,
                         &config.permissions,
                         &cancel,
+                        smart_approval.as_ref(),
+                        &session_id,
                     )
                     .await?
                 } else {
@@ -485,6 +520,8 @@ pub async fn run_agent_loop(
                         &delegate,
                         &config.permissions,
                         &cancel,
+                        smart_approval.as_ref(),
+                        &session_id,
                     )
                     .await?
                 };
@@ -524,6 +561,24 @@ pub async fn run_agent_loop(
                         }];
                     }
 
+                    // ── Token budget warnings (P1.2) ──────────────────────
+                    if let Some(budget) = token_budget {
+                        let total_tokens = total_usage.input_tokens + total_usage.output_tokens;
+                        let pct = (total_tokens as f64 / budget as f64) * 100.0;
+                        if pct >= 90.0 {
+                            // Inject critical budget warning
+                            result.content.push(ToolResultContent::Text {
+                                text: format!("\n\n[SYSTEM: Token budget at {:.0}% ({}/{} tokens). Consider wrapping up.]", pct, total_tokens, budget),
+                            });
+                        } else if pct >= 70.0 && !budget_warning_sent {
+                            // Inject first warning at 70%
+                            budget_warning_sent = true;
+                            result.content.push(ToolResultContent::Text {
+                                text: format!("\n\n[SYSTEM: Token budget at {:.0}% ({}/{} tokens).]", pct, total_tokens, budget),
+                            });
+                        }
+                    }
+
                     delegate.on_tool_completed(
                         result.tool_use_id.clone(),
                         result.content
@@ -539,6 +594,10 @@ pub async fn run_agent_loop(
                     final_results.push(result);
                 }
 
+                // Serialize for AgentGraphMemory BEFORE moving final_results
+                let steps_json = serde_json::to_string(&final_results).unwrap_or_default();
+                let related_notes: Vec<String> = context_notes.clone();
+
                 messages.push(Message::user_tool_results(final_results));
 
                 let estimated_tokens = estimate_tokens(&messages);
@@ -547,6 +606,14 @@ pub async fn run_agent_loop(
                     messages = try_compact(&current_provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
                     delegate.on_context_compacted(messages.len() as u32);
                 }
+
+                // ── AgentGraphMemory: record execution (P2.6) ───────────
+                let related_json = serde_json::to_string(&context_notes).unwrap_or_default();
+                delegate.on_execution_recorded(
+                    format!("Turn {}: tool execution", turn_count),
+                    steps_json,
+                    related_json,
+                );
 
                 // ── Session persistence: save checkpoint (HIGH gap #3) ────
                 if let Some(ref persistence) = session_persistence {
@@ -567,6 +634,19 @@ pub async fn run_agent_loop(
                 delegate.on_context_compacting(estimate_tokens(&messages) as u32);
                 messages = try_compact(&current_provider, &messages, &delegate, MAX_COMPACTION_ATTEMPTS).await?;
                 delegate.on_context_compacted(messages.len() as u32);
+                // ── Session persistence: checkpoint after compaction ───
+                if let Some(ref persistence) = session_persistence {
+                    let checkpoint = build_checkpoint(
+                        &session_id,
+                        turn_count,
+                        &messages,
+                        &total_usage,
+                        Some(&provider_name),
+                        None,
+                    );
+                    let mut p = persistence.lock().await;
+                    let _ = p.save_checkpoint(&checkpoint);
+                }
             }
         }
     }
@@ -590,6 +670,8 @@ async fn execute_tools_parallel(
     delegate: &Arc<dyn AgentEventDelegate>,
     permissions: &PermissionConfig,
     cancel: &CancellationToken,
+    smart_approval: Option<&Arc<SmartApproval>>,
+    session_id: &str,
 ) -> Result<Vec<ToolResult>, AgentError> {
     let futures = tool_calls.iter().map(|(id, name, input)| {
         execute_one_tool(
@@ -600,6 +682,8 @@ async fn execute_tools_parallel(
             Arc::clone(delegate),
             permissions.clone(),
             cancel.clone(),
+            smart_approval.map(Arc::clone),
+            session_id.to_string(),
         )
     });
 
@@ -612,6 +696,8 @@ async fn execute_tools_sequential(
     delegate: &Arc<dyn AgentEventDelegate>,
     permissions: &PermissionConfig,
     cancel: &CancellationToken,
+    smart_approval: Option<&Arc<SmartApproval>>,
+    session_id: &str,
 ) -> Result<Vec<ToolResult>, AgentError> {
     let mut results = Vec::with_capacity(tool_calls.len());
     for (id, name, input) in tool_calls {
@@ -624,6 +710,8 @@ async fn execute_tools_sequential(
                 Arc::clone(delegate),
                 permissions.clone(),
                 cancel.clone(),
+                smart_approval.map(Arc::clone),
+                session_id.to_string(),
             )
             .await?,
         );
@@ -639,39 +727,64 @@ async fn execute_one_tool(
     delegate: Arc<dyn AgentEventDelegate>,
     permissions: PermissionConfig,
     cancel: CancellationToken,
+    smart_approval: Option<Arc<SmartApproval>>,
+    session_id: String,
 ) -> Result<ToolResult, AgentError> {
     if cancel.is_cancelled() {
         return Err(AgentError::Cancelled);
     }
 
-    let risk = tool_registry.get_risk_level(&name);
-    let approved = match risk {
-        RiskLevel::ReadOnly => permissions.auto_approve_read_only,
-        RiskLevel::Modification => permissions.auto_approve_modification,
-        RiskLevel::Destructive => permissions.auto_approve_destructive,
+    // ── Smart Approval System (P0 gap closed) ────────────────────────────
+    let input_json = serde_json::to_string(&input)
+        .map_err(|error| AgentError::Serialization(error.to_string()))?;
+
+    let approved = if let Some(ref approval) = smart_approval {
+        match approval.assess(&name, &input_json, &session_id) {
+            crate::approval::ApprovalDecision::AutoApprove => true,
+            crate::approval::ApprovalDecision::Deny { reason } => {
+                tracing::warn!(tool = %name, reason = %reason, "Smart approval denied tool execution");
+                return Ok(ToolResult::text(
+                    id,
+                    format!("Tool execution denied by smart approval: {reason}"),
+                    true,
+                ));
+            }
+            crate::approval::ApprovalDecision::RequireApproval { reason, risk_level } => {
+                // Fall through to delegate-based approval
+                let permission_id = uuid::Uuid::new_v4().to_string();
+                delegate.on_permission_required(
+                    permission_id.clone(),
+                    name.clone(),
+                    input_json.clone(),
+                    risk_level,
+                );
+                let user_approved = delegate.wait_for_permission(permission_id);
+                // Record decision for session-level learning
+                if let Some(ref cmd) = input.get("command").and_then(serde_json::Value::as_str) {
+                    approval.record_decision(&session_id, cmd, user_approved);
+                }
+                user_approved
+            }
+        }
+    } else {
+        // Fallback to legacy permission config when smart approval is not available
+        let risk = tool_registry.get_risk_level(&name);
+        match risk {
+            RiskLevel::ReadOnly => permissions.auto_approve_read_only,
+            RiskLevel::Modification => permissions.auto_approve_modification,
+            RiskLevel::Destructive => permissions.auto_approve_destructive,
+        }
     };
 
     if !approved {
-        let permission_id = uuid::Uuid::new_v4().to_string();
-        let input_json = serde_json::to_string(&input)
-            .map_err(|error| AgentError::Serialization(error.to_string()))?;
-        delegate.on_permission_required(
-            permission_id.clone(),
-            name.clone(),
-            input_json,
-            risk.as_str().to_string(),
-        );
-
-        if !delegate.wait_for_permission(permission_id) {
-            return Ok(ToolResult::text(
-                id,
-                "Tool execution denied by user.",
-                false,
-            ));
-        }
+        return Ok(ToolResult::text(
+            id,
+            "Tool execution denied by user.",
+            false,
+        ));
     }
 
-    // Security: classify command risk for bash/shell tools.
+    // Security: classify command risk for bash/shell tools (additional layer).
     if name == "bash_execute" || name == "shell" {
         if let Some(command) = input.get("command").and_then(serde_json::Value::as_str) {
             let risk = crate::security::classify_command_risk(command);
@@ -679,13 +792,6 @@ async fn execute_one_tool(
                 return Ok(ToolResult::text(
                     id,
                     format!("Command blocked (forbidden): {}", risk.reasons.join(", ")),
-                    true,
-                ));
-            }
-            if risk.level == crate::security::CommandRiskLevel::Dangerous && !approved {
-                return Ok(ToolResult::text(
-                    id,
-                    format!("Command requires approval (dangerous): {}", risk.reasons.join(", ")),
                     true,
                 ));
             }

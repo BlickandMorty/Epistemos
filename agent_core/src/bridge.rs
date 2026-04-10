@@ -114,6 +114,17 @@ pub trait AgentEventDelegate: Send + Sync {
         reason: String,
         token_count: u32,
     ) -> String;
+    /// Called after each agent turn to record the execution in the knowledge graph.
+    /// Swift's AgentGraphMemory creates nodes/edges for the agent's work.
+    /// `task_description` is a summary of what the agent did this turn.
+    /// `steps_json` is a JSON array of step results.
+    /// `related_note_ids_json` is a JSON array of note IDs referenced.
+    fn on_execution_recorded(
+        &self,
+        task_description: String,
+        steps_json: String,
+        related_note_ids_json: String,
+    );
 }
 
 #[derive(uniffi::Record)]
@@ -133,6 +144,8 @@ pub struct AgentConfigFFI {
     pub system_prompt: Option<String>,
     pub auto_approve_reads: bool,
     pub auto_approve_writes: bool,
+    /// Total token budget (input + output). Warnings at 70% and 90%. 0 = no budget.
+    pub token_budget: u32,
 }
 
 #[derive(uniffi::Record)]
@@ -184,6 +197,11 @@ impl AgentConfig {
                 auto_approve_read_only: ffi.auto_approve_reads,
                 auto_approve_modification: ffi.auto_approve_writes,
                 auto_approve_destructive: false,
+            },
+            token_budget: if ffi.token_budget > 0 {
+                Some(ffi.token_budget)
+            } else {
+                None
             },
         }
     }
@@ -481,9 +499,16 @@ async fn run_agent_session_inner(
         instantiate_provider(name).map_err(|e| AgentError::Provider(e.to_string()))
     }));
 
+    // Smart Approval System (P0 gap closed)
+    let vault_path = std::path::PathBuf::from(&tool_config.vault_path);
+    let smart_approval = Arc::new(crate::approval::SmartApproval::new(
+        crate::approval::SmartApprovalConfig::default(),
+        Some(vault_path),
+    ));
+
     let result = run_agent_loop(
         session_id.clone(), objective, provider, tool_registry, delegate, config, cancel,
-        credential_manager, session_persistence, provider_factory,
+        credential_manager, session_persistence, provider_factory, Some(smart_approval),
     ).await;
     match result {
         Ok(result) => {
@@ -975,6 +1000,36 @@ pub fn delete_session_checkpoints(vault_path: String, session_id: String) -> u32
     )
 }
 
+/// Full-text search across session checkpoints.
+#[derive(uniffi::Record)]
+pub struct CheckpointSearchResultFFI {
+    pub session_id: String,
+    pub turn_number: u32,
+    pub snippet: String,
+}
+
+#[uniffi::export]
+pub fn search_session_checkpoints(vault_path: String, query: String, limit: u32) -> Vec<CheckpointSearchResultFFI> {
+    ffi_guard_value!(
+        {
+            match SessionPersistence::open(std::path::Path::new(&vault_path)) {
+                Ok(persistence) => persistence
+                    .search_checkpoints(&query, limit as usize)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|r| CheckpointSearchResultFFI {
+                        session_id: r.session_id,
+                        turn_number: r.turn_number,
+                        snippet: r.snippet,
+                    })
+                    .collect(),
+                Err(_) => Vec::new(),
+            }
+        },
+        Vec::new()
+    )
+}
+
 /// Prune old checkpoints (keep last N per session, delete older than X days).
 #[uniffi::export]
 pub fn prune_old_checkpoints(vault_path: String, keep_per_session: u32, max_age_days: u32) -> u32 {
@@ -988,6 +1043,76 @@ pub fn prune_old_checkpoints(vault_path: String, keep_per_session: u32, max_age_
             }
         },
         0
+    )
+}
+
+// MARK: - Session Insights FFI
+
+/// Estimate the cost of a session in USD.
+#[uniffi::export]
+pub fn estimate_session_cost(provider_name: String, input_tokens: u32, output_tokens: u32) -> f64 {
+    ffi_guard_value!(
+        crate::session_insights::estimate_cost(&provider_name, input_tokens, output_tokens),
+        0.0
+    )
+}
+
+// MARK: - Smart Approval FFI
+
+#[derive(uniffi::Record)]
+pub struct ApprovalListsFFI {
+    pub allowlist: Vec<String>,
+    pub blocklist: Vec<String>,
+    pub last_modified: u64,
+}
+
+/// Add a pattern to the permanent allowlist.
+#[uniffi::export]
+pub fn add_to_allowlist(vault_path: String, pattern: String) -> Result<(), AgentErrorFFI> {
+    ffi_guard_sync!({
+        let approval = crate::approval::SmartApproval::new(
+            crate::approval::SmartApprovalConfig::default(),
+            Some(std::path::PathBuf::from(vault_path)),
+        );
+        approval.add_to_allowlist(&pattern)
+            .map_err(|e| AgentErrorFFI::AgentError { message: e })
+    })
+}
+
+/// Add a pattern to the permanent blocklist.
+#[uniffi::export]
+pub fn add_to_blocklist(vault_path: String, pattern: String) -> Result<(), AgentErrorFFI> {
+    ffi_guard_sync!({
+        let approval = crate::approval::SmartApproval::new(
+            crate::approval::SmartApprovalConfig::default(),
+            Some(std::path::PathBuf::from(vault_path)),
+        );
+        approval.add_to_blocklist(&pattern)
+            .map_err(|e| AgentErrorFFI::AgentError { message: e })
+    })
+}
+
+/// Get the current allowlist and blocklist.
+#[uniffi::export]
+pub fn get_approval_lists(vault_path: String) -> ApprovalListsFFI {
+    ffi_guard_value!(
+        {
+            let approval = crate::approval::SmartApproval::new(
+                crate::approval::SmartApprovalConfig::default(),
+                Some(std::path::PathBuf::from(vault_path)),
+            );
+            let lists = approval.get_lists();
+            ApprovalListsFFI {
+                allowlist: lists.allowlist.into_iter().collect(),
+                blocklist: lists.blocklist.into_iter().collect(),
+                last_modified: lists.last_modified,
+            }
+        },
+        ApprovalListsFFI {
+            allowlist: Vec::new(),
+            blocklist: Vec::new(),
+            last_modified: 0,
+        }
     )
 }
 

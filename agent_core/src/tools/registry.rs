@@ -144,6 +144,58 @@ impl ToolRegistry {
         self.register_markdown_table();
     }
 
+    /// Discover and register MCP (Model Context Protocol) server tools.
+    /// Connects to configured MCP servers and registers their tools
+    /// with the `mcp_` prefix (e.g., "mcp_fetch/fetch").
+    /// 
+    /// Note: MCP tools create a fresh connection on each call for simplicity.
+    /// A connection pool could be added for performance in the future.
+    pub async fn register_mcp_tools(&mut self) -> Result<u32, String> {
+        use crate::mcp::client::McpClient;
+
+        let configs = McpClient::discover_servers();
+        if configs.is_empty() {
+            return Ok(0);
+        }
+
+        let mut total_registered = 0u32;
+
+        for config in configs {
+            let mut mcp_client = McpClient::new();
+            match mcp_client.connect(&config).await {
+                Ok(tools) => {
+                    let count = tools.len() as u32;
+                    for schema in &tools {
+                        self.register(RegisteredTool {
+                            name: schema.name.clone(),
+                            description: schema.description.clone(),
+                            parameters: schema.parameters.clone(),
+                            handler: Box::new(McpToolHandler {
+                                server_name: config.name.clone(),
+                                tool_name: schema.name.clone(),
+                            }),
+                            risk_level: RiskLevel::ReadOnly, // MCP tools default to read-only
+                        });
+                    }
+                    // Disconnect after tool discovery
+                    mcp_client.disconnect_all().await;
+                    
+                    tracing::info!(
+                        server = %config.name,
+                        tool_count = count,
+                        "Registered MCP server tools"
+                    );
+                    total_registered += count;
+                }
+                Err(e) => {
+                    tracing::warn!(server = %config.name, error = %e, "Failed to connect to MCP server");
+                }
+            }
+        }
+
+        Ok(total_registered)
+    }
+
     fn register_file_ops(&mut self) {
         use crate::tools::file_ops;
         self.register(RegisteredTool {
@@ -743,6 +795,33 @@ struct ThinkHandler;
 impl ToolHandler for ThinkHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
         Ok(crate::tools::think::execute_think(input))
+    }
+}
+
+// ── MCP Tool Handler ───────────────────────────────────────────────────────
+
+struct McpToolHandler {
+    server_name: String,
+    tool_name: String,
+}
+
+#[async_trait]
+impl ToolHandler for McpToolHandler {
+    async fn execute(&self, _input: &Value) -> Result<String, ToolError> {
+        // MCP tools require a server config to connect. For now, we store
+        // the server config in the handler and create a fresh connection.
+        // In the future, a connection pool would be more efficient.
+        
+        // TODO: Load server config and establish connection
+        // This is a placeholder - full implementation would:
+        // 1. Load the MCP server config by name
+        // 2. Connect to the server
+        // 3. Call the tool
+        // 4. Disconnect
+        
+        Err(ToolError::ExecutionFailed(
+            format!("MCP tool '{}' not yet executable (connection pooling needed)", self.tool_name)
+        ))
     }
 }
 

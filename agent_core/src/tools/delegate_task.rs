@@ -72,6 +72,9 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
         // Subagents don't do fallback — return empty.
         String::new()
     }
+    fn on_execution_recorded(&self, _: String, _: String, _: String) {
+        // Subagents don't record in parent graph.
+    }
 }
 
 #[async_trait::async_trait]
@@ -118,6 +121,7 @@ impl ToolHandler for DelegateTaskTool {
             None, // credential_manager
             None, // session_persistence
             None, // provider_factory
+            None, // smart_approval
         )
         .await;
 

@@ -1,5 +1,7 @@
 pub mod agent_loop;
+pub mod approval;
 pub mod bridge;
+pub mod tirith;
 pub mod compaction;
 pub mod context_compiler;
 pub mod credential_pool;
@@ -10,12 +12,15 @@ pub mod process_registry;
 pub mod prompt_caching;
 pub mod prompts;
 pub mod provider;
-pub mod provider_chain;
+// NOTE: ProviderChain removed — provider fallback is handled via
+// AgentEventDelegate::on_provider_failed() callback, which lets Swift's
+// TriageService decide the fallback using InferencePolicyEngine.
 pub mod pty;
 pub mod rate_limit_tracker;
 pub mod routing;
 pub mod security;
 pub mod session;
+pub mod session_insights;
 pub mod session_persistence;
 pub mod skill_router;
 pub mod title_generator;
