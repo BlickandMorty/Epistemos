@@ -155,7 +155,7 @@ struct DialogueNodeInsight: Sendable, Equatable {
         let structureDepth: Int = switch nodeType {
         case .folder: 0
         case .note, .chat: 2
-        case .idea, .source, .quote: 3
+        case .idea, .source, .quote, .person, .project, .topic, .decision, .event, .resource: 3
         case .tag, .block: 4
         }
         let prominence = min(1.0, Double(contentWords) / 1800.0 + Double(linkedNodeCount) * 0.04)
@@ -442,7 +442,7 @@ struct DialogueNodeProfile: Sendable, Equatable {
                 return .examiner
             }
             return .guide
-        case .note, .idea, .block:
+        case .note, .idea, .block, .person, .project, .topic, .decision, .event, .resource:
             break
         }
 

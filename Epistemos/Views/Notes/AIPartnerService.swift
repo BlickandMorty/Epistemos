@@ -113,6 +113,7 @@ final class AIPartnerService {
     private var cursorPosition: CursorPosition = .zero
     private var lastAnalysisTime: Date = .distantPast
     private var analysisTask: Task<Void, Never>?
+    private var highlightRefreshTask: Task<Void, Never>?
     private var periodicTimer: Timer?
     private var suggestionQueue: [InlineSuggestion] = []
     
@@ -215,6 +216,7 @@ final class AIPartnerService {
         periodicTimer?.invalidate()
         periodicTimer = nil
         analysisTask?.cancel()
+        highlightRefreshTask?.cancel()
         
         // Save interaction log
         saveInteractionLog()
@@ -342,6 +344,11 @@ final class AIPartnerService {
     // MARK: - Context Gathering & Highlighting
     
     private func gatherAndHighlightContext() async {
+        guard configuration.showContextHighlights else {
+            activeContextHighlights = []
+            return
+        }
+
         var highlights: [ContextHighlight] = []
         
         // Highlight 1: Current cursor line (high weight - primary focus)
@@ -409,7 +416,16 @@ final class AIPartnerService {
     }
     
     private func updateContextHighlights() {
-        Task {
+        guard configuration.showContextHighlights else {
+            highlightRefreshTask?.cancel()
+            activeContextHighlights = []
+            return
+        }
+
+        highlightRefreshTask?.cancel()
+        highlightRefreshTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
             await gatherAndHighlightContext()
         }
     }

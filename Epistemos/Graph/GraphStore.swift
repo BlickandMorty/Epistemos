@@ -61,6 +61,11 @@ nonisolated struct GraphEdgeRecord: Identifiable, Sendable {
     let type: GraphEdgeType
     let weight: Double
     let createdAt: Date
+
+    // Ghost Link decay fields (CMS-X v3 §3.2 — binding stiffness k_ij is learned and decayable)
+    var strength: Double = 1.0       // Ebbinghaus decay: 1.0 = fresh, 0.0 = invisible
+    var lastAccessed: Date = .now
+    var accessCount: Int = 0
 }
 
 // MARK: - GraphStore
@@ -918,6 +923,13 @@ final class GraphStore {
         nodeTombstoneCount += 1
         _neighbors[nodeIdx] = []
         _edgesOf[nodeIdx] = []
+
+        if nodes.isEmpty && edges.isEmpty {
+            resetStorage(keepingCapacity: false)
+            notifyChange([.graphNodes, .graphEdges])
+            return
+        }
+
         compactStorageIfNeeded()
         clearSearchCache()
         neighborLabelsCache.removeAll(keepingCapacity: true)

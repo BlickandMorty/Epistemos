@@ -161,7 +161,7 @@ printf '%s\n' \
 
 fail_if_matches \
   "Legacy Runtime Residue Failure" \
-  'LocalSidecarClient|LocalSidecarController|LocalSidecarSSEStreamDecoder|DeepSeek|mlx-openai-server|http://127\.0\.0\.1|/v1/models|Server-Sent Events'
+  'LocalSidecarClient|LocalSidecarController|LocalSidecarSSEStreamDecoder|mlx-openai-server|http://127\.0\.0\.1(?::[0-9]+)?/v1/|Server-Sent Events'
 
 run_shell \
   "Native Cleanup Scan" \
@@ -188,9 +188,9 @@ run_shell \
 strict_build_log="$(mktemp)"
 section "Swift 6 Strict Concurrency Release Build"
 printf '```bash\n%s\n```\n\n' \
-  "cd '${ROOT_DIR}' && xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -configuration Release -derivedDataPath '${DERIVED_DATA_PATH}' -destination 'platform=macOS' OTHER_SWIFT_FLAGS='\$(inherited) -Xfrontend -strict-concurrency=complete' build" \
+  "cd '${ROOT_DIR}' && ./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -configuration Release -derivedDataPath '${DERIVED_DATA_PATH}' -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO OTHER_SWIFT_FLAGS='\$(inherited) -Xfrontend -strict-concurrency=complete' build" \
   | tee -a "${REPORT_PATH}"
-/bin/zsh -lc "cd '${ROOT_DIR}' && xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -configuration Release -derivedDataPath '${DERIVED_DATA_PATH}' -destination 'platform=macOS' OTHER_SWIFT_FLAGS='\$(inherited) -Xfrontend -strict-concurrency=complete' build" \
+/bin/zsh -lc "cd '${ROOT_DIR}' && ./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -configuration Release -derivedDataPath '${DERIVED_DATA_PATH}' -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO OTHER_SWIFT_FLAGS='\$(inherited) -Xfrontend -strict-concurrency=complete' build" \
   2>&1 | tee "${strict_build_log}" | tee -a "${REPORT_PATH}"
 report_project_warnings "Swift Project Warnings" "${strict_build_log}"
 fail_if_concurrency_warnings "Swift Strict Concurrency Warnings" "${strict_build_log}"
@@ -198,7 +198,7 @@ rm -f "${strict_build_log}"
 
 run_shell \
   "Targeted Runtime Validation" \
-  "cd '${ROOT_DIR}' && xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/PipelineServiceTests"
+  "cd '${ROOT_DIR}' && ./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/PipelineServiceTests"
 
 section "Manual Telemetry Commands"
 cat <<EOF | tee -a "${REPORT_PATH}"

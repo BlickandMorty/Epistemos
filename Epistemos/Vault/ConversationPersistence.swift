@@ -47,9 +47,21 @@ actor ConversationPersistence {
     typealias VaultSyncNotifier = @Sendable (URL) async -> Void
     typealias MemoryFlushHandler = @Sendable (UUID) async -> Void
 
+    static let shared = ConversationPersistence(
+        rootURL: {
+            let baseURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            return baseURL
+                .appendingPathComponent("Epistemos", isDirectory: true)
+                .appendingPathComponent("ConversationPersistence", isDirectory: true)
+        }()
+    )
+
     private struct SessionMetadata: Sendable {
         var channel: ConversationChannel
         var title: String
+        /// Path to saved SSM state cache file, if this session uses an SSM model.
+        var ssmStatePath: String?
     }
 
     private let rootURL: URL
@@ -61,6 +73,13 @@ actor ConversationPersistence {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private var sessionMetadata: [UUID: SessionMetadata] = [:]
+
+    /// Maps agent session IDs to their Rust-managed session folder paths.
+    /// When set, transcript turns are also forwarded to the Rust session folder.
+    private var agentSessionFolders: [UUID: String] = [:]
+
+    /// Maps session IDs to their SSM state file paths for vault memory persistence.
+    private var ssmStatePaths: [UUID: String] = [:]
 
     init(
         rootURL: URL,
@@ -107,7 +126,7 @@ actor ConversationPersistence {
     @discardableResult
     func generateCompanionMarkdown(sessionID: UUID) async throws -> URL {
         let turns = try loadTurns(sessionID: sessionID)
-        let metadata = sessionMetadata[sessionID] ?? inferMetadata(from: turns)
+        let metadata = resolvedMetadata(for: sessionID, turns: turns)
         let datePrefix = Self.fileDateFormatter.string(from: turns.first?.timestamp ?? .now)
         let fileName = "\(datePrefix)-\(Self.slug(from: metadata.title)).md"
         let channelURL = chatsURL.appendingPathComponent(metadata.channel.rawValue, isDirectory: true)
@@ -125,7 +144,44 @@ actor ConversationPersistence {
     func finishSession(sessionID: UUID) async throws -> URL {
         let companionURL = try await generateCompanionMarkdown(sessionID: sessionID)
         await sessionEndMemoryFlush?(sessionID)
+        // Clean up agent folder tracking
+        agentSessionFolders.removeValue(forKey: sessionID)
         return companionURL
+    }
+
+    // MARK: - Agent Session Folder Binding
+
+    /// Register a Rust-managed session folder for an agent session.
+    /// Subsequent `appendTurn` calls will also be forwarded to the Rust folder.
+    func bindAgentSessionFolder(sessionID: UUID, folderPath: String) {
+        agentSessionFolders[sessionID] = folderPath
+    }
+
+    /// Get the Rust session folder path for an agent session (if bound).
+    func agentSessionFolderPath(sessionID: UUID) -> String? {
+        agentSessionFolders[sessionID]
+    }
+
+    // MARK: - SSM State Persistence
+
+    /// Bind an SSM state file path to a session for vault memory persistence.
+    func bindSSMStatePath(sessionID: UUID, statePath: String) {
+        ssmStatePaths[sessionID] = statePath
+        if var meta = sessionMetadata[sessionID] {
+            meta.ssmStatePath = statePath
+            sessionMetadata[sessionID] = meta
+        } else {
+            sessionMetadata[sessionID] = SessionMetadata(
+                channel: .main,
+                title: "Conversation",
+                ssmStatePath: statePath
+            )
+        }
+    }
+
+    /// Get the SSM state file path for a session (if saved).
+    func ssmStatePath(sessionID: UUID) -> String? {
+        ssmStatePaths[sessionID]
     }
 
     private func ensureDirectories() throws {
@@ -169,7 +225,11 @@ actor ConversationPersistence {
             ? existing?.title ?? ""
             : Self.title(from: turn.content)
         let channel = existing.map { higherPriorityChannel($0.channel, inferredChannel(for: turn)) } ?? inferredChannel(for: turn)
-        sessionMetadata[sessionID] = SessionMetadata(channel: channel, title: title)
+        sessionMetadata[sessionID] = SessionMetadata(
+            channel: channel,
+            title: title,
+            ssmStatePath: existing?.ssmStatePath ?? ssmStatePaths[sessionID]
+        )
     }
 
     private func inferMetadata(from turns: [ConversationTurn]) -> SessionMetadata {
@@ -180,7 +240,16 @@ actor ConversationPersistence {
         let channel = turns.reduce(ConversationChannel.main) { partial, turn in
             higherPriorityChannel(partial, inferredChannel(for: turn))
         }
-        return SessionMetadata(channel: channel, title: title)
+        return SessionMetadata(channel: channel, title: title, ssmStatePath: nil)
+    }
+
+    private func resolvedMetadata(for sessionID: UUID, turns: [ConversationTurn]) -> SessionMetadata {
+        var metadata = sessionMetadata[sessionID] ?? inferMetadata(from: turns)
+        if metadata.ssmStatePath == nil {
+            metadata.ssmStatePath = ssmStatePaths[sessionID]
+        }
+        sessionMetadata[sessionID] = metadata
+        return metadata
     }
 
     private func inferredChannel(for turn: ConversationTurn) -> ConversationChannel {
@@ -205,6 +274,9 @@ actor ConversationPersistence {
         sections.append("- Session: \(sessionID.uuidString)")
         sections.append("- Channel: \(metadata.channel.rawValue)")
         sections.append("- Turns: \(turns.count)")
+        if let ssmStatePath = metadata.ssmStatePath {
+            sections.append("- SSM State: \(ssmStatePath)")
+        }
         sections.append("")
 
         for turn in turns {

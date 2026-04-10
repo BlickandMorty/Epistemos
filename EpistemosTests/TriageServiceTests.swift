@@ -16,6 +16,9 @@ private let isolatedInferenceDefaultsKeys = [
     "epistemos.preferredCloudModel.deepseek",
 ]
 
+private let triageInteractiveReleaseFixtureModelID = LocalTextModelID.gemma4_4B4Bit
+private let triageThinkingReleaseFixtureModelID = LocalTextModelID.gemma4_27BA4B4Bit
+
 @MainActor
 private func makeIsolatedInferenceState(
     keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
@@ -173,6 +176,15 @@ struct TriageServiceTests {
         #expect(CloudTextModelID.deepseekReasoner.supportedOperatingModes == [.thinking, .pro, .agent])
     }
 
+    @Test("cloud models expose about-sheet metadata")
+    func cloudModelsExposeAboutSheetMetadata() {
+        #expect(CloudTextModelID.openAIGPT54.aboutSheetBadge == "OpenAI")
+        #expect(CloudTextModelID.openAIGPT54.aboutSheetModeSummary == "Fast, Thinking, Pro, Agent")
+        #expect(CloudTextModelID.openAIGPT54.aboutSheetStructuredOutputSummary == "Structured JSON")
+        #expect(CloudTextModelID.kimiK25.aboutSheetStructuredOutputSummary == "Prompt JSON fallback")
+        #expect(CloudTextModelID.deepseekReasoner.aboutSheetBadge == "DeepSeek")
+    }
+
     @Test("inference state sanitizes unsupported cloud operating modes")
     @MainActor func inferenceStateSanitizesUnsupportedCloudOperatingModes() {
         let inference = makeIsolatedInferenceState(
@@ -247,7 +259,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
         #expect(decision.localSelection?.reasoningMode == .fast)
     }
@@ -279,7 +291,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.reasoningMode == .thinking)
         #expect(!decision.reasonCodes.contains(.explicitThinkingRequested))
     }
@@ -308,7 +320,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
@@ -363,7 +375,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
     }
 
@@ -394,7 +406,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
         #expect(!decision.reuseWarmModel)
     }
@@ -424,7 +436,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.reasonCodes.contains(.localModeForced))
     }
 
@@ -454,7 +466,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.reasonCodes.contains(.localModeForced))
     }
 
@@ -490,7 +502,7 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localQwen)
+        #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
         #expect(decision.reasonCodes.contains(.preferredLocalModelUsed))
     }
@@ -525,7 +537,7 @@ struct InferencePolicyEngineTests {
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,
-        preferredChatModelSelection: ChatModelSelection = .localQwen(LocalTextModelID.qwen35_4B4Bit.rawValue),
+        preferredChatModelSelection: ChatModelSelection = .localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue),
         installed: [LocalTextModelID] = [.qwen35_2B4Bit, .qwen35_4B4Bit],
         runtimeConditions: LocalRuntimeConditions = LocalRuntimeConditions(
             lowPowerModeEnabled: false,
@@ -802,7 +814,7 @@ struct TriageServiceIntegrationTests {
         llm.generateResult = .success("local-response")
         let triage = makeService(
             appleAvailable: false,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
             localLLMService: llm
         )
 
@@ -829,7 +841,7 @@ struct TriageServiceIntegrationTests {
         llm.streamTokens = ["alpha", " ", "beta"]
         let triage = makeService(
             appleAvailable: false,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
             localLLMService: llm
         )
 
@@ -859,7 +871,7 @@ struct TriageServiceIntegrationTests {
         """)
         let triage = makeService(
             appleAvailable: false,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
             routingMode: .localOnly,
             localLLMService: llm
         )
@@ -887,7 +899,7 @@ struct TriageServiceIntegrationTests {
         ]
         let triage = makeService(
             appleAvailable: false,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
             routingMode: .localOnly,
             localLLMService: llm
         )
@@ -909,13 +921,13 @@ struct TriageServiceIntegrationTests {
         #expect(systemPrompt?.contains("local Epistemos assistant running on-device") == true)
     }
 
-    @Test("local path injects a baseline qwen system prompt when none is provided")
-    @MainActor func localPathInjectsBaselineQwenSystemPrompt() async throws {
+    @Test("local path injects a baseline local system prompt when none is provided")
+    @MainActor func localPathInjectsBaselineLocalSystemPrompt() async throws {
         let llm = TriageIntegrationMockLLMClient()
         llm.generateResult = .success("local-response")
         let triage = makeService(
             appleAvailable: false,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
             routingMode: .localOnly,
             localLLMService: llm
         )
@@ -961,13 +973,13 @@ struct TriageServiceIntegrationTests {
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
         inference.setInstalledLocalTextModelIDs([])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setPreferredLocalTextModelID(triageInteractiveReleaseFixtureModelID.rawValue)
 
         let triage = TriageService(
             inference: inference,
             localLLMService: llm,
             prepareForRouting: {
-                inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+                inference.setInstalledLocalTextModelIDs([triageInteractiveReleaseFixtureModelID.rawValue])
             }
         )
 
@@ -1028,7 +1040,7 @@ struct TriageServiceIntegrationTests {
 
         inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
 
-        #expect(inference.cloudFallbackChain(for: .fast) == [.openAIGPT54Mini, .anthropicClaudeSonnet4])
+        #expect(inference.cloudFallbackChain(for: .fast) == [.openAIGPT54])
     }
 
     @Test("cloud generation fails fast when the selected provider access is missing")
@@ -1266,10 +1278,10 @@ struct TriageServiceIntegrationTests {
     func constrainedRuntimeKeepsChosenModel() {
         let inference = makeIsolatedInferenceState()
         inference.setInstalledLocalTextModelIDs([
-            LocalTextModelID.qwen35_2B4Bit.rawValue,
-            LocalTextModelID.qwen35_4B4Bit.rawValue,
+            LocalTextModelID.gemma4_2B4Bit.rawValue,
+            LocalTextModelID.gemma4_4B4Bit.rawValue,
         ])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
         inference.setLocalRuntimeConditions(
             LocalRuntimeConditions(
                 lowPowerModeEnabled: false,
@@ -1278,7 +1290,7 @@ struct TriageServiceIntegrationTests {
             )
         )
 
-        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.gemma4_4B4Bit.rawValue)
         #expect(inference.canRouteToLocalMLX(contentLength: 4_000))
 
         inference.setLocalRuntimeConditions(
@@ -1289,7 +1301,7 @@ struct TriageServiceIntegrationTests {
             )
         )
 
-        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.gemma4_4B4Bit.rawValue)
         #expect(!inference.canRouteToLocalMLX(contentLength: 4_000))
     }
 
@@ -1334,7 +1346,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: triageInteractiveReleaseFixtureModelID.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -1367,7 +1379,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: triageInteractiveReleaseFixtureModelID.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -1400,7 +1412,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: triageInteractiveReleaseFixtureModelID.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -1433,7 +1445,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: triageThinkingReleaseFixtureModelID.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -1555,7 +1567,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -1588,7 +1600,8 @@ struct TriageServiceIntegrationTests {
             prompt: "Explain the tradeoffs in detail.",
             systemPrompt: "Be thorough.",
             maxTokens: 0,
-            reasoningMode: .fast
+            reasoningMode: .fast,
+            imageURLs: []
         )
 
         #expect(request.resolvedMaxTokens == nil)
@@ -1600,7 +1613,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -1692,21 +1705,23 @@ struct TriageServiceIntegrationTests {
             prompt: "Produce a detailed research analysis.",
             systemPrompt: "Think deeply and be comprehensive.",
             maxTokens: 6000,
-            reasoningMode: .thinking
+            reasoningMode: .thinking,
+            imageURLs: []
         )
 
         #expect(request.resolvedMaxTokens == 6000)
     }
 
-    @Test("local qwen requests map template thinking mode from the request reasoning mode")
+    @Test("thinking-capable qwen requests map template thinking mode from the request reasoning mode")
     func localQwenRequestsMapTemplateThinkingMode() {
         let request = LocalMLXRequest(
-            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
-            modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+            modelID: LocalTextModelID.qwen35_27B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen27"),
             prompt: "Answer directly.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .thinking
+            reasoningMode: .thinking,
+            imageURLs: []
         )
 
         #expect(request.chatTemplateContext?["enable_thinking"] == true)
@@ -1720,7 +1735,8 @@ struct TriageServiceIntegrationTests {
             prompt: "Think carefully.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .thinking
+            reasoningMode: .thinking,
+            imageURLs: []
         )
         let fastRequest = LocalMLXRequest(
             modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
@@ -1728,7 +1744,8 @@ struct TriageServiceIntegrationTests {
             prompt: "Answer directly.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .fast
+            reasoningMode: .fast,
+            imageURLs: []
         )
         let largerThinkingRequest = LocalMLXRequest(
             modelID: LocalTextModelID.qwen35_27B4Bit.rawValue,
@@ -1736,7 +1753,8 @@ struct TriageServiceIntegrationTests {
             prompt: "Think carefully.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .thinking
+            reasoningMode: .thinking,
+            imageURLs: []
         )
 
         #expect(LocalMLXLoopMitigation.isEnabled(for: guardedRequest))
@@ -1752,7 +1770,8 @@ struct TriageServiceIntegrationTests {
             prompt: "Think carefully.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .thinking
+            reasoningMode: .thinking,
+            imageURLs: []
         )
         var guardrail = LocalMLXLoopGuard(request: request)
         let repeatedChunk = "Let me reason through the same intermediate chain in detail before answering."
@@ -1773,7 +1792,8 @@ struct TriageServiceIntegrationTests {
             prompt: "Think carefully.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .thinking
+            reasoningMode: .thinking,
+            imageURLs: []
         )
         let rawLoopingOutput = "<think>repeating the same hidden reasoning forever without closing the loop"
         let mitigated = LocalMLXLoopMitigation.appendFallbackIfNeeded(
@@ -1782,7 +1802,7 @@ struct TriageServiceIntegrationTests {
         )
         let visible = UserFacingModelOutput.finalVisibleText(from: mitigated)
 
-        #expect(visible.contains("Qwen 4B thinking mode was stopped"))
+        #expect(visible.contains("Qwen 3.5 4B thinking mode was stopped"))
         #expect(visible.contains("Fast mode"))
     }
 
@@ -1794,7 +1814,8 @@ struct TriageServiceIntegrationTests {
             prompt: "Answer directly.",
             systemPrompt: nil,
             maxTokens: 256,
-            reasoningMode: .thinking
+            reasoningMode: .thinking,
+            imageURLs: []
         )
 
         #expect(request.chatTemplateContext == nil)
@@ -1843,8 +1864,8 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
-    @Test("local client requires the exact selected model instead of silently choosing another tier")
-    func requiresExactSelectedModel() async throws {
+    @Test("local client falls back to the sanitized visible model when the preferred tier is unavailable")
+    func fallsBackToSanitizedVisibleModelWhenPreferredTierIsUnavailable() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -1861,15 +1882,16 @@ struct TriageServiceIntegrationTests {
         let runtime = RecordingLocalMLXRuntime()
         let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
 
-        await #expect(throws: LocalInferenceRoutingError.modelRequired) {
-            _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
-        }
-        #expect(await runtime.lastGenerateRequest == nil)
+        let output = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+        let request = try #require(await runtime.lastGenerateRequest)
+
+        #expect(output == "local-generate")
+        #expect(request.modelID == inference.effectiveLocalTextModelID)
     }
 
     @MainActor
-    @Test("manual local selection does not silently fall back to a different installed tier")
-    func manualSelectionRequiresExactInstalledTier() async throws {
+    @Test("manual local selection falls back to the current sanitized visible tier")
+    func manualSelectionFallsBackToSanitizedVisibleTier() async throws {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
@@ -1889,10 +1911,11 @@ struct TriageServiceIntegrationTests {
         let runtime = RecordingLocalMLXRuntime()
         let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
 
-        await #expect(throws: LocalInferenceRoutingError.modelRequired) {
-            _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
-        }
-        #expect(await runtime.lastGenerateRequest == nil)
+        let output = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+        let request = try #require(await runtime.lastGenerateRequest)
+
+        #expect(output == "local-generate")
+        #expect(request.modelID == inference.effectiveLocalTextModelID)
     }
 
     @MainActor
@@ -1901,7 +1924,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_27BA4B4Bit.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -2002,14 +2025,14 @@ struct LLMServiceLocalSnapshotTests {
     @MainActor func configSnapshotKeepsFastMode() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.configSnapshot()
 
         #expect(snapshot.provider == .localMLX)
-        #expect(snapshot.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(snapshot.model == LocalTextModelID.gemma4_4B4Bit.rawValue)
         #expect(snapshot.reasoningMode == .fast)
     }
 
@@ -2018,24 +2041,24 @@ struct LLMServiceLocalSnapshotTests {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([
-            LocalTextModelID.qwen35_2B4Bit.rawValue,
-            LocalTextModelID.qwen35_4B4Bit.rawValue,
+            LocalTextModelID.gemma4_2B4Bit.rawValue,
+            LocalTextModelID.gemma4_4B4Bit.rawValue,
         ])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.configSnapshot()
 
         #expect(snapshot.provider == .localMLX)
-        #expect(snapshot.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(snapshot.model == LocalTextModelID.gemma4_4B4Bit.rawValue)
     }
 
     @Test("local snapshots stay in fast mode")
     @MainActor func localSnapshotsStayFast() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.configSnapshot()

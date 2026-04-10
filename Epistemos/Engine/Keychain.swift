@@ -9,7 +9,7 @@ import Security
 // required for kSecUseDataProtectionKeychain.
 
 enum Keychain {
-    static let service = "app.epistemos"
+    nonisolated static let service = "app.epistemos"
 
     private enum Backend: CaseIterable {
         case dataProtection
@@ -17,14 +17,17 @@ enum Keychain {
     }
 
     /// Base query attributes shared by all operations.
-    private static func baseQuery(for key: String, backend: Backend) -> [String: Any] {
+    private nonisolated static func baseQuery(for key: String, backend: Backend) -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String:                    kSecClassGenericPassword,
             kSecAttrService as String:              service,
             kSecAttrAccount as String:              key,
         ]
-        if backend == .dataProtection {
+        switch backend {
+        case .dataProtection:
             query[kSecUseDataProtectionKeychain as String] = true
+        case .legacy:
+            break
         }
         return query
     }
@@ -44,7 +47,7 @@ enum Keychain {
         }
     }
 
-    private static func save(_ value: String, for key: String, backend: Backend) -> OSStatus {
+    private nonisolated static func save(_ value: String, for key: String, backend: Backend) -> OSStatus {
         let data = Data(value.utf8)
         let query = baseQuery(for: key, backend: backend)
 
@@ -66,7 +69,7 @@ enum Keychain {
 
     /// Saves a string securely. Returns true on success, false on failure.
     @discardableResult
-    static func save(_ value: String, for key: String) -> Bool {
+    nonisolated static func save(_ value: String, for key: String) -> Bool {
         for backend in Backend.allCases {
             let status = save(value, for: key, backend: backend)
             if status == errSecSuccess {
@@ -84,7 +87,7 @@ enum Keychain {
         return false
     }
 
-    static func load(for key: String) -> String? {
+    nonisolated static func load(for key: String) -> String? {
         for backend in Backend.allCases {
             var query = baseQuery(for: key, backend: backend)
             query[kSecReturnData as String] = true
@@ -105,7 +108,7 @@ enum Keychain {
         return nil
     }
 
-    static func delete(for key: String) {
+    nonisolated static func delete(for key: String) {
         for backend in Backend.allCases {
             let query = baseQuery(for: key, backend: backend)
             let status = SecItemDelete(query as CFDictionary)
@@ -119,7 +122,7 @@ enum Keychain {
 
     /// Migrates items from the legacy keychain to the Data Protection keychain.
     /// Call once on app launch. Reads from legacy, writes to DP, deletes legacy.
-    static func migrateFromLegacyKeychain(keys: [String]) {
+    nonisolated static func migrateFromLegacyKeychain(keys: [String]) {
         for key in keys {
             // Try loading from legacy keychain (no kSecUseDataProtectionKeychain)
             let legacyQuery: [String: Any] = [
@@ -153,7 +156,7 @@ enum Keychain {
         }
     }
 
-    private static func load(for key: String, backend: Backend) -> String? {
+    private nonisolated static func load(for key: String, backend: Backend) -> String? {
         var query = baseQuery(for: key, backend: backend)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne

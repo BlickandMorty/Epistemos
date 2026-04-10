@@ -258,7 +258,7 @@ enum LocalModelCatalog {
             summary: "Best 2B model of 2026. Multimodal (text+vision), 128K context. Ideal for routing and quick tasks.",
             approximateDownloadBytes: 1_614_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_2B4Bit.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA from mlx-community
+            revision: "76b6a5af250fa029339a757deeb93716baa8ead0",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
@@ -272,21 +272,7 @@ enum LocalModelCatalog {
             summary: "Best 4B model of 2026. Multimodal, 128K context. Replaces Qwen 4B as default light assistant.",
             approximateDownloadBytes: 3_010_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_4B4Bit.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA
-            matchingGlobs: [
-                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
-                "special_tokens_map.json", "*.jinja",
-            ]
-        ),
-        LocalModelDescriptor(
-            id: LocalTextModelID.gemma4_12B4Bit.rawValue,
-            kind: .text,
-            displayName: LocalTextModelID.gemma4_12B4Bit.displayName,
-            familyName: LocalTextModelID.gemma4_12B4Bit.familyName,
-            summary: "Mid-range Gemma 4 with thinking mode and multimodal. 256K context, strong reasoning.",
-            approximateDownloadBytes: 8_590_000_000,
-            minimumRecommendedMemoryGB: LocalTextModelID.gemma4_12B4Bit.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA
+            revision: "62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
@@ -300,7 +286,7 @@ enum LocalModelCatalog {
             summary: "Gemma 4 MoE: 27B total, only 4B active per token. Fits 18GB M2 Pro. 256K context, multimodal, fast.",
             approximateDownloadBytes: 19_327_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_27BA4B4Bit.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA
+            revision: "8bcfa0de037c2b1bfa323a1e8d1f0132243b9e87",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
@@ -314,34 +300,11 @@ enum LocalModelCatalog {
             summary: "Abliterated Gemma 4 31B dense. JANG mixed-precision (5.1-bit avg). Uncensored, 256K context. Requires vMLX 1.3.26+.",
             approximateDownloadBytes: 19_327_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_31BJANG.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA
+            revision: "83167cb7b232cbaef0bcca832921e95a052860df",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
             ]
-        ),
-        // MARK: - Qwopus (Claude Opus 4.6 distilled — GGUF via Ollama)
-        LocalModelDescriptor(
-            id: LocalTextModelID.qwopus27Bv3.rawValue,
-            kind: .text,
-            displayName: LocalTextModelID.qwopus27Bv3.displayName,
-            familyName: LocalTextModelID.qwopus27Bv3.familyName,
-            summary: "Claude Opus 4.6 reasoning distilled. 95.73% HumanEval. Best coding model. GGUF format — served via Ollama.",
-            approximateDownloadBytes: 18_253_000_000,
-            minimumRecommendedMemoryGB: LocalTextModelID.qwopus27Bv3.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA
-            matchingGlobs: ["*.gguf"]
-        ),
-        LocalModelDescriptor(
-            id: LocalTextModelID.qwopusMoE35BA3B.rawValue,
-            kind: .text,
-            displayName: LocalTextModelID.qwopusMoE35BA3B.displayName,
-            familyName: LocalTextModelID.qwopusMoE35BA3B.familyName,
-            summary: "Qwopus MoE: 35B total, 3B active. Fastest reasoning MoE with Opus distillation. GGUF via Ollama.",
-            approximateDownloadBytes: 20_972_000_000,
-            minimumRecommendedMemoryGB: LocalTextModelID.qwopusMoE35BA3B.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA
-            matchingGlobs: ["*.gguf"]
         ),
         // MARK: - Specialist Models
         LocalModelDescriptor(
@@ -352,7 +315,7 @@ enum LocalModelCatalog {
             summary: "DeepSeek R1 reasoning distilled into 7B. Beats many 14B models on math and logic. Native thinking mode.",
             approximateDownloadBytes: 4_831_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.deepseekR1Distill7B.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA from mlx-community
+            revision: "21848dbf533d2518a1ef895104820d5ee51317ea",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
@@ -366,10 +329,151 @@ enum LocalModelCatalog {
             summary: "Best sub-10B coding model. Optimized for code generation, debugging, and tool calling.",
             approximateDownloadBytes: 4_730_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen25Coder7B.minimumRecommendedMemoryGB,
-            revision: "main", // TODO: verify revision SHA from mlx-community
+            revision: "019cc73c45c770444708a6dd8690c66243cc5c80",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ]
+        ),
+        // MARK: - SSM Family
+        LocalModelDescriptor(
+            id: LocalTextModelID.lfm25_350M.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.lfm25_350M.displayName,
+            familyName: LocalTextModelID.lfm25_350M.familyName,
+            summary: "Tiny Liquid SSM tier for the lightest local routing, quick summarization, and low-memory Macs.",
+            approximateDownloadBytes: 226_574_864,
+            minimumRecommendedMemoryGB: LocalTextModelID.lfm25_350M.minimumRecommendedMemoryGB,
+            revision: "8188cd2d54e7a49544853ec017ae21c17f752fc5",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.lfm25_1BInstruct.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.lfm25_1BInstruct.displayName,
+            familyName: LocalTextModelID.lfm25_1BInstruct.familyName,
+            summary: "Liquid 2.5 instruct tier for fast local chat and tool use on 8GB-class Macs.",
+            approximateDownloadBytes: 663_548_128,
+            minimumRecommendedMemoryGB: LocalTextModelID.lfm25_1BInstruct.minimumRecommendedMemoryGB,
+            revision: "c30e30c5efac705771e1f37df38a32115718dd5d",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.lfm25_1BThinking.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.lfm25_1BThinking.displayName,
+            familyName: LocalTextModelID.lfm25_1BThinking.familyName,
+            summary: "Liquid 2.5 thinking tier for compact chain-of-thought and reasoning-heavy local use.",
+            approximateDownloadBytes: 663_409_666,
+            minimumRecommendedMemoryGB: LocalTextModelID.lfm25_1BThinking.minimumRecommendedMemoryGB,
+            revision: "ae286200be34e3225c32de23fcd60ad1c81c6084",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.lfm25_VL1B.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.lfm25_VL1B.displayName,
+            familyName: LocalTextModelID.lfm25_VL1B.familyName,
+            summary: "Liquid 2.5 vision-language tier for local image grounding without leaving the on-device path.",
+            approximateDownloadBytes: 1_496_383_379,
+            minimumRecommendedMemoryGB: LocalTextModelID.lfm25_VL1B.minimumRecommendedMemoryGB,
+            revision: "2a53fd7871a8f23c9d4427cf7a8d0dbb2e267605",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.lfm2_2B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.lfm2_2B4Bit.displayName,
+            familyName: LocalTextModelID.lfm2_2B4Bit.familyName,
+            summary: "Mid-size Liquid SSM tier with a larger context budget while staying practical on laptops.",
+            approximateDownloadBytes: 1_450_530_492,
+            minimumRecommendedMemoryGB: LocalTextModelID.lfm2_2B4Bit.minimumRecommendedMemoryGB,
+            revision: "493071ebca3592c63085e19612ded87192a2a0dd",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.lfm2_8BA1B3Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.lfm2_8BA1B3Bit.displayName,
+            familyName: LocalTextModelID.lfm2_8BA1B3Bit.familyName,
+            summary: "Liquid MoE tier with low active parameter cost for heavier local tool and agent work.",
+            approximateDownloadBytes: 4_176_559_875,
+            minimumRecommendedMemoryGB: LocalTextModelID.lfm2_8BA1B3Bit.minimumRecommendedMemoryGB,
+            revision: "0b05ca1d3fe12b7c9b9b57df674752eb63a46e5f",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.lfm2_24BA2B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.lfm2_24BA2B4Bit.displayName,
+            familyName: LocalTextModelID.lfm2_24BA2B4Bit.familyName,
+            summary: "Largest Liquid MoE tier for high-memory Macs that want long-context local SSM performance.",
+            approximateDownloadBytes: 13_420_025_498,
+            minimumRecommendedMemoryGB: LocalTextModelID.lfm2_24BA2B4Bit.minimumRecommendedMemoryGB,
+            revision: "fb67c8c23d38cd4d7a9a6415ab80eefe83feecae",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.mamba2_2B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.mamba2_2B4Bit.displayName,
+            familyName: LocalTextModelID.mamba2_2B4Bit.familyName,
+            summary: "Standalone Mamba2 2.7B with recurrent-state resume on the MLX local path. Apple Silicon builds warm custom Metal helper kernels in this release, but generation still runs through MLX.",
+            approximateDownloadBytes: 1_527_138_363,
+            minimumRecommendedMemoryGB: LocalTextModelID.mamba2_2B4Bit.minimumRecommendedMemoryGB,
+            revision: "f777c6f0377c7087b1e44739a396c42b4125f8ec",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.jamba3B.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.jamba3B.displayName,
+            familyName: LocalTextModelID.jamba3B.familyName,
+            summary: "AI21 Jamba reasoning tier with hybrid SSM behavior and a roomy local context window.",
+            approximateDownloadBytes: 6_067_067_329,
+            minimumRecommendedMemoryGB: LocalTextModelID.jamba3B.minimumRecommendedMemoryGB,
+            revision: "905cf5a9eba147c5d3dc40c55dcc169394c3e27c",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
+            ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.falconH1R_7B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.falconH1R_7B4Bit.displayName,
+            familyName: LocalTextModelID.falconH1R_7B4Bit.familyName,
+            summary: "Large Falcon H1 reasoning tier for local agent and tool-heavy work on roomier Macs.",
+            approximateDownloadBytes: 4_279_703_397,
+            minimumRecommendedMemoryGB: LocalTextModelID.falconH1R_7B4Bit.minimumRecommendedMemoryGB,
+            revision: "0e3ed6b0e4de5581f22500d2cfdc58e6f37568c6",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "*.jinja",
             ]
         ),
         // MARK: - Other Families
@@ -1063,7 +1167,8 @@ final class LocalModelManager {
             installRecords = try loadManifest()
             let removedLegacyInstalls = purgeLegacyNonQwenInstalls()
             let removedMissingInstalls = pruneMissingInstalls()
-            if removedLegacyInstalls || removedMissingInstalls {
+            let removedStaleRevisionInstalls = pruneStaleRevisionInstalls()
+            if removedLegacyInstalls || removedMissingInstalls || removedStaleRevisionInstalls {
                 try persistManifest()
             }
             syncInferenceInstalledSets()
@@ -1154,6 +1259,29 @@ final class LocalModelManager {
         return true
     }
 
+    private func pruneStaleRevisionInstalls() -> Bool {
+        let staleRecords = installRecords.values.filter { record in
+            guard let descriptor = LocalModelCatalog.descriptor(for: record.modelID) else {
+                return false
+            }
+            return record.revision != descriptor.revision
+        }
+        guard !staleRecords.isEmpty else { return false }
+
+        for record in staleRecords {
+            try? removeIfPresent(record.activeDirectoryURL)
+            installErrors[record.modelID] = nil
+        }
+
+        installRecords = installRecords.filter { modelID, _ in
+            guard let descriptor = LocalModelCatalog.descriptor(for: modelID) else {
+                return false
+            }
+            return installRecords[modelID]?.revision == descriptor.revision
+        }
+        return true
+    }
+
     private func purgeLegacyNonQwenInstalls() -> Bool {
         let staleRecords = installRecords.values.filter { LocalModelCatalog.descriptor(for: $0.modelID) == nil }
         let hasLegacyDirectories =
@@ -1188,16 +1316,19 @@ final class LocalModelManager {
 
     private func adoptInstalledTextModelIfNeeded() {
         guard inference.effectiveLocalTextModelID == nil else { return }
-        guard let modelID = LocalModelCatalog.textDescriptors
-            .map(\.id)
-            .last(where: { installRecords[$0] != nil && inference.hardwareCapabilitySnapshot.supports(textModelID: $0) }) else {
+        guard let modelID = inference.releaseSelectableInstalledLocalTextModelIDs.last else {
             return
         }
         inference.setPreferredLocalTextModelID(modelID)
     }
 
     private func adoptInstalledTextModelIfNeeded(_ modelID: String) {
-        guard LocalTextModelID(rawValue: modelID) != nil else { return }
+        guard let model = LocalTextModelID(rawValue: modelID),
+              model.isReleaseValidatedForInteractiveChat,
+              inference.hardwareCapabilitySnapshot.supports(textModelID: modelID) else {
+            adoptInstalledTextModelIfNeeded()
+            return
+        }
         guard inference.effectiveLocalTextModelID == nil else { return }
         inference.setPreferredLocalTextModelID(modelID)
     }

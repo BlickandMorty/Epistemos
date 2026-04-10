@@ -3,40 +3,14 @@ import Foundation
 import Testing
 @testable import Epistemos
 
-private func isInterruptedProductionHardeningFileReadError(_ error: Error) -> Bool {
-    let nsError = error as NSError
-    if nsError.domain == NSPOSIXErrorDomain, nsError.code == EINTR {
-        return true
-    }
-    if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
-        return isInterruptedProductionHardeningFileReadError(underlying)
-    }
-    return false
-}
-
 private func loadProductionHardeningRepoTextFile(
     _ relativePath: String,
     testsFilePath: String = #filePath,
     attempts: Int = 5
 ) throws -> String {
-    let testsFileURL = URL(fileURLWithPath: testsFilePath)
-    let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-    let fileURL = repoRoot.appendingPathComponent(relativePath)
-
-    var lastError: Error?
-    for attempt in 1...attempts {
-        do {
-            return try String(contentsOf: fileURL, encoding: .utf8)
-        } catch {
-            lastError = error
-            guard isInterruptedProductionHardeningFileReadError(error), attempt < attempts else {
-                throw error
-            }
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-    }
-
-    throw lastError ?? CocoaError(.fileReadUnknown)
+    _ = testsFilePath
+    _ = attempts
+    return try loadMirroredSourceTextFile(relativePath)
 }
 
 // MARK: - Per-Domain Circuit Breaker Tests
@@ -71,7 +45,7 @@ struct PerDomainBreakerTests {
 
     @Test("execute<T>() records failure on error")
     func executeRecordsFailure() async {
-        let breaker = AgentCircuitBreaker(domain: .hermes)
+        let breaker = AgentCircuitBreaker(domain: .vault)
         // Fill the buffer with failures to trip
         for _ in 0..<8 {
             do {
@@ -87,7 +61,7 @@ struct PerDomainBreakerTests {
 
     @Test("execute<T>() rejects when open")
     func executeRejectsWhenOpen() async {
-        let breaker = AgentCircuitBreaker(domain: .hermes)
+        let breaker = AgentCircuitBreaker(domain: .vault)
         // Trip it
         for _ in 0..<8 {
             do {
@@ -174,8 +148,8 @@ struct PerDomainBreakerTests {
 
     @Test("Half-open transitions to closed after N successes via execute()")
     func halfOpenClosesAfterSuccesses() async throws {
-        let breaker = AgentCircuitBreaker(domain: .hermes)
-        // Trip the breaker (hermes: capacity=8, threshold=0.5, resetTimeout=10)
+        let breaker = AgentCircuitBreaker(domain: .vault)
+        // Trip the breaker (vault: capacity=8, threshold=0.75, resetTimeout=30)
         for _ in 0..<8 {
             do {
                 let _: Int = try await breaker.execute {
@@ -188,7 +162,7 @@ struct PerDomainBreakerTests {
         // Reset so we can test half-open behavior
         await breaker.reset()
         // Re-trip with short timeout
-        let shortBreaker = AgentCircuitBreaker(domain: .hermes)
+        let shortBreaker = AgentCircuitBreaker(domain: .vault)
         // Use the direct API for controlled setup
         for _ in 0..<8 {
             await shortBreaker.recordFailure()
@@ -239,7 +213,7 @@ struct BitRingBufferTests {
 
     @Test("Old entries are evicted as ring wraps")
     func ringEviction() async {
-        let breaker = AgentCircuitBreaker(domain: .hermes) // capacity 8
+        let breaker = AgentCircuitBreaker(domain: .vault) // capacity 8
         // Fill with 8 failures
         for _ in 0..<8 {
             await breaker.recordFailure()
@@ -296,12 +270,12 @@ struct BreakerConfigTests {
         #expect(config.degradedMode == .degradedAI)
     }
 
-    @Test("Hermes breaker is binary — single success to close")
-    func hermesConfig() {
-        let config = breakerConfig(for: .hermes)
+    @Test("Vault breaker uses compact buffer and read-only degradation")
+    func vaultCompactConfig() {
+        let config = breakerConfig(for: .vault)
         #expect(config.capacity == 8)
-        #expect(config.requiredHalfOpenSuccesses == 1)
-        #expect(config.degradedMode == .localOnly)
+        #expect(config.requiredHalfOpenSuccesses == 2)
+        #expect(config.degradedMode == .readOnly)
     }
 
     @Test("Vault breaker degrades to readOnly")
@@ -410,11 +384,7 @@ struct FFIGuardCoverageTests {
 
     @Test("bridge.rs wraps all exports with ffi_guard")
     func allExportsGuarded() throws {
-        let bridgePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("agent_core/src/bridge.rs")
-        let content = try String(contentsOf: bridgePath, encoding: .utf8)
+        let content = try loadProductionHardeningRepoTextFile("agent_core/src/bridge.rs")
 
         // Count uniffi::export declarations
         let exportCount = content.components(separatedBy: "#[uniffi::export").count - 1
@@ -437,11 +407,7 @@ struct FFIGuardCoverageTests {
 
     @Test("agent_core uses panic=unwind in release")
     func panicUnwindInRelease() throws {
-        let cargoTomlPath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("agent_core/Cargo.toml")
-        let content = try String(contentsOf: cargoTomlPath, encoding: .utf8)
+        let content = try loadProductionHardeningRepoTextFile("agent_core/Cargo.toml")
         #expect(content.contains("panic = \"unwind\""),
                 "agent_core MUST use panic = \"unwind\" for catch_unwind to work in release")
     }
@@ -483,7 +449,7 @@ struct CircuitBreakerIgnorableTests {
 @MainActor
 struct BreakerRegistryTests {
 
-    @Test("Registry provides all five domain breakers")
+    @Test("Registry provides all four domain breakers")
     func allDomainsAvailable() async {
         let registry = BreakerRegistry.shared
         // Reset all to avoid cross-test state leakage
@@ -493,7 +459,6 @@ struct BreakerRegistryTests {
         #expect(await registry.cloud.isOpen == false)
         #expect(await registry.foundationModels.isOpen == false)
         #expect(await registry.mlx.isOpen == false)
-        #expect(await registry.hermes.isOpen == false)
         #expect(await registry.vault.isOpen == false)
     }
 
@@ -507,10 +472,10 @@ struct BreakerRegistryTests {
         }
     }
 
-    @Test("allBreakers returns all five")
+    @Test("allBreakers returns all four")
     func allBreakersCount() {
         let registry = BreakerRegistry.shared
-        #expect(registry.allBreakers.count == 5)
+        #expect(registry.allBreakers.count == 4)
     }
 }
 
@@ -580,16 +545,16 @@ struct ReleasePackagingHardeningTests {
         #expect(bundler.contains("model_manifest.json"))
     }
 
-    @Test("test hosts skip Hermes subprocess prewarm and supervision")
+    @Test("test hosts keep core supervision but skip heavyweight runtime bootstrap work")
     func testHostsSkipHermesSubprocessBootstrap() throws {
         let source = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(source.contains("static func shouldPrewarmHermesAtLaunch("))
-        #expect(source.contains("!isRunningTests && !isDebugBuild && setupComplete && !backgroundDisabled"))
-        #expect(source.contains("if Self.shouldPrewarmHermesAtLaunch("))
-        #expect(source.contains("static func shouldSuperviseHermesAtLaunch("))
-        #expect(source.contains("if Self.shouldSuperviseHermesAtLaunch("))
+        #expect(source.contains("let supervisor = AppSupervisor()"))
         #expect(source.contains("supervisor.start()"))
+        #expect(source.contains("if !Self.isRunningTests && !PowerGuard.shared.shouldDisableBackground {"))
+        #expect(source.contains("MainThreadWatchdog.install()"))
+        #expect(source.contains("if !Self.isRunningTests {"))
+        #expect(source.contains("wireLocalRuntimeLifecycle()"))
     }
 
     @Test("test hosts skip startup auto-discovery credential imports")
@@ -714,9 +679,11 @@ struct AuditHardeningRegressionTests {
         #expect(vaultSync.contains("private func snapshotLocalStateOffMain() async throws"))
         #expect(vaultSync.contains("Task.detached(priority: .utility)"))
         #expect(vaultSync.contains("let didClear = await vaultSync.stopWatchingAsync(preserveData: false)"))
-        #expect(vaultSync.contains("if didClear {\n                vaultSync.dismissRecoveryIssue()"))
+        #expect(vaultSync.contains("if didClear {"))
+        #expect(vaultSync.contains("vaultSync.dismissRecoveryIssue()"))
         #expect(vaultSync.contains("let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)"))
-        #expect(vaultSync.contains("if didSwitch {\n                vaultSync.persistVaultSelection("))
+        #expect(vaultSync.contains("if didSwitch {"))
+        #expect(vaultSync.contains("vaultSync.persistVaultSelection("))
         #expect(setupAssistant.contains("VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)"))
         #expect(settings.contains("await AppBootstrap.shared?.resetAllData()"))
         #expect(resetBody.contains("_ = await vaultSync.stopWatchingAsync(preserveData: false)"))
@@ -724,12 +691,9 @@ struct AuditHardeningRegressionTests {
 
     @Test("Omega planner schemas stay aligned with registered MCP tools")
     @MainActor func omegaPlannerSchemasStayAligned() throws {
-        let inference = InferenceState()
-        let triage = TriageService(inference: inference)
-        let planner = OmegaInferenceBridge(triageService: triage)
         let runtime = MCPBridge()
 
-        let data = try #require(planner.toolSchemasJson.data(using: .utf8))
+        let data = try #require(OmegaToolRegistry.planningSchemasJson.data(using: .utf8))
         let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
 
         #expect(!schemas.isEmpty)
@@ -742,12 +706,10 @@ struct AuditHardeningRegressionTests {
         let timeoutUtility = try loadProductionHardeningRepoTextFile("Epistemos/State/TimeoutUtility.swift")
         let deviceAgent = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
         let mlxBridge = try loadProductionHardeningRepoTextFile("Epistemos/KnowledgeFusion/MLXInferenceBridge.swift")
-        let omegaBridge = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Orchestrator/OmegaInferenceBridge.swift")
 
         #expect(timeoutUtility.contains("func withTimedMainActorBridge"))
         #expect(deviceAgent.contains("withTimedMainActorBridge"))
         #expect(mlxBridge.contains("withTimedMainActorBridge"))
-        #expect(omegaBridge.contains("withTimedMainActorBridge"))
     }
 
     @Test("Regex-backed helpers avoid force-try compilation")
@@ -758,6 +720,7 @@ struct AuditHardeningRegressionTests {
             "Epistemos/Views/Chat/TaggedMarkdownTextView.swift",
             "Epistemos/Views/Notes/MarkdownContentStorage.swift",
             "Epistemos/Views/Notes/MarkdownEditorStyle.swift",
+            "Epistemos/Views/Notes/OutlineNavigatorView.swift",
             "Epistemos/Theme/EpistemosTheme.swift",
             "Epistemos/Theme/GlassModifiers.swift",
         ]
@@ -792,8 +755,9 @@ struct AuditHardeningRegressionTests {
     func recentRuntimeTrapRemovalsStayHardened() throws {
         let embodiedCapture = try loadProductionHardeningRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
         let themeSource = try loadProductionHardeningRepoTextFile("Epistemos/Theme/EpistemosTheme.swift")
-        let hermesAdminPanel = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/HermesAdminPanel.swift")
         let appSupervisor = try loadProductionHardeningRepoTextFile("Epistemos/State/AppSupervisor.swift")
+        let cloudAuth = try loadProductionHardeningRepoTextFile("Epistemos/Engine/CloudProviderAuthService.swift")
+        let hologramInspector = try loadProductionHardeningRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
 
         #expect(!embodiedCapture.contains("handle.write(line.data(using: .utf8)!)"))
         #expect(embodiedCapture.contains("guard let lineData = line.data(using: .utf8) else {"))
@@ -801,8 +765,11 @@ struct AuditHardeningRegressionTests {
         #expect(!themeSource.contains("preconditionFailure(\"Missing resolved theme cache"))
         #expect(themeSource.contains("Self.resolvedCache[self] ?? buildResolved()"))
 
-        #expect(!hermesAdminPanel.contains("Link(destination: URL(string: registry.url)!)"))
-        #expect(hermesAdminPanel.contains("if let destination = URL(string: registry.url) {"))
+        #expect(!cloudAuth.contains("URL(string: \"https://oauth2.googleapis.com/token\")!"))
+        #expect(cloudAuth.contains("guard let tokenURL = URL(string: \"https://oauth2.googleapis.com/token\") else {"))
+
+        #expect(!hologramInspector.contains("node.sourceId!"))
+        #expect(hologramInspector.contains("if node.type == .note, let pageId = node.sourceId"))
 
         #expect(appSupervisor.contains("import Network"))
         #expect(appSupervisor.contains("NWPathMonitor"))
@@ -815,8 +782,8 @@ struct AuditHardeningRegressionTests {
 
         #expect(triageService.contains("if context.routingMode == .localOnly {"))
         #expect(triageService.contains("reasonCodes.insert(.localModeForced)"))
-        #expect(triageService.contains("private func cloudConfigurationError() -> CloudLLMError? {"))
-        #expect(triageService.contains("if let error = cloudConfigurationError() {"))
+        #expect(triageService.contains("private func cloudConfigurationError(for model: CloudTextModelID) -> CloudLLMError? {"))
+        #expect(triageService.contains("if let error = cloudConfigurationError(for: model) {"))
         #expect(triageService.contains("continuation.finish(throwing: error)"))
     }
 

@@ -7,6 +7,9 @@ import Foundation
 /// Tests the JSON encoding/decoding contract between the Swift bridge layer
 /// and the Python Hermes subprocess. No actual subprocess is launched.
 
+#if false
+// Retained for reference while the legacy HermesRuntimeRoute bridge is absent
+// from the live app. These tests should come back only if that bridge returns.
 @Suite("Hermes Bridge Start Payload")
 struct HermesBridgeStartPayloadTests {
     @Test("Cloud Anthropic route resolves correct wire values for the bridge")
@@ -117,6 +120,7 @@ struct HermesBridgeStartPayloadTests {
         #expect(route.environmentOverrides["HERMES_OPENAI_DEFAULT_HEADERS_JSON"]?.contains("x-goog-user-project") == true)
     }
 }
+#endif
 
 // MARK: - Bridge Event Line Parsing Tests
 
@@ -466,6 +470,10 @@ struct HermesSessionCommandPayloadTests {
 
 // MARK: - Admin Result Parsing Tests
 
+#if false
+// Retained for reference while the legacy Hermes admin runtime/view-model
+// surface is absent from the live app. These tests should come back only if
+// that bridge returns.
 @Suite("Hermes Admin Result Parsing")
 struct HermesAdminResultParsingTests {
     @Test("Diagnostics doctor result populates DiagnosticsResult fields")
@@ -822,6 +830,7 @@ struct HermesRuntimeRouteResolverTests {
         #expect(routeA != routeC)
     }
 }
+#endif
 
 // MARK: - AgentRuntimeRiskLevel Tests
 
@@ -839,4 +848,26 @@ struct AgentRuntimeRiskLevelTests {
         #expect(AgentRuntimeRiskLevel(rustValue: "unknown_future_value") == .modification)
         #expect(AgentRuntimeRiskLevel(rustValue: "") == .modification)
     }
+}
+
+@Suite("Cloud Agent Bridge Contract")
+struct CloudAgentBridgeContractTests {
+    @Test("native computer observations round-trip through the current Swift and Rust bridge")
+    func nativeComputerObservationsRoundTripThroughCurrentBridge() throws {
+        let streamingDelegate = try loadBridgeSource("Epistemos/Bridge/StreamingDelegate.swift")
+        let rustBridge = try loadBridgeSource("agent_core/src/bridge.rs")
+        let agentLoop = try loadBridgeSource("agent_core/src/agent_loop.rs")
+        let coordinator = try loadBridgeSource("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(streamingDelegate.contains("func executeComputerAction(actionJson: String) -> String"))
+        #expect(streamingDelegate.contains("ComputerUseBridge.shared.execute(actionJSON: actionJson)"))
+        #expect(rustBridge.contains("fn execute_computer_action(&self, action_json: String) -> String;"))
+        #expect(agentLoop.contains("delegate.execute_computer_action(input_json.clone())"))
+        #expect(coordinator.contains("Waiting for native computer observation"))
+        #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
+    }
+}
+
+private func loadBridgeSource(_ relativePath: String) throws -> String {
+    try loadMirroredSourceTextFile(relativePath)
 }

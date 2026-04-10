@@ -5,10 +5,13 @@ import os
 @preconcurrency import MLX
 #endif
 #if canImport(MLXLMCommon)
-import MLXLMCommon
+@preconcurrency import MLXLMCommon
 #endif
 #if canImport(MLXLLM)
 import MLXLLM
+#endif
+#if canImport(MLXVLM)
+import MLXVLM
 #endif
 
 nonisolated struct LocalMLXRequest: Sendable, Equatable {
@@ -67,8 +70,20 @@ nonisolated enum LocalMLXLoopMitigation {
         for request: LocalMLXRequest
     ) -> String {
         guard isEnabled(for: request) else { return rawOutput }
-        guard UserFacingModelOutput.finalVisibleText(from: rawOutput).isEmpty else { return rawOutput }
+        let visibleText = UserFacingModelOutput.finalVisibleText(from: rawOutput)
+        let needsFallback =
+            visibleText.isEmpty
+            || hasUnclosedThinkingWithoutAnswer(in: rawOutput)
+        guard needsFallback else { return rawOutput }
         return rawOutput + "\n\nFinal answer: " + thinkingLoopFallback(for: request.modelID)
+    }
+
+    private static func hasUnclosedThinkingWithoutAnswer(in rawOutput: String) -> Bool {
+        guard ThinkingTagSyntax.openingMatch(in: rawOutput) != nil else { return false }
+        guard ThinkingTagSyntax.closingMatch(in: rawOutput) == nil else { return false }
+        guard ThinkingPreludeSyntax.answerMatch(in: rawOutput) == nil else { return false }
+        guard ThinkingPreludeSyntax.answerBoundary(in: rawOutput) == nil else { return false }
+        return true
     }
 }
 
@@ -638,6 +653,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
 actor MLXInferenceService: LocalMLXRuntime {
     private let log = Logger(subsystem: "com.epistemos", category: "MLXInference")
     private let snapshot: LocalHardwareCapabilitySnapshot
+    private var metalRuntimeManager: MetalRuntimeManager?
 
     private(set) var container: ModelContainer?
     private var loadedModelID: String?
@@ -646,6 +662,36 @@ actor MLXInferenceService: LocalMLXRuntime {
     private var runtimeConditions: LocalRuntimeConditions
     private var activeRequestCount = 0
     private let requestGate = LocalMLXRequestGate()
+    private var preparedCustomSSMRuntimeKey: String?
+
+    /// SSM state persistence service — set by AppBootstrap after initialization.
+    private var ssmStateService: SSMStateService?
+
+    /// Active session ID for state scoping — set by ChatCoordinator before generation.
+    var activeSessionID: String?
+
+    /// Active vault root URL for staleness detection during SSM state resume.
+    var activeVaultRoot: URL?
+
+    /// Callback invoked when an SSM state file is saved, so callers
+    /// (e.g. ChatCoordinator) can bind the path to ConversationPersistence.
+    var onSSMStateSaved: (@Sendable (_ sessionID: String, _ statePath: String) -> Void)?
+
+    func setSsmStateService(_ service: SSMStateService) {
+        self.ssmStateService = service
+    }
+
+    func setActiveSessionID(_ sessionID: String) {
+        self.activeSessionID = sessionID
+    }
+
+    func setActiveVaultRoot(_ url: URL) {
+        self.activeVaultRoot = url
+    }
+
+    func setOnSSMStateSaved(_ handler: @escaping @Sendable (_ sessionID: String, _ statePath: String) -> Void) {
+        self.onSSMStateSaved = handler
+    }
 
     private struct GenerationExecutionSummary {
         let text: String
@@ -681,12 +727,47 @@ actor MLXInferenceService: LocalMLXRuntime {
         do {
             let load = try await loadContainerIfNeeded(for: request, policy: policy)
             let parameters = generationParameters(for: request)
-            let session = ChatSession(
-                load.container,
-                instructions: request.systemPrompt,
-                generateParameters: parameters,
-                additionalContext: additionalContext(for: request)
-            )
+
+            // For SSM models, reuse the ChatSession to preserve recurrent state
+            // across turns. For non-SSM models, create a fresh session each time.
+            let isSSM = LocalTextModelID(rawValue: request.modelID)?.isSSM == true
+            let session: ChatSession
+            if isSSM,
+               let existing = persistentSSMSession,
+               persistentSSMModelID == request.modelID,
+               persistentSSMSessionID == activeSessionID {
+                session = existing
+                session.generateParameters = parameters
+            } else {
+                session = ChatSession(
+                    load.container,
+                    instructions: request.systemPrompt,
+                    generateParameters: parameters,
+                    additionalContext: additionalContext(for: request)
+                )
+                if isSSM {
+                    persistentSSMSession = session
+                    persistentSSMModelID = request.modelID
+                    persistentSSMSessionID = activeSessionID
+
+                    // Attempt to resume from a previously saved SSM state.
+                    // On success the session's KVCache is pre-populated,
+                    // avoiding conversation replay on the next generate call.
+                    if let stateService = ssmStateService,
+                       let sessionID = activeSessionID {
+                        let resumed = await resumeSSMState(
+                            stateService: stateService,
+                            session: session,
+                            modelID: request.modelID,
+                            sessionID: sessionID
+                        )
+                        if resumed {
+                            log.info("SSM session resumed with cached state for \(request.modelID, privacy: .public)")
+                        }
+                    }
+                }
+            }
+
             let response = try await executeRequest(
                 request: request,
                 session: session,
@@ -718,6 +799,20 @@ actor MLXInferenceService: LocalMLXRuntime {
             log.info(
                 "Local generate model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) stop=\(Self.stopReasonLabel(profiledStopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
             )
+
+            // SSM State Persistence: after successful generation with an SSM model,
+            // extract the populated cache and persist it to disk.
+            if let stateService = ssmStateService,
+               let sessionID = activeSessionID,
+               LocalTextModelID(rawValue: request.modelID)?.isSSM == true {
+                await notifySSMStateService(
+                    stateService: stateService,
+                    session: session,
+                    modelID: request.modelID,
+                    sessionID: sessionID
+                )
+            }
+
             await endRequest(policy: policy)
             return response.text
         } catch {
@@ -735,12 +830,42 @@ actor MLXInferenceService: LocalMLXRuntime {
                     let start = ContinuousClock.now
                     let load = try await self.loadContainerIfNeeded(for: request, policy: policy)
                     let parameters = self.generationParameters(for: request)
-                    let session = ChatSession(
-                        load.container,
-                        instructions: request.systemPrompt,
-                        generateParameters: parameters,
-                        additionalContext: self.additionalContext(for: request)
-                    )
+                    let isSSM = LocalTextModelID(rawValue: request.modelID)?.isSSM == true
+                    let session: ChatSession
+                    if isSSM,
+                       let existing = self.persistentSSMSession,
+                       self.persistentSSMModelID == request.modelID,
+                       self.persistentSSMSessionID == self.activeSessionID {
+                        session = existing
+                        session.generateParameters = parameters
+                    } else {
+                        session = ChatSession(
+                            load.container,
+                            instructions: request.systemPrompt,
+                            generateParameters: parameters,
+                            additionalContext: self.additionalContext(for: request)
+                        )
+                        if isSSM {
+                            self.persistentSSMSession = session
+                            self.persistentSSMModelID = request.modelID
+                            self.persistentSSMSessionID = self.activeSessionID
+
+                            if let stateService = self.ssmStateService,
+                               let sessionID = self.activeSessionID {
+                                let resumed = await self.resumeSSMState(
+                                    stateService: stateService,
+                                    session: session,
+                                    modelID: request.modelID,
+                                    sessionID: sessionID
+                                )
+                                if resumed {
+                                    self.log.info(
+                                        "SSM stream resumed with cached state for \(request.modelID, privacy: .public)"
+                                    )
+                                }
+                            }
+                        }
+                    }
                     let response = try await self.executeRequest(
                         request: request,
                         session: session,
@@ -775,6 +900,16 @@ actor MLXInferenceService: LocalMLXRuntime {
                     self.log.info(
                         "Local stream model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) firstTokenMs=\(response.firstTokenLatencyMS ?? -1, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) chunks=\(response.chunkCount, privacy: .public) stop=\(Self.stopReasonLabel(profiledStopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
                     )
+                    if let stateService = self.ssmStateService,
+                       let sessionID = self.activeSessionID,
+                       isSSM {
+                        await self.notifySSMStateService(
+                            stateService: stateService,
+                            session: session,
+                            modelID: request.modelID,
+                            sessionID: sessionID
+                        )
+                    }
                     await self.endRequest(policy: policy)
                     if Task.isCancelled {
                         continuation.finish(throwing: CancellationError())
@@ -828,6 +963,9 @@ actor MLXInferenceService: LocalMLXRuntime {
         cancelScheduledUnload()
         container = nil
         loadedModelID = nil
+        persistentSSMSession = nil
+        persistentSSMModelID = nil
+        persistentSSMSessionID = nil
         Memory.cacheLimit = 0
         Memory.clearCache()
         let policy = currentRuntimePolicy()
@@ -845,6 +983,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         cancelScheduledUnload()
         applyActiveMemoryPolicy(policy)
         if loadedModelID == request.modelID, let container {
+            await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
             return (container, false, 0)
         }
 
@@ -854,11 +993,89 @@ actor MLXInferenceService: LocalMLXRuntime {
         Memory.peakMemory = 0
 
         let configuration = ModelConfiguration(directory: request.modelDirectory)
-        let container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+
+        // Use VLMModelFactory for vision models (Gemma 4, Gemma 3, Llama 4 Scout),
+        // LLMModelFactory for text-only models (Qwen, DeepSeek, Mistral, etc.)
+        let isVisionModel = LocalTextModelID(rawValue: request.modelID)?.supportsVision ?? false
+        let container: ModelContainer
+        #if canImport(MLXVLM)
+        if isVisionModel {
+            container = try await VLMModelFactory.shared.loadContainer(configuration: configuration)
+            log.info("Loaded local VLM model \(request.modelID, privacy: .public)")
+        } else {
+            container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+            log.info("Loaded local LLM model \(request.modelID, privacy: .public)")
+        }
+        #else
+        container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+        log.info("Loaded local LLM model \(request.modelID, privacy: .public) (VLM unavailable)")
+        #endif
         loadedModelID = request.modelID
         self.container = container
-        log.info("Loaded local MLX model \(request.modelID, privacy: .public)")
+        await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
         return (container, true, start.duration(to: ContinuousClock.now).millisecondsValue)
+    }
+
+    private enum CustomSSMRuntimeWarmupError: LocalizedError {
+        case metalUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .metalUnavailable:
+                "Metal runtime unavailable on this device."
+            }
+        }
+    }
+
+    private func prepareCustomSSMRuntimeIfNeeded(for modelID: String) async {
+        guard let model = LocalTextModelID(rawValue: modelID),
+              let profile = model.ssmRuntimeProfile,
+              profile.warmsCustomMetalRuntime else {
+            preparedCustomSSMRuntimeKey = nil
+            return
+        }
+
+        let runtimeKey =
+            modelID
+            + ":\(profile.layers)"
+            + ":\(profile.heads)"
+            + ":\(profile.stateDimension)"
+            + ":\(profile.headDimension)"
+            + ":\(profile.chunkLength)"
+            + ":\(profile.tileSize)"
+        guard preparedCustomSSMRuntimeKey != runtimeKey else { return }
+
+        do {
+            let existingRuntime = metalRuntimeManager
+            let preparedRuntime = try await MainActor.run { () throws -> MetalRuntimeManager in
+                let runtime = existingRuntime ?? MetalRuntimeManager()
+                guard let runtime else {
+                    throw CustomSSMRuntimeWarmupError.metalUnavailable
+                }
+
+                try runtime.ensureKernelsReady()
+                runtime.allocateStateBuffers(
+                    layers: profile.layers,
+                    stateDim: profile.stateDimension,
+                    headDim: profile.headDimension,
+                    heads: profile.heads
+                )
+                runtime.allocateInferenceHeap(
+                    sizeBytes: profile.recommendedHeapSizeBytes
+                )
+                return runtime
+            }
+            metalRuntimeManager = preparedRuntime
+            preparedCustomSSMRuntimeKey = runtimeKey
+            log.info(
+                "Prepared custom SSM runtime for \(modelID, privacy: .public) chunk=\(profile.chunkLength, privacy: .public) heap=\(profile.recommendedHeapSizeBytes, privacy: .public)"
+            )
+        } catch {
+            preparedCustomSSMRuntimeKey = nil
+            log.error(
+                "Custom SSM runtime warmup skipped for \(modelID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     private func cancelScheduledUnload() {
@@ -1074,6 +1291,81 @@ actor MLXInferenceService: LocalMLXRuntime {
         case .cancelled:
             "cancelled"
         }
+    }
+
+    // MARK: - SSM State Persistence
+
+    /// Cached ChatSession for SSM models — kept alive between turns so the
+    /// recurrent state persists without re-processing the conversation.
+    private var persistentSSMSession: ChatSession?
+    private var persistentSSMModelID: String?
+    private var persistentSSMSessionID: String?
+
+    /// After SSM model generation, extract the populated KVCache and persist to disk.
+    /// Uses the ChatSession.extractKVCache() accessor (local mlx-swift-lm patch).
+    private func notifySSMStateService(
+        stateService: SSMStateService,
+        session: ChatSession,
+        modelID: String,
+        sessionID: String
+    ) async {
+        guard let cache = await session.extractKVCache() else {
+            log.warning("SSM state save skipped — no KVCache available for session=\(sessionID, privacy: .public)")
+            return
+        }
+        if let savedURL = await MainActor.run(body: {
+            stateService.saveMLXCache(cache: cache, modelId: modelID, sessionId: sessionID)
+        }) {
+            log.info("SSM state persisted: \(savedURL.lastPathComponent, privacy: .public)")
+            onSSMStateSaved?(sessionID, savedURL.path)
+        }
+    }
+
+    /// Attempt to load a previously saved SSM state into the ChatSession.
+    /// If successful, the session can generate without replaying conversation history.
+    /// Checks vault staleness: if notes were modified after the snapshot, the state is
+    /// discarded to prevent stale context from polluting generation.
+    ///
+    /// - Returns: true if state was restored, false otherwise
+    private func resumeSSMState(
+        stateService: SSMStateService,
+        session: ChatSession,
+        modelID: String,
+        sessionID: String
+    ) async -> Bool {
+        guard let stateURL = await MainActor.run(body: {
+            stateService.findLatestState(modelId: modelID, sessionId: sessionID)
+        }) else {
+            return false
+        }
+
+        // Staleness check: if vault notes changed after the state was saved,
+        // the hidden state no longer reflects the current vault content.
+        if let vaultRoot = activeVaultRoot,
+           await MainActor.run(body: {
+               stateService.isStateStale(stateURL: stateURL, vaultRoot: vaultRoot)
+           }) {
+            log.info("SSM state stale (vault modified) — skipping resume for session=\(sessionID, privacy: .public)")
+            return false
+        }
+
+        guard let (cache, _) = await MainActor.run(body: {
+            stateService.loadMLXCache(from: stateURL)
+        }) else {
+            log.warning("SSM state load failed from \(stateURL.lastPathComponent, privacy: .public)")
+            return false
+        }
+        let injected = await session.injectKVCache(cache)
+        guard injected else {
+            log.warning(
+                "SSM state load skipped from \(stateURL.lastPathComponent, privacy: .public) because cache shape did not match the active model"
+            )
+            return false
+        }
+        log.info(
+            "SSM state resumed from \(stateURL.lastPathComponent, privacy: .public) for session=\(sessionID, privacy: .public)"
+        )
+        return true
     }
 }
 #else

@@ -8,11 +8,6 @@ import Testing
 struct ScrollStabilityTests {
     private static let testDocumentExtent: CGFloat = 10_000
 
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-    }
-
     @Test("auto-follow detaches when the user scrolls well away from bottom")
     func autoFollowDetachesAwayFromBottom() {
         var state = ScrollAutoFollowState()
@@ -105,11 +100,8 @@ struct ScrollStabilityTests {
 
     @Test("graph inspector formatted note preview uses a lazy stack for long note scrolling")
     func graphInspectorFormattedNotePreviewUsesLazyStack() throws {
-        let source = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Graph/HologramNodeInspector.swift"
-            ),
-            encoding: .utf8
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/HologramNodeInspector.swift"
         )
 
         #expect(source.contains("LazyVStack(alignment: .leading, spacing: 4)"))

@@ -485,6 +485,50 @@ final class GraphState {
         }
     }
 
+    func incomingEdges(forPageId pageId: String) async -> [(sourcePageId: String, sourceTitle: String, edgeType: String)] {
+        let semanticEdgeTypes: Set<GraphEdgeType> = [.supports, .contradicts, .expands, .questions]
+        let targetNodeIDs = Set(
+            store.nodes.values.compactMap { node in
+                node.sourceId == pageId ? node.id : nil
+            }
+        )
+        guard !targetNodeIDs.isEmpty else { return [] }
+
+        var seen = Set<String>()
+        var results: [(sourcePageId: String, sourceTitle: String, edgeType: String)] = []
+
+        for targetNodeID in targetNodeIDs {
+            for edge in store.edges(for: targetNodeID) {
+                guard semanticEdgeTypes.contains(edge.type) else { continue }
+                guard edge.targetNodeId == targetNodeID else { continue }
+                guard let sourceNode = store.nodes[edge.sourceNodeId],
+                      let sourcePageId = sourceNode.sourceId,
+                      sourcePageId != pageId else {
+                    continue
+                }
+
+                let dedupeKey = "\(sourcePageId)|\(edge.type.rawValue)"
+                guard seen.insert(dedupeKey).inserted else { continue }
+                results.append(
+                    (
+                        sourcePageId: sourcePageId,
+                        sourceTitle: sourceNode.label,
+                        edgeType: edge.type.rawValue
+                    )
+                )
+            }
+        }
+
+        results.sort { lhs, rhs in
+            let titleOrder = lhs.sourceTitle.localizedCaseInsensitiveCompare(rhs.sourceTitle)
+            if titleOrder == .orderedSame {
+                return lhs.edgeType < rhs.edgeType
+            }
+            return titleOrder == .orderedAscending
+        }
+        return results
+    }
+
     var isLoaded = false
     var isWarmed = false
     /// True after the entrance animation has played once. Prevents replay on re-open.

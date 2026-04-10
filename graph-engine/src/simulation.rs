@@ -1035,8 +1035,8 @@ impl Simulation {
         // Mass-based drag: heavier nodes get extra velocity damping.
         // Applied as a pre-pass before integration so it works with both scalar and NEON paths.
         if self.params.enable_mass_drag && self.mass.len() == n {
-            for i in 0..n {
-                if !active[i] || self.fx[i].is_some() {
+            for (i, is_active) in active.iter().copied().enumerate().take(n) {
+                if !is_active || self.fx[i].is_some() {
                     continue;
                 }
                 // mass_damping: mass=1 → 1.0 (no extra drag), mass=5 → 0.67, mass=10 → 0.5

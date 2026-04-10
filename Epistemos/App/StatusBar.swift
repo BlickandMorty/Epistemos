@@ -63,7 +63,7 @@ final class StatusBar {
         menu.addItem(.separator())
 
         // Utility windows
-        for panel in UtilityPanel.allCases {
+        for panel in UtilityPanel.statusBarPanels {
             let item = NSMenuItem(
                 title: panel.title, action: #selector(openUtilityPanel(_:)), keyEquivalent: "")
             item.image = NSImage(systemSymbolName: panel.icon, accessibilityDescription: nil)

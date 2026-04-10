@@ -1,6 +1,6 @@
-/// Note corruption detection and repair.
-/// Detects invalid UTF-8, null bytes, BOM markers, and common encoding mismatches.
-/// Provides best-effort transcode from Latin-1, Windows-1252, etc.
+//! Note corruption detection and repair.
+//! Detects invalid UTF-8, null bytes, BOM markers, and common encoding mismatches.
+//! Provides best-effort transcode from Latin-1, Windows-1252, etc.
 
 /// Types of corruption detected in a byte sequence.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,7 +32,7 @@ pub fn detect(bytes: &[u8]) -> CorruptionType {
     }
 
     // Check for null bytes in text
-    if bytes.iter().any(|&b| b == 0) {
+    if bytes.contains(&0) {
         return CorruptionType::NullBytes;
     }
 

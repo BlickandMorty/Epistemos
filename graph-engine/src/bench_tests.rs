@@ -53,7 +53,7 @@ mod tests {
                 format!("node-{i}"),
                 radius * angle.cos(),
                 radius * angle.sin(),
-                (i % 8) as u8,
+                (i % 14) as u8,
                 link_count,
                 label,
             );
@@ -221,7 +221,7 @@ mod tests {
             world.hierarchy[idx] = HierarchyComponent {
                 depth: i % 5,
                 parent: u32::MAX,
-                node_type: (i % 8) as u8,
+                node_type: (i % 14) as u8,
                 _pad: [0; 3],
                 link_count: (i % 20),
             };

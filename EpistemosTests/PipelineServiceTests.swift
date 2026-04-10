@@ -3,6 +3,8 @@ import SwiftData
 import Testing
 @testable import Epistemos
 
+private let interactiveReleaseFixtureModelID = LocalTextModelID.qwen35_2B4Bit
+
 // MARK: - MockLLMClient
 
 /// Test double for LLMClientProtocol. Records calls and returns canned responses.
@@ -25,7 +27,7 @@ final class MockLLMClient: LLMClientProtocol {
     /// Canned snapshot for configSnapshot().
     var snapshot = LLMSnapshot(
         provider: .localMLX,
-        model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+        model: interactiveReleaseFixtureModelID.rawValue,
         reasoningMode: .fast
     )
 
@@ -130,7 +132,7 @@ struct LLMClientProtocolTests {
         let mock = MockLLMClient()
         let snap = mock.configSnapshot()
         #expect(snap.provider == .localMLX)
-        #expect(snap.model == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(snap.model == interactiveReleaseFixtureModelID.rawValue)
         #expect(snap.reasoningMode == .fast)
     }
 }
@@ -148,8 +150,8 @@ struct PipelineServiceTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -188,8 +190,8 @@ struct PipelineServiceTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -228,8 +230,8 @@ struct PipelineServiceTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -270,8 +272,8 @@ struct PipelineServiceTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -312,8 +314,8 @@ struct PipelineServiceTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -348,8 +350,8 @@ struct PipelineServiceTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -387,7 +389,7 @@ struct PipelineServiceTests {
     @MainActor func dependencyInjection() {
         let mock = MockLLMClient()
         let inference = InferenceState()
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
 
         // Both accept LLMClientProtocol
         let triage = TriageService(inference: inference, localLLMService: mock)
@@ -423,7 +425,7 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -467,7 +469,7 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -519,7 +521,7 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -561,7 +563,7 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -622,7 +624,7 @@ struct PipelineContractTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -834,8 +836,8 @@ struct ChatCoordinatorPersistenceTests {
         let pipelineState = PipelineState()
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
         let llmService = LLMService(inference: inference, localLLMClient: llmClient)
         let triage = TriageService(inference: inference, localLLMService: llmClient)
         let eventBus = EventBus()
@@ -1001,7 +1003,9 @@ struct ChatCoordinatorPersistenceTests {
         )
 
         #expect(attached.cleanedQuery == "Compare this to that older conversation")
+        #expect(attached.context?.contains("## Required Attached Chats") == true)
         #expect(attached.context?.contains("Attached chat context: Older Thread") == true)
+        #expect(attached.context?.contains("Priority: Required context.") == true)
         #expect(attached.context?.contains("User: What is imperialism?") == true)
         #expect(attached.context?.contains("Assistant: A system of domination.") == true)
     }
@@ -1077,7 +1081,9 @@ struct ChatCoordinatorPersistenceTests {
         )
 
         #expect(resolution.cleanedQuery == "Compare this with the selected note")
+        #expect(resolution.context?.contains("## Required Attached Notes") == true)
         #expect(resolution.context?.contains("### Attached Note: Project Atlas") == true)
+        #expect(resolution.context?.contains("Priority: Required context.") == true)
         #expect(resolution.context?.contains("Beta full body") == true)
         #expect(resolution.context?.contains("Alpha full body") == false)
         #expect(resolution.loadedNoteIds == Set(["beta-id"]))
@@ -1265,7 +1271,7 @@ struct ChatCoordinatorPersistenceTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -1456,7 +1462,7 @@ struct ChatCoordinatorPersistenceTests {
         let mock = MockLLMClient()
         mock.snapshot = LLMSnapshot(
             provider: .localMLX,
-            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            model: interactiveReleaseFixtureModelID.rawValue,
             reasoningMode: .fast
         )
         mock.streamTokens = ["This is a full ", "vault briefing."]
@@ -1658,13 +1664,12 @@ struct ChatStateLocalMessageTests {
         let chatState = ChatState()
         let orchestrator = OrchestratorState()
 
-        var omegaPanelShown = false
+        let omegaPanelShown = false
         MainChatSubmissionRouter.submit(
             "/research transformer attention",
             operatingMode: .fast,
             chat: chatState,
-            orchestrator: orchestrator,
-            showOmegaPanel: { omegaPanelShown = true }
+            orchestrator: orchestrator
         )
 
         await Task.yield()
@@ -1681,24 +1686,21 @@ struct ChatStateLocalMessageTests {
         let chatState = ChatState()
         let orchestrator = OrchestratorState()
 
-        var omegaPanelShown = false
+        let omegaPanelShown = false
         MainChatSubmissionRouter.submit(
             "Plan a multi-step refactor",
             operatingMode: .agent,
             chat: chatState,
-            orchestrator: orchestrator,
-            showOmegaPanel: { omegaPanelShown = true }
+            orchestrator: orchestrator
         )
 
         await Task.yield()
 
-        #expect(omegaPanelShown)
-        #expect(chatState.messages.count == 2)
+        #expect(!omegaPanelShown)
+        #expect(chatState.messages.count == 1)
         #expect(chatState.messages.first?.role == .user)
         #expect(chatState.messages.first?.content == "Plan a multi-step refactor")
-        #expect(chatState.messages.last?.role == .assistant)
-        #expect(chatState.messages.last?.content == EpistemosOperatingMode.agent.handoffMessage)
-        #expect(orchestrator.currentTaskDescription == "Plan a multi-step refactor")
+        #expect(orchestrator.currentTaskDescription.isEmpty)
     }
 
     @Test("cancelled streaming promotes partial output into a stable assistant message")

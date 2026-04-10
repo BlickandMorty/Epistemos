@@ -228,6 +228,53 @@ impl VaultStore {
             .collect()
     }
 
+    /// Get the stored content hash for a note path. Returns None if not yet indexed.
+    pub fn get_content_hash(&self, path: &str) -> Result<Option<String>, VaultError> {
+        let conn = self
+            .db
+            .lock()
+            .map_err(|_| VaultError::DatabaseError("lock poisoned".to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT content_hash FROM notes WHERE path = ?1")
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        let hash: Option<String> = stmt
+            .query_row(params![path], |row| row.get(0))
+            .ok();
+        Ok(hash)
+    }
+
+    /// Update the stored content hash after successful processing.
+    pub fn set_content_hash(&self, path: &str, hash: &str) -> Result<(), VaultError> {
+        let conn = self
+            .db
+            .lock()
+            .map_err(|_| VaultError::DatabaseError("lock poisoned".to_string()))?;
+        conn.execute(
+            "UPDATE notes SET content_hash = ?1, updated_at = datetime('now') WHERE path = ?2",
+            params![hash, path],
+        )
+        .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        Ok(())
+    }
+
+    /// Given a list of vault-relative paths, return only those whose current
+    /// file content hash differs from the stored hash (new, changed, or missing).
+    pub fn changed_paths_since(&self, paths: &[String]) -> Result<Vec<String>, VaultError> {
+        let mut changed = Vec::new();
+        for path in paths {
+            let stored = self.get_content_hash(path)?;
+            let full_path = self.vault_root.join(path);
+            let current = std::fs::read_to_string(&full_path)
+                .ok()
+                .map(|content| Self::content_hash(&content));
+            match (stored, current) {
+                (Some(ref s), Some(ref c)) if s == c => {} // unchanged — skip
+                _ => changed.push(path.clone()),           // new, changed, or missing
+            }
+        }
+        Ok(changed)
+    }
+
     fn index_note(&self, path: &str, content: &str, tags: &[String]) -> Result<(), VaultError> {
         let mut writer = self
             .ft_writer

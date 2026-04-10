@@ -6,17 +6,16 @@ struct GraphTypesTests {
 
     // MARK: - GraphNodeType
 
-    @Test("all cases count is 8")
+    @Test("all cases count is 14")
     func caseCount() {
-        #expect(GraphNodeType.allCases.count == 8)
+        #expect(GraphNodeType.allCases.count == 14)
     }
 
     @Test("rustIndex is unique and sequential")
     func rustIndexUnique() {
         let indices = GraphNodeType.allCases.map { $0.rustIndex }
         #expect(Set(indices).count == GraphNodeType.allCases.count)
-        // Should be 0..7
-        #expect(indices.sorted() == [0, 1, 2, 3, 4, 5, 6, 7])
+        #expect(indices.sorted() == Array(0...13))
     }
 
     @Test("rustIndex matches expected values")
@@ -29,6 +28,12 @@ struct GraphTypesTests {
         #expect(GraphNodeType.quote.rustIndex == 5)
         #expect(GraphNodeType.tag.rustIndex == 6)
         #expect(GraphNodeType.block.rustIndex == 7)
+        #expect(GraphNodeType.person.rustIndex == 8)
+        #expect(GraphNodeType.project.rustIndex == 9)
+        #expect(GraphNodeType.topic.rustIndex == 10)
+        #expect(GraphNodeType.decision.rustIndex == 11)
+        #expect(GraphNodeType.event.rustIndex == 12)
+        #expect(GraphNodeType.resource.rustIndex == 13)
     }
 
     @Test("all types have display names and icons")
@@ -88,6 +93,12 @@ struct GraphTypesTests {
         #expect(GraphNodeType(legacy: "quote") == .quote)
         #expect(GraphNodeType(legacy: "tag") == .tag)
         #expect(GraphNodeType(legacy: "block") == .block)
+        #expect(GraphNodeType(legacy: "person") == .person)
+        #expect(GraphNodeType(legacy: "project") == .project)
+        #expect(GraphNodeType(legacy: "topic") == .topic)
+        #expect(GraphNodeType(legacy: "decision") == .decision)
+        #expect(GraphNodeType(legacy: "event") == .event)
+        #expect(GraphNodeType(legacy: "resource") == .resource)
     }
 
     // MARK: - GraphEdgeType Legacy Migration

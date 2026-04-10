@@ -552,7 +552,11 @@ final class CloudProviderAuthService {
             throw CloudProviderAuthError.invalidGoogleClientConfiguration
         }
 
-        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
+        guard let tokenURL = URL(string: "https://oauth2.googleapis.com/token") else {
+            throw CloudProviderAuthError.invalidGoogleClientConfiguration
+        }
+
+        var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.formEncodedData([

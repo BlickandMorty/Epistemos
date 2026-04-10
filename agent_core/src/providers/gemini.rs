@@ -116,7 +116,6 @@ struct GeminiFunctionResponse {
 struct GeminiUsageMetadata {
     prompt_token_count: Option<u32>,
     candidates_token_count: Option<u32>,
-    total_token_count: Option<u32>,
 }
 
 // MARK: - AgentProvider Implementation
@@ -233,7 +232,7 @@ impl AgentProvider for GeminiProvider {
 
         let parsed_stream = stream! {
             let mut tool_call_index: usize = 0;
-            let mut text_index: usize = 0;
+            let text_index: usize = 0;
             let mut final_usage = TokenUsage::default();
             let mut final_stop_reason = StopReason::EndTurn;
 
@@ -308,9 +307,6 @@ impl AgentProvider for GeminiProvider {
 
                                         // Function call
                                         if let Some(fc) = &part.function_call {
-                                            let input_json = serde_json::to_string(&fc.args)
-                                                .unwrap_or_else(|_| "{}".to_string());
-
                                             let block = ContentBlock::ToolUse {
                                                 id: format!("gemini-tool-{}", tool_call_index),
                                                 name: fc.name.clone(),

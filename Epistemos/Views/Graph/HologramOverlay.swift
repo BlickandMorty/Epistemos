@@ -1035,7 +1035,9 @@ final class HologramOverlay {
                 self?.updatePinnedInspectorPositions()
             }
         }
-        RunLoop.main.add(pinnedPanelTimer!, forMode: .common)
+        if let pinnedPanelTimer {
+            RunLoop.main.add(pinnedPanelTimer, forMode: .common)
+        }
     }
 
     private func stopPinnedPanelTimer() {

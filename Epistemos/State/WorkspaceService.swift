@@ -15,6 +15,16 @@ struct WelcomeBackInfo {
     var sessionMinutes: Int
     var editedNoteTitles: [String]
 
+    static func cleanedSummaryText(from raw: String) -> String {
+        UserFacingModelOutput.finalVisibleText(from: raw)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var sanitizedIntentSummary: String {
+        UserFacingModelOutput.finalVisibleText(from: intentSummary)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Flat display text for the typewriter animation.
     var displayText: String {
         var lines: [String] = []
@@ -24,8 +34,8 @@ struct WelcomeBackInfo {
             lines.append("")
         }
 
-        if !intentSummary.isEmpty {
-            lines.append(intentSummary)
+        if !sanitizedIntentSummary.isEmpty {
+            lines.append(sanitizedIntentSummary)
             lines.append("")
         }
 
@@ -207,7 +217,7 @@ final class WorkspaceService {
 
         // 2. Main window state
         if let panel = NavTab(rawValue: snapshot.activePanel) {
-            bootstrap.uiState.setActivePanel(panel)
+            bootstrap.uiState.setActivePanel(panel.releaseSupportedVariant)
         }
         bootstrap.uiState.showChatSidebar = snapshot.showChatSidebar
         bootstrap.chatState.showLanding = snapshot.showLanding
@@ -401,7 +411,7 @@ final class WorkspaceService {
         // Build welcome-back info from the restored workspace
         let digest = snapshot.activityDigest
         welcomeBack = WelcomeBackInfo(
-            intentSummary: workspace.summary,
+            intentSummary: WelcomeBackInfo.cleanedSummaryText(from: workspace.summary),
             userNote: workspace.userNote,
             noteCount: snapshot.openNoteTabs.count,
             chatCount: snapshot.openMiniChatIds.count,

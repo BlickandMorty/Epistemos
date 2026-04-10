@@ -13,6 +13,8 @@ mkdir -p "$(dirname "$DEST_DYLIB")"
 cp "$SOURCE_DYLIB" "$DEST_DYLIB"
 
 if [ "${CODE_SIGNING_ALLOWED:-NO}" != "YES" ]; then
+    /usr/bin/codesign --remove-signature "$DEST_DYLIB" 2>/dev/null || true
+    /usr/bin/codesign --force --sign - --timestamp=none "$DEST_DYLIB"
     exit 0
 fi
 

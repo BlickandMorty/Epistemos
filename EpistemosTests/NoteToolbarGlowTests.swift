@@ -300,9 +300,6 @@ struct NoteToolbarGlowTests {
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        let fileURL = repoRoot.appendingPathComponent(relativePath)
-        return try String(contentsOf: fileURL, encoding: .utf8)
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

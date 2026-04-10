@@ -35,7 +35,7 @@ mod tests {
 
     #[test]
     fn theme_classic_colors_valid() {
-        for nt in 0..=7u8 {
+        for nt in 0..=13u8 {
             let color = NodeType::from_u8(nt).color();
             assert_eq!(
                 color[3], 1.0,
@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn from_graph_preserves_all_node_types() {
         let mut graph = Graph::new();
-        for nt in 0..=7u8 {
+        for nt in 0..=13u8 {
             graph.add_node(
                 format!("node-{nt}"),
                 nt as f32 * 100.0,
@@ -205,9 +205,9 @@ mod tests {
         }
 
         let world = World::from_graph(&graph);
-        assert_eq!(world.len(), 8);
+        assert_eq!(world.len(), 14);
 
-        for nt in 0..=7u8 {
+        for nt in 0..=13u8 {
             let entity = world.node_id_to_entity[&u32::from(nt)];
             let idx = world.index_of(entity).unwrap();
             assert_eq!(world.hierarchy[idx].node_type, nt);
@@ -224,7 +224,7 @@ mod tests {
                 format!("uuid-{i}"),
                 i as f32,
                 i as f32,
-                (i % 8) as u8,
+                (i % 14) as u8,
                 i,
                 format!("Node {i}"),
             );

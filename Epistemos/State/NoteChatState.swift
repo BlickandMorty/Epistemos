@@ -288,11 +288,12 @@ final class NoteChatState {
 
         // Build prompt with conversation history for follow-ups
         let history = conversationHistoryPrompt()
+        let requestLine = "Request: \(trimmed)"
         let fullPrompt = buildPrompt(
             noteSnippet: noteSnippet,
             recallContext: recallContext,
             history: history,
-            query: trimmed
+            requestLine: requestLine
         )
 
         let stream: AsyncThrowingStream<String, Error>
@@ -333,24 +334,25 @@ final class NoteChatState {
         let recallContext = instantRecallContext(for: trimmed)
 
         let history = conversationHistoryPrompt()
+        let requestLine = "Request: \(trimmed)"
         let fullPrompt = buildPrompt(
             noteSnippet: noteSnippet,
             recallContext: recallContext,
             history: history,
-            query: trimmed
+            requestLine: requestLine
         )
 
         let stream: AsyncThrowingStream<String, Error>
         if let reasoning = AppBootstrap.shared?.reasoningLoopService, reasoning.config.enabled {
             stream = reasoning.streamWithReasoning(
-                prompt: fullPrompt, systemPrompt: Self.noteAskSystemPrompt,
+                prompt: fullPrompt, systemPrompt: nil,
                 operation: .ask(query: trimmed),
                 contentLength: noteBody.count, query: trimmed
             )
             log.info("Note chat toolbar: reasoning loop enabled")
         } else {
             stream = triageService.stream(
-                prompt: fullPrompt, systemPrompt: Self.noteAskSystemPrompt,
+                prompt: fullPrompt, systemPrompt: nil,
                 operation: .ask(query: trimmed),
                 contentLength: noteBody.count, query: trimmed
             )
@@ -377,17 +379,13 @@ final class NoteChatState {
 
         let noteBody = noteBodyProvider?() ?? ""
         let noteSnippet = String(noteBody.prefix(4000))
-        let fullPrompt: String
-        if noteSnippet.isEmpty {
-            fullPrompt = "Request: \(trimmed)"
-        } else {
-            fullPrompt = """
-            Note content:
-            \(noteSnippet)
-
-            Request: \(trimmed)
-            """
-        }
+        let requestLine = "Request: \(trimmed)"
+        let fullPrompt = buildPrompt(
+            noteSnippet: noteSnippet,
+            recallContext: "",
+            history: "",
+            requestLine: requestLine
+        )
 
         let stream: AsyncThrowingStream<String, Error>
         if let reasoning = AppBootstrap.shared?.reasoningLoopService, reasoning.config.enabled {
@@ -481,23 +479,33 @@ final class NoteChatState {
         return curated
     }
 
-    private static let noteAskSystemPrompt = """
-        You are a helpful assistant embedded in a note editor. \
-        The user is asking a question about or related to the note they are currently editing. \
-        Answer their question directly and concisely. Do not summarize the note unless explicitly asked. \
-        Focus on the user's specific question.
-        """
-
     private func buildPrompt(
         noteSnippet: String,
         recallContext: String,
         history: String,
-        query: String
+        requestLine: String
     ) -> String {
         var sections: [String] = []
         sections.reserveCapacity(5)
 
+        sections.append("""
+        <assistant_contract>
+        You are a helpful assistant embedded in a note editor.
+        The note content provided in the prompt is the exact live document the user is editing right now.
+        Do not ask the user to paste the note again unless the prompt explicitly says content is missing.
+        Answer the user's request directly and concisely.
+        Do not summarize the note unless explicitly asked.
+        Focus on the user's specific request.
+        </assistant_contract>
+        """)
+
         if !noteSnippet.isEmpty {
+            sections.append("""
+            <current_note_contract>
+            The note content below is the current live document. Treat it as the primary source of truth for this request.
+            Do not ask the user to paste the note again unless some required content is missing from the prompt.
+            </current_note_contract>
+            """)
             sections.append("<note>\n\(noteSnippet)\n</note>")
         }
 
@@ -517,7 +525,7 @@ final class NoteChatState {
             sections.append("<conversation_history>\n\(history)\n</conversation_history>")
         }
 
-        sections.append("Question: \(query)")
+        sections.append(requestLine)
         return sections.joined(separator: "\n\n")
     }
 

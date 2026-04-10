@@ -172,7 +172,7 @@ actor ChunkedMCPFrameAccumulator {
 
         Self.logger.info("Resolving SHM reference: \(segmentName) (\(byteLength) bytes)")
 
-        #if canImport(agent_core)
+        #if canImport(agent_coreFFI)
         do {
             let payload = try shmReadPayload(segmentName: segmentName, byteLength: UInt64(byteLength))
             Self.logger.info("SHM resolved: \(segmentName) → \(payload.count) chars")

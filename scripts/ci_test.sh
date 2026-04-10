@@ -17,18 +17,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 RESULTS_DIR="$PROJECT_DIR/test_results"
 DERIVED_DATA_DIR="${DERIVED_DATA_DIR:-$RESULTS_DIR/ci_derived_data}"
-SOURCE_PACKAGES_DIR="${SOURCE_PACKAGES_DIR:-$RESULTS_DIR/ci_source_packages}"
+SOURCE_PACKAGES_DIR="${SOURCE_PACKAGES_DIR:-}"
+PACKAGE_ARGS=()
 
 mkdir -p "$RESULTS_DIR"
-mkdir -p "$SOURCE_PACKAGES_DIR"
 rm -rf "$DERIVED_DATA_DIR"
+
+if [ -n "$SOURCE_PACKAGES_DIR" ]; then
+    mkdir -p "$SOURCE_PACKAGES_DIR"
+    PACKAGE_ARGS=(-clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR")
+fi
 
 echo "════════════════════════════════════════════════════════════════════"
 echo "                    CI TEST RUNNER"
 echo "════════════════════════════════════════════════════════════════════"
 echo ""
 echo "DerivedData: $DERIVED_DATA_DIR"
-echo "SourcePackages: $SOURCE_PACKAGES_DIR"
+echo "SourcePackages: ${SOURCE_PACKAGES_DIR:-<xcode-managed default>}"
 echo ""
 
 EXIT_CODE=0
@@ -84,7 +89,7 @@ if xcodebuild build-for-testing \
     -scheme Epistemos \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
-    -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR" \
+    "${PACKAGE_ARGS[@]}" \
     2>&1 | tee "$RESULTS_DIR/swift_build.log"; then
     
     echo "✅ Swift build successful"
@@ -110,7 +115,7 @@ if xcodebuild test-without-building \
     -scheme Epistemos \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
-    -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR" \
+    "${PACKAGE_ARGS[@]}" \
     -resultBundlePath "$RESULTS_DIR/TestResults.xcresult" \
     2>&1 | tee "$RESULTS_DIR/swift_tests.log"; then
     

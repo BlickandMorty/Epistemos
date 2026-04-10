@@ -2,6 +2,10 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+// Legacy live runtime transcript tests are kept for reference while the old
+// Omega live runtime surface stays retired from the current app.
+#if false
+
 @Suite("Omega Live Runtime")
 @MainActor
 struct OmegaLiveRuntimeTests {
@@ -63,3 +67,4 @@ struct OmegaLiveRuntimeTests {
         #expect(orchestrator.liveRuntime.currentPhase?.kind == .failed)
     }
 }
+#endif

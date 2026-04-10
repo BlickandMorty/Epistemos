@@ -3,6 +3,10 @@ import SwiftData
 import Testing
 @testable import Epistemos
 
+// Legacy Omega agent implementation tests are kept for reference while the
+// old multi-agent runtime types remain retired from the shipping app.
+#if false
+
 @Suite("Omega Agents")
 @MainActor
 struct OmegaAgentTests {
@@ -424,3 +428,4 @@ struct OmegaAgentTests {
         #expect(payload["snippetB"] as? String == snippetB)
     }
 }
+#endif

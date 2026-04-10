@@ -24,13 +24,13 @@ settings:
       DEBUG_INFORMATION_FORMAT: "dwarf"
       GCC_GENERATE_DEBUGGING_SYMBOLS: true
     Release:
-      SWIFT_OPTIMIZATION_LEVEL: "-Os"
+      SWIFT_OPTIMIZATION_LEVEL: "-Osize"
       DEAD_CODE_STRIPPING: true
       LLVM_LTO: "YES"
       STRIP_INSTALLED_PRODUCT: true
       STRIP_SWIFT_SYMBOLS: true
       DEPLOYMENT_POSTPROCESSING: true
-      GCC_OPTIMIZATION_LEVEL: "-Os"
+      GCC_OPTIMIZATION_LEVEL: "s"
       COPY_PHASE_STRIP: true
 
 targets:
@@ -40,12 +40,16 @@ targets:
     sources:
       - path: Epistemos
         excludes:
+          - Engine/ClaudeManagedRuntime.swift
+          - Engine/LocalRustRuntime.swift
           - KnowledgeFusion/MOHAWK/**
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
+          - Vault/KnowledgeGraphService.swift
       - path: build-rust/swift-bindings/omega_mcp.swift
       - path: build-rust/swift-bindings/omega_ax.swift
       - path: build-rust/swift-bindings/epistemos_core.swift
+      - path: build-rust/swift-bindings/agent_core.swift
     resources:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
@@ -66,8 +70,8 @@ targets:
           - "@executable_path"
           - "@executable_path/../Frameworks"
           - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lepistemos_core
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lepistemos_core -lagent_core
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
@@ -81,7 +85,7 @@ targets:
           ENABLE_HARDENED_RUNTIME: true
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && if [ \"${SHIP_MODE}\" != \"release\" ]; then bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\"; else echo \"SHIP_MODE=release: skipping agent crates (52MB saved)\"; fi"
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -98,6 +102,8 @@ targets:
         product: MLXLMCommon
       - package: MLX-LM
         product: MLXLLM
+      - package: MLX-LM
+        product: MLXVLM
       - package: CodeEditSourceEditor
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
@@ -115,6 +121,101 @@ targets:
       - path: EpistemosTests
     dependencies:
       - target: Epistemos
+    preBuildScripts:
+      - name: Bundle Test Source Mirror
+        script: |
+          set -euo pipefail
+          output_dir="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceMirror"
+          rm -rf "${output_dir}"
+          mkdir -p "${output_dir}"
+
+          copy_tree() {
+            local relative_root="$1"
+            local source_root="${PROJECT_DIR}/${relative_root}"
+            local destination_root="${output_dir}/${relative_root}"
+
+            if [ ! -d "${source_root}" ]; then
+              return 0
+            fi
+
+            mkdir -p "${destination_root}"
+            rsync -a --delete --prune-empty-dirs \
+              --include='*/' \
+              --include='*.swift' \
+              --include='*.rs' \
+              --include='*.py' \
+              --include='*.sh' \
+              --include='*.yml' \
+              --include='*.yaml' \
+              --include='*.toml' \
+              --include='*.h' \
+              --include='*.pbxproj' \
+              --include='*.plist' \
+              --include='*.md' \
+              --include='*.json' \
+              --include='*.jsonl' \
+              --include='*.metal' \
+              --include='*.xcprivacy' \
+              --include='*.entitlements' \
+              --include='*.udl' \
+              --include='*.xcscheme' \
+              --include='*.xcworkspacedata' \
+              --exclude='*' \
+              "${source_root}/" "${destination_root}/"
+          }
+
+          copy_file() {
+            local relative_path="$1"
+            local source_path="${PROJECT_DIR}/${relative_path}"
+            local destination_path="${output_dir}/${relative_path}"
+
+            if [ ! -f "${source_path}" ]; then
+              return 0
+            fi
+
+            mkdir -p "$(dirname "${destination_path}")"
+            cp "${source_path}" "${destination_path}"
+          }
+
+          copy_tree "Epistemos"
+          copy_tree "EpistemosTests"
+          copy_tree "agent_core"
+          copy_tree "graph-engine"
+          copy_tree "graph-engine-bridge"
+          copy_tree "epistemos-core"
+          copy_tree "scripts"
+          copy_tree "docs"
+          copy_tree ".github"
+          copy_tree "config"
+          copy_tree "LocalPackages"
+          copy_tree "Epistemos.xcodeproj"
+
+          copy_file "AGENTS.md"
+          copy_file "CLAUDE.md"
+          copy_file "Epistemos-Info.plist"
+          copy_file "project.yml"
+          copy_file "Makefile"
+          copy_file "TESTING_GUIDE.md"
+          copy_file "patch-uniffi-bindings.py"
+          copy_file "bundle-app-runtime-assets.sh"
+          copy_file "embed-and-sign-rust-dylib.sh"
+          copy_file "build-rust.sh"
+          copy_file "build-omega-mcp.sh"
+          copy_file "build-omega-ax.sh"
+          copy_file "build-epistemos-core.sh"
+          copy_file "build-agent-core.sh"
+        basedOnDependencyAnalysis: false
+      - name: Bundle Adapter Audit Sources
+        script: |
+          set -euo pipefail
+          output_dir="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AdapterAudit"
+          mkdir -p "${output_dir}"
+          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterExporter.swift" "${output_dir}/AdapterExporter.swift.txt"
+          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterLoader.swift" "${output_dir}/AdapterLoader.swift.txt"
+          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterRegistry.swift" "${output_dir}/AdapterRegistry.swift.txt"
+          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterRouter.swift" "${output_dir}/AdapterRouter.swift.txt"
+          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift" "${output_dir}/MoLoRARouter.swift.txt"
+        basedOnDependencyAnalysis: false
     settings:
       base:
         PRODUCT_NAME: EpistemosTests
@@ -126,10 +227,10 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
         ALWAYS_SEARCH_USER_PATHS: false
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
         BUNDLE_LOADER: "$(TEST_HOST)"
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
 
 packages:
   AXorcist:
@@ -148,8 +249,7 @@ packages:
     url: https://github.com/ml-explore/mlx-swift
     revision: 6ba4827fb82c97d012eec9ab4b2de21f85c3b33d
   MLX-LM:
-    url: https://github.com/ml-explore/mlx-swift-lm
-    revision: bc3c20ef4644c86f2b347debcfe1efe4308712a6
+    path: LocalPackages/mlx-swift-lm
   CodeEditSourceEditor:
     url: https://github.com/CodeEditApp/CodeEditSourceEditor
     from: "0.15.2"
@@ -166,7 +266,3 @@ schemes:
       executable: Epistemos
     archive:
       config: Release
-      preActions:
-        - script: "export SHIP_MODE=release"
-          name: "Set SHIP_MODE for release archive"
-          settingsTarget: Epistemos

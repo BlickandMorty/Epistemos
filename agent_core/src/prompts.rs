@@ -1,53 +1,11 @@
+/// Compact tool rules — only injected for Code mode. ~100 tokens vs the old ~400.
 pub const TOOL_PREFERENCE_RULES: &str = r#"
-## Codebase Navigation — MANDATORY (Token Savior Protocol)
-You MUST use the native AST symbol tools FIRST for ALL codebase exploration.
-These tools use zero-copy mmap + SIMD scanning and return only the exact
-code you need, saving 99% of tokens compared to grep/cat.
-
-### Tool Priority (STRICT ORDER)
-1. **find_symbol** — Find where a symbol (function, struct, class, enum, trait) is defined
-2. **get_function_source** — Get the complete source of a function including its body
-3. **get_dependencies** — List all imports/use statements in a file
-4. **get_dependents** — Find all files that import a given symbol
-5. **get_change_impact** — Transitive dependency analysis (2-hop blast radius)
-6. **workspace_search** — SIMD text search across all files (when above tools don't cover it)
-7. **bash_execute with rg** — LAST RESORT only for binary files or untracked content
-
-### FORBIDDEN Patterns
-- Do NOT use `cat` to read entire files when you only need one function
-- Do NOT use `grep` to find symbol definitions — use find_symbol
-- Do NOT dump file contents into context — use get_function_source for surgical extraction
-- Do NOT guess at dependencies — use get_dependencies and get_dependents
-
-### Large Result Handling
-Results exceeding 48KB are automatically offloaded to shared memory.
-You will receive a JSON reference with segment_name and byte_length instead
-of the raw content. The control plane handles retrieval transparently.
-
-## Tool preferences
-- Files: `fd` not `find`
-- Text search: `rg` not `grep` (but prefer find_symbol/workspace_search first)
-- Code structure: `sg` (ast-grep) not regex for code queries
-- Code rewriting: `comby` for structural changes, `sed` for literal replacements
-- JSON: `jq` or `gron` not Python
-- YAML/frontmatter: `yq` not Python
-- Diffs: `difftastic` not standard diff
-- Git fixup: `git-absorb --and-rebase` not manual squash
-- HTTP: `xh` or `hurl` not curl
-- Binary inspection: `fq` not hexdump
-
-## Memory rules
-1. Run vault_search at the start of every multi-step task
-2. Write scratch files to sessions/<id>/scratch/ during long tasks
-3. Keep tool results under 4096 tokens
-4. After 10 turns, write a session summary to sessions/<id>/summary.md
-
-## Execution rules
-1. Execute independent tool calls in parallel, never sequentially
-2. If a search returns no results, broaden before giving up
-3. If a tool errors, report it and decide whether to retry or proceed
-4. Never execute destructive operations without explicit user approval
-5. Prefer reading existing vault notes before creating new ones
+## Tool Rules
+- Use find_symbol/get_function_source before grep/cat
+- Prefer rg over grep, fd over find
+- Keep tool results under 4096 tokens
+- Execute independent tool calls in parallel
+- Never destructive operations without user approval
 "#;
 
 pub const BASE_SYSTEM_PROMPT: &str = r#"
@@ -90,13 +48,36 @@ pub fn build_system_prompt(
     context_notes: &[String],
     mode: PromptMode,
 ) -> String {
-    let mut parts = Vec::with_capacity(5);
+    build_system_prompt_with_index(base, context_notes, mode, None)
+}
+
+/// Build system prompt with optional knowledge index injected at prefix-cache position.
+/// The knowledge index is a compact entity table that enables entity resolution by lookup.
+pub fn build_system_prompt_with_index(
+    base: Option<&str>,
+    context_notes: &[String],
+    mode: PromptMode,
+    knowledge_index: Option<&str>,
+) -> String {
+    let mut parts = Vec::with_capacity(6);
+
+    // Knowledge index goes FIRST — prefix-cache position for maximum attention
+    if let Some(index) = knowledge_index {
+        if !index.is_empty() {
+            parts.push(index.to_string());
+        }
+    }
+
     parts.push(base.unwrap_or(BASE_SYSTEM_PROMPT).to_string());
 
     match mode {
         PromptMode::General => {}
         PromptMode::Research => parts.push(RESEARCH_PROMPT.to_string()),
-        PromptMode::Code => parts.push(CODE_PROMPT.to_string()),
+        PromptMode::Code => {
+            parts.push(CODE_PROMPT.to_string());
+            // Tool rules only injected for code tasks — not for general/research chat
+            parts.push(TOOL_PREFERENCE_RULES.to_string());
+        }
         PromptMode::LocalFallback => parts.push(LOCAL_FALLBACK_NOTICE.to_string()),
     }
 
@@ -107,6 +88,5 @@ pub fn build_system_prompt(
         ));
     }
 
-    parts.push(TOOL_PREFERENCE_RULES.to_string());
     parts.join("\n\n")
 }

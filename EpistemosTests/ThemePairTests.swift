@@ -251,9 +251,9 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("Graph overlay uses bright light blur and dark HUD blur")
-    func graphOverlayUsesLightAndDarkNativeBlurMaterials() {
-        #expect(GraphOverlayThemeStyle.blurMaterial(for: .systemLight) == .sheet)
+    @Test("Graph overlay uses floating glass blur in light and dark modes")
+    func graphOverlayUsesFloatingGlassBlurMaterials() {
+        #expect(GraphOverlayThemeStyle.blurMaterial(for: .systemLight) == .hudWindow)
         #expect(GraphOverlayThemeStyle.blurMaterial(for: .systemDark) == .hudWindow)
     }
 
@@ -768,7 +768,7 @@ struct ThemePairTests {
         #expect(messageBubble.contains(".padding(.horizontal, 18)"))
         #expect(messageBubble.contains(".padding(.vertical, 14)"))
         #expect(markdownView.contains("private static let bodyLineSpacing: CGFloat = 5"))
-        #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 16"))
+        #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 11"))
     }
 
     @Test("Chat streaming stays plain and no longer routes through a separate thinking accordion")
@@ -801,7 +801,7 @@ struct ThemePairTests {
         #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
         #expect(rootView.contains("ASCIIRippleText("))
         #expect(rootView.contains("AnchoredPopoverButton("))
-        #expect(rootView.contains("inference.setPreferredChatModelSelection(.localQwen(model.id))"))
+        #expect(rootView.contains("inference.setPreferredChatModelSelection(.localMLX(model.id))"))
         #expect(rootView.contains("Button(\"Open Inference Settings\")"))
         #expect(miniChat.contains("threadState.ensureMiniChatSession(id: chatID)"))
         #expect(miniChat.contains("threadState.upsertMiniChatSession("))
@@ -1534,8 +1534,7 @@ LD_RUNPATH_SEARCH_PATHS = (
     }
 
     private func loadBundlePlist() throws -> [String: Any] {
-        let plistURL = repoRootURL().appendingPathComponent("Epistemos-Info.plist")
-        let data = try Data(contentsOf: plistURL)
+        let data = try loadMirroredSourceDataFile("Epistemos-Info.plist")
         return try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
     }
 
@@ -1544,17 +1543,11 @@ LD_RUNPATH_SEARCH_PATHS = (
     }
 
     private func loadRepoRootTextFile(_ relativePath: String) throws -> String {
-        try String(
-            contentsOf: repoRootURL().appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 
     private func loadTextFile(_ relativePath: String) throws -> String {
-        try String(
-            contentsOf: repoRootURL().appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 
     private func repoRootURL() -> URL {

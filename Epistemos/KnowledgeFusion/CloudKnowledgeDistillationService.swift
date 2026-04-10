@@ -41,13 +41,17 @@ actor CloudKnowledgeDistillationService {
     }
 
     func rebuildAllModelVaults() async throws -> CloudKnowledgeDistillationRunSummary {
+        try await rebuildModelVaults(for: targetsProvider())
+    }
+
+    func rebuildModelVaults(for targets: [ModelVaultTarget]) async throws -> CloudKnowledgeDistillationRunSummary {
         let notes = try sourceNotesProvider?() ?? Self.loadNotes(from: modelContainer)
         let recentChats = try (recentChatsProvider?() ?? Self.loadRecentChats(from: modelContainer))
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
         var compiledModelIDs: [String] = []
-        for target in targetsProvider().sorted(by: Self.sortTargets) {
+        for target in targets.sorted(by: Self.sortTargets) {
             let compiler = CloudKnowledgeCompiler(
                 nowProvider: nowProvider,
                 activeWindowDays: target.activeWindowDays,
@@ -207,9 +211,9 @@ actor CloudKnowledgeDistillationService {
         )
 
         targets.append(
-            contentsOf: LocalTextModelID.allCases.map {
+            contentsOf: LocalModelCatalog.allDescriptors.map {
                 ModelVaultTarget(
-                    modelID: $0.rawValue,
+                    modelID: $0.id,
                     displayName: $0.displayName,
                     conceptLimit: 24,
                     activeWindowDays: 7

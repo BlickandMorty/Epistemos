@@ -151,4 +151,35 @@ struct UserFacingModelOutputTests {
                 == "The stronger recommendation is to keep Thinking enabled for deeper local analysis."
         )
     }
+
+    @Test("streaming text strips orphan closing think tags before the visible answer")
+    func streamingTextStripsOrphanClosingThinkTagPrelude() {
+        let raw = """
+        Okay, the user has a file and wants suggestions on edits. I need to ask for more details about the file and their goals.
+        </think>
+
+        Sure! Please provide the file and the specific edits or changes you'd like me to suggest, and I'll help with the most appropriate edits.
+        """
+
+        #expect(
+            UserFacingModelOutput.streamingVisibleText(from: raw)
+                == "Sure! Please provide the file and the specific edits or changes you'd like me to suggest, and I'll help with the most appropriate edits."
+        )
+    }
+
+    @Test("final text strips orphan closing think tags before the visible answer")
+    func finalTextStripsOrphanClosingThinkTagPrelude() {
+        let raw = """
+        Okay, so I need to come up with a very short title for a chat conversation that starts with the query: "need help making an app"
+        I should make sure to keep the response concise and informative.
+        </think>
+
+        Great! Let's help you create boilerplate code for an iOS app. Below is a basic structure to get you started:
+        """
+
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "Great! Let's help you create boilerplate code for an iOS app. Below is a basic structure to get you started:"
+        )
+    }
 }

@@ -180,14 +180,20 @@ extension GraphNodeType {
     /// SwiftUI color matching the Rust renderer colors.
     var swiftUIColor: Color {
         switch self {
-        case .note:   return Color(red: 0.39, green: 0.90, blue: 0.85)  // teal
-        case .chat:   return Color(red: 1.00, green: 0.62, blue: 0.04)  // orange
-        case .idea:   return Color(red: 1.00, green: 0.84, blue: 0.04)  // yellow
-        case .source: return Color(red: 0.20, green: 0.78, blue: 0.35)  // green
-        case .folder: return Color(red: 0.64, green: 0.52, blue: 0.37)  // brown
-        case .quote:  return Color(red: 0.69, green: 0.32, blue: 0.87)  // purple
-        case .tag:    return Color(red: 0.46, green: 0.46, blue: 0.50)  // gray
-        case .block:  return Color(red: 0.55, green: 0.78, blue: 0.90)  // sky blue
+        case .note:     return Color(red: 0.39, green: 0.90, blue: 0.85)  // teal
+        case .chat:     return Color(red: 1.00, green: 0.62, blue: 0.04)  // orange
+        case .idea:     return Color(red: 1.00, green: 0.84, blue: 0.04)  // yellow
+        case .source:   return Color(red: 0.20, green: 0.78, blue: 0.35)  // green
+        case .folder:   return Color(red: 0.64, green: 0.52, blue: 0.37)  // brown
+        case .quote:    return Color(red: 0.69, green: 0.32, blue: 0.87)  // purple
+        case .tag:      return Color(red: 0.46, green: 0.46, blue: 0.50)  // gray
+        case .block:    return Color(red: 0.55, green: 0.78, blue: 0.90)  // sky blue
+        case .person:   return Color(red: 0.83, green: 0.35, blue: 0.58)  // rose
+        case .project:  return Color(red: 0.89, green: 0.42, blue: 0.16)  // orange
+        case .topic:    return Color(red: 0.20, green: 0.56, blue: 0.95)  // azure
+        case .decision: return Color(red: 0.83, green: 0.20, blue: 0.18)  // red
+        case .event:    return Color(red: 0.98, green: 0.56, blue: 0.27)  // coral
+        case .resource: return Color(red: 0.14, green: 0.55, blue: 0.52)  // sea green
         }
     }
 }

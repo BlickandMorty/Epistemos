@@ -6,11 +6,7 @@ import Testing
 @testable import Epistemos
 
 private func loadWorkspaceSnapshotRepoTextFile(_ relativePath: String) throws -> String {
-    let repoRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let fileURL = repoRoot.appendingPathComponent(relativePath)
-    return try String(contentsOf: fileURL, encoding: .utf8)
+    try loadMirroredSourceTextFile(relativePath)
 }
 
 @Suite("WorkspaceSnapshot")
@@ -250,6 +246,41 @@ struct EventStoreTests {
         let spotlightMarkerURL = dbURL.deletingLastPathComponent().appendingPathComponent(".metadata_never_index")
         #expect(FileManager.default.fileExists(atPath: spotlightMarkerURL.path))
     }
+
+    @Test("session metrics round-trip through the event store")
+    func sessionMetricsRoundTrip() async throws {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("event-store-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("events.sqlite")
+        let store = try #require(EventStore(databaseURL: dbURL))
+
+        let metrics = ReasoningTrajectoryMetricsFFI(
+            displacement: 0.5,
+            pathLength: 1.0,
+            curvatureRatio: 2.0,
+            loopCount: 1,
+            errorCount: 0,
+            totalCalls: 4,
+            efficiency: 0.125,
+            classification: "exploratory"
+        )
+
+        store.saveSessionMetrics(sessionId: "session-trajectory", metrics: metrics)
+
+        var stored: EventStore.SessionMetricsRecord?
+        for _ in 0..<20 {
+            stored = store.sessionMetrics(for: "session-trajectory")
+            if stored != nil {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        let record = try #require(stored)
+        #expect(record.classification == "exploratory")
+        #expect(record.totalCalls == 4)
+        #expect(store.sessionMetricClassification(sessionId: "session-trajectory") == "exploratory")
+    }
 }
 
 @Suite("Startup Integrity")
@@ -445,6 +476,19 @@ struct StartupIntegrityTests {
         #expect(!appBootstrap.contains("await KnowledgeFusionViewModel.shared.loadState()"))
         #expect(appBootstrap.contains("KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
         #expect(settingsView.contains("await vm.loadState()"))
+    }
+
+    @Test("workspace restore sanitizes retired omega snapshots back to home")
+    func workspaceRestoreSanitizesRetiredOmegaSnapshots() throws {
+        let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
+        let navigationIntents = try loadWorkspaceSnapshotRepoTextFile("Epistemos/Intents/Custom/NavigationIntents.swift")
+        let brandedTypes = try loadWorkspaceSnapshotRepoTextFile("Epistemos/Models/BrandedTypes.swift")
+
+        #expect(workspaceService.contains("panel.releaseSupportedVariant"))
+        #expect(navigationIntents.contains("tab.releaseSupportedVariant"))
+        #expect(brandedTypes.contains("var releaseSupportedVariant: NavTab"))
+        #expect(brandedTypes.contains("case .omega:"))
+        #expect(brandedTypes.contains(".home"))
     }
 
     @Test("automatic vault restore waits for primary launch work when bookmark restore is ready")

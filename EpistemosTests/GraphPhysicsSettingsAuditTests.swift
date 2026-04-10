@@ -79,6 +79,14 @@ struct GraphPhysicsSettingsAuditTests {
         )
     }
 
+    @Test("Renderer camera smoothing stays on the 6.5 buttery baseline")
+    func rendererCameraSmoothingStaysOnButteryBaseline() throws {
+        let source = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+
+        #expect(source.contains("const CAMERA_LAMBDA: f32 = 6.5;"))
+        #expect(source.contains("Was 3.0 (too slow per user 2026-04-04)."))
+    }
+
     @Test("Presets reset lab state instead of inheriting stale toggles")
     func presetsResetLabState() {
         clearPhysicsDefaults()
@@ -117,18 +125,18 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(abs(state.orbitalSpeed - 0.3) < 0.0001)
     }
 
-    @Test("Overlay cycle reaches chaos in 4 seconds without enabling fluid wake")
+    @Test("Overlay cycle reaches chaos in 4 seconds from the Deep Sea opening preset without enabling fluid wake")
     func overlayCycleKeepsFluidWakeOffByDefault() async {
         clearPhysicsDefaults()
 
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .deepSea)
         #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
 
         let state = GraphState()
         state.startOverlayPhysicsCycle()
 
-        #expect(state.selectedPhysicsPreset == .crystal)
+        #expect(state.selectedPhysicsPreset == .deepSea)
         #expect(!state.enableFluidDynamics)
 
         #expect(await waitForPreset(.chaos, in: state))
@@ -136,15 +144,15 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!state.enableFluidDynamics)
     }
 
-    @Test("Graph rebuild requests restart in crystal and mark rebuild pending")
-    func graphRebuildRequestStartsCrystalCycle() {
+    @Test("Graph rebuild requests restart in Deep Sea and mark rebuild pending")
+    func graphRebuildRequestStartsDeepSeaCycle() {
         clearPhysicsDefaults()
 
         let state = GraphState()
         state.requestGraphRebuild()
 
         #expect(state.pendingRebuild)
-        #expect(state.selectedPhysicsPreset == .crystal)
+        #expect(state.selectedPhysicsPreset == .deepSea)
         #expect(!state.enableFluidDynamics)
     }
 

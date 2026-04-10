@@ -18,25 +18,27 @@
 
 ### Run All Tests
 ```bash
-xcodebuild build-for-testing -project Epistemos.xcodeproj \
+./scripts/xcodebuild_epistemos.sh build-for-testing -project Epistemos.xcodeproj \
   -scheme Epistemos -destination 'platform=macOS'
 
-xcodebuild test -project Epistemos.xcodeproj \
+./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj \
   -scheme Epistemos -destination 'platform=macOS'
 ```
+
+`./scripts/xcodebuild_epistemos.sh` exports `DISABLE_SWIFTLINT=1` in the real process environment so transitive SwiftLint package plug-ins from the embedded CodeEdit dependencies do not fail the build with the current Xcode 16 `Output` directory bug.
 
 ### Run Specific Categories
 ```bash
 # Performance benchmarks only
-xcodebuild test -project Epistemos.xcodeproj \
+./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj \
   -only-testing:EpistemosTests/NotePerformanceBenchmarkTests
 
 # Memory leak tests
-xcodebuild test -project Epistemos.xcodeproj \
+./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj \
   -only-testing:EpistemosTests/BasicMemoryLeakTests
 
 # Chaos tests
-xcodebuild test -project Epistemos.xcodeproj \
+./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj \
   -only-testing:EpistemosTests/NetworkChaosTests
 ```
 

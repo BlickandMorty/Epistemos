@@ -15,10 +15,9 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use crate::agent_loop::{run_agent_loop, AgentConfig, AgentError, Effort};
+use crate::agent_loop::{run_agent_loop, AgentConfig, Effort};
 use crate::provider::AgentProvider;
 use crate::tools::registry::{ToolHandler, ToolRegistry};
-use crate::types::TokenUsage;
 
 use super::registry::ToolError;
 
@@ -60,6 +59,9 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
     fn on_turn_started(&self, _: u32, _: u32) {}
     fn on_complete(&self, _: String, _: u32, _: u32) {}
     fn on_error(&self, _: String) {}
+    fn execute_computer_action(&self, _: String) -> String {
+        "{\"success\":false,\"error\":\"computer use unavailable in silent delegate\"}".to_string()
+    }
     fn wait_for_permission(&self, _: String) -> bool {
         // Auto-approve everything in subagents (parent already approved)
         true

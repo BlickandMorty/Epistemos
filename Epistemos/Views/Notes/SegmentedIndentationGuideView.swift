@@ -105,6 +105,7 @@ final class SegmentedIndentationGuideView: NSView {
 
         lineInfos = newLineInfos
         maxIndentLevel = maxIndent
+        setActiveLine(cursorLine)
 
         needsDisplay = true
     }
@@ -120,6 +121,11 @@ final class SegmentedIndentationGuideView: NSView {
     func updateScrollOffset(_ offset: CGFloat) {
         scrollOffset = offset
         needsDisplay = true
+    }
+
+    func setActiveLine(_ lineNumber: Int) {
+        let nextActiveLevel = lineInfos.first(where: { $0.lineNumber == lineNumber })?.indentLevel ?? -1
+        setActiveIndentLevel(nextActiveLevel)
     }
     
     // MARK: - Drawing

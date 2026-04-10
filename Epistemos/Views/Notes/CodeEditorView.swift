@@ -173,6 +173,76 @@ extension Color {
     }
 }
 
+enum CodeEditorPerformancePolicy {
+    static func shouldRefreshSemanticContext(isSidebarVisible: Bool) -> Bool {
+        isSidebarVisible
+    }
+
+    static func outlineRefreshDelay(characterCount: Int) -> Duration {
+        switch characterCount {
+        case ..<4_000:
+            .milliseconds(90)
+        case ..<20_000:
+            .milliseconds(160)
+        default:
+            .milliseconds(280)
+        }
+    }
+
+    static func outlineRefreshDelayMilliseconds(characterCount: Int) -> Int {
+        switch characterCount {
+        case ..<4_000:
+            90
+        case ..<20_000:
+            160
+        default:
+            280
+        }
+    }
+
+    static func insightRefreshDelay(characterCount: Int) -> Duration {
+        switch characterCount {
+        case ..<2_000:
+            .milliseconds(180)
+        case ..<10_000:
+            .milliseconds(320)
+        default:
+            .milliseconds(520)
+        }
+    }
+
+    static func insightRefreshDelayMilliseconds(characterCount: Int) -> Int {
+        switch characterCount {
+        case ..<2_000:
+            180
+        case ..<10_000:
+            320
+        default:
+            520
+        }
+    }
+
+    static let semanticRefreshDelay: Duration = .milliseconds(220)
+    static let scrollGuideRefreshDelay: Duration = .milliseconds(50)
+
+    static func indentationGuideRefreshDelay(characterCount: Int) -> Duration {
+        switch characterCount {
+        case ..<4_000:
+            .milliseconds(45)
+        case ..<20_000:
+            .milliseconds(90)
+        default:
+            .milliseconds(160)
+        }
+    }
+}
+
+enum CodeEditorReleasePolicy {
+    static let semanticSidebarEnabled = false
+    static let aiPartnerEnabled = false
+    static let availableAskBarResponseModes: [CodeAskBarResponseMode] = [.focused]
+}
+
 // MARK: - Language Detection
 
 nonisolated enum CodeLanguage {
@@ -1103,6 +1173,9 @@ struct CodeEditorView: View {
     @State private var cursorCol: Int = 1
     @State private var totalLines: Int
     @State private var contentChangeTask: Task<Void, Never>?
+    @State private var outlineRefreshTask: Task<Void, Never>?
+    @State private var semanticRefreshTask: Task<Void, Never>?
+    @State private var sourceEditorCoordinator: EpistemosEditorCoordinator?
     
     // MARK: - Editor Preferences (persisted via AppStorage)
     
@@ -1165,21 +1238,50 @@ struct CodeEditorView: View {
     var body: some View {
         editorContent
             .onAppear {
-                initializeCodeContextBridge()
-                initializeAIPartner()
+                askBarResponseMode = sanitizedAskBarResponseMode(askBarResponseMode)
+                ensureEditorCoordinator()
+                bindNoteChatContext(with: text)
+                if CodeEditorReleasePolicy.aiPartnerEnabled {
+                    initializeAIPartner()
+                } else {
+                    aiPartner.endSession()
+                    showSuggestionPopover = false
+                    showPartnerControlPanel = false
+                }
+                showSemanticSidebar = false
                 initializeCodeAskBar()
-                updateOutlineItems()
+                scheduleOutlineRefresh(for: text, immediate: true)
+            }
+            .onDisappear {
+                outlineRefreshTask?.cancel()
+                semanticRefreshTask?.cancel()
+                codeContextBridge?.cancelPendingWork()
+                aiPartner.endSession()
+                clearNoteChatContextBindings()
+                sourceEditorCoordinator?.destroy()
+                sourceEditorCoordinator = nil
+                showSuggestionPopover = false
             }
             .onChange(of: text) { _, newText in
-                aiPartner.updateCode(newText, cursorLine: cursorLine, cursorColumn: cursorCol)
-                updateOutlineItems()
+                bindNoteChatContext(with: newText)
+                if CodeEditorReleasePolicy.aiPartnerEnabled {
+                    aiPartner.updateCode(newText, cursorLine: cursorLine, cursorColumn: cursorCol)
+                }
+                scheduleOutlineRefresh(for: newText)
             }
             .onChange(of: cursorLine) { _, newLine in
-                aiPartner.updateCode(text, cursorLine: newLine, cursorColumn: cursorCol)
+                if CodeEditorReleasePolicy.aiPartnerEnabled {
+                    aiPartner.updateCode(text, cursorLine: newLine, cursorColumn: cursorCol)
+                }
                 updateBreadcrumbs()
             }
             .onChange(of: askBarResponseMode) { _, newMode in
-                codeAskBar.responseMode = newMode
+                let sanitizedMode = sanitizedAskBarResponseMode(newMode)
+                if sanitizedMode != newMode {
+                    askBarResponseMode = sanitizedMode
+                    return
+                }
+                codeAskBar.responseMode = sanitizedMode
             }
             .sheet(item: $aiExplanationSheet) { sheet in
                 AIExplanationView(
@@ -1193,6 +1295,10 @@ struct CodeEditorView: View {
     // MARK: - AI Partner Initialization
     
     private func initializeAIPartner() {
+        guard CodeEditorReleasePolicy.aiPartnerEnabled else {
+            aiPartner.endSession()
+            return
+        }
         let partner = AIPartnerService(
             triageService: triageService,
             graphState: graphState
@@ -1209,14 +1315,62 @@ struct CodeEditorView: View {
             triageService: triageService,
             graphState: graphState
         )
-        askBar.responseMode = askBarResponseMode
+        askBar.responseMode = sanitizedAskBarResponseMode(askBarResponseMode)
         codeAskBar = askBar
+    }
+
+    private func sanitizedAskBarResponseMode(_ mode: CodeAskBarResponseMode) -> CodeAskBarResponseMode {
+        guard CodeEditorReleasePolicy.availableAskBarResponseModes.contains(mode) else {
+            return CodeEditorReleasePolicy.availableAskBarResponseModes.first ?? .focused
+        }
+        return mode
+    }
+
+    private func bindNoteChatContext(with text: String) {
+        let capturedText = text
+        let capturedGraphState = graphState
+        noteChatState?.noteBodyProvider = { capturedText }
+        noteChatState?.graphStateProvider = { capturedGraphState }
+    }
+
+    private func clearNoteChatContextBindings() {
+        noteChatState?.noteBodyProvider = nil
+        noteChatState?.graphStateProvider = nil
+    }
+
+    private func ensureEditorCoordinator() {
+        guard sourceEditorCoordinator == nil else { return }
+        let coordinator = EpistemosEditorCoordinator(
+            cursorLine: $cursorLine,
+            cursorCol: $cursorCol,
+            totalLines: $totalLines,
+            onContentChange: { newText in
+                onContentChange?(newText)
+                updateSemanticContext(newText)
+            }
+        )
+        coordinator.onSelectionChange = { selectedText in
+            if selectedText.count > 1 {
+                self.selectedCode = selectedText
+            }
+        }
+        sourceEditorCoordinator = coordinator
     }
     
     // MARK: - Outline Management
     
-    private func updateOutlineItems() {
-        outlineItems = OutlineParser.parse(content: text, language: language)
+    private func scheduleOutlineRefresh(for content: String, immediate: Bool = false) {
+        outlineRefreshTask?.cancel()
+        let refreshDelay = CodeEditorPerformancePolicy.outlineRefreshDelay(characterCount: content.count)
+        let currentLanguage = language
+
+        outlineRefreshTask = Task { @MainActor in
+            if !immediate {
+                try? await Task.sleep(for: refreshDelay)
+            }
+            guard !Task.isCancelled else { return }
+            outlineItems = OutlineParser.parse(content: content, language: currentLanguage)
+        }
     }
     
     private func updateBreadcrumbs() {
@@ -1229,15 +1383,19 @@ struct CodeEditorView: View {
             HStack(spacing: 0) {
                 mainEditorPane
                 outlineNavigator
-                semanticSidebar
+                if CodeEditorReleasePolicy.semanticSidebarEnabled {
+                    semanticSidebar
+                }
             }
             
         }
         .environment(aiPartner)
         .environment(codeAskBar)
-        .appKitPopover(isPresented: $showSuggestionPopover, location: suggestionPopoverAnchor) {
-            if let suggestion = aiPartner.currentSuggestion {
-                SuggestionPopoverContent(
+        .overlay(alignment: .topLeading) {
+            if CodeEditorReleasePolicy.aiPartnerEnabled,
+               showSuggestionPopover,
+               let suggestion = aiPartner.currentSuggestion {
+                InlineSuggestionOverlay(
                     suggestion: suggestion,
                     onAccept: {
                         applySuggestion(suggestion)
@@ -1248,15 +1406,24 @@ struct CodeEditorView: View {
                         aiPartner.dismissCurrentSuggestion()
                         showSuggestionPopover = false
                     },
-                    onExplain: {
+                    onViewAlternatives: {
                         aiPartner.explainCurrentSuggestion()
                     }
+                )
+                .frame(width: 380)
+                .offset(
+                    x: suggestionPopoverAnchor?.x ?? 70,
+                    y: suggestionPopoverAnchor?.y ?? 36
                 )
             }
         }
         .onChange(of: aiPartner.currentSuggestion?.id) { _, newId in
+            guard CodeEditorReleasePolicy.aiPartnerEnabled else {
+                showSuggestionPopover = false
+                return
+            }
             if newId != nil {
-                // Pin popover to the actual cursor line in the editor.
+                // Pin the inline suggestion card to the active cursor line.
                 // X: gutter width (~60) + some indent for readability
                 // Y: line * lineHeight + offset for breadcrumb/panels above editor
                 let lineHeight = fontSize * 1.35
@@ -1365,6 +1532,7 @@ struct CodeEditorView: View {
         CodeAskBarInput(
             query: $askBarQuery,
             responseMode: $askBarResponseMode,
+            availableModes: CodeEditorReleasePolicy.availableAskBarResponseModes,
             isQuerying: codeAskBar.isQuerying,
             onSubmit: {
                 submitAskBarQuery()
@@ -1444,30 +1612,11 @@ struct CodeEditorView: View {
                 language: codeEditLanguage,
                 configuration: editorConfiguration,
                 state: $editorState,
-                coordinators: [editorCoordinator]
+                coordinators: sourceEditorCoordinator.map { [$0] } ?? []
             )
             
             searchBarOverlay
         }
-    }
-    
-    private var editorCoordinator: EpistemosEditorCoordinator {
-        let coordinator = EpistemosEditorCoordinator(
-            cursorLine: $cursorLine,
-            cursorCol: $cursorCol,
-            totalLines: $totalLines,
-            onContentChange: { newText in
-                onContentChange?(newText)
-                updateSemanticContext(newText)
-            }
-        )
-        coordinator.onSelectionChange = { selectedText in
-            // Only update if there's actual selected text (not just cursor position)
-            if selectedText.count > 1 {
-                self.selectedCode = selectedText
-            }
-        }
-        return coordinator
     }
     
     @ViewBuilder
@@ -1547,7 +1696,8 @@ struct CodeEditorView: View {
         // Get the selected range or start from beginning/end
         // This is a simplified implementation
         // Full implementation would require access to the underlying NSTextView
-        NSLog("[CodeEditor] Search \(direction) for: \(searchQuery)")
+        guard !searchQuery.isEmpty else { return }
+        _ = direction
     }
     
     // MARK: - Selected Code Explanation
@@ -1657,8 +1807,7 @@ struct CodeEditorView: View {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showOutlineNavigator.toggle()
-                    // Close semantic sidebar if opening outline
-                    if showOutlineNavigator {
+                    if showOutlineNavigator && CodeEditorReleasePolicy.semanticSidebarEnabled {
                         showSemanticSidebar = false
                     }
                 }
@@ -1669,38 +1818,44 @@ struct CodeEditorView: View {
             .buttonStyle(.plain)
             .help("Toggle Outline Navigator (⌘⇧O)")
             
-            // Hybrid features toggle
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showSemanticSidebar.toggle()
-                    // Close outline if opening semantic sidebar
-                    if showSemanticSidebar {
-                        showOutlineNavigator = false
+            if CodeEditorReleasePolicy.semanticSidebarEnabled {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showSemanticSidebar.toggle()
+                        if showSemanticSidebar {
+                            showOutlineNavigator = false
+                            initializeCodeContextBridge()
+                            updateSemanticContext(text, immediate: true)
+                        } else {
+                            semanticRefreshTask?.cancel()
+                            codeContextBridge?.cancelPendingWork()
+                        }
                     }
+                } label: {
+                    Image(systemName: showSemanticSidebar ? "brain.head.profile.fill" : "brain.head.profile")
+                        .foregroundStyle(showSemanticSidebar ? Color.accentColor : .secondary)
                 }
-            } label: {
-                Image(systemName: showSemanticSidebar ? "brain.head.profile.fill" : "brain.head.profile")
-                    .foregroundStyle(showSemanticSidebar ? Color.accentColor : .secondary)
+                .buttonStyle(.plain)
+                .help("Toggle Semantic Context Sidebar")
             }
-            .buttonStyle(.plain)
-            .help("Toggle Semantic Context Sidebar")
-            
-            // AI Partner compact control
-            AIPartnerCompactControl(configuration: $aiPartnerConfiguration) {
-                showPartnerControlPanel = true
-            }
-            .popover(isPresented: $showPartnerControlPanel) {
-                AIPartnerControlPanel(
-                    configuration: $aiPartnerConfiguration,
-                    onApply: {
-                        aiPartner.configuration = aiPartnerConfiguration
-                        showPartnerControlPanel = false
-                    },
-                    onReset: {
-                        aiPartnerConfiguration = AIPartnerConfiguration.default
-                        aiPartner.configuration = aiPartnerConfiguration
-                    }
-                )
+
+            if CodeEditorReleasePolicy.aiPartnerEnabled {
+                AIPartnerCompactControl(configuration: $aiPartnerConfiguration) {
+                    showPartnerControlPanel = true
+                }
+                .popover(isPresented: $showPartnerControlPanel) {
+                    AIPartnerControlPanel(
+                        configuration: $aiPartnerConfiguration,
+                        onApply: {
+                            aiPartner.configuration = aiPartnerConfiguration
+                            showPartnerControlPanel = false
+                        },
+                        onReset: {
+                            aiPartnerConfiguration = AIPartnerConfiguration.default
+                            aiPartner.configuration = aiPartnerConfiguration
+                        }
+                    )
+                }
             }
 
             Divider()
@@ -1782,11 +1937,13 @@ struct CodeEditorView: View {
                 Toggle("Outline Navigator", isOn: $showOutlineNavigator)
                 Toggle("Show Invisibles", isOn: $showInvisibles)
             }
-            
-            Section("AI Partner") {
-                Toggle("Enabled", isOn: $aiPartner.isEnabled)
-                Toggle("Context Highlights", isOn: $aiPartnerConfiguration.showContextHighlights)
-                Toggle("Retro Styling", isOn: $aiPartnerConfiguration.useRetroStyling)
+
+            if CodeEditorReleasePolicy.aiPartnerEnabled {
+                Section("AI Partner") {
+                    Toggle("Enabled", isOn: $aiPartner.isEnabled)
+                    Toggle("Context Highlights", isOn: $aiPartnerConfiguration.showContextHighlights)
+                    Toggle("Retro Styling", isOn: $aiPartnerConfiguration.useRetroStyling)
+                }
             }
         } label: {
             Image(systemName: "eye")
@@ -1806,13 +1963,25 @@ struct CodeEditorView: View {
             triageService: triageService
         )
         codeContextBridge = bridge
-        
-        // Initial semantic search
-        bridge.findRelatedNotes(for: text)
     }
     
-    private func updateSemanticContext(_ newText: String) {
-        codeContextBridge?.findRelatedNotes(for: newText)
+    private func updateSemanticContext(_ newText: String, immediate: Bool = false) {
+        guard CodeEditorPerformancePolicy.shouldRefreshSemanticContext(isSidebarVisible: showSemanticSidebar) else {
+            semanticRefreshTask?.cancel()
+            return
+        }
+
+        initializeCodeContextBridge()
+        guard let bridge = codeContextBridge else { return }
+
+        semanticRefreshTask?.cancel()
+        semanticRefreshTask = Task {
+            if !immediate {
+                try? await Task.sleep(for: CodeEditorPerformancePolicy.semanticRefreshDelay)
+            }
+            guard !Task.isCancelled else { return }
+            bridge.findRelatedNotes(for: newText)
+        }
     }
     
     private func openNoteInWorkspace(nodeId: String) {
@@ -1949,6 +2118,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private weak var indentGuideView: SegmentedIndentationGuideView?
     private weak var textController: TextViewController?
     private var lastText: String = ""
+    private var indentationGuideRefreshTask: Task<Void, Never>?
     
     // Selection tracking for code explanation
     var onSelectionChange: ((String) -> Void)?
@@ -2000,24 +2170,21 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
                 object: scrollView.contentView
             )
         }
+
+        scheduleIndentationGuideRefresh(for: tv.string, immediate: true)
     }
     
-    private var scrollDebounceWorkItem: DispatchWorkItem?
+    private var scrollDebounceTask: Task<Void, Never>?
     
     @objc private func textViewDidScroll() {
-        // Cancel pending update
-        scrollDebounceWorkItem?.cancel()
-        
-        // Schedule new update after a delay
-        let workItem = DispatchWorkItem { [weak self] in
-            Task { @MainActor in
-                self?.updateIndentationGuides()
-            }
+        scrollDebounceTask?.cancel()
+        scrollDebounceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: CodeEditorPerformancePolicy.scrollGuideRefreshDelay)
+            guard !Task.isCancelled else { return }
+            self?.updateIndentationGuideScrollOffset()
         }
-        scrollDebounceWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
     }
-    
+
     private func updateIndentationGuides() {
         guard let controller = textController,
               let textView = controller.textView,
@@ -2037,6 +2204,37 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         // Update the segmented guide with current text and cursor position
         // This parses the text and draws segmented lines per line
         guideView.updateFromText(text, cursorLine: cursorLine, scrollOffset: scrollOffset)
+    }
+
+    private func scheduleIndentationGuideRefresh(for text: String, immediate: Bool = false) {
+        indentationGuideRefreshTask?.cancel()
+        let delay = CodeEditorPerformancePolicy.indentationGuideRefreshDelay(characterCount: text.count)
+        indentationGuideRefreshTask = Task { @MainActor [weak self] in
+            if !immediate {
+                try? await Task.sleep(for: delay)
+            }
+            guard !Task.isCancelled else { return }
+            self?.updateIndentationGuides()
+        }
+    }
+
+    private func updateIndentationGuideScrollOffset() {
+        guard let controller = textController,
+              let textView = controller.textView,
+              let guideView = indentGuideView else { return }
+
+        let scrollOffset: CGFloat
+        if let scrollView = textView.enclosingScrollView {
+            scrollOffset = -scrollView.documentVisibleRect.origin.y
+        } else {
+            scrollOffset = 0
+        }
+        guideView.frame = textView.bounds
+        guideView.updateScrollOffset(scrollOffset)
+    }
+
+    private func updateActiveIndentationGuideLevel() {
+        indentGuideView?.setActiveLine(cursorLine)
     }
 
     func textViewDidChangeSelection(controller: TextViewController, newPositions: [CursorPosition]) {
@@ -2071,14 +2269,17 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         
         // Track selected text for explanation feature
         if let textView = controller.textView {
-            let selectedText = textView.string
-            // Note: We need to get the actual selected range from the text view
-            // This is a simplified version - full implementation would use selectedRange()
-            onSelectionChange?(selectedText)
+            let selection = textView.selectedRange()
+            if selection.length > 0,
+               let selectedRange = Range(selection, in: textView.string) {
+                onSelectionChange?(String(textView.string[selectedRange]))
+            } else {
+                onSelectionChange?("")
+            }
         }
         
-        // Update indentation guides when cursor moves
-        updateIndentationGuides()
+        // Cursor moves should only retarget the active guide, not reparse the document.
+        updateActiveIndentationGuideLevel()
     }
 
     func textViewDidChangeText(controller: TextViewController) {
@@ -2098,8 +2299,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
             onContentChange?(newText)
         }
         
-        // Update indentation guides when text changes
-        updateIndentationGuides()
+        scheduleIndentationGuideRefresh(for: newText)
 
         os_signpost(.end, log: Self.perfLog, name: "textDidChange")
     }
@@ -2119,7 +2319,8 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     func destroy() {
         contentChangeTask?.cancel()
         cursorUpdateTask?.cancel()
-        scrollDebounceWorkItem?.cancel()
+        scrollDebounceTask?.cancel()
+        indentationGuideRefreshTask?.cancel()
         NotificationCenter.default.removeObserver(self)
         indentGuideView?.removeFromSuperview()
     }
@@ -2555,7 +2756,7 @@ struct AIExplanationView: View {
 // MARK: - Code Semantic Match
 
 /// A note that is semantically similar to code content.
-struct CodeSemanticMatch: Identifiable, Sendable {
+struct CodeSemanticMatch: Identifiable, Sendable, Equatable {
     let id: String
     let nodeId: String
     let title: String
@@ -2563,7 +2764,7 @@ struct CodeSemanticMatch: Identifiable, Sendable {
     let similarityScore: Float
     let matchType: MatchType
     
-    enum MatchType: Sendable {
+    enum MatchType: Sendable, Equatable {
         case exact        // Very high similarity (>0.85)
         case related      // Good similarity (0.70-0.85)
         case contextual   // Moderate similarity (0.55-0.70)
@@ -2828,6 +3029,7 @@ struct CodeSemanticSidebar: View {
     @State private var isExplaining = false
     @State private var showSemanticSearch = false
     @State private var selectedTab: SidebarTab = .insights
+    @State private var insightRefreshTask: Task<Void, Never>?
     
     enum SidebarTab {
         case insights, related
@@ -2877,19 +3079,36 @@ struct CodeSemanticSidebar: View {
         .frame(width: 300)
         .background(.ultraThinMaterial)
         .onAppear {
-            bridge.findRelatedNotes(for: codeContent)
-            insightGenerator.generateInsights(
-                code: codeContent,
-                language: language,
-                relatedMatches: bridge.relatedNotes
-            )
+            if bridge.relatedNotes.isEmpty {
+                bridge.findRelatedNotes(for: codeContent)
+            }
+            scheduleInsights(for: codeContent, immediate: true)
         }
         .onChange(of: codeContent) { _, newContent in
-            bridge.findRelatedNotes(for: newContent)
+            scheduleInsights(for: newContent)
+        }
+        .onChange(of: bridge.relatedNotes) { _, _ in
+            scheduleInsights(for: codeContent)
+        }
+        .onDisappear {
+            insightRefreshTask?.cancel()
+        }
+    }
+
+    private func scheduleInsights(for code: String, immediate: Bool = false) {
+        insightRefreshTask?.cancel()
+        insightRefreshTask = Task {
+            if !immediate {
+                try? await Task.sleep(
+                    for: CodeEditorPerformancePolicy.insightRefreshDelay(characterCount: code.count)
+                )
+            }
+            guard !Task.isCancelled else { return }
             insightGenerator.generateInsights(
-                code: newContent,
+                code: code,
                 language: language,
-                relatedMatches: bridge.relatedNotes
+                relatedMatches: bridge.relatedNotes,
+                immediate: true
             )
         }
     }
@@ -3366,10 +3585,17 @@ final class CodeInsightGenerator: ObservableObject {
     func generateInsights(
         code: String,
         language: String,
-        relatedMatches: [CodeSemanticMatch]
+        relatedMatches: [CodeSemanticMatch],
+        immediate: Bool = false
     ) {
         generationTask?.cancel()
         generationTask = Task { @MainActor in
+            if !immediate {
+                try? await Task.sleep(
+                    for: CodeEditorPerformancePolicy.insightRefreshDelay(characterCount: code.count)
+                )
+            }
+            guard !Task.isCancelled else { return }
             isGenerating = true
             defer { isGenerating = false }
             
@@ -3593,7 +3819,8 @@ struct CodeInsightsPanel: View {
                         generator.generateInsights(
                             code: code,
                             language: language,
-                            relatedMatches: relatedMatches
+                            relatedMatches: relatedMatches,
+                            immediate: true
                         )
                     } label: {
                         Image(systemName: "arrow.clockwise")
@@ -3625,7 +3852,8 @@ struct CodeInsightsPanel: View {
             generator.generateInsights(
                 code: code,
                 language: language,
-                relatedMatches: relatedMatches
+                relatedMatches: relatedMatches,
+                immediate: true
             )
         }
         .onChange(of: code) { _, newCode in

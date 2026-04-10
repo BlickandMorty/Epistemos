@@ -13,11 +13,11 @@
 //! - Injection/exfiltration scanning on all writes
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::{json, Value};
 
-use super::registry::{RiskLevel, ToolHandler};
+use super::registry::ToolHandler;
 
 const ENTRY_DELIMITER: &str = "\n§\n";
 const MEMORY_CHAR_LIMIT: usize = 2200;

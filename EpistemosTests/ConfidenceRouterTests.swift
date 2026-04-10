@@ -121,8 +121,8 @@ struct ConfidenceRouterTests {
     }
 
     @MainActor
-    @Test("inference state exposes local agent loop gating")
-    func inferenceStateExposesLocalAgentLoopGating() async {
+    @Test("inference state sanitizes hidden local agent tiers before exposing agent loop gating")
+    func inferenceStateSanitizesHiddenLocalAgentTiersBeforeExposingAgentLoopGating() async {
         await withResetInferenceDefaults {
             let inference = InferenceState()
             inference.setInstalledLocalTextModelIDs([
@@ -137,8 +137,26 @@ struct ConfidenceRouterTests {
             #expect(!inference.canRouteToLocalAgentLoop(for: profile))
 
             inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
-            #expect(inference.supportsLocalAgentLoop)
-            #expect(inference.canRouteToLocalAgentLoop(for: profile))
+            #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+            #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+            #expect(!inference.supportsLocalAgentLoop)
+            #expect(!inference.canRouteToLocalAgentLoop(for: profile))
+        }
+    }
+
+    @MainActor
+    @Test("policy context excludes hidden local models from automatic routing")
+    func policyContextExcludesHiddenLocalModelsFromAutomaticRouting() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+            let profile = Self.agentProfile(contentLength: 480)
+
+            #expect(inference.effectiveLocalTextModelID == nil)
+            #expect(inference.localModelSelection(for: profile) == nil)
+            #expect(!inference.canRouteToLocalAgentLoop(for: profile))
         }
     }
 

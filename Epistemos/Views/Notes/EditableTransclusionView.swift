@@ -124,13 +124,21 @@ final class EditableTransclusionView: NSView, NSTextViewDelegate {
     // MARK: - Intrinsic Size
 
     override var intrinsicContentSize: NSSize {
-        guard let layoutManager = textView.layoutManager,
-              let textContainer = textView.textContainer else {
-            return NSSize(width: NSView.noIntrinsicMetric, height: 32)
+        // TextKit 2 path (macOS 26+): use NSTextLayoutManager
+        if let textLayoutManager = textView.textLayoutManager,
+           let textContentManager = textLayoutManager.textContentManager {
+            textLayoutManager.ensureLayout(for: textContentManager.documentRange)
+            let height = textLayoutManager.usageBoundsForTextContainer.height
+            return NSSize(width: NSView.noIntrinsicMetric, height: height + 8)
         }
-        layoutManager.ensureLayout(for: textContainer)
-        let usedRect = layoutManager.usedRect(for: textContainer)
-        return NSSize(width: NSView.noIntrinsicMetric, height: usedRect.height + 8)
+        // TextKit 1 fallback (pre-macOS 26)
+        if let layoutManager = textView.layoutManager,
+           let textContainer = textView.textContainer {
+            layoutManager.ensureLayout(for: textContainer)
+            let usedRect = layoutManager.usedRect(for: textContainer)
+            return NSSize(width: NSView.noIntrinsicMetric, height: usedRect.height + 8)
+        }
+        return NSSize(width: NSView.noIntrinsicMetric, height: 32)
     }
 
     // MARK: - NSTextViewDelegate

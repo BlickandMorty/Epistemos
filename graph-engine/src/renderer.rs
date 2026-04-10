@@ -559,7 +559,7 @@ const BASE_NODE_ALPHA: f32 = 0.72;
 const DIM_ALPHA: f32 = 0.04;
 // ── Glow constants (shared between upload_graph and update_positions) ─────
 const HUB_GLOW_Z_OFFSET: f32 = -0.12;
-const HUB_GLOW_ALPHA: f32 = 0.06;       // lowered from 0.08 to reduce overdraw saturation
+const HUB_GLOW_ALPHA: f32 = 0.06; // lowered from 0.08 to reduce overdraw saturation
 const HUB_GLOW_RADIUS_FACTOR: f32 = 2.2; // tightened from 2.5 to reduce overlap area
 /// Max glow instances to prevent overdraw saturation in dense graphs.
 /// With 1131 nodes, ~50 may qualify as hubs — rendering all of them at
@@ -1722,8 +1722,8 @@ impl Renderer {
             label_atlas_texture: None,
             label_atlas_height: 1024.0,
             label_focus: [0.0, 0.0],
-            label_focus_radius: 200.0,  // labels crisp within 200 world units of focus
-            label_blur_radius: 600.0,   // labels invisible beyond 600 world units
+            label_focus_radius: 200.0, // labels crisp within 200 world units of focus
+            label_blur_radius: 600.0,  // labels invisible beyond 600 world units
             labels_enabled: true,
             vignette_strength: 0.18,
             water_style: 0.0,
@@ -1834,7 +1834,7 @@ impl Renderer {
             return;
         }
 
-        let byte_len = (instances.len() * std::mem::size_of::<LabelInstance>()) as u64;
+        let byte_len = std::mem::size_of_val(instances) as u64;
         if self.label_instance_buf.is_none() || self.label_instance_capacity < instances.len() {
             let cap = (instances.len() * 3 / 2).max(256);
             self.label_instance_buf = Some(self.device.new_buffer(
@@ -1989,7 +1989,10 @@ impl Renderer {
         };
 
         // ── Swap front/back: this frame's dispatch writes to the old front ──
-        std::mem::swap(&mut self.compute_force_buf_front, &mut self.compute_force_buf_back);
+        std::mem::swap(
+            &mut self.compute_force_buf_front,
+            &mut self.compute_force_buf_back,
+        );
 
         let pos_buf = self.compute_position_buf.as_ref()?;
         let back_buf = self.compute_force_buf_back.as_ref()?;
@@ -2109,7 +2112,9 @@ impl Renderer {
     fn is_camera_motion_active(&self) -> bool {
         // Disable culling when physics is running — nodes shift under
         // simulation and cross the cull boundary, causing pop-in flicker.
-        if self.sim_active { return true; }
+        if self.sim_active {
+            return true;
+        }
         let zoom_delta = (self.camera_zoom - self.prev_camera_zoom).abs();
         let dx = self.camera_offset[0] - self.prev_camera_offset[0];
         let dy = self.camera_offset[1] - self.prev_camera_offset[1];
@@ -2490,7 +2495,8 @@ impl Renderer {
         } else {
             // Light mode: skip the bloom/glow halos entirely — they read as
             // washed-out blobs against the white background.
-            let draw_glow = lod.draw_glow && self.visual_theme != VisualTheme::Dialogue && !self.light_mode;
+            let draw_glow =
+                lod.draw_glow && self.visual_theme != VisualTheme::Dialogue && !self.light_mode;
             // Glow only for highlighted nodes (selected + neighbors). At
             // rest no glows render — clean, calm graph. When a node is
             // selected, its neighborhood lights up with the glow aura.
@@ -2499,10 +2505,14 @@ impl Renderer {
             if draw_selection_glow {
                 let mut glow_emitted = 0usize;
                 for &node_index in &self.rendered_node_indices {
-                    if glow_emitted >= MAX_GLOW_INSTANCES { break; }
+                    if glow_emitted >= MAX_GLOW_INSTANCES {
+                        break;
+                    }
                     // Only glow for highlighted (selected + neighbor) nodes
                     let node_id = world.graph_node[node_index].node_id;
-                    if !self.highlight.highlighted_ids.contains(&node_id) { continue; }
+                    if !self.highlight.highlighted_ids.contains(&node_id) {
+                        continue;
+                    }
                     let pos = [world.transform[node_index].x, world.transform[node_index].y];
                     let node_instance = self.classic_node_instance(world, node_index);
                     let z = node_instance.z;

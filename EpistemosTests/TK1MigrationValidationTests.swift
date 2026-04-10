@@ -32,7 +32,7 @@ struct TK1MigrationValidationTests {
         let editorView = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
         let noteWorkspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         let notesUI = try loadRepoTextFile("Epistemos/State/NotesUIState.swift")
-        let repoRoot = repoRootURL()
+        let repoRoot = try repoRootURL()
 
         #expect(editorView.contains("ProseEditorRepresentable2("))
         #expect(!editorView.contains("ProseEditorRepresentable("))
@@ -48,7 +48,7 @@ struct TK1MigrationValidationTests {
     @Test("legacy note helper files are no longer compiled into the production app target")
     func legacyNoteHelpersAreNoLongerInProduction() throws {
         let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
-        let repoRoot = repoRootURL()
+        let repoRoot = try repoRootURL()
 
         #expect(!project.contains("BlockRefAutocomplete.swift in Sources"))
         #expect(!project.contains("TransclusionOverlayManager.swift in Sources"))
@@ -56,16 +56,11 @@ struct TK1MigrationValidationTests {
         #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Epistemos/Views/Notes/TransclusionOverlayManager.swift").path))
     }
 
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+    private func repoRootURL() throws -> URL {
+        try sourceMirrorRootURL()
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let repoRoot = repoRootURL()
-        return try String(
-            contentsOf: repoRoot.appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

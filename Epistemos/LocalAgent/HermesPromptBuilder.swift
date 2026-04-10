@@ -21,13 +21,20 @@ nonisolated struct LocalToolResult: Codable, Equatable, Sendable {
 nonisolated enum HermesPromptBuilder {
     static func systemPrompt(
         tools: [OmegaToolDefinition],
-        additionalInstructions: String? = nil
+        additionalInstructions: String? = nil,
+        knowledgeIndex: String? = nil
     ) -> String {
         let toolsJson = formattedToolsJSON(for: tools)
         let trimmedInstructions = additionalInstructions?
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        var prompt = """
+        // Knowledge index is injected FIRST for maximum attention / prefix-cache position
+        var prompt = ""
+        if let knowledgeIndex, !knowledgeIndex.isEmpty {
+            prompt += knowledgeIndex + "\n"
+        }
+
+        prompt += """
         You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. After calling and executing the functions, you will be provided with function results within <tool_response></tool_response> XML tags.
         <tools>
         \(toolsJson)

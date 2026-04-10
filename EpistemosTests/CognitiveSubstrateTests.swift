@@ -56,12 +56,13 @@ struct EventStoreSchemaTests {
         }
     }
 
-    @Test("Migration creates all four cognitive substrate tables")
+    @Test("Migration creates cognitive substrate and session metrics tables")
     func migrationCreatesAllTables() {
         guard let store = makeTestStore() else {
             Issue.record("Failed to create test EventStore")
             return
         }
+        #expect(store.tableExists("session_metrics"))
         #expect(store.tableExists("captured_artifacts"))
         #expect(store.tableExists("friction_windows"))
         #expect(store.tableExists("night_brain_runs"))
@@ -76,6 +77,7 @@ struct EventStoreSchemaTests {
         }
         #expect(store.tableExists("events"))
         #expect(store.tableExists("snapshots"))
+        #expect(store.tableExists("session_metrics"))
     }
 
     @Test("Dedupe hash UNIQUE constraint rejects duplicates")
@@ -561,6 +563,9 @@ struct NightBrainCheckpointResumeTests {
     }
 }
 
+// Hermes heartbeat tests are kept for reference while the old subprocess
+// runtime stays retired.
+#if false
 @Suite("Agent Heartbeat")
 struct AgentHeartbeatTests {
     @Test("Heartbeat finishes after Hermes stays available through the monitoring window")
@@ -689,6 +694,21 @@ struct AgentHeartbeatTests {
         let manager = HermesSubprocessManager(config: config)
         try await manager.launch()
         return (manager, rootURL)
+    }
+}
+#endif
+
+@Suite("Agent Runtime Monitoring")
+struct AgentRuntimeMonitoringTests {
+    @Test("current agent runtime waits for native computer observations and explicit approvals")
+    func currentAgentRuntimeWaitsForNativeComputerObservationsAndExplicitApprovals() throws {
+        let coordinator = try loadMonitoringSource("Epistemos/App/ChatCoordinator.swift")
+        let delegate = try loadMonitoringSource("Epistemos/Bridge/StreamingDelegate.swift")
+
+        #expect(coordinator.contains("Waiting for native computer observation"))
+        #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
+        #expect(!coordinator.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
+        #expect(delegate.contains("func executeComputerAction(actionJson: String) -> String"))
     }
 }
 
@@ -1229,4 +1249,8 @@ struct EpistemosConfigTests {
         config.blocklistJSON = "{not-json"
         #expect(config.isBlocked("com.any.app"))
     }
+}
+
+private func loadMonitoringSource(_ relativePath: String) throws -> String {
+    try loadMirroredSourceTextFile(relativePath)
 }

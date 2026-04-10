@@ -1,6 +1,10 @@
 import Testing
 @testable import Epistemos
 
+// Legacy confirmation gate tests are kept for reference while the retired
+// Omega approval/pause surfaces are no longer part of the live runtime.
+#if false
+
 @Suite("ConfirmationGate")
 @MainActor
 struct ConfirmationGateTests {
@@ -190,3 +194,4 @@ struct ResearchPauseHandlerTests {
         #expect(handler.activeRequest == nil)
     }
 }
+#endif

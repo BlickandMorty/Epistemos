@@ -409,6 +409,14 @@ struct AppIntentSearchSupportTests {
         #expect(AppIntentSearchSupport.searchableTabs == [.home, .notes, .settings])
     }
 
+    @Test("retired omega tab falls back to the supported release home surface")
+    func omegaTabFallsBackToHome() {
+        #expect(NavTab.omega.releaseSupportedVariant == .home)
+        #expect(NavTab.home.releaseSupportedVariant == .home)
+        #expect(NavTab.notes.releaseSupportedVariant == .notes)
+        #expect(NavTab.settings.releaseSupportedVariant == .settings)
+    }
+
     @Test("panel identifier lookup still resolves omega for existing shortcuts")
     func panelIdentifierLookupStillResolvesOmega() async throws {
         let panels = try await PanelEntityQuery().entities(for: ["omega"])

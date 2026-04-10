@@ -10,11 +10,14 @@ use crate::providers::gemini::GeminiProvider;
 use crate::providers::openai::OpenAIProvider;
 use crate::providers::openai_compatible::OpenAICompatibleProvider;
 use crate::providers::perplexity::PerplexityProvider;
+use crate::reasoning_metrics::ReasoningTrajectoryMetrics;
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
 use crate::session::GlobalSessions;
 use crate::shared_memory::{ShmPool, ShmReference};
 use crate::storage::memory_classifier::{classify_memory_operation, MemoryOperation, VaultFact};
 use crate::storage::memory_decay::{batch_decay, collect_garbage, Importance, NodeStrength};
+use crate::storage::contradiction_detector;
+use crate::storage::session_store::{self, SessionFolder};
 use crate::storage::vault::VaultStore;
 use crate::tools::registry::ToolRegistry;
 
@@ -96,6 +99,7 @@ pub trait AgentEventDelegate: Send + Sync {
     fn on_turn_started(&self, turn_number: u32, message_count: u32);
     fn on_complete(&self, stop_reason: String, input_tokens: u32, output_tokens: u32);
     fn on_error(&self, message: String);
+    fn execute_computer_action(&self, action_json: String) -> String;
     fn wait_for_permission(&self, permission_id: String) -> bool;
 }
 
@@ -116,6 +120,9 @@ pub struct AgentConfigFFI {
     pub system_prompt: Option<String>,
     pub auto_approve_reads: bool,
     pub auto_approve_writes: bool,
+    /// Explicit prompt mode override: "general", "code", "research", or "auto" (default).
+    /// When "auto", mode is inferred from the objective keywords.
+    pub prompt_mode: Option<String>,
 }
 
 #[derive(uniffi::Record)]
@@ -123,6 +130,19 @@ pub struct AgentResultFFI {
     pub turns: u32,
     pub input_tokens: u32,
     pub output_tokens: u32,
+    pub trajectory_metrics: ReasoningTrajectoryMetricsFFI,
+}
+
+#[derive(uniffi::Record)]
+pub struct ReasoningTrajectoryMetricsFFI {
+    pub displacement: f64,
+    pub path_length: f64,
+    pub curvature_ratio: f64,
+    pub loop_count: u32,
+    pub error_count: u32,
+    pub total_calls: u32,
+    pub efficiency: f64,
+    pub classification: String,
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq)]
@@ -168,6 +188,24 @@ impl AgentConfig {
                 auto_approve_modification: ffi.auto_approve_writes,
                 auto_approve_destructive: false,
             },
+            vault_root: None,
+            prompt_mode_override: None,
+            max_cost_usd: None,
+        }
+    }
+}
+
+impl From<ReasoningTrajectoryMetrics> for ReasoningTrajectoryMetricsFFI {
+    fn from(metrics: ReasoningTrajectoryMetrics) -> Self {
+        Self {
+            displacement: metrics.displacement as f64,
+            path_length: metrics.path_length as f64,
+            curvature_ratio: metrics.curvature_ratio as f64,
+            loop_count: metrics.loop_count,
+            error_count: metrics.error_count,
+            total_calls: metrics.total_calls,
+            efficiency: metrics.efficiency as f64,
+            classification: metrics.classification.as_str().to_string(),
         }
     }
 }
@@ -421,12 +459,31 @@ async fn run_agent_session_inner(
     agent_config: AgentConfigFFI,
     delegate: Box<dyn AgentEventDelegate>,
 ) -> Result<AgentResultFFI, AgentErrorFFI> {
-    let (_guard, cancel) = GlobalSessions::register(&session_id);
-
     // Initialize the shared memory pool (idempotent)
     ShmPool::init();
 
     let (provider, _route_preview) = resolve_provider_for_session(&objective, &provider_name)?;
+
+    let vault_path = std::path::Path::new(&tool_config.vault_path);
+
+    // Create a persistent session folder inside the vault
+    let session_folder = SessionFolder::create(
+        vault_path,
+        &session_id,
+        &provider_name,
+        &provider_name, // provider == provider_name for now
+    )
+    .map_err(|error| AgentErrorFFI::AgentError {
+        message: format!("Failed to create session folder: {error}"),
+    })?;
+
+    tracing::info!(
+        "[session] Created session folder: {}",
+        session_folder.root().display()
+    );
+
+    // Register with folder so SessionGuard::drop can finalize on crash
+    let (_guard, cancel) = GlobalSessions::register_with_folder(&session_id, session_folder);
 
     let vault = VaultStore::open(&tool_config.vault_path).map_err(|error| AgentErrorFFI::AgentError {
         message: format!("Failed to open vault: {error}"),
@@ -435,7 +492,16 @@ async fn run_agent_session_inner(
         Arc::new(vault),
         tool_config.enable_bash,
     ));
-    let config = AgentConfig::from_ffi(&agent_config);
+    let mut config = AgentConfig::from_ffi(&agent_config);
+    config.vault_root = Some(tool_config.vault_path.clone());
+    config.prompt_mode_override = agent_config.prompt_mode.as_deref().and_then(|mode| {
+        match mode {
+            "code" => Some(crate::prompts::PromptMode::Code),
+            "research" => Some(crate::prompts::PromptMode::Research),
+            "general" => Some(crate::prompts::PromptMode::General),
+            _ => None, // "auto" or unknown → auto-detect from keywords
+        }
+    });
     let delegate: Arc<dyn AgentEventDelegate> = delegate.into();
 
     let result = run_agent_loop(objective, provider, tool_registry, delegate, config, cancel).await;
@@ -448,11 +514,13 @@ async fn run_agent_session_inner(
                 result.turns,
                 result.total_usage.input_tokens,
                 result.total_usage.output_tokens,
+                Some(result.trajectory_metrics.clone()),
             );
             Ok(AgentResultFFI {
                 turns: result.turns,
                 input_tokens: result.total_usage.input_tokens,
                 output_tokens: result.total_usage.output_tokens,
+                trajectory_metrics: result.trajectory_metrics.into(),
             })
         }
         Err(error) => {
@@ -832,6 +900,617 @@ pub fn shm_cleanup_all() -> u32 {
 #[uniffi::export]
 pub fn shm_total_segment_count() -> u32 {
     ffi_guard_value!(ShmPool::total_segment_count() as u32, 0)
+}
+
+// MARK: - Context Loader FFI
+
+/// Preview the 5-tier session context that would be injected for a given objective.
+/// Returns the XML-formatted context string.
+///
+/// SAFETY: Wrapped in tokio::task::spawn to catch panics from vault I/O
+/// or skill routing, preventing unwind across FFI boundary.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn preview_session_context(
+    vault_path: String,
+    objective: String,
+    max_tokens: u32,
+) -> Result<String, AgentErrorFFI> {
+    let handle = tokio::task::spawn(async move {
+        let vault = VaultStore::open(&vault_path).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("Failed to open vault: {e}"),
+        })?;
+        let vault_root = std::path::Path::new(&vault_path);
+        let ctx = crate::context_loader::load_session_context(
+            &vault,
+            vault_root,
+            &objective,
+            max_tokens as usize,
+        )
+        .await;
+        Ok::<String, AgentErrorFFI>(ctx.to_xml())
+    });
+
+    match handle.await {
+        Ok(result) => result,
+        Err(join_error) => {
+            let msg = if join_error.is_panic() {
+                let payload = join_error.into_panic();
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC in preview_session_context: {}", msg);
+                format!("Rust panic in context preview: {}", msg)
+            } else {
+                "Context preview task cancelled".to_string()
+            };
+            Err(AgentErrorFFI::AgentError { message: msg })
+        }
+    }
+}
+
+// MARK: - Neocortex Engine FFI
+
+/// Feed compacted context into the Neocortex for "fluid awareness" retention.
+#[uniffi::export]
+pub fn neocortex_absorb(content: String, source_type: String, source_id: String) {
+    ffi_guard_value!(
+        {
+            let source = match source_type.as_str() {
+                "compaction" => crate::neocortex::ContextSource::Compaction,
+                "session" => crate::neocortex::ContextSource::SessionSummary {
+                    session_id: source_id,
+                },
+                "vault" => crate::neocortex::ContextSource::VaultFact { path: source_id },
+                "pinned" => crate::neocortex::ContextSource::UserPinned,
+                _ => crate::neocortex::ContextSource::Compaction,
+            };
+            crate::neocortex::global_neocortex().absorb(&content, source);
+        },
+        ()
+    )
+}
+
+/// Generate a gist from the Neocortex's accumulated awareness.
+/// Returns empty string if nothing has been absorbed.
+#[uniffi::export]
+pub fn neocortex_query(max_tokens: u32) -> String {
+    ffi_guard_value!(
+        {
+            crate::neocortex::global_neocortex()
+                .generate_gist(max_tokens as usize)
+                .map(|g| g.content)
+                .unwrap_or_default()
+        },
+        String::new()
+    )
+}
+
+/// Get Neocortex status for diagnostics.
+#[uniffi::export]
+pub fn neocortex_status() -> String {
+    ffi_guard_value!(
+        {
+            let status = crate::neocortex::global_neocortex().status();
+            serde_json::to_string(&status).unwrap_or_else(|_| "{}".to_string())
+        },
+        "{}".to_string()
+    )
+}
+
+/// Clear the Neocortex (reset awareness).
+#[uniffi::export]
+pub fn neocortex_clear() {
+    ffi_guard_value!(crate::neocortex::global_neocortex().clear(), ())
+}
+
+// MARK: - SSM State Persistence FFI
+
+/// Save an SSM hidden state to disk.
+#[uniffi::export]
+pub fn save_ssm_state_ffi(
+    vault_path: String,
+    model_id: String,
+    session_id: String,
+    layer_count: u32,
+    state_dim: u32,
+    head_dim: u32,
+    layer_data: Vec<u8>,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let state = crate::storage::ssm_state::SSMState {
+            model_id,
+            session_id,
+            layer_count,
+            state_dim,
+            head_dim,
+            layer_data,
+        };
+        let vault_root = std::path::Path::new(&vault_path);
+        let path = crate::storage::ssm_state::save_ssm_state(&state, vault_root)
+            .map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("Failed to save SSM state: {e}"),
+            })?;
+        Ok(path.to_string_lossy().to_string())
+    })
+}
+
+/// List all saved SSM states for a vault.
+#[uniffi::export]
+pub fn list_ssm_states_ffi(vault_path: String) -> String {
+    ffi_guard_value!(
+        {
+            let vault_root = std::path::Path::new(&vault_path);
+            let states = crate::storage::ssm_state::list_ssm_states(vault_root).unwrap_or_default();
+            serde_json::to_string(&states).unwrap_or_else(|_| "[]".to_string())
+        },
+        "[]".to_string()
+    )
+}
+
+// MARK: - Hyperbolic Topology FFI
+
+/// Build the hyperbolic topology map for a vault.
+/// Returns the topology as a JSON string with Poincaré coordinates,
+/// complexity weights, gravity, volatility, and Markov Blanket summaries.
+#[uniffi::export]
+pub fn build_vault_topology(vault_path: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let vault_root = std::path::Path::new(&vault_path);
+        let topology = crate::storage::hyperbolic_topology::build_topology(vault_root)
+            .map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("Topology build failed: {e}"),
+            })?;
+        serde_json::to_string_pretty(&topology).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("Topology serialization failed: {e}"),
+        })
+    })
+}
+
+/// Generate a compact agent-facing topology context string.
+/// This replaces `ls -la` with dimensionally-tagged spatial awareness.
+#[uniffi::export]
+pub fn vault_topology_context(vault_path: String, max_tokens: u32) -> String {
+    ffi_guard_value!(
+        {
+            let vault_root = std::path::Path::new(&vault_path);
+            match crate::storage::hyperbolic_topology::build_topology(vault_root) {
+                Ok(topology) => {
+                    crate::storage::hyperbolic_topology::topology_to_agent_context(
+                        &topology,
+                        max_tokens as usize,
+                    )
+                }
+                Err(_) => String::new(),
+            }
+        },
+        String::new()
+    )
+}
+
+// MARK: - Neural Cache FFI
+
+#[derive(uniffi::Record)]
+pub struct CachedResultFFI {
+    pub path: String,
+    pub content: String,
+    pub score: f64,
+    /// "hot", "warm", or "cold"
+    pub layer: String,
+    pub latency_us: u64,
+}
+
+#[derive(uniffi::Record)]
+pub struct CacheStatsFFI {
+    pub hot_entries: u32,
+    pub max_hot_entries: u32,
+}
+
+/// Instant tiered retrieval: searches hot cache first (<1ms), then warm index (<5ms).
+/// Results are automatically warmed into the hot layer for next time.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn instant_retrieve(
+    vault_path: String,
+    query: String,
+    limit: u32,
+) -> Vec<CachedResultFFI> {
+    let handle = tokio::task::spawn(async move {
+        let vault = match VaultStore::open(&vault_path) {
+            Ok(v) => v,
+            Err(_) => return Vec::new(),
+        };
+        let cache = get_or_create_cache(&vault_path);
+        let results = cache
+            .instant_retrieve(&query, &vault, limit as usize)
+            .await;
+        results
+            .into_iter()
+            .map(|r| CachedResultFFI {
+                path: r.path,
+                content: r.content,
+                score: r.score,
+                layer: match r.layer {
+                    crate::storage::neural_cache::CacheLayer::Hot => "hot".to_string(),
+                    crate::storage::neural_cache::CacheLayer::Warm => "warm".to_string(),
+                    crate::storage::neural_cache::CacheLayer::Cold => "cold".to_string(),
+                },
+                latency_us: r.latency_us,
+            })
+            .collect()
+    });
+
+    match handle.await {
+        Ok(results) => results,
+        Err(join_error) => {
+            if join_error.is_panic() {
+                let payload = join_error.into_panic();
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC in instant_retrieve: {}", msg);
+            }
+            Vec::new()
+        }
+    }
+}
+
+/// Get neural cache statistics for diagnostics.
+#[uniffi::export]
+pub fn neural_cache_stats(vault_path: String) -> CacheStatsFFI {
+    ffi_guard_value!(
+        {
+            let cache = get_or_create_cache(&vault_path);
+            let stats = cache.stats();
+            CacheStatsFFI {
+                hot_entries: stats.hot_entries as u32,
+                max_hot_entries: stats.max_hot_entries as u32,
+            }
+        },
+        CacheStatsFFI {
+            hot_entries: 0,
+            max_hot_entries: 0,
+        }
+    )
+}
+
+/// Temporal query: retrieve cached facts from a specific time window.
+/// "What did we discuss X minutes ago?" — instant KV-cache-style recall.
+#[uniffi::export]
+pub fn temporal_retrieve(
+    vault_path: String,
+    minutes_ago: u32,
+    window_minutes: u32,
+) -> Vec<CachedResultFFI> {
+    ffi_guard_value!(
+        {
+            let cache = get_or_create_cache(&vault_path);
+            cache
+                .temporal_retrieve(minutes_ago as u64, window_minutes as u64)
+                .into_iter()
+                .map(|r| CachedResultFFI {
+                    path: r.path,
+                    content: r.content,
+                    score: r.score,
+                    layer: "hot".to_string(),
+                    latency_us: r.latency_us,
+                })
+                .collect()
+        },
+        Vec::new()
+    )
+}
+
+/// Clear the neural cache hot layer (call on vault switch).
+#[uniffi::export]
+pub fn neural_cache_clear(vault_path: String) {
+    ffi_guard_value!(
+        {
+            let cache = get_or_create_cache(&vault_path);
+            cache.clear_hot();
+        },
+        ()
+    )
+}
+
+/// Global singleton neural caches per vault path.
+fn get_or_create_cache(_vault_path: &str) -> &'static crate::storage::neural_cache::NeuralCache {
+    use std::sync::OnceLock;
+
+    // Single global cache (could be extended to per-vault with a HashMap)
+    static CACHE: OnceLock<crate::storage::neural_cache::NeuralCache> = OnceLock::new();
+    CACHE.get_or_init(|| crate::storage::neural_cache::NeuralCache::new(500))
+}
+
+// MARK: - GEPA Evolution FFI
+
+/// Analyze traces for a skill across session folders in a vault.
+/// Returns the analysis as a JSON string.
+#[uniffi::export]
+pub fn analyze_skill_traces(
+    vault_path: String,
+    skill_name: String,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let vault_root = std::path::Path::new(&vault_path);
+        let sessions_dir = vault_root.join("sessions");
+        if !sessions_dir.is_dir() {
+            return Ok("{}".to_string());
+        }
+
+        let mut folder_paths = Vec::new();
+        for entry in std::fs::read_dir(&sessions_dir).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("Failed to read sessions dir: {e}"),
+        })? {
+            let entry = entry.map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("Failed to read entry: {e}"),
+            })?;
+            if entry.path().is_dir() {
+                folder_paths.push(entry.path());
+            }
+        }
+
+        let folder_refs: Vec<&std::path::Path> = folder_paths.iter().map(|p| p.as_path()).collect();
+        let pattern = crate::evolution::trace_analyzer::analyze_traces(&folder_refs, &skill_name)
+            .map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("Trace analysis failed: {e}"),
+            })?;
+
+        serde_json::to_string_pretty(&pattern).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("Pattern serialization failed: {e}"),
+        })
+    })
+}
+
+/// Propose a mutation to a skill based on a trace pattern.
+/// Returns the mutation proposal as a JSON string, or empty string if no mutation needed.
+#[uniffi::export]
+pub fn propose_skill_mutation(
+    skill_content: String,
+    trace_pattern_json: String,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let pattern: crate::evolution::trace_analyzer::TracePattern =
+            serde_json::from_str(&trace_pattern_json).map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("Invalid trace pattern JSON: {e}"),
+            })?;
+
+        match crate::evolution::mutation_proposer::propose_mutation(&skill_content, &pattern) {
+            Some(mutation) => {
+                serde_json::to_string_pretty(&mutation).map_err(|e| AgentErrorFFI::AgentError {
+                    message: format!("Mutation serialization failed: {e}"),
+                })
+            }
+            None => Ok(String::new()),
+        }
+    })
+}
+
+// MARK: - Dispatcher & Skills Registry FFI
+
+#[derive(uniffi::Record)]
+pub struct DispatchDecisionFFI {
+    /// "skill", "agent", or "direct_response"
+    pub target_type: String,
+    /// Skill name or agent type (empty for direct_response)
+    pub target_name: String,
+    pub confidence: f64,
+    pub reasoning: String,
+}
+
+/// Route an objective to the best skill or agent type.
+#[uniffi::export]
+pub fn dispatch_skill(vault_path: String, objective: String) -> DispatchDecisionFFI {
+    ffi_guard_value!(
+        {
+            let vault_root = std::path::Path::new(&vault_path);
+            let router = crate::skill_router::SkillRouter::load(vault_root);
+            let registry = crate::storage::skills_registry::SkillsRegistryStore::load(vault_root);
+            let entries: Vec<crate::storage::skills_registry::SkillRegistryEntry> =
+                registry.list_all().into_iter().cloned().collect();
+            let decision = crate::dispatcher::dispatch_intent(&objective, &router, &entries);
+
+            let (target_type, target_name) = match decision.target {
+                crate::dispatcher::DispatchTarget::Skill(name) => ("skill".to_string(), name),
+                crate::dispatcher::DispatchTarget::Agent(agent_type) => ("agent".to_string(), agent_type),
+                crate::dispatcher::DispatchTarget::DirectResponse => ("direct_response".to_string(), String::new()),
+            };
+
+            DispatchDecisionFFI {
+                target_type,
+                target_name,
+                confidence: decision.confidence,
+                reasoning: decision.reasoning,
+            }
+        },
+        DispatchDecisionFFI {
+            target_type: "direct_response".to_string(),
+            target_name: String::new(),
+            confidence: 0.0,
+            reasoning: "Internal panic during dispatch".to_string(),
+        }
+    )
+}
+
+#[derive(uniffi::Record)]
+pub struct SkillRegistryEntryFFI {
+    pub name: String,
+    pub description: String,
+    pub version: String,
+    pub use_count: u32,
+    pub success_rate: f64,
+}
+
+/// List all registered skills with their usage stats.
+#[uniffi::export]
+pub fn list_registered_skills(vault_path: String) -> Vec<SkillRegistryEntryFFI> {
+    ffi_guard_value!(
+        {
+            let vault_root = std::path::Path::new(&vault_path);
+            let registry = crate::storage::skills_registry::SkillsRegistryStore::load(vault_root);
+            registry
+                .list_all()
+                .into_iter()
+                .map(|entry| SkillRegistryEntryFFI {
+                    name: entry.name.clone(),
+                    description: entry.description.clone(),
+                    version: entry.version.clone(),
+                    use_count: entry.use_count,
+                    success_rate: entry.avg_success_rate(),
+                })
+                .collect()
+        },
+        Vec::new()
+    )
+}
+
+// MARK: - Session Graph FFI
+
+/// Generate a knowledge graph from a session folder's transcript and summary.
+/// Returns the graph as a JSON string.
+#[uniffi::export]
+pub fn generate_session_graph(session_folder_path: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let folder = std::path::Path::new(&session_folder_path);
+        let transcript = folder.join("transcript.jsonl");
+        let summary = folder.join("summary.md");
+
+        // Derive session_id from folder name
+        let session_id = folder
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
+
+        let graph = crate::storage::session_graph::extract_session_graph(
+            &transcript,
+            &summary,
+            session_id,
+        )
+        .map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("Graph extraction failed: {e}"),
+        })?;
+
+        // Write graph.json and GRAPH_REPORT.md to the session folder
+        let graph_json = serde_json::to_string_pretty(&graph).map_err(|e| {
+            AgentErrorFFI::AgentError {
+                message: format!("Graph serialization failed: {e}"),
+            }
+        })?;
+        std::fs::write(folder.join("graph.json"), &graph_json).map_err(|e| {
+            AgentErrorFFI::AgentError {
+                message: format!("Failed to write graph.json: {e}"),
+            }
+        })?;
+
+        let report = crate::storage::session_graph::generate_graph_report(&graph);
+        std::fs::write(folder.join("GRAPH_REPORT.md"), &report).map_err(|e| {
+            AgentErrorFFI::AgentError {
+                message: format!("Failed to write GRAPH_REPORT.md: {e}"),
+            }
+        })?;
+
+        Ok(graph_json)
+    })
+}
+
+// MARK: - Contradiction Detection FFI
+
+#[derive(uniffi::Record)]
+pub struct ContradictionFFI {
+    pub incoming_fact: String,
+    pub existing_file_path: String,
+    pub existing_section: String,
+    pub existing_content: String,
+    /// One of: "numeric", "boolean", "antonym", "semantic_reversal"
+    pub conflict_type: String,
+    pub confidence: f64,
+}
+
+/// Detect contradictions between an incoming fact and existing vault facts.
+/// Returns a list of contradictions sorted by confidence (highest first).
+#[uniffi::export]
+pub fn detect_vault_contradictions(
+    incoming: String,
+    existing_facts: Vec<VaultFactFFI>,
+) -> Vec<ContradictionFFI> {
+    ffi_guard_value!(
+        {
+            let facts: Vec<VaultFact> = existing_facts
+                .into_iter()
+                .map(|f| {
+                    let last_accessed = chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
+                        .unwrap_or_else(chrono::Utc::now);
+                    VaultFact::new(f.file_path, f.section, f.content, f.strength, last_accessed)
+                })
+                .collect();
+            let contradictions = contradiction_detector::detect_contradictions(&incoming, &facts);
+            contradictions
+                .into_iter()
+                .map(|c| ContradictionFFI {
+                    incoming_fact: c.incoming_fact,
+                    existing_file_path: c.existing_fact.file_path,
+                    existing_section: c.existing_fact.section,
+                    existing_content: c.existing_fact.content,
+                    conflict_type: match c.conflict_type {
+                        contradiction_detector::ConflictType::Numeric => "numeric".to_string(),
+                        contradiction_detector::ConflictType::Boolean => "boolean".to_string(),
+                        contradiction_detector::ConflictType::Antonym => "antonym".to_string(),
+                        contradiction_detector::ConflictType::SemanticReversal => "semantic_reversal".to_string(),
+                    },
+                    confidence: c.confidence,
+                })
+                .collect()
+        },
+        Vec::new()
+    )
+}
+
+// MARK: - Session Store FFI
+
+#[derive(uniffi::Record)]
+pub struct SessionFolderInfoFFI {
+    pub session_id: String,
+    pub model: String,
+    pub provider: String,
+    pub started_at_epoch: f64,
+    pub status: String,
+    pub turn_count: u32,
+    pub folder_path: String,
+}
+
+/// List all session folders within a vault, sorted newest first.
+#[uniffi::export]
+pub fn list_session_folders(vault_path: String) -> Vec<SessionFolderInfoFFI> {
+    ffi_guard_value!(
+        {
+            let vault_root = std::path::Path::new(&vault_path);
+            session_store::list_session_folders(vault_root)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|info| SessionFolderInfoFFI {
+                    session_id: info.session_id,
+                    model: info.model,
+                    provider: info.provider,
+                    started_at_epoch: info.started_at_epoch,
+                    status: info.status,
+                    turn_count: info.turn_count,
+                    folder_path: info.folder_path,
+                })
+                .collect()
+        },
+        Vec::new()
+    )
+}
+
+/// Read session metadata as a JSON string from a session folder path.
+#[uniffi::export]
+pub fn read_session_metadata(session_folder_path: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let path = std::path::Path::new(&session_folder_path);
+        session_store::read_session_metadata(path).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("Failed to read session metadata: {e}"),
+        })
+    })
+}
+
+/// Get the session folder path for a currently running session (if it has one).
+#[uniffi::export]
+pub fn session_folder_path(session_id: String) -> Option<String> {
+    ffi_guard_value!(GlobalSessions::session_folder_path(&session_id), None)
 }
 
 #[cfg(test)]

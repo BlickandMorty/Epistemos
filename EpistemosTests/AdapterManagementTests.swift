@@ -4,6 +4,21 @@ import Testing
 
 // MARK: - Helpers
 
+private final class AdapterTestBundleLocator: NSObject {}
+
+private func loadBundledAdapterSourceFile(named fileName: String) throws -> String {
+    let bundle = Bundle(for: AdapterTestBundleLocator.self)
+    let relativePath = "AdapterAudit/\(fileName).txt"
+    guard let resourceURL = bundle.resourceURL else {
+        throw CocoaError(.fileNoSuchFile)
+    }
+    let url = resourceURL.appendingPathComponent(relativePath)
+    guard FileManager.default.fileExists(atPath: url.path) else {
+        throw CocoaError(.fileNoSuchFile)
+    }
+    return try String(contentsOf: url, encoding: .utf8)
+}
+
 private func makeTestAdapter(
     type: AdapterType = .knowledge,
     name: String = "Test Adapter",
@@ -328,17 +343,16 @@ struct AdapterFusionSafetyTests {
 
     @Test("No fusion function calls in Adapters Swift code")
     func noFusionCalls() throws {
-        let basePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion/Adapters")
+        let adapterFiles = [
+            "AdapterExporter.swift",
+            "AdapterLoader.swift",
+            "AdapterRegistry.swift",
+            "AdapterRouter.swift",
+            "MoLoRARouter.swift",
+        ]
 
-        let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: basePath, includingPropertiesForKeys: nil) else { return }
-
-        while let url = enumerator.nextObject() as? URL {
-            guard url.pathExtension == "swift" else { continue }
-            let content = try String(contentsOf: url, encoding: .utf8)
+        for fileName in adapterFiles {
+            let content = try loadBundledAdapterSourceFile(named: fileName)
 
             // Check for actual code that would invoke fusion.
             // Strip comments before checking to avoid false positives on safety warnings.
@@ -346,9 +360,9 @@ struct AdapterFusionSafetyTests {
                 .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
                 .joined(separator: "\n")
 
-            #expect(!codeLines.contains("mergeWeights: true"), "Found fusion call in \(url.lastPathComponent)")
-            #expect(!codeLines.contains("mergeWeights("), "Found fusion call in \(url.lastPathComponent)")
-            #expect(!codeLines.contains(".fuseAdapter("), "Found fusion call in \(url.lastPathComponent)")
+            #expect(!codeLines.contains("mergeWeights: true"), "Found fusion call in \(fileName)")
+            #expect(!codeLines.contains("mergeWeights("), "Found fusion call in \(fileName)")
+            #expect(!codeLines.contains(".fuseAdapter("), "Found fusion call in \(fileName)")
         }
     }
 }

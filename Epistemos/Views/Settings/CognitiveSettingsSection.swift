@@ -48,7 +48,26 @@ struct CognitiveSettingsSection: View {
                     )
                 }
             }
+
+            Section("SSM State Persistence") {
+                SettingsDescriptionText(
+                    text: "SSM state persistence stores tiny hidden-state snapshots for supported local SSM sessions so long conversations can resume without replaying the entire prompt history."
+                )
+                Toggle("Enable SSM State Persistence", isOn: $config.ssmStatePersistenceEnabled)
+                if config.ssmStatePersistenceEnabled {
+                    Toggle("Save After Each Turn", isOn: $config.ssmAutoSaveOnTurnEnd)
+                    Stepper(value: $config.ssmMaxSnapshotsPerModel, in: 1...20) {
+                        Text("Keep \(config.ssmMaxSnapshotsPerModel) snapshots per model")
+                    }
+                    SettingsDescriptionText(
+                        text: "Snapshots stay local on disk. Saving after each turn favors fast resume; limiting retained snapshots keeps storage tidy."
+                    )
+                }
+            }
         }
         .formStyle(.grouped)
+        .onChange(of: config.ssmStatePersistenceEnabled) { _, enabled in
+            AppBootstrap.shared?.ssmStateService.activate(enabled: enabled)
+        }
     }
 }

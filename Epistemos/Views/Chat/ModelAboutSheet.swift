@@ -40,6 +40,9 @@ struct ModelAboutSheet: View {
                     if let size = sizeBadge {
                         badge(size, tint: .secondary)
                     }
+                    if isSSM {
+                        badge("SSM", tint: .blue)
+                    }
                     if isMoE {
                         badge("MoE", tint: .purple)
                     }
@@ -94,6 +97,7 @@ struct ModelAboutSheet: View {
             specRow("Context Window", value: formatTokens(selection.activeMaxContextTokens))
 
             if case .localMLX(let id) = selection, let model = LocalTextModelID(rawValue: id) {
+                specRow("Architecture", value: model.isSSM ? "SSM" : (model.isMoE ? "MoE Transformer" : "Transformer"))
                 specRow("Temperature", value: String(format: "%.1f", model.optimalTemperature))
                 if model.supportsThinkingMode, let thinkTemp: Float = model.thinkingTemperature {
                     specRow("Thinking Temp", value: String(format: "%.1f", thinkTemp))
@@ -101,19 +105,33 @@ struct ModelAboutSheet: View {
                 specRow("Top-p", value: String(format: "%.2f", model.optimalTopP))
                 specRow("KV Cache", value: "\(model.optimalKVCacheSize)")
                 specRow("Memory", value: "\(model.minimumRecommendedMemoryGB) GB+")
-                specRow("Tool Tier", value: model.agentToolTier.rawValue.replacingOccurrences(of: "f", with: "F").replacingOccurrences(of: "r", with: "R"))
+                if model.supportsAgentMode {
+                    specRow(
+                        "Tool Tier",
+                        value: model.agentToolTier.rawValue
+                            .replacingOccurrences(of: "f", with: "F")
+                            .replacingOccurrences(of: "r", with: "R")
+                    )
+                }
+            } else if case .cloud(let model) = selection {
+                specRow("Provider", value: model.providerDisplayName)
+                specRow("Modes", value: model.aboutSheetModeSummary)
+                specRow("Output", value: model.aboutSheetStructuredOutputSummary)
+                specRow("API ID", value: model.vendorModelID)
             }
         }
     }
 
     private func specRow(_ label: String, value: String) -> some View {
-        HStack {
+        HStack(alignment: .top, spacing: 12) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
                 .font(.caption.monospaced())
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -189,8 +207,14 @@ struct ModelAboutSheet: View {
     }
 
     private var familyBadge: String? {
-        guard case .localMLX(let id) = selection else { return nil }
-        return LocalTextModelID(rawValue: id)?.familyName
+        switch selection {
+        case .localMLX(let id):
+            return LocalTextModelID(rawValue: id)?.familyName
+        case .cloud(let model):
+            return model.aboutSheetBadge
+        case .appleIntelligence:
+            return nil
+        }
     }
 
     private var sizeBadge: String? {
@@ -205,6 +229,11 @@ struct ModelAboutSheet: View {
     private var isMoE: Bool {
         guard case .localMLX(let id) = selection else { return false }
         return LocalTextModelID(rawValue: id)?.isMoE ?? false
+    }
+
+    private var isSSM: Bool {
+        guard case .localMLX(let id) = selection else { return false }
+        return LocalTextModelID(rawValue: id)?.isSSM ?? false
     }
 
     private var supportsThinking: Bool {

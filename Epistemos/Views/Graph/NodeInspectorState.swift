@@ -214,7 +214,7 @@ final class NodeInspectorState {
                     let structureDepth: Int = switch nodeType {
                     case .folder: 0
                     case .note, .chat: 2
-                    case .idea, .source, .quote: 3
+                    case .idea, .source, .quote, .person, .project, .topic, .decision, .event, .resource: 3
                     case .tag, .block: 4
                     }
                     let prominence = min(1.0, Double(contentWords) / 1800.0 + Double(linkedCount) * 0.04)

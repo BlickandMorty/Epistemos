@@ -79,9 +79,12 @@ struct FileAttachmentBuilderTests {
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
 
         let attachment = await FileAttachmentBuilder.build(from: url)
-        let context = ChatCoordinator.buildFileAttachmentContext(from: [attachment])
+        let context = ChatCoordinator.buildFileAttachmentContext(from: [attachment], supportsVision: false)
 
+        #expect(context?.contains("## Required File Attachments") == true)
         #expect(context?.contains("Attached file: vault note cafe.md") == true)
+        #expect(context?.contains("Status: Required context explicitly attached or requested by the user.") == true)
+        #expect(context?.contains("Treat them as the primary subject of the request unless the user clearly says otherwise.") == true)
         #expect(context?.contains("# Vault Note") == true)
         #expect(context?.contains("spaces in its URL") == true)
     }
@@ -98,10 +101,29 @@ struct FileAttachmentBuilderTests {
             preview: "Cached text from the earlier attachment scan."
         )
 
-        let context = ChatCoordinator.buildFileAttachmentContext(from: [attachment])
+        let context = ChatCoordinator.buildFileAttachmentContext(from: [attachment], supportsVision: false)
 
         #expect(context?.contains("Attached file: offline.md") == true)
         #expect(context?.contains("Cached text from the earlier attachment scan.") == true)
+    }
+
+    @Test("image attachments tell text-only models not to invent unseen details")
+    func imageAttachmentContextRespectsVisionCapabilities() {
+        let attachment = FileAttachment(
+            id: UUID().uuidString,
+            name: "diagram.png",
+            type: .image,
+            uri: "file:///tmp/diagram.png",
+            size: 64,
+            mimeType: "image/png",
+            preview: nil
+        )
+
+        let textOnlyContext = ChatCoordinator.buildFileAttachmentContext(from: [attachment], supportsVision: false)
+        let visionContext = ChatCoordinator.buildFileAttachmentContext(from: [attachment], supportsVision: true)
+
+        #expect(textOnlyContext?.contains("This model cannot inspect images directly.") == true)
+        #expect(visionContext?.contains("This model can inspect images directly.") == true)
     }
 
     private func temporaryFileURL(named name: String) throws -> URL {

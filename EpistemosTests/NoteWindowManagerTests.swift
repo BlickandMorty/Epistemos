@@ -665,7 +665,10 @@ struct NoteWindowManagerTests {
         #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.source))
         #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.quote))
         #expect(
-            GraphOverlayControlsDisplay.filterTypes == [.note, .chat, .idea, .folder]
+            GraphOverlayControlsDisplay.filterTypes == [
+                .note, .chat, .idea, .folder,
+                .person, .project, .topic, .decision, .event, .resource,
+            ]
         )
     }
 
@@ -790,12 +793,13 @@ struct NotesSidebarVisibleTreeBuilderTests {
 struct NotesSidebarHoverHapticsTests {
 
     @Test("Hover tick state only fires when the pointer enters a row")
-    func hoverTickStateOnlyTicksOnEntry() {
+    func hoverTickStateOnlyTicksOnEntry() async {
         var state = NotesSidebarHoverTickState()
 
         let firstEnter = state.update(hovering: true)
         let repeatedHover = state.update(hovering: true)
         let hoverExit = state.update(hovering: false)
+        try? await Task.sleep(for: .milliseconds(90))
         let secondEnter = state.update(hovering: true)
 
         #expect(firstEnter)

@@ -1,6 +1,10 @@
 import Testing
 @testable import Epistemos
 
+// Legacy semantic selector tests are kept for reference while the old
+// Omega accessibility selector stack stays retired from the live app.
+#if false
+
 @Suite("AXSemanticSelector")
 @MainActor
 struct AXSemanticSelectorTests {
@@ -167,3 +171,4 @@ struct AXSemanticSelectorTests {
         #expect(matches[0].title == "Hello World")
     }
 }
+#endif

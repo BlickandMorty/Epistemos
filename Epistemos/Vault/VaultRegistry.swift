@@ -29,6 +29,8 @@ nonisolated struct VaultRegistryEntry: Identifiable, Hashable, Sendable {
 
 @MainActor @Observable
 final class VaultRegistry {
+    static let shared = VaultRegistry()
+
     var entries: [VaultRegistryEntry] = []
     var selectedIdentity: VaultIdentity = .personal
     var selectedContextSource: VaultIdentity = .personal
@@ -59,6 +61,10 @@ final class VaultRegistry {
 
     func resolve(identity: VaultIdentity) -> URL? {
         entries.first(where: { $0.identity == identity })?.rootURL
+    }
+
+    func resolveVaultPath(for identity: VaultIdentity) -> String? {
+        resolve(identity: identity)?.path
     }
 
     func list() -> [VaultRegistryEntry] {

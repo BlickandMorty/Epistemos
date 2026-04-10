@@ -87,7 +87,7 @@ struct ResolvedThemeTests {
 
     @Test("app source no longer uses direct theme background foreground accent compatibility shims")
     func appSourceAvoidsDirectThemeCompatibilityShims() throws {
-        let repoRoot = repoRootURL()
+        let repoRoot = try repoRootURL()
         let appRoot = repoRoot.appendingPathComponent("Epistemos")
         let enumerator = FileManager.default.enumerator(
             at: appRoot,
@@ -111,15 +111,11 @@ struct ResolvedThemeTests {
         #expect(offenders.isEmpty, "Direct theme shim reads remain in: \(offenderList)")
     }
 
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+    private func repoRootURL() throws -> URL {
+        try sourceMirrorRootURL()
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        try String(
-            contentsOf: repoRootURL().appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

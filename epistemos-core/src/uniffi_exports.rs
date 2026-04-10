@@ -311,6 +311,97 @@ pub fn instant_recall_encode(text: String) -> String {
     serde_json::to_string(&embedding).unwrap_or_else(|_| "[]".to_string())
 }
 
+// ── SSM State Persistence (Mamba vault memory) ─────────────────────────────
+
+use crate::ssm_state;
+
+/// Save SSM hidden state to flat binary. Returns file path on success.
+pub fn ssm_save_state(
+    vault_root: String,
+    model_id: String,
+    session_id: String,
+    layer_count: u32,
+    state_dim: u32,
+    head_dim: u32,
+    vault_id_hash: u64,
+    model_id_hash: u64,
+    has_conv_state: bool,
+    layer_data: Vec<u8>,
+) -> Result<String, ssm_state::SSMStateError> {
+    let state = ssm_state::SSMState {
+        model_id,
+        session_id,
+        layer_count,
+        state_dim,
+        head_dim,
+        vault_id: vault_id_hash,
+        model_hash: model_id_hash,
+        has_conv_state,
+        layer_data,
+    };
+    let path = ssm_state::save_ssm_state(&state, std::path::Path::new(&vault_root))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// Load SSM hidden state. Returns JSON with metadata + base64 layer_data.
+pub fn ssm_load_state(file_path: String) -> Result<String, ssm_state::SSMStateError> {
+    let state = ssm_state::load_ssm_state(std::path::Path::new(&file_path))?;
+    let json = serde_json::json!({
+        "model_id": state.model_id,
+        "session_id": state.session_id,
+        "layer_count": state.layer_count,
+        "state_dim": state.state_dim,
+        "head_dim": state.head_dim,
+        "vault_id": state.vault_id,
+        "model_hash": state.model_hash,
+        "has_conv_state": state.has_conv_state,
+        "layer_data_bytes": state.layer_data.len(),
+    });
+    Ok(json.to_string())
+}
+
+/// List saved SSM states. Returns JSON array.
+pub fn ssm_list_states(
+    vault_root: String,
+    model_hash_filter: u64,
+) -> Result<String, ssm_state::SSMStateError> {
+    let filter = if model_hash_filter == 0 {
+        None
+    } else {
+        Some(model_hash_filter)
+    };
+    let states = ssm_state::list_ssm_states(std::path::Path::new(&vault_root), filter)?;
+    Ok(serde_json::to_string(&states).unwrap_or_else(|_| "[]".to_string()))
+}
+
+/// Prune old SSM states, keeping most recent keep_count.
+pub fn ssm_prune_states(
+    vault_root: String,
+    model_hash_filter: u64,
+    keep_count: u32,
+) -> Result<u32, ssm_state::SSMStateError> {
+    let filter = if model_hash_filter == 0 {
+        None
+    } else {
+        Some(model_hash_filter)
+    };
+    ssm_state::prune_ssm_states(
+        std::path::Path::new(&vault_root),
+        filter,
+        keep_count as usize,
+    )
+}
+
+/// Compute stable u64 hash for vault path scoping.
+pub fn ssm_hash_vault_path(vault_root: String) -> u64 {
+    ssm_state::hash_vault_path(&vault_root)
+}
+
+/// Compute stable u64 hash for model identity.
+pub fn ssm_hash_model_id(model_id: String) -> u64 {
+    ssm_state::hash_model_id(&model_id)
+}
+
 // ── Scheduling ──────────────────────────────────────────────────────────────
 
 pub fn evaluate_schedule(

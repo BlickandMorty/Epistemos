@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Synchronization
 import Testing
 @testable import Epistemos
 
@@ -81,6 +82,20 @@ struct CloudKnowledgeDistillationTests {
         #expect(compilation.instructions == "Prefer concise answers with citations.")
         #expect(compilation.metadata.noteCount == 2)
         #expect(compilation.metadata.conceptCount > 0)
+    }
+
+    @Test("default targets only include catalog-backed local models")
+    func defaultTargetsExcludeUnavailableLocalModels() {
+        let nonexistentGemma4 = "mlx-community/gemma-4-12b-it-4bit"
+        let targets = CloudKnowledgeDistillationService.defaultTargets()
+        let localTargetIDs = Set(
+            targets
+                .filter { LocalTextModelID(rawValue: $0.modelID) != nil }
+                .map(\.modelID)
+        )
+
+        #expect(localTargetIDs == Set(LocalModelCatalog.allDescriptors.map(\.id)))
+        #expect(!localTargetIDs.contains(nonexistentGemma4))
     }
 
     @Test("store round-trips compilation and preserves user instructions")
@@ -241,6 +256,43 @@ struct CloudKnowledgeDistillationTests {
         if let transformersIndex, let generalIndex {
             #expect(transformersIndex < generalIndex)
         }
+    }
+
+    @Test("concept ranker extracts sentence candidates once per note")
+    func conceptRankerExtractsSentenceCandidatesOncePerNote() {
+        let now = Date(timeIntervalSince1970: 1_775_150_400)
+        let counter = Mutex(0)
+        let ranker = ConceptRanker(
+            nowProvider: { now },
+            sentenceExtractor: { note in
+                counter.withLock { count in
+                    count += 1
+                }
+                return [note.body]
+            }
+        )
+
+        _ = ranker.rankConcepts(
+            notes: [
+                makeNote(
+                    id: "memory-systems",
+                    title: "Memory Systems",
+                    body: "Memory systems need retrieval. Retrieval needs durable memory.",
+                    tags: ["memory"],
+                    updatedAt: now
+                ),
+                makeNote(
+                    id: "transformer-notes",
+                    title: "Transformer Notes",
+                    body: "Transformers need retrieval too. Retrieval keeps context grounded.",
+                    tags: ["transformers"],
+                    updatedAt: now.addingTimeInterval(-300)
+                ),
+            ],
+            limit: 8
+        )
+
+        #expect(counter.withLock { $0 } == 2)
     }
 
     @Test("compiler preserves real recency when the domain map falls back to ranked concepts")

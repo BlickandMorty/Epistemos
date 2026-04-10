@@ -375,8 +375,6 @@ struct ToolCallDelta {
     index: Option<usize>,
     id: Option<String>,
     function: Option<FunctionDelta>,
-    #[serde(rename = "type")]
-    call_type: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -497,7 +495,7 @@ impl AgentProvider for OpenAICompatibleProvider {
             let mut tool_calls: HashMap<usize, (String, String, String)> = HashMap::new();
             let mut final_usage = TokenUsage::default();
             let mut final_stop_reason = StopReason::EndTurn;
-            let mut text_index: usize = 0;
+            let text_index: usize = 0;
             futures::pin_mut!(event_stream);
 
             while let Some(event_result) = event_stream.next().await {

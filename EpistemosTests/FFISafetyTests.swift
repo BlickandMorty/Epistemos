@@ -2,6 +2,8 @@ import Testing
 import Foundation
 @testable import Epistemos
 
+private func requireSendable<T: Sendable>(_: T.Type) {}
+
 // MARK: - FFI Safety Tests
 // Tests safety boundaries and error handling at the FFI layer:
 // - Invalid pointer handling
@@ -13,6 +15,14 @@ import Foundation
 
 @Suite("FFI Safety")
 struct FFISafetyTests {
+
+    @Test("Agent runtime FFI bridge values are Sendable")
+    func agentRuntimeBridgeValuesAreSendable() {
+        requireSendable(ToolConfig.self)
+        requireSendable(AgentConfigFFI.self)
+        requireSendable(ReasoningTrajectoryMetricsFFI.self)
+        requireSendable(AgentResultFFI.self)
+    }
     
     // MARK: - Invalid Pointer Handling Tests
     
@@ -453,11 +463,11 @@ struct FFISafetyTests {
     
     @Test("UInt8 bounds for node type")
     func uint8BoundsNodeType() {
-        let valid: UInt8 = 7
+        let valid: UInt8 = 13
         let invalid: UInt8 = 255
 
-        #expect(valid <= 7)
-        #expect(invalid > 7)
+        #expect(valid <= 13)
+        #expect(invalid > 13)
     }
     
     @Test("UInt8 bounds for edge type")

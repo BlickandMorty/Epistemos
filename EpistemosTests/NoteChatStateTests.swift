@@ -3,6 +3,8 @@ import SwiftData
 import Testing
 @testable import Epistemos
 
+private let interactiveReleaseFixtureModelID = LocalTextModelID.qwen35_2B4Bit
+
 @Suite("NoteChatState")
 struct NoteChatStateTests {
     @MainActor
@@ -149,8 +151,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = SlowStreamingLLMClient()
         let triage = TriageService(inference: inference, localLLMService: llm)
@@ -178,8 +180,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         let triage = TriageService(inference: inference, localLLMService: llm)
@@ -208,8 +210,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         llm.streamTokens = [
@@ -243,8 +245,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         llm.streamTokens = [
@@ -317,8 +319,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         let triage = TriageService(inference: inference, localLLMService: llm)
@@ -350,8 +352,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         let triage = TriageService(inference: inference, localLLMService: llm)
@@ -381,8 +383,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         let triage = TriageService(inference: inference, localLLMService: llm)
@@ -412,8 +414,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         let triage = TriageService(inference: inference, localLLMService: llm)
@@ -448,8 +450,8 @@ struct NoteChatStateTests {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
 
         let llm = CapturingStreamingLLMClient()
         llm.streamTokens = ["done"]
@@ -529,13 +531,7 @@ struct DialogueChatStateTests {
 
     @Test("typewriter loop treats sleep cancellation explicitly")
     func typewriterLoopTreatsSleepCancellationExplicitly() throws {
-        let source = try String(
-            contentsOf: URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Epistemos/State/DialogueChatState.swift"),
-            encoding: .utf8
-        )
+        let source = try loadMirroredSourceTextFile("Epistemos/State/DialogueChatState.swift")
 
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(33))"))
     }
@@ -577,14 +573,14 @@ struct DisplayPacedTextBufferTests {
         #expect(flushed.isEmpty)
     }
 
-    @Test("reset can release retained buffer capacity without flushing")
+    @Test("reset can release retained buffer capacity without flushing when the pending buffer stays below the threshold")
     @MainActor func resetCanReleaseRetainedBufferCapacityWithoutFlushing() async throws {
         var flushed: [String] = []
         let buffer = DisplayPacedTextBuffer(flushInterval: .milliseconds(20)) { delta in
             flushed.append(delta)
         }
 
-        buffer.append(String(repeating: "x", count: 80_000), scheduleFlush: false)
+        buffer.append(String(repeating: "x", count: 8_000), scheduleFlush: false)
         buffer.reset(releaseCapacity: true)
         try await Task.sleep(for: .milliseconds(40))
 
@@ -633,7 +629,7 @@ private final class SlowStreamingLLMClient: LLMClientProtocol {
     func configSnapshot() -> LLMSnapshot {
         LLMSnapshot(
             provider: .localMLX,
-            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            model: interactiveReleaseFixtureModelID.rawValue,
             reasoningMode: .fast
         )
     }
@@ -669,7 +665,7 @@ private final class CapturingStreamingLLMClient: LLMClientProtocol {
     func configSnapshot() -> LLMSnapshot {
         LLMSnapshot(
             provider: .localMLX,
-            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            model: interactiveReleaseFixtureModelID.rawValue,
             reasoningMode: .fast
         )
     }

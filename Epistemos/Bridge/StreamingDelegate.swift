@@ -1,11 +1,14 @@
 import Dispatch
 import Foundation
 
-#if canImport(agent_core)
-import agent_core
+#if canImport(agent_coreFFI)
+typealias AgentStreamEventDelegate = AgentEventDelegate
+typealias AgentConfigFFI = AgentConfigFfi
+typealias AgentResultFFI = AgentResultFfi
+typealias ReasoningTrajectoryMetricsFFI = ReasoningTrajectoryMetricsFfi
 #endif
 
-#if !canImport(agent_core)
+#if !canImport(agent_coreFFI)
 protocol AgentStreamEventDelegate: AnyObject, Sendable {
     func onThinkingDelta(thought: String)
     func onTextDelta(delta: String)
@@ -24,6 +27,7 @@ protocol AgentStreamEventDelegate: AnyObject, Sendable {
     func onTurnStarted(turnNumber: UInt32, messageCount: UInt32)
     func onComplete(stopReason: String, inputTokens: UInt32, outputTokens: UInt32)
     func onError(message: String)
+    func executeComputerAction(actionJson: String) -> String
     func waitForPermission(permissionId: String) -> Bool
 }
 
@@ -42,12 +46,26 @@ struct AgentConfigFFI: Sendable {
     let systemPrompt: String?
     let autoApproveReads: Bool
     let autoApproveWrites: Bool
+    /// Explicit mode: "code", "research", "general", or nil for auto-detect.
+    let promptMode: String?
+}
+
+struct ReasoningTrajectoryMetricsFFI: Sendable {
+    let displacement: Double
+    let pathLength: Double
+    let curvatureRatio: Double
+    let loopCount: UInt32
+    let errorCount: UInt32
+    let totalCalls: UInt32
+    let efficiency: Double
+    let classification: String
 }
 
 struct AgentResultFFI: Sendable {
     let turns: UInt32
     let inputTokens: UInt32
     let outputTokens: UInt32
+    let trajectoryMetrics: ReasoningTrajectoryMetricsFFI
 }
 
 enum AgentRuntimeBridgeError: Error, LocalizedError, Sendable {
@@ -77,7 +95,7 @@ func cancelAgentSession(sessionId: String) {}
 
 // MARK: - Agent Stream Types (self-contained, no external dependencies)
 
-enum AgentStreamEvent: Sendable {
+nonisolated enum AgentStreamEvent: Sendable {
     case thinkingDelta(String)
     case textDelta(String)
     case toolInputStreaming(index: UInt32, partialJson: String)
@@ -92,7 +110,7 @@ enum AgentStreamEvent: Sendable {
     case error(AgentRuntimeError)
 }
 
-struct AgentPermissionRequest: Sendable, Identifiable {
+nonisolated struct AgentPermissionRequest: Sendable, Identifiable {
     let id: String
     let toolName: String
     let inputJson: String
@@ -100,7 +118,7 @@ struct AgentPermissionRequest: Sendable, Identifiable {
     let description: String
 }
 
-enum AgentRuntimeRiskLevel: Sendable {
+nonisolated enum AgentRuntimeRiskLevel: Sendable {
     case readOnly
     case modification
     case destructive
@@ -114,11 +132,32 @@ enum AgentRuntimeRiskLevel: Sendable {
     }
 }
 
-struct AgentRuntimeError: Error, Sendable {
+nonisolated struct AgentRuntimeError: Error, Sendable {
     let message: String
 }
 
-final class StreamingDelegate: AgentStreamEventDelegate, @unchecked Sendable {
+nonisolated private final class LockedStringBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: String
+
+    init(_ value: String) {
+        self.value = value
+    }
+
+    func set(_ newValue: String) {
+        lock.lock()
+        value = newValue
+        lock.unlock()
+    }
+
+    func get() -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+}
+
+nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked Sendable {
     private let continuation: AsyncStream<AgentStreamEvent>.Continuation
     private var pendingPermissions: [String: DispatchSemaphore] = [:]
     private var permissionResults: [String: Bool] = [:]
@@ -201,6 +240,26 @@ final class StreamingDelegate: AgentStreamEventDelegate, @unchecked Sendable {
     func onError(message: String) {
         continuation.yield(.error(AgentRuntimeError(message: message)))
         continuation.finish()
+    }
+
+    func executeComputerAction(actionJson: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox(
+            "{\"success\":false,\"error\":\"Timed out waiting for native computer action.\"}"
+        )
+
+        Task { @MainActor in
+            let executed = await ComputerUseBridge.shared.execute(actionJSON: actionJson)
+            result.set(executed)
+            semaphore.signal()
+        }
+
+        let waitResult = semaphore.wait(timeout: .now() + permissionTimeout)
+        guard waitResult != .timedOut else {
+            return result.get()
+        }
+
+        return result.get()
     }
 
     func waitForPermission(permissionId: String) -> Bool {

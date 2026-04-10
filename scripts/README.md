@@ -11,6 +11,78 @@ Convenient shell scripts for running tests, generating test suites, and profilin
 | `run_rust_tests.sh` | Rust/graph-engine only | ~30 sec |
 | `run_swift_tests.sh` | Swift tests only | ~8-12 min |
 
+## Release Scripts
+
+### release/build_release_app.sh
+Build the Release app into a dedicated DerivedData folder, optionally sign it with `Developer ID Application`, and run the shipping-bundle preflight.
+
+```bash
+# Local unsigned verification
+./scripts/release/build_release_app.sh
+
+# Distributable build
+EPISTEMOS_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+./scripts/release/build_release_app.sh
+```
+
+Output app path:
+- `build/release-derived-data/Build/Products/Release/Epistemos.app`
+
+### release/release_preflight.sh
+Validate a built `.app` bundle before DMG packaging.
+
+Checks:
+- main executable + universal architecture
+- Rust dylibs (`libepistemos_core.dylib`, `libagent_core.dylib`, `libomega_mcp.dylib`, `libomega_ax.dylib`)
+- privacy manifest + model manifest + font bundle
+- Knowledge Fusion runtime assets
+- no accidental `Contents/PlugIns`
+- no bundled model weights or secret files
+- codesign verification when the app is signed
+
+```bash
+./scripts/release/release_preflight.sh \
+  build/release-derived-data/Build/Products/Release/Epistemos.app
+```
+
+### release/create_release_dmg.sh
+Create a drag-to-Applications DMG from a preflight-clean app bundle and optionally sign the DMG.
+
+```bash
+# Unsigned local packaging test
+./scripts/release/create_release_dmg.sh \
+  build/release-derived-data/Build/Products/Release/Epistemos.app
+
+# Signed DMG
+EPISTEMOS_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+./scripts/release/create_release_dmg.sh \
+  build/release-derived-data/Build/Products/Release/Epistemos.app
+```
+
+Outputs:
+- `build/release-artifacts/Epistemos.dmg`
+- `build/release-artifacts/Epistemos.dmg.sha256`
+
+### release/notarize_release_dmg.sh
+Submit the DMG to Apple notarization, download the notarization log, staple the ticket, and validate the stapled result.
+
+```bash
+# Preferred: keychain profile already configured
+EPISTEMOS_NOTARY_PROFILE="epistemos-notary" \
+./scripts/release/notarize_release_dmg.sh \
+  build/release-artifacts/Epistemos.dmg
+
+# Fallback: explicit credentials
+EPISTEMOS_NOTARY_APPLE_ID="you@example.com" \
+EPISTEMOS_NOTARY_TEAM_ID="TEAMID1234" \
+EPISTEMOS_NOTARY_PASSWORD="app-specific-password" \
+./scripts/release/notarize_release_dmg.sh \
+  build/release-artifacts/Epistemos.dmg
+```
+
+Output:
+- notarization logs under `build/notary-logs/`
+
 ## Test Runner Scripts
 
 ### run_all_tests.sh

@@ -242,10 +242,9 @@ struct KTOScriptComplianceTests {
 
     @Test("KTO script does not use DPO")
     func noDPO() throws {
-        let sourcePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion/Alignment/scripts/train_kto.py")
+        let sourcePath = try sourceMirrorURL(
+            for: "Epistemos/KnowledgeFusion/Alignment/scripts/train_kto.py"
+        )
 
         guard FileManager.default.fileExists(atPath: sourcePath.path) else { return }
         let content = try String(contentsOf: sourcePath, encoding: .utf8)
@@ -270,10 +269,9 @@ struct KTOScriptComplianceTests {
 
     @Test("KTO uses binary label format")
     func binaryLabels() throws {
-        let sourcePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion/Alignment/scripts/train_kto.py")
+        let sourcePath = try sourceMirrorURL(
+            for: "Epistemos/KnowledgeFusion/Alignment/scripts/train_kto.py"
+        )
 
         guard FileManager.default.fileExists(atPath: sourcePath.path) else { return }
         let content = try String(contentsOf: sourcePath, encoding: .utf8)

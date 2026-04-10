@@ -125,7 +125,7 @@ final class WorkspaceSummaryService {
                 contentLength: reducePrompt.count,
                 query: "workspace synthesis"
             )
-            let cleaned = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let cleaned = Self.sanitizedSummaryText(from: summary) else { return nil }
             guard !cleaned.isEmpty else { return nil }
             storeSummary(cleaned)
             return cleaned
@@ -158,7 +158,7 @@ final class WorkspaceSummaryService {
                     prompt: prompt,
                     systemPrompt: "You are a concise document summarizer. One sentence only."
                 )
-                results.append((title: title, summary: summary.trimmingCharacters(in: .whitespacesAndNewlines)))
+                results.append((title: title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
             } catch {
                 // Fallback to triage (Qwen) if Apple Intelligence unavailable
                 do {
@@ -169,7 +169,7 @@ final class WorkspaceSummaryService {
                         contentLength: snippet.count,
                         query: "per-window summary"
                     )
-                    results.append((title: title, summary: summary.trimmingCharacters(in: .whitespacesAndNewlines)))
+                    results.append((title: title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
                 } catch {
                     results.append((title: title, summary: "Could not summarize"))
                 }
@@ -204,7 +204,7 @@ final class WorkspaceSummaryService {
                 contentLength: reducePrompt.count,
                 query: "workspace synthesis"
             )
-            let cleaned = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let cleaned = Self.sanitizedSummaryText(from: summary) else { return }
             guard !cleaned.isEmpty else { return }
             storeSummary(cleaned)
             Self.log.info("Summary generated (Map-Reduce): \(cleaned.prefix(80), privacy: .public)")
@@ -274,6 +274,13 @@ final class WorkspaceSummaryService {
     }
 
     // MARK: - Storage
+
+    private nonisolated static func sanitizedSummaryText(from raw: String) -> String? {
+        let visible = UserFacingModelOutput.finalVisibleText(from: raw)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !visible.isEmpty else { return nil }
+        return visible
+    }
 
     private func storeSummary(_ text: String) {
         let context = modelContainer.mainContext

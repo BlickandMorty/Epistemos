@@ -1469,9 +1469,12 @@ final class TriageService {
         operatingMode: EpistemosOperatingMode,
         localSelection: LocalModelSelection?
     ) async throws -> String {
+        let fallbackChain = inference.cloudFallbackChain(for: operatingMode)
+        let useAutoFallback = inference.cloudAutoFallback
+        let modelsToTry = useAutoFallback ? fallbackChain : Array(fallbackChain.prefix(1))
         var lastCloudError: Error?
 
-        for model in inference.cloudFallbackChain(for: operatingMode) {
+        for model in modelsToTry {
             do {
                 lastDecision = .cloud
                 return try await cloudGenerate(
@@ -1485,6 +1488,19 @@ final class TriageService {
                     "Cloud route \(model.vendorModelID, privacy: .public) failed, trying the next fallback: \(error.localizedDescription, privacy: .public)"
                 )
             }
+        }
+
+        guard useAutoFallback else {
+            if let cloudError = lastCloudError as? CloudLLMError {
+                throw cloudError
+            }
+            if let llmError = lastCloudError as? LLMError {
+                throw llmError
+            }
+
+            let modelName = modelsToTry.first?.vendorModelID ?? "unknown"
+            let reason = lastCloudError?.localizedDescription ?? "Unknown error"
+            throw CloudRoutingError.modelFailed("\(modelName) failed: \(reason)")
         }
 
         if inference.appleIntelligenceAvailable {
@@ -1569,10 +1585,17 @@ final class TriageService {
 
                 // Manual mode: fail with descriptive error, no silent fallback
                 guard useAutoFallback else {
+                    if let cloudError = lastCloudError as? CloudLLMError {
+                        continuation.finish(throwing: cloudError)
+                        return
+                    }
+                    if let llmError = lastCloudError as? LLMError {
+                        continuation.finish(throwing: llmError)
+                        return
+                    }
+
                     let modelName = modelsToTry.first?.vendorModelID ?? "unknown"
-                    let reason = (lastCloudError as? LLMError)?.errorDescription
-                        ?? lastCloudError?.localizedDescription
-                        ?? "Unknown error"
+                    let reason = lastCloudError?.localizedDescription ?? "Unknown error"
                     let message = """
                     \(modelName) failed: \(reason)
 

@@ -117,16 +117,23 @@ enum SymbolKind: Sendable {
 /// Parses document content to extract outline structure.
 /// All regex patterns are compiled once as static properties.
 struct OutlineParser {
+    private static func makeRegex(_ pattern: String) -> NSRegularExpression {
+        do {
+            return try NSRegularExpression(pattern: pattern)
+        } catch {
+            preconditionFailure("Invalid outline regex: \(pattern)")
+        }
+    }
 
     // Pre-compiled regex — compiled once, reused on every parse call
-    private static let markdownHeaderRegex = try! NSRegularExpression(pattern: "^(#{1,6})\\s+(.+)$")
+    private static let markdownHeaderRegex = makeRegex("^(#{1,6})\\s+(.+)$")
     private static let markCommentRegexes: [NSRegularExpression] = [
-        try! NSRegularExpression(pattern: "^//\\s*MARK:\\s*-?\\s*(.+)$"),
-        try! NSRegularExpression(pattern: "^#\\s*MARK:\\s*-?\\s*(.+)$"),
-        try! NSRegularExpression(pattern: "^///\\s*#\\s*MARK:\\s*-?\\s*(.+)$")
+        makeRegex("^//\\s*MARK:\\s*-?\\s*(.+)$"),
+        makeRegex("^#\\s*MARK:\\s*-?\\s*(.+)$"),
+        makeRegex("^///\\s*#\\s*MARK:\\s*-?\\s*(.+)$")
     ]
-    private static let rustSymbolRegex = try! NSRegularExpression(pattern: "\\b(fn|struct|enum|impl)\\s+([^(<{]+)")
-    private static let pythonSymbolRegex = try! NSRegularExpression(pattern: "^\\s*(def|class)\\s+([^(]+)")
+    private static let rustSymbolRegex = makeRegex("\\b(fn|struct|enum|impl)\\s+([^(<{]+)")
+    private static let pythonSymbolRegex = makeRegex("^\\s*(def|class)\\s+([^(]+)")
 
     static func parse(content: String, language: String) -> [OutlineItem] {
         let lines = content.components(separatedBy: .newlines)

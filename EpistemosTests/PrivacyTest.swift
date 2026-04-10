@@ -198,10 +198,7 @@ struct PrivacyTest {
 
     @Test("No DPO in any training script")
     func noDPO() throws {
-        let scriptsBase = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion")
+        let scriptsBase = try sourceMirrorURL(for: "Epistemos/KnowledgeFusion")
 
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: scriptsBase, includingPropertiesForKeys: nil) else { return }
@@ -216,10 +213,7 @@ struct PrivacyTest {
 
     @Test("No adapter fusion in any Python script")
     func noFusion() throws {
-        let scriptsBase = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion")
+        let scriptsBase = try sourceMirrorURL(for: "Epistemos/KnowledgeFusion")
 
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: scriptsBase, includingPropertiesForKeys: nil) else { return }
