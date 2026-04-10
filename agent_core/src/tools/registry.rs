@@ -340,10 +340,62 @@ impl ToolRegistry {
         // Phase 7 intelligence layer (pure-Rust parts).
         self.register_phase_seven_intelligence();
 
+        // Phase 8 discovery + trajectory + skill marketplace (post-plan work
+        // — comprehensive Hermes/OpenClaw parity pass). All read-only except
+        // trajectory_export (Modification because it writes JSONL to disk).
+        self.register_phase_eight_discovery();
+        self.register_phase_eight_trajectory();
+
         // Tier rebalance: mark the read-only research tools as ChatLite so
         // normal chat (fast/thinking) can call them, and the cloud-heavy
         // read-only tools as ChatPro so the Pro mode picks them up too.
         self.apply_tier_overrides();
+    }
+
+    fn register_phase_eight_discovery(&mut self) {
+        use crate::tools::discovery::{
+            mcp_discover_schema, model_catalog_schema, McpDiscoverHandler, ModelCatalogHandler,
+        };
+
+        let mcp = mcp_discover_schema();
+        self.register(RegisteredTool {
+            name: mcp.name,
+            description: mcp.description,
+            parameters: mcp.parameters,
+            handler: Box::new(McpDiscoverHandler),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::ChatPro,
+        });
+
+        match ModelCatalogHandler::new() {
+            Ok(handler) => {
+                let cat = model_catalog_schema();
+                self.register(RegisteredTool {
+                    name: cat.name,
+                    description: cat.description,
+                    parameters: cat.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+                    tier: ToolTier::ChatLite,
+                });
+            }
+            Err(e) => tracing::warn!("model_catalog registration skipped: {e}"),
+        }
+    }
+
+    fn register_phase_eight_trajectory(&mut self) {
+        use crate::tools::trajectory::{trajectory_export_schema, TrajectoryExportHandler};
+        if let Some(root) = self.vault_root_path.clone() {
+            let schema = trajectory_export_schema();
+            self.register(RegisteredTool {
+                name: schema.name,
+                description: schema.description,
+                parameters: schema.parameters,
+                handler: Box::new(TrajectoryExportHandler::new(root)),
+                risk_level: RiskLevel::Modification,
+                tier: ToolTier::Agent,
+            });
+        }
     }
 
     /// Downgrade chat-safe tools from their default `Agent` tier so normal
@@ -386,6 +438,8 @@ impl ToolRegistry {
             "skill_view",
             // Todo list is session-scoped and mutating but harmless
             "todo",
+            // Model catalog is a simple HTTP GET + local array
+            "model_catalog",
         ];
 
         // Tier: ChatPro — adds cloud-backed and macOS-privileged read-only

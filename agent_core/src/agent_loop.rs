@@ -572,10 +572,34 @@ async fn execute_one_tool(
         Ok(output) => {
             // Security: redact credentials from tool output.
             let redacted = crate::security::redact_credentials(&output);
-            // Security: scan for injection/exfiltration patterns.
+            // Security: run the comprehensive 40+ rule scanner (Hermes
+            // skills_guard + OpenClaw tirith_security). Critical hits are
+            // converted into an is_error tool result so the agent sees a
+            // hard block it can recover from; High hits are logged; Medium
+            // and Low are ignored in the hot path.
             let scan = crate::security::scan_tool_output(&redacted);
-            if let Some(severity) = scan.max_severity() {
-                if severity >= crate::security::Severity::High {
+            if let Some(max_severity) = scan.max_severity() {
+                if max_severity >= crate::security::Severity::Critical {
+                    let reasons: Vec<String> = scan
+                        .threats
+                        .iter()
+                        .filter(|t| t.severity >= crate::security::Severity::Critical)
+                        .map(|t| t.description.clone())
+                        .collect();
+                    tracing::error!(
+                        tool = %name,
+                        "Security scan BLOCKED tool output: {reasons:?}"
+                    );
+                    return Ok(ToolResult::text(
+                        id,
+                        format!(
+                            "Tool output blocked by security scanner (critical threats): {}",
+                            reasons.join(", ")
+                        ),
+                        true,
+                    ));
+                }
+                if max_severity >= crate::security::Severity::High {
                     tracing::warn!(
                         tool = %name,
                         "Security scan flagged tool output: {:?}",

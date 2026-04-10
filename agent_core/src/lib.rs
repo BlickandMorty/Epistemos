@@ -57,6 +57,7 @@ pub mod tools {
     pub mod communication;
     pub mod computer_use;
     pub mod delegate_task;
+    pub mod discovery;
     pub mod file_ops;
     pub mod filesystem;
     pub mod graph;
@@ -74,6 +75,7 @@ pub mod tools {
     pub mod terminal;
     pub mod think;
     pub mod todo;
+    pub mod trajectory;
     pub mod web;
     pub mod web_fetch;
     pub mod workspace_search;

@@ -670,8 +670,10 @@ impl ToolHandler for SkillManageHandler {
             "create" => create_skill(&self.skills_dir, input),
             "edit" => edit_skill(&self.skills_dir, input),
             "delete" => delete_skill(&self.skills_dir, input),
+            "install_from_github" => install_skill_from_github(&self.skills_dir, input).await,
+            "install_from_url" => install_skill_from_url(&self.skills_dir, input).await,
             other => Err(super::registry::ToolError::InvalidArguments(format!(
-                "unknown action '{other}' (expected: create|edit|delete)"
+                "unknown action '{other}' (expected: create|edit|delete|install_from_github|install_from_url)"
             ))),
         }
     }
@@ -680,21 +682,34 @@ impl ToolHandler for SkillManageHandler {
 pub fn skill_manage_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "skill_manage".to_string(),
-        description: "Create, edit, or delete a skill. Each SKILL.md must have YAML frontmatter \
-             with 'name' and 'description'. 15KB hard cap per SKILL.md. Actions: create, edit, delete."
+        description: "Create, edit, delete, or INSTALL a skill. Each SKILL.md must have YAML \
+             frontmatter with 'name' and 'description'. 15KB hard cap per SKILL.md. \
+             Actions: \n\
+             - create: write a brand-new skill with the supplied content.\n\
+             - edit: overwrite an existing skill's SKILL.md.\n\
+             - delete: remove the skill directory.\n\
+             - install_from_github: clone a GitHub repo (git URL) into the skills \
+               directory, run the 40-rule security scanner on every SKILL.md, and \
+               land it under a quarantine/ subdirectory. The agent must explicitly \
+               call this action again with {approve: true} to promote it.\n\
+             - install_from_url: fetch a single SKILL.md over HTTPS and land it \
+               under quarantine/, same security scan pass."
             .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["create", "edit", "delete"]
+                    "enum": ["create", "edit", "delete", "install_from_github", "install_from_url"]
                 },
-                "name": { "type": "string", "description": "Skill identifier." },
+                "name": { "type": "string", "description": "Skill identifier (required for create/edit/delete)." },
                 "content": { "type": "string", "description": "Full SKILL.md content (required for create/edit)." },
-                "category": { "type": "string", "description": "Optional category subdirectory." }
+                "category": { "type": "string", "description": "Optional category subdirectory." },
+                "git_url": { "type": "string", "description": "Git URL (install_from_github). Must be https://github.com/...." },
+                "url": { "type": "string", "description": "HTTPS URL to a raw SKILL.md (install_from_url)." },
+                "approve": { "type": "boolean", "description": "Set to true to promote an already-quarantined install.", "default": false }
             },
-            "required": ["action", "name"]
+            "required": ["action"]
         }),
     }
 }
@@ -822,6 +837,293 @@ fn delete_skill(
         "success": true,
         "action": "delete",
         "name": name,
+    })
+    .to_string())
+}
+
+// ── Skill Marketplace: install_from_github + install_from_url ──────────────
+//
+// Both actions land the fetched SKILL.md under a `quarantine/` subdirectory
+// of the managed skills root. The agent (or a human through the UI) must
+// re-invoke the action with `approve: true` to move the skill out of
+// quarantine into the active directory. Quarantine is the line of defence
+// against a malicious upstream skill hijacking the model mid-session.
+
+const GITHUB_HOSTS: &[&str] = &["github.com", "www.github.com"];
+
+async fn install_skill_from_github(
+    skills_dir: &Path,
+    input: &Value,
+) -> Result<String, super::registry::ToolError> {
+    let approve = input.get("approve").and_then(Value::as_bool).unwrap_or(false);
+    let git_url = input
+        .get("git_url")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'git_url'".into()))?;
+    // Scheme + host allowlist so we only clone from github.com over https.
+    if !git_url.starts_with("https://") {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url must be https://".into(),
+        ));
+    }
+    let host_ok = GITHUB_HOSTS.iter().any(|h| {
+        git_url
+            .strip_prefix("https://")
+            .map(|rest| rest.starts_with(h))
+            .unwrap_or(false)
+    });
+    if !host_ok {
+        return Err(super::registry::ToolError::InvalidArguments(format!(
+            "git_url must be on github.com (got: {git_url})"
+        )));
+    }
+
+    // Derive a safe directory name from the repo URL.
+    let repo_slug: String = git_url
+        .trim_end_matches(".git")
+        .rsplit('/')
+        .take(2)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("-")
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(*c, '-' | '_'))
+        .collect();
+    if repo_slug.is_empty() {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "could not derive safe repo slug from git_url".into(),
+        ));
+    }
+
+    let quarantine_root = skills_dir.join("quarantine");
+    let target_dir = quarantine_root.join(&repo_slug);
+
+    // If already quarantined and approve=true, promote it.
+    if target_dir.exists() && approve {
+        return promote_quarantined(skills_dir, &target_dir, &repo_slug);
+    }
+    if target_dir.exists() {
+        return Ok(json!({
+            "success": true,
+            "action": "install_from_github",
+            "status": "already_quarantined",
+            "quarantine_path": target_dir.display().to_string(),
+            "next_step": "call again with approve=true to promote out of quarantine",
+        })
+        .to_string());
+    }
+
+    fs::create_dir_all(&quarantine_root).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("mkdir quarantine: {e}"))
+    })?;
+
+    // Use git2 which is already a dep (for vault git integration). A full
+    // `git clone` via the library avoids shelling out and keeps credential
+    // handling off the subprocess environment.
+    let clone_result = tokio::task::spawn_blocking({
+        let url = git_url.to_string();
+        let target = target_dir.clone();
+        move || git2::Repository::clone(&url, &target)
+    })
+    .await
+    .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("clone task: {e}")))?;
+    if let Err(e) = clone_result {
+        // Clean up any partial clone.
+        let _ = fs::remove_dir_all(&target_dir);
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "git clone failed: {e}"
+        )));
+    }
+
+    // Scan every SKILL.md in the cloned tree against the 40-rule security
+    // scanner. Any Critical hit halts the install.
+    let scan_result = scan_quarantined_tree(&target_dir);
+    if scan_result.critical_count > 0 {
+        // Leave the quarantined tree on disk so the user can inspect it,
+        // but clearly surface the block.
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "security scan blocked install: {} critical threats, {} high; quarantined at {}",
+            scan_result.critical_count,
+            scan_result.high_count,
+            target_dir.display()
+        )));
+    }
+
+    Ok(json!({
+        "success": true,
+        "action": "install_from_github",
+        "status": "quarantined",
+        "quarantine_path": target_dir.display().to_string(),
+        "skill_count": scan_result.skill_count,
+        "high_severity_warnings": scan_result.high_count,
+        "next_step": "call again with approve=true to promote out of quarantine",
+    })
+    .to_string())
+}
+
+async fn install_skill_from_url(
+    skills_dir: &Path,
+    input: &Value,
+) -> Result<String, super::registry::ToolError> {
+    let approve = input.get("approve").and_then(Value::as_bool).unwrap_or(false);
+    let url = input
+        .get("url")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'url'".into()))?;
+    let skill_name = input
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    if let Some(err) = validate_name(skill_name) {
+        return Err(super::registry::ToolError::InvalidArguments(err));
+    }
+    if !url.starts_with("https://") {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "url must be https://".into(),
+        ));
+    }
+    if let Err(threat) = crate::security::validate_url_safe(url, false) {
+        return Err(super::registry::ToolError::ExecutionFailed(
+            threat.description,
+        ));
+    }
+
+    let quarantine_dir = skills_dir.join("quarantine").join(skill_name);
+
+    if quarantine_dir.exists() && approve {
+        return promote_quarantined(skills_dir, &quarantine_dir, skill_name);
+    }
+
+    fs::create_dir_all(&quarantine_dir).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("mkdir quarantine: {e}"))
+    })?;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("Epistemos/1.0 (SkillInstaller)")
+        .build()
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("http init: {e}")))?;
+
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("http fetch: {e}")))?;
+    if !resp.status().is_success() {
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "http {}",
+            resp.status()
+        )));
+    }
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("http body: {e}")))?;
+    if body.len() > MAX_SKILL_BYTES {
+        let _ = fs::remove_dir_all(&quarantine_dir);
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "SKILL.md exceeds {MAX_SKILL_BYTES} byte cap"
+        )));
+    }
+    if let Some(err) = validate_frontmatter(&body) {
+        let _ = fs::remove_dir_all(&quarantine_dir);
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "frontmatter: {err}"
+        )));
+    }
+    fs::write(quarantine_dir.join("SKILL.md"), &body).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("write: {e}"))
+    })?;
+
+    let scan = crate::security::scan_tool_output(&body);
+    let critical = scan
+        .threats
+        .iter()
+        .filter(|t| t.severity >= crate::security::Severity::Critical)
+        .count();
+    let high = scan
+        .threats
+        .iter()
+        .filter(|t| t.severity >= crate::security::Severity::High)
+        .count();
+    if critical > 0 {
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "security scan blocked install: {critical} critical threats; quarantined at {}",
+            quarantine_dir.display()
+        )));
+    }
+
+    Ok(json!({
+        "success": true,
+        "action": "install_from_url",
+        "status": "quarantined",
+        "quarantine_path": quarantine_dir.display().to_string(),
+        "high_severity_warnings": high,
+        "next_step": "call again with approve=true to promote out of quarantine",
+    })
+    .to_string())
+}
+
+struct QuarantineScanReport {
+    skill_count: usize,
+    critical_count: usize,
+    high_count: usize,
+}
+
+fn scan_quarantined_tree(root: &Path) -> QuarantineScanReport {
+    let mut report = QuarantineScanReport {
+        skill_count: 0,
+        critical_count: 0,
+        high_count: 0,
+    };
+    for entry in walkdir::WalkDir::new(root).into_iter().flatten() {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let name = entry
+            .file_name()
+            .to_str()
+            .unwrap_or("");
+        if !name.eq_ignore_ascii_case("SKILL.md") && !name.ends_with(".md") {
+            continue;
+        }
+        let Ok(content) = fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        report.skill_count += 1;
+        let scan = crate::security::scan_tool_output(&content);
+        for threat in &scan.threats {
+            if threat.severity >= crate::security::Severity::Critical {
+                report.critical_count += 1;
+            } else if threat.severity >= crate::security::Severity::High {
+                report.high_count += 1;
+            }
+        }
+    }
+    report
+}
+
+fn promote_quarantined(
+    skills_dir: &Path,
+    quarantine_path: &Path,
+    name: &str,
+) -> Result<String, super::registry::ToolError> {
+    let target = skills_dir.join(name);
+    if target.exists() {
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "a skill named '{name}' already exists in the active directory"
+        )));
+    }
+    fs::rename(quarantine_path, &target).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("promote: {e}"))
+    })?;
+    Ok(json!({
+        "success": true,
+        "action": "promote",
+        "name": name,
+        "path": target.display().to_string(),
     })
     .to_string())
 }
