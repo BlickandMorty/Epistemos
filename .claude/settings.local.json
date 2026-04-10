@@ -220,7 +220,20 @@
       "Bash(defaults read:*)",
       "Bash(plutil -p ~/Library/Preferences/com.apple.dt.Xcode.plist)",
       "Bash(bash build-epistemos-core.sh)",
-      "Bash(tccutil reset:*)"
+      "Bash(tccutil reset:*)",
+      "Bash(brew --prefix xcodegen)",
+      "Read(//opt/homebrew/**)",
+      "Bash(swift package:*)",
+      "Bash(mint run:*)",
+      "Bash(/opt/homebrew/bin/xcodegen generate:*)",
+      "WebFetch(domain:docs.openclaw.ai)",
+      "WebFetch(domain:block.github.io)",
+      "WebFetch(domain:nebius.com)",
+      "WebFetch(domain:openclaws.io)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Bash(/tmp/audit_checklist.txt:*)",
+      "Bash(/tmp/ssm_audit.txt:*)",
+      "Bash(/tmp/check_switches.swift:*)"
     ],
     "additionalDirectories": [
       "/tmp"
