@@ -66,18 +66,15 @@ impl ToolHandler for ClarifyHandler {
         // starving the tokio executor if the Swift side takes time to render.
         let delegate = Arc::clone(&self.delegate);
         let payload_for_task = payload.clone();
-        let response_json = tokio::task::spawn_blocking(move || {
-            delegate.ask_user_question(payload_for_task)
-        })
-        .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("clarify join error: {e}")))?;
+        let response_json =
+            tokio::task::spawn_blocking(move || delegate.ask_user_question(payload_for_task))
+                .await
+                .map_err(|e| ToolError::ExecutionFailed(format!("clarify join error: {e}")))?;
 
         // The delegate should return a JSON string. Pass it through after a
         // sanity check so the LLM sees a well-formed payload.
         let parsed: Value = serde_json::from_str(&response_json).map_err(|e| {
-            ToolError::ExecutionFailed(format!(
-                "clarify delegate returned non-JSON payload: {e}"
-            ))
+            ToolError::ExecutionFailed(format!("clarify delegate returned non-JSON payload: {e}"))
         })?;
 
         Ok(json!({
@@ -175,6 +172,9 @@ mod tests {
         fn trigger_nightbrain_job(&self, _: String, _: String) -> String {
             "{}".to_string()
         }
+        fn get_partner_context(&self, _: String, _: u32) -> String {
+            "{}".to_string()
+        }
     }
 
     #[tokio::test]
@@ -215,8 +215,7 @@ mod tests {
 
     #[tokio::test]
     async fn clarify_errors_on_non_json_delegate_response() {
-        let delegate: Arc<dyn AgentEventDelegate> =
-            Arc::new(ScriptedDelegate::new("not json"));
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(ScriptedDelegate::new("not json"));
         let handler = ClarifyHandler::new(delegate);
         let err = handler
             .execute(&json!({ "question": "?" }))

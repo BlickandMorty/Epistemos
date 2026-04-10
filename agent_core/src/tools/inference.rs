@@ -75,19 +75,18 @@ impl ToolHandler for RoutePrivateHandler {
                 "simple_task_with_cloud_escape_hatch".to_string(),
             ),
             RoutingDecision::Cloud(provider, config) => {
-                let reason = if classification.research_related
-                    || classification.requires_current_info
-                {
-                    "needs_web_search"
-                } else if classification.shell_required {
-                    "needs_shell"
-                } else if classification.complexity > 0.9 {
-                    "very_high_complexity"
-                } else if classification.complexity < 0.2 {
-                    "very_low_complexity"
-                } else {
-                    "medium_complexity"
-                };
+                let reason =
+                    if classification.research_related || classification.requires_current_info {
+                        "needs_web_search"
+                    } else if classification.shell_required {
+                        "needs_shell"
+                    } else if classification.complexity > 0.9 {
+                        "very_high_complexity"
+                    } else if classification.complexity < 0.2 {
+                        "very_low_complexity"
+                    } else {
+                        "medium_complexity"
+                    };
                 (
                     "cloud",
                     format!("{provider:?} (effort={})", config.effort),
@@ -250,9 +249,8 @@ impl ToolHandler for SsmResumeHandler {
         let response = tokio::task::spawn_blocking(move || delegate.manage_ssm_state(payload))
             .await
             .map_err(|e| ToolError::ExecutionFailed(format!("ssm_resume join: {e}")))?;
-        let parsed: Value = serde_json::from_str(&response).unwrap_or_else(|_| {
-            json!({ "raw": response, "error": "non-json delegate response" })
-        });
+        let parsed: Value = serde_json::from_str(&response)
+            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
         Ok(parsed.to_string())
     }
 }
@@ -330,9 +328,8 @@ impl ToolHandler for ConstrainedGenerateHandler {
         })
         .await
         .map_err(|e| ToolError::ExecutionFailed(format!("constrained_generate join: {e}")))?;
-        let parsed: Value = serde_json::from_str(&response).unwrap_or_else(|_| {
-            json!({ "raw": response, "error": "non-json delegate response" })
-        });
+        let parsed: Value = serde_json::from_str(&response)
+            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
         Ok(parsed.to_string())
     }
 }
@@ -417,6 +414,9 @@ mod tests {
         fn trigger_nightbrain_job(&self, _: String, _: String) -> String {
             "{}".to_string()
         }
+        fn get_partner_context(&self, _: String, _: u32) -> String {
+            "{}".to_string()
+        }
     }
 
     fn stub_delegate(ssm: &str, cg: &str) -> Arc<dyn AgentEventDelegate> {
@@ -488,10 +488,7 @@ mod tests {
             "{}",
         );
         let handler = SsmResumeHandler::new(delegate);
-        let result = handler
-            .execute(&json!({ "action": "list" }))
-            .await
-            .unwrap();
+        let result = handler.execute(&json!({ "action": "list" })).await.unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert!(parsed["states"].is_array());
     }
@@ -520,10 +517,7 @@ mod tests {
 
     #[tokio::test]
     async fn ssm_resume_save_forwards_session_and_label() {
-        let delegate = stub_delegate(
-            r#"{"success":true,"state_size_mb":12.1,"layers":24}"#,
-            "{}",
-        );
+        let delegate = stub_delegate(r#"{"success":true,"state_size_mb":12.1,"layers":24}"#, "{}");
         let handler = SsmResumeHandler::new(delegate);
         let result = handler
             .execute(&json!({

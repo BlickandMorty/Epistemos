@@ -14,10 +14,12 @@ You are being asked to AUDIT work that is already committed, tested, and builds 
 
 **The short version:**
 
-1. All Phase 1-7 tools from the implementation plan are now registered in the Rust tool registry (`agent_core/src/tools/registry.rs`).
+1. All Phase 1-7 tools from the implementation plan are now registered in the Rust tool registry (`agent_core/src/tools/registry.rs`), and the previously deferred Phase 3 browser toolset now also lands through `agent_core/src/tools/browser.rs`.
 2. Every Swift-backed tool that had a stub delegate method now has a real bridge (`ClarifyPromptBridge`, `Phase4Bridge`, `Phase5Bridge`, `Phase7Bridge`) instead of returning `"not wired yet"` JSON.
-3. The iMessage driver now routes to `LocalAgentLoop` when a contact is assigned a local-MLX model, instead of falling through to cloud Sonnet. Contacts can also be a comma-separated list of models that fan out sequentially and return labelled replies.
-4. Final verification: `cargo test --lib` → 394 / 394 passed. `cargo clippy --lib` → clean (29 pre-existing warnings in `workspace_search.rs`, none in the new files). `xcodebuild -scheme Epistemos -destination 'platform=macOS' build` → BUILD SUCCEEDED.
+3. The iMessage driver no longer falls through from a local-model contact to cloud Sonnet. Agent-capable local models route through `LocalAgentLoop`; weaker local models stay on-device via direct one-shot generation. Contacts can also be a comma-separated list of models that fan out sequentially and return labelled replies.
+4. Latest verification after the Codex gap-fill pass: `cargo test --manifest-path agent_core/Cargo.toml` → 419 / 419 passed. `cargo clippy --manifest-path agent_core/Cargo.toml` → 33 pre-existing warnings, no new warnings from the browser pass. Latest recorded app build remains `xcodebuild -scheme Epistemos -destination 'platform=macOS' build` → BUILD SUCCEEDED.
+
+The implementation-plan appendix callback `get_partner_context(note_id, cursor_offset)` is now wired through `AgentEventDelegate` / `StreamingDelegate` and exposed to the agent as the `inline_partner` Specialty tool.
 
 What I need you to check is in **Section 6: Audit Checklist** below.
 
@@ -100,10 +102,10 @@ What I need you to check is in **Section 6: Audit Checklist** below.
   - Recognises direct `LocalTextModelID` raw values (e.g. `mlx-community/Qwen3.5-2B-4bit`).
   - Recognises short aliases: `qwen-2b`, `qwen-4b`, `qwen-9b`, `qwen-27b`, `gemma-2b`, `gemma-4b`, `gemma-27b`, `qwopus`, `qwopus-moe`, `deepseek-r1`, `qwen-coder`, `smollm3`, `devstral`, `mistral-small`, `lfm2.5-1b`, `lfm2.5-thinking`, `mamba2`, `jamba`, `hermes-3` (falls back to `qwen35_9B4Bit` as the closest tool-capable local peer).
   - Returns `nil` for cloud aliases, which sends the call through `runCloudAgentForContact` (existing `runAgentSession` path).
-- Local path: `runLocalAgentForContact` builds a `ToolTierBridge` with the contact's tier, constructs a `LocalAgentLoop.liveLoop(using:...)`, runs it against the message text, and ships the accumulated reply via the iMessage `send` tool.
-- Models where `canActAsAgent == false` fall through to `runDirectLocalGenerate` (one-shot `modelClient.generate(...)`), so even small SSM / instruct models can pen-pal over iMessage without crashing.
+- Local path: `runLocalAgentForContact` keeps local-model contacts on-device. Agent-capable models build a `ToolTierBridge`, construct a `LocalAgentLoop.liveLoop(using:...)`, run against the message text, and ship the accumulated reply via the iMessage `send` tool. If the local client is unavailable, the driver returns a local-unavailable reply instead of silently escalating to Claude.
+- Models where `canActAsAgent == false` fall through to `runDirectLocalGenerate` (one-shot `modelClient.generate(...)`), so even small SSM / instruct models can pen-pal over iMessage without crashing. This means `qwen-2b` is a valid local preset, but not a tool-using `LocalAgentLoop` preset.
 - Group routing: when more than one model is listed, each reply is prefixed with `[model-name] ` so the user can tell which reply came from which model. `IMessageReplyDelegate` gained an optional `replyPrefix` parameter; the new `LocalReplyAccumulator` nonisolated helper supplies shared `stripMarkdown` + `chunk` utilities so both paths format replies the same way.
-- Settings: `IMessageDriverSettingsView` got an expanded model presets picker (local + cloud + a group example) and a free-form model text field so users can type their own comma-separated list or a full `LocalTextModelID` raw value.
+- Settings: `IMessageDriverSettingsView` got an expanded model presets picker (local + cloud + a group example) and a free-form model text field so users can type their own comma-separated list or a full `LocalTextModelID` raw value. The default local preset and shipped group example are now agent-capable (`qwen-4b`, `qwen-4b,claude-sonnet-4-6`) so the UI no longer implies that `qwen-2b` has tool-loop support.
 
 ### 1.6 Collateral
 
@@ -156,6 +158,19 @@ Epistemos/Omega/iMessageDriver/IMessageReplyDelegate.swift
 Epistemos/Views/Settings/IMessageDriverSettingsView.swift
     + Expanded modelOptions list (local + cloud + group example)
     + Free-form model TextField for arbitrary aliases / groups
+
+agent_core/src/tools/browser.rs
+    + Shared `agent-browser` session manager
+    + `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`,
+      `browser_scroll`, `browser_back`, `browser_press`, `browser_close`,
+      `browser_get_images`, `browser_vision`, `browser_console`
+
+agent_core/Cargo.toml
+    + Promote `tempfile` from dev-only to runtime dependency for browser temp files
+
+docs/SKILL_IMPLEMENTATION_PLAN.md
+    + Replace the old "browser tools skipped" note with the implemented
+      `agent-browser` browser tier.
 ```
 
 ### 2.3 Files from the prior session (68db507d also includes these — already shipped)
@@ -197,7 +212,7 @@ This is the other half of what you asked for. I enumerated the Epistemos registe
 |------|----------|--------|----------|-------------------|-------|
 | 1 | Core agent tools | 12 | 12 | **12** | ✅ parity |
 | 2 | Knowledge & memory | 4 (memory, session_search, delegate, think) | 3 (memory, delegate, think) | **8** | ✅ +4 (vault-native) |
-| 3 | Browser & web | 14 (3 web + 11 browser) | 14 | **3 web + web_fetch** | ⚠️ 11 browser tools skipped on purpose (see §3.4) |
+| 3 | Browser & web | 14 (3 web + 11 browser) | 14 | **14 + web_fetch** | ✅ parity with Hermes/OpenClaw browser coverage, plus extra fetch |
 | 4 | macOS native | 0 (uses agent-browser CLI) | ~8 (peekaboo CLI wrappers) | **7 + computer_use** | ✅ native advantage |
 | 5 | Communication | 8 platforms (send_message) | 6 platforms | **1 unified send_message + iMessage** | ⚠️ SMTP only so far; others stubbed |
 | 6 | Media | 9 | 5 | **3** | ⚠️ vision, image_gen, TTS only |
@@ -232,7 +247,10 @@ graph_query, vault_navigate, memory
 
 **Phase 3 (Web):**
 ```
-web_search, web_extract, web_crawl, web_fetch
+web_search, web_extract, web_crawl, web_fetch,
+browser_navigate, browser_snapshot, browser_click, browser_type,
+browser_scroll, browser_back, browser_press, browser_close,
+browser_get_images, browser_vision, browser_console
 ```
 
 **Phase 4 (macOS Apple apps via osascript):**
@@ -276,9 +294,8 @@ Derived from `docs/SKILL_PORT_MASTER_REFERENCE.md` tier scans:
 
 | Hermes tool | Status in Epistemos | Notes |
 |---|---|---|
-| 11 `browser_*` CDP tools | **Skipped** | Plan says "you have native `perceive`+`interact` that work on ALL apps. Browser automation is lower priority." |
 | `mixture_of_agents` (frontier MoA) | **Partial (`mixture_of_minds`)** | Registered; Codex should verify the parallel-provider execution path actually spawns N streams. |
-| `send_message` — all 8 platforms (Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, webhook) | **Partial** | `send_message` exists but only SMTP/email is wired in `tools/communication.rs`. The other 7 adapters are TODO. |
+| `send_message` — all 8 platforms (Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, webhook) | **Parity** | Phase 8 finished the remaining adapters; Epistemos now matches Hermes's platform list in one unified tool. |
 | `image_generate` via FAL.ai / Replicate / DALL-E | **Partial** | Handler + schema exist; verify the API plumbing resolves a key and actually hits a provider. |
 | `speech_to_text` / `audio_analyze` | **Missing** | Not on the v1.0 ship list. |
 | `github` / `git_operations` native tools | **Missing** | Accessible today via `terminal` → `gh` / `git` CLI. |
@@ -347,12 +364,12 @@ These capabilities exist in Epistemos and **are not present in either Hermes or 
 
 ```bash
 # Rust side
-cargo test --manifest-path agent_core/Cargo.toml --lib
-    → test result: ok. 394 passed; 0 failed; 0 ignored
+cargo test --manifest-path agent_core/Cargo.toml
+    → test result: ok. 419 passed; 0 failed; 0 ignored
 
-cargo clippy --manifest-path agent_core/Cargo.toml --lib
-    → 29 pre-existing warnings in workspace_search.rs (not new)
-    → 0 warnings in any file I touched or created
+cargo clippy --manifest-path agent_core/Cargo.toml
+    → 33 pre-existing warnings across the existing lint backlog
+    → 0 new warnings from the browser gap-fill work
 
 # Swift side
 xcodegen generate
@@ -408,8 +425,9 @@ These are NOT bugs — they are shipped this way on purpose and each has a ratio
 
 ### 6.3 iMessage local-model routing
 
-- [ ] Configure a test contact with `model = "qwen-2b"`, enable the driver, send it a message, and confirm the reply comes from the local MLX model (not Claude).
-- [ ] Configure a test contact with `model = "qwen-2b,claude-sonnet-4-6"` and verify you get TWO replies, prefixed with `[qwen-2b]` and `[claude-sonnet-4-6]`, delivered in that order.
+- [ ] Configure a test contact with `model = "qwen-4b"`, enable the driver, send it a message, and confirm the reply comes from the local MLX model via `LocalAgentLoop` (not Claude).
+- [ ] Configure a test contact with `model = "qwen-4b,claude-sonnet-4-6"` and verify you get TWO replies, prefixed with `[qwen-4b]` and `[claude-sonnet-4-6]`, delivered in that order.
+- [ ] Configure a test contact with `model = "qwen-2b"` and confirm the reply still comes from the local MLX model, but through `runDirectLocalGenerate` rather than `LocalAgentLoop`.
 - [ ] Configure a test contact with `model = "mistral-small"` and confirm `localTextModelID(forShortName:)` resolves it to `mistralSmall31_24B4Bit`.
 - [ ] Confirm `runDirectLocalGenerate` fires (and replies successfully) when a contact's model is local but `canActAsAgent == false`.
 - [ ] Confirm a contact with `model = "claude-sonnet-4-6"` STILL routes through `runAgentSession` — i.e., no regression of the cloud path.
@@ -422,7 +440,7 @@ These are NOT bugs — they are shipped this way on purpose and each has a ratio
 
 ### 6.5 Clippy & dead code
 
-- [ ] `cargo clippy --manifest-path agent_core/Cargo.toml --lib -- -D warnings` — this currently FAILS on the 29 pre-existing `workspace_search.rs` warnings. That's not regression, but confirm the new files in §2 are clippy-clean in isolation (filter clippy output to `filesystem.rs`, `terminal.rs`, `todo.rs`, `clarify.rs`, `scheduling.rs`, `skills.rs`, `knowledge.rs`, `graph.rs`, `memory.rs`, `web.rs`, `macos.rs`, `apple.rs`, `communication.rs`, `media.rs`, `imessage.rs`, `imessage_contacts.rs`, `inference.rs`, `intelligence.rs`, `registry.rs`).
+- [ ] `cargo clippy --manifest-path agent_core/Cargo.toml -- -D warnings` — this still FAILS on the 33 pre-existing lint warnings in the broader crate. That's not regression, but confirm the files touched in §2 remain warning-free relative to baseline (`browser.rs`, `registry.rs`, `skills.rs`, `intelligence.rs`, `inference.rs`, `macos.rs`, `clarify.rs`, and the Swift bridge files).
 - [ ] Grep `agent_core/src/tools/` for any remaining `todo!()`, `unimplemented!()`, `panic!`, `.unwrap()`, or `println!` — per the plan's hard rules these should be zero in handler bodies.
 
 ### 6.6 Security posture
@@ -570,7 +588,7 @@ All 14 existing security tests still pass unchanged.
 
 `SkillManageHandler` now accepts two new actions:
 
-- **`install_from_github`** — clones a repo via `git2` (already in deps for vault git), lands the tree under `$SKILLS_DIR/quarantine/{repo-slug}/`, then walks the tree running the 40-rule scanner on every `SKILL.md` and `*.md`. Any `Critical` hit rolls back the install; `High` hits are counted and surfaced but don't block. The agent must re-invoke the action with `{approve: true}` to promote the quarantined skill to the active directory via `fs::rename`. Allowlisted host: `github.com` only.
+- **`install_from_github`** — validates the URL with `validate_url_safe`, parses it as HTTPS, requires an exact `github.com` / `www.github.com` hostname match, then clones via `git2` into `$SKILLS_DIR/quarantine/{repo-slug}/`. The quarantine scan now walks the full cloned tree (excluding `.git`), scans every textual file, and hard-blocks risky unscannable payloads such as symlinks or suspicious binaries/scripts. Promotion copies a sanitized tree into the active directory and strips git metadata instead of renaming the raw clone in place.
 - **`install_from_url`** — single SKILL.md fetch from an HTTPS URL via `reqwest`. Runs `validate_url_safe(url, false)` (rejects non-http, credential-harvest prefixes, private IPs, non-ASCII hosts), then the same 15KB size cap, frontmatter validation, and critical-scan rollback. Same quarantine + promote workflow.
 
 New supporting types:
@@ -669,7 +687,7 @@ xcodebuild -scheme Epistemos -destination 'platform=macOS' build
 |---|---|---|---|
 | Core (Phase 1) | 12 | — | 12 |
 | Knowledge/Memory (Phase 2) | 8 | — | 8 |
-| Web (Phase 3) | 4 | — | 4 |
+| Web (Phase 3) | 4 | +11 browser tools | 15 |
 | macOS Native (Phase 4) | 7 | — | 7 |
 | Inference (Phase 5) | 3 | — | 3 |
 | Communication (Phase 6) | 1 platform adapter | +4 adapters (matrix/whatsapp/signal/email) | 8 platforms in 1 tool |
@@ -679,7 +697,7 @@ xcodebuild -scheme Epistemos -destination 'platform=macOS' build
 | **Discovery (Phase 8)** | — | **`mcp_discover`, `model_catalog`** | 2 |
 | **Trajectory (Phase 8)** | — | **`trajectory_export`** | 1 |
 | **Skill install (Phase 8)** | (part of skill_manage) | **install_from_github, install_from_url actions** | still 1 tool |
-| **Total registered tools** | ~48 | **+3 new tools** + 4 new platforms + 2 new skill_manage actions | **~51** |
+| **Total registered tools** | ~48 | **+3 Phase 8 tools** + 4 new platforms + 2 new skill_manage actions + 11 browser tools | **~62** |
 
 ### 10.9 Updated parity scorecard (§3.1 refresh)
 
@@ -687,7 +705,7 @@ xcodebuild -scheme Epistemos -destination 'platform=macOS' build
 |------|--------|----------|------------------------------|-------|
 | 1 Core | 12 | 12 | 12 | ✅ parity |
 | 2 Knowledge | 4 | 3 | 8 | ✅ +4 |
-| 3 Web | 14 | 14 | 4 web (+ browser skipped) | ⚠️ same |
+| 3 Web | 14 | 14 | 15 (Hermes/OpenClaw browser parity + `web_fetch`) | ✅ parity + extra fetch |
 | 4 macOS | 0 | ~8 | 7 | ✅ same |
 | 5 Communication | 8 | 6 | **8** | ✅ **parity** |
 | 6 Media | 9 | 5 | 3 | ⚠️ same |

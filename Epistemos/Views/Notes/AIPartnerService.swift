@@ -170,6 +170,199 @@ final class AIPartnerService {
         self.embeddingService = svc
         self.weightedContextEngine = WeightedContextEngine(graphState: graphState, embeddingService: svc)
     }
+
+    static func partnerContext(noteId: String, cursorOffset: Int) async -> String {
+        guard let bootstrap = AppBootstrap.shared else {
+            return partnerErrorJSON("AppBootstrap is not initialised")
+        }
+
+        let targetId = noteId
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == targetId }
+        )
+
+        let page: SDPage
+        do {
+            guard let fetchedPage = try bootstrap.modelContainer.mainContext.fetch(descriptor).first else {
+                return partnerErrorJSON("note not found: \(noteId)")
+            }
+            page = fetchedPage
+        } catch {
+            return partnerErrorJSON("failed to fetch note \(noteId): \(error.localizedDescription)")
+        }
+
+        let content = page.loadBody()
+        let safeOffset = safeCursorOffset(in: content, cursorOffset: cursorOffset)
+        let cursorLine = cursorLine(in: content, cursorOffset: safeOffset)
+        let language = inferredLanguage(for: page)
+        let query = partnerQuery(in: content, cursorOffset: safeOffset, fallbackTitle: page.title)
+        let complexity = CodeComplexityAnalyzer.analyze(code: content, language: language)
+        let engine = WeightedContextEngine(graphState: bootstrap.graphState)
+        let weightedContext = await engine.assembleContext(
+            for: query,
+            code: content,
+            language: language,
+            cursorLine: cursorLine,
+            precomputedComplexity: complexity
+        )
+
+        let payload: [String: Any] = [
+            "success": true,
+            "note_id": noteId,
+            "title": page.title,
+            "cursor_offset": safeOffset,
+            "cursor_line": cursorLine,
+            "query": query,
+            "suggestion": partnerSuggestion(from: weightedContext, content: content, cursorOffset: safeOffset),
+            "weighted_matches": weightedContext.matches.map { match in
+                [
+                    "note_id": match.nodeId,
+                    "title": match.title,
+                    "snippet": match.snippet,
+                    "score": finiteScore(match.finalScore),
+                    "graph_weight": finiteScore(match.nodeWeight),
+                    "semantic_score": finiteScore(Double(match.semanticScore)),
+                    "complexity_score": finiteScore(match.complexityScore),
+                    "connection_strength": finiteScore(match.connectionStrength),
+                    "activity_score": finiteScore(match.activityScore),
+                    "recency_score": finiteScore(match.recencyScore),
+                ]
+            },
+            "complexity_score": finiteScore(weightedContext.complexity.overallScore),
+            "recommended_model": weightedContext.routingRecommendation.modelPreference,
+            "context_window": weightedContext.codeContext,
+        ]
+        return partnerJSONString(payload)
+    }
+
+    nonisolated static func safeCursorOffset(in content: String, cursorOffset: Int) -> Int {
+        max(0, min(cursorOffset, (content as NSString).length))
+    }
+
+    nonisolated static func cursorLine(in content: String, cursorOffset: Int) -> Int {
+        let nsContent = content as NSString
+        let safeOffset = safeCursorOffset(in: content, cursorOffset: cursorOffset)
+        guard nsContent.length > 0, safeOffset > 0 else { return 1 }
+
+        var line = 1
+        var index = 0
+        while index < safeOffset {
+            if nsContent.character(at: index) == 10 {
+                line += 1
+            }
+            index += 1
+        }
+        return line
+    }
+
+    nonisolated static func partnerQuery(in content: String, cursorOffset: Int, fallbackTitle: String) -> String {
+        let currentLine = lineText(in: content, cursorOffset: cursorOffset)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if currentLine.count >= 8 {
+            return currentLine
+        }
+
+        let window = windowExcerpt(in: content, cursorOffset: cursorOffset)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if window.count >= 8 {
+            return window
+        }
+
+        return fallbackTitle.isEmpty ? "current note context" : fallbackTitle
+    }
+
+    nonisolated private static func inferredLanguage(for page: SDPage) -> String {
+        guard let filePath = page.filePath, !filePath.isEmpty else {
+            return "markdown"
+        }
+        switch URL(fileURLWithPath: filePath).pathExtension.lowercased() {
+        case "swift":
+            return "swift"
+        case "rs":
+            return "rust"
+        case "py":
+            return "python"
+        case "js":
+            return "javascript"
+        case "ts":
+            return "typescript"
+        case "md":
+            return "markdown"
+        default:
+            return "markdown"
+        }
+    }
+
+    nonisolated private static func partnerSuggestion(
+        from context: WeightedContext,
+        content: String,
+        cursorOffset: Int
+    ) -> String {
+        if let topMatch = context.matches.first {
+            let trimmedSnippet = topMatch.snippet.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedSnippet.isEmpty {
+                return "Related context: \(topMatch.title) — \(String(trimmedSnippet.prefix(180)))"
+            }
+            return "Related context: \(topMatch.title)"
+        }
+
+        let line = lineText(in: content, cursorOffset: cursorOffset)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(line.prefix(180))
+    }
+
+    nonisolated private static func lineText(in content: String, cursorOffset: Int) -> String {
+        let nsContent = content as NSString
+        guard nsContent.length > 0 else { return "" }
+
+        let safeOffset = safeCursorOffset(in: content, cursorOffset: cursorOffset)
+        var start = safeOffset
+        while start > 0, nsContent.character(at: start - 1) != 10 {
+            start -= 1
+        }
+
+        var end = safeOffset
+        while end < nsContent.length, nsContent.character(at: end) != 10 {
+            end += 1
+        }
+
+        return nsContent.substring(with: NSRange(location: start, length: end - start))
+    }
+
+    nonisolated private static func windowExcerpt(in content: String, cursorOffset: Int) -> String {
+        let nsContent = content as NSString
+        guard nsContent.length > 0 else { return "" }
+
+        let safeOffset = safeCursorOffset(in: content, cursorOffset: cursorOffset)
+        let start = max(0, safeOffset - 120)
+        let end = min(nsContent.length, safeOffset + 120)
+        let excerpt = nsContent.substring(with: NSRange(location: start, length: end - start))
+        let collapsed = excerpt
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return String(collapsed.prefix(240))
+    }
+
+    nonisolated private static func finiteScore(_ value: Double) -> Double {
+        value.isFinite ? value : 0
+    }
+
+    nonisolated private static func partnerJSONString(_ payload: [String: Any]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let string = String(data: data, encoding: .utf8)
+        else {
+            return "{\"error\":\"json_encode_failed\",\"success\":false}"
+        }
+        return string
+    }
+
+    nonisolated private static func partnerErrorJSON(_ message: String) -> String {
+        partnerJSONString([
+            "success": false,
+            "error": message,
+        ])
+    }
     
     // MARK: - Session Management
     

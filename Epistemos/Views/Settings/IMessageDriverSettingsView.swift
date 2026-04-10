@@ -245,7 +245,7 @@ private struct ContactEditorSheet: View {
 
     @State private var handle: String = ""
     @State private var displayName: String = ""
-    @State private var model: String = "claude-sonnet-4-6"
+    @State private var model: String = IMessageDriverService.defaultContactModel
     @State private var toolTier: String = "chat_pro"
     @State private var promptMode: String = "general"
     @State private var allowed: Bool = true
@@ -258,29 +258,12 @@ private struct ContactEditorSheet: View {
     /// Single-model presets shown in the picker. Local short names map onto
     /// `LocalTextModelID` via `IMessageDriverService.localTextModelID(forShortName:)`.
     /// To assign a *group* of models to a contact, type a comma-separated list
-    /// in the model field (e.g. "qwen-2b,claude-sonnet-4-6") — the driver
-    /// fans out to all listed models in parallel and labels each reply with
+    /// in the model field (e.g. "qwen-4b,claude-sonnet-4-6") — the driver
+    /// fans out to all listed models sequentially and labels each reply with
     /// the model name.
-    private let modelOptions = [
-        // Local (on-device MLX)
-        "qwen-2b",
-        "qwen-4b",
-        "qwen-9b",
-        "qwen-27b",
-        "gemma-2b",
-        "gemma-4b",
-        "gemma-27b",
-        "qwopus-27b",
-        "qwen-coder",
-        // Cloud
-        "claude-haiku-4-5",
-        "claude-sonnet-4-6",
-        "claude-opus-4-6",
-        "gpt-4o",
-        "gemini-pro",
-        // Group example (the user can edit to add more)
-        "qwen-2b,claude-sonnet-4-6",
-    ]
+    private var modelOptions: [String] {
+        IMessageDriverService.modelPresetOptions
+    }
 
     private let tierOptions = [
         ("chat_lite", "Chat Lite — web + vault, no writes"),
@@ -364,7 +347,7 @@ private struct ContactEditorSheet: View {
                 guard let contact else { return }
                 handle = contact.handle
                 displayName = contact.displayName ?? ""
-                model = contact.model
+                model = contact.model.isEmpty ? IMessageDriverService.defaultContactModel : contact.model
                 toolTier = contact.toolTier
                 promptMode = contact.promptMode
                 allowed = contact.allowed

@@ -2,6 +2,8 @@
 //!
 //! * `nightbrain_trigger` — fire one of the NightBrain background jobs on
 //!   demand via a Swift FFI callback.
+//! * `inline_partner` — fetch graph-weighted inline partner context from the
+//!   Swift note editor stack via FFI.
 //! * `self_evolve` — GEPA-style trace analysis. Reads session trace.json
 //!   files, detects failure patterns (frequent retries, slow execution,
 //!   consistent errors), and emits a mutation proposal. Pure Rust.
@@ -84,9 +86,8 @@ impl ToolHandler for NightBrainTriggerHandler {
         .await
         .map_err(|e| ToolError::ExecutionFailed(format!("nightbrain join: {e}")))?;
 
-        let parsed: Value = serde_json::from_str(&response).unwrap_or_else(|_| {
-            json!({ "raw": response, "error": "non-json delegate response" })
-        });
+        let parsed: Value = serde_json::from_str(&response)
+            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
         Ok(json!({
             "job": job,
             "priority": priority,
@@ -113,6 +114,76 @@ pub fn nightbrain_trigger_schema() -> crate::types::ToolSchema {
                 "priority": { "type": "string", "enum": ["normal", "immediate"], "default": "normal" }
             },
             "required": ["job"]
+        }),
+    }
+}
+
+// MARK: - inline_partner (Specialty D2)
+
+pub struct InlinePartnerHandler {
+    delegate: Arc<dyn AgentEventDelegate>,
+}
+
+impl InlinePartnerHandler {
+    pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {
+        Self { delegate }
+    }
+}
+
+#[async_trait]
+impl ToolHandler for InlinePartnerHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let note_id = input
+            .get("note_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("missing 'note_id'".into()))?
+            .to_string();
+        let cursor_offset = input
+            .get("cursor_offset")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| ToolError::InvalidArguments("missing 'cursor_offset'".into()))?;
+        let cursor_offset_u32 = u32::try_from(cursor_offset).map_err(|_| {
+            ToolError::InvalidArguments("cursor_offset exceeds supported range".into())
+        })?;
+
+        let delegate = Arc::clone(&self.delegate);
+        let note_id_for_task = note_id.clone();
+        let response = tokio::task::spawn_blocking(move || {
+            delegate.get_partner_context(note_id_for_task, cursor_offset_u32)
+        })
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(format!("inline_partner join: {e}")))?;
+
+        let parsed: Value = serde_json::from_str(&response)
+            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
+        Ok(json!({
+            "note_id": note_id,
+            "cursor_offset": cursor_offset,
+            "context": parsed,
+        })
+        .to_string())
+    }
+}
+
+pub fn inline_partner_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "inline_partner".to_string(),
+        description: "Specialty D2 — query what the inline AI partner sees at a \
+             cursor position inside a note. Returns the weighted vault matches, a \
+             partner suggestion summary, and the local complexity score for the \
+             note context around that cursor."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "note_id": { "type": "string", "description": "Target note/page ID." },
+                "cursor_offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "UTF-16 cursor offset inside the note buffer."
+                }
+            },
+            "required": ["note_id", "cursor_offset"]
         }),
     }
 }
@@ -221,10 +292,7 @@ impl SelfEvolveHandler {
                     *tool_errors.entry(name.to_string()).or_insert(0) += 1;
                 }
                 if let Some(ms) = event.duration_ms {
-                    tool_durations
-                        .entry(name.to_string())
-                        .or_default()
-                        .push(ms);
+                    tool_durations.entry(name.to_string()).or_default().push(ms);
                 }
             }
         }
@@ -501,7 +569,10 @@ async fn ask_claude(client: &Client, problem: &str) -> Result<String, String> {
     if !resp.status().is_success() {
         return Err(format!("claude HTTP {}", resp.status().as_u16()));
     }
-    let payload: Value = resp.json().await.map_err(|e| format!("claude parse: {e}"))?;
+    let payload: Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("claude parse: {e}"))?;
     let text = payload
         .get("content")
         .and_then(Value::as_array)
@@ -533,7 +604,10 @@ async fn ask_openai(client: &Client, problem: &str) -> Result<String, String> {
     if !resp.status().is_success() {
         return Err(format!("openai HTTP {}", resp.status().as_u16()));
     }
-    let payload: Value = resp.json().await.map_err(|e| format!("openai parse: {e}"))?;
+    let payload: Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("openai parse: {e}"))?;
     Ok(payload
         .get("choices")
         .and_then(|c| c.get(0))
@@ -563,7 +637,10 @@ async fn ask_gemini(client: &Client, problem: &str) -> Result<String, String> {
     if !resp.status().is_success() {
         return Err(format!("gemini HTTP {}", resp.status().as_u16()));
     }
-    let payload: Value = resp.json().await.map_err(|e| format!("gemini parse: {e}"))?;
+    let payload: Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("gemini parse: {e}"))?;
     Ok(payload
         .get("candidates")
         .and_then(|c| c.get(0))
@@ -686,6 +763,10 @@ mod tests {
             *self.last_payload.lock().unwrap() = Some((job, priority));
             self.response.clone()
         }
+        fn get_partner_context(&self, note_id: String, cursor_offset: u32) -> String {
+            *self.last_payload.lock().unwrap() = Some((note_id, cursor_offset.to_string()));
+            self.response.clone()
+        }
     }
 
     // nightbrain_trigger ----------------------------------------------------
@@ -739,6 +820,40 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("priority"));
+    }
+
+    #[tokio::test]
+    async fn inline_partner_forwards_note_and_offset() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: r#"{"success":true,"suggestion":"Focus here"}"#.to_string(),
+        });
+        let handler = InlinePartnerHandler::new(Arc::clone(&delegate));
+        let result = handler
+            .execute(&json!({
+                "note_id": "note-123",
+                "cursor_offset": 42
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["note_id"], json!("note-123"));
+        assert_eq!(parsed["cursor_offset"], json!(42));
+        assert_eq!(parsed["context"]["suggestion"], json!("Focus here"));
+    }
+
+    #[tokio::test]
+    async fn inline_partner_requires_cursor_offset() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: "{}".to_string(),
+        });
+        let handler = InlinePartnerHandler::new(delegate);
+        let err = handler
+            .execute(&json!({ "note_id": "note-123" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("cursor_offset"));
     }
 
     // self_evolve -----------------------------------------------------------

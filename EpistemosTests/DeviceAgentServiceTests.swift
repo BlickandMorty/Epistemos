@@ -149,6 +149,76 @@ struct DeviceAgentServiceTests {
     }
 }
 
+@Suite("iMessage Driver Routing")
+struct IMessageDriverServiceRoutingTests {
+    @MainActor
+    @Test("default contact model uses an agent-capable local preset")
+    func defaultContactModelUsesAgentCapableLocalPreset() throws {
+        #expect(IMessageDriverService.defaultContactModel == "qwen-4b")
+        let defaultModelID = try #require(
+            IMessageDriverService.localTextModelID(forShortName: IMessageDriverService.defaultContactModel)
+        )
+        #expect(defaultModelID.canActAsAgent)
+    }
+
+    @MainActor
+    @Test("local dispatch plan does not fall back to cloud for missing local clients")
+    func localDispatchPlanDoesNotFallbackToCloud() {
+        #expect(
+            IMessageDriverService.localDispatchPlan(
+                for: .qwen35_4B4Bit,
+                hasLocalClient: false
+            ) == .unavailable
+        )
+        #expect(
+            IMessageDriverService.localDispatchPlan(
+                for: .qwen35_2B4Bit,
+                hasLocalClient: true
+            ) == .directGenerate
+        )
+        #expect(
+            IMessageDriverService.localDispatchPlan(
+                for: .qwen35_4B4Bit,
+                hasLocalClient: true
+            ) == .agentLoop
+        )
+    }
+
+    @MainActor
+    @Test("model presets keep the multi-model example on an agent-capable local model")
+    func modelPresetsUseAgentCapableGroupExample() {
+        #expect(IMessageDriverService.modelPresetOptions.contains("qwen-4b,claude-sonnet-4-6"))
+        #expect(!IMessageDriverService.modelPresetOptions.contains("qwen-2b,claude-sonnet-4-6"))
+    }
+
+    @MainActor
+    @Test("partner context query prefers the current line when it has signal")
+    func partnerContextQueryPrefersCurrentLine() {
+        let body = """
+        alpha
+        investigate weighted graph recall here
+        omega
+        """
+        let offset = (body as NSString).range(of: "weighted").location
+        #expect(
+            AIPartnerService.partnerQuery(
+                in: body,
+                cursorOffset: offset,
+                fallbackTitle: "Fallback"
+            ) == "investigate weighted graph recall here"
+        )
+    }
+
+    @MainActor
+    @Test("partner context line counting clamps offsets to the note buffer")
+    func partnerContextLineCountingClampsOffsets() {
+        let body = "one\ntwo\nthree"
+        #expect(AIPartnerService.safeCursorOffset(in: body, cursorOffset: 999) == (body as NSString).length)
+        #expect(AIPartnerService.cursorLine(in: body, cursorOffset: -20) == 1)
+        #expect(AIPartnerService.cursorLine(in: body, cursorOffset: 999) == 3)
+    }
+}
+
 @MainActor
 private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
     struct GenerateRequest: Equatable {

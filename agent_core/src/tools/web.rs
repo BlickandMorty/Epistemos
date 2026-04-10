@@ -5,10 +5,9 @@
 //! * `web_extract` — fetch one or more URLs and return clean readable text.
 //! * `web_crawl`  — BFS crawl from a seed URL with depth and host constraints.
 //!
-//! Browser automation (Playwright-style tools) is intentionally skipped —
-//! Epistemos's native `perceive`/`interact` macOS specialties cover the same
-//! workload for any app, not just browsers. See the implementation plan's
-//! Phase 3.4–3.14 skip rationale.
+//! Browser automation now lives in `browser.rs`, where the `browser_*`
+//! handlers wrap the `agent-browser` CLI while these tools stay focused on
+//! fetch/search/crawl-style HTTP work.
 
 use std::collections::{HashSet, VecDeque};
 use std::time::Duration;
@@ -169,9 +168,7 @@ async fn tavily_search(
         .map_err(|e| ToolError::ExecutionFailed(format!("tavily request: {e}")))?;
     if !resp.status().is_success() {
         let status = resp.status().as_u16();
-        return Err(ToolError::ExecutionFailed(format!(
-            "tavily HTTP {status}"
-        )));
+        return Err(ToolError::ExecutionFailed(format!("tavily HTTP {status}")));
     }
     let body: Value = resp
         .json()
@@ -681,9 +678,7 @@ fn extract_links(html: &str, base_url: &str) -> Vec<String> {
             (pos, ' ')
         };
         let rest = &html[start..];
-        let end_rel = rest
-            .find([end_delim, '>', '\n'])
-            .unwrap_or(rest.len());
+        let end_rel = rest.find([end_delim, '>', '\n']).unwrap_or(rest.len());
         let raw = rest[..end_rel].trim();
         if !raw.is_empty() {
             if let Some(resolved) = resolve_link(raw, base_url) {
@@ -759,19 +754,13 @@ mod tests {
     #[test]
     fn extract_main_region_prefers_article() {
         let html = "<html><body><article>content here</article></body></html>";
-        assert_eq!(
-            extract_main_region(html),
-            Some("content here".to_string())
-        );
+        assert_eq!(extract_main_region(html), Some("content here".to_string()));
     }
 
     #[test]
     fn extract_main_region_falls_back_to_main() {
         let html = "<html><body><main>main content</main></body></html>";
-        assert_eq!(
-            extract_main_region(html),
-            Some("main content".to_string())
-        );
+        assert_eq!(extract_main_region(html), Some("main content".to_string()));
     }
 
     #[test]
@@ -814,7 +803,10 @@ mod tests {
 
     #[test]
     fn extract_host_parses_scheme_and_host() {
-        assert_eq!(extract_host("https://foo.com/bar"), Some("foo.com".to_string()));
+        assert_eq!(
+            extract_host("https://foo.com/bar"),
+            Some("foo.com".to_string())
+        );
         assert_eq!(
             extract_host("http://example.org:8080/path"),
             Some("example.org:8080".to_string())
@@ -875,11 +867,10 @@ mod tests {
     #[tokio::test]
     async fn web_extract_rejects_too_many_urls() {
         let handler = WebExtractHandler::new().unwrap();
-        let urls: Vec<_> = (0..15).map(|i| format!("https://example.com/{i}")).collect();
-        let err = handler
-            .execute(&json!({ "urls": urls }))
-            .await
-            .unwrap_err();
+        let urls: Vec<_> = (0..15)
+            .map(|i| format!("https://example.com/{i}"))
+            .collect();
+        let err = handler.execute(&json!({ "urls": urls })).await.unwrap_err();
         assert!(format!("{err}").contains("at most"));
     }
 

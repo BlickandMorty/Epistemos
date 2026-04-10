@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use crate::agent_loop::{
-    run_agent_loop, AgentConfig, AgentError, Effort, PermissionConfig,
-};
+use crate::agent_loop::{run_agent_loop, AgentConfig, AgentError, Effort, PermissionConfig};
 use crate::error::HttpStatusError;
 use crate::provider::AgentProvider;
 use crate::providers::claude::ClaudeProvider;
@@ -14,9 +12,9 @@ use crate::reasoning_metrics::ReasoningTrajectoryMetrics;
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
 use crate::session::GlobalSessions;
 use crate::shared_memory::{ShmPool, ShmReference};
+use crate::storage::contradiction_detector;
 use crate::storage::memory_classifier::{classify_memory_operation, MemoryOperation, VaultFact};
 use crate::storage::memory_decay::{batch_decay, collect_garbage, Importance, NodeStrength};
-use crate::storage::contradiction_detector;
 use crate::storage::session_store::{self, SessionFolder};
 use crate::storage::vault::VaultStore;
 use crate::tools::registry::ToolRegistry;
@@ -157,6 +155,11 @@ pub trait AgentEventDelegate: Send + Sync {
     /// maintenance_log. `priority` is "normal" or "immediate".
     /// Returns JSON: `{ job_id, status, estimated_duration_s }`.
     fn trigger_nightbrain_job(&self, job_type: String, priority: String) -> String;
+
+    /// Specialty D2 — query what the inline AI partner "sees" at a given
+    /// note cursor position. Returns JSON with weighted matches, complexity,
+    /// and any current partner suggestion context.
+    fn get_partner_context(&self, note_id: String, cursor_offset: u32) -> String;
 }
 
 #[derive(uniffi::Record)]
@@ -468,10 +471,7 @@ fn resolve_provider_for_session(
 }
 
 #[uniffi::export]
-pub fn preview_provider_route(
-    objective: String,
-    provider_name: String,
-) -> ProviderRoutePreviewFFI {
+pub fn preview_provider_route(objective: String, provider_name: String) -> ProviderRoutePreviewFFI {
     ffi_guard_value!(
         resolve_provider_selection_preview(&objective, &provider_name),
         ProviderRoutePreviewFFI {
@@ -503,9 +503,14 @@ pub async fn run_agent_session(
     let session_id_clone = session_id.clone();
     let handle = tokio::task::spawn(async move {
         run_agent_session_inner(
-            session_id_clone, objective, provider_name,
-            tool_config, agent_config, delegate,
-        ).await
+            session_id_clone,
+            objective,
+            provider_name,
+            tool_config,
+            agent_config,
+            delegate,
+        )
+        .await
     });
 
     match handle.await {
@@ -562,9 +567,10 @@ async fn run_agent_session_inner(
     // Register with folder so SessionGuard::drop can finalize on crash
     let (_guard, cancel) = GlobalSessions::register_with_folder(&session_id, session_folder);
 
-    let vault = VaultStore::open(&tool_config.vault_path).map_err(|error| AgentErrorFFI::AgentError {
-        message: format!("Failed to open vault: {error}"),
-    })?;
+    let vault =
+        VaultStore::open(&tool_config.vault_path).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("Failed to open vault: {error}"),
+        })?;
     let tier = tool_config
         .tool_tier
         .as_deref()
@@ -653,22 +659,20 @@ pub struct PtyOutputFFI {
 /// Spawn a persistent PTY shell session tied to the given agent session.
 /// Returns a unique `pty_id` for subsequent `pty_execute` / `pty_close` calls.
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn pty_spawn(
-    session_id: String,
-    config: PtyConfigFFI,
-) -> Result<String, AgentErrorFFI> {
+pub async fn pty_spawn(session_id: String, config: PtyConfigFFI) -> Result<String, AgentErrorFFI> {
     let pty_config = crate::pty::PtyConfig {
         shell: config.shell,
         initial_dir: config.initial_dir,
         cols: config.cols,
         rows: config.rows,
     };
-    let handle = tokio::task::spawn_blocking(move || {
-        crate::pty::PtyPool::spawn(&session_id, pty_config)
-    });
+    let handle =
+        tokio::task::spawn_blocking(move || crate::pty::PtyPool::spawn(&session_id, pty_config));
     match handle.await {
         Ok(Ok(pty_id)) => Ok(pty_id),
-        Ok(Err(e)) => Err(AgentErrorFFI::AgentError { message: e.to_string() }),
+        Ok(Err(e)) => Err(AgentErrorFFI::AgentError {
+            message: e.to_string(),
+        }),
         Err(join_error) => {
             // JoinError: task panicked or cancelled
             let msg = if join_error.is_panic() {
@@ -698,7 +702,11 @@ pub async fn pty_execute(
     });
     let output = match handle.await {
         Ok(Ok(out)) => out,
-        Ok(Err(e)) => return Err(AgentErrorFFI::AgentError { message: e.to_string() }),
+        Ok(Err(e)) => {
+            return Err(AgentErrorFFI::AgentError {
+                message: e.to_string(),
+            })
+        }
         Err(join_error) => {
             let msg = if join_error.is_panic() {
                 let payload = join_error.into_panic();
@@ -801,8 +809,9 @@ pub fn classify_vault_memory(
             let facts: Vec<VaultFact> = existing_facts
                 .into_iter()
                 .map(|f| {
-                    let last_accessed = chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
-                        .unwrap_or_else(chrono::Utc::now);
+                    let last_accessed =
+                        chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
                     VaultFact::new(f.file_path, f.section, f.content, f.strength, last_accessed)
                 })
                 .collect();
@@ -830,10 +839,7 @@ pub struct NodeStrengthFFI {
 /// Apply Ebbinghaus decay to a batch of memory nodes.
 /// Returns the updated strengths.
 #[uniffi::export]
-pub fn decay_memory_nodes(
-    mut nodes: Vec<NodeStrengthFFI>,
-    now_epoch: f64,
-) -> Vec<NodeStrengthFFI> {
+pub fn decay_memory_nodes(mut nodes: Vec<NodeStrengthFFI>, now_epoch: f64) -> Vec<NodeStrengthFFI> {
     ffi_guard_value!(
         {
             let now = chrono::DateTime::from_timestamp(now_epoch as i64, 0)
@@ -847,8 +853,9 @@ pub fn decay_memory_nodes(
                         "low" => Importance::Low,
                         _ => Importance::Normal,
                     };
-                    let last_accessed = chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
-                        .unwrap_or_else(chrono::Utc::now);
+                    let last_accessed =
+                        chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
                     NodeStrength {
                         strength: n.strength,
                         importance,
@@ -886,38 +893,36 @@ pub fn decay_memory_nodes(
 /// Garbage-collect weak memory nodes below the threshold.
 /// Returns the number of nodes removed.
 #[uniffi::export]
-pub fn gc_memory_nodes(
-    nodes: Vec<NodeStrengthFFI>,
-    threshold: f64,
-) -> u32 {
+pub fn gc_memory_nodes(nodes: Vec<NodeStrengthFFI>, threshold: f64) -> u32 {
     ffi_guard_value!(
-    {
-    let mut internal: Vec<NodeStrength> = nodes
-        .into_iter()
-        .map(|n| {
-            let importance = match n.importance.as_str() {
-                "critical" => Importance::Critical,
-                "high" => Importance::High,
-                "low" => Importance::Low,
-                _ => Importance::Normal,
-            };
-            let last_accessed = chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
-                .unwrap_or_else(chrono::Utc::now);
-            NodeStrength {
-                strength: n.strength,
-                importance,
-                decay_rate: n.decay_rate,
-                last_accessed,
-                access_count: n.access_count,
-                pinned: n.pinned,
-            }
-        })
-        .collect();
+        {
+            let mut internal: Vec<NodeStrength> = nodes
+                .into_iter()
+                .map(|n| {
+                    let importance = match n.importance.as_str() {
+                        "critical" => Importance::Critical,
+                        "high" => Importance::High,
+                        "low" => Importance::Low,
+                        _ => Importance::Normal,
+                    };
+                    let last_accessed =
+                        chrono::DateTime::from_timestamp(n.last_accessed_epoch as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
+                    NodeStrength {
+                        strength: n.strength,
+                        importance,
+                        decay_rate: n.decay_rate,
+                        last_accessed,
+                        access_count: n.access_count,
+                        pinned: n.pinned,
+                    }
+                })
+                .collect();
 
-    let removed = collect_garbage(&mut internal, threshold);
-    removed.len() as u32
-    },
-    0
+            let removed = collect_garbage(&mut internal, threshold);
+            removed.len() as u32
+        },
+        0
     )
 }
 
@@ -926,10 +931,7 @@ pub fn gc_memory_nodes(
 /// Read a payload from shared memory by its reference fields.
 /// Returns the raw bytes as a UTF-8 string (for JSON/text payloads).
 #[uniffi::export]
-pub fn shm_read_payload(
-    segment_name: String,
-    byte_length: u64,
-) -> Result<String, AgentErrorFFI> {
+pub fn shm_read_payload(segment_name: String, byte_length: u64) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         let reference = ShmReference {
             segment_name,
@@ -958,12 +960,11 @@ pub fn shm_write_payload(
 ) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         ShmPool::init();
-        let reference =
-            ShmPool::write_payload(&session_id, &data, &content_type).map_err(|e| {
-                AgentErrorFFI::AgentError {
-                    message: format!("shm write failed: {e}"),
-                }
-            })?;
+        let reference = ShmPool::write_payload(&session_id, &data, &content_type).map_err(|e| {
+            AgentErrorFFI::AgentError {
+                message: format!("shm write failed: {e}"),
+            }
+        })?;
         serde_json::to_string(&reference).map_err(|e| AgentErrorFFI::AgentError {
             message: format!("shm reference serialization failed: {e}"),
         })
@@ -1112,10 +1113,11 @@ pub fn save_ssm_state_ffi(
             layer_data,
         };
         let vault_root = std::path::Path::new(&vault_path);
-        let path = crate::storage::ssm_state::save_ssm_state(&state, vault_root)
-            .map_err(|e| AgentErrorFFI::AgentError {
+        let path = crate::storage::ssm_state::save_ssm_state(&state, vault_root).map_err(|e| {
+            AgentErrorFFI::AgentError {
                 message: format!("Failed to save SSM state: {e}"),
-            })?;
+            }
+        })?;
         Ok(path.to_string_lossy().to_string())
     })
 }
@@ -1142,9 +1144,11 @@ pub fn list_ssm_states_ffi(vault_path: String) -> String {
 pub fn build_vault_topology(vault_path: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         let vault_root = std::path::Path::new(&vault_path);
-        let topology = crate::storage::hyperbolic_topology::build_topology(vault_root)
-            .map_err(|e| AgentErrorFFI::AgentError {
-                message: format!("Topology build failed: {e}"),
+        let topology =
+            crate::storage::hyperbolic_topology::build_topology(vault_root).map_err(|e| {
+                AgentErrorFFI::AgentError {
+                    message: format!("Topology build failed: {e}"),
+                }
             })?;
         serde_json::to_string_pretty(&topology).map_err(|e| AgentErrorFFI::AgentError {
             message: format!("Topology serialization failed: {e}"),
@@ -1160,12 +1164,10 @@ pub fn vault_topology_context(vault_path: String, max_tokens: u32) -> String {
         {
             let vault_root = std::path::Path::new(&vault_path);
             match crate::storage::hyperbolic_topology::build_topology(vault_root) {
-                Ok(topology) => {
-                    crate::storage::hyperbolic_topology::topology_to_agent_context(
-                        &topology,
-                        max_tokens as usize,
-                    )
-                }
+                Ok(topology) => crate::storage::hyperbolic_topology::topology_to_agent_context(
+                    &topology,
+                    max_tokens as usize,
+                ),
                 Err(_) => String::new(),
             }
         },
@@ -1205,9 +1207,7 @@ pub async fn instant_retrieve(
             Err(_) => return Vec::new(),
         };
         let cache = get_or_create_cache(&vault_path);
-        let results = cache
-            .instant_retrieve(&query, &vault, limit as usize)
-            .await;
+        let results = cache.instant_retrieve(&query, &vault, limit as usize).await;
         results
             .into_iter()
             .map(|r| CachedResultFFI {
@@ -1335,8 +1335,8 @@ pub fn analyze_skill_traces(
         let folder_refs: Vec<&std::path::Path> = folder_paths.iter().map(|p| p.as_path()).collect();
         let pattern = crate::evolution::trace_analyzer::analyze_traces(&folder_refs, &skill_name)
             .map_err(|e| AgentErrorFFI::AgentError {
-                message: format!("Trace analysis failed: {e}"),
-            })?;
+            message: format!("Trace analysis failed: {e}"),
+        })?;
 
         serde_json::to_string_pretty(&pattern).map_err(|e| AgentErrorFFI::AgentError {
             message: format!("Pattern serialization failed: {e}"),
@@ -1394,8 +1394,12 @@ pub fn dispatch_skill(vault_path: String, objective: String) -> DispatchDecision
 
             let (target_type, target_name) = match decision.target {
                 crate::dispatcher::DispatchTarget::Skill(name) => ("skill".to_string(), name),
-                crate::dispatcher::DispatchTarget::Agent(agent_type) => ("agent".to_string(), agent_type),
-                crate::dispatcher::DispatchTarget::DirectResponse => ("direct_response".to_string(), String::new()),
+                crate::dispatcher::DispatchTarget::Agent(agent_type) => {
+                    ("agent".to_string(), agent_type)
+                }
+                crate::dispatcher::DispatchTarget::DirectResponse => {
+                    ("direct_response".to_string(), String::new())
+                }
             };
 
             DispatchDecisionFFI {
@@ -1463,21 +1467,17 @@ pub fn generate_session_graph(session_folder_path: String) -> Result<String, Age
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        let graph = crate::storage::session_graph::extract_session_graph(
-            &transcript,
-            &summary,
-            session_id,
-        )
-        .map_err(|e| AgentErrorFFI::AgentError {
-            message: format!("Graph extraction failed: {e}"),
-        })?;
+        let graph =
+            crate::storage::session_graph::extract_session_graph(&transcript, &summary, session_id)
+                .map_err(|e| AgentErrorFFI::AgentError {
+                    message: format!("Graph extraction failed: {e}"),
+                })?;
 
         // Write graph.json and GRAPH_REPORT.md to the session folder
-        let graph_json = serde_json::to_string_pretty(&graph).map_err(|e| {
-            AgentErrorFFI::AgentError {
+        let graph_json =
+            serde_json::to_string_pretty(&graph).map_err(|e| AgentErrorFFI::AgentError {
                 message: format!("Graph serialization failed: {e}"),
-            }
-        })?;
+            })?;
         std::fs::write(folder.join("graph.json"), &graph_json).map_err(|e| {
             AgentErrorFFI::AgentError {
                 message: format!("Failed to write graph.json: {e}"),
@@ -1520,8 +1520,9 @@ pub fn detect_vault_contradictions(
             let facts: Vec<VaultFact> = existing_facts
                 .into_iter()
                 .map(|f| {
-                    let last_accessed = chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
-                        .unwrap_or_else(chrono::Utc::now);
+                    let last_accessed =
+                        chrono::DateTime::from_timestamp(f.last_accessed_epoch as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
                     VaultFact::new(f.file_path, f.section, f.content, f.strength, last_accessed)
                 })
                 .collect();
@@ -1537,7 +1538,9 @@ pub fn detect_vault_contradictions(
                         contradiction_detector::ConflictType::Numeric => "numeric".to_string(),
                         contradiction_detector::ConflictType::Boolean => "boolean".to_string(),
                         contradiction_detector::ConflictType::Antonym => "antonym".to_string(),
-                        contradiction_detector::ConflictType::SemanticReversal => "semantic_reversal".to_string(),
+                        contradiction_detector::ConflictType::SemanticReversal => {
+                            "semantic_reversal".to_string()
+                        }
                     },
                     confidence: c.confidence,
                 })
@@ -1658,10 +1661,9 @@ pub async fn execute_tool_call(
     input_json: String,
 ) -> Result<ToolExecutionResultFFI, AgentErrorFFI> {
     let handle = tokio::task::spawn(async move {
-        let vault =
-            VaultStore::open(&vault_path).map_err(|error| AgentErrorFFI::AgentError {
-                message: format!("Failed to open vault: {error}"),
-            })?;
+        let vault = VaultStore::open(&vault_path).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("Failed to open vault: {error}"),
+        })?;
         let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(&tier);
         let registry = ToolRegistry::with_tier(
             Arc::new(vault),
@@ -1669,8 +1671,8 @@ pub async fn execute_tool_call(
             Some(std::path::PathBuf::from(&vault_path)),
             tier_enum,
         );
-        let input: serde_json::Value = serde_json::from_str(&input_json)
-            .map_err(|e| AgentErrorFFI::AgentError {
+        let input: serde_json::Value =
+            serde_json::from_str(&input_json).map_err(|e| AgentErrorFFI::AgentError {
                 message: format!("invalid input_json: {e}"),
             })?;
 

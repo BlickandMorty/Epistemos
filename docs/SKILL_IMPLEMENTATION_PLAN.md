@@ -594,12 +594,36 @@ function to find the geodesic path from start to semantic target.
 
 ---
 
-### 3.4-3.14 Browser tools — SKIP for now
+### 3.4-3.14 Browser tools
 
-**Rationale:** You have native `perceive` + `interact` Specialties that work on ALL apps.
-Browser automation is lower priority. If needed later, add `chromiumoxide = "0.7"` and
-implement the 11 CDP tools (navigate, snapshot, click, type, scroll, back, press, close,
-get_images, vision, console).
+**Implemented:** `agent_core/src/tools/browser.rs`
+
+The browser tier now ships as an `agent-browser` CLI wrapper instead of a direct
+`chromiumoxide`/`headless_chrome` embed. That keeps the Rust agent loop aligned
+with Hermes's operational model while reusing Epistemos's existing `vision_analyze`
+tool for screenshot inspection.
+
+Implemented tools:
+- `browser_navigate`
+- `browser_snapshot`
+- `browser_click`
+- `browser_type`
+- `browser_scroll`
+- `browser_back`
+- `browser_press`
+- `browser_close`
+- `browser_get_images`
+- `browser_vision`
+- `browser_console`
+
+Implementation notes:
+- Shared session state is held in `BrowserManager` so navigate/snapshot/click reuse
+  one browser session.
+- Local mode uses `agent-browser --session <id> --json ...`.
+- If `BROWSER_CDP_URL` is set, the same handlers connect through `--cdp <url>`.
+- Browser screenshots flow back through `vision_analyze` instead of duplicating
+  provider-specific vision code.
+- URL validation reuses the same SSRF protection as `web_fetch`.
 
 ---
 
