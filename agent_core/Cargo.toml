@@ -36,6 +36,8 @@ uniffi = { version = "0.28", features = ["tokio"] }
 walkdir = "2.5"
 uuid = { version = "1.11", features = ["serde", "v4"] }
 tempfile = "3.14"
+which = "7"
+dirs = "6"
 
 [profile.release]
 # SAFETY: agent_core MUST use "unwind" so catch_unwind can intercept panics

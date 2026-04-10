@@ -67,6 +67,25 @@ impl SessionPersistence {
             CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON checkpoints(session_id);
             CREATE INDEX IF NOT EXISTS idx_checkpoints_turn ON checkpoints(session_id, turn_number DESC);
 
+            -- FTS5 full-text search over checkpoint content
+            CREATE VIRTUAL TABLE IF NOT EXISTS checkpoints_fts USING fts5(
+                content,
+                content=checkpoints,
+                content_rowid=rowid
+            );
+
+            -- Triggers to keep FTS index in sync
+            CREATE TRIGGER IF NOT EXISTS checkpoints_fts_insert AFTER INSERT ON checkpoints BEGIN
+                INSERT INTO checkpoints_fts(rowid, content) VALUES (new.rowid, new.messages_json);
+            END;
+            CREATE TRIGGER IF NOT EXISTS checkpoints_fts_update AFTER UPDATE ON checkpoints BEGIN
+                INSERT INTO checkpoints_fts(checkpoints_fts, rowid, content) VALUES ('delete', old.rowid, old.messages_json);
+                INSERT INTO checkpoints_fts(rowid, content) VALUES (new.rowid, new.messages_json);
+            END;
+            CREATE TRIGGER IF NOT EXISTS checkpoints_fts_delete AFTER DELETE ON checkpoints BEGIN
+                INSERT INTO checkpoints_fts(checkpoints_fts, rowid, content) VALUES ('delete', old.rowid, old.messages_json);
+            END;
+
             CREATE TABLE IF NOT EXISTS session_metadata (
                 session_id TEXT PRIMARY KEY,
                 objective TEXT NOT NULL,
@@ -276,6 +295,42 @@ impl SessionPersistence {
         ).map_err(|e| AgentError::Vault(format!("Failed to delete checkpoints: {e}")))?;
         Ok(deleted as u32)
     }
+
+    /// Full-text search across all checkpoint content.
+    /// Returns (session_id, turn_number, snippet) tuples ordered by relevance.
+    pub fn search_checkpoints(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>, AgentError> {
+        let sql = format!(
+            "SELECT c.session_id, c.turn_number, snippet(checkpoints_fts, 0, '[', ']', '...', 32) as snippet
+             FROM checkpoints_fts
+             JOIN checkpoints c ON c.rowid = checkpoints_fts.rowid
+             WHERE checkpoints_fts MATCH ?1
+             ORDER BY rank
+             LIMIT {}",
+            limit
+        );
+
+        let mut stmt = self.db.prepare(&sql)
+            .map_err(|e| AgentError::Vault(format!("Failed to prepare FTS query: {e}")))?;
+
+        let results = stmt.query_map(params![query], |row| {
+            Ok(SearchResult {
+                session_id: row.get(0)?,
+                turn_number: row.get(1)?,
+                snippet: row.get(2)?,
+            })
+        }).map_err(|e| AgentError::Vault(format!("Failed to execute FTS query: {e}")))?;
+
+        results.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| AgentError::Vault(format!("Failed to collect FTS results: {e}")))
+    }
+}
+
+/// Result of a full-text search over checkpoints.
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub session_id: String,
+    pub turn_number: u32,
+    pub snippet: String,
 }
 
 /// Summary of an incomplete session (for UI display).
