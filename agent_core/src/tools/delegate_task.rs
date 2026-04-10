@@ -66,6 +66,32 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
         // Auto-approve everything in subagents (parent already approved)
         true
     }
+    fn ask_user_question(&self, _: String) -> String {
+        // Subagents cannot ask the user anything — they must succeed or fail
+        // with the context they have.
+        "{\"response\":\"\",\"choice_index\":null,\"error\":\"clarify unavailable in silent delegate\"}".to_string()
+    }
+    fn perceive_app(&self, _: String, _: String) -> String {
+        "{\"elements\":[],\"error\":\"perceive unavailable in silent delegate\"}".to_string()
+    }
+    fn interact_with_app(&self, _: String) -> String {
+        "{\"success\":false,\"error\":\"interact unavailable in silent delegate\"}".to_string()
+    }
+    fn start_screen_watch(&self, _: String) -> String {
+        "{\"triggered\":false,\"error\":\"screen_watch unavailable in silent delegate\"}"
+            .to_string()
+    }
+    fn manage_ssm_state(&self, _: String) -> String {
+        "{\"success\":false,\"error\":\"ssm_resume unavailable in silent delegate\"}".to_string()
+    }
+    fn generate_constrained(&self, _: String, _: String) -> String {
+        "{\"output\":\"\",\"error\":\"constrained_generate unavailable in silent delegate\"}"
+            .to_string()
+    }
+    fn trigger_nightbrain_job(&self, _: String, _: String) -> String {
+        "{\"status\":\"skipped\",\"error\":\"nightbrain unavailable in silent delegate\"}"
+            .to_string()
+    }
 }
 
 #[async_trait::async_trait]

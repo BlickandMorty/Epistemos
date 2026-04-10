@@ -25,12 +25,84 @@ impl RiskLevel {
     }
 }
 
+/// The capability tier a tool belongs to. Tiers form a ladder:
+///   None < ChatLite < ChatPro < Agent < Full
+/// A registry configured at tier T exposes every tool whose own tier is
+/// `<= T`. This is how normal chat modes (fast/thinking/pro) can get a
+/// curated set of read-only research tools without inheriting the full
+/// destructive surface the agent loop uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum ToolTier {
+    /// No tools — raw text generation only.
+    None,
+    /// Safe read-only research: web_search, vault_recall, read_file, think...
+    ChatLite,
+    /// Adds media + perception read-only tools on top of ChatLite.
+    ChatPro,
+    /// The agent-mode bundle: everything except deeply destructive ops.
+    Agent,
+    /// Full unrestricted registry.
+    Full,
+}
+
+impl ToolTier {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::ChatLite => "chat_lite",
+            Self::ChatPro => "chat_pro",
+            Self::Agent => "agent",
+            Self::Full => "full",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_ascii_lowercase().as_str() {
+            "none" | "off" | "disabled" => Self::None,
+            "chat_lite" | "chat" | "fast" | "thinking" | "lite" => Self::ChatLite,
+            "chat_pro" | "pro" | "research" => Self::ChatPro,
+            "agent" => Self::Agent,
+            "full" | "all" | "unrestricted" => Self::Full,
+            _ => Self::Agent, // default: backwards-compatible
+        }
+    }
+}
+
 pub struct RegisteredTool {
     pub name: String,
     pub description: String,
     pub parameters: Value,
     pub handler: Box<dyn ToolHandler>,
     pub risk_level: RiskLevel,
+    /// Minimum tier required to call this tool. Defaults via
+    /// `RegisteredTool::new(..)` to `ToolTier::Agent` so existing
+    /// registrations don't change behavior until explicitly tiered.
+    pub tier: ToolTier,
+}
+
+impl RegisteredTool {
+    /// Build a registered tool from a schema + handler + risk level,
+    /// defaulting the tier to `Agent`. Call `.with_tier()` on the result
+    /// to downgrade to ChatLite / ChatPro.
+    pub fn new(
+        schema: crate::types::ToolSchema,
+        handler: Box<dyn ToolHandler>,
+        risk_level: RiskLevel,
+    ) -> Self {
+        Self {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler,
+            risk_level,
+            tier: ToolTier::Agent,
+        }
+    }
+
+    pub fn with_tier(mut self, tier: ToolTier) -> Self {
+        self.tier = tier;
+        self
+    }
 }
 
 #[async_trait]
@@ -54,6 +126,14 @@ pub struct ToolRegistry {
     tools: HashMap<String, RegisteredTool>,
     vault: Arc<dyn VaultBackend>,
     enable_bash: bool,
+    /// Optional vault root directory. When set, Phase 2 tools that need a
+    /// filesystem path (session_search, graph_query, vault_navigate, memory)
+    /// are registered; otherwise they are silently skipped.
+    vault_root_path: Option<std::path::PathBuf>,
+    /// The active tier for this registry. `get_definitions()` and
+    /// `execute()` filter against this so a ChatLite registry never exposes
+    /// the terminal / send_message / skill_manage surface.
+    active_tier: ToolTier,
 }
 
 impl ToolRegistry {
@@ -62,6 +142,8 @@ impl ToolRegistry {
             tools: HashMap::new(),
             vault,
             enable_bash: true,
+            vault_root_path: None,
+            active_tier: ToolTier::Full,
         };
         registry.register_default_tools();
         registry
@@ -72,16 +154,87 @@ impl ToolRegistry {
             tools: HashMap::new(),
             vault,
             enable_bash,
+            vault_root_path: None,
+            active_tier: ToolTier::Full,
         };
         registry.register_default_tools();
         registry
+    }
+
+    /// Build a registry that knows its vault root on disk. This unlocks the
+    /// Phase 2 tools that need a filesystem path (session_search, graph_query,
+    /// vault_navigate, memory).
+    pub fn with_vault_root(
+        vault: Arc<dyn VaultBackend>,
+        enable_bash: bool,
+        vault_root: impl Into<std::path::PathBuf>,
+    ) -> Self {
+        let mut registry = Self {
+            tools: HashMap::new(),
+            vault,
+            enable_bash,
+            vault_root_path: Some(vault_root.into()),
+            active_tier: ToolTier::Full,
+        };
+        registry.register_default_tools();
+        registry
+    }
+
+    /// Build a registry constrained to a specific tier. Tools whose
+    /// individual tier is above the supplied one are still *registered*
+    /// (so handlers that need state can be constructed once), but
+    /// `get_definitions()` and `execute()` filter them out.
+    pub fn with_tier(
+        vault: Arc<dyn VaultBackend>,
+        enable_bash: bool,
+        vault_root: Option<impl Into<std::path::PathBuf>>,
+        tier: ToolTier,
+    ) -> Self {
+        let mut registry = Self {
+            tools: HashMap::new(),
+            vault,
+            enable_bash,
+            vault_root_path: vault_root.map(Into::into),
+            active_tier: tier,
+        };
+        registry.register_default_tools();
+        registry
+    }
+
+    /// Replace the active tier at runtime (useful for unit tests and for
+    /// rebuilding the definitions list without re-registering).
+    pub fn set_active_tier(&mut self, tier: ToolTier) {
+        self.active_tier = tier;
+    }
+
+    pub fn active_tier(&self) -> ToolTier {
+        self.active_tier
     }
 
     pub fn register(&mut self, tool: RegisteredTool) {
         self.tools.insert(tool.name.clone(), tool);
     }
 
+    /// Return the schemas for every tool whose tier is allowed by the
+    /// current active tier. This is what the agent loop sends to the model
+    /// at each turn, so filtering here is how we hide destructive tools
+    /// from chat-mode sessions.
     pub fn get_definitions(&self) -> Vec<ToolSchema> {
+        let active = self.active_tier;
+        self.tools
+            .values()
+            .filter(|tool| tool.tier <= active)
+            .map(|tool| ToolSchema {
+                name: tool.name.clone(),
+                description: tool.description.clone(),
+                parameters: tool.parameters.clone(),
+            })
+            .collect()
+    }
+
+    /// Return every registered schema regardless of the active tier. Used by
+    /// tooling that needs the full catalogue (docs generation, UI surface).
+    pub fn get_all_definitions(&self) -> Vec<ToolSchema> {
         self.tools
             .values()
             .map(|tool| ToolSchema {
@@ -92,6 +245,19 @@ impl ToolRegistry {
             .collect()
     }
 
+    /// Return tool names the active tier can invoke.
+    pub fn allowed_tool_names(&self) -> Vec<String> {
+        let active = self.active_tier;
+        let mut names: Vec<String> = self
+            .tools
+            .values()
+            .filter(|tool| tool.tier <= active)
+            .map(|tool| tool.name.clone())
+            .collect();
+        names.sort();
+        names
+    }
+
     pub fn get_risk_level(&self, name: &str) -> RiskLevel {
         self.tools
             .get(name)
@@ -99,11 +265,23 @@ impl ToolRegistry {
             .unwrap_or(RiskLevel::ReadOnly)
     }
 
+    pub fn get_tier(&self, name: &str) -> ToolTier {
+        self.tools
+            .get(name)
+            .map(|tool| tool.tier)
+            .unwrap_or(ToolTier::Agent)
+    }
+
     pub async fn execute(&self, name: &str, input: &Value) -> Result<String, ToolError> {
         let tool = self
             .tools
             .get(name)
             .ok_or_else(|| ToolError::InvalidArguments(format!("unknown tool: {name}")))?;
+        // Second layer of tier enforcement: even if a model guesses a tool
+        // name not in get_definitions(), reject it here.
+        if tool.tier > self.active_tier {
+            return Err(ToolError::PermissionDenied);
+        }
         tool.handler.execute(input).await
     }
 
@@ -129,8 +307,659 @@ impl ToolRegistry {
         if self.enable_bash {
             self.register_bash_execute();
         }
-        self.register_web_search();
         self.register_pkm_graph_neighbors();
+
+        // Phase 1 core tools (Hermes/OpenClaw parity)
+        self.register_phase_one_filesystem();
+        self.register_phase_one_terminal();
+        self.register_phase_one_todo();
+        self.register_phase_one_scheduling();
+        self.register_phase_one_skills_progressive();
+
+        // Phase 2 knowledge & memory tools (vault-native specialties)
+        self.register_phase_two_knowledge();
+        self.register_phase_two_graph();
+        self.register_phase_two_memory();
+
+        // Phase 3 web tools — replaces the legacy DuckDuckGo web_search.
+        self.register_phase_three_web();
+
+        // Phase 4 Apple app tools (pure Rust via osascript).
+        self.register_phase_four_apple_apps();
+
+        // Phase 5 inference specialties — route_private is pure Rust. The
+        // Swift-dependent ones (ssm_resume, constrained_generate) are wired
+        // in via register_delegate_tools().
+        self.register_phase_five_route_private();
+
+        // Phase 6 communication + media tools.
+        self.register_phase_six_communication();
+        self.register_phase_six_media();
+        self.register_phase_six_imessage();
+
+        // Phase 7 intelligence layer (pure-Rust parts).
+        self.register_phase_seven_intelligence();
+
+        // Tier rebalance: mark the read-only research tools as ChatLite so
+        // normal chat (fast/thinking) can call them, and the cloud-heavy
+        // read-only tools as ChatPro so the Pro mode picks them up too.
+        self.apply_tier_overrides();
+    }
+
+    /// Downgrade chat-safe tools from their default `Agent` tier so normal
+    /// chat modes can see them. Only tools whose handlers are side-effect
+    /// free (or have narrowly scoped side-effects like `think`) should be
+    /// downgraded here.
+    fn apply_tier_overrides(&mut self) {
+        // Tier: ChatLite — safe for even the smallest local model.
+        // These are the ones the user specifically called out (web_search,
+        // vault_search, read_file, think) plus the obvious read-only cousins.
+        const CHAT_LITE: &[&str] = &[
+            // Research / web
+            "web_search",
+            "web_extract",
+            "web_fetch",
+            // Vault reads
+            "vault_search",
+            "vault_read",
+            "vault_recall",
+            "pkm_graph_neighbors",
+            "graph_query",
+            "vault_navigate",
+            "session_search",
+            "neural_recall",
+            "contradiction_check",
+            // Filesystem reads
+            "read_file",
+            "search_files",
+            "workspace_search",
+            "find_symbol",
+            "get_function_source",
+            "get_dependencies",
+            "get_dependents",
+            "get_change_impact",
+            // Reasoning primitives — zero cost
+            "think",
+            "chunk_reduce",
+            // Skills discovery (read-only)
+            "skills_list",
+            "skill_view",
+            // Todo list is session-scoped and mutating but harmless
+            "todo",
+        ];
+
+        // Tier: ChatPro — adds cloud-backed and macOS-privileged read-only
+        // tools. Anything on CHAT_LITE is also available here.
+        const CHAT_PRO_EXTRA: &[&str] = &[
+            "vision_analyze",
+            "text_to_speech",
+            "web_crawl",
+            "route_private",
+            "perceive",
+            "mixture_of_minds",
+            "self_evolve",
+            // Clarify is fine — it just asks the user a question
+            "clarify",
+        ];
+
+        for name in CHAT_LITE {
+            if let Some(tool) = self.tools.get_mut(*name) {
+                tool.tier = ToolTier::ChatLite;
+            }
+        }
+        for name in CHAT_PRO_EXTRA {
+            if let Some(tool) = self.tools.get_mut(*name) {
+                tool.tier = ToolTier::ChatPro;
+            }
+        }
+    }
+
+    fn register_phase_seven_intelligence(&mut self) {
+        use crate::tools::intelligence::{
+            mixture_of_minds_schema, self_evolve_schema, MixtureOfMindsHandler,
+            SelfEvolveHandler,
+        };
+
+        // self_evolve needs the vault root for scanning session traces; skip
+        // silently when no root was configured.
+        if let Some(root) = self.vault_root_path.clone() {
+            let se = self_evolve_schema();
+            self.register(RegisteredTool {
+                name: se.name,
+                description: se.description,
+                parameters: se.parameters,
+                handler: Box::new(SelfEvolveHandler::new(root)),
+                risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+            });
+        }
+
+        match MixtureOfMindsHandler::new() {
+            Ok(handler) => {
+                let schema = mixture_of_minds_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("mixture_of_minds registration skipped: {e}"),
+        }
+    }
+
+    fn register_phase_six_communication(&mut self) {
+        use crate::tools::communication::{send_message_schema, SendMessageHandler};
+        match SendMessageHandler::new() {
+            Ok(handler) => {
+                let schema = send_message_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    // Sending messages is hard-to-reverse and visible to others.
+                    risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("send_message registration skipped: {e}"),
+        }
+    }
+
+    fn register_phase_six_media(&mut self) {
+        use crate::tools::media::{
+            image_generate_schema, text_to_speech_schema, vision_analyze_schema,
+            ImageGenerateHandler, TextToSpeechHandler, VisionAnalyzeHandler,
+        };
+
+        match VisionAnalyzeHandler::new() {
+            Ok(handler) => {
+                let schema = vision_analyze_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("vision_analyze registration skipped: {e}"),
+        }
+
+        match ImageGenerateHandler::new() {
+            Ok(handler) => {
+                let schema = image_generate_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("image_generate registration skipped: {e}"),
+        }
+
+        let tts = text_to_speech_schema();
+        self.register(RegisteredTool {
+            name: tts.name,
+            description: tts.description,
+            parameters: tts.parameters,
+            handler: Box::new(TextToSpeechHandler),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_six_imessage(&mut self) {
+        use crate::tools::imessage::{imessage_schema, IMessageHandler};
+        use crate::tools::imessage_contacts::{
+            imessage_contacts_schema, IMessageContactsHandler,
+        };
+
+        let schema = imessage_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(IMessageHandler),
+            // 'send' is destructive, reads are not — but we tag the whole
+            // tool Destructive because the action arg can be 'send'.
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+
+        let contacts_schema = imessage_contacts_schema();
+        self.register(RegisteredTool {
+            name: contacts_schema.name,
+            description: contacts_schema.description,
+            parameters: contacts_schema.parameters,
+            handler: Box::new(IMessageContactsHandler),
+            // Configuring contacts is modification — not destructive.
+            risk_level: RiskLevel::Modification,
+            // Configurable from Chat Pro so the Pro chat agent can set up
+            // the contact routing during conversation.
+            tier: ToolTier::ChatPro,
+        });
+    }
+
+    fn register_phase_five_route_private(&mut self) {
+        use crate::tools::inference::{route_private_schema, RoutePrivateHandler};
+        let schema = route_private_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(RoutePrivateHandler::new()),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_four_apple_apps(&mut self) {
+        use crate::tools::apple::{
+            apple_calendar_schema, apple_mail_schema, apple_notes_schema,
+            apple_reminders_schema, AppleCalendarHandler, AppleMailHandler, AppleNotesHandler,
+            AppleRemindersHandler,
+        };
+
+        let notes = apple_notes_schema();
+        self.register(RegisteredTool {
+            name: notes.name,
+            description: notes.description,
+            parameters: notes.parameters,
+            handler: Box::new(AppleNotesHandler),
+            // create/edit actions mutate Notes — treat as Modification so the
+            // permission gate fires unless auto-approved.
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let reminders = apple_reminders_schema();
+        self.register(RegisteredTool {
+            name: reminders.name,
+            description: reminders.description,
+            parameters: reminders.parameters,
+            handler: Box::new(AppleRemindersHandler),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let calendar = apple_calendar_schema();
+        self.register(RegisteredTool {
+            name: calendar.name,
+            description: calendar.description,
+            parameters: calendar.parameters,
+            handler: Box::new(AppleCalendarHandler),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let mail = apple_mail_schema();
+        self.register(RegisteredTool {
+            name: mail.name,
+            description: mail.description,
+            parameters: mail.parameters,
+            handler: Box::new(AppleMailHandler),
+            // send is destructive (visible to others, hard to reverse) —
+            // tag the whole tool as Destructive so the permission gate fires.
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    /// Register delegate-aware tools. Must be called after the registry is
+    /// constructed but before it is shared via Arc — the agent session wires
+    /// this up in `bridge.rs`.
+    pub fn register_delegate_tools(
+        &mut self,
+        delegate: Arc<dyn crate::bridge::AgentEventDelegate>,
+    ) {
+        use crate::tools::clarify::{clarify_schema, ClarifyHandler};
+        use crate::tools::macos::{
+            interact_schema, perceive_schema, screen_watch_schema, InteractHandler,
+            PerceiveHandler, ScreenWatchHandler,
+        };
+
+        let schema = clarify_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(ClarifyHandler::new(Arc::clone(&delegate))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        // Phase 4: macOS perception stack — Specialties A1/A2/A3.
+        let p = perceive_schema();
+        self.register(RegisteredTool {
+            name: p.name,
+            description: p.description,
+            parameters: p.parameters,
+            handler: Box::new(PerceiveHandler::new(Arc::clone(&delegate))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let i = interact_schema();
+        self.register(RegisteredTool {
+            name: i.name,
+            description: i.description,
+            parameters: i.parameters,
+            handler: Box::new(InteractHandler::new(Arc::clone(&delegate))),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let w = screen_watch_schema();
+        self.register(RegisteredTool {
+            name: w.name,
+            description: w.description,
+            parameters: w.parameters,
+            handler: Box::new(ScreenWatchHandler::new(Arc::clone(&delegate))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        // Phase 5: on-device inference specialties that need the Swift MLX
+        // runtime — ssm_resume (Mamba state) and constrained_generate (EBNF
+        // grammar-guided decoding).
+        use crate::tools::inference::{
+            constrained_generate_schema, ssm_resume_schema, ConstrainedGenerateHandler,
+            SsmResumeHandler,
+        };
+
+        let ssm = ssm_resume_schema();
+        self.register(RegisteredTool {
+            name: ssm.name,
+            description: ssm.description,
+            parameters: ssm.parameters,
+            handler: Box::new(SsmResumeHandler::new(Arc::clone(&delegate))),
+            // save/load mutate on-disk state → Modification.
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let cg = constrained_generate_schema();
+        self.register(RegisteredTool {
+            name: cg.name,
+            description: cg.description,
+            parameters: cg.parameters,
+            handler: Box::new(ConstrainedGenerateHandler::new(Arc::clone(&delegate))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        // Phase 7: NightBrain trigger (delegate-backed Specialty D1).
+        use crate::tools::intelligence::{
+            nightbrain_trigger_schema, NightBrainTriggerHandler,
+        };
+        let nb = nightbrain_trigger_schema();
+        self.register(RegisteredTool {
+            name: nb.name,
+            description: nb.description,
+            parameters: nb.parameters,
+            handler: Box::new(NightBrainTriggerHandler::new(Arc::clone(&delegate))),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_one_filesystem(&mut self) {
+        use crate::tools::filesystem::{
+            patch_schema, read_file_schema, search_files_schema, write_file_schema, PatchHandler,
+            ReadFileHandler, SearchFilesHandler, WriteFileHandler,
+        };
+
+        let rf = read_file_schema();
+        self.register(RegisteredTool {
+            name: rf.name,
+            description: rf.description,
+            parameters: rf.parameters,
+            handler: Box::new(ReadFileHandler),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let wf = write_file_schema();
+        self.register(RegisteredTool {
+            name: wf.name,
+            description: wf.description,
+            parameters: wf.parameters,
+            handler: Box::new(WriteFileHandler),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let pt = patch_schema();
+        self.register(RegisteredTool {
+            name: pt.name,
+            description: pt.description,
+            parameters: pt.parameters,
+            handler: Box::new(PatchHandler),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let sf = search_files_schema();
+        self.register(RegisteredTool {
+            name: sf.name,
+            description: sf.description,
+            parameters: sf.parameters,
+            handler: Box::new(SearchFilesHandler),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_one_terminal(&mut self) {
+        use crate::tools::terminal::{
+            process_schema, terminal_schema, ProcessHandler, TerminalHandler,
+        };
+
+        if self.enable_bash {
+            let t = terminal_schema();
+            self.register(RegisteredTool {
+                name: t.name,
+                description: t.description,
+                parameters: t.parameters,
+                handler: Box::new(TerminalHandler),
+                risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+            });
+        }
+
+        let p = process_schema();
+        self.register(RegisteredTool {
+            name: p.name,
+            description: p.description,
+            parameters: p.parameters,
+            handler: Box::new(ProcessHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_one_todo(&mut self) {
+        use crate::tools::todo::{todo_schema, TodoHandler};
+        let t = todo_schema();
+        self.register(RegisteredTool {
+            name: t.name,
+            description: t.description,
+            parameters: t.parameters,
+            handler: Box::new(TodoHandler),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_one_scheduling(&mut self) {
+        use crate::tools::scheduling::{cronjob_schema, CronJobHandler};
+        let c = cronjob_schema();
+        self.register(RegisteredTool {
+            name: c.name,
+            description: c.description,
+            parameters: c.parameters,
+            handler: Box::new(CronJobHandler::new()),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_one_skills_progressive(&mut self) {
+        use crate::tools::skills::{
+            skill_manage_schema, skill_view_schema, skills_list_schema, SkillManageHandler,
+            SkillViewHandler, SkillsListHandler,
+        };
+
+        let sl = skills_list_schema();
+        self.register(RegisteredTool {
+            name: sl.name,
+            description: sl.description,
+            parameters: sl.parameters,
+            handler: Box::new(SkillsListHandler::new()),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let sv = skill_view_schema();
+        self.register(RegisteredTool {
+            name: sv.name,
+            description: sv.description,
+            parameters: sv.parameters,
+            handler: Box::new(SkillViewHandler::new()),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let sm = skill_manage_schema();
+        self.register(RegisteredTool {
+            name: sm.name,
+            description: sm.description,
+            parameters: sm.parameters,
+            handler: Box::new(SkillManageHandler::new()),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_two_knowledge(&mut self) {
+        use crate::tools::knowledge::{
+            contradiction_check_schema, neural_recall_schema, vault_recall_schema,
+            ContradictionCheckHandler, NeuralRecallHandler, VaultRecallHandler,
+        };
+
+        let vr = vault_recall_schema();
+        self.register(RegisteredTool {
+            name: vr.name,
+            description: vr.description,
+            parameters: vr.parameters,
+            handler: Box::new(VaultRecallHandler::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let cc = contradiction_check_schema();
+        self.register(RegisteredTool {
+            name: cc.name,
+            description: cc.description,
+            parameters: cc.parameters,
+            handler: Box::new(ContradictionCheckHandler::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let nc = neural_recall_schema();
+        self.register(RegisteredTool {
+            name: nc.name,
+            description: nc.description,
+            parameters: nc.parameters,
+            handler: Box::new(NeuralRecallHandler::new(
+                Arc::clone(&self.vault),
+                Arc::clone(neural_cache()),
+            )),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        // session_search needs the vault root path, not the backend trait.
+        // We stash the configured root on the registry so we can wire it in.
+        if let Some(root) = self.vault_root_path.clone() {
+            use crate::tools::knowledge::{session_search_schema, SessionSearchHandler};
+            let ss = session_search_schema();
+            self.register(RegisteredTool {
+                name: ss.name,
+                description: ss.description,
+                parameters: ss.parameters,
+                handler: Box::new(SessionSearchHandler::new(root)),
+                risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+            });
+        }
+    }
+
+    fn register_phase_two_graph(&mut self) {
+        use crate::tools::graph::{
+            graph_query_schema, vault_navigate_schema, GraphQueryHandler, VaultNavigateHandler,
+        };
+
+        // Both tools operate on the vault root directory. Skip registration
+        // if no root was configured — the vanilla pkm_graph_neighbors tool
+        // still covers the basic relationship query.
+        let Some(root) = self.vault_root_path.clone() else {
+            return;
+        };
+
+        let gq = graph_query_schema();
+        self.register(RegisteredTool {
+            name: gq.name,
+            description: gq.description,
+            parameters: gq.parameters,
+            handler: Box::new(GraphQueryHandler::new(root.clone())),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let vn = vault_navigate_schema();
+        self.register(RegisteredTool {
+            name: vn.name,
+            description: vn.description,
+            parameters: vn.parameters,
+            handler: Box::new(VaultNavigateHandler::new(root)),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_two_memory(&mut self) {
+        use crate::tools::memory::{memory_tool_schema, MemoryTool};
+
+        // Memory lives under <vault>/.epistemos/memory when a vault root is
+        // available, otherwise fall back to ~/.epistemos/memory so the tool is
+        // always registered.
+        let memory_dir = if let Some(root) = self.vault_root_path.as_ref() {
+            root.join(".epistemos").join("memory")
+        } else if let Some(home) = dirs::home_dir() {
+            home.join(".epistemos").join("memory")
+        } else {
+            std::path::PathBuf::from(".epistemos-memory")
+        };
+
+        let schema = memory_tool_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(MemoryTool::new(memory_dir)),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
     }
 
     fn register_pkm_graph_neighbors(&mut self) {
@@ -159,6 +988,7 @@ impl ToolRegistry {
             }),
             handler: Box::new(GraphNeighborsHandler { vault }),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
     }
 
@@ -170,6 +1000,7 @@ impl ToolRegistry {
             parameters: serde_json::from_str(think::THINK_TOOL_SCHEMA).unwrap_or_default(),
             handler: Box::new(ThinkHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
     }
 
@@ -200,6 +1031,7 @@ impl ToolRegistry {
             }),
             handler: Box::new(VaultSearchHandler { vault }),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
     }
 
@@ -217,6 +1049,7 @@ impl ToolRegistry {
             }),
             handler: Box::new(VaultReadHandler { vault }),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
     }
 
@@ -224,7 +1057,11 @@ impl ToolRegistry {
         let vault = Arc::clone(&self.vault);
         self.register(RegisteredTool {
             name: "vault_write".to_string(),
-            description: "Create or update a note in the vault.".to_string(),
+            description: "Create or update a note in the vault. Runs a pre-flight contradiction \
+                check against existing facts — conflicts above 0.75 confidence are returned in \
+                'warnings' but do NOT block the write. Set 'skip_contradiction_check': true to \
+                skip the scan."
+                .to_string(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -239,12 +1076,18 @@ impl ToolRegistry {
                         "type": "boolean",
                         "default": false,
                         "description": "Append instead of overwrite"
+                    },
+                    "skip_contradiction_check": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Skip the pre-flight contradiction scan."
                     }
                 },
                 "required": ["path", "content"]
             }),
             handler: Box::new(VaultWriteHandler { vault }),
             risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
         });
     }
 
@@ -269,29 +1112,63 @@ impl ToolRegistry {
             }),
             handler: Box::new(BashExecuteHandler),
             risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
         });
     }
 
-    fn register_web_search(&mut self) {
-        self.register(RegisteredTool {
-            name: "web_search".to_string(),
-            description: "Search the web for current information using a lightweight HTTP API."
-                .to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "query": { "type": "string", "description": "Search query" },
-                    "limit": {
-                        "type": "integer",
-                        "default": 5,
-                        "description": "Number of results to summarize"
-                    }
-                },
-                "required": ["query"]
-            }),
-            handler: Box::new(WebSearchHandler::new()),
-            risk_level: RiskLevel::ReadOnly,
-        });
+    fn register_phase_three_web(&mut self) {
+        use crate::tools::web::{
+            web_crawl_schema, web_extract_schema, web_search_schema, WebCrawlHandler,
+            WebExtractHandler, WebSearchHandler,
+        };
+
+        // All three handlers need a reqwest Client — if construction fails
+        // (shouldn't in practice), log and skip so the rest of the registry
+        // still lands.
+        match WebSearchHandler::new() {
+            Ok(handler) => {
+                let schema = web_search_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("web_search registration skipped: {e}"),
+        }
+
+        match WebExtractHandler::new() {
+            Ok(handler) => {
+                let schema = web_extract_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("web_extract registration skipped: {e}"),
+        }
+
+        match WebCrawlHandler::new() {
+            Ok(handler) => {
+                let schema = web_crawl_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("web_crawl registration skipped: {e}"),
+        }
     }
 
     fn register_chunk_reduce(&mut self) {
@@ -303,6 +1180,7 @@ impl ToolRegistry {
                 .unwrap_or_default(),
             handler: Box::new(chunk_reduce::ChunkReduceHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
     }
 
@@ -315,6 +1193,7 @@ impl ToolRegistry {
                 .unwrap_or_default(),
             handler: Box::new(workspace_search::WorkspaceSearchHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
         // Token Savior: AST-level symbol tools (replace grep/cat for codebase navigation)
         self.register_token_savior_tools();
@@ -330,6 +1209,7 @@ impl ToolRegistry {
                 .unwrap_or_default(),
             handler: Box::new(workspace_search::FindSymbolHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
 
         self.register(RegisteredTool {
@@ -339,6 +1219,7 @@ impl ToolRegistry {
                 .unwrap_or_default(),
             handler: Box::new(workspace_search::GetFunctionSourceHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
 
         self.register(RegisteredTool {
@@ -348,6 +1229,7 @@ impl ToolRegistry {
                 .unwrap_or_default(),
             handler: Box::new(workspace_search::GetDependenciesHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
 
         self.register(RegisteredTool {
@@ -357,6 +1239,7 @@ impl ToolRegistry {
                 .unwrap_or_default(),
             handler: Box::new(workspace_search::GetDependentsHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
 
         self.register(RegisteredTool {
@@ -366,6 +1249,7 @@ impl ToolRegistry {
                 .unwrap_or_default(),
             handler: Box::new(workspace_search::GetChangeImpactHandler),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
         });
     }
 }
@@ -443,6 +1327,9 @@ struct VaultWriteHandler {
 #[async_trait]
 impl ToolHandler for VaultWriteHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        use crate::storage::contradiction_detector::detect_contradictions;
+        use crate::storage::memory_classifier::VaultFact;
+
         let path = input
             .get("path")
             .and_then(Value::as_str)
@@ -463,12 +1350,63 @@ impl ToolHandler for VaultWriteHandler {
                     .collect()
             })
             .unwrap_or_default();
+        let skip_contradiction_check = input
+            .get("skip_contradiction_check")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        // Contradiction pre-flight: surface conflicts but don't block the
+        // write. The agent is responsible for deciding whether to proceed.
+        let contradictions = if skip_contradiction_check {
+            Vec::new()
+        } else {
+            let candidates = self
+                .vault
+                .hybrid_search(content, 10, &[])
+                .await
+                .unwrap_or_default();
+            let now = chrono::Utc::now();
+            let facts: Vec<VaultFact> = candidates
+                .iter()
+                .filter(|r| r.path != path)
+                .map(|r| {
+                    VaultFact::new(
+                        r.path.clone(),
+                        "".to_string(),
+                        r.excerpt.clone(),
+                        r.score,
+                        now,
+                    )
+                })
+                .collect();
+            detect_contradictions(content, &facts)
+        };
 
         self.vault
             .write(path, content, Some(&tags), append)
             .await
             .map_err(map_vault_error)?;
-        Ok(format!("Wrote vault note: {path}"))
+
+        let warnings: Vec<Value> = contradictions
+            .iter()
+            .filter(|c| c.confidence >= 0.75)
+            .map(|c| {
+                json!({
+                    "type": format!("{:?}", c.conflict_type),
+                    "confidence": c.confidence,
+                    "existing_fact": c.existing_fact.content,
+                    "source_path": c.existing_fact.file_path,
+                })
+            })
+            .collect();
+
+        Ok(json!({
+            "success": true,
+            "path": path,
+            "bytes_written": content.len(),
+            "warnings": warnings,
+        })
+        .to_string())
     }
 }
 
@@ -521,82 +1459,6 @@ impl ToolHandler for BashExecuteHandler {
             "(no output)".to_string()
         } else {
             parts.join("\n\n")
-        })
-    }
-}
-
-struct WebSearchHandler {
-    client: reqwest::Client,
-}
-
-impl WebSearchHandler {
-    fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
-    }
-}
-
-#[async_trait]
-impl ToolHandler for WebSearchHandler {
-    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let query = input
-            .get("query")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("query required".to_string()))?;
-        let limit = input.get("limit").and_then(Value::as_u64).unwrap_or(5).max(1) as usize;
-
-        let response = self
-            .client
-            .get("https://api.duckduckgo.com/")
-            .query(&[
-                ("q", query),
-                ("format", "json"),
-                ("no_html", "1"),
-                ("skip_disambig", "1"),
-                ("t", "epistemos"),
-            ])
-            .send()
-            .await
-            .map_err(|error| ToolError::ExecutionFailed(error.to_string()))?;
-        let payload = response
-            .json::<Value>()
-            .await
-            .map_err(|error| ToolError::ExecutionFailed(error.to_string()))?;
-
-        let abstract_text = payload
-            .get("AbstractText")
-            .and_then(Value::as_str)
-            .filter(|text| !text.is_empty())
-            .map(|text| format!("Abstract: {text}"));
-        let related = payload
-            .get("RelatedTopics")
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| {
-                        let text = item.get("Text").and_then(Value::as_str)?;
-                        let url = item.get("FirstURL").and_then(Value::as_str)?;
-                        Some(format!("- {text} ({url})"))
-                    })
-                    .take(limit)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
-        let mut sections = Vec::new();
-        if let Some(abstract_text) = abstract_text {
-            sections.push(abstract_text);
-        }
-        if !related.is_empty() {
-            sections.push(format!("Related topics:\n{}", related.join("\n")));
-        }
-
-        Ok(if sections.is_empty() {
-            format!("No web search summary found for query: {query}")
-        } else {
-            sections.join("\n\n")
         })
     }
 }
@@ -672,5 +1534,197 @@ fn map_vault_error(error: VaultError) -> ToolError {
     match error {
         VaultError::NotFound(message) => ToolError::NotFound(message),
         other => ToolError::ExecutionFailed(other.to_string()),
+    }
+}
+
+/// Process-wide NeuralCache for the `neural_recall` tool. Matches the existing
+/// cache singleton used by the FFI layer (`bridge::get_or_create_cache`) so
+/// both paths share the same hot facts.
+fn neural_cache() -> &'static Arc<crate::storage::neural_cache::NeuralCache> {
+    use std::sync::OnceLock;
+    static CACHE: OnceLock<Arc<crate::storage::neural_cache::NeuralCache>> = OnceLock::new();
+    CACHE.get_or_init(|| Arc::new(crate::storage::neural_cache::NeuralCache::new(500)))
+}
+
+#[cfg(test)]
+mod tier_tests {
+    use super::*;
+    use crate::storage::vault::{SearchResult, VaultBackend, VaultError};
+    use async_trait::async_trait;
+
+    /// Minimal vault stub for registry construction in unit tests.
+    struct NullVault;
+
+    #[async_trait]
+    impl VaultBackend for NullVault {
+        async fn hybrid_search(
+            &self,
+            _query: &str,
+            _limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<SearchResult>, VaultError> {
+            Ok(Vec::new())
+        }
+        async fn read(&self, _path: &str) -> Result<String, VaultError> {
+            Ok(String::new())
+        }
+        async fn write(
+            &self,
+            _path: &str,
+            _content: &str,
+            _tags: Option<&[String]>,
+            _append: bool,
+        ) -> Result<(), VaultError> {
+            Ok(())
+        }
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
+
+    fn build_registry(tier: ToolTier) -> ToolRegistry {
+        ToolRegistry::with_tier(
+            Arc::new(NullVault),
+            true,
+            None::<std::path::PathBuf>,
+            tier,
+        )
+    }
+
+    #[test]
+    fn tool_tier_ordering_is_ladder() {
+        assert!(ToolTier::None < ToolTier::ChatLite);
+        assert!(ToolTier::ChatLite < ToolTier::ChatPro);
+        assert!(ToolTier::ChatPro < ToolTier::Agent);
+        assert!(ToolTier::Agent < ToolTier::Full);
+    }
+
+    #[test]
+    fn tool_tier_parses_case_insensitively() {
+        assert_eq!(ToolTier::from_str_lossy("chat_lite"), ToolTier::ChatLite);
+        assert_eq!(ToolTier::from_str_lossy("CHAT_PRO"), ToolTier::ChatPro);
+        assert_eq!(ToolTier::from_str_lossy("fast"), ToolTier::ChatLite);
+        assert_eq!(ToolTier::from_str_lossy("pro"), ToolTier::ChatPro);
+        assert_eq!(ToolTier::from_str_lossy("agent"), ToolTier::Agent);
+        // Unknown tier falls back to Agent so existing callers don't break.
+        assert_eq!(ToolTier::from_str_lossy("nonsense"), ToolTier::Agent);
+    }
+
+    #[test]
+    fn chat_lite_exposes_web_search_and_vault_recall() {
+        let registry = build_registry(ToolTier::ChatLite);
+        let names: Vec<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|t| t.name)
+            .collect();
+        assert!(
+            names.contains(&"web_search".to_string()),
+            "chat_lite must expose web_search, got: {names:?}"
+        );
+        assert!(
+            names.contains(&"vault_recall".to_string()),
+            "chat_lite must expose vault_recall"
+        );
+        assert!(names.contains(&"think".to_string()));
+        assert!(names.contains(&"read_file".to_string()));
+    }
+
+    #[test]
+    fn chat_lite_hides_destructive_tools() {
+        let registry = build_registry(ToolTier::ChatLite);
+        let names: Vec<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|t| t.name)
+            .collect();
+        assert!(!names.contains(&"terminal".to_string()));
+        assert!(!names.contains(&"bash_execute".to_string()));
+        assert!(!names.contains(&"send_message".to_string()));
+        assert!(!names.contains(&"imessage".to_string()));
+        assert!(!names.contains(&"write_file".to_string()));
+        assert!(!names.contains(&"patch".to_string()));
+        assert!(!names.contains(&"skill_manage".to_string()));
+        assert!(!names.contains(&"cronjob".to_string()));
+    }
+
+    #[test]
+    fn chat_pro_adds_vision_and_tts_over_chat_lite() {
+        let lite = build_registry(ToolTier::ChatLite);
+        let pro = build_registry(ToolTier::ChatPro);
+        let lite_names: std::collections::HashSet<String> =
+            lite.get_definitions().into_iter().map(|t| t.name).collect();
+        let pro_names: std::collections::HashSet<String> =
+            pro.get_definitions().into_iter().map(|t| t.name).collect();
+
+        // Pro must be a superset of Lite.
+        for name in &lite_names {
+            assert!(
+                pro_names.contains(name),
+                "chat_pro missing lite tool '{name}'"
+            );
+        }
+        // Pro adds vision_analyze + text_to_speech.
+        assert!(pro_names.contains("vision_analyze"));
+        assert!(pro_names.contains("text_to_speech"));
+    }
+
+    #[test]
+    fn agent_tier_is_superset_of_chat_pro() {
+        let pro = build_registry(ToolTier::ChatPro);
+        let agent = build_registry(ToolTier::Agent);
+        let pro_names: std::collections::HashSet<String> =
+            pro.get_definitions().into_iter().map(|t| t.name).collect();
+        let agent_names: std::collections::HashSet<String> =
+            agent.get_definitions().into_iter().map(|t| t.name).collect();
+        for name in &pro_names {
+            assert!(
+                agent_names.contains(name),
+                "agent tier missing pro tool '{name}'"
+            );
+        }
+        // Agent tier includes the destructive tools Pro hides.
+        assert!(agent_names.contains("terminal"));
+        assert!(agent_names.contains("send_message"));
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_tools_above_active_tier() {
+        let registry = build_registry(ToolTier::ChatLite);
+        // `write_file` is Agent tier — ChatLite must refuse.
+        let err = registry
+            .execute("write_file", &serde_json::json!({ "path": "/tmp/x", "content": "" }))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ToolError::PermissionDenied));
+    }
+
+    #[tokio::test]
+    async fn execute_permits_tools_within_active_tier() {
+        let registry = build_registry(ToolTier::ChatLite);
+        // `think` is ChatLite-tagged and always succeeds.
+        let result = registry
+            .execute("think", &serde_json::json!({ "thought": "reasoning..." }))
+            .await
+            .unwrap();
+        assert!(result.contains("reasoning"));
+    }
+
+    #[test]
+    fn allowed_tool_names_matches_get_definitions() {
+        let registry = build_registry(ToolTier::ChatPro);
+        let allowed = registry.allowed_tool_names();
+        let defs: Vec<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|t| t.name)
+            .collect();
+        assert_eq!(allowed.len(), defs.len());
     }
 }

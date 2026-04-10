@@ -372,3 +372,595 @@ pub fn skills_tool_schema() -> crate::types::ToolSchema {
         }),
     }
 }
+
+// MARK: - Progressive Disclosure Skills Tools
+//
+// The existing `skills` tool bundles CRUD behind a single action enum. Phase 1
+// adds three focused tools so the agent can cheaply discover skills (tier 0:
+// name + description) without paying the full body load cost until a skill is
+// actually needed (tier 1: full SKILL.md via skill_view).
+//
+// All three share the same underlying scan logic — they differ in the shape
+// of their output.
+
+const MAX_SKILL_BYTES: usize = 15_360; // 15KB hard cap per SKILL.md
+
+fn default_skills_dir() -> PathBuf {
+    if let Ok(override_path) = std::env::var("EPISTEMOS_SKILLS_DIR") {
+        return PathBuf::from(override_path);
+    }
+    let mut base = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    base.push(".epistemos");
+    base.push("skills");
+    let _ = fs::create_dir_all(&base);
+    base
+}
+
+/// Tier-0 metadata: name + one-line description + path.
+#[derive(Debug, Clone)]
+struct SkillMetadata {
+    name: String,
+    description: String,
+    category: Option<String>,
+    tags: Vec<String>,
+    requires_tools: Vec<String>,
+    path: PathBuf,
+}
+
+fn parse_frontmatter(content: &str) -> SkillMetadata {
+    let default = SkillMetadata {
+        name: String::new(),
+        description: String::new(),
+        category: None,
+        tags: Vec::new(),
+        requires_tools: Vec::new(),
+        path: PathBuf::new(),
+    };
+    if !content.starts_with("---") {
+        return default;
+    }
+    let Some(end) = content[3..].find("\n---") else {
+        return default;
+    };
+    let yaml_body = &content[3..3 + end];
+    let parsed: Result<serde_yaml::Value, _> = serde_yaml::from_str(yaml_body);
+    let Ok(root) = parsed else { return default };
+
+    let name = root
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let description = root
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let metadata_block = root.get("metadata").and_then(|v| v.get("epistemos"));
+
+    let category = metadata_block
+        .and_then(|m| m.get("category"))
+        .and_then(|v| v.as_str())
+        .map(String::from);
+
+    let tags = metadata_block
+        .and_then(|m| m.get("tags"))
+        .and_then(|v| v.as_sequence())
+        .map(|seq| {
+            seq.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let requires_tools = metadata_block
+        .and_then(|m| m.get("requires_tools"))
+        .and_then(|v| v.as_sequence())
+        .map(|seq| {
+            seq.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    SkillMetadata {
+        name,
+        description,
+        category,
+        tags,
+        requires_tools,
+        path: PathBuf::new(),
+    }
+}
+
+fn scan_skills(root: &Path) -> Vec<SkillMetadata> {
+    let mut out = Vec::new();
+    if !root.exists() {
+        return out;
+    }
+    // Walk at most 3 levels deep: root / [category /] skill / SKILL.md
+    for entry in walkdir::WalkDir::new(root)
+        .max_depth(3)
+        .into_iter()
+        .flatten()
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        if entry.file_name() != "SKILL.md" {
+            continue;
+        }
+        let path = entry.path().to_path_buf();
+        let content = match fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let mut metadata = parse_frontmatter(&content);
+        metadata.path = path.clone();
+        if metadata.name.is_empty() {
+            if let Some(parent) = path.parent() {
+                if let Some(name) = parent.file_name().and_then(|n| n.to_str()) {
+                    metadata.name = name.to_string();
+                }
+            }
+        }
+        out.push(metadata);
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+fn metadata_to_json(metadata: &SkillMetadata) -> Value {
+    json!({
+        "name": metadata.name,
+        "description": metadata.description,
+        "category": metadata.category,
+        "tags": metadata.tags,
+        "requires_tools": metadata.requires_tools,
+        "path": metadata.path.display().to_string(),
+    })
+}
+
+/// `skills_list` — tier-0 metadata only.
+pub struct SkillsListHandler {
+    skills_dir: PathBuf,
+}
+
+impl SkillsListHandler {
+    pub fn new() -> Self {
+        Self {
+            skills_dir: default_skills_dir(),
+        }
+    }
+}
+
+impl Default for SkillsListHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolHandler for SkillsListHandler {
+    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
+        let filter = input.get("tag").and_then(Value::as_str);
+        let metadata = scan_skills(&self.skills_dir);
+        let skills: Vec<Value> = metadata
+            .iter()
+            .filter(|m| {
+                filter.is_none_or(|tag| m.tags.iter().any(|t| t == tag))
+            })
+            .map(metadata_to_json)
+            .collect();
+        Ok(json!({
+            "count": skills.len(),
+            "skills_dir": self.skills_dir.display().to_string(),
+            "skills": skills,
+        })
+        .to_string())
+    }
+}
+
+pub fn skills_list_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "skills_list".to_string(),
+        description: "List available skills (tier-0 progressive disclosure: name + description + \
+             tags only, no body). Use 'skill_view' to load a full SKILL.md. Optional 'tag' filter."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "tag": { "type": "string", "description": "Filter skills to those tagged with this value." }
+            }
+        }),
+    }
+}
+
+/// `skill_view` — tier-1 full SKILL.md body.
+pub struct SkillViewHandler {
+    skills_dir: PathBuf,
+}
+
+impl SkillViewHandler {
+    pub fn new() -> Self {
+        Self {
+            skills_dir: default_skills_dir(),
+        }
+    }
+}
+
+impl Default for SkillViewHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolHandler for SkillViewHandler {
+    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
+        let name = input
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+        let metadata_list = scan_skills(&self.skills_dir);
+        let metadata = metadata_list
+            .iter()
+            .find(|m| m.name == name)
+            .ok_or_else(|| super::registry::ToolError::NotFound(format!("skill '{name}'")))?;
+        let body = fs::read_to_string(&metadata.path).map_err(|e| {
+            super::registry::ToolError::ExecutionFailed(format!("read SKILL.md: {e}"))
+        })?;
+        Ok(json!({
+            "name": metadata.name,
+            "description": metadata.description,
+            "path": metadata.path.display().to_string(),
+            "content": body,
+            "bytes": body.len(),
+        })
+        .to_string())
+    }
+}
+
+pub fn skill_view_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "skill_view".to_string(),
+        description: "Load the full SKILL.md body for a specific skill (tier-1 progressive \
+             disclosure). Use 'skills_list' to discover names first."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "Skill name as shown by skills_list." }
+            },
+            "required": ["name"]
+        }),
+    }
+}
+
+/// `skill_manage` — create/edit/delete with a 15KB cap and frontmatter validation.
+pub struct SkillManageHandler {
+    skills_dir: PathBuf,
+}
+
+impl SkillManageHandler {
+    pub fn new() -> Self {
+        Self {
+            skills_dir: default_skills_dir(),
+        }
+    }
+}
+
+impl Default for SkillManageHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolHandler for SkillManageHandler {
+    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
+        let action = input
+            .get("action")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                super::registry::ToolError::InvalidArguments("missing 'action'".into())
+            })?;
+        match action {
+            "create" => create_skill(&self.skills_dir, input),
+            "edit" => edit_skill(&self.skills_dir, input),
+            "delete" => delete_skill(&self.skills_dir, input),
+            other => Err(super::registry::ToolError::InvalidArguments(format!(
+                "unknown action '{other}' (expected: create|edit|delete)"
+            ))),
+        }
+    }
+}
+
+pub fn skill_manage_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "skill_manage".to_string(),
+        description: "Create, edit, or delete a skill. Each SKILL.md must have YAML frontmatter \
+             with 'name' and 'description'. 15KB hard cap per SKILL.md. Actions: create, edit, delete."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["create", "edit", "delete"]
+                },
+                "name": { "type": "string", "description": "Skill identifier." },
+                "content": { "type": "string", "description": "Full SKILL.md content (required for create/edit)." },
+                "category": { "type": "string", "description": "Optional category subdirectory." }
+            },
+            "required": ["action", "name"]
+        }),
+    }
+}
+
+fn create_skill(
+    skills_dir: &Path,
+    input: &Value,
+) -> Result<String, super::registry::ToolError> {
+    let name = input
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    if let Some(err) = validate_name(name) {
+        return Err(super::registry::ToolError::InvalidArguments(err));
+    }
+    let content = input
+        .get("content")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'content'".into()))?;
+    if content.len() > MAX_SKILL_BYTES {
+        return Err(super::registry::ToolError::InvalidArguments(format!(
+            "SKILL.md exceeds {MAX_SKILL_BYTES} byte cap"
+        )));
+    }
+    if let Some(err) = validate_frontmatter(content) {
+        return Err(super::registry::ToolError::InvalidArguments(err));
+    }
+
+    let target_dir = if let Some(category) = input.get("category").and_then(Value::as_str) {
+        if let Some(err) = validate_name(category) {
+            return Err(super::registry::ToolError::InvalidArguments(format!(
+                "category: {err}"
+            )));
+        }
+        skills_dir.join(category).join(name)
+    } else {
+        skills_dir.join(name)
+    };
+    if target_dir.exists() {
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "skill '{name}' already exists"
+        )));
+    }
+    fs::create_dir_all(&target_dir).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("mkdir: {e}"))
+    })?;
+    let file = target_dir.join("SKILL.md");
+    fs::write(&file, content).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("write: {e}"))
+    })?;
+    Ok(json!({
+        "success": true,
+        "action": "create",
+        "name": name,
+        "path": file.display().to_string(),
+    })
+    .to_string())
+}
+
+fn edit_skill(
+    skills_dir: &Path,
+    input: &Value,
+) -> Result<String, super::registry::ToolError> {
+    let name = input
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    let content = input
+        .get("content")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'content'".into()))?;
+    if content.len() > MAX_SKILL_BYTES {
+        return Err(super::registry::ToolError::InvalidArguments(format!(
+            "SKILL.md exceeds {MAX_SKILL_BYTES} byte cap"
+        )));
+    }
+    if let Some(err) = validate_frontmatter(content) {
+        return Err(super::registry::ToolError::InvalidArguments(err));
+    }
+
+    let metadata_list = scan_skills(skills_dir);
+    let metadata = metadata_list
+        .iter()
+        .find(|m| m.name == name)
+        .ok_or_else(|| super::registry::ToolError::NotFound(format!("skill '{name}'")))?;
+    fs::write(&metadata.path, content)
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("write: {e}")))?;
+    Ok(json!({
+        "success": true,
+        "action": "edit",
+        "name": name,
+        "path": metadata.path.display().to_string(),
+    })
+    .to_string())
+}
+
+fn delete_skill(
+    skills_dir: &Path,
+    input: &Value,
+) -> Result<String, super::registry::ToolError> {
+    let name = input
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    let metadata_list = scan_skills(skills_dir);
+    let metadata = metadata_list
+        .iter()
+        .find(|m| m.name == name)
+        .ok_or_else(|| super::registry::ToolError::NotFound(format!("skill '{name}'")))?;
+    let skill_dir = metadata
+        .path
+        .parent()
+        .ok_or_else(|| {
+            super::registry::ToolError::ExecutionFailed("SKILL.md has no parent".into())
+        })?;
+    // Safety: refuse to delete anything outside the managed skills dir.
+    if !skill_dir.starts_with(skills_dir) {
+        return Err(super::registry::ToolError::ExecutionFailed(
+            "skill path is outside managed skills directory".into(),
+        ));
+    }
+    fs::remove_dir_all(skill_dir)
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("rmdir: {e}")))?;
+    Ok(json!({
+        "success": true,
+        "action": "delete",
+        "name": name,
+    })
+    .to_string())
+}
+
+#[cfg(test)]
+mod progressive_tests {
+    use super::*;
+    use serde_json::json;
+    use tempfile::tempdir;
+
+    fn make_skill_file(dir: &Path, name: &str, description: &str) {
+        let skill_dir = dir.join(name);
+        fs::create_dir_all(&skill_dir).unwrap();
+        let md = format!(
+            "---\nname: {name}\ndescription: {description}\nmetadata:\n  epistemos:\n    category: test\n    tags: [example, test]\n    requires_tools: [terminal]\n---\n# {name}\n\nBody content.\n"
+        );
+        fs::write(skill_dir.join("SKILL.md"), md).unwrap();
+    }
+
+    #[tokio::test]
+    async fn skills_list_returns_tier_zero_metadata() {
+        let dir = tempdir().unwrap();
+        make_skill_file(dir.path(), "alpha", "alpha skill");
+        make_skill_file(dir.path(), "beta", "beta skill");
+
+        let handler = SkillsListHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let result = handler.execute(&json!({})).await.unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["count"], json!(2));
+        let skills = parsed["skills"].as_array().unwrap();
+        assert!(skills.iter().any(|s| s["name"] == "alpha"));
+        assert!(skills.iter().any(|s| s["name"] == "beta"));
+        assert!(skills[0]["tags"].as_array().unwrap().contains(&json!("test")));
+    }
+
+    #[tokio::test]
+    async fn skill_view_returns_full_body() {
+        let dir = tempdir().unwrap();
+        make_skill_file(dir.path(), "gamma", "gamma skill");
+
+        let handler = SkillViewHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let result = handler
+            .execute(&json!({ "name": "gamma" }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["name"], json!("gamma"));
+        assert!(parsed["content"]
+            .as_str()
+            .unwrap()
+            .contains("# gamma"));
+    }
+
+    #[tokio::test]
+    async fn skill_view_errors_on_missing_name() {
+        let dir = tempdir().unwrap();
+        let handler = SkillViewHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let err = handler
+            .execute(&json!({ "name": "ghost" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("ghost"));
+    }
+
+    #[tokio::test]
+    async fn skill_manage_create_edit_delete_roundtrip() {
+        let dir = tempdir().unwrap();
+        let handler = SkillManageHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let content = "---\nname: zeta\ndescription: zeta skill\n---\n# zeta\nbody\n";
+        let created = handler
+            .execute(&json!({
+                "action": "create",
+                "name": "zeta",
+                "content": content,
+            }))
+            .await
+            .unwrap();
+        assert!(created.contains("\"success\":true"));
+
+        let new_content = "---\nname: zeta\ndescription: zeta skill v2\n---\n# zeta v2\nbody\n";
+        let edited = handler
+            .execute(&json!({
+                "action": "edit",
+                "name": "zeta",
+                "content": new_content,
+            }))
+            .await
+            .unwrap();
+        assert!(edited.contains("\"success\":true"));
+
+        let deleted = handler
+            .execute(&json!({ "action": "delete", "name": "zeta" }))
+            .await
+            .unwrap();
+        assert!(deleted.contains("\"success\":true"));
+        assert!(!dir.path().join("zeta").exists());
+    }
+
+    #[tokio::test]
+    async fn skill_manage_rejects_missing_frontmatter() {
+        let dir = tempdir().unwrap();
+        let handler = SkillManageHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let err = handler
+            .execute(&json!({
+                "action": "create",
+                "name": "bad",
+                "content": "# no frontmatter"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("frontmatter"));
+    }
+
+    #[tokio::test]
+    async fn skill_manage_enforces_size_cap() {
+        let dir = tempdir().unwrap();
+        let handler = SkillManageHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let big_body = "x".repeat(MAX_SKILL_BYTES);
+        let content = format!("---\nname: big\ndescription: too big\n---\n{big_body}\n");
+        let err = handler
+            .execute(&json!({
+                "action": "create",
+                "name": "big",
+                "content": content,
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("cap"));
+    }
+}

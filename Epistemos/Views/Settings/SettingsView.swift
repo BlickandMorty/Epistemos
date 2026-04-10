@@ -16,6 +16,7 @@ struct SettingsView: View {
         case inference = "Inference"
         case knowledgeFusion = "Knowledge Fusion (Experimental)"
         case modelVaults = "Model Vaults"
+        case iMessageDriver = "iMessage Driver"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -28,6 +29,7 @@ struct SettingsView: View {
             .inference,
             .knowledgeFusion,
             .modelVaults,
+            .iMessageDriver,
             .landing,
             .appearance,
             .vault,
@@ -40,6 +42,7 @@ struct SettingsView: View {
             case .inference: "cpu"
             case .knowledgeFusion: "brain.head.profile.fill"
             case .modelVaults: "tray.2.fill"
+            case .iMessageDriver: "message.badge.fill"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -85,6 +88,7 @@ struct SettingsView: View {
         case .inference: InferenceDetailView()
         case .knowledgeFusion: KnowledgeFusionDetailView()
         case .modelVaults: ModelVaultsSettingsView()
+        case .iMessageDriver: iMessageDriverDetailView()
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()

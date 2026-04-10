@@ -101,6 +101,62 @@ pub trait AgentEventDelegate: Send + Sync {
     fn on_error(&self, message: String);
     fn execute_computer_action(&self, action_json: String) -> String;
     fn wait_for_permission(&self, permission_id: String) -> bool;
+
+    /// Present a clarifying question to the user and block until they
+    /// respond. `question_json` has shape `{ "question": String, "choices": [String] }`.
+    /// The return value must be a JSON string of the form
+    /// `{ "response": String, "choice_index": Option<u32> }`.
+    fn ask_user_question(&self, question_json: String) -> String;
+
+    // --- Phase 4: macOS Native Specialties ---
+
+    /// Specialty A1 — Perceive a macOS app via AX + Vision + VLM fusion.
+    /// `depth` is one of "fast" (AX only), "enriched" (AX + OCR),
+    /// or "full" (AX + OCR + VLM). Returns JSON:
+    /// `{ elements: [...], screenshot_path: Option<String>, latency_ms: u64 }`.
+    fn perceive_app(&self, app_name: String, depth: String) -> String;
+
+    /// Specialty A2 — Interact with a macOS app: click, type, scroll, drag,
+    /// press_key. `action_json` has shape
+    /// `{ app_name, action, target, value }`. Target is either a semantic
+    /// query ("the Save button") or a ref returned by perceive_app.
+    /// Returns JSON: `{ success, element_found, action_performed }`.
+    fn interact_with_app(&self, action_json: String) -> String;
+
+    /// Specialty A3 — Start a watch on a screen region, file path, or app
+    /// state. `watch_json` has shape
+    /// `{ mode, target, condition, timeout_secs }`. Blocks until the
+    /// condition triggers or the timeout expires. Returns JSON:
+    /// `{ triggered, reason, elapsed_ms }`.
+    fn start_screen_watch(&self, watch_json: String) -> String;
+
+    // --- Phase 5: Inference Specialties ---
+
+    /// Specialty C1 — Save, load, list, or prune Mamba SSM hidden-state
+    /// snapshots. `action_json` has shape
+    /// `{ action: "save"|"load"|"list"|"prune", session_id?, label? }`.
+    /// Returns JSON:
+    /// `{ success, state_size_mb, layers, dtype, duration_ms, states? }`.
+    fn manage_ssm_state(&self, action_json: String) -> String;
+
+    /// Specialty C2 — Run constrained decoding on the local model with an
+    /// EBNF grammar so the output is guaranteed structurally valid.
+    /// `grammar_json` has shape
+    /// `{ grammar: "tool_call"|"planning"|"custom", custom_ebnf?, tools? }`.
+    /// Returns JSON:
+    /// `{ output, tokens_generated, constraint_violations_masked }`.
+    fn generate_constrained(&self, prompt: String, grammar_json: String) -> String;
+
+    // --- Phase 7: Intelligence Layer ---
+
+    /// Specialty D1 — Trigger a NightBrain background job on demand.
+    /// `job_type` is one of: event_checkpoint, search_index_checkpoint,
+    /// artifact_dedup, workspace_compaction, memory_distillation,
+    /// cloud_knowledge_distillation, session_graph_generation,
+    /// skill_evolution_analysis, ssm_state_pruning, vault_integrity_check,
+    /// maintenance_log. `priority` is "normal" or "immediate".
+    /// Returns JSON: `{ job_id, status, estimated_duration_s }`.
+    fn trigger_nightbrain_job(&self, job_type: String, priority: String) -> String;
 }
 
 #[derive(uniffi::Record)]
@@ -108,6 +164,11 @@ pub struct ToolConfig {
     pub vault_path: String,
     pub enable_bash: bool,
     pub enable_web_search: bool,
+    /// Tool tier. One of: "none", "chat_lite", "chat_pro", "agent", "full".
+    /// Defaults to "agent" when not supplied. Normal chat (fast/thinking)
+    /// should pass "chat_lite"; Pro mode should pass "chat_pro"; agent mode
+    /// should pass "agent".
+    pub tool_tier: Option<String>,
 }
 
 #[derive(uniffi::Record)]
@@ -123,6 +184,22 @@ pub struct AgentConfigFFI {
     /// Explicit prompt mode override: "general", "code", "research", or "auto" (default).
     /// When "auto", mode is inferred from the objective keywords.
     pub prompt_mode: Option<String>,
+}
+
+#[derive(uniffi::Record)]
+pub struct ToolSchemaFFI {
+    pub name: String,
+    pub description: String,
+    pub parameters_json: String,
+    pub risk_level: String,
+    pub tier: String,
+}
+
+#[derive(uniffi::Record)]
+pub struct ToolExecutionResultFFI {
+    pub success: bool,
+    pub output_json: String,
+    pub error: Option<String>,
 }
 
 #[derive(uniffi::Record)]
@@ -488,10 +565,17 @@ async fn run_agent_session_inner(
     let vault = VaultStore::open(&tool_config.vault_path).map_err(|error| AgentErrorFFI::AgentError {
         message: format!("Failed to open vault: {error}"),
     })?;
-    let tool_registry = Arc::new(ToolRegistry::with_bash_enabled(
+    let tier = tool_config
+        .tool_tier
+        .as_deref()
+        .map(crate::tools::registry::ToolTier::from_str_lossy)
+        .unwrap_or(crate::tools::registry::ToolTier::Agent);
+    let mut tool_registry = ToolRegistry::with_tier(
         Arc::new(vault),
         tool_config.enable_bash,
-    ));
+        Some(std::path::PathBuf::from(&tool_config.vault_path)),
+        tier,
+    );
     let mut config = AgentConfig::from_ffi(&agent_config);
     config.vault_root = Some(tool_config.vault_path.clone());
     config.prompt_mode_override = agent_config.prompt_mode.as_deref().and_then(|mode| {
@@ -503,6 +587,10 @@ async fn run_agent_session_inner(
         }
     });
     let delegate: Arc<dyn AgentEventDelegate> = delegate.into();
+    // Wire the delegate into tools that need it (clarify is the only one for
+    // now — Phase 4/5 macOS specialties will extend this).
+    tool_registry.register_delegate_tools(Arc::clone(&delegate));
+    let tool_registry = Arc::new(tool_registry);
 
     let result = run_agent_loop(objective, provider, tool_registry, delegate, config, cancel).await;
     match result {
@@ -1511,6 +1599,107 @@ pub fn read_session_metadata(session_folder_path: String) -> Result<String, Agen
 #[uniffi::export]
 pub fn session_folder_path(session_id: String) -> Option<String> {
     ffi_guard_value!(GlobalSessions::session_folder_path(&session_id), None)
+}
+
+// MARK: - Tool Tier FFI (normal chat tool access)
+//
+// These entry points let Swift use the agent_core tool registry directly
+// without going through `run_agent_session`. The normal chat path (Fast /
+// Thinking / Pro modes) can call `list_tools_for_tier` to discover what's
+// available and `execute_tool_call` to run a single tool per user turn.
+//
+// This is how local models (Qwen, Hermes) get web_search + vault_recall
+// without the full agent loop. The Swift side handles the tool-use
+// messaging protocol for whichever model is active.
+
+/// Return the schemas for every tool visible at the requested tier.
+/// `tier` is one of "none", "chat_lite", "chat_pro", "agent", "full".
+/// A missing vault path is OK — tools that need it are silently skipped.
+#[uniffi::export]
+pub fn list_tools_for_tier(
+    vault_path: String,
+    tier: String,
+) -> Result<Vec<ToolSchemaFFI>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let vault = VaultStore::open(&vault_path).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("Failed to open vault: {error}"),
+        })?;
+        let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(&tier);
+        let registry = ToolRegistry::with_tier(
+            Arc::new(vault),
+            true,
+            Some(std::path::PathBuf::from(&vault_path)),
+            tier_enum,
+        );
+        let out: Vec<ToolSchemaFFI> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|schema| ToolSchemaFFI {
+                name: schema.name.clone(),
+                description: schema.description,
+                parameters_json: serde_json::to_string(&schema.parameters).unwrap_or_default(),
+                risk_level: registry.get_risk_level(&schema.name).as_str().to_string(),
+                tier: registry.get_tier(&schema.name).as_str().to_string(),
+            })
+            .collect();
+        Ok(out)
+    })
+}
+
+/// Execute a single tool call on a tier-limited registry. `input_json` must
+/// decode to a JSON object. Returns `{ success, output_json, error }`.
+/// Tools that require the `AgentEventDelegate` (clarify, perceive, etc.)
+/// are NOT supported by this entry point — use `run_agent_session` for those.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn execute_tool_call(
+    vault_path: String,
+    tier: String,
+    tool_name: String,
+    input_json: String,
+) -> Result<ToolExecutionResultFFI, AgentErrorFFI> {
+    let handle = tokio::task::spawn(async move {
+        let vault =
+            VaultStore::open(&vault_path).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Failed to open vault: {error}"),
+            })?;
+        let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(&tier);
+        let registry = ToolRegistry::with_tier(
+            Arc::new(vault),
+            true,
+            Some(std::path::PathBuf::from(&vault_path)),
+            tier_enum,
+        );
+        let input: serde_json::Value = serde_json::from_str(&input_json)
+            .map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("invalid input_json: {e}"),
+            })?;
+
+        match registry.execute(&tool_name, &input).await {
+            Ok(output) => Ok(ToolExecutionResultFFI {
+                success: true,
+                output_json: output,
+                error: None,
+            }),
+            Err(err) => Ok(ToolExecutionResultFFI {
+                success: false,
+                output_json: String::new(),
+                error: Some(err.to_string()),
+            }),
+        }
+    });
+
+    match handle.await {
+        Ok(result) => result,
+        Err(join_err) => {
+            let msg = if join_err.is_panic() {
+                let payload = join_err.into_panic();
+                panic_payload_to_string(payload)
+            } else {
+                "execute_tool_call task cancelled".to_string()
+            };
+            Err(AgentErrorFFI::AgentError { message: msg })
+        }
+    }
 }
 
 #[cfg(test)]

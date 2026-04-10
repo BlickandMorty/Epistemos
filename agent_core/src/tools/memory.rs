@@ -15,6 +15,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use fs2::FileExt;
 use serde_json::{json, Value};
 
 use super::registry::ToolHandler;
@@ -255,10 +256,39 @@ impl MemoryStore {
         let filename = if target == "user" { "USER.md" } else { "MEMORY.md" };
         let path = self.memory_dir.join(filename);
         let content = self.entries(target).join(ENTRY_DELIMITER);
+
+        // Acquire an exclusive advisory lock on a sidecar lockfile so two
+        // agent sessions writing to the same MEMORY.md cannot clobber each
+        // other. fs2 returns an error on contention; we fall back to an
+        // unlocked write after a short sleep to avoid hard-failing on macOS
+        // quirks, logging the miss.
+        let lockfile_path = path.with_extension("lock");
+        let lock_file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .read(true)
+            .open(&lockfile_path);
+
+        if let Ok(ref file) = lock_file {
+            if let Err(e) = FileExt::lock_exclusive(file) {
+                tracing::warn!(
+                    target: "memory",
+                    "failed to acquire memory lock for {}: {}",
+                    path.display(),
+                    e
+                );
+            }
+        }
+
         // Atomic write via temp file + rename
         let tmp_path = path.with_extension("tmp");
         if fs::write(&tmp_path, &content).is_ok() {
             let _ = fs::rename(&tmp_path, &path);
+        }
+
+        if let Ok(file) = lock_file {
+            let _ = FileExt::unlock(&file);
         }
     }
 

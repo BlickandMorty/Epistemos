@@ -29,12 +29,36 @@ protocol AgentStreamEventDelegate: AnyObject, Sendable {
     func onError(message: String)
     func executeComputerAction(actionJson: String) -> String
     func waitForPermission(permissionId: String) -> Bool
+    func askUserQuestion(questionJson: String) -> String
+    func perceiveApp(appName: String, depth: String) -> String
+    func interactWithApp(actionJson: String) -> String
+    func startScreenWatch(watchJson: String) -> String
+    func manageSsmState(actionJson: String) -> String
+    func generateConstrained(prompt: String, grammarJson: String) -> String
+    func triggerNightbrainJob(jobType: String, priority: String) -> String
 }
 
 struct ToolConfig: Sendable {
     let vaultPath: String
     let enableBash: Bool
     let enableWebSearch: Bool
+    /// Tool tier: "none" | "chat_lite" | "chat_pro" | "agent" | "full".
+    /// nil is treated as "agent" by the Rust side.
+    let toolTier: String?
+}
+
+struct ToolSchemaFFI: Sendable {
+    let name: String
+    let description: String
+    let parametersJson: String
+    let riskLevel: String
+    let tier: String
+}
+
+struct ToolExecutionResultFFI: Sendable {
+    let success: Bool
+    let outputJson: String
+    let error: String?
 }
 
 struct AgentConfigFFI: Sendable {
@@ -91,6 +115,19 @@ func runAgentSession(
 }
 
 func cancelAgentSession(sessionId: String) {}
+
+func listToolsForTier(vaultPath: String, tier: String) throws -> [ToolSchemaFFI] {
+    throw AgentRuntimeBridgeError.bindingsUnavailable
+}
+
+func executeToolCall(
+    vaultPath: String,
+    tier: String,
+    toolName: String,
+    inputJson: String
+) async throws -> ToolExecutionResultFFI {
+    throw AgentRuntimeBridgeError.bindingsUnavailable
+}
 #endif
 
 // MARK: - Agent Stream Types (self-contained, no external dependencies)
@@ -292,5 +329,130 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
         let semaphore = pendingPermissions[permissionId]
         permissionLock.unlock()
         semaphore?.signal()
+    }
+
+    /// Phase 1 `clarify` tool callback. Forwards the agent's question to the
+    /// Swift UI layer and blocks until the user answers. The agent's
+    /// `question_json` shape is `{ "question": String, "choices"?: [String] }`
+    /// and we must return `{ "response": String, "choice_index": Int? }`.
+    ///
+    /// The UI surface is implemented as a synchronous `NSAlert` shown on the
+    /// key window — same pattern as `promptForToolApproval` in
+    /// `ChatCoordinator`. The Rust side blocks on a `DispatchSemaphore` until
+    /// the alert is dismissed. If no key window exists (e.g. teach mode),
+    /// the alert falls back to `runModal()`.
+    func askUserQuestion(questionJson: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"response\":\"\",\"choice_index\":null}")
+
+        Task { @MainActor in
+            let answer = await ClarifyPromptBridge.shared.ask(questionJson: questionJson)
+            result.set(answer)
+            semaphore.signal()
+        }
+
+        // Reuse the permission timeout — the agent should not block forever
+        // waiting for a user who isn't watching the screen.
+        let waitResult = semaphore.wait(timeout: .now() + permissionTimeout)
+        if waitResult == .timedOut {
+            return "{\"response\":\"\",\"choice_index\":null,\"timeout\":true}"
+        }
+        return result.get()
+    }
+
+    /// Phase 4 Specialty A1: perceive a macOS app via AX+Vision+VLM fusion.
+    /// Routes through `Screen2AXFusion.perceive(appName:)` on the main actor
+    /// using a semaphore so the Rust side can call this from any thread.
+    func perceiveApp(appName: String, depth: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"elements\":[],\"error\":\"perceive bridge unavailable\"}")
+        Task { @MainActor in
+            let payload = await Phase4Bridge.shared.perceive(appName: appName, depth: depth)
+            result.set(payload)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + permissionTimeout)
+        return result.get()
+    }
+
+    /// Phase 4 Specialty A2: interact with a macOS app via AX + CGEvent.
+    /// Decodes the action JSON and routes to `Phase4Bridge.interact`.
+    func interactWithApp(actionJson: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"success\":false,\"error\":\"interact bridge unavailable\"}")
+        Task { @MainActor in
+            let payload = await Phase4Bridge.shared.interact(actionJson: actionJson)
+            result.set(payload)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + permissionTimeout)
+        return result.get()
+    }
+
+    /// Phase 4 Specialty A3: block until a screen / file / AX condition
+    /// triggers. Routes through `Phase4Bridge.startScreenWatch` which polls
+    /// the supplied target until the condition matches or the timeout fires.
+    func startScreenWatch(watchJson: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"triggered\":false,\"error\":\"screen_watch bridge unavailable\"}")
+        Task { @MainActor in
+            let payload = await Phase4Bridge.shared.startScreenWatch(watchJson: watchJson)
+            result.set(payload)
+            semaphore.signal()
+        }
+        // Watches can take a while — give them up to 5 minutes.
+        _ = semaphore.wait(timeout: .now() + 300)
+        return result.get()
+    }
+
+    /// Phase 5 Specialty C1: save/load/list/prune Mamba-2 SSM hidden state
+    /// via `SSMStateService`. Routes through Phase5Bridge so the FFI
+    /// thread can wait on the @MainActor service synchronously.
+    func manageSsmState(actionJson: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"success\":false,\"error\":\"ssm bridge unavailable\"}")
+        Task { @MainActor in
+            let payload = await Phase5Bridge.shared.manageSsmState(actionJson: actionJson)
+            result.set(payload)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + permissionTimeout)
+        return result.get()
+    }
+
+    /// Phase 5 Specialty C2: constrained decoding against the local MLX
+    /// model. Routes through `ConstrainedDecodingService` via Phase5Bridge.
+    func generateConstrained(prompt: String, grammarJson: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"output\":\"\",\"error\":\"constrained bridge unavailable\"}")
+        Task { @MainActor in
+            let payload = await Phase5Bridge.shared.generateConstrained(
+                prompt: prompt,
+                grammarJson: grammarJson
+            )
+            result.set(payload)
+            semaphore.signal()
+        }
+        // Constrained decoding can take a while on big prompts — wait up to
+        // five minutes before giving up.
+        _ = semaphore.wait(timeout: .now() + 300)
+        return result.get()
+    }
+
+    /// Phase 7 Specialty D1: trigger a NightBrain background job on demand.
+    /// Routes through Phase7Bridge → NightBrainService.
+    func triggerNightbrainJob(jobType: String, priority: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"status\":\"skipped\",\"error\":\"nightbrain bridge unavailable\"}")
+        Task { @MainActor in
+            let payload = await Phase7Bridge.shared.triggerNightbrainJob(
+                jobType: jobType,
+                priority: priority
+            )
+            result.set(payload)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + permissionTimeout)
+        return result.get()
     }
 }
