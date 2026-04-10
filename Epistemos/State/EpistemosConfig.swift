@@ -67,9 +67,20 @@ final class EpistemosConfig {
     }
 
     private func decodeBundleList(_ json: String, label: String) -> [String]? {
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
         do {
-            return try JSONDecoder().decode([String].self, from: Data(json.utf8))
+            let decoded = try JSONDecoder().decode([String].self, from: Data(trimmed.utf8))
+            let normalized = deduplicatedBundleList(decoded)
+            persistDecodedBundleList(normalized, label: label, rawValue: trimmed)
+            return normalized
         } catch {
+            if let legacyList = decodeLegacyBundleList(trimmed) {
+                persistDecodedBundleList(legacyList, label: label, rawValue: trimmed)
+                return legacyList
+            }
+
             let message: String
             switch label {
             case "allowlist":
@@ -80,7 +91,56 @@ final class EpistemosConfig {
                 message = "EpistemosConfig: failed to decode capture filter JSON"
             }
             Self.log.error("\(message, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return nil
+            resetMalformedBundleList(label: label)
+            return []
+        }
+    }
+
+    private func decodeLegacyBundleList(_ raw: String) -> [String]? {
+        let values = raw
+            .components(separatedBy: CharacterSet(charactersIn: ",;\n"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !values.isEmpty else { return [] }
+        guard values.count > 1 || values[0].contains(".") else { return nil }
+        return deduplicatedBundleList(values)
+    }
+
+    private func deduplicatedBundleList(_ values: [String]) -> [String] {
+        var seen: Set<String> = []
+        var deduplicated: [String] = []
+        deduplicated.reserveCapacity(values.count)
+
+        for value in values where seen.insert(value).inserted {
+            deduplicated.append(value)
+        }
+
+        return deduplicated
+    }
+
+    private func persistDecodedBundleList(_ values: [String], label: String, rawValue: String) {
+        let encoded = encodeBundleList(values)
+        guard encoded != rawValue else { return }
+
+        switch label {
+        case "allowlist":
+            allowlistJSON = encoded
+        case "blocklist":
+            blocklistJSON = encoded
+        default:
+            break
+        }
+    }
+
+    private func resetMalformedBundleList(label: String) {
+        switch label {
+        case "allowlist":
+            allowlistJSON = "[]"
+        case "blocklist":
+            blocklistJSON = "[]"
+        default:
+            break
         }
     }
 

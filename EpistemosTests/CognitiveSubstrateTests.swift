@@ -705,7 +705,8 @@ struct AgentRuntimeMonitoringTests {
         let coordinator = try loadMonitoringSource("Epistemos/App/ChatCoordinator.swift")
         let delegate = try loadMonitoringSource("Epistemos/Bridge/StreamingDelegate.swift")
 
-        #expect(coordinator.contains("Waiting for native computer observation"))
+        #expect(coordinator.contains("chatState.recordToolUse("))
+        #expect(coordinator.contains("chatState.recordToolResult("))
         #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
         #expect(!coordinator.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
         #expect(delegate.contains("func executeComputerAction(actionJson: String) -> String"))

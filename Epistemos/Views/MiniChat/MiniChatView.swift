@@ -322,11 +322,7 @@ private struct MiniChatRecentChatsList: View {
     }
 
     private func preview(for chat: SDChat) -> String? {
-        let message = chat.sortedMessages.last(where: { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
-        guard let message else { return nil }
-        let compact = message.content.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !compact.isEmpty else { return nil }
-        return String(compact.prefix(120))
+        ChatPreviewText.preview(for: chat)
     }
 }
 

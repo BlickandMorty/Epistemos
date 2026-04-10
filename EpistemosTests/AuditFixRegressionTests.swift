@@ -27,14 +27,14 @@ struct AuditFixRegressionTests {
         #expect(browser.contains("func refreshSessions(for vaultIdentity: VaultIdentity)"))
     }
 
-    @Test("code editor tears down AI partner state and mounts inline suggestions")
-    func codeEditorTearsDownAIPartnerStateAndMountsInlineSuggestions() throws {
+    @Test("code editor stays editor-only and drops inline assistant chrome")
+    func codeEditorStaysEditorOnlyAndDropsInlineAssistantChrome() throws {
         let source = try loadAuditSource("Epistemos/Views/Notes/CodeEditorView.swift")
 
         #expect(source.contains(".onDisappear {"))
-        #expect(source.contains("aiPartner.endSession()"))
-        #expect(source.contains("showSuggestionPopover = false"))
-        #expect(source.contains("InlineSuggestionOverlay("))
+        #expect(!source.contains("AIPartnerService("))
+        #expect(!source.contains("CodeAskBarService("))
+        #expect(!source.contains("InlineSuggestionOverlay("))
     }
 
     @Test("SSM persistence is surfaced in settings and bound back into conversation persistence")
@@ -72,12 +72,15 @@ struct AuditFixRegressionTests {
     func cloudToolApprovalAndComputerUseRoundTripStayWired() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
         let delegate = try loadAuditSource("Epistemos/Bridge/StreamingDelegate.swift")
+        let bubble = try loadAuditSource("Epistemos/Views/Chat/MessageBubble.swift")
         let rustBridge = try loadAuditSource("agent_core/src/bridge.rs")
         let agentLoop = try loadAuditSource("agent_core/src/agent_loop.rs")
 
         #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
-        #expect(coordinator.contains("Waiting for native computer observation"))
+        #expect(coordinator.contains("chatState.recordToolUse("))
+        #expect(coordinator.contains("chatState.recordToolResult("))
         #expect(!coordinator.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
+        #expect(bubble.contains("ToolExecutionPreviewList("))
         #expect(delegate.contains("func executeComputerAction(actionJson: String) -> String"))
         #expect(rustBridge.contains("fn execute_computer_action(&self, action_json: String) -> String;"))
         #expect(agentLoop.contains("delegate.execute_computer_action(input_json.clone())"))

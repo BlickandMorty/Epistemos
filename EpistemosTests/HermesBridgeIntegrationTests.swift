@@ -863,7 +863,8 @@ struct CloudAgentBridgeContractTests {
         #expect(streamingDelegate.contains("ComputerUseBridge.shared.execute(actionJSON: actionJson)"))
         #expect(rustBridge.contains("fn execute_computer_action(&self, action_json: String) -> String;"))
         #expect(agentLoop.contains("delegate.execute_computer_action(input_json.clone())"))
-        #expect(coordinator.contains("Waiting for native computer observation"))
+        #expect(coordinator.contains("chatState.recordToolUse("))
+        #expect(coordinator.contains("chatState.recordToolResult("))
         #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
     }
 }

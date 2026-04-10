@@ -38,28 +38,27 @@ struct NonAgentPruningValidationTests {
 
         #expect(!source.contains("let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []"))
         #expect(!source.contains("let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []"))
-        #expect(source.contains("descriptor.fetchLimit = 1"))
-        #expect(source.contains("title.localizedStandardContains(normalizedTitle)"))
+        #expect(source.contains("FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatId })"))
+        #expect(source.contains("ChatPreviewText.preview(for: persisted)"))
     }
 
-    @Test("session intelligence overlay avoids full page scans when reopening the last mentioned note")
-    func sessionIntelligenceOverlayAvoidsFullPageScansForRecentNoteResolution() throws {
+    @Test("session intelligence overlay removes the legacy reopen-note command path")
+    func sessionIntelligenceOverlayRemovesLegacyReopenPath() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
 
-        #expect(source.contains("SessionIntelligenceNoteLookup.candidateTitles(in: text)"))
-        #expect(source.contains("findOpenNoteByTitle(candidate)"))
-        #expect(!source.contains("let descriptor = FetchDescriptor<SDPage>(sortBy: [SortDescriptor(\\.updatedAt, order: .reverse)])"))
-        #expect(!source.contains("for page in pages where !page.title.isEmpty"))
+        #expect(!source.contains("SessionIntelligenceNoteLookup.candidateTitles(in: text)"))
+        #expect(!source.contains("findOpenNoteByTitle(candidate)"))
+        #expect(!source.contains("private func findNoteByTitle("))
+        #expect(!source.contains("private func findOpenNoteByTitle("))
     }
 
-    @Test("session intelligence overlay batches chat title lookups for summaries")
-    func sessionIntelligenceOverlayBatchesChatTitleLookupsForSummaries() throws {
+    @Test("session intelligence overlay removes the legacy chat summarization command path")
+    func sessionIntelligenceOverlayRemovesLegacyChatSummaries() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
 
-        #expect(source.contains("SessionIntelligenceChatSummary.orderedGroups(from: chatGroups, limit: 10)"))
-        #expect(source.contains("loadChatTitles(for: orderedGroups.map(\\.chatId), in: context)"))
-        #expect(!source.contains("for (chatId, snippets) in chatGroups.prefix(10)"))
-        #expect(!source.contains("let chatTitle = (try? context.fetch(chatDesc).first?.title) ?? \"Chat\""))
+        #expect(!source.contains("SessionIntelligenceChatSummary.orderedGroups(from: chatGroups, limit: 10)"))
+        #expect(!source.contains("loadChatTitles(for: orderedGroups.map(\\.chatId), in: context)"))
+        #expect(!source.contains("private func summarizeChats() async"))
     }
 
     @Test("session intelligence overlay shares autosave summary and note presentation helpers")
@@ -73,6 +72,21 @@ struct NonAgentPruningValidationTests {
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(100))"))
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(150))"))
         #expect(!source.contains("try? AppBootstrap.shared?.modelContainer.mainContext.save()"))
+    }
+
+    @Test("session intelligence overlay uses direct actions instead of an embedded chat console")
+    func sessionIntelligenceOverlayUsesDirectActionsInsteadOfEmbeddedChat() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+
+        #expect(source.contains("private var sessionActionSection: some View"))
+        #expect(source.contains("Save Session Note"))
+        #expect(source.contains("Open Notes"))
+        #expect(!source.contains("Session Intelligence Chat"))
+        #expect(!source.contains("TextField(\"Ask about your session"))
+        #expect(!source.contains("Picker(\"\", selection: $chatModel)"))
+        #expect(!source.contains("@State private var commandInput"))
+        #expect(!source.contains("private func executeCommand() async"))
+        #expect(!source.contains("private func runAIQuery(_ query: String) async -> String"))
     }
 
     @Test("setup assistant sheet uses shared app environment injection")
@@ -203,6 +217,14 @@ struct NonAgentPruningValidationTests {
 
         #expect(source.contains("@MainActor init(page: SDPage, preferredBody: String?)"))
         #expect(source.contains("let body = preferredBody ?? NoteWindowManager.shared.currentBody(for: page.id)"))
+    }
+
+    @Test("chat preview helpers fall back to structured tool activity when prose is empty")
+    func chatPreviewHelpersFallbackToToolActivity() throws {
+        let source = try loadRepoTextFile("Epistemos/Models/ChatTypes.swift")
+
+        #expect(source.contains("toolSummaryPreview"))
+        #expect(source.contains("decodedContentBlocks()"))
     }
 
     @Test("daily brief recent note context prefers live editor text before disk fallback")
