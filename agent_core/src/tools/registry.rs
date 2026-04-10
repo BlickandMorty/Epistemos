@@ -470,8 +470,7 @@ impl ToolRegistry {
 
     fn register_phase_seven_intelligence(&mut self) {
         use crate::tools::intelligence::{
-            mixture_of_minds_schema, self_evolve_schema, MixtureOfMindsHandler,
-            SelfEvolveHandler,
+            mixture_of_minds_schema, self_evolve_schema, MixtureOfMindsHandler, SelfEvolveHandler,
         };
 
         // self_evolve needs the vault root for scanning session traces; skip
@@ -484,7 +483,7 @@ impl ToolRegistry {
                 parameters: se.parameters,
                 handler: Box::new(SelfEvolveHandler::new(root)),
                 risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                tier: ToolTier::Agent,
             });
         }
 
@@ -497,7 +496,7 @@ impl ToolRegistry {
                     parameters: schema.parameters,
                     handler: Box::new(handler),
                     risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                    tier: ToolTier::Agent,
                 });
             }
             Err(e) => tracing::warn!("mixture_of_minds registration skipped: {e}"),
@@ -516,7 +515,7 @@ impl ToolRegistry {
                     handler: Box::new(handler),
                     // Sending messages is hard-to-reverse and visible to others.
                     risk_level: RiskLevel::Destructive,
-            tier: ToolTier::Agent,
+                    tier: ToolTier::Agent,
                 });
             }
             Err(e) => tracing::warn!("send_message registration skipped: {e}"),
@@ -538,7 +537,7 @@ impl ToolRegistry {
                     parameters: schema.parameters,
                     handler: Box::new(handler),
                     risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                    tier: ToolTier::Agent,
                 });
             }
             Err(e) => tracing::warn!("vision_analyze registration skipped: {e}"),
@@ -553,7 +552,7 @@ impl ToolRegistry {
                     parameters: schema.parameters,
                     handler: Box::new(handler),
                     risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                    tier: ToolTier::Agent,
                 });
             }
             Err(e) => tracing::warn!("image_generate registration skipped: {e}"),
@@ -572,9 +571,7 @@ impl ToolRegistry {
 
     fn register_phase_six_imessage(&mut self) {
         use crate::tools::imessage::{imessage_schema, IMessageHandler};
-        use crate::tools::imessage_contacts::{
-            imessage_contacts_schema, IMessageContactsHandler,
-        };
+        use crate::tools::imessage_contacts::{imessage_contacts_schema, IMessageContactsHandler};
 
         let schema = imessage_schema();
         self.register(RegisteredTool {
@@ -617,9 +614,8 @@ impl ToolRegistry {
 
     fn register_phase_four_apple_apps(&mut self) {
         use crate::tools::apple::{
-            apple_calendar_schema, apple_mail_schema, apple_notes_schema,
-            apple_reminders_schema, AppleCalendarHandler, AppleMailHandler, AppleNotesHandler,
-            AppleRemindersHandler,
+            apple_calendar_schema, apple_mail_schema, apple_notes_schema, apple_reminders_schema,
+            AppleCalendarHandler, AppleMailHandler, AppleNotesHandler, AppleRemindersHandler,
         };
 
         let notes = apple_notes_schema();
@@ -752,8 +748,19 @@ impl ToolRegistry {
 
         // Phase 7: NightBrain trigger (delegate-backed Specialty D1).
         use crate::tools::intelligence::{
-            nightbrain_trigger_schema, NightBrainTriggerHandler,
+            inline_partner_schema, nightbrain_trigger_schema, InlinePartnerHandler,
+            NightBrainTriggerHandler,
         };
+        let ip = inline_partner_schema();
+        self.register(RegisteredTool {
+            name: ip.name,
+            description: ip.description,
+            parameters: ip.parameters,
+            handler: Box::new(InlinePartnerHandler::new(Arc::clone(&delegate))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
         let nb = nightbrain_trigger_schema();
         self.register(RegisteredTool {
             name: nb.name,
@@ -825,7 +832,7 @@ impl ToolRegistry {
                 parameters: t.parameters,
                 handler: Box::new(TerminalHandler),
                 risk_level: RiskLevel::Destructive,
-            tier: ToolTier::Agent,
+                tier: ToolTier::Agent,
             });
         }
 
@@ -953,7 +960,7 @@ impl ToolRegistry {
                 parameters: ss.parameters,
                 handler: Box::new(SessionSearchHandler::new(root)),
                 risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                tier: ToolTier::Agent,
             });
         }
     }
@@ -1171,6 +1178,13 @@ impl ToolRegistry {
     }
 
     fn register_phase_three_web(&mut self) {
+        use crate::tools::browser::{
+            browser_back_schema, browser_click_schema, browser_close_schema,
+            browser_console_schema, browser_get_images_schema, browser_navigate_schema,
+            browser_press_schema, browser_scroll_schema, browser_snapshot_schema,
+            browser_type_schema, browser_vision_schema, BrowserAction, BrowserActionHandler,
+            BrowserManager,
+        };
         use crate::tools::web::{
             web_crawl_schema, web_extract_schema, web_search_schema, WebCrawlHandler,
             WebExtractHandler, WebSearchHandler,
@@ -1188,7 +1202,7 @@ impl ToolRegistry {
                     parameters: schema.parameters,
                     handler: Box::new(handler),
                     risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                    tier: ToolTier::Agent,
                 });
             }
             Err(e) => tracing::warn!("web_search registration skipped: {e}"),
@@ -1203,7 +1217,7 @@ impl ToolRegistry {
                     parameters: schema.parameters,
                     handler: Box::new(handler),
                     risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                    tier: ToolTier::Agent,
                 });
             }
             Err(e) => tracing::warn!("web_extract registration skipped: {e}"),
@@ -1218,11 +1232,80 @@ impl ToolRegistry {
                     parameters: schema.parameters,
                     handler: Box::new(handler),
                     risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
+                    tier: ToolTier::Agent,
                 });
             }
             Err(e) => tracing::warn!("web_crawl registration skipped: {e}"),
         }
+
+        let browser_manager = BrowserManager::new();
+        let mut register_browser =
+            |schema: crate::types::ToolSchema, action: BrowserAction, risk_level: RiskLevel| {
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(BrowserActionHandler::new(browser_manager.clone(), action)),
+                    risk_level,
+                    tier: ToolTier::Agent,
+                });
+            };
+
+        register_browser(
+            browser_navigate_schema(),
+            BrowserAction::Navigate,
+            RiskLevel::Modification,
+        );
+        register_browser(
+            browser_snapshot_schema(),
+            BrowserAction::Snapshot,
+            RiskLevel::ReadOnly,
+        );
+        register_browser(
+            browser_click_schema(),
+            BrowserAction::Click,
+            RiskLevel::Destructive,
+        );
+        register_browser(
+            browser_type_schema(),
+            BrowserAction::Type,
+            RiskLevel::Destructive,
+        );
+        register_browser(
+            browser_scroll_schema(),
+            BrowserAction::Scroll,
+            RiskLevel::Modification,
+        );
+        register_browser(
+            browser_back_schema(),
+            BrowserAction::Back,
+            RiskLevel::Modification,
+        );
+        register_browser(
+            browser_press_schema(),
+            BrowserAction::Press,
+            RiskLevel::Destructive,
+        );
+        register_browser(
+            browser_close_schema(),
+            BrowserAction::Close,
+            RiskLevel::Modification,
+        );
+        register_browser(
+            browser_get_images_schema(),
+            BrowserAction::GetImages,
+            RiskLevel::ReadOnly,
+        );
+        register_browser(
+            browser_vision_schema(),
+            BrowserAction::Vision,
+            RiskLevel::ReadOnly,
+        );
+        register_browser(
+            browser_console_schema(),
+            BrowserAction::Console,
+            RiskLevel::ReadOnly,
+        );
     }
 
     fn register_chunk_reduce(&mut self) {
@@ -1392,7 +1475,10 @@ impl ToolHandler for VaultWriteHandler {
             .get("content")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("content required".to_string()))?;
-        let append = input.get("append").and_then(Value::as_bool).unwrap_or(false);
+        let append = input
+            .get("append")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let tags: Vec<String> = input
             .get("tags")
             .and_then(Value::as_array)
@@ -1480,7 +1566,13 @@ impl ToolHandler for BashExecuteHandler {
             .min(120);
         let working_dir = input.get("working_dir").and_then(Value::as_str);
 
-        let blocked = ["rm -rf /", "sudo rm", "mkfs", "dd if=", "diskutil eraseDisk"];
+        let blocked = [
+            "rm -rf /",
+            "sudo rm",
+            "mkfs",
+            "dd if=",
+            "diskutil eraseDisk",
+        ];
         if blocked.iter().any(|pattern| command.contains(pattern)) {
             return Err(ToolError::PermissionDenied);
         }
@@ -1491,10 +1583,15 @@ impl ToolHandler for BashExecuteHandler {
             process.current_dir(working_dir);
         }
 
-        let output = tokio::time::timeout(std::time::Duration::from_secs(timeout_seconds), process.output())
-            .await
-            .map_err(|_| ToolError::ExecutionFailed(format!("command timed out after {timeout_seconds}s")))?
-            .map_err(|error| ToolError::ExecutionFailed(error.to_string()))?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(timeout_seconds),
+            process.output(),
+        )
+        .await
+        .map_err(|_| {
+            ToolError::ExecutionFailed(format!("command timed out after {timeout_seconds}s"))
+        })?
+        .map_err(|error| ToolError::ExecutionFailed(error.to_string()))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -1553,10 +1650,7 @@ impl ToolHandler for GraphNeighborsHandler {
             .map_err(map_vault_error)?;
 
         // Filter out the source note itself
-        let neighbors: Vec<_> = results
-            .into_iter()
-            .filter(|r| r.path != path)
-            .collect();
+        let neighbors: Vec<_> = results.into_iter().filter(|r| r.path != path).collect();
 
         if neighbors.is_empty() {
             return Ok(format!("No connected notes found for '{path}'."));
@@ -1643,12 +1737,7 @@ mod tier_tests {
     }
 
     fn build_registry(tier: ToolTier) -> ToolRegistry {
-        ToolRegistry::with_tier(
-            Arc::new(NullVault),
-            true,
-            None::<std::path::PathBuf>,
-            tier,
-        )
+        ToolRegistry::with_tier(Arc::new(NullVault), true, None::<std::path::PathBuf>, tier)
     }
 
     #[test]
@@ -1735,8 +1824,11 @@ mod tier_tests {
         let agent = build_registry(ToolTier::Agent);
         let pro_names: std::collections::HashSet<String> =
             pro.get_definitions().into_iter().map(|t| t.name).collect();
-        let agent_names: std::collections::HashSet<String> =
-            agent.get_definitions().into_iter().map(|t| t.name).collect();
+        let agent_names: std::collections::HashSet<String> = agent
+            .get_definitions()
+            .into_iter()
+            .map(|t| t.name)
+            .collect();
         for name in &pro_names {
             assert!(
                 agent_names.contains(name),
@@ -1753,7 +1845,10 @@ mod tier_tests {
         let registry = build_registry(ToolTier::ChatLite);
         // `write_file` is Agent tier — ChatLite must refuse.
         let err = registry
-            .execute("write_file", &serde_json::json!({ "path": "/tmp/x", "content": "" }))
+            .execute(
+                "write_file",
+                &serde_json::json!({ "path": "/tmp/x", "content": "" }),
+            )
             .await
             .unwrap_err();
         assert!(matches!(err, ToolError::PermissionDenied));

@@ -4,11 +4,11 @@ pub mod compaction;
 pub mod context_compiler;
 pub mod context_loader;
 pub mod dispatcher;
-pub mod evolution;
-pub mod neocortex;
 pub mod error;
 pub mod error_classifier;
+pub mod evolution;
 pub mod example_bank;
+pub mod neocortex;
 pub mod prompt_caching;
 pub mod prompts;
 pub mod provider;
@@ -52,6 +52,7 @@ pub mod mcp;
 
 pub mod tools {
     pub mod apple;
+    pub mod browser;
     pub mod chunk_reduce;
     pub mod clarify;
     pub mod communication;

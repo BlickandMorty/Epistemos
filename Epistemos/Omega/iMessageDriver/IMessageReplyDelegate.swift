@@ -219,6 +219,10 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
         "{\"status\":\"skipped\",\"error\":\"nightbrain trigger disabled in iMessage driver\"}"
     }
 
+    func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String {
+        "{\"success\":false,\"error\":\"inline_partner disabled in iMessage driver\"}"
+    }
+
     // MARK: - Helpers
 
     /// Break a long reply into iMessage-safe chunks at paragraph boundaries.

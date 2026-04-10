@@ -36,6 +36,7 @@ protocol AgentStreamEventDelegate: AnyObject, Sendable {
     func manageSsmState(actionJson: String) -> String
     func generateConstrained(prompt: String, grammarJson: String) -> String
     func triggerNightbrainJob(jobType: String, priority: String) -> String
+    func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String
 }
 
 struct ToolConfig: Sendable {
@@ -448,6 +449,21 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
             let payload = await Phase7Bridge.shared.triggerNightbrainJob(
                 jobType: jobType,
                 priority: priority
+            )
+            result.set(payload)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + permissionTimeout)
+        return result.get()
+    }
+
+    func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox("{\"success\":false,\"error\":\"inline partner bridge unavailable\"}")
+        Task { @MainActor in
+            let payload = await AIPartnerService.partnerContext(
+                noteId: noteId,
+                cursorOffset: Int(cursorOffset)
             )
             result.set(payload)
             semaphore.signal()

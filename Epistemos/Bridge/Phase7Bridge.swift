@@ -14,6 +14,22 @@ import os
 @MainActor
 final class Phase7Bridge {
     static let shared = Phase7Bridge()
+    nonisolated static let supportedJobAliases: [String: NightBrainService.Job] = [
+        "event_checkpoint": .eventStoreCheckpointVacuum,
+        "event_store_checkpoint_vacuum": .eventStoreCheckpointVacuum,
+        "search_index_checkpoint": .searchIndexPassiveCheckpoint,
+        "search_index_passive_checkpoint": .searchIndexPassiveCheckpoint,
+        "artifact_dedup": .dedupeArtifacts,
+        "dedupe_artifacts": .dedupeArtifacts,
+        "workspace_compaction": .workspaceSnapshotCompaction,
+        "workspace_snapshot_compaction": .workspaceSnapshotCompaction,
+        "memory_distillation": .memoryDistillation,
+        "cloud_knowledge_distillation": .cloudKnowledgeDistillation,
+        "session_graph_generation": .sessionGraphGeneration,
+        "skill_evolution_analysis": .skillEvolutionAnalysis,
+        "ssm_state_pruning": .ssmStatePruning,
+        "maintenance_log": .maintenanceLog,
+    ]
 
     private let logger = Logger(subsystem: "app.epistemos", category: "Phase7Bridge")
 
@@ -37,24 +53,10 @@ final class Phase7Bridge {
         // the canonical raw values (e.g. "memory_distillation") and the
         // shorter names from the implementation plan ("memory_distillation",
         // "event_checkpoint", etc.).
-        let jobMap: [String: NightBrainService.Job] = [
-            "event_checkpoint": .eventStoreCheckpointVacuum,
-            "event_store_checkpoint_vacuum": .eventStoreCheckpointVacuum,
-            "search_index_checkpoint": .searchIndexPassiveCheckpoint,
-            "search_index_passive_checkpoint": .searchIndexPassiveCheckpoint,
-            "artifact_dedup": .dedupeArtifacts,
-            "dedupe_artifacts": .dedupeArtifacts,
-            "workspace_compaction": .workspaceSnapshotCompaction,
-            "workspace_snapshot_compaction": .workspaceSnapshotCompaction,
-            "memory_distillation": .memoryDistillation,
-            "cloud_knowledge_distillation": .cloudKnowledgeDistillation,
-            "session_graph_generation": .sessionGraphGeneration,
-            "skill_evolution_analysis": .skillEvolutionAnalysis,
-            "ssm_state_pruning": .ssmStatePruning,
-            "vault_integrity_check": .maintenanceLog,
-            "maintenance_log": .maintenanceLog,
-        ]
-        guard let job = jobMap[jobType] else {
+        if jobType == "vault_integrity_check" {
+            return errorJson("job_type vault_integrity_check is not implemented by NightBrainService")
+        }
+        guard let job = Self.supportedJobAliases[jobType] else {
             return errorJson("unknown job_type: \(jobType)")
         }
 

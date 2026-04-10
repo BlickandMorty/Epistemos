@@ -148,9 +148,8 @@ impl ToolHandler for InteractHandler {
             .await
             .map_err(|e| ToolError::ExecutionFailed(format!("interact join: {e}")))?;
 
-        let parsed: Value = serde_json::from_str(&response).unwrap_or_else(|_| {
-            json!({ "raw": response, "error": "non-json delegate response" })
-        });
+        let parsed: Value = serde_json::from_str(&response)
+            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
         Ok(parsed.to_string())
     }
 }
@@ -332,6 +331,9 @@ mod tests {
             "{}".to_string()
         }
         fn trigger_nightbrain_job(&self, _: String, _: String) -> String {
+            "{}".to_string()
+        }
+        fn get_partner_context(&self, _: String, _: u32) -> String {
             "{}".to_string()
         }
     }

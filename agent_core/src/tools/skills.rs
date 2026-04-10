@@ -18,6 +18,8 @@
 //! Actions: create, edit, patch, delete, list
 
 use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
@@ -26,6 +28,7 @@ use super::registry::ToolHandler;
 
 const MAX_NAME_LENGTH: usize = 64;
 const ALLOWED_SUBDIRS: &[&str] = &["references", "templates", "scripts", "assets"];
+const MAX_QUARANTINE_SCAN_BYTES: u64 = 1024 * 1024;
 
 // MARK: - Validation
 
@@ -34,13 +37,26 @@ fn validate_name(name: &str) -> Option<String> {
         return Some("Skill name is required.".to_string());
     }
     if name.len() > MAX_NAME_LENGTH {
-        return Some(format!("Skill name exceeds {} characters.", MAX_NAME_LENGTH));
+        return Some(format!(
+            "Skill name exceeds {} characters.",
+            MAX_NAME_LENGTH
+        ));
     }
-    if !name.chars().next().map_or(false, |c| c.is_ascii_alphanumeric()) {
+    if !name
+        .chars()
+        .next()
+        .map_or(false, |c| c.is_ascii_alphanumeric())
+    {
         return Some("Skill name must start with a letter or digit.".to_string());
     }
-    if !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.') {
-        return Some("Skill name must use lowercase letters, numbers, hyphens, dots, underscores.".to_string());
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.')
+    {
+        return Some(
+            "Skill name must use lowercase letters, numbers, hyphens, dots, underscores."
+                .to_string(),
+        );
     }
     None
 }
@@ -239,7 +255,11 @@ impl SkillsStore {
             return None;
         }
         // Walk skills directory looking for a directory with matching name containing SKILL.md
-        for entry in walkdir::WalkDir::new(&self.skills_dir).max_depth(2).into_iter().flatten() {
+        for entry in walkdir::WalkDir::new(&self.skills_dir)
+            .max_depth(2)
+            .into_iter()
+            .flatten()
+        {
             let path = entry.path();
             if path.is_dir()
                 && path.file_name().map_or(false, |n| n == name)
@@ -262,7 +282,12 @@ impl SkillsStore {
                 let yaml = &content[3..3 + end];
                 yaml.lines()
                     .find(|l| l.starts_with("description:"))
-                    .map(|l| l.trim_start_matches("description:").trim().trim_matches('"').to_string())
+                    .map(|l| {
+                        l.trim_start_matches("description:")
+                            .trim()
+                            .trim_matches('"')
+                            .to_string()
+                    })
             } else {
                 None
             }
@@ -283,10 +308,20 @@ impl SkillsStore {
         let skills = list["skills"].as_array();
         match skills {
             Some(arr) if !arr.is_empty() => {
-                let lines: Vec<String> = arr.iter().map(|s| {
-                    format!("- {}: {}", s["name"].as_str().unwrap_or("?"), s["description"].as_str().unwrap_or(""))
-                }).collect();
-                format!("<available-skills>\n{}\n</available-skills>", lines.join("\n"))
+                let lines: Vec<String> = arr
+                    .iter()
+                    .map(|s| {
+                        format!(
+                            "- {}: {}",
+                            s["name"].as_str().unwrap_or("?"),
+                            s["description"].as_str().unwrap_or("")
+                        )
+                    })
+                    .collect();
+                format!(
+                    "<available-skills>\n{}\n</available-skills>",
+                    lines.join("\n")
+                )
             }
             _ => String::new(),
         }
@@ -548,9 +583,7 @@ impl ToolHandler for SkillsListHandler {
         let metadata = scan_skills(&self.skills_dir);
         let skills: Vec<Value> = metadata
             .iter()
-            .filter(|m| {
-                filter.is_none_or(|tag| m.tags.iter().any(|t| t == tag))
-            })
+            .filter(|m| filter.is_none_or(|tag| m.tags.iter().any(|t| t == tag)))
             .map(metadata_to_json)
             .collect();
         Ok(json!({
@@ -660,12 +693,9 @@ impl Default for SkillManageHandler {
 #[async_trait::async_trait]
 impl ToolHandler for SkillManageHandler {
     async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
-        let action = input
-            .get("action")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                super::registry::ToolError::InvalidArguments("missing 'action'".into())
-            })?;
+        let action = input.get("action").and_then(Value::as_str).ok_or_else(|| {
+            super::registry::ToolError::InvalidArguments("missing 'action'".into())
+        })?;
         match action {
             "create" => create_skill(&self.skills_dir, input),
             "edit" => edit_skill(&self.skills_dir, input),
@@ -714,10 +744,7 @@ pub fn skill_manage_schema() -> crate::types::ToolSchema {
     }
 }
 
-fn create_skill(
-    skills_dir: &Path,
-    input: &Value,
-) -> Result<String, super::registry::ToolError> {
+fn create_skill(skills_dir: &Path, input: &Value) -> Result<String, super::registry::ToolError> {
     let name = input
         .get("name")
         .and_then(Value::as_str)
@@ -753,13 +780,11 @@ fn create_skill(
             "skill '{name}' already exists"
         )));
     }
-    fs::create_dir_all(&target_dir).map_err(|e| {
-        super::registry::ToolError::ExecutionFailed(format!("mkdir: {e}"))
-    })?;
+    fs::create_dir_all(&target_dir)
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("mkdir: {e}")))?;
     let file = target_dir.join("SKILL.md");
-    fs::write(&file, content).map_err(|e| {
-        super::registry::ToolError::ExecutionFailed(format!("write: {e}"))
-    })?;
+    fs::write(&file, content)
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("write: {e}")))?;
     Ok(json!({
         "success": true,
         "action": "create",
@@ -769,10 +794,7 @@ fn create_skill(
     .to_string())
 }
 
-fn edit_skill(
-    skills_dir: &Path,
-    input: &Value,
-) -> Result<String, super::registry::ToolError> {
+fn edit_skill(skills_dir: &Path, input: &Value) -> Result<String, super::registry::ToolError> {
     let name = input
         .get("name")
         .and_then(Value::as_str)
@@ -806,10 +828,7 @@ fn edit_skill(
     .to_string())
 }
 
-fn delete_skill(
-    skills_dir: &Path,
-    input: &Value,
-) -> Result<String, super::registry::ToolError> {
+fn delete_skill(skills_dir: &Path, input: &Value) -> Result<String, super::registry::ToolError> {
     let name = input
         .get("name")
         .and_then(Value::as_str)
@@ -819,12 +838,9 @@ fn delete_skill(
         .iter()
         .find(|m| m.name == name)
         .ok_or_else(|| super::registry::ToolError::NotFound(format!("skill '{name}'")))?;
-    let skill_dir = metadata
-        .path
-        .parent()
-        .ok_or_else(|| {
-            super::registry::ToolError::ExecutionFailed("SKILL.md has no parent".into())
-        })?;
+    let skill_dir = metadata.path.parent().ok_or_else(|| {
+        super::registry::ToolError::ExecutionFailed("SKILL.md has no parent".into())
+    })?;
     // Safety: refuse to delete anything outside the managed skills dir.
     if !skill_dir.starts_with(skills_dir) {
         return Err(super::registry::ToolError::ExecutionFailed(
@@ -855,39 +871,18 @@ async fn install_skill_from_github(
     skills_dir: &Path,
     input: &Value,
 ) -> Result<String, super::registry::ToolError> {
-    let approve = input.get("approve").and_then(Value::as_bool).unwrap_or(false);
+    let approve = input
+        .get("approve")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let git_url = input
         .get("git_url")
         .and_then(Value::as_str)
         .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'git_url'".into()))?;
-    // Scheme + host allowlist so we only clone from github.com over https.
-    if !git_url.starts_with("https://") {
-        return Err(super::registry::ToolError::InvalidArguments(
-            "git_url must be https://".into(),
-        ));
-    }
-    let host_ok = GITHUB_HOSTS.iter().any(|h| {
-        git_url
-            .strip_prefix("https://")
-            .map(|rest| rest.starts_with(h))
-            .unwrap_or(false)
-    });
-    if !host_ok {
-        return Err(super::registry::ToolError::InvalidArguments(format!(
-            "git_url must be on github.com (got: {git_url})"
-        )));
-    }
+    let parsed_git_url = parse_github_clone_url(git_url)?;
 
     // Derive a safe directory name from the repo URL.
-    let repo_slug: String = git_url
-        .trim_end_matches(".git")
-        .rsplit('/')
-        .take(2)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<Vec<_>>()
-        .join("-")
+    let repo_slug: String = repo_slug_from_url(&parsed_git_url)?
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || matches!(*c, '-' | '_'))
         .collect();
@@ -923,7 +918,7 @@ async fn install_skill_from_github(
     // `git clone` via the library avoids shelling out and keeps credential
     // handling off the subprocess environment.
     let clone_result = tokio::task::spawn_blocking({
-        let url = git_url.to_string();
+        let url = parsed_git_url.to_string();
         let target = target_dir.clone();
         move || git2::Repository::clone(&url, &target)
     })
@@ -967,7 +962,10 @@ async fn install_skill_from_url(
     skills_dir: &Path,
     input: &Value,
 ) -> Result<String, super::registry::ToolError> {
-    let approve = input.get("approve").and_then(Value::as_bool).unwrap_or(false);
+    let approve = input
+        .get("approve")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let url = input
         .get("url")
         .and_then(Value::as_str)
@@ -1033,9 +1031,8 @@ async fn install_skill_from_url(
             "frontmatter: {err}"
         )));
     }
-    fs::write(quarantine_dir.join("SKILL.md"), &body).map_err(|e| {
-        super::registry::ToolError::ExecutionFailed(format!("write: {e}"))
-    })?;
+    fs::write(quarantine_dir.join("SKILL.md"), &body)
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("write: {e}")))?;
 
     let scan = crate::security::scan_tool_output(&body);
     let critical = scan
@@ -1078,21 +1075,51 @@ fn scan_quarantined_tree(root: &Path) -> QuarantineScanReport {
         critical_count: 0,
         high_count: 0,
     };
-    for entry in walkdir::WalkDir::new(root).into_iter().flatten() {
+    for entry in walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|entry| entry.file_name().to_string_lossy() != ".git")
+        .flatten()
+    {
+        if entry.file_type().is_symlink() {
+            report.critical_count += 1;
+            continue;
+        }
         if !entry.file_type().is_file() {
             continue;
         }
-        let name = entry
-            .file_name()
-            .to_str()
-            .unwrap_or("");
-        if !name.eq_ignore_ascii_case("SKILL.md") && !name.ends_with(".md") {
+
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => {
+                report.high_count += 1;
+                continue;
+            }
+        };
+        if metadata.len() > MAX_QUARANTINE_SCAN_BYTES {
+            if is_risky_quarantined_payload(entry.path(), &metadata) {
+                report.critical_count += 1;
+            }
             continue;
         }
-        let Ok(content) = fs::read_to_string(entry.path()) else {
+
+        let name = entry.file_name().to_str().unwrap_or("");
+        if name.eq_ignore_ascii_case("SKILL.md") {
+            report.skill_count += 1;
+        }
+
+        let Ok(bytes) = fs::read(entry.path()) else {
+            report.high_count += 1;
             continue;
         };
-        report.skill_count += 1;
+
+        if bytes.contains(&0) {
+            if is_risky_quarantined_payload(entry.path(), &metadata) {
+                report.critical_count += 1;
+            }
+            continue;
+        }
+
+        let content = String::from_utf8_lossy(&bytes);
         let scan = crate::security::scan_tool_output(&content);
         for threat in &scan.threats {
             if threat.severity >= crate::security::Severity::Critical {
@@ -1116,8 +1143,9 @@ fn promote_quarantined(
             "a skill named '{name}' already exists in the active directory"
         )));
     }
-    fs::rename(quarantine_path, &target).map_err(|e| {
-        super::registry::ToolError::ExecutionFailed(format!("promote: {e}"))
+    copy_quarantined_tree(quarantine_path, &target)?;
+    fs::remove_dir_all(quarantine_path).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("cleanup quarantine: {e}"))
     })?;
     Ok(json!({
         "success": true,
@@ -1126,6 +1154,189 @@ fn promote_quarantined(
         "path": target.display().to_string(),
     })
     .to_string())
+}
+
+fn parse_github_clone_url(git_url: &str) -> Result<reqwest::Url, super::registry::ToolError> {
+    if let Err(threat) = crate::security::validate_url_safe(git_url, false) {
+        return Err(super::registry::ToolError::ExecutionFailed(
+            threat.description,
+        ));
+    }
+    let parsed = reqwest::Url::parse(git_url).map_err(|e| {
+        super::registry::ToolError::InvalidArguments(format!("invalid git_url: {e}"))
+    })?;
+    if parsed.scheme() != "https" {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url must be https://".into(),
+        ));
+    }
+    let host = parsed.host_str().ok_or_else(|| {
+        super::registry::ToolError::InvalidArguments("git_url must include a hostname".into())
+    })?;
+    let normalized_host = host.to_ascii_lowercase();
+    if !GITHUB_HOSTS
+        .iter()
+        .any(|allowed| normalized_host == *allowed)
+    {
+        return Err(super::registry::ToolError::InvalidArguments(format!(
+            "git_url must be on github.com (got: {git_url})"
+        )));
+    }
+    Ok(parsed)
+}
+
+fn repo_slug_from_url(git_url: &reqwest::Url) -> Result<String, super::registry::ToolError> {
+    let segments: Vec<_> = git_url
+        .path_segments()
+        .map(|parts| parts.filter(|part| !part.is_empty()).collect())
+        .unwrap_or_default();
+    if segments.len() < 2 {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url must include owner/repo".into(),
+        ));
+    }
+    let owner = segments[segments.len() - 2];
+    let repo = segments[segments.len() - 1].trim_end_matches(".git");
+    if owner.is_empty() || repo.is_empty() {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url must include owner/repo".into(),
+        ));
+    }
+    Ok(format!("{owner}-{repo}"))
+}
+
+fn is_risky_quarantined_payload(path: &Path, metadata: &fs::Metadata) -> bool {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    let extension = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase());
+    let is_known_payload_name = matches!(file_name, "Dockerfile" | "Makefile" | "Procfile");
+    let is_known_payload_extension = matches!(
+        extension.as_deref(),
+        Some(
+            "sh" | "bash"
+                | "zsh"
+                | "fish"
+                | "command"
+                | "py"
+                | "rb"
+                | "php"
+                | "pl"
+                | "js"
+                | "mjs"
+                | "cjs"
+                | "ts"
+                | "jsx"
+                | "tsx"
+                | "json"
+                | "jsonl"
+                | "yaml"
+                | "yml"
+                | "toml"
+                | "ini"
+                | "conf"
+                | "cfg"
+                | "xml"
+                | "plist"
+                | "swift"
+                | "rs"
+                | "go"
+                | "java"
+                | "kt"
+                | "c"
+                | "cc"
+                | "cpp"
+                | "h"
+                | "hpp"
+                | "cs"
+                | "sql"
+                | "graphql"
+                | "lua"
+                | "env"
+                | "bat"
+                | "cmd"
+                | "ps1"
+                | "jar"
+                | "class"
+                | "so"
+                | "dylib"
+                | "dll"
+                | "exe"
+                | "bin"
+                | "node"
+                | "wasm"
+                | "app"
+                | "pkg"
+        )
+    );
+    is_known_payload_name || is_known_payload_extension || is_executable(metadata)
+}
+
+#[cfg(unix)]
+fn is_executable(metadata: &fs::Metadata) -> bool {
+    metadata.permissions().mode() & 0o111 != 0
+}
+
+#[cfg(not(unix))]
+fn is_executable(_: &fs::Metadata) -> bool {
+    false
+}
+
+fn copy_quarantined_tree(source: &Path, target: &Path) -> Result<(), super::registry::ToolError> {
+    fs::create_dir_all(target)
+        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("promote mkdir: {e}")))?;
+
+    for entry in walkdir::WalkDir::new(source)
+        .into_iter()
+        .filter_entry(|entry| entry.file_name().to_string_lossy() != ".git")
+    {
+        let entry = entry.map_err(|e| {
+            super::registry::ToolError::ExecutionFailed(format!("promote walk: {e}"))
+        })?;
+        let relative = entry.path().strip_prefix(source).map_err(|e| {
+            super::registry::ToolError::ExecutionFailed(format!("promote strip_prefix: {e}"))
+        })?;
+        if relative.as_os_str().is_empty() {
+            continue;
+        }
+        if entry.file_type().is_symlink() {
+            return Err(super::registry::ToolError::ExecutionFailed(format!(
+                "promote rejected symlink at {}",
+                entry.path().display()
+            )));
+        }
+
+        let destination = target.join(relative);
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(&destination).map_err(|e| {
+                super::registry::ToolError::ExecutionFailed(format!(
+                    "promote mkdir {}: {e}",
+                    destination.display()
+                ))
+            })?;
+            continue;
+        }
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                super::registry::ToolError::ExecutionFailed(format!(
+                    "promote parent mkdir {}: {e}",
+                    parent.display()
+                ))
+            })?;
+        }
+        fs::copy(entry.path(), &destination).map_err(|e| {
+            super::registry::ToolError::ExecutionFailed(format!(
+                "promote copy {}: {e}",
+                entry.path().display()
+            ))
+        })?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1158,7 +1369,10 @@ mod progressive_tests {
         let skills = parsed["skills"].as_array().unwrap();
         assert!(skills.iter().any(|s| s["name"] == "alpha"));
         assert!(skills.iter().any(|s| s["name"] == "beta"));
-        assert!(skills[0]["tags"].as_array().unwrap().contains(&json!("test")));
+        assert!(skills[0]["tags"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("test")));
     }
 
     #[tokio::test]
@@ -1169,16 +1383,10 @@ mod progressive_tests {
         let handler = SkillViewHandler {
             skills_dir: dir.path().to_path_buf(),
         };
-        let result = handler
-            .execute(&json!({ "name": "gamma" }))
-            .await
-            .unwrap();
+        let result = handler.execute(&json!({ "name": "gamma" })).await.unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["name"], json!("gamma"));
-        assert!(parsed["content"]
-            .as_str()
-            .unwrap()
-            .contains("# gamma"));
+        assert!(parsed["content"].as_str().unwrap().contains("# gamma"));
     }
 
     #[tokio::test]
@@ -1264,5 +1472,69 @@ mod progressive_tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("cap"));
+    }
+
+    #[tokio::test]
+    async fn install_from_github_rejects_github_host_spoofs() {
+        let dir = tempdir().unwrap();
+        let err = install_skill_from_github(
+            dir.path(),
+            &json!({
+                "git_url": "https://github.com.evil.example/openai/skill-pack.git"
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert!(format!("{err}").contains("github.com"));
+    }
+
+    #[test]
+    fn quarantine_scan_catches_script_payloads() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("SKILL.md"),
+            "---\nname: scan-test\ndescription: scan test\n---\n# scan\n",
+        )
+        .unwrap();
+        fs::create_dir_all(dir.path().join("scripts")).unwrap();
+        fs::write(
+            dir.path().join("scripts").join("install.sh"),
+            "#!/bin/sh\nrm -rf /\n",
+        )
+        .unwrap();
+
+        let report = scan_quarantined_tree(dir.path());
+        assert_eq!(report.skill_count, 1);
+        assert!(report.critical_count > 0);
+    }
+
+    #[test]
+    fn promote_quarantined_strips_git_metadata() {
+        let dir = tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let quarantine_dir = skills_dir.join("quarantine").join("sample-skill");
+        fs::create_dir_all(quarantine_dir.join(".git")).unwrap();
+        fs::create_dir_all(quarantine_dir.join("scripts")).unwrap();
+        fs::write(
+            quarantine_dir.join("SKILL.md"),
+            "---\nname: sample-skill\ndescription: demo\n---\n# demo\n",
+        )
+        .unwrap();
+        fs::write(quarantine_dir.join(".git").join("config"), "[core]\n").unwrap();
+        fs::write(
+            quarantine_dir.join("scripts").join("run.sh"),
+            "#!/bin/sh\necho ok\n",
+        )
+        .unwrap();
+
+        let result = promote_quarantined(&skills_dir, &quarantine_dir, "sample-skill").unwrap();
+        assert!(result.contains("\"success\":true"));
+        assert!(skills_dir.join("sample-skill").join("SKILL.md").exists());
+        assert!(skills_dir
+            .join("sample-skill")
+            .join("scripts")
+            .join("run.sh")
+            .exists());
+        assert!(!skills_dir.join("sample-skill").join(".git").exists());
     }
 }

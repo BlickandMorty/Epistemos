@@ -92,15 +92,16 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
         "{\"status\":\"skipped\",\"error\":\"nightbrain unavailable in silent delegate\"}"
             .to_string()
     }
+    fn get_partner_context(&self, _: String, _: u32) -> String {
+        "{\"success\":false,\"error\":\"inline_partner unavailable in silent delegate\"}"
+            .to_string()
+    }
 }
 
 #[async_trait::async_trait]
 impl ToolHandler for DelegateTaskTool {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let objective = input["objective"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+        let objective = input["objective"].as_str().unwrap_or("").to_string();
 
         if objective.is_empty() {
             return Ok(json!({"error": "objective is required"}).to_string());
@@ -109,7 +110,8 @@ impl ToolHandler for DelegateTaskTool {
         if self.current_depth >= MAX_DEPTH {
             return Ok(json!({
                 "error": format!("Max subagent depth ({}) reached", MAX_DEPTH),
-            }).to_string());
+            })
+            .to_string());
         }
 
         let config = AgentConfig {

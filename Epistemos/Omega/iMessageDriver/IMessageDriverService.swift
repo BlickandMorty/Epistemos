@@ -21,6 +21,26 @@ import os
 @MainActor
 @Observable
 final class IMessageDriverService {
+    nonisolated static let defaultContactModel = "qwen-4b"
+    nonisolated static let groupedModelExample = "qwen-4b,claude-sonnet-4-6"
+    nonisolated static let modelPresetOptions = [
+        "qwen-2b",
+        "qwen-4b",
+        "qwen-9b",
+        "qwen-27b",
+        "gemma-2b",
+        "gemma-4b",
+        "gemma-27b",
+        "qwopus-27b",
+        "qwen-coder",
+        "claude-haiku-4-5",
+        "claude-sonnet-4-6",
+        "claude-opus-4-6",
+        "gpt-4o",
+        "gemini-pro",
+        groupedModelExample,
+    ]
+
     // MARK: - Observable state
 
     var isRunning: Bool = false
@@ -170,7 +190,7 @@ final class IMessageDriverService {
         return ResolvedContact(
             handle: handle,
             displayName: contact["display_name"] as? String,
-            model: contact["model"] as? String ?? "qwen-2b",
+            model: contact["model"] as? String ?? Self.defaultContactModel,
             toolTier: contact["tool_tier"] as? String ?? "chat_pro",
             promptMode: contact["prompt_mode"] as? String ?? "general",
             allowed: contact["allowed"] as? Bool ?? false,
@@ -206,6 +226,12 @@ final class IMessageDriverService {
         let allowed: Bool
         let autoReply: Bool
         let autoApprove: Bool
+    }
+
+    enum LocalModelDispatchPlan: Equatable {
+        case unavailable
+        case directGenerate
+        case agentLoop
     }
 
     private func handleIncoming(_ message: IncomingMessage, vaultPath: String) async {
@@ -364,18 +390,28 @@ final class IMessageDriverService {
         vaultPath: String,
         replyPrefix: String?
     ) async {
-        guard let modelClient = localModelClientProvider() else {
-            logger.error("Local model client unavailable — falling back to cloud Sonnet for handle=\(message.handle, privacy: .public)")
-            await runCloudAgentForContact(
-                modelName: "claude-sonnet-4-6",
-                contact: contact,
-                message: message,
+        let modelClient = localModelClientProvider()
+        switch Self.localDispatchPlan(for: localModelID, hasLocalClient: modelClient != nil) {
+        case .unavailable:
+            logger.error("Local model client unavailable for handle=\(message.handle, privacy: .public) model=\(localModelID.rawValue, privacy: .public)")
+            await sendLocalReply(
+                reply: Self.localModelUnavailableReply(for: localModelID),
+                handle: message.handle,
                 vaultPath: vaultPath,
                 replyPrefix: replyPrefix
             )
-            return
-        }
-        guard localModelID.canActAsAgent else {
+
+        case .directGenerate:
+            guard let modelClient else {
+                logger.error("Local dispatch plan resolved to directGenerate without an active local client for handle=\(message.handle, privacy: .public)")
+                await sendLocalReply(
+                    reply: Self.localModelUnavailableReply(for: localModelID),
+                    handle: message.handle,
+                    vaultPath: vaultPath,
+                    replyPrefix: replyPrefix
+                )
+                return
+            }
             logger.warning("Local model \(localModelID.rawValue, privacy: .public) cannot act as agent — using direct generate fallback")
             await runDirectLocalGenerate(
                 modelClient: modelClient,
@@ -385,10 +421,37 @@ final class IMessageDriverService {
                 vaultPath: vaultPath,
                 replyPrefix: replyPrefix
             )
-            return
-        }
 
-        // Build the iMessage system prompt + tier-filtered tool list.
+        case .agentLoop:
+            guard let modelClient else {
+                logger.error("Local dispatch plan resolved to agentLoop without an active local client for handle=\(message.handle, privacy: .public)")
+                await sendLocalReply(
+                    reply: Self.localModelUnavailableReply(for: localModelID),
+                    handle: message.handle,
+                    vaultPath: vaultPath,
+                    replyPrefix: replyPrefix
+                )
+                return
+            }
+            await runLocalAgentLoopForContact(
+                modelClient: modelClient,
+                modelID: localModelID,
+                contact: contact,
+                message: message,
+                vaultPath: vaultPath,
+                replyPrefix: replyPrefix
+            )
+        }
+    }
+
+    private func runLocalAgentLoopForContact(
+        modelClient: any LocalConfigurableLLMClient,
+        modelID: LocalTextModelID,
+        contact: ResolvedContact,
+        message: IncomingMessage,
+        vaultPath: String,
+        replyPrefix: String?
+    ) async {
         let systemPrompt = Self.iMessageSystemPrompt(displayName: contact.displayName ?? contact.handle)
         let bridge = ToolTierBridge(
             vaultPath: vaultPath,
@@ -401,11 +464,10 @@ final class IMessageDriverService {
             using: modelClient,
             constrainedDecoding: constrainedDecoding,
             toolExecutor: bridge.toolExecutor(),
-            modelID: localModelID.rawValue,
+            modelID: modelID.rawValue,
             defaultReasoningMode: .fast
         )
 
-        // Token accumulator that strips meta tags / markdown for the SMS reply.
         let accumulator = LocalReplyAccumulator()
 
         do {
@@ -427,7 +489,7 @@ final class IMessageDriverService {
                 replyPrefix: replyPrefix
             )
         } catch {
-            logger.error("Local agent session failed for \(message.handle, privacy: .public) model=\(localModelID.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("Local agent session failed for \(message.handle, privacy: .public) model=\(modelID.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await sendLocalReply(
                 reply: "Sorry, I hit a local-model error: \(error.localizedDescription)",
                 handle: message.handle,
@@ -528,7 +590,7 @@ final class IMessageDriverService {
     }
 
     /// Split a model-list field into individual model names. Supports
-    /// "qwen-2b", "qwen-2b,claude-sonnet-4-6", or whitespace separation.
+    /// "qwen-4b", "qwen-4b,claude-sonnet-4-6", or newline / semicolon separation.
     private static func parseModelList(_ field: String) -> [String] {
         field
             .split(whereSeparator: { ",;\n".contains($0) })
@@ -536,12 +598,24 @@ final class IMessageDriverService {
             .filter { !$0.isEmpty }
     }
 
+    nonisolated static func localDispatchPlan(
+        for localModelID: LocalTextModelID,
+        hasLocalClient: Bool
+    ) -> LocalModelDispatchPlan {
+        guard hasLocalClient else { return .unavailable }
+        return localModelID.canActAsAgent ? .agentLoop : .directGenerate
+    }
+
+    nonisolated static func localModelUnavailableReply(for localModelID: LocalTextModelID) -> String {
+        "Sorry, I can't reply right now because the local model \(localModelID.rawValue) isn't available on this Mac."
+    }
+
     /// Map a friendly local-model short name (as picked in the iMessage
     /// settings UI) onto a `LocalTextModelID`. Returns `nil` for cloud models
     /// or unrecognised names. The mapping is intentionally generous so users
     /// can type either the short alias ("qwen-2b") or the full HuggingFace
     /// repo id ("mlx-community/Qwen3.5-2B-4bit") and both resolve.
-    static func localTextModelID(forShortName name: String) -> LocalTextModelID? {
+    nonisolated static func localTextModelID(forShortName name: String) -> LocalTextModelID? {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         if let direct = LocalTextModelID(rawValue: trimmed) {
             return direct
