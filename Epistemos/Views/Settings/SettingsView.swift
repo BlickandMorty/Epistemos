@@ -623,6 +623,10 @@ private struct InferenceDetailView: View {
     private var otherCloudProviders: [CloudModelProvider] {
         CloudModelProvider.preferredOrder.filter { $0 != activeCloudWorkspaceProvider }
     }
+    private var releaseSelectableLocalDescriptors: [LocalModelDescriptor] {
+        let selectableIDs = Set(inference.releaseSelectableInstalledLocalTextModelIDs)
+        return localModelManager.textDescriptors.filter { selectableIDs.contains($0.id) }
+    }
     private var cloudModelsEnabledBinding: Binding<Bool> {
         Binding(
             get: { inference.cloudModelsEnabled },
@@ -749,19 +753,22 @@ private struct InferenceDetailView: View {
                 Picker(
                     "Active Local Model",
                     selection: Binding(
-                        get: { inference.preferredLocalTextModelID },
+                        get: { inference.activeLocalTextModelID ?? inference.preferredLocalTextModelID },
                         set: { inference.setPreferredLocalTextModelID($0) }
                     )
                 ) {
-                    ForEach(
-                        localModelManager.textDescriptors.filter {
-                            localModelManager.installRecords[$0.id] != nil
-                                || inference.hardwareCapabilitySnapshot.supports(descriptor: $0)
-                        },
-                        id: \.id
-                    ) { descriptor in
+                    ForEach(releaseSelectableLocalDescriptors, id: \.id) { descriptor in
                         Text(descriptor.displayName).tag(descriptor.id)
                     }
+                }
+                .disabled(releaseSelectableLocalDescriptors.isEmpty)
+
+                if releaseSelectableLocalDescriptors.isEmpty {
+                    SettingsDescriptionText(
+                        text: inference.releaseHiddenInstalledLocalTextModelCount > 0
+                            ? "Installed local models that are not release-ready yet are hidden from the release picker. Use Manage Local Models to review them."
+                            : "Install a release-validated local model to enable an on-device fallback here."
+                    )
                 }
 
                 if let fallback = localModelManager.missingConstrainedFallbackDescriptor {
@@ -1914,6 +1921,13 @@ private struct LocalModelRow: View {
                         .frame(maxWidth: 200)
                 } else if case .blocked(let reason) = state {
                     Text(blockedGuidance(for: reason))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let model = LocalTextModelID(rawValue: descriptor.id),
+                   let reason = model.releasePickerVisibilityReason {
+                    Text(reason)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

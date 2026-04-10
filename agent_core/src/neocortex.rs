@@ -1,0 +1,308 @@
+//! Neocortex Engine — SSM-based "fluid awareness" layer for endless context.
+//!
+//! Implements the tripartite memory architecture:
+//! 1. **Hippocampus** (KV cache): Crystal-clear, exact, real-time memory
+//! 2. **Neocortex** (this): Fluid awareness of everything beyond the KV cache
+//! 3. **Archival Disk** (vault): Structured ground-truth storage
+//!
+//! When the primary model's context fills up, compacted summaries "bleed" into
+//! the Neocortex SSM. The SSM maintains a fixed-size hidden state that captures
+//! the mathematical gist of all absorbed context — no exact text, but the
+//! "vibes" remain omnipresent.
+//!
+//! The Neocortex is queried via `query()` which generates a short gist from
+//! the accumulated state, providing the primary model with contextual awareness
+//! it wouldn't otherwise have.
+
+use std::collections::VecDeque;
+use std::sync::Mutex;
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/// A piece of context that was absorbed by the Neocortex.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AbsorbedContext {
+    pub content: String,
+    pub source: ContextSource,
+    pub absorbed_at: DateTime<Utc>,
+    pub token_estimate: u32,
+}
+
+/// Where the absorbed context came from.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ContextSource {
+    /// Context that was compacted from the primary model's window.
+    Compaction,
+    /// A session summary that was loaded from disk.
+    SessionSummary { session_id: String },
+    /// A vault fact that was explicitly fed to the Neocortex.
+    VaultFact { path: String },
+    /// User-provided context (e.g., "keep this in mind").
+    UserPinned,
+}
+
+/// The current state of the Neocortex.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NeocortexStatus {
+    pub total_absorbed: u32,
+    pub total_tokens_absorbed: u64,
+    pub oldest_absorption: Option<DateTime<Utc>>,
+    pub newest_absorption: Option<DateTime<Utc>>,
+    /// Whether an SSM model is loaded and processing.
+    pub ssm_active: bool,
+}
+
+/// A gist generated from the Neocortex's accumulated awareness.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NeocortexGist {
+    pub content: String,
+    pub based_on_absorptions: u32,
+    pub confidence: f64,
+}
+
+// ---------------------------------------------------------------------------
+// Neocortex Engine
+// ---------------------------------------------------------------------------
+
+/// The Neocortex manages an SSM model's hidden state as a compression layer.
+///
+/// In the current implementation, the Neocortex accumulates absorbed context
+/// as text (not tensor state) because MLX-Swift doesn't expose SSM hidden state
+/// manipulation APIs yet. When MLX adds state injection, this will switch to
+/// actual tensor-level state persistence.
+///
+/// For now, it maintains a rolling context window that is fed to the SSM model
+/// when a gist is requested — achieving the same functional outcome.
+pub struct NeocortexEngine {
+    /// Rolling buffer of absorbed context chunks.
+    absorbed: Mutex<VecDeque<AbsorbedContext>>,
+    /// Maximum number of absorbed chunks to keep (older ones are merged).
+    max_chunks: usize,
+    /// Total token budget for absorbed context.
+    max_tokens: usize,
+}
+
+impl NeocortexEngine {
+    /// Create a new Neocortex engine.
+    pub fn new(max_chunks: usize, max_tokens: usize) -> Self {
+        Self {
+            absorbed: Mutex::new(VecDeque::with_capacity(max_chunks)),
+            max_chunks,
+            max_tokens,
+        }
+    }
+
+    /// Absorb new context into the Neocortex.
+    /// Called when the primary model's context is compacted.
+    pub fn absorb(&self, content: &str, source: ContextSource) {
+        let token_estimate = content.split_whitespace().count() as u32;
+        let entry = AbsorbedContext {
+            content: content.to_string(),
+            source,
+            absorbed_at: Utc::now(),
+            token_estimate,
+        };
+
+        let mut absorbed = match self.absorbed.lock() {
+            Ok(a) => a,
+            Err(_) => return,
+        };
+
+        absorbed.push_back(entry);
+
+        // Evict oldest if over chunk limit
+        while absorbed.len() > self.max_chunks {
+            absorbed.pop_front();
+        }
+
+        // Evict oldest if over token limit
+        let mut total: u64 = absorbed.iter().map(|a| a.token_estimate as u64).sum();
+        while total > self.max_tokens as u64 && absorbed.len() > 1 {
+            if let Some(removed) = absorbed.pop_front() {
+                total -= removed.token_estimate as u64;
+            }
+        }
+    }
+
+    /// Generate the "Neocortex Gist" — a compact summary of all absorbed context.
+    /// This is injected as the L0.5 tier in the context loader.
+    ///
+    /// In the future, this will be generated by the SSM model. Currently returns
+    /// a concatenation of absorbed chunk summaries.
+    pub fn generate_gist(&self, max_tokens: usize) -> Option<NeocortexGist> {
+        let absorbed = match self.absorbed.lock() {
+            Ok(a) => a,
+            Err(_) => return None,
+        };
+
+        if absorbed.is_empty() {
+            return None;
+        }
+
+        let mut gist_parts = Vec::new();
+        let mut token_count = 0usize;
+
+        // Build gist from newest absorbed context (most relevant)
+        for chunk in absorbed.iter().rev() {
+            let chunk_tokens = chunk.token_estimate as usize;
+            if token_count + chunk_tokens > max_tokens && !gist_parts.is_empty() {
+                break;
+            }
+
+            let source_label = match &chunk.source {
+                ContextSource::Compaction => "compacted".to_string(),
+                ContextSource::SessionSummary { session_id } => format!("session:{session_id}"),
+                ContextSource::VaultFact { path } => format!("vault:{path}"),
+                ContextSource::UserPinned => "pinned".to_string(),
+            };
+
+            gist_parts.push(format!("[{source_label}] {}", chunk.content));
+            token_count += chunk_tokens;
+        }
+
+        gist_parts.reverse(); // chronological order
+
+        let confidence = if absorbed.len() >= 5 { 0.8 } else { 0.5 + absorbed.len() as f64 * 0.06 };
+
+        Some(NeocortexGist {
+            content: gist_parts.join("\n\n"),
+            based_on_absorptions: absorbed.len() as u32,
+            confidence,
+        })
+    }
+
+    /// Get the current status of the Neocortex.
+    pub fn status(&self) -> NeocortexStatus {
+        let absorbed = self.absorbed.lock().ok();
+        let (total, oldest, newest) = match &absorbed {
+            Some(a) => (
+                a.len() as u32,
+                a.front().map(|c| c.absorbed_at),
+                a.back().map(|c| c.absorbed_at),
+            ),
+            None => (0, None, None),
+        };
+
+        let total_tokens: u64 = absorbed
+            .as_ref()
+            .map(|a| a.iter().map(|c| c.token_estimate as u64).sum())
+            .unwrap_or(0);
+
+        NeocortexStatus {
+            total_absorbed: total,
+            total_tokens_absorbed: total_tokens,
+            oldest_absorption: oldest,
+            newest_absorption: newest,
+            ssm_active: false, // Will be true when SSM model is loaded
+        }
+    }
+
+    /// Clear all absorbed context (reset the Neocortex).
+    pub fn clear(&self) {
+        if let Ok(mut absorbed) = self.absorbed.lock() {
+            absorbed.clear();
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Global Singleton
+// ---------------------------------------------------------------------------
+
+use std::sync::OnceLock;
+
+static NEOCORTEX: OnceLock<NeocortexEngine> = OnceLock::new();
+
+/// Get or create the global Neocortex engine.
+pub fn global_neocortex() -> &'static NeocortexEngine {
+    NEOCORTEX.get_or_init(|| NeocortexEngine::new(100, 50_000))
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn absorb_and_generate_gist() {
+        let neo = NeocortexEngine::new(10, 10_000);
+
+        neo.absorb("We decided to use Rust FFI for the agent bridge.", ContextSource::Compaction);
+        neo.absorb("The vault uses SQLite + Tantivy dual index.", ContextSource::Compaction);
+
+        let gist = neo.generate_gist(1000).unwrap();
+        assert!(gist.content.contains("Rust FFI"));
+        assert!(gist.content.contains("Tantivy"));
+        assert_eq!(gist.based_on_absorptions, 2);
+    }
+
+    #[test]
+    fn eviction_respects_chunk_limit() {
+        let neo = NeocortexEngine::new(3, 100_000);
+
+        for i in 0..5 {
+            neo.absorb(&format!("chunk {i}"), ContextSource::Compaction);
+        }
+
+        let status = neo.status();
+        assert_eq!(status.total_absorbed, 3);
+    }
+
+    #[test]
+    fn eviction_respects_token_limit() {
+        let neo = NeocortexEngine::new(100, 20); // very tight token budget
+
+        neo.absorb("word ".repeat(15).trim(), ContextSource::Compaction);
+        neo.absorb("more words here", ContextSource::Compaction);
+
+        let status = neo.status();
+        assert!(status.total_tokens_absorbed <= 25); // some slack
+    }
+
+    #[test]
+    fn empty_neocortex_returns_none() {
+        let neo = NeocortexEngine::new(10, 10_000);
+        assert!(neo.generate_gist(1000).is_none());
+    }
+
+    #[test]
+    fn clear_resets_state() {
+        let neo = NeocortexEngine::new(10, 10_000);
+        neo.absorb("something", ContextSource::Compaction);
+        assert_eq!(neo.status().total_absorbed, 1);
+
+        neo.clear();
+        assert_eq!(neo.status().total_absorbed, 0);
+    }
+
+    #[test]
+    fn gist_respects_token_budget() {
+        let neo = NeocortexEngine::new(100, 100_000);
+        for i in 0..20 {
+            neo.absorb(&format!("Fact number {i} about the system architecture"), ContextSource::Compaction);
+        }
+
+        let gist = neo.generate_gist(50).unwrap();
+        let words = gist.content.split_whitespace().count();
+        assert!(words <= 100, "Gist too large: {words} words");
+    }
+
+    #[test]
+    fn source_labels_in_gist() {
+        let neo = NeocortexEngine::new(10, 10_000);
+        neo.absorb("pinned context", ContextSource::UserPinned);
+        neo.absorb("vault fact", ContextSource::VaultFact { path: "notes/arch.md".to_string() });
+
+        let gist = neo.generate_gist(1000).unwrap();
+        assert!(gist.content.contains("[pinned]"));
+        assert!(gist.content.contains("[vault:notes/arch.md]"));
+    }
+}

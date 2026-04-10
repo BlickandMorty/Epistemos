@@ -110,7 +110,7 @@ struct ModelProfileCreationSheet: View {
             if profileType == .local {
                 Picker("Base Model", selection: $selectedModel) {
                     Text("Qwen 3.5 4B").tag("qwen3.5-4b")
-                    Text("Hermes 3 8B").tag("hermes3-8b")
+                    Text("Gemma 4 4B").tag("gemma4-4b")
                     Text("SmolLM3 3B").tag("smollm3-3b")
                     Text("Mistral 7B").tag("mistral-7b")
                 }

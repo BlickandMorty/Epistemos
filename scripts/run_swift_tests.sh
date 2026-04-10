@@ -17,29 +17,35 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 RESULTS_DIR="$PROJECT_DIR/test_results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DERIVED_DATA_DIR="${DERIVED_DATA_DIR:-$RESULTS_DIR/swift_derived_data}"
-SOURCE_PACKAGES_DIR="${SOURCE_PACKAGES_DIR:-$RESULTS_DIR/swift_source_packages}"
+SOURCE_PACKAGES_DIR="${SOURCE_PACKAGES_DIR:-}"
+PACKAGE_ARGS=()
 
 mkdir -p "$RESULTS_DIR"
-mkdir -p "$SOURCE_PACKAGES_DIR"
 rm -rf "$DERIVED_DATA_DIR"
+
+if [ -n "$SOURCE_PACKAGES_DIR" ]; then
+    mkdir -p "$SOURCE_PACKAGES_DIR"
+    PACKAGE_ARGS=(-clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR")
+fi
 
 echo "╔════════════════════════════════════════════════════════════════════╗"
 echo "║                   SWIFT TEST RUNNER                                ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
 echo "DerivedData: $DERIVED_DATA_DIR"
-echo "SourcePackages: $SOURCE_PACKAGES_DIR"
+echo "SourcePackages: ${SOURCE_PACKAGES_DIR:-<xcode-managed default>}"
+echo "xcodebuild wrapper: $PROJECT_DIR/scripts/xcodebuild_epistemos.sh"
 echo ""
 
 cd "$PROJECT_DIR"
 
 echo "🔨 Building Swift test target..."
-xcodebuild build-for-testing \
+"$PROJECT_DIR/scripts/xcodebuild_epistemos.sh" build-for-testing \
     -project Epistemos.xcodeproj \
     -scheme Epistemos \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
-    -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR" \
+    "${PACKAGE_ARGS[@]}" \
     2>&1 | tee "$RESULTS_DIR/swift_build_$TIMESTAMP.log"
 
 echo ""
@@ -48,12 +54,12 @@ echo "   (This may take several minutes for 10,000+ tests)"
 echo ""
 
 # Run tests
-if xcodebuild test-without-building \
+if "$PROJECT_DIR/scripts/xcodebuild_epistemos.sh" test-without-building \
     -project Epistemos.xcodeproj \
     -scheme Epistemos \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
-    -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR" \
+    "${PACKAGE_ARGS[@]}" \
     -resultBundlePath "$RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult" \
     2>&1 | tee "$RESULTS_DIR/swift_tests_$TIMESTAMP.log"; then
     

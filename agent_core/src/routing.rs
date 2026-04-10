@@ -52,11 +52,32 @@ impl HeuristicClassifier {
     pub fn classify(&self, objective: &str) -> ClassificationResult {
         let normalized = objective.to_lowercase();
         let word_count = normalized.split_whitespace().count() as f32;
-        let complexity = (word_count / 40.0).clamp(0.05, 1.0);
+        let char_count = objective.len();
+
+        // Base complexity from word count
+        let mut complexity = (word_count / 40.0).clamp(0.05, 1.0);
+
+        // Hermes-style message length signal:
+        // Short messages (<160 chars) are likely simple → reduce complexity
+        // Long messages (>400 chars) are likely complex → increase complexity
+        if char_count < 160 {
+            complexity = (complexity - 0.1).max(0.05);
+        } else if char_count > 400 {
+            complexity = (complexity + 0.1).min(1.0);
+        }
+
+        // Code detection: triple backticks or common code patterns → increase complexity
+        if normalized.contains("```") || normalized.contains("fn ") || normalized.contains("func ")
+            || normalized.contains("class ") || normalized.contains("impl ")
+        {
+            complexity = (complexity + 0.15).min(1.0);
+        }
+
         let requires_current_info = contains_any(
             &normalized,
             &["today", "latest", "current", "recent", "news", "now"],
-        );
+        ) || contains_url(&normalized); // URLs imply current info needed
+
         let privacy_sensitive = contains_any(
             &normalized,
             &["private", "confidential", "personal", "vault only", "local only"],
@@ -64,7 +85,8 @@ impl HeuristicClassifier {
         let shell_required = contains_any(
             &normalized,
             &["shell", "bash", "command", "terminal", "script", "build", "compile"],
-        );
+        ) || normalized.contains("```"); // Code blocks often need execution
+
         let research_related = contains_any(
             &normalized,
             &["research", "compare", "sources", "citations", "fact check", "web"],
@@ -152,6 +174,11 @@ impl ConfidenceRouter {
 
 fn contains_any(haystack: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| haystack.contains(needle))
+}
+
+/// Detect URLs in text — if present, likely needs current info / web access.
+fn contains_url(text: &str) -> bool {
+    text.contains("http://") || text.contains("https://") || text.contains("www.")
 }
 
 fn estimate_tool_count(objective: &str) -> u8 {

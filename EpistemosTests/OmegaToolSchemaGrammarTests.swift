@@ -153,14 +153,11 @@ struct ToolSchemaGrammarTests {
         // The grammar still compiles but the agent rule is empty
     }
 
-    @Test("Inference bridge seeds tool schemas to match the registered MCP tools")
-    @MainActor func inferenceBridgeSeedsToolSchemas() throws {
-        let inference = InferenceState()
-        let triage = TriageService(inference: inference)
-        let planner = OmegaInferenceBridge(triageService: triage)
+    @Test("Omega tool registry seeds tool schemas to match the registered MCP tools")
+    @MainActor func omegaToolRegistrySeedsToolSchemas() throws {
         let runtime = MCPBridge()
 
-        let data = try #require(planner.toolSchemasJson.data(using: .utf8))
+        let data = try #require(OmegaToolRegistry.planningSchemasJson.data(using: .utf8))
         let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
 
         #expect(!schemas.isEmpty)

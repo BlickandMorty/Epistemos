@@ -43,6 +43,13 @@ impl NodeStrength {
             pinned: false,
         }
     }
+
+    /// CMS-X conceptual inertia: frequently-accessed facts resist displacement.
+    /// Reference: CMS-X (v3) §3.1 Concept Packet — m_i parameter.
+    /// Logarithmic inertia: access_count=1 → 1.0x, 50 → ~0.26x, 1000 → ~0.14x.
+    pub fn effective_decay_rate(&self) -> f64 {
+        self.decay_rate / (1.0 + (self.access_count.max(1) as f64).ln())
+    }
 }
 
 pub fn decay(node: &mut NodeStrength, now: DateTime<Utc>) {
@@ -62,7 +69,8 @@ pub fn decay(node: &mut NodeStrength, now: DateTime<Utc>) {
     }
 
     let elapsed_days = elapsed_seconds as f64 / 86_400.0;
-    let decay_factor = (-node.decay_rate * elapsed_days).exp();
+    let effective_rate = node.effective_decay_rate();
+    let decay_factor = (-effective_rate * elapsed_days).exp();
     node.strength = (node.strength * decay_factor).clamp(0.0, 1.0);
     node.last_accessed = now;
 }
@@ -115,7 +123,8 @@ pub fn batch_decay(nodes: &mut [NodeStrength], now: DateTime<Utc>) {
         }
 
         let elapsed_days = elapsed_seconds as f64 / 86_400.0;
-        let decay_factor = (-node.decay_rate * elapsed_days).exp();
+        let effective_rate = node.effective_decay_rate();
+        let decay_factor = (-effective_rate * elapsed_days).exp();
         node.strength = (node.strength * decay_factor).clamp(0.0, 1.0);
         node.last_accessed = now;
     }
@@ -191,6 +200,42 @@ mod tests {
         assert_eq!(removed.len(), 1);
         assert_eq!(nodes.len(), 2);
         assert!(nodes.iter().any(|entry| entry.pinned));
+    }
+
+    #[test]
+    fn memory_decay_logarithmic_inertia_slows_decay_for_frequently_accessed() {
+        // CMS-X conceptual inertia: a node accessed 50 times should decay ~4x slower
+        let mut rarely_accessed = node(Importance::Normal, 1.0);
+        rarely_accessed.access_count = 1;
+
+        let mut frequently_accessed = node(Importance::Normal, 1.0);
+        frequently_accessed.access_count = 50;
+
+        let now = rarely_accessed.last_accessed + Duration::days(30);
+        decay(&mut rarely_accessed, now);
+        decay(&mut frequently_accessed, now);
+
+        // Frequently accessed node should retain significantly more strength
+        assert!(
+            frequently_accessed.strength > rarely_accessed.strength * 2.0,
+            "frequently accessed ({}) should be >2x rarely accessed ({})",
+            frequently_accessed.strength,
+            rarely_accessed.strength
+        );
+    }
+
+    #[test]
+    fn memory_decay_effective_rate_is_lower_with_higher_access_count() {
+        let mut node = node(Importance::Normal, 1.0);
+        node.access_count = 1;
+        let rate_1 = node.effective_decay_rate();
+
+        node.access_count = 100;
+        let rate_100 = node.effective_decay_rate();
+
+        assert!(rate_100 < rate_1, "rate at 100 accesses ({}) should be < rate at 1 ({})", rate_100, rate_1);
+        // ln(100) ≈ 4.6, so rate_100 ≈ rate_1 / 5.6 ≈ 0.18x
+        assert!(rate_100 < rate_1 * 0.25);
     }
 
     #[test]

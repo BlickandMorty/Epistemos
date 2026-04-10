@@ -1,10 +1,11 @@
 import Foundation
 
 // MARK: - GraphNodeType
-// 7 semantic categories for knowledge graph nodes.
-// Reduced from 13: Idea absorbs BrainDump/Insight, Source absorbs Paper/Book/Thinker, Tag absorbs Concept.
+// 14 graph node categories shared with the Rust renderer.
+// 8 structural types plus 6 semantic entity types.
 
 nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
+    // Structural types (original 8)
     case note
     case chat
     case idea
@@ -14,11 +15,22 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     case tag
     case block
 
+    // Semantic entity types (Rowboat-inspired ontology)
+    case person       // notes in People/ folder
+    case project      // notes in Projects/ folder
+    case topic        // notes in Topics/ folder
+    case decision     // notes in Decisions/ folder
+    case event        // notes in Events/ folder
+    case resource     // notes in Resources/ folder
+
     /// Node types visible in the graph UI (excludes block — blocks are internal structure).
     static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block }
 
+    /// Semantic entity types — used for Knowledge Index grouping.
+    static let entityTypes: [GraphNodeType] = [.person, .project, .topic, .decision, .event, .resource]
+
     /// Migration from legacy 13-type system.
-    /// Existing SwiftData records store raw strings; this maps them to the new 7 types.
+    /// Existing SwiftData records store raw strings; this maps them to the new types.
     init(legacy rawValue: String) {
         switch rawValue {
         case "brainDump", "insight":
@@ -35,42 +47,76 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     /// Human-readable display name for the graph UI.
     var displayName: String {
         switch self {
-        case .note:   return "Note"
-        case .chat:   return "Chat"
-        case .idea:   return "Idea"
-        case .source: return "Source"
-        case .folder: return "Folder"
-        case .quote:  return "Quote"
-        case .tag:    return "Tag"
-        case .block:  return "Block"
+        case .note:     return "Note"
+        case .chat:     return "Chat"
+        case .idea:     return "Idea"
+        case .source:   return "Source"
+        case .folder:   return "Folder"
+        case .quote:    return "Quote"
+        case .tag:      return "Tag"
+        case .block:    return "Block"
+        case .person:   return "Person"
+        case .project:  return "Project"
+        case .topic:    return "Topic"
+        case .decision: return "Decision"
+        case .event:    return "Event"
+        case .resource: return "Resource"
         }
     }
 
     /// SF Symbol name for node rendering.
     var icon: String {
         switch self {
-        case .note:   return "doc.text"
-        case .chat:   return "bubble.left"
-        case .idea:   return "lightbulb"
-        case .source: return "link"
-        case .folder: return "folder"
-        case .quote:  return "text.quote"
-        case .tag:    return "number"
-        case .block:  return "text.line.first.and.arrowtriangle.forward"
+        case .note:     return "doc.text"
+        case .chat:     return "bubble.left"
+        case .idea:     return "lightbulb"
+        case .source:   return "link"
+        case .folder:   return "folder"
+        case .quote:    return "text.quote"
+        case .tag:      return "number"
+        case .block:    return "text.line.first.and.arrowtriangle.forward"
+        case .person:   return "person"
+        case .project:  return "hammer"
+        case .topic:    return "text.book.closed"
+        case .decision: return "checkmark.seal"
+        case .event:    return "calendar"
+        case .resource: return "archivebox"
         }
     }
 
-    /// Index matching Rust NodeType enum (0–7) for FFI.
+    /// Index matching Rust NodeType enum (0–13) for FFI.
     var rustIndex: UInt8 {
         switch self {
-        case .note:   return 0
-        case .chat:   return 1
-        case .idea:   return 2
-        case .source: return 3
-        case .folder: return 4
-        case .quote:  return 5
-        case .tag:    return 6
-        case .block:  return 7
+        case .note:     return 0
+        case .chat:     return 1
+        case .idea:     return 2
+        case .source:   return 3
+        case .folder:   return 4
+        case .quote:    return 5
+        case .tag:      return 6
+        case .block:    return 7
+        case .person:   return 8
+        case .project:  return 9
+        case .topic:    return 10
+        case .decision: return 11
+        case .event:    return 12
+        case .resource: return 13
+        }
+    }
+
+    /// Infer entity type from vault folder path convention.
+    /// e.g. "People/Alex.md" → .person, "Projects/MOHAWK/" → .project
+    static func inferFromPath(_ path: String) -> GraphNodeType? {
+        let components = path.split(separator: "/")
+        guard let firstFolder = components.first?.lowercased() else { return nil }
+        switch firstFolder {
+        case "people":    return .person
+        case "projects":  return .project
+        case "topics":    return .topic
+        case "decisions": return .decision
+        case "events":    return .event
+        case "resources": return .resource
+        default:          return nil
         }
     }
 

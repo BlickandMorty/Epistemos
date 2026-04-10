@@ -246,6 +246,9 @@ struct InstantRecallServiceTests {
 
 // MARK: - Settings Wiring Tests
 
+// Legacy Omega runtime wiring tests are kept for reference while the
+// app relies on the consolidated native/runtime settings surfaces.
+#if false
 @Suite("Omega Settings — Runtime Wiring")
 @MainActor
 struct OmegaSettingsWiringTests {
@@ -300,3 +303,4 @@ struct OmegaSettingsWiringTests {
         #expect(!scheduler.hasActiveSchedulers)
     }
 }
+#endif

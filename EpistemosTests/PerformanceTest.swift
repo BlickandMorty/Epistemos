@@ -95,18 +95,12 @@ struct PerformanceTest {
 
     @Test("No fusion code in entire KnowledgeFusion codebase")
     func noFusionCodeAnywhere() throws {
-        let basePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion")
-
-        let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: basePath, includingPropertiesForKeys: nil) else { return }
-
         var checkedFiles = 0
-        while let url = enumerator.nextObject() as? URL {
+        for url in try mirroredSourceFileURLs(
+            under: "Epistemos/KnowledgeFusion",
+            includingExtensions: ["swift", "py"]
+        ) {
             let ext = url.pathExtension
-            guard ext == "swift" || ext == "py" else { continue }
             checkedFiles += 1
 
             let content = try String(contentsOf: url, encoding: .utf8)
@@ -139,17 +133,10 @@ struct PerformanceTest {
     func adapterFormat() throws {
         // Per ANCHOR 3, GAP 3: Default to MLX .safetensors format.
         // Do NOT attempt GGUF export from 4-bit base.
-        let basePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion")
-
-        let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: basePath, includingPropertiesForKeys: nil) else { return }
-
-        while let url = enumerator.nextObject() as? URL {
-            let ext = url.pathExtension
-            guard ext == "swift" || ext == "py" else { continue }
+        for url in try mirroredSourceFileURLs(
+            under: "Epistemos/KnowledgeFusion",
+            includingExtensions: ["swift", "py"]
+        ) {
             let content = try String(contentsOf: url, encoding: .utf8)
 
             // Should reference .safetensors, not .gguf
@@ -172,17 +159,11 @@ struct PerformanceTest {
 
     @Test("KTO, not DPO, used for preference alignment")
     func ktoNotDPO() throws {
-        let basePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion/Alignment")
-
-        let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: basePath, includingPropertiesForKeys: nil) else { return }
-
         var foundKTO = false
-        while let url = enumerator.nextObject() as? URL {
-            guard url.pathExtension == "swift" || url.pathExtension == "py" else { continue }
+        for url in try mirroredSourceFileURLs(
+            under: "Epistemos/KnowledgeFusion/Alignment",
+            includingExtensions: ["swift", "py"]
+        ) {
             let content = try String(contentsOf: url, encoding: .utf8)
 
             if content.contains("KTO") { foundKTO = true }

@@ -38,11 +38,7 @@ private func writeComplexJSONL() -> URL {
 }
 
 private func loadRepoTextFile(_ relativePath: String) throws -> String {
-    let repoRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let fileURL = repoRoot.appendingPathComponent(relativePath)
-    return try String(contentsOf: fileURL, encoding: .utf8)
+    try loadMirroredSourceTextFile(relativePath)
 }
 
 // MARK: - ExperienceReplayBuffer Tests
@@ -331,10 +327,9 @@ struct HyperparameterComplianceTests {
         let trainerSource = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
 
         // Fall back to source directory if not in bundle (test environment)
-        let sourcePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py")
+        let sourcePath = try sourceMirrorURL(
+            for: "Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py"
+        )
 
         let url = FileManager.default.fileExists(atPath: scriptURL.path) ? scriptURL : sourcePath
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -365,10 +360,9 @@ struct HyperparameterComplianceTests {
 
     @Test("Style training script has correct hyperparameters")
     func styleHyperparams() throws {
-        let sourcePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Epistemos/KnowledgeFusion/Training/scripts/train_style.py")
+        let sourcePath = try sourceMirrorURL(
+            for: "Epistemos/KnowledgeFusion/Training/scripts/train_style.py"
+        )
         let trainerSource = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
 
         guard FileManager.default.fileExists(atPath: sourcePath.path) else { return }

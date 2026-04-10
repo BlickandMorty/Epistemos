@@ -9,7 +9,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
 
 jobs:
   release:
@@ -24,7 +23,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -38,10 +37,12 @@ jobs:
 
       - name: Build all Rust crates (release)
         run: |
-          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
-            cd "$crate"
-            cargo build --target aarch64-apple-darwin --release
-            cd ..
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+              cd "$crate"
+              cargo build --target "$target" --release
+              cd ..
+            done
           done
 
       - name: Generate UniFFI Swift bindings
@@ -49,6 +50,7 @@ jobs:
           bash build-epistemos-core.sh
           bash build-omega-ax.sh
           bash build-omega-mcp.sh
+          bash build-agent-core.sh
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -58,25 +60,34 @@ jobs:
 
       - name: Resolve SPM dependencies
         run: |
-          xcodebuild -resolvePackageDependencies \
+          ./scripts/xcodebuild_epistemos.sh -resolvePackageDependencies \
             -project Epistemos.xcodeproj \
             -scheme Epistemos \
             -clonedSourcePackagesDirPath .spm-cache
 
       - name: Build release app bundle
         run: |
-          xcodebuild archive \
+          ./scripts/xcodebuild_epistemos.sh archive \
             -project Epistemos.xcodeproj \
             -scheme Epistemos \
             -destination "platform=macOS,arch=arm64" \
             -archivePath build/Epistemos.xcarchive \
             -clonedSourcePackagesDirPath .spm-cache \
             CODE_SIGNING_ALLOWED=NO \
-            SKIP_INSTALL=NO \
-            | xcpretty --color
+            SKIP_INSTALL=NO
 
       - name: Extract .app from archive
         run: cp -R build/Epistemos.xcarchive/Products/Applications/Epistemos.app build/
+
+      - name: Codesign App
+        if: ${{ secrets.DEVELOPER_ID_APPLICATION != '' }}
+        env:
+          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+        run: |
+          codesign --deep --force --options runtime \
+            --sign "$DEVELOPER_ID_APPLICATION" \
+            --entitlements Epistemos/Epistemos.entitlements \
+            build/Epistemos.app
 
       - name: Create DMG
         run: |
@@ -89,7 +100,27 @@ jobs:
             --icon "Epistemos.app" 175 190 \
             --app-drop-link 425 190 \
             "build/Epistemos-${{ github.ref_name }}.dmg" \
-            "build/Epistemos.app" || true
+            "build/Epistemos.app"
+
+      - name: Notarize DMG
+        if: ${{ secrets.APPLE_ID != '' && secrets.NOTARIZATION_PASSWORD != '' && secrets.TEAM_ID != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARIZATION_PASSWORD: ${{ secrets.NOTARIZATION_PASSWORD }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+        run: |
+          xcrun notarytool submit "build/Epistemos-${{ github.ref_name }}.dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$NOTARIZATION_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait
+
+      - name: Staple Notarization Ticket
+        if: ${{ secrets.APPLE_ID != '' && secrets.NOTARIZATION_PASSWORD != '' && secrets.TEAM_ID != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          xcrun stapler staple "build/Epistemos-${{ github.ref_name }}.dmg"
 
       - name: Generate changelog
         id: changelog

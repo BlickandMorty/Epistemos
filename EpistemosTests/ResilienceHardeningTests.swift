@@ -16,7 +16,7 @@ struct CircuitBreakerTests {
 
     @Test("Opens after failure rate exceeds threshold")
     func opensOnHighFailureRate() async {
-        let breaker = AgentCircuitBreaker(domain: .hermes) // capacity 8, threshold 0.5
+        let breaker = AgentCircuitBreaker(domain: .vault) // capacity 8, threshold 0.75
         // Fill the buffer with failures to exceed threshold
         for _ in 0..<8 {
             await breaker.recordFailure()
@@ -55,7 +55,7 @@ struct CircuitBreakerTests {
 
     @Test("Reset clears all state")
     func resetClearsState() async {
-        let breaker = AgentCircuitBreaker(domain: .hermes) // capacity 8
+        let breaker = AgentCircuitBreaker(domain: .vault) // capacity 8
         // Trip it
         for _ in 0..<8 {
             await breaker.recordFailure()
@@ -369,11 +369,7 @@ struct FFITruthBoundaryTests {
 
     @Test("agent_core compiled with panic=unwind")
     func panicUnwindInCargoToml() throws {
-        let cargoTomlPath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("agent_core/Cargo.toml")
-        let content = try String(contentsOf: cargoTomlPath, encoding: .utf8)
+        let content = try loadMirroredSourceTextFile("agent_core/Cargo.toml")
         #expect(content.contains("panic = \"unwind\""),
                 "agent_core MUST use panic = \"unwind\" for catch_unwind to work in release builds")
         #expect(!content.contains("panic = \"abort\""),
@@ -382,11 +378,7 @@ struct FFITruthBoundaryTests {
 
     @Test("bridge.rs contains ffi_guard macros")
     func bridgeHasFfiGuardMacros() throws {
-        let bridgePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("agent_core/src/bridge.rs")
-        let content = try String(contentsOf: bridgePath, encoding: .utf8)
+        let content = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
         #expect(content.contains("ffi_guard_sync!"),
                 "bridge.rs must use ffi_guard_sync! macro for sync FFI exports")
         #expect(content.contains("panic_payload_to_string"),

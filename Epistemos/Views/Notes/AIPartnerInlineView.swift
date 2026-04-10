@@ -86,14 +86,27 @@ final class GhostTextRenderer {
         guard effectiveRange.length > 0 else { return }
 
         // Create a custom background highlight
-        guard let layoutManager = textView.layoutManager,
-              let textContainer = textView.textContainer else { return }
-
-        // Get the glyph range for the character range
-        let glyphRange = layoutManager.glyphRange(forCharacterRange: effectiveRange, actualCharacterRange: nil)
-
-        // Get the bounding rect
-        let boundingRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        // TextKit 2 path (macOS 26+): use NSTextLayoutManager for geometry
+        let boundingRect: NSRect
+        if let textLayoutManager = textView.textLayoutManager,
+           let contentManager = textLayoutManager.textContentManager,
+           let start = contentManager.location(contentManager.documentRange.location, offsetBy: effectiveRange.location),
+           let end = contentManager.location(start, offsetBy: effectiveRange.length) {
+            guard let textRange = NSTextRange(location: start, end: end) else { return }
+            var rect = NSRect.zero
+            textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, segmentRect, _, _ in
+                rect = rect == .zero ? segmentRect : rect.union(segmentRect)
+                return true
+            }
+            boundingRect = rect
+        } else if let layoutManager = textView.layoutManager,
+                  let textContainer = textView.textContainer {
+            // TextKit 1 fallback
+            let glyphRange = layoutManager.glyphRange(forCharacterRange: effectiveRange, actualCharacterRange: nil)
+            boundingRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        } else {
+            return
+        }
         
         // Create highlight overlay
         let highlightView = ContextHighlightView(frame: boundingRect)

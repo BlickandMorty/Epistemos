@@ -295,8 +295,8 @@ struct MemoryStressTests {
         
         peakMemory = max(peakMemory, MemoryTracker.currentMemoryUsage())
         
-        // Peak should be reasonable for 10k nodes
-        #expect(peakMemory < 750_000_000, // 750MB threshold (debug builds use more)
+        // Peak should stay below 750 MiB in debug builds.
+        #expect(peakMemory < 786_432_000,
                 "Peak memory \(MemoryTracker.formattedMemory(peakMemory)) too high")
     }
     

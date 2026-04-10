@@ -21,10 +21,15 @@ Keep building in Xcode for day-to-day work.
 Before you trust the branch as “still healthy,” run:
 
 ```bash
+# Deep audit gate
 ./scripts/audit/release_preflight.sh
+
+# Shipping bundle gate for a built Release app
+./scripts/release/release_preflight.sh \
+  build/release-derived-data/Build/Products/Release/Epistemos.app
 ```
 
-That is the new repeatable check for keeping the app release-ready on disk.
+Use the audit script when you want the heavier repo-wide regression check. Use the release preflight when you already have a built Release `.app` and want to validate the actual shipping bundle.
 
 ---
 
@@ -120,13 +125,29 @@ Manually verify:
 When you are ready to make a real public artifact:
 
 1. Build the app cleanly.
-2. Sign with `Developer ID Application`.
-3. Create the DMG.
-4. Submit for notarization.
-5. Staple the notarization ticket.
-6. Re-test the stapled DMG on a clean machine.
-7. Upload the DMG to GitHub Releases or your chosen host.
-8. Publish checksums and release notes.
+   ```bash
+   ./scripts/release/build_release_app.sh
+   ```
+2. Build and sign the distributable app:
+   ```bash
+   EPISTEMOS_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+   ./scripts/release/build_release_app.sh
+   ```
+3. Create the DMG:
+   ```bash
+   EPISTEMOS_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+   ./scripts/release/create_release_dmg.sh \
+     build/release-derived-data/Build/Products/Release/Epistemos.app
+   ```
+4. Submit for notarization:
+   ```bash
+   EPISTEMOS_NOTARY_PROFILE="epistemos-notary" \
+   ./scripts/release/notarize_release_dmg.sh \
+     build/release-artifacts/Epistemos.dmg
+   ```
+5. Re-test the stapled DMG on a clean machine.
+6. Upload the DMG to GitHub Releases or your chosen host.
+7. Publish checksums and release notes.
 
 ---
 
@@ -135,10 +156,11 @@ When you are ready to make a real public artifact:
 When you want everything on disk and GitHub aligned:
 
 1. Run `./scripts/audit/release_preflight.sh`
-2. Commit only after the preflight is green
-3. Push the branch
-4. Open or update the PR
-5. If it is the release commit:
+2. If you have a Release artifact, also run `./scripts/release/release_preflight.sh build/release-derived-data/Build/Products/Release/Epistemos.app`
+3. Commit only after the preflight is green
+4. Push the branch
+5. Open or update the PR
+6. If it is the release commit:
    - create a Git tag
    - create a GitHub Release
    - upload the DMG
@@ -160,4 +182,3 @@ What still keeps me from casually saying “ship it” is not code panic, it is 
 - fresh-machine verification
 
 If those go well, the branch is in a credible place for a direct-distribution release.
-

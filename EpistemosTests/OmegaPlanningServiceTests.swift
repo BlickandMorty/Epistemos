@@ -2,6 +2,10 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+// Legacy Omega planning/runtime permission tests are kept for reference while
+// the retired planning service types are no longer shipped.
+#if false
+
 @Suite("Omega Planning Service")
 @MainActor
 struct OmegaPlanningServiceTests {
@@ -71,3 +75,4 @@ struct OmegaPlanningServiceTests {
         #expect(!requirements.needsAutomation)
     }
 }
+#endif

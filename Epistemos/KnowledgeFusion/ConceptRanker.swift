@@ -10,9 +10,14 @@ nonisolated struct RankedConcept: Sendable, Equatable {
 
 nonisolated struct ConceptRanker: Sendable {
     private let nowProvider: @Sendable () -> Date
+    private let sentenceExtractor: @Sendable (KnowledgeSourceNote) -> [String]
 
-    init(nowProvider: @escaping @Sendable () -> Date = Date.init) {
+    init(
+        nowProvider: @escaping @Sendable () -> Date = Date.init,
+        sentenceExtractor: @escaping @Sendable (KnowledgeSourceNote) -> [String] = ConceptRanker.defaultSentenceCandidates
+    ) {
         self.nowProvider = nowProvider
+        self.sentenceExtractor = sentenceExtractor
     }
 
     func rankConcepts(notes: [KnowledgeSourceNote], limit: Int) -> [RankedConcept] {
@@ -26,6 +31,8 @@ nonisolated struct ConceptRanker: Sendable {
 
         for note in notes {
             let recencyMultiplier = recencyMultiplier(for: note.updatedAt, now: now)
+            let sentenceCandidates = sentenceExtractor(note)
+            let fallbackSnippet = note.body.isEmpty ? note.title : note.body
             var localScores: [String: Double] = [:]
 
             for tag in note.tags {
@@ -34,8 +41,9 @@ nonisolated struct ConceptRanker: Sendable {
                 localScores[term, default: 0] += 8
                 registerDefinitionCandidate(
                     term: term,
-                    note: note,
                     candidateScore: 8 * recencyMultiplier,
+                    sentenceCandidates: sentenceCandidates,
+                    fallbackSnippet: fallbackSnippet,
                     definitionCandidates: &definitionCandidates
                 )
             }
@@ -45,8 +53,9 @@ nonisolated struct ConceptRanker: Sendable {
                 localScores[token, default: 0] += 3
                 registerDefinitionCandidate(
                     term: token,
-                    note: note,
                     candidateScore: 3 * recencyMultiplier,
+                    sentenceCandidates: sentenceCandidates,
+                    fallbackSnippet: fallbackSnippet,
                     definitionCandidates: &definitionCandidates
                 )
             }
@@ -60,8 +69,9 @@ nonisolated struct ConceptRanker: Sendable {
                 localScores[token, default: 0] += Double(min(count, 3))
                 registerDefinitionCandidate(
                     term: token,
-                    note: note,
                     candidateScore: Double(min(count, 3)) * recencyMultiplier,
+                    sentenceCandidates: sentenceCandidates,
+                    fallbackSnippet: fallbackSnippet,
                     definitionCandidates: &definitionCandidates
                 )
             }
@@ -99,11 +109,16 @@ nonisolated struct ConceptRanker: Sendable {
 
     private func registerDefinitionCandidate(
         term: String,
-        note: KnowledgeSourceNote,
         candidateScore: Double,
+        sentenceCandidates: [String],
+        fallbackSnippet: String,
         definitionCandidates: inout [String: (score: Double, definition: String)]
     ) {
-        let definition = bestDefinitionSentence(for: term, in: note)
+        let definition = bestDefinitionSentence(
+            for: term,
+            sentenceCandidates: sentenceCandidates,
+            fallbackSnippet: fallbackSnippet
+        )
         guard !definition.isEmpty else { return }
         if let existing = definitionCandidates[term], existing.score >= candidateScore {
             return
@@ -111,25 +126,20 @@ nonisolated struct ConceptRanker: Sendable {
         definitionCandidates[term] = (candidateScore, definition)
     }
 
-    private func bestDefinitionSentence(for term: String, in note: KnowledgeSourceNote) -> String {
+    private func bestDefinitionSentence(
+        for term: String,
+        sentenceCandidates: [String],
+        fallbackSnippet: String
+    ) -> String {
         let trimmedTerm = term.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTerm.isEmpty else { return "" }
-        let haystack = note.body.isEmpty ? note.title : note.body
-        let sentences = haystack
-            .split(whereSeparator: { $0 == "." || $0 == "!" || $0 == "?" || $0 == "\n" })
-            .map {
-                $0.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            .filter { !$0.isEmpty }
-
-        if let match = sentences.first(where: {
+        if let match = sentenceCandidates.first(where: {
             $0.localizedCaseInsensitiveContains(trimmedTerm)
         }) {
             return String(match.prefix(180))
         }
 
-        let snippet = note.body.isEmpty ? note.title : note.body
-        return String(snippet.prefix(180)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(fallbackSnippet.prefix(180)).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func recencyMultiplier(for updatedAt: Date, now: Date) -> Double {
@@ -142,6 +152,14 @@ nonisolated struct ConceptRanker: Sendable {
         value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
+    }
+
+    private static func defaultSentenceCandidates(for note: KnowledgeSourceNote) -> [String] {
+        let haystack = note.body.isEmpty ? note.title : note.body
+        return haystack
+            .split(whereSeparator: { $0 == "." || $0 == "!" || $0 == "?" || $0 == "\n" })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     private func tokenize(_ value: String) -> [String] {

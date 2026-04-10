@@ -30,7 +30,9 @@ void graph_engine_clear(Engine* engine);
 /// Add a node to the graph.
 /// @param uuid       Null-terminated UTF-8 string.
 /// @param x, y       Initial position.
-/// @param node_type  0=Note, 1=Chat, 2=Idea, 3=Source, 4=Folder, 5=Quote, 6=Tag.
+/// @param node_type  0=Note, 1=Chat, 2=Idea, 3=Source, 4=Folder, 5=Quote,
+///                   6=Tag, 7=Block, 8=Person, 9=Project, 10=Topic,
+///                   11=Decision, 12=Event, 13=Resource.
 /// @param link_count Number of edges (used for radius sizing).
 /// @param label      Null-terminated UTF-8 string.
 void graph_engine_add_node(

@@ -61,12 +61,7 @@ struct NoteEditorLayoutTests {
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        return try String(
-            contentsOf: repoRoot.appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 
     @MainActor
@@ -199,12 +194,7 @@ struct NoteEditorLayoutTests {
             baseSize: MarkdownTextStorage.noteBaseFontSize + 31,
             nextLevelSize: MarkdownTextStorage.noteBaseFontSize + 5
         )
-        let previewSource = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Shared/MarkdownTextView.swift"
-            ),
-            encoding: .utf8
-        )
+        let previewSource = try loadMirroredSourceTextFile("Epistemos/Views/Shared/MarkdownTextView.swift")
 
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) == expectedShort)
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: longHeading) == expectedLong)
@@ -214,12 +204,7 @@ struct NoteEditorLayoutTests {
 
     @Test("note workspace removes the source scanning action")
     func noteWorkspaceRemovesSourceScanningAction() throws {
-        let source = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
-            ),
-            encoding: .utf8
-        )
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(!source.contains("Scan Sources"))
         #expect(!source.contains("scanForCitations"))
@@ -341,12 +326,7 @@ struct NoteEditorLayoutTests {
 
     @Test("note toolbar keeps secondary actions in the top-level more menu")
     func noteToolbarKeepsSecondaryActionsInTopLevelMoreMenu() throws {
-        let source = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
-            ),
-            encoding: .utf8
-        )
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(source.contains("Menu(\"Format\")"))
         #expect(source.contains("Label(\"Backlinks\", systemImage: \"link\")"))
@@ -442,11 +422,6 @@ struct NoteEditorLayoutTests {
         )
 
         #expect(controller.view.subviews.contains(host.view))
-    }
-
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
     }
 
     @Test("top spacing stays tight below the toolbar")

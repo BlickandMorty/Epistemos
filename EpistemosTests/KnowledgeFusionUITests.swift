@@ -173,13 +173,7 @@ struct KnowledgeFusionViewModelTests {
 
     @Test("Training history export routes through async view-model export")
     func trainingHistoryExportUsesAsyncViewModelPath() throws {
-        let repoRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: repoRoot.appendingPathComponent("Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift"),
-            encoding: .utf8
-        )
+        let source = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift")
 
         #expect(source.contains("await vm.exportAdapter("))
         #expect(source.contains("Task {"))

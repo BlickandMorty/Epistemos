@@ -766,8 +766,8 @@ struct LandingView: View {
             guard let bootstrap = AppBootstrap.shared else { return }
             let title = "Session Summary — \(Date.now.formatted(.dateTime.month(.abbreviated).day().year()))"
             var body = "# \(title)\n\n"
-            if !info.intentSummary.isEmpty {
-                body += "## Summary\n\(info.intentSummary)\n\n"
+            if !info.sanitizedIntentSummary.isEmpty {
+                body += "## Summary\n\(info.sanitizedIntentSummary)\n\n"
             }
             if !info.userNote.isEmpty {
                 body += "## Session Note\n\(info.userNote)\n\n"

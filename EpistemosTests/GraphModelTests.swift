@@ -4,9 +4,9 @@ import Testing
 @Suite("Graph Data Models")
 struct GraphModelTests {
 
-    @Test("GraphNodeType has exactly 8 cases")
+    @Test("GraphNodeType has exactly 14 cases")
     func nodeTypeCaseCount() {
-        #expect(GraphNodeType.allCases.count == 8)
+        #expect(GraphNodeType.allCases.count == 14)
     }
 
     @Test("All GraphNodeType cases have non-empty icon and displayName")

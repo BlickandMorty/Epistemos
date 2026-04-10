@@ -1242,10 +1242,14 @@ extension ProseEditorRepresentable2 {
             let delegate = tv.markdownDelegate
             markdown_clear_all_folds()
 
-            // Always expanded — clear all folds.
+            let maxLevel = mode.maxVisibleLevel
+
             for i in 0..<delegate.lineCount {
                 guard delegate.isHeading(at: i) else { continue }
-                markdown_set_fold(UInt32(i), false)
+                let headingLevel = delegate.headingLevel(at: i) ?? 1
+                // Fold headings deeper than maxVisibleLevel
+                let shouldFold = headingLevel > maxLevel
+                markdown_set_fold(UInt32(i), shouldFold)
             }
 
             delegate.recomputeHiddenLines(documentText: tv.string)

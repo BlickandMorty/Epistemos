@@ -916,7 +916,7 @@ impl Engine {
             let cam_moved = cam_dist_sq > threshold * threshold;
             let zoom_ratio = (zm / self.label_cache_zoom.max(0.001) - 1.0).abs();
             let zoom_changed = zoom_ratio > 0.05;
-            let physics_tick = positions_changed && self.idle_frame_count % 6 == 0;
+            let physics_tick = positions_changed && self.idle_frame_count.is_multiple_of(6);
             cam_moved || zoom_changed || physics_tick
         };
         if label_needs_rebuild {
@@ -1108,14 +1108,14 @@ impl Engine {
                 self.highlight_neighbors_by_id(drag.node_id);
             }
         }
-        
+
         // Background click (not on node) - check if it was a click vs drag
         if self.pan_active {
             let dx = screen_x - self.pan_origin_mouse[0];
             let dy = screen_y - self.pan_origin_mouse[1];
             let dist_sq = dx * dx + dy * dy;
             let click_threshold = 10.0f32; // pixels
-            
+
             // If it was a click (not a drag) and physics is frozen, zoom to fit
             if dist_sq < click_threshold * click_threshold {
                 let sim = self.sim.lock();
@@ -1126,7 +1126,7 @@ impl Engine {
                 }
             }
         }
-        
+
         self.pan_active = false;
     }
 
@@ -1374,7 +1374,13 @@ impl Engine {
     }
 
     /// Set label focus point and blur radii.
-    pub fn set_label_focus(&mut self, focus_x: f32, focus_y: f32, focus_radius: f32, blur_radius: f32) {
+    pub fn set_label_focus(
+        &mut self,
+        focus_x: f32,
+        focus_y: f32,
+        focus_radius: f32,
+        blur_radius: f32,
+    ) {
         self.renderer.label_focus = [focus_x, focus_y];
         self.renderer.label_focus_radius = focus_radius.max(0.0);
         self.renderer.label_blur_radius = blur_radius.max(focus_radius);
@@ -1397,7 +1403,9 @@ impl Engine {
         px_range: f32,
     ) {
         self.label_glyph_table = Some(crate::labels::GlyphTable::from_c_metrics(
-            metrics, line_height_em, px_range,
+            metrics,
+            line_height_em,
+            px_range,
         ));
     }
 
@@ -1412,10 +1420,13 @@ impl Engine {
     }
 
     fn rebuild_label_instances(&mut self, width: u32, height: u32) {
-        let Some(ref table) = self.label_glyph_table else { return };
+        let Some(ref table) = self.label_glyph_table else {
+            return;
+        };
         let camera = self.renderer.camera_offset;
         let zoom = self.renderer.camera_zoom;
-        let vp = crate::renderer::viewport_bounds(camera, zoom, [width as f32, height as f32], 64.0);
+        let vp =
+            crate::renderer::viewport_bounds(camera, zoom, [width as f32, height as f32], 64.0);
 
         let zoom_t = ((zoom - self.label_zoom_pivot) / self.label_zoom_pivot).clamp(0.0, 1.0);
         let bias = self.label_zoom_bias;
@@ -1448,19 +1459,33 @@ impl Engine {
         let selection_active = self.renderer.highlight.active;
         let highlight_ids = &self.renderer.highlight.highlighted_ids;
 
-        struct Scored<'a> { x: f32, y: f32, radius: f32, label: &'a str, score: f32, opacity: f32 }
-        let mut scored: Vec<Scored<'_>> = Vec::new();
-        scored.reserve(256);
+        struct Scored<'a> {
+            x: f32,
+            y: f32,
+            radius: f32,
+            label: &'a str,
+            score: f32,
+            opacity: f32,
+        }
+        let mut scored: Vec<Scored<'_>> = Vec::with_capacity(256);
 
         for node in &self.graph.nodes {
-            if !node.visible { continue; }
-            if node.x < vp.min_x || node.x > vp.max_x || node.y < vp.min_y || node.y > vp.max_y { continue; }
-            if node.label.is_empty() { continue; }
+            if !node.visible {
+                continue;
+            }
+            if node.x < vp.min_x || node.x > vp.max_x || node.y < vp.min_y || node.y > vp.max_y {
+                continue;
+            }
+            if node.label.is_empty() {
+                continue;
+            }
 
             // When a node is selected, only show labels for highlighted set
             // (selected + neighbors). Everything else disappears.
             let is_highlighted = selection_active && highlight_ids.contains(&node.id);
-            if selection_active && !is_highlighted { continue; }
+            if selection_active && !is_highlighted {
+                continue;
+            }
 
             let r = node.radius.max(0.1);
             let size_component = if bias > 0.0 {
@@ -1468,7 +1493,9 @@ impl Engine {
                 r * (1.0 - zoom_t * bias) + inverted * (zoom_t * bias)
             } else if bias < 0.0 {
                 r * (1.0 + zoom_t * (-bias))
-            } else { r };
+            } else {
+                r
+            };
 
             let link_boost = 1.0 + (node.link_count as f32).ln_1p() * 0.15;
 
@@ -1476,10 +1503,10 @@ impl Engine {
             // highlighted labels regardless of zoom level.
             let layer = if selection_active {
                 1.0
-            } else if match node.node_type {
-                crate::types::NodeType::Note | crate::types::NodeType::Chat => true,
-                _ => false,
-            } {
+            } else if matches!(
+                node.node_type,
+                crate::types::NodeType::Note | crate::types::NodeType::Chat
+            ) {
                 let type_thresh = match node.node_type {
                     crate::types::NodeType::Note => note_thresh,
                     crate::types::NodeType::Chat => chat_thresh,
@@ -1497,7 +1524,9 @@ impl Engine {
                 let s = t * t * (3.0 - 2.0 * t);
                 1.0 - s
             };
-            if layer < 0.02 { continue; }
+            if layer < 0.02 {
+                continue;
+            }
 
             let dx = node.x - camera[0];
             let dy = node.y - camera[1];
@@ -1510,24 +1539,46 @@ impl Engine {
                 let prox_linear = 1.0 - (dist / effective_radius).clamp(0.0, 1.0);
                 prox_linear.powf(proximity_exp)
             };
-            if proximity < 0.01 { continue; }
+            if proximity < 0.01 {
+                continue;
+            }
 
             let score = layer * size_component * link_boost * proximity;
-            scored.push(Scored { x: node.x, y: node.y, radius: node.radius, label: node.label.as_str(), score, opacity: layer * proximity });
+            scored.push(Scored {
+                x: node.x,
+                y: node.y,
+                radius: node.radius,
+                label: node.label.as_str(),
+                score,
+                opacity: layer * proximity,
+            });
         }
 
-        scored.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_unstable_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // When selection is active, show ALL highlighted labels (no cap).
         // Otherwise, lerp between outer and inner max based on zoom.
         let max_nodes = if selection_active {
             scored.len()
         } else {
-            let outer_max = if self.label_max_nodes == 0 { scored.len() } else { self.label_max_nodes as usize };
-            let inner_max = if self.label_max_inner_nodes == 0 { outer_max } else { self.label_max_inner_nodes as usize };
+            let outer_max = if self.label_max_nodes == 0 {
+                scored.len()
+            } else {
+                self.label_max_nodes as usize
+            };
+            let inner_max = if self.label_max_inner_nodes == 0 {
+                outer_max
+            } else {
+                self.label_max_inner_nodes as usize
+            };
             let inner_t = ((zoom - inner_start_base) / inner_window).clamp(0.0, 1.0);
             let inner_t_smooth = inner_t * inner_t * (3.0 - 2.0 * inner_t);
-            let cap_f = (outer_max as f32) * (1.0 - inner_t_smooth) + (inner_max as f32) * inner_t_smooth;
+            let cap_f =
+                (outer_max as f32) * (1.0 - inner_t_smooth) + (inner_max as f32) * inner_t_smooth;
             (cap_f.round() as usize).max(1).min(scored.len())
         };
 
@@ -1536,7 +1587,11 @@ impl Engine {
             visible.push((s.x, s.y, s.radius, s.label, s.opacity));
         }
 
-        let label_color = if self.renderer.light_mode { [0.06, 0.06, 0.08, 1.0] } else { [0.92, 0.92, 0.92, 1.0] };
+        let label_color = if self.renderer.light_mode {
+            [0.06, 0.06, 0.08, 1.0]
+        } else {
+            [0.92, 0.92, 0.92, 1.0]
+        };
 
         self.renderer.label_focus = camera;
         self.renderer.label_focus_radius = effective_radius * 0.8;
@@ -1544,12 +1599,29 @@ impl Engine {
 
         let mut scratch = std::mem::take(&mut self.label_instance_scratch);
         let screen_constant_px = self.label_world_px_per_em / zoom.max(0.01);
-        crate::labels::build_instances(&visible, table, camera, screen_constant_px, label_color, self.label_glyph_budget, &mut scratch);
+        crate::labels::build_instances(
+            &visible,
+            table,
+            camera,
+            screen_constant_px,
+            label_color,
+            self.label_glyph_budget,
+            &mut scratch,
+        );
         self.renderer.set_label_instances(&scratch);
         self.label_instance_scratch = scratch;
     }
 
-    pub fn set_label_policy(&mut self, max_nodes: u32, zoom_bias: f32, zoom_pivot: f32, focus_shrink: f32, folder_threshold: f32, note_threshold: f32, chat_threshold: f32) {
+    pub fn set_label_policy(
+        &mut self,
+        max_nodes: u32,
+        zoom_bias: f32,
+        zoom_pivot: f32,
+        focus_shrink: f32,
+        folder_threshold: f32,
+        note_threshold: f32,
+        chat_threshold: f32,
+    ) {
         self.label_max_nodes = max_nodes;
         self.label_zoom_bias = zoom_bias.clamp(-1.0, 1.0);
         self.label_zoom_pivot = zoom_pivot.max(0.1);

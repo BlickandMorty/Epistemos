@@ -2,12 +2,18 @@ pub mod agent_loop;
 pub mod bridge;
 pub mod compaction;
 pub mod context_compiler;
+pub mod context_loader;
+pub mod dispatcher;
+pub mod evolution;
+pub mod neocortex;
 pub mod error;
+pub mod error_classifier;
 pub mod example_bank;
 pub mod prompt_caching;
 pub mod prompts;
 pub mod provider;
 pub mod pty;
+pub mod reasoning_metrics;
 pub mod routing;
 pub mod security;
 pub mod session;
@@ -24,11 +30,18 @@ pub mod providers {
 }
 
 pub mod storage {
+    pub mod contradiction_detector;
     pub mod cross_propagation;
     pub mod diff_engine;
+    pub mod hyperbolic_topology;
     pub mod memory_classifier;
     pub mod memory_decay;
+    pub mod neural_cache;
     pub mod recipe_cache;
+    pub mod session_graph;
+    pub mod session_store;
+    pub mod skills_registry;
+    pub mod ssm_state;
     pub mod vault;
     pub mod vault_git;
 }

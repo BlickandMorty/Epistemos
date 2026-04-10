@@ -51,6 +51,7 @@ struct MiniChatViewAuditTests {
         let controllerSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let chatInputSource = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let mentionSource = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
         let threadStateSource = try loadRepoTextFile("Epistemos/State/ThreadState.swift")
 
         #expect(noteWorkspaceSource.contains("private var noteChatContextAttachment: ContextAttachment?"))
@@ -65,11 +66,12 @@ struct MiniChatViewAuditTests {
         #expect(miniChatSource.contains("threadState.addMiniChatContextAttachment(initialContextAttachment, chatID: chatID)"))
         #expect(miniChatSource.contains("return ChatCoordinator.searchReferenceResults("))
         #expect(miniChatSource.contains("ComposerReferenceHelpers.contextAttachment(for: choice)"))
-        #expect(miniChatSource.contains("ComposerReferenceHelpers.allNotesAttachment"))
 
         #expect(chatInputSource.contains("return ChatCoordinator.searchReferenceResults("))
         #expect(chatInputSource.contains("chat.addContextAttachment(ComposerReferenceHelpers.contextAttachment(for: choice))"))
-        #expect(chatInputSource.contains("chat.addContextAttachment(ComposerReferenceHelpers.allNotesAttachment)"))
+
+        #expect(mentionSource.contains("case .allNotes:"))
+        #expect(mentionSource.contains("static var allNotesAttachment: ContextAttachment"))
 
         #expect(threadStateSource.contains("let threadID = ensureMiniChatSession(id: chatID)"))
         #expect(threadStateSource.contains("if chatThreads[index].contextAttachments.contains(attachment) { return }"))
@@ -103,12 +105,18 @@ struct MiniChatViewAuditTests {
         #expect(coordinatorSource.contains("pipelineService.cancelActiveRun()"))
     }
 
+    @Test("mini chat hides the retired agent handoff instead of routing into Omega")
+    func miniChatHidesRetiredAgentHandoff() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChatSource.contains("private var supportedOperatingModes: [EpistemosOperatingMode]"))
+        #expect(miniChatSource.contains("filter { $0 != .agent }"))
+        #expect(miniChatSource.contains("availableOperatingModes: supportedOperatingModes"))
+        #expect(!miniChatSource.contains("UtilityWindowManager.shared.show(.omega)"))
+        #expect(!miniChatSource.contains("await orchestrator.submitTask"))
+    }
+
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        return try String(
-            contentsOf: repoRoot.appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

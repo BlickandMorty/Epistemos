@@ -121,6 +121,49 @@ namespace epistemos_core {
     /// Encode text to a float32 embedding. Returns JSON array of floats.
     string instant_recall_encode(string text);
 
+    // ── SSM State Persistence (Mamba vault memory) ─────────────────────────
+
+    /// Save SSM hidden state to flat binary file. Returns the file path.
+    /// vault_root: directory for state storage.
+    /// model_id, session_id: identifiers for scoping.
+    /// layer_count, state_dim, head_dim: tensor dimensions.
+    /// vault_id_hash, model_id_hash: pre-computed hashes for scoping.
+    /// has_conv_state: whether conv state is interleaved.
+    /// layer_data: raw f16 tensor bytes.
+    [Throws=SSMStateError]
+    string ssm_save_state(
+        string vault_root,
+        string model_id,
+        string session_id,
+        u32 layer_count,
+        u32 state_dim,
+        u32 head_dim,
+        u64 vault_id_hash,
+        u64 model_id_hash,
+        boolean has_conv_state,
+        sequence<u8> layer_data
+    );
+
+    /// Load SSM hidden state from a file. Returns JSON metadata + base64 layer data.
+    [Throws=SSMStateError]
+    string ssm_load_state(string file_path);
+
+    /// List all saved SSM states. Returns JSON array of metadata.
+    /// model_hash_filter: if non-zero, filter to this model only.
+    [Throws=SSMStateError]
+    string ssm_list_states(string vault_root, u64 model_hash_filter);
+
+    /// Prune old SSM states, keeping most recent keep_count.
+    /// model_hash_filter: if non-zero, prune only this model.
+    [Throws=SSMStateError]
+    u32 ssm_prune_states(string vault_root, u64 model_hash_filter, u32 keep_count);
+
+    /// Compute stable u64 hash for vault path scoping.
+    u64 ssm_hash_vault_path(string vault_root);
+
+    /// Compute stable u64 hash for model identity.
+    u64 ssm_hash_model_id(string model_id);
+
     // ── Scheduling ──────────────────────────────────────────────────────────
 
     /// Evaluate whether training should run and at which tier.
@@ -267,4 +310,10 @@ enum TextNormalizationError {
     "ContainsNullByte",
     "ContainsReplacementCharacter",
     "ContainsMidStringBom"
+};
+
+[Error]
+enum SSMStateError {
+    "Io",
+    "InvalidFormat"
 };

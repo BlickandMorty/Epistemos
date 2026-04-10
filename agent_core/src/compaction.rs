@@ -307,7 +307,7 @@ fn collect_tool_use_ids(messages: &[Message]) -> std::collections::HashSet<Strin
     ids
 }
 
-/// Remove orphaned tool results and strip thinking blocks from compacted region.
+/// Remove orphaned tool results from retained history after compaction.
 fn sanitize_message(
     message: &Message,
     valid_tool_use_ids: &std::collections::HashSet<String>,
@@ -331,21 +331,7 @@ fn sanitize_message(
                 Message::User { content: cleaned }
             }
         }
-        Message::Assistant { content } => {
-            let cleaned: Vec<ContentBlock> = content
-                .iter()
-                .filter(|block| !matches!(block, ContentBlock::Thinking { .. }))
-                .cloned()
-                .collect();
-
-            if cleaned.is_empty() {
-                Message::assistant(vec![ContentBlock::Text {
-                    text: "[compacted assistant reasoning]".to_string(),
-                }])
-            } else {
-                Message::assistant(cleaned)
-            }
-        }
+        Message::Assistant { content } => Message::assistant(content.clone()),
     }
 }
 
@@ -520,12 +506,35 @@ mod tests {
     }
 
     #[test]
-    fn thinking_blocks_stripped_during_compaction() {
+    fn compaction_summary_omits_thinking_signatures() {
         let messages = make_test_conversation(8);
         let compacted = compact_messages(&messages, 4, 16_384);
 
-        let summary_text = extract_text_from_message(&compacted[1]);
+        let summary_text = compacted
+            .iter()
+            .map(|m| extract_text_from_message(m))
+            .find(|t| t.contains(COMPACTION_MARKER))
+            .expect("summary message with compaction marker not found");
         assert!(!summary_text.contains("sig-"));
+    }
+
+    #[test]
+    fn recent_thinking_blocks_survive_compaction() {
+        let messages = make_test_conversation(8);
+        let compacted = compact_messages(&messages, 4, 16_384);
+
+        let retained_thinking = compacted.iter().rev().find_map(|message| match message {
+            Message::Assistant { content } => content.iter().find_map(|block| match block {
+                ContentBlock::Thinking { thinking, .. } => Some(thinking.as_str()),
+                _ => None,
+            }),
+            _ => None,
+        });
+
+        assert_eq!(
+            retained_thinking,
+            Some("I should search for topic 7. Decision: use vault_search first.")
+        );
     }
 
     #[test]

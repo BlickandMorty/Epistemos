@@ -14,7 +14,6 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     // MARK: - Gemma 4 Family (2026 frontier)
     case gemma4_2B4Bit = "mlx-community/gemma-4-e2b-it-4bit"
     case gemma4_4B4Bit = "mlx-community/gemma-4-e4b-it-4bit"
-    case gemma4_12B4Bit = "mlx-community/gemma-4-12b-it-4bit"  // May not exist yet — placeholder
     case gemma4_27BA4B4Bit = "mlx-community/gemma-4-26b-a4b-it-4bit"
     case gemma4_31BJANG = "dealignai/Gemma-4-31B-JANG_4M-CRACK"
 
@@ -25,6 +24,24 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     // MARK: - Specialist Models
     case deepseekR1Distill7B = "mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit"
     case qwen25Coder7B = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+
+    // MARK: - LFM2.5 (Liquid Foundation Model 2.5 — SSM hybrid, on-device optimized)
+    case lfm25_350M = "LiquidAI/LFM2.5-350M-MLX-4bit"
+    case lfm25_1BInstruct = "LiquidAI/LFM2.5-1.2B-Instruct-MLX-4bit"
+    case lfm25_1BThinking = "LiquidAI/LFM2.5-1.2B-Thinking-MLX-4bit"
+    case lfm25_VL1B = "mlx-community/LFM2.5-VL-1.6B-4bit"
+    case lfm25_Audio1B = "mlx-community/LFM2.5-Audio-1.5B-4bit"
+
+    // MARK: - LFM2 (Liquid Foundation Model 2 — larger SSM variants)
+    case lfm2_2B4Bit = "mlx-community/LFM2-2.6B-4bit"
+    case lfm2_8BA1B3Bit = "mlx-community/LFM2-8B-A1B-3bit-MLX"
+    case lfm2_24BA2B4Bit = "LiquidAI/LFM2-24B-A2B-MLX-4bit"
+
+    // MARK: - Other SSM Models (Mamba2, Jamba, FalconH1)
+    case mamba2_2B4Bit = "mlx-community/mamba2-2.7b-4bit"
+    case jamba3B = "mlx-community/AI21-Jamba-Reasoning-3B-bf16"
+    case falconH1_1B4Bit = "mlx-community/Falcon-H1-1.5B-Instruct-4bit"
+    case falconH1R_7B4Bit = "mlx-community/Falcon-H1R-7B-4bit"
 
     // MARK: - Other Families
     case smolLM3_3B4Bit = "mlx-community/SmolLM3-3B-4bit"
@@ -43,13 +60,24 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_35BA3B4Bit: "Qwen 3.5 35B MoE"
         case .gemma4_2B4Bit: "Gemma 4 2B"
         case .gemma4_4B4Bit: "Gemma 4 4B"
-        case .gemma4_12B4Bit: "Gemma 4 12B"
         case .gemma4_27BA4B4Bit: "Gemma 4 27B MoE"
         case .gemma4_31BJANG: "Gemma 4 31B JANG"
         case .qwopus27Bv3: "Qwopus 27B v3"
         case .qwopusMoE35BA3B: "Qwopus MoE 35B"
         case .deepseekR1Distill7B: "DeepSeek R1 7B"
         case .qwen25Coder7B: "Qwen 2.5 Coder 7B"
+        case .lfm25_350M: "LFM2.5 350M"
+        case .lfm25_1BInstruct: "LFM2.5 1.2B"
+        case .lfm25_1BThinking: "LFM2.5 1.2B Thinking"
+        case .lfm25_VL1B: "LFM2.5 VL 1.6B"
+        case .lfm25_Audio1B: "LFM2.5 Audio 1.5B"
+        case .lfm2_2B4Bit: "LFM2 2.6B"
+        case .lfm2_8BA1B3Bit: "LFM2 8B MoE"
+        case .lfm2_24BA2B4Bit: "LFM2 24B MoE"
+        case .mamba2_2B4Bit: "Mamba2 2.7B"
+        case .jamba3B: "Jamba Reasoning 3B"
+        case .falconH1_1B4Bit: "FalconH1 1.5B"
+        case .falconH1R_7B4Bit: "FalconH1R 7B"
         case .smolLM3_3B4Bit: "SmolLM3 3B"
         case .devstralSmall2505_4Bit: "Devstral Small"
         case .mistralSmall31_24B4Bit: "Mistral Small 24B"
@@ -68,7 +96,6 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_35BA3B4Bit: "Qwen 35B"
         case .gemma4_2B4Bit: "Gemma 2B"
         case .gemma4_4B4Bit: "Gemma 4B"
-        case .gemma4_12B4Bit: "Gemma 12B"
         case .gemma4_27BA4B4Bit: "Gemma 27B"
         case .gemma4_31BJANG: "Gemma 31B"
         case .qwopus27Bv3: "Qwopus 27B"
@@ -80,6 +107,18 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .mistralSmall31_24B4Bit: "Mistral 24B"
         case .gemma3_27BQAT4Bit: "Gemma3 27B"
         case .llama4Scout17B16E4Bit: "Llama 4"
+        case .lfm25_350M: "LFM 350M"
+        case .lfm25_1BInstruct: "LFM2.5"
+        case .lfm25_1BThinking: "LFM2.5 Think"
+        case .lfm25_VL1B: "LFM2.5 VL"
+        case .lfm25_Audio1B: "LFM2.5 Audio"
+        case .lfm2_2B4Bit: "LFM2 2.6B"
+        case .lfm2_8BA1B3Bit: "LFM2 8B"
+        case .lfm2_24BA2B4Bit: "LFM2 24B"
+        case .mamba2_2B4Bit: "Mamba2"
+        case .jamba3B: "Jamba 3B"
+        case .falconH1_1B4Bit: "FalconH1"
+        case .falconH1R_7B4Bit: "FalconH1R"
         }
     }
 
@@ -88,7 +127,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit,
              .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             "Qwen 3.5"
-        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_12B4Bit,
+        case .gemma4_2B4Bit, .gemma4_4B4Bit,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             "Gemma 4"
         case .qwopus27Bv3, .qwopusMoE35BA3B:
@@ -107,16 +146,43 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             "Gemma 3"
         case .llama4Scout17B16E4Bit:
             "Llama 4"
+        case .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B:
+            "LFM2.5"
+        case .lfm2_2B4Bit, .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit:
+            "LFM2"
+        case .mamba2_2B4Bit:
+            "Mamba2"
+        case .jamba3B:
+            "Jamba"
+        case .falconH1_1B4Bit, .falconH1R_7B4Bit:
+            "FalconH1"
+        }
+    }
+
+    /// Whether this model uses SSM (State Space Model) architecture.
+    /// SSM models have fixed-size hidden state (not KV cache) enabling
+    /// infinite context with constant memory. Used as the "Neocortex" layer.
+    var isSSM: Bool {
+        switch self {
+        case .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B,
+             .lfm2_2B4Bit, .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit,
+             .mamba2_2B4Bit, .jamba3B,
+             .falconH1_1B4Bit, .falconH1R_7B4Bit:
+            true
+        default:
+            false
         }
     }
 
     var minimumRecommendedMemoryGB: Int {
         switch self {
-        case .qwen35_0_8B4Bit, .gemma4_2B4Bit: 8
-        case .qwen35_2B4Bit: 12
+        case .qwen35_0_8B4Bit, .gemma4_2B4Bit, .falconH1_1B4Bit,
+             .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B: 8
+        case .qwen35_2B4Bit, .lfm2_2B4Bit, .mamba2_2B4Bit: 8
         case .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit: 8
-        case .deepseekR1Distill7B, .qwen25Coder7B: 16
-        case .gemma4_12B4Bit, .qwen35_9B4Bit: 18
+        case .deepseekR1Distill7B, .qwen25Coder7B, .lfm2_8BA1B3Bit, .falconH1R_7B4Bit: 16
+        case .qwen35_9B4Bit, .jamba3B: 18
+        case .lfm2_24BA2B4Bit: 24
         case .gemma4_27BA4B4Bit, .gemma4_31BJANG: 18
         case .qwopus27Bv3, .devstralSmall2505_4Bit,
              .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit: 24
@@ -128,7 +194,9 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     nonisolated static var ascendingBySize: [LocalTextModelID] {
         allCases.sorted { lhs, rhs in
             if lhs.minimumRecommendedMemoryGB == rhs.minimumRecommendedMemoryGB {
-                return lhs.rawValue < rhs.rawValue
+                let lhsIndex = allCases.firstIndex(of: lhs) ?? 0
+                let rhsIndex = allCases.firstIndex(of: rhs) ?? 0
+                return lhsIndex < rhsIndex
             }
             return lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
         }
@@ -136,8 +204,9 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportsThinkingMode: Bool {
         switch self {
-        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
-             .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .lfm25_1BThinking, .jamba3B,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B:
             true
@@ -149,10 +218,14 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var canActAsAgent: Bool {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
-             .gemma4_4B4Bit, .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B, .qwen25Coder7B,
-             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit:
+             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit,
+             .llama4Scout17B16E4Bit,
+             .lfm2_2B4Bit,
+             .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit,
+             .jamba3B, .falconH1R_7B4Bit:
             true
         default:
             false
@@ -160,15 +233,35 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     }
 
     var supportsAgentMode: Bool {
+        canActAsAgent && LocalToolGrammar.supportsStructuredToolCalling
+    }
+
+    var isReleaseValidatedForInteractiveChat: Bool {
         switch self {
-        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
-             .gemma4_4B4Bit, .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
-             .qwopus27Bv3, .qwopusMoE35BA3B,
-             .deepseekR1Distill7B, .qwen25Coder7B,
-             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit:
-            true
-        default:
+        case .qwen35_4B4Bit, .qwen35_9B4Bit,
+             .lfm25_1BThinking, .lfm2_8BA1B3Bit, .mamba2_2B4Bit, .falconH1_1B4Bit:
             false
+        default:
+            true
+        }
+    }
+
+    var releasePickerVisibilityReason: String? {
+        switch self {
+        case .qwen35_4B4Bit:
+            "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
+        case .qwen35_9B4Bit:
+            "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
+        case .lfm2_8BA1B3Bit:
+            "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
+        case .lfm25_1BThinking:
+            "Hidden from the release chat picker after the April 9 live sweep failed basic fast-mode quality and thinking-mode arithmetic."
+        case .mamba2_2B4Bit:
+            "Hidden from the release chat picker because the installed MLX artifact has no chat template, the April 9 Mamba-only live sweep rerun corrupted its result bundle, and interactive chat is not release-validated yet."
+        case .falconH1_1B4Bit:
+            "Hidden from the release chat picker after the April 8 live sweep failed basic chat quality and long-context grounding."
+        default:
+            nil
         }
     }
 
@@ -184,7 +277,6 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // Gemma 4: all variants support 128K-256K (model card: 256K with p-RoPE)
         case .gemma4_2B4Bit: 128_000       // E2B: 128K (model card)
         case .gemma4_4B4Bit: 128_000       // E4B: 128K
-        case .gemma4_12B4Bit: 256_000      // 12B: 256K
         case .gemma4_27BA4B4Bit: 256_000   // 27B MoE: 256K
         case .gemma4_31BJANG: 256_000      // 31B JANG: 256K
         // Qwen 3.5: ALL variants support 262K (Unsloth docs, architecture spec)
@@ -206,15 +298,30 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .mistralSmall31_24B4Bit: 128_000 // Mistral Small 3.1: 128K
         case .gemma3_27BQAT4Bit: 131_072
         case .llama4Scout17B16E4Bit: 131_072
+        // SSM / State Space Models — context is theoretically infinite (fixed state)
+        // but practical limits depend on training data and positional encoding
+        case .lfm25_350M: 128_000                           // LFM2.5 350M: 128K
+        case .lfm25_1BInstruct, .lfm25_1BThinking: 128_000 // LFM2.5: 128K
+        case .lfm25_VL1B: 128_000                           // LFM2.5 VL: 128K
+        case .lfm25_Audio1B: 32_768                         // Audio path not yet surfaced locally
+        case .lfm2_2B4Bit: 128_000                          // LFM2: 128K
+        case .lfm2_8BA1B3Bit: 128_000                       // LFM2 8B MoE: 128K
+        case .lfm2_24BA2B4Bit: 128_000                      // LFM2 24B MoE: 128K
+        case .mamba2_2B4Bit: 128_000                         // Mamba2 2.7B: long-context SSM path
+        case .jamba3B: 262_144                               // Jamba: 256K
+        case .falconH1_1B4Bit: 131_072                       // Falcon H1 1.5B Instruct: 128K
+        case .falconH1R_7B4Bit: 262_144                      // Falcon H1R 7B: 256K
         }
     }
 
     /// Whether the model natively supports vision (image/video input).
     var supportsVision: Bool {
         switch self {
-        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_12B4Bit,
+        case .gemma4_2B4Bit, .gemma4_4B4Bit,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             true  // All Gemma 4 are multimodal
+        case .lfm25_VL1B:
+            true  // LFM2.5 Vision-Language
         case .gemma3_27BQAT4Bit:
             true  // Gemma 3 is multimodal
         case .llama4Scout17B16E4Bit:
@@ -231,7 +338,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwopus27Bv3, .qwopusMoE35BA3B:
             true  // Trained with RL specifically for tool calling
-        case .gemma4_12B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             true  // Gemma 4 supports native JSON tool use
         case .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             true  // Qwen 3.5 large supports tool calling
@@ -239,6 +346,10 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             true  // Devstral designed for coding + tool use
         case .qwen25Coder7B:
             true  // Qwen Coder supports function calling
+        case .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit:
+            true  // LFM2 has native tool call format (.lfm2)
+        case .jamba3B:
+            true  // Jamba supports structured tool calling
         default:
             false // Small models lack reliable tool call formatting
         }
@@ -256,7 +367,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var optimalTemperature: Float {
         switch self {
         // Gemma 4: trained at temp=1.0 (official model card spec)
-        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_12B4Bit,
+        case .gemma4_2B4Bit, .gemma4_4B4Bit,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             1.0
         // Qwen 3.5: official spec recommends 0.7 for fast mode
@@ -282,6 +393,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             0.7
         case .llama4Scout17B16E4Bit:
             0.6
+        // SSM models: Liquid AI recommends 0.7, Mamba2/Falcon similar
+        case .lfm25_350M, .lfm25_1BInstruct, .lfm25_VL1B, .lfm25_Audio1B: 0.7  // LFM2.5 fast mode
+        case .lfm25_1BThinking: 0.6                         // LFM2.5 thinking variant: slightly lower
+        case .lfm2_2B4Bit, .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit: 0.7  // LFM2 family
+        case .mamba2_2B4Bit: 0.8                             // Mamba2: Cartesia default
+        case .jamba3B: 0.7                                   // Jamba: AI21 default
+        case .falconH1_1B4Bit, .falconH1R_7B4Bit: 0.7       // FalconH1: TII default
         }
     }
 
@@ -295,6 +413,10 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             0.0   // Qwopus inherits Qwen thinking behavior
         case .deepseekR1Distill7B:
             0.1   // DeepSeek R1: very low but not greedy (HF card)
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            1.0   // Gemma 4: trained at temp=1.0, thinking uses same (model card)
+        case .lfm25_1BThinking:
+            0.6   // LFM2.5 Thinking: optimized for CoT (Liquid AI docs)
         default:
             nil   // No thinking mode
         }
@@ -360,7 +482,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // Medium models: balanced KV
         case .deepseekR1Distill7B, .qwen25Coder7B:
             3_072
-        case .qwen35_9B4Bit, .gemma4_12B4Bit:
+        case .qwen35_9B4Bit:
             2_560
         // Large models: conservative KV (VRAM constrained)
         case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
@@ -380,6 +502,14 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             2_048
         case .llama4Scout17B16E4Bit:
             1_024
+        // SSM models: no KV cache (fixed state), but MLX still allocates a buffer
+        // Use generous sizes since SSM state is tiny (~6-24MB)
+        case .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B: 8_192
+        case .lfm2_2B4Bit, .mamba2_2B4Bit: 6_144
+        case .falconH1_1B4Bit: 8_192
+        case .lfm2_8BA1B3Bit, .falconH1R_7B4Bit: 4_096
+        case .jamba3B: 4_096
+        case .lfm2_24BA2B4Bit: 2_048
         }
     }
 
@@ -388,7 +518,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var isMoE: Bool {
         switch self {
         case .gemma4_27BA4B4Bit, .qwen35_35BA3B4Bit, .qwopusMoE35BA3B,
-             .llama4Scout17B16E4Bit:
+             .llama4Scout17B16E4Bit,
+             .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit:  // LFM2 MoE variants
             true
         default:
             false
@@ -404,13 +535,24 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_4B4Bit, .gemma4_4B4Bit: 4.0
         case .deepseekR1Distill7B, .qwen25Coder7B: 7.0
         case .qwen35_9B4Bit: 9.0
-        case .gemma4_12B4Bit: 12.0
         case .gemma4_27BA4B4Bit: 4.0  // MoE: 27B total, 4B active
         case .qwen35_27B4Bit, .qwopus27Bv3: 27.0
         case .gemma4_31BJANG, .gemma3_27BQAT4Bit: 27.0
         case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit: 24.0
         case .qwen35_35BA3B4Bit, .qwopusMoE35BA3B: 3.0  // MoE: 35B total, 3B active
         case .llama4Scout17B16E4Bit: 17.0
+        // SSM models
+        case .lfm25_350M: 0.35
+        case .lfm25_1BInstruct, .lfm25_1BThinking: 1.2
+        case .lfm25_VL1B: 1.6
+        case .lfm25_Audio1B: 1.5
+        case .lfm2_2B4Bit: 2.6
+        case .lfm2_8BA1B3Bit: 1.0   // MoE: 8B total, ~1B active per token
+        case .lfm2_24BA2B4Bit: 2.0  // MoE: 24B total, ~2B active per token
+        case .mamba2_2B4Bit: 2.7
+        case .jamba3B: 3.0
+        case .falconH1_1B4Bit: 1.5
+        case .falconH1R_7B4Bit: 7.0
         }
     }
 
@@ -425,7 +567,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             .reasoning    // DeepSeek R1 reasoning distilled
         case .gemma4_31BJANG:
             .general      // Abliterated: unconstrained general use
-        case .gemma4_27BA4B4Bit, .gemma4_12B4Bit:
+        case .gemma4_27BA4B4Bit:
             .multimodal   // Vision + reasoning
         case .gemma4_2B4Bit, .gemma4_4B4Bit:
             .routing      // Fast intent classification
@@ -471,12 +613,9 @@ extension LocalTextModelID {
             .fullAgent    // Best sub-10B coding model, native tool calling
         case .deepseekR1Distill7B:
             .readWrite    // Strong reasoning but tool call JSON can be unreliable
-        // Medium models (9-12B): Qwen 9B gets full agent (thinking + 262K),
-        // Gemma 12B gets readWrite (no thinking, vision-focused)
+        // Medium local models: Qwen 9B gets full agent (thinking + 262K)
         case .qwen35_9B4Bit:
             .fullAgent
-        case .gemma4_12B4Bit:
-            .readWrite
         // Large models (27B+): full tool set — smart enough for shell/browser
         case .qwopus27Bv3, .qwopusMoE35BA3B,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG,
@@ -484,6 +623,17 @@ extension LocalTextModelID {
              .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit,
              .gemma3_27BQAT4Bit, .llama4Scout17B16E4Bit:
             .fullAgent
+        // SSM models: tool tier based on size and architecture
+        case .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B,
+             .falconH1_1B4Bit:
+            .readOnly    // Small SSMs: vault/search only
+        case .lfm2_2B4Bit:
+            .readWrite   // Mid SSMs: vault read/write
+        case .mamba2_2B4Bit:
+            .readOnly    // Custom Metal path is warmup-only in this release; keep agent loop hidden
+        case .jamba3B, .falconH1R_7B4Bit,
+             .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit:
+            .fullAgent   // Large SSMs: full tool use
         }
     }
 
@@ -834,6 +984,18 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var providerDisplayName: String {
         provider.displayName
+    }
+
+    var aboutSheetBadge: String {
+        provider.displayName
+    }
+
+    var aboutSheetModeSummary: String {
+        supportedOperatingModes.map(\.displayName).joined(separator: ", ")
+    }
+
+    var aboutSheetStructuredOutputSummary: String {
+        supportsStructuredOutput ? "Structured JSON" : "Prompt JSON fallback"
     }
 
     /// Whether this model supports native structured output (JSON schema).
@@ -1934,7 +2096,7 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
     }
 
     /// Recommends the best local model for the available memory.
-    /// Uses 2026 frontier models: Gemma 4 for small/multimodal, Qwopus for coding.
+    /// Uses the MLX-native release catalog only.
     nonisolated var recommendedLocalTextModelID: LocalTextModelID {
         switch roundedMemoryGB {
         case ..<12:
@@ -1946,18 +2108,43 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         case ..<24:
             .gemma4_27BA4B4Bit       // Best 18GB: MoE 4B active, 262K, multimodal (was Qwen 9B)
         case ..<48:
-            .qwopus27Bv3             // Best 24GB: 95.73% HumanEval, tool calling (was Qwen 27B)
+            .qwen35_35BA3B4Bit       // 24GB MLX tier with strong reasoning and large context
         default:
-            .qwopusMoE35BA3B         // Best 48GB+: fast MoE with Opus reasoning (was Qwen 35B)
+            .qwen35_27B4Bit          // Largest dense MLX tier for high-memory Macs
         }
     }
 
     nonisolated func smallerLocalTextModelID(than modelID: LocalTextModelID) -> LocalTextModelID? {
-        guard let index = LocalTextModelID.ascendingBySize.firstIndex(of: modelID),
-              index > 0 else {
-            return nil
+        switch modelID {
+        case .gemma4_2B4Bit:
+            return .qwen35_0_8B4Bit
+        case .gemma4_4B4Bit:
+            return .qwen35_2B4Bit
+        case .deepseekR1Distill7B:
+            return .gemma4_4B4Bit
+        case .gemma4_27BA4B4Bit:
+            return .deepseekR1Distill7B
+        case .qwen35_35BA3B4Bit, .qwen35_27B4Bit:
+            return .gemma4_27BA4B4Bit
+        default:
+            break
         }
-        return LocalTextModelID.ascendingBySize[index - 1]
+
+        let installableModelIDs = Set(
+            LocalModelCatalog.textDescriptors.compactMap { LocalTextModelID(rawValue: $0.id) }
+        )
+        let orderedModelIDs = LocalTextModelID.ascendingBySize.filter {
+            installableModelIDs.contains($0) && $0.isReleaseValidatedForInteractiveChat
+        }
+        if let currentIndex = orderedModelIDs.firstIndex(of: modelID), currentIndex > 0 {
+            return orderedModelIDs[currentIndex - 1]
+        }
+
+        return orderedModelIDs
+            .last { candidate in
+                candidate != modelID
+                    && candidate.minimumRecommendedMemoryGB <= modelID.minimumRecommendedMemoryGB
+            }
     }
 
     nonisolated var recommendedConstrainedLocalTextModelID: LocalTextModelID? {
@@ -2044,6 +2231,23 @@ final class InferenceState {
     private nonisolated static let firecrawlAPIKeyKeychainKey = "epistemos.firecrawl.apiKey"
     private nonisolated static let cloudSetupHintShownDefaultsKey = "epistemos.cloudSetupHintShown"
     private nonisolated static let cloudValidationTimeout: Duration = .seconds(90)
+    private nonisolated static let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
+    private nonisolated static func defaultKeychainLoad(_ key: String) -> String? {
+        guard !isRunningTests else { return nil }
+        return Keychain.load(for: key)
+    }
+
+    private nonisolated static func defaultKeychainSave(_ value: String, _ key: String) -> Bool {
+        guard !isRunningTests else { return false }
+        return Keychain.save(value, for: key)
+    }
+
+    private nonisolated static func defaultKeychainDelete(_ key: String) {
+        guard !isRunningTests else { return }
+        Keychain.delete(for: key)
+    }
 
     /// Transient image URLs for the current inference request.
     /// Set by ChatCoordinator before inference, consumed by MLXInferenceService, cleared after.
@@ -2093,11 +2297,9 @@ final class InferenceState {
     private(set) var hasShownCloudSetupHint = false
 
     init(
-        keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
-        keychainSave: @escaping (String, String) -> Bool = { value, key in
-            Keychain.save(value, for: key)
-        },
-        keychainDelete: @escaping (String) -> Void = { Keychain.delete(for: $0) }
+        keychainLoad: @escaping (String) -> String? = InferenceState.defaultKeychainLoad,
+        keychainSave: @escaping (String, String) -> Bool = InferenceState.defaultKeychainSave,
+        keychainDelete: @escaping (String) -> Void = InferenceState.defaultKeychainDelete
     ) {
         self.keychainLoad = keychainLoad
         self.keychainSave = keychainSave
@@ -2321,8 +2523,10 @@ final class InferenceState {
             routingMode: routingMode,
             appleIntelligenceAvailable: appleIntelligenceAvailable,
             preferredChatModelSelection: preferredChatModelSelection,
-            preferredLocalTextModelID: preferredLocalTextModelID,
-            installedLocalTextModelIDs: installedLocalTextModelIDs,
+            preferredLocalTextModelID: sanitizedInteractiveLocalTextModelID(
+                for: preferredLocalTextModelID
+            ) ?? preferredLocalTextModelID,
+            installedLocalTextModelIDs: Set(releaseSelectableInstalledLocalTextModelIDs),
             hardwareCapabilitySnapshot: hardwareCapabilitySnapshot,
             runtimeConditions: localRuntimeConditions
         )
@@ -2331,7 +2535,10 @@ final class InferenceState {
     private var supportedInstalledLocalTextModels: [LocalTextModelID] {
         installedLocalTextModelIDs
             .compactMap(LocalTextModelID.init(rawValue:))
-            .filter { hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue) }
+            .filter {
+                hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
+                    && $0.isReleaseValidatedForInteractiveChat
+            }
             .sorted { lhs, rhs in
                 if lhs.minimumRecommendedMemoryGB == rhs.minimumRecommendedMemoryGB {
                     return lhs.rawValue < rhs.rawValue
@@ -2340,8 +2547,22 @@ final class InferenceState {
             }
     }
 
+    var releaseSelectableInstalledLocalTextModelIDs: [String] {
+        supportedInstalledLocalTextModels.map(\.rawValue)
+    }
+
+    var releaseHiddenInstalledLocalTextModelCount: Int {
+        installedLocalTextModelIDs
+            .compactMap(LocalTextModelID.init(rawValue:))
+            .filter {
+                hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
+                    && !$0.isReleaseValidatedForInteractiveChat
+            }
+            .count
+    }
+
     var effectiveLocalTextModelID: String? {
-        policyEngine.resolvedPreferredLocalSelection(in: policyContext)?.modelID
+        sanitizedInteractiveLocalTextModelID(for: preferredLocalTextModelID)
     }
 
     var hasUsableLocalTextModel: Bool {
@@ -2370,7 +2591,7 @@ final class InferenceState {
                   let model = LocalTextModelID(rawValue: activeModelID) else {
                 return OperatingModeCapabilities(availableModes: [.fast])
             }
-            // Only models explicitly marked canActAsAgent get the agent option.
+            // Only models with validated mode flags get exposed in the picker.
             var modes: [EpistemosOperatingMode] = [.fast]
             if model.supportsThinkingMode {
                 modes.append(.thinking)
@@ -2412,7 +2633,12 @@ final class InferenceState {
     }
 
     var activeChatModelDisplayName: String {
-        preferredChatModelSelection.displayName
+        switch preferredChatModelSelection {
+        case .localMLX:
+            activeLocalTextModelDisplayName
+        case .appleIntelligence, .cloud:
+            preferredChatModelSelection.displayName
+        }
     }
 
     var activeCloudProvider: CloudModelProvider? {
@@ -2519,12 +2745,27 @@ final class InferenceState {
     }
 
     private func persistPreferredChatModelSelection(_ selection: ChatModelSelection) {
-        preferredChatModelSelection = selection
-        UserDefaults.standard.set(selection.rawValue, forKey: "epistemos.preferredChatModelSelection")
         if case .localMLX(let modelID) = selection {
-            preferredLocalTextModelID = modelID
-            UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
-        } else if case .cloud(let model) = selection {
+            let persistedModelID = sanitizedStoredLocalChatModelID(for: modelID)
+            preferredChatModelSelection = .localMLX(persistedModelID)
+            UserDefaults.standard.set(
+                preferredChatModelSelection.rawValue,
+                forKey: "epistemos.preferredChatModelSelection"
+            )
+            preferredLocalTextModelID = persistedModelID
+            UserDefaults.standard.set(
+                persistedModelID,
+                forKey: "epistemos.preferredLocalTextModelID"
+            )
+        } else {
+            preferredChatModelSelection = selection
+            UserDefaults.standard.set(
+                selection.rawValue,
+                forKey: "epistemos.preferredChatModelSelection"
+            )
+        }
+
+        if case .cloud(let model) = selection {
             persistPreferredCloudModel(model)
             persistActiveAIProvider(AIProviderSelection(cloudProvider: model.provider))
         }
@@ -2878,10 +3119,14 @@ final class InferenceState {
 
     func setPreferredLocalTextModelID(_ modelID: String) {
         guard LocalTextModelID(rawValue: modelID) != nil else { return }
-        preferredLocalTextModelID = modelID
-        UserDefaults.standard.set(modelID, forKey: "epistemos.preferredLocalTextModelID")
+        let persistedModelID = sanitizedStoredLocalChatModelID(for: modelID)
+        preferredLocalTextModelID = persistedModelID
+        UserDefaults.standard.set(
+            persistedModelID,
+            forKey: "epistemos.preferredLocalTextModelID"
+        )
         if case .localMLX = preferredChatModelSelection {
-            preferredChatModelSelection = .localMLX(modelID)
+            preferredChatModelSelection = .localMLX(persistedModelID)
             UserDefaults.standard.set(
                 preferredChatModelSelection.rawValue,
                 forKey: "epistemos.preferredChatModelSelection"
@@ -2936,6 +3181,39 @@ final class InferenceState {
 
     func setInstalledLocalTextModelIDs(_ ids: Set<String>) {
         installedLocalTextModelIDs = ids
+        sanitizeStoredLocalChatSelectionIfNeeded()
+    }
+
+    private func sanitizedInteractiveLocalTextModelID(for modelID: String) -> String? {
+        if supportedInstalledLocalTextModels.contains(where: { $0.rawValue == modelID }) {
+            return modelID
+        }
+        return supportedInstalledLocalTextModels.first?.rawValue
+    }
+
+    private func sanitizedStoredLocalChatModelID(for modelID: String) -> String {
+        sanitizedInteractiveLocalTextModelID(for: modelID) ?? modelID
+    }
+
+    private func sanitizeStoredLocalChatSelectionIfNeeded() {
+        let sanitizedModelID = sanitizedStoredLocalChatModelID(for: preferredLocalTextModelID)
+
+        if sanitizedModelID != preferredLocalTextModelID {
+            preferredLocalTextModelID = sanitizedModelID
+            UserDefaults.standard.set(
+                sanitizedModelID,
+                forKey: "epistemos.preferredLocalTextModelID"
+            )
+        }
+
+        guard case .localMLX(let selectedModelID) = preferredChatModelSelection else { return }
+        guard sanitizedModelID != selectedModelID else { return }
+
+        preferredChatModelSelection = .localMLX(sanitizedModelID)
+        UserDefaults.standard.set(
+            preferredChatModelSelection.rawValue,
+            forKey: "epistemos.preferredChatModelSelection"
+        )
     }
 }
 

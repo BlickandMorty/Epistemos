@@ -370,6 +370,7 @@ struct LocalModelToolbarMenu: View {
     var overrideTitle: String? = nil
     var overrideFont: Font? = nil
     var operatingMode: Binding<EpistemosOperatingMode>? = nil
+    var availableOperatingModes: [EpistemosOperatingMode]? = nil
     var isTemporaryChatEnabled: Binding<Bool>? = nil
 
     @Environment(UIState.self) private var ui
@@ -385,9 +386,17 @@ struct LocalModelToolbarMenu: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var installedSelectableModels: [LocalModelDescriptor] {
+        let selectableIDs = Set(inference.releaseSelectableInstalledLocalTextModelIDs)
+        return localModelManager.textDescriptors.filter { descriptor in
+            selectableIDs.contains(descriptor.id)
+        }
+    }
+
+    private var installableSelectableModels: [LocalModelDescriptor] {
         localModelManager.textDescriptors.filter { descriptor in
-            localModelManager.installRecords[descriptor.id] != nil
+            localModelManager.installRecords[descriptor.id] == nil
                 && inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor)
+                && (LocalTextModelID(rawValue: descriptor.id)?.isReleaseValidatedForInteractiveChat ?? true)
         }
     }
 
@@ -483,35 +492,66 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var noLocalModelsText: String {
-        inference.appleIntelligenceAvailable
+        if inference.releaseHiddenInstalledLocalTextModelCount > 0 {
+            return "\(inference.releaseHiddenInstalledLocalTextModelCount) installed local model\(inference.releaseHiddenInstalledLocalTextModelCount == 1 ? " is" : "s are") hidden from the release picker because they are not release-ready yet."
+        }
+        return inference.appleIntelligenceAvailable
             ? "Install a local model to add an on-device fallback here."
             : "No supported local models are installed yet."
     }
 
+    @MainActor
+    private func sanitizeReleaseLocalSelectionIfNeeded() {
+        guard case .localMLX(let modelID) = inference.preferredChatModelSelection,
+              let model = LocalTextModelID(rawValue: modelID),
+              !model.isReleaseValidatedForInteractiveChat,
+              let fallback = inference.releaseSelectableInstalledLocalTextModelIDs.first else {
+            return
+        }
+        inference.setPreferredChatModelSelection(.localMLX(fallback))
+    }
+
+    private var displayedOperatingModes: [EpistemosOperatingMode] {
+        let modes = availableOperatingModes ?? inference.availableOperatingModes
+        return modes.isEmpty ? [.fast] : modes
+    }
+
+    private func sanitizedDisplayedOperatingMode(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
+        guard displayedOperatingModes.contains(mode) else {
+            return displayedOperatingModes.first ?? .fast
+        }
+        return mode
+    }
+
     var body: some View {
-        if overrideTitle != nil {
-            titleLabel
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .help(labelText)
-                .accessibilityLabel(labelText)
-        } else {
-            AnchoredPopoverButton(
-                title: labelText,
-                systemImage: buttonSystemImage,
-                isPresented: $isPresented,
-                isActive: isTemporaryChatEnabled?.wrappedValue == true,
-                variant: variant,
-                showsLabelWhenCollapsed: true,
-                helpText: selectedModeSummary,
-                accessibilityLabel: labelText,
-                idealPopoverWidth: variant == .toolbar ? 340 : 360,
-                contentPadding: 12,
-                stableWidth: disclosureWidth
-            ) {
-                runtimePopover
+        Group {
+            if overrideTitle != nil {
+                titleLabel
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .help(labelText)
+                    .accessibilityLabel(labelText)
+            } else {
+                AnchoredPopoverButton(
+                    title: labelText,
+                    systemImage: buttonSystemImage,
+                    isPresented: $isPresented,
+                    isActive: isTemporaryChatEnabled?.wrappedValue == true,
+                    variant: variant,
+                    showsLabelWhenCollapsed: true,
+                    helpText: selectedModeSummary,
+                    accessibilityLabel: labelText,
+                    idealPopoverWidth: variant == .toolbar ? 340 : 360,
+                    contentPadding: 12,
+                    stableWidth: disclosureWidth
+                ) {
+                    runtimePopover
+                }
+                .fixedSize()
             }
-            .fixedSize()
+        }
+        .task(id: inference.preferredChatModelSelection.rawValue) {
+            sanitizeReleaseLocalSelectionIfNeeded()
         }
     }
 
@@ -530,7 +570,7 @@ struct LocalModelToolbarMenu: View {
                 if let operatingMode {
                     VStack(alignment: .leading, spacing: 8) {
                         popoverSectionTitle("Mode")
-                        ForEach(inference.availableOperatingModes, id: \.rawValue) { option in
+                        ForEach(displayedOperatingModes, id: \.rawValue) { option in
                             selectionRow(
                                 title: option.displayName,
                                 subtitle: modeSubtitle(for: option, isEnabled: true),
@@ -538,14 +578,14 @@ struct LocalModelToolbarMenu: View {
                                 isSelected: operatingMode.wrappedValue == option,
                                 isEnabled: true
                             ) {
-                                operatingMode.wrappedValue = inference.sanitizedOperatingMode(option)
+                                operatingMode.wrappedValue = sanitizedDisplayedOperatingMode(option)
                                 isPresented = false
                             }
                         }
                     }
                     .animation(
                         .easeInOut(duration: 0.15),
-                        value: inference.availableOperatingModes.map(\.rawValue).joined(separator: "|")
+                        value: displayedOperatingModes.map(\.rawValue).joined(separator: "|")
                     )
                 }
 
@@ -600,14 +640,36 @@ struct LocalModelToolbarMenu: View {
                                         }
                                     }
                                 }
+
+                                if !installableSelectableModels.isEmpty {
+                                    Divider()
+                                        .padding(.vertical, 4)
+
+                                    ForEach(installableSelectableModels, id: \.id) { model in
+                                        selectionRow(
+                                            title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                            subtitle: "Available to install • \(localModelSubtitle(for: model))",
+                                            systemImage: "arrow.down.circle",
+                                            isSelected: false
+                                        ) {
+                                            openSettings()
+                                            isPresented = false
+                                        }
+                                    }
+                                }
                             }
                         },
                         label: {
                             disclosureTitle(
                                 title: "Local Models",
-                                subtitle: installedSelectableModels.isEmpty
-                                    ? "On-device"
-                                    : "\(installedSelectableModels.count) available"
+                                subtitle: {
+                                    if installableSelectableModels.isEmpty {
+                                        return installedSelectableModels.isEmpty
+                                            ? "On-device"
+                                            : "\(installedSelectableModels.count) installed"
+                                    }
+                                    return "\(installedSelectableModels.count) installed • \(installableSelectableModels.count) available"
+                                }()
                             )
                         }
                     )

@@ -74,7 +74,7 @@ struct HologramNodeInspector: View {
             headerSection(node)
 
             // Only show mode picker for prose files (.txt, .md), not code files
-            if node.type == .note, node.sourceId != nil, !isCodeFile(pageId: node.sourceId!) {
+            if node.type == .note, let pageId = node.sourceId, !isCodeFile(pageId: pageId) {
                 modePicker
             }
 

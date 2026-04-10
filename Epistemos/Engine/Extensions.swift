@@ -178,6 +178,14 @@ nonisolated enum ThinkingTagSyntax {
             }
             .min { $0.range.lowerBound < $1.range.lowerBound }
     }
+
+    static func closingMatch(in text: String) -> Range<String.Index>? {
+        tagPairs
+            .compactMap { pair in
+                text.range(of: pair.close)
+            }
+            .min { $0.lowerBound < $1.lowerBound }
+    }
 }
 
 nonisolated enum ThinkingPreludeSyntax {
@@ -642,6 +650,9 @@ extension String {
               ) {
             cleaned.removeSubrange(match.range.lowerBound..<endRange.upperBound)
         }
+        while let closingRange = ThinkingTagSyntax.closingMatch(in: cleaned) {
+            cleaned.removeSubrange(closingRange)
+        }
         return cleaned
     }
 
@@ -777,6 +788,17 @@ nonisolated enum UserFacingModelOutput {
             }
             break
         }
+
+        while let closingRange = ThinkingTagSyntax.closingMatch(in: cleaned) {
+            let trailingVisibleText = String(cleaned[closingRange.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if trailingVisibleText.isEmpty {
+                cleaned.removeSubrange(closingRange)
+            } else {
+                cleaned = String(cleaned[closingRange.upperBound...])
+            }
+        }
+
         return cleaned
     }
 

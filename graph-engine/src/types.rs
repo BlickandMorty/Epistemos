@@ -1,12 +1,11 @@
 //! # Graph Data Structures
 //!
 //! Core types for the LogSeq-style graph engine.
-//! 7 node types (down from 13), explicit velocity model (d3-force style).
+//! 14 node types (8 structural + 6 semantic entity types), explicit velocity model (d3-force style).
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
-/// Node type enum — 7 semantic categories.
-/// Idea merges BrainDump, Source merges Paper/Book/Thinker, Tag absorbs Concept.
+/// Node type enum shared with Swift FFI.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NodeType {
@@ -18,6 +17,12 @@ pub enum NodeType {
     Quote = 5,
     Tag = 6,
     Block = 7,
+    Person = 8,
+    Project = 9,
+    Topic = 10,
+    Decision = 11,
+    Event = 12,
+    Resource = 13,
 }
 
 impl NodeType {
@@ -31,6 +36,12 @@ impl NodeType {
             5 => Self::Quote,
             6 => Self::Tag,
             7 => Self::Block,
+            8 => Self::Person,
+            9 => Self::Project,
+            10 => Self::Topic,
+            11 => Self::Decision,
+            12 => Self::Event,
+            13 => Self::Resource,
             _ => Self::Note,
         }
     }
@@ -41,14 +52,20 @@ impl NodeType {
     /// to preserve the original visual intent while still enabling correct linear blending.
     pub fn color(&self) -> [f32; 4] {
         match self {
-            Self::Note   => [0.18, 0.83, 0.75, 1.0], // teal
-            Self::Chat   => [0.58, 0.47, 0.83, 1.0], // soft lilac lavender
-            Self::Idea   => [1.00, 0.73, 0.00, 1.0], // yellow
-            Self::Source => [0.06, 0.64, 0.15, 1.0],  // green
-            Self::Folder => [0.45, 0.31, 0.17, 1.0],  // brown (overridden by depth B&W for folders)
-            Self::Quote  => [0.51, 0.13, 0.78, 1.0],  // purple
-            Self::Tag    => [0.25, 0.25, 0.29, 1.0],  // gray
-            Self::Block  => [0.34, 0.64, 0.83, 1.0],  // sky blue
+            Self::Note => [0.18, 0.83, 0.75, 1.0],     // teal
+            Self::Chat => [0.58, 0.47, 0.83, 1.0],     // soft lilac lavender
+            Self::Idea => [1.00, 0.73, 0.00, 1.0],     // yellow
+            Self::Source => [0.06, 0.64, 0.15, 1.0],   // green
+            Self::Folder => [0.45, 0.31, 0.17, 1.0], // brown (overridden by depth B&W for folders)
+            Self::Quote => [0.51, 0.13, 0.78, 1.0],  // purple
+            Self::Tag => [0.25, 0.25, 0.29, 1.0],    // gray
+            Self::Block => [0.34, 0.64, 0.83, 1.0],  // sky blue
+            Self::Person => [0.83, 0.35, 0.58, 1.0], // rose
+            Self::Project => [0.89, 0.42, 0.16, 1.0], // orange
+            Self::Topic => [0.20, 0.56, 0.95, 1.0],  // azure
+            Self::Decision => [0.83, 0.20, 0.18, 1.0], // red
+            Self::Event => [0.98, 0.56, 0.27, 1.0],  // coral
+            Self::Resource => [0.14, 0.55, 0.52, 1.0], // sea green
         }
     }
 
@@ -57,14 +74,20 @@ impl NodeType {
     /// than pow 1.8 to stay visible when dimmed against the white background).
     pub fn color_light(&self) -> [f32; 4] {
         match self {
-            Self::Note   => [0.00, 0.20, 0.16, 1.0], // teal (darker)
-            Self::Chat   => [0.21, 0.13, 0.38, 1.0], // lilac lavender (keep this hue)
-            Self::Idea   => [0.39, 0.24, 0.00, 1.0], // gold (darker)
-            Self::Source => [0.00, 0.18, 0.02, 1.0],  // green (darker)
-            Self::Folder => [0.13, 0.06, 0.02, 1.0],  // brown (overridden by depth B&W for folders)
-            Self::Quote  => [0.15, 0.01, 0.30, 1.0],  // purple (darker)
-            Self::Tag    => [0.05, 0.05, 0.07, 1.0],  // gray (darker)
-            Self::Block  => [0.02, 0.15, 0.33, 1.0],  // blue (darker)
+            Self::Note => [0.00, 0.20, 0.16, 1.0],     // teal (darker)
+            Self::Chat => [0.21, 0.13, 0.38, 1.0],     // lilac lavender (keep this hue)
+            Self::Idea => [0.39, 0.24, 0.00, 1.0],     // gold (darker)
+            Self::Source => [0.00, 0.18, 0.02, 1.0],   // green (darker)
+            Self::Folder => [0.13, 0.06, 0.02, 1.0], // brown (overridden by depth B&W for folders)
+            Self::Quote => [0.15, 0.01, 0.30, 1.0],  // purple (darker)
+            Self::Tag => [0.05, 0.05, 0.07, 1.0],    // gray (darker)
+            Self::Block => [0.02, 0.15, 0.33, 1.0],  // blue (darker)
+            Self::Person => [0.34, 0.06, 0.18, 1.0], // rose (darker)
+            Self::Project => [0.36, 0.13, 0.03, 1.0], // orange (darker)
+            Self::Topic => [0.04, 0.15, 0.35, 1.0],  // azure (darker)
+            Self::Decision => [0.33, 0.04, 0.04, 1.0], // red (darker)
+            Self::Event => [0.37, 0.16, 0.04, 1.0],  // coral (darker)
+            Self::Resource => [0.03, 0.18, 0.16, 1.0], // sea green (darker)
         }
     }
 }
@@ -90,19 +113,19 @@ pub fn radius_for_link_count(link_count: u32) -> f32 {
 /// with BGRA8Unorm_sRGB framebuffer.
 pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
     match edge_type {
-        0  => [0.34, 0.34, 0.40, 0.35], // reference — light gray
-        1  => [0.29, 0.19, 0.11, 0.35], // contains — brown
-        2  => [0.25, 0.25, 0.29, 0.30], // tagged — gray
-        3  => [0.19, 0.53, 0.83, 0.40], // mentions — light blue
-        4  => [0.06, 0.64, 0.15, 0.45], // cites — green
-        5  => [1.00, 0.42, 0.00, 0.40], // authored — orange
-        6  => [0.51, 0.13, 0.78, 0.40], // related — purple
-        7  => [1.00, 0.73, 0.00, 0.40], // quotes — yellow
-        8  => [0.11, 0.83, 0.19, 0.50], // supports — bright green
-        9  => [0.91, 0.08, 0.08, 0.50], // contradicts — red
+        0 => [0.34, 0.34, 0.40, 0.35],  // reference — light gray
+        1 => [0.29, 0.19, 0.11, 0.35],  // contains — brown
+        2 => [0.25, 0.25, 0.29, 0.30],  // tagged — gray
+        3 => [0.19, 0.53, 0.83, 0.40],  // mentions — light blue
+        4 => [0.06, 0.64, 0.15, 0.45],  // cites — green
+        5 => [1.00, 0.42, 0.00, 0.40],  // authored — orange
+        6 => [0.51, 0.13, 0.78, 0.40],  // related — purple
+        7 => [1.00, 0.73, 0.00, 0.40],  // quotes — yellow
+        8 => [0.11, 0.83, 0.19, 0.50],  // supports — bright green
+        9 => [0.91, 0.08, 0.08, 0.50],  // contradicts — red
         10 => [0.11, 0.75, 0.75, 0.45], // expands — cyan
         11 => [0.91, 0.60, 0.02, 0.45], // questions — amber
-        _  => [0.34, 0.34, 0.40, 0.30], // default — gray
+        _ => [0.34, 0.34, 0.40, 0.30],  // default — gray
     }
 }
 
@@ -369,7 +392,7 @@ mod tests {
 
     #[test]
     fn node_type_roundtrip() {
-        for v in 0..=7u8 {
+        for v in 0..=13u8 {
             let nt = NodeType::from_u8(v);
             assert_eq!(nt as u8, v);
         }
@@ -379,7 +402,7 @@ mod tests {
     fn node_type_invalid_defaults_to_note() {
         // Out-of-range values default to Note
         assert_eq!(NodeType::from_u8(255), NodeType::Note);
-        assert_eq!(NodeType::from_u8(8), NodeType::Note);
+        assert_eq!(NodeType::from_u8(14), NodeType::Note);
         assert_eq!(NodeType::from_u8(100), NodeType::Note);
     }
 
@@ -391,7 +414,7 @@ mod tests {
 
     #[test]
     fn node_type_all_variants_distinct() {
-        let types: Vec<NodeType> = (0..=7u8).map(NodeType::from_u8).collect();
+        let types: Vec<NodeType> = (0..=13u8).map(NodeType::from_u8).collect();
         for i in 0..types.len() {
             for j in (i + 1)..types.len() {
                 assert_ne!(types[i], types[j], "Node types should be distinct");
@@ -447,6 +470,16 @@ mod tests {
         let nt = NodeType::Tag;
         assert_eq!(nt as u8, 6);
         assert_eq!(nt.color()[3], 1.0);
+    }
+
+    #[test]
+    fn node_type_semantic_entity_variants() {
+        assert_eq!(NodeType::from_u8(8), NodeType::Person);
+        assert_eq!(NodeType::from_u8(9), NodeType::Project);
+        assert_eq!(NodeType::from_u8(10), NodeType::Topic);
+        assert_eq!(NodeType::from_u8(11), NodeType::Decision);
+        assert_eq!(NodeType::from_u8(12), NodeType::Event);
+        assert_eq!(NodeType::from_u8(13), NodeType::Resource);
     }
 
     // =========================================================================
@@ -515,11 +548,11 @@ mod tests {
     #[test]
     fn node_type_assignment() {
         let mut g = Graph::new();
-        for t in 0..=6u8 {
+        for t in 0..=13u8 {
             g.add_node(format!("node-{}", t), 0.0, 0.0, t, 1, format!("Node {}", t));
         }
 
-        for t in 0..=6u8 {
+        for t in 0..=13u8 {
             assert_eq!(g.nodes[t as usize].node_type as u8, t);
         }
     }

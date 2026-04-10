@@ -4,6 +4,12 @@ import Testing
 
 @Suite("LocalModelInfrastructure")
 struct LocalModelInfrastructureTests {
+    private struct DummyLocalizedTestError: LocalizedError {
+        let description: String
+
+        var errorDescription: String? { description }
+    }
+
     @Test("catalog pins immutable upstream revisions")
     func catalogUsesPinnedRevisions() {
         let revisions = LocalModelCatalog.allDescriptors.map(\.revision)
@@ -13,31 +19,313 @@ struct LocalModelInfrastructureTests {
         #expect(revisions.allSatisfy { $0.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil })
     }
 
-    @Test("catalog exposes qwen plus expanded mlx text models")
+    @Test("catalog exposes the current installable local text model families")
     func catalogIncludesExpandedMLXModels() {
         let descriptors = LocalModelCatalog.allDescriptors
 
         #expect(!descriptors.isEmpty)
         #expect(descriptors.allSatisfy { $0.kind == .text })
-        #expect(descriptors.allSatisfy { $0.id.hasPrefix("mlx-community/") })
         #expect(descriptors.contains { $0.id == LocalTextModelID.qwen35_4B4Bit.rawValue })
+        #expect(descriptors.contains { $0.id == LocalTextModelID.gemma4_31BJANG.rawValue })
         #expect(descriptors.contains { $0.id == LocalTextModelID.smolLM3_3B4Bit.rawValue })
         #expect(descriptors.contains { $0.id == LocalTextModelID.devstralSmall2505_4Bit.rawValue })
         #expect(descriptors.contains { $0.id == LocalTextModelID.mistralSmall31_24B4Bit.rawValue })
         #expect(descriptors.contains { $0.id == LocalTextModelID.gemma3_27BQAT4Bit.rawValue })
         #expect(descriptors.contains { $0.id == LocalTextModelID.llama4Scout17B16E4Bit.rawValue })
+        #expect(descriptors.contains { !$0.id.hasPrefix("mlx-community/") })
     }
 
-    @Test("18GB hardware recommends 4B default with 2B constrained fallback")
-    func eighteenGBHardwareUsesSmallerConstrainedFallback() {
+    @Test("catalog excludes gguf-only local models from the MLX install path")
+    func catalogExcludesGGUFOnlyModels() {
+        #expect(LocalModelCatalog.descriptor(for: LocalTextModelID.qwopus27Bv3.rawValue) == nil)
+        #expect(LocalModelCatalog.descriptor(for: LocalTextModelID.qwopusMoE35BA3B.rawValue) == nil)
+    }
+
+    @Test("hardware recommendations stay on mlx-installable local models")
+    func hardwareRecommendationsStayOnMLXInstallableModels() throws {
+        let twentyFourGB = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 24_000_000_000,
+            roundedMemoryGB: 24,
+            maxRecommendedLocalContentLength: 12_000
+        )
+        let sixtyFourGB = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 64_000_000_000,
+            roundedMemoryGB: 64,
+            maxRecommendedLocalContentLength: 28_000
+        )
+
+        let twentyFourDescriptor = try #require(
+            LocalModelCatalog.descriptor(for: twentyFourGB.recommendedLocalTextModelID.rawValue)
+        )
+        let sixtyFourDescriptor = try #require(
+            LocalModelCatalog.descriptor(for: sixtyFourGB.recommendedLocalTextModelID.rawValue)
+        )
+
+        #expect(twentyFourDescriptor.matchingGlobs.contains("*.safetensors"))
+        #expect(!twentyFourDescriptor.matchingGlobs.contains("*.gguf"))
+        #expect(sixtyFourDescriptor.matchingGlobs.contains("*.safetensors"))
+        #expect(!sixtyFourDescriptor.matchingGlobs.contains("*.gguf"))
+    }
+
+    @Test("catalog exposes supported SSM families through installable descriptors")
+    func catalogIncludesSupportedSSMModels() {
+        let descriptorIDs = Set(LocalModelCatalog.allDescriptors.map(\.id))
+
+        #expect(descriptorIDs.contains(LocalTextModelID.lfm25_350M.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.lfm25_1BInstruct.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.lfm25_1BThinking.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.lfm25_VL1B.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.lfm2_2B4Bit.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.lfm2_8BA1B3Bit.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.lfm2_24BA2B4Bit.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.mamba2_2B4Bit.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.jamba3B.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.falconH1R_7B4Bit.rawValue))
+        #expect(!descriptorIDs.contains(LocalTextModelID.falconH1_1B4Bit.rawValue))
+    }
+
+    @Test("mamba2 points at the public mlx-community repository")
+    func mamba2UsesInstallableRepository() {
+        #expect(LocalTextModelID.mamba2_2B4Bit.rawValue == "mlx-community/mamba2-2.7b-4bit")
+    }
+
+    @Test("mamba2 metadata reflects the long-context SSM runtime")
+    func mamba2MetadataReflectsLongContextSSMRuntime() {
+        let model = LocalTextModelID.mamba2_2B4Bit
+
+        #expect(model.isSSM)
+        #expect(model.minimumRecommendedMemoryGB == 8)
+        #expect(model.maxContextTokens >= 128_000)
+    }
+
+    @MainActor
+    @Test("qwen 4B local picker no longer advertises unvalidated thinking or local agent modes")
+    func qwen4BPickerOnlyShowsValidatedModes() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
+
+        #expect(inference.availableOperatingModes == [.fast])
+    }
+
+    @MainActor
+    @Test("qwen 9B local picker no longer advertises unvalidated thinking or local agent modes")
+    func qwen9BPickerOnlyShowsValidatedModes() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_9B4Bit.rawValue])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_9B4Bit.rawValue))
+
+        #expect(inference.availableOperatingModes == [.fast])
+    }
+
+    @MainActor
+    @Test("local agent mode stays hidden when structured local tool calling is unavailable")
+    func localAgentModeStaysHiddenWithoutStructuredToolCalling() {
+        #expect(!LocalToolGrammar.supportsStructuredToolCalling)
+
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue))
+
+        #expect(!inference.availableOperatingModes.contains(.agent))
+    }
+
+    @MainActor
+    @Test("release picker excludes local models that failed live release validation")
+    func releasePickerExcludesFailedLiveValidationModels() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen35_2B4Bit.rawValue,
+            LocalTextModelID.qwen35_4B4Bit.rawValue,
+            LocalTextModelID.qwen35_9B4Bit.rawValue,
+            LocalTextModelID.lfm2_8BA1B3Bit.rawValue,
+            LocalTextModelID.falconH1_1B4Bit.rawValue,
+        ])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        #expect(
+            inference.releaseSelectableInstalledLocalTextModelIDs
+                == [LocalTextModelID.qwen35_2B4Bit.rawValue]
+        )
+        #expect(inference.releaseHiddenInstalledLocalTextModelCount == 4)
+        #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(inference.activeChatModelDisplayName == LocalTextModelID.qwen35_2B4Bit.displayName)
+    }
+
+    @MainActor
+    @Test("release picker hides mamba2 until its chat path is validated")
+    func releasePickerHidesUnvalidatedMamba2Chat() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen35_2B4Bit.rawValue,
+            LocalTextModelID.mamba2_2B4Bit.rawValue,
+        ])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.mamba2_2B4Bit.rawValue)
+
+        #expect(
+            inference.releaseSelectableInstalledLocalTextModelIDs
+                == [LocalTextModelID.qwen35_2B4Bit.rawValue]
+        )
+        #expect(inference.releaseHiddenInstalledLocalTextModelCount == 1)
+        #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(inference.activeChatModelDisplayName == LocalTextModelID.qwen35_2B4Bit.displayName)
+    }
+
+    @Test("ssm state discovery follows native MLX safetensors caches")
+    func ssmStateDiscoveryFollowsNativeMLXSafetensorsCaches() throws {
+        let root = makeTemporaryRoot().rootDirectory
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let service = SSMStateService(stateRoot: root)
+        let modelID = LocalTextModelID.lfm25_350M.rawValue
+        let sessionID = UUID().uuidString
+        let modelDirectory = root
+            .appendingPathComponent("ssm_cache", isDirectory: true)
+            .appendingPathComponent(modelID.replacingOccurrences(of: "/", with: "_"), isDirectory: true)
+        try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
+
+        let legacyURL = modelDirectory.appendingPathComponent("\(sessionID)_legacy.mlxcache")
+        let nativeURL = modelDirectory.appendingPathComponent("\(sessionID)_native.safetensors")
+        try Data([0x00]).write(to: legacyURL)
+        try Data([0x01]).write(to: nativeURL)
+
+        let latest = try #require(service.findLatestState(modelId: modelID, sessionId: sessionID))
+        let states = service.listStates(modelId: modelID)
+        let expectedNativeURL = nativeURL.resolvingSymlinksInPath()
+
+        #expect(latest.resolvingSymlinksInPath() == expectedNativeURL)
+        #expect(latest.pathExtension == "safetensors")
+        #expect(states.count == 1)
+        #expect(states.first?.url.resolvingSymlinksInPath() == expectedNativeURL)
+    }
+
+    @Test("catalog omits unreachable model IDs from installable descriptors")
+    func catalogOmitsUnavailableDescriptors() {
+        let nonexistentGemma4 = "mlx-community/gemma-4-12b-it-4bit"
+
+        #expect(LocalTextModelID(rawValue: nonexistentGemma4) == nil)
+        #expect(LocalModelCatalog.descriptor(for: nonexistentGemma4) == nil)
+        #expect(LocalModelCatalog.descriptor(for: LocalTextModelID.lfm25_Audio1B.rawValue) == nil)
+    }
+
+    @Test("release sweep selection can be constrained with a file override")
+    func releaseSweepSelectionHonorsFileOverride() throws {
+        let overrideURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: overrideURL) }
+
+        try """
+        mlx-community/Qwen3.5-2B-4bit
+        mlx-community/Qwen3.5-27B-4bit
+        mlx-community/mamba2-2.7b-4bit
+        """.write(to: overrideURL, atomically: true, encoding: .utf8)
+
+        let snapshot = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 16_000_000_000,
+            roundedMemoryGB: 16,
+            maxRecommendedLocalContentLength: 8_000
+        )
+        let selected = LocalRuntimeSmokeSupport.selectedReleaseSweepModelIDs(
+            snapshot: snapshot,
+            environment: [:],
+            overrideFileURL: overrideURL
+        )
+
+        #expect(selected == [.qwen35_2B4Bit, .mamba2_2B4Bit])
+    }
+
+    @Test("default release sweep excludes locally quarantined models")
+    func defaultReleaseSweepSkipsQuarantinedModels() {
+        let snapshot = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 64_000_000_000,
+            roundedMemoryGB: 64,
+            maxRecommendedLocalContentLength: 28_000
+        )
+
+        let selected = LocalRuntimeSmokeSupport.supportedReleaseModelIDs(snapshot: snapshot)
+
+        #expect(selected.contains(.qwen35_2B4Bit))
+        #expect(!selected.contains(.mamba2_2B4Bit))
+        #expect(!selected.contains(.qwen35_4B4Bit))
+        #expect(!selected.contains(.qwen35_9B4Bit))
+        #expect(!selected.contains(.lfm25_1BThinking))
+        #expect(!selected.contains(.lfm2_8BA1B3Bit))
+        #expect(!selected.contains(.falconH1_1B4Bit))
+    }
+
+    @Test("18GB hardware recommends an installable constrained fallback")
+    func eighteenGBHardwareUsesInstallableConstrainedFallback() throws {
         let snapshot = LocalHardwareCapabilitySnapshot(
             physicalMemoryBytes: 18_000_000_000,
             roundedMemoryGB: 18,
             maxRecommendedLocalContentLength: 8_000
         )
+        let constrained = try #require(snapshot.recommendedConstrainedLocalTextModelID)
 
-        #expect(snapshot.recommendedLocalTextModelID == .qwen35_4B4Bit)
-        #expect(snapshot.recommendedConstrainedLocalTextModelID == .qwen35_2B4Bit)
+        #expect(snapshot.recommendedLocalTextModelID == .gemma4_27BA4B4Bit)
+        #expect(constrained == .deepseekR1Distill7B)
+        #expect(LocalModelCatalog.descriptor(for: constrained.rawValue) != nil)
+    }
+
+    @Test("constrained fallbacks skip quarantined interactive chat models")
+    func constrainedFallbacksSkipQuarantinedInteractiveChatModels() throws {
+        let snapshots = [
+            LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 18_000_000_000,
+                roundedMemoryGB: 18,
+                maxRecommendedLocalContentLength: 8_000
+            ),
+            LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            ),
+            LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            ),
+        ]
+
+        for snapshot in snapshots {
+            let constrained = try #require(snapshot.recommendedConstrainedLocalTextModelID)
+            #expect(constrained.isReleaseValidatedForInteractiveChat)
+        }
+    }
+
+    @Test("live validation blocker detects hugging face 429 responses")
+    func liveValidationBlockerDetectsHuggingFaceRateLimit() {
+        let error = DummyLocalizedTestError(
+            description: """
+            Response error (Status 429): <!DOCTYPE html>
+            <h1>429</h1>
+            <p>We had to rate limit you.</p>
+            """
+        )
+
+        let blockerReason = LocalRuntimeSmokeSupport.liveValidationBlockerReason(for: error)
+        #expect(blockerReason?.localizedCaseInsensitiveContains("rate-limited") == true)
+    }
+
+    @Test("live validation blocker ignores unrelated local failures")
+    func liveValidationBlockerIgnoresUnrelatedFailures() {
+        let error = DummyLocalizedTestError(description: "The local install for model-x is incomplete or corrupted.")
+
+        #expect(LocalRuntimeSmokeSupport.liveValidationBlockerReason(for: error) == nil)
+    }
+
+    @Test("bonsai stays out of the installable catalog until the prism runtime is present")
+    func bonsaiStaysOutOfCatalogUntilPrismRuntimeExists() throws {
+        let bonsaiRepository = "prism-ml/Bonsai-8B-mlx-1bit"
+
+        #expect(LocalTextModelID(rawValue: bonsaiRepository) == nil)
+        #expect(LocalModelCatalog.descriptor(for: bonsaiRepository) == nil)
+        #expect(
+            LocalModelCatalog.allDescriptors
+                .allSatisfy { !$0.id.localizedCaseInsensitiveContains("bonsai") }
+        )
     }
 
     @MainActor
@@ -93,16 +381,17 @@ struct LocalModelInfrastructureTests {
         let root = makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
 
-        let installedURL = root.activeDirectory(
-            for: try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue)
         )
+        let installedURL = root.activeDirectory(for: descriptor)
         try FileManager.default.createDirectory(at: installedURL, withIntermediateDirectories: true)
 
         let record = LocalModelInstallRecord(
             modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             kind: .text,
             activeDirectoryPath: installedURL.path,
-            revision: "1234567890abcdef1234567890abcdef12345678",
+            revision: descriptor.revision,
             installedAt: Date(timeIntervalSince1970: 1_234),
             sizeBytes: 123
         )
@@ -124,7 +413,59 @@ struct LocalModelInfrastructureTests {
 
         #expect(manager.installRecords[LocalTextModelID.qwen35_4B4Bit.rawValue] == record)
         #expect(inference.installedLocalTextModelIDs.contains(LocalTextModelID.qwen35_4B4Bit.rawValue))
-        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(inference.releaseSelectableInstalledLocalTextModelIDs.isEmpty)
+    }
+
+    @MainActor
+    @Test("refresh prunes stale install records whose revision no longer matches the pinned catalog")
+    func refreshPrunesStaleRevisionRecords() throws {
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        let descriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue)
+        )
+        let installedURL = root.activeDirectory(for: descriptor)
+        try FileManager.default.createDirectory(at: installedURL, withIntermediateDirectories: true)
+        try "{}".write(
+            to: installedURL.appendingPathComponent("config.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "{}".write(
+            to: installedURL.appendingPathComponent("tokenizer.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try Data([0x00]).write(to: installedURL.appendingPathComponent("model.safetensors"))
+
+        let record = LocalModelInstallRecord(
+            modelID: descriptor.id,
+            kind: .text,
+            activeDirectoryPath: installedURL.path,
+            revision: "main",
+            installedAt: Date(timeIntervalSince1970: 1_234),
+            sizeBytes: 123
+        )
+        try root.ensureBaseDirectories()
+        let manifest = LocalModelInstallManifest(records: [record])
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(manifest)
+        try data.write(to: root.manifestURL, options: .atomic)
+
+        let inference = InferenceState()
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: root,
+            installer: FakeLocalModelInstaller()
+        )
+
+        manager.refreshFromDisk()
+
+        #expect(manager.installRecords[descriptor.id] == nil)
+        #expect(!inference.installedLocalTextModelIDs.contains(descriptor.id))
+        #expect(!FileManager.default.fileExists(atPath: installedURL.path))
     }
 
     @MainActor
@@ -133,16 +474,17 @@ struct LocalModelInfrastructureTests {
         let root = makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
 
-        let installedURL = root.activeDirectory(
-            for: try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue))
+        let descriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_4B4Bit.rawValue)
         )
+        let installedURL = root.activeDirectory(for: descriptor)
         try FileManager.default.createDirectory(at: installedURL, withIntermediateDirectories: true)
 
         let record = LocalModelInstallRecord(
             modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             kind: .text,
             activeDirectoryPath: installedURL.path,
-            revision: "1234567890abcdef1234567890abcdef12345678",
+            revision: descriptor.revision,
             installedAt: Date(timeIntervalSince1970: 1_234),
             sizeBytes: 123
         )
@@ -231,12 +573,58 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
+    @Test("refresh prunes falcon installs once the model leaves the pinned catalog")
+    func refreshPrunesRetiredFalconInstalls() throws {
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        try root.ensureBaseDirectories()
+        let installedURL = root.modelDirectory(for: .text)
+            .appendingPathComponent("active", isDirectory: true)
+            .appendingPathComponent("mlx-community--Falcon-H1-1.5B-Instruct-4bit", isDirectory: true)
+        try FileManager.default.createDirectory(at: installedURL, withIntermediateDirectories: true)
+
+        let data = Data(
+            """
+            {
+              "version": 1,
+              "records": [
+                {
+                  "modelID": "\(LocalTextModelID.falconH1_1B4Bit.rawValue)",
+                  "kind": "text",
+                  "activeDirectoryPath": "\(installedURL.path)",
+                  "revision": "6f5e4f6879b43846b7e960a5e68425f3d5d8c801",
+                  "installedAt": "1970-01-01T00:20:34Z",
+                  "sizeBytes": 123
+                }
+              ]
+            }
+            """.utf8
+        )
+        try data.write(to: root.manifestURL, options: .atomic)
+
+        let inference = InferenceState()
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: root,
+            installer: FakeLocalModelInstaller()
+        )
+
+        #expect(manager.installRecords.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: installedURL.path))
+        #expect(!inference.installedLocalTextModelIDs.contains(LocalTextModelID.falconH1_1B4Bit.rawValue))
+    }
+
+    @MainActor
     @Test("live install smoke verifies qwen3.5 4B active files and manifest state")
     func liveInstallSmokeVerifiesQwen354B() async throws {
         guard FileManager.default.fileExists(atPath: "/tmp/epi-live-qwen35-install-smoke") else { return }
 
         let bootstrap = AppBootstrap()
-        try await verifyLiveInstall(modelID: LocalTextModelID.qwen35_4B4Bit.rawValue, bootstrap: bootstrap)
+        _ = try await LocalRuntimeSmokeSupport.verifyLiveInstall(
+            modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            bootstrap: bootstrap
+        )
     }
 
     @MainActor
@@ -245,50 +633,39 @@ struct LocalModelInfrastructureTests {
         guard FileManager.default.fileExists(atPath: "/tmp/epi-live-qwen35-2b-install-smoke") else { return }
 
         let bootstrap = AppBootstrap()
-        try await verifyLiveInstall(modelID: LocalTextModelID.qwen35_2B4Bit.rawValue, bootstrap: bootstrap)
+        _ = try await LocalRuntimeSmokeSupport.verifyLiveInstall(
+            modelID: LocalTextModelID.qwen35_2B4Bit.rawValue,
+            bootstrap: bootstrap
+        )
+    }
+
+    @MainActor
+    @Test("live ssm smoke verifies lfm2.5 350M state save and resume")
+    func liveSSMSmokeVerifiesLFM25350MStateRoundTrip() async throws {
+        guard FileManager.default.fileExists(atPath: "/tmp/epi-live-lfm25-install-smoke") else { return }
+
+        let bootstrap = AppBootstrap()
+        try await LocalRuntimeSmokeSupport.verifyLiveSSMStateRoundTrip(
+            modelID: LocalTextModelID.lfm25_350M.rawValue,
+            bootstrap: bootstrap
+        )
+    }
+
+    @MainActor
+    @Test("live ssm smoke verifies mamba2 state save and resume")
+    func liveSSMSmokeVerifiesMamba2StateRoundTrip() async throws {
+        guard FileManager.default.fileExists(atPath: "/tmp/epi-live-mamba2-install-smoke") else { return }
+
+        let bootstrap = AppBootstrap()
+        try await LocalRuntimeSmokeSupport.verifyLiveSSMStateRoundTrip(
+            modelID: LocalTextModelID.mamba2_2B4Bit.rawValue,
+            bootstrap: bootstrap
+        )
     }
 
     private func makeTemporaryRoot() -> LocalModelPaths {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         return LocalModelPaths(rootDirectory: root)
-    }
-
-    @MainActor
-    private func verifyLiveInstall(modelID: String, bootstrap: AppBootstrap) async throws {
-        if bootstrap.localModelManager.installRecords[modelID] == nil {
-            print("LOCAL_QWEN35_INSTALL_SMOKE install \(modelID)")
-            try await bootstrap.localModelManager.install(modelID: modelID)
-        } else {
-            print("LOCAL_QWEN35_INSTALL_SMOKE already-installed \(modelID)")
-        }
-
-        bootstrap.localModelManager.refreshFromDisk()
-
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: modelID))
-        let record = try #require(bootstrap.localModelManager.installRecords[modelID])
-        let activeDirectory = bootstrap.localModelManager.paths.activeDirectory(for: descriptor)
-
-        #expect(record.activeDirectoryURL == activeDirectory)
-        #expect(FileManager.default.fileExists(atPath: activeDirectory.path))
-        #expect(FileManager.default.fileExists(atPath: activeDirectory.appendingPathComponent("config.json").path))
-        #expect(FileManager.default.fileExists(atPath: activeDirectory.appendingPathComponent("tokenizer.json").path))
-
-        let safetensorFiles = try FileManager.default.contentsOfDirectory(at: activeDirectory, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "safetensors" }
-        #expect(!safetensorFiles.isEmpty)
-        #expect(bootstrap.inferenceState.installedLocalTextModelIDs.contains(modelID))
-
-        let manifestData = try Data(contentsOf: bootstrap.localModelManager.paths.manifestURL)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let manifest = try decoder.decode(LocalModelInstallManifest.self, from: manifestData)
-        #expect(manifest.records.contains { $0.modelID == modelID })
-
-        let connection = await bootstrap.localLLMClient.testConnection()
-        #expect(connection.success)
-        print(
-            "LOCAL_QWEN35_INSTALL_SMOKE ready model=\(modelID) size=\(record.sizeBytes) files=\(safetensorFiles.count)"
-        )
     }
 
     @Test("prepared retrieval assets stay pending until a semantic index exists")

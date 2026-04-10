@@ -107,6 +107,11 @@ impl ToolRegistry {
         tool.handler.execute(input).await
     }
 
+    /// Get a reference to the underlying vault backend (for context loading).
+    pub fn vault(&self) -> &dyn VaultBackend {
+        &*self.vault
+    }
+
     pub async fn vault_search(&self, query: &str, limit: usize) -> Result<Vec<String>, ToolError> {
         self.vault
             .search(query, limit)
@@ -125,6 +130,36 @@ impl ToolRegistry {
             self.register_bash_execute();
         }
         self.register_web_search();
+        self.register_pkm_graph_neighbors();
+    }
+
+    fn register_pkm_graph_neighbors(&mut self) {
+        let vault = Arc::clone(&self.vault);
+        self.register(RegisteredTool {
+            name: "pkm_graph_neighbors".to_string(),
+            description: "Find notes connected to a given note in the knowledge graph. \
+                Searches for notes that reference or are semantically related to the given path."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Vault-relative path of the source note (e.g., 'Projects/MOHAWK/README.md')"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 10,
+                        "minimum": 1,
+                        "maximum": 20,
+                        "description": "Maximum number of neighbors to return"
+                    }
+                },
+                "required": ["path"]
+            }),
+            handler: Box::new(GraphNeighborsHandler { vault }),
+            risk_level: RiskLevel::ReadOnly,
+        });
     }
 
     fn register_think_tool(&mut self) {
@@ -572,6 +607,64 @@ struct ThinkHandler;
 impl ToolHandler for ThinkHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
         Ok(crate::tools::think::execute_think(input))
+    }
+}
+
+struct GraphNeighborsHandler {
+    vault: Arc<dyn VaultBackend>,
+}
+
+#[async_trait]
+impl ToolHandler for GraphNeighborsHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let path = input
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("path required".to_string()))?;
+        let limit = input.get("limit").and_then(Value::as_u64).unwrap_or(10) as usize;
+
+        // Extract the note title from the path for searching
+        let title = std::path::Path::new(path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(path);
+
+        // Search for notes that reference this note by title or path
+        let results = self
+            .vault
+            .hybrid_search(title, limit.min(20), &[])
+            .await
+            .map_err(map_vault_error)?;
+
+        // Filter out the source note itself
+        let neighbors: Vec<_> = results
+            .into_iter()
+            .filter(|r| r.path != path)
+            .collect();
+
+        if neighbors.is_empty() {
+            return Ok(format!("No connected notes found for '{path}'."));
+        }
+
+        let formatted = neighbors
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                format!(
+                    "{}. **{}** (relevance: {:.2})\n   {}",
+                    i + 1,
+                    r.path,
+                    r.score,
+                    r.excerpt.chars().take(200).collect::<String>()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        Ok(format!(
+            "Neighbors of '{path}' ({} found):\n\n{formatted}",
+            neighbors.len()
+        ))
     }
 }
 

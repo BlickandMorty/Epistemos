@@ -74,7 +74,25 @@ def patch_file(path):
         flags=re.MULTILINE
     )
 
-    # 4c. Top-level constants and mutable globals must be explicitly marked so
+    # 4c. UniFFI handle maps are internally locked and need an explicit
+    # unchecked Sendable conformance so nonisolated globals can store them.
+    content = re.sub(
+        r'^nonisolated fileprivate class UniffiHandleMap<([^>]+)> \{$',
+        r'nonisolated fileprivate final class UniffiHandleMap<\1>: @unchecked Sendable {',
+        content,
+        flags=re.MULTILINE
+    )
+
+    # 4d. Mutable static globals inside generated types also need explicit
+    # nonisolated(unsafe) under the app's default MainActor isolation.
+    content = re.sub(
+        r'^(\s*)(?!nonisolated(?:\(unsafe\))?\b)((?:(?:public|private|fileprivate|internal)\s+)*)static var\b',
+        lambda match: f"{match.group(1)}nonisolated(unsafe) {match.group(2) or ''}static var",
+        content,
+        flags=re.MULTILINE
+    )
+
+    # 4e. Top-level constants and mutable globals must be explicitly marked so
     # nonisolated helpers can reference them.
     content = re.sub(
         r'^(?!\s)(?!nonisolated\b)((?:public|private|fileprivate|internal)\s+)?let\b',
@@ -88,6 +106,22 @@ def patch_file(path):
         content,
         flags=re.MULTILINE
     )
+
+    # 4f. The agent-runtime config/result structs cross Task boundaries from
+    # MainActor-isolated Swift code into nonisolated UniFFI entry points.
+    # Make that sendability explicit in regenerated bindings.
+    for type_name in (
+        "AgentConfigFfi",
+        "ToolConfig",
+        "ReasoningTrajectoryMetricsFfi",
+        "AgentResultFfi",
+    ):
+        content = re.sub(
+            rf'^nonisolated public struct {type_name} \{{$',
+            f'nonisolated public struct {type_name}: Sendable {{',
+            content,
+            flags=re.MULTILINE
+        )
 
     with open(path, 'w') as f:
         f.write(content)

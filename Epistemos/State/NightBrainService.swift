@@ -45,6 +45,9 @@ actor NightBrainService {
         case workspaceSnapshotCompaction = "workspace_snapshot_compaction"
         case memoryDistillation = "memory_distillation"
         case cloudKnowledgeDistillation = "cloud_knowledge_distillation"
+        case sessionGraphGeneration = "session_graph_generation"
+        case skillEvolutionAnalysis = "skill_evolution_analysis"
+        case ssmStatePruning = "ssm_state_pruning"
         case maintenanceLog = "maintenance_log"
     }
 
@@ -68,6 +71,8 @@ actor NightBrainService {
     private let graphMemoryProvider: @MainActor @Sendable () -> AgentGraphMemory?
     private let hasCloudKnowledgeJob: Bool
     private let cloudKnowledgeJob: @Sendable () async throws -> Void
+    private let vaultPathProvider: (@MainActor @Sendable () -> String?)?
+    private let ssmStateServiceProvider: (@MainActor @Sendable () -> SSMStateService?)?
     private nonisolated(unsafe) var scheduler: NSBackgroundActivityScheduler?
     private var activityToken: NSObjectProtocol?
     private var currentRunId: Int64?
@@ -77,7 +82,9 @@ actor NightBrainService {
         storeProvider: @escaping @Sendable () -> EventStore? = { EventStore.shared },
         searchIndexProvider: @escaping @MainActor @Sendable () -> SearchIndexService? = { nil },
         graphMemoryProvider: @escaping @MainActor @Sendable () -> AgentGraphMemory? = { nil },
-        cloudKnowledgeJob: (@Sendable () async throws -> Void)? = nil
+        cloudKnowledgeJob: (@Sendable () async throws -> Void)? = nil,
+        vaultPathProvider: (@MainActor @Sendable () -> String?)? = nil,
+        ssmStateServiceProvider: (@MainActor @Sendable () -> SSMStateService?)? = nil
     ) {
         self.config = config
         self.storeProvider = storeProvider
@@ -85,6 +92,8 @@ actor NightBrainService {
         self.graphMemoryProvider = graphMemoryProvider
         self.hasCloudKnowledgeJob = cloudKnowledgeJob != nil
         self.cloudKnowledgeJob = cloudKnowledgeJob ?? { () async throws in }
+        self.vaultPathProvider = vaultPathProvider
+        self.ssmStateServiceProvider = ssmStateServiceProvider
     }
 
     // MARK: - Config Reads
@@ -284,6 +293,51 @@ actor NightBrainService {
                 throw JobExecutionError.missingCloudKnowledgeJob
             }
             try await cloudKnowledgeJob()
+
+        case .sessionGraphGeneration:
+            // Phase 4: Generate graphs for sessions that don't have one yet
+            if let vaultPath = await MainActor.run(body: { vaultPathProvider?() }) {
+                let lifecycle = VaultLifecycleService(vaultPath: vaultPath)
+                await lifecycle.mergeVaultGraphs()
+            }
+
+        case .skillEvolutionAnalysis:
+            // Phase 6: GEPA — analyze traces and propose skill mutations
+            if let vaultPath = await MainActor.run(body: { vaultPathProvider?() }) {
+                let lifecycle = VaultLifecycleService(vaultPath: vaultPath)
+                let proposals = await lifecycle.runEvolutionSweep()
+                if !proposals.isEmpty {
+                    Self.log.info("GEPA: \(proposals.count) skill evolution proposal(s) ready for review")
+                }
+            }
+
+        case .ssmStatePruning:
+            // Prune old SSM state snapshots per model, keeping ssmMaxSnapshotsPerModel
+            if let ssmService = await MainActor.run(body: { ssmStateServiceProvider?() }) {
+                let (maxSnapshots, stateDir) = await MainActor.run { [config] in
+                    (
+                        config.ssmMaxSnapshotsPerModel,
+                        ssmService.stateRoot.appendingPathComponent("ssm_cache", isDirectory: true)
+                    )
+                }
+                if FileManager.default.fileExists(atPath: stateDir.path),
+                   let modelDirs = try? FileManager.default.contentsOfDirectory(
+                       at: stateDir,
+                       includingPropertiesForKeys: nil,
+                       options: .skipsHiddenFiles
+                   ) {
+                    var totalPruned = 0
+                    for modelDir in modelDirs where modelDir.hasDirectoryPath {
+                        let modelId = modelDir.lastPathComponent
+                        totalPruned += await MainActor.run {
+                            ssmService.pruneStates(modelId: modelId, keepCount: maxSnapshots)
+                        }
+                    }
+                    if totalPruned > 0 {
+                        Self.log.info("SSM state pruning: removed \(totalPruned) old snapshots")
+                    }
+                }
+            }
 
         case .maintenanceLog:
             // No-op: the checkpoint is written by the pipeline loop after every job.

@@ -46,6 +46,8 @@ jojo/
 context-essentials.txt
 *.backup
 *.backup.*
+.claude/HANDOFF.md
+.claude/worktrees/
 
 # MOHAWK training runtime artifacts
 Epistemos/KnowledgeFusion/MOHAWK/.last_pod_id

@@ -20,7 +20,7 @@ struct OpenPanelIntent: AppIntent {
         guard let tab = NavTab(rawValue: panel.id) else {
             return .result()
         }
-        AppBootstrap.shared?.uiState.setActivePanel(tab)
+        AppBootstrap.shared?.uiState.setActivePanel(tab.releaseSupportedVariant)
         return .result()
     }
 }

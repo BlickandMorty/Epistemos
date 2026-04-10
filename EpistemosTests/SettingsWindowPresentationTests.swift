@@ -23,11 +23,6 @@ struct SettingsWindowPresentationTests {
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        let repoRoot = testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        return try String(
-            contentsOf: repoRoot.appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

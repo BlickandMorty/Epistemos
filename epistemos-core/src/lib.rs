@@ -11,6 +11,7 @@ pub mod repo_analyzer;
 pub mod retrieval;
 pub mod scheduler;
 pub mod skill_engine;
+pub mod ssm_state;
 pub mod training;
 pub mod vault_analyzer;
 
@@ -24,6 +25,7 @@ pub use quality_filter::{DedupResult, QualityScore};
 pub use recovery::{BinaryTextExtraction, BinaryTextRegion, CorruptionAnalysis, RepairCandidate};
 pub use scheduler::tier_scheduler::{TrainingDecision, TrainingTier};
 pub use skill_engine::RoutingDecision;
+pub use ssm_state::SSMStateError;
 pub use vault_analyzer::boilerplate_filter::BoilerplateResult;
 pub use vault_analyzer::chunker::ChunkDocumentResult;
 pub use vault_analyzer::classifier::DocumentClassification;

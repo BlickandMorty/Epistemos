@@ -546,7 +546,6 @@ private struct MiniChatInputBar: View {
     @Environment(ThreadState.self) private var threadState
     @Environment(TriageService.self) private var triage
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(OrchestratorState.self) private var orchestrator
     @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
     @AppStorage("epistemos.miniChatOperatingMode")
@@ -570,14 +569,24 @@ private struct MiniChatInputBar: View {
     private var theme: EpistemosTheme { ui.theme }
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private let composerMetrics = AssistantComposerMetrics.compactChat
+    private var supportedOperatingModes: [EpistemosOperatingMode] {
+        let modes = inference.availableOperatingModes.filter { $0 != .agent }
+        return modes.isEmpty ? [.fast] : modes
+    }
+    private func sanitizedMiniChatOperatingMode(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
+        guard supportedOperatingModes.contains(mode) else {
+            return supportedOperatingModes.first ?? .fast
+        }
+        return mode
+    }
     private var selectedOperatingMode: EpistemosOperatingMode {
         get {
-            inference.sanitizedOperatingMode(
+            sanitizedMiniChatOperatingMode(
                 EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
             )
         }
         nonmutating set {
-            operatingModeRaw = inference.sanitizedOperatingMode(newValue).rawValue
+            operatingModeRaw = sanitizedMiniChatOperatingMode(newValue).rawValue
         }
     }
     private var operatingModeBinding: Binding<EpistemosOperatingMode> {
@@ -657,7 +666,7 @@ private struct MiniChatInputBar: View {
     }
 
     private var composerControlResetKey: String {
-        inference.availableOperatingModes.map(\.rawValue).joined(separator: "|")
+        supportedOperatingModes.map(\.rawValue).joined(separator: "|")
             + "::"
             + inference.activeChatModelDisplayName
     }
@@ -679,7 +688,8 @@ private struct MiniChatInputBar: View {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
                         LocalModelToolbarMenu(
                             variant: .toolbar,
-                            operatingMode: operatingModeBinding
+                            operatingMode: operatingModeBinding,
+                            availableOperatingModes: supportedOperatingModes
                         )
                             .accessibilityLabel("Chat model")
                     }
@@ -804,7 +814,7 @@ private struct MiniChatInputBar: View {
     }
 
     private func sanitizeStoredOperatingMode() {
-        let sanitized = inference.sanitizedOperatingMode(
+        let sanitized = sanitizedMiniChatOperatingMode(
             EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
         )
         if sanitized.rawValue != operatingModeRaw {
@@ -1100,26 +1110,6 @@ private struct MiniChatInputBar: View {
     private func send() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isProcessing else { return }
-
-        switch selectedOperatingMode {
-        case .agent:
-            threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
-            if let handoffMessage = selectedOperatingMode.handoffMessage {
-                threadState.addMiniChatMessage(
-                    AssistantMessage(role: .assistant, content: handoffMessage),
-                    chatID: chatID
-                )
-            }
-            refreshMiniChatLabel(using: trimmed)
-            persistMiniChatSession()
-            text = ""
-            composerHeight = ChatComposerInputMetrics.minHeight
-            UtilityWindowManager.shared.show(.omega)
-            Task { await orchestrator.submitTask(trimmed) }
-            return
-        case .fast, .thinking, .pro:
-            break
-        }
 
         threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
         refreshMiniChatLabel(using: trimmed)

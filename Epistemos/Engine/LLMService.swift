@@ -497,6 +497,15 @@ extension CloudModelProvider {
 final class CloudLLMClient: CloudConfigurableLLMClient {
     private static let log = Logger(subsystem: "com.epistemos.llm", category: "CloudLLMClient")
 
+    nonisolated struct VisionPayload: Equatable, Sendable {
+        let mimeType: String
+        let base64Data: String
+
+        var dataURL: String {
+            "data:\(mimeType);base64,\(base64Data)"
+        }
+    }
+
     private let inference: InferenceState
     private let urlSession: URLSession
     private let knowledgeProfileStore: KnowledgeProfileStore
@@ -813,6 +822,23 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
     }
 
+    private func resolvedVisionPayloads(for model: CloudTextModelID) -> [VisionPayload] {
+        guard model.supportsVision, !inference.pendingImageURLs.isEmpty else { return [] }
+
+        var payloads: [VisionPayload] = []
+        payloads.reserveCapacity(inference.pendingImageURLs.count)
+        for imageURL in inference.pendingImageURLs {
+            do {
+                payloads.append(try Self.visionPayload(for: imageURL))
+            } catch {
+                Self.log.warning(
+                    "Skipping unreadable vision attachment at \(imageURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+        return payloads
+    }
+
     private func testModelConnection(
         provider: CloudModelProvider,
         credential: CloudProviderResolvedCredential,
@@ -958,20 +984,21 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int
     ) async throws -> String {
-        let input: [[String: String?]] = [
-            ["role": systemPrompt?.isEmpty == false ? "system" : nil, "content": systemPrompt],
-            ["role": "user", "content": prompt],
-        ].compactMap { entry in
-            guard let role = entry["role"] ?? nil,
-                  let content = entry["content"] ?? nil,
-                  !content.isEmpty else { return nil }
-            return ["role": role, "content": content]
-        }
+        let input: [[String: Any]] = [[
+            "role": "user",
+            "content": Self.openAIUserContent(
+                prompt: prompt,
+                imagePayloads: resolvedVisionPayloads(for: model)
+            )
+        ]]
 
         var body: [String: Any] = [
             "model": model.vendorModelID,
             "input": input,
         ]
+        if let systemPrompt, !systemPrompt.isEmpty {
+            body["instructions"] = systemPrompt
+        }
         if maxTokens > 0 {
             body["max_output_tokens"] = maxTokens
         }
@@ -1015,20 +1042,21 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         schema: CloudJSONSchema,
         type: T.Type
     ) async throws -> StructuredGenerationResult<T> {
-        let input: [[String: String?]] = [
-            ["role": systemPrompt?.isEmpty == false ? "system" : nil, "content": systemPrompt],
-            ["role": "user", "content": prompt],
-        ].compactMap { entry in
-            guard let role = entry["role"] ?? nil,
-                  let content = entry["content"] ?? nil,
-                  !content.isEmpty else { return nil }
-            return ["role": role, "content": content]
-        }
+        let input: [[String: Any]] = [[
+            "role": "user",
+            "content": Self.openAIUserContent(
+                prompt: prompt,
+                imagePayloads: resolvedVisionPayloads(for: model)
+            )
+        ]]
 
         var body: [String: Any] = [
             "model": model.vendorModelID,
             "input": input,
         ]
+        if let systemPrompt, !systemPrompt.isEmpty {
+            body["instructions"] = systemPrompt
+        }
         if maxTokens > 0 {
             body["max_output_tokens"] = maxTokens
         }
@@ -1095,11 +1123,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int
     ) -> AsyncThrowingStream<String, Error> {
-        // OpenAI Responses API: system prompt goes in top-level "instructions",
-        // not as a message role in the "input" array.
-        let input: [[String: String]] = [
-            ["role": "user", "content": prompt],
-        ]
+        let input: [[String: Any]] = [[
+            "role": "user",
+            "content": Self.openAIUserContent(
+                prompt: prompt,
+                imagePayloads: resolvedVisionPayloads(for: model)
+            )
+        ]]
 
         var body: [String: Any] = [
             "model": model.vendorModelID,
@@ -1169,9 +1199,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         type: T.Type
     ) async throws -> StructuredGenerationResult<T> {
         let resolvedMaxTokens = resolvedAnthropicMaxTokens(requestedMaxTokens: maxTokens)
+        let imagePayloads = resolvedVisionPayloads(for: model)
+        let messageContent: Any = imagePayloads.isEmpty
+            ? prompt
+            : Self.anthropicMessageContent(prompt: prompt, imagePayloads: imagePayloads)
         var body: [String: Any] = [
             "model": model.vendorModelID,
-            "messages": [["role": "user", "content": prompt]],
+            "messages": [[
+                "role": "user",
+                "content": messageContent
+            ]],
             "max_tokens": resolvedMaxTokens,
         ]
         if let systemPrompt, !systemPrompt.isEmpty {
@@ -1238,12 +1275,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         maxTokens: Int
     ) async throws -> String {
         let resolvedMaxTokens = resolvedAnthropicMaxTokens(requestedMaxTokens: maxTokens)
+        let imagePayloads = resolvedVisionPayloads(for: model)
+        let messageContent: Any = imagePayloads.isEmpty
+            ? prompt
+            : Self.anthropicMessageContent(prompt: prompt, imagePayloads: imagePayloads)
         var body: [String: Any] = [
             "model": model.vendorModelID,
             "messages": [
                 [
                     "role": "user",
-                    "content": prompt,
+                    "content": messageContent,
                 ]
             ],
             "max_tokens": resolvedMaxTokens,
@@ -1298,12 +1339,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         maxTokens: Int
     ) -> AsyncThrowingStream<String, Error> {
         let resolvedMaxTokens = resolvedAnthropicMaxTokens(requestedMaxTokens: maxTokens)
+        let imagePayloads = resolvedVisionPayloads(for: model)
+        let messageContent: Any = imagePayloads.isEmpty
+            ? prompt
+            : Self.anthropicMessageContent(prompt: prompt, imagePayloads: imagePayloads)
         var body: [String: Any] = [
             "model": model.vendorModelID,
             "messages": [
                 [
                     "role": "user",
-                    "content": prompt,
+                    "content": messageContent,
                 ]
             ],
             "max_tokens": resolvedMaxTokens,
@@ -1369,6 +1414,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 modelID: model.vendorModelID,
                 prompt: prompt,
                 systemPrompt: systemPrompt,
+                imagePayloads: resolvedVisionPayloads(for: model),
                 maxTokens: maxTokens,
                 stream: false
             )
@@ -1401,6 +1447,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                     modelID: model.vendorModelID,
                     prompt: prompt,
                     systemPrompt: systemPrompt,
+                    imagePayloads: resolvedVisionPayloads(for: model),
                     maxTokens: maxTokens,
                     stream: true
                 )
@@ -1428,7 +1475,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "contents": [
                 [
                     "role": "user",
-                    "parts": [["text": prompt]],
+                    "parts": Self.googleParts(
+                        prompt: prompt,
+                        imagePayloads: resolvedVisionPayloads(for: model)
+                    ),
                 ]
             ],
             "generationConfig": [
@@ -1480,7 +1530,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "contents": [
                 [
                     "role": "user",
-                    "parts": [["text": prompt]],
+                    "parts": Self.googleParts(
+                        prompt: prompt,
+                        imagePayloads: resolvedVisionPayloads(for: model)
+                    ),
                 ]
             ],
             "generationConfig": [
@@ -1649,24 +1702,133 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         modelID: String,
         prompt: String,
         systemPrompt: String?,
+        imagePayloads: [VisionPayload],
         maxTokens: Int,
         stream: Bool
     ) -> [String: Any] {
-        var messages: [[String: String]] = []
-        if let systemPrompt, !systemPrompt.isEmpty {
-            messages.append(["role": "system", "content": systemPrompt])
-        }
-        messages.append(["role": "user", "content": prompt])
-
         var body: [String: Any] = [
             "model": modelID,
-            "messages": messages,
+            "messages": Self.compatibleChatMessages(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                imagePayloads: imagePayloads
+            ),
             "stream": stream,
         ]
         if maxTokens > 0 {
             body["max_tokens"] = maxTokens
         }
         return body
+    }
+
+    nonisolated static func visionPayloads(from imageURLs: [URL]) throws -> [VisionPayload] {
+        try imageURLs.map(Self.visionPayload(for:))
+    }
+
+    nonisolated static func openAIUserContent(
+        prompt: String,
+        imagePayloads: [VisionPayload]
+    ) -> [[String: Any]] {
+        var content: [[String: Any]] = [["type": "input_text", "text": prompt]]
+        content.reserveCapacity(imagePayloads.count + 1)
+        for payload in imagePayloads {
+            content.append([
+                "type": "input_image",
+                "image_url": payload.dataURL,
+            ])
+        }
+        return content
+    }
+
+    nonisolated static func anthropicMessageContent(
+        prompt: String,
+        imagePayloads: [VisionPayload]
+    ) -> [[String: Any]] {
+        var content: [[String: Any]] = [["type": "text", "text": prompt]]
+        content.reserveCapacity(imagePayloads.count + 1)
+        for payload in imagePayloads {
+            content.append([
+                "type": "image",
+                "source": [
+                    "type": "base64",
+                    "media_type": payload.mimeType,
+                    "data": payload.base64Data,
+                ]
+            ])
+        }
+        return content
+    }
+
+    nonisolated static func googleParts(
+        prompt: String,
+        imagePayloads: [VisionPayload]
+    ) -> [[String: Any]] {
+        var parts: [[String: Any]] = [["text": prompt]]
+        parts.reserveCapacity(imagePayloads.count + 1)
+        for payload in imagePayloads {
+            parts.append([
+                "inlineData": [
+                    "mimeType": payload.mimeType,
+                    "data": payload.base64Data,
+                ]
+            ])
+        }
+        return parts
+    }
+
+    nonisolated static func compatibleChatMessages(
+        prompt: String,
+        systemPrompt: String?,
+        imagePayloads: [VisionPayload]
+    ) -> [[String: Any]] {
+        var messages: [[String: Any]] = []
+        messages.reserveCapacity(systemPrompt?.isEmpty == false ? 2 : 1)
+        if let systemPrompt, !systemPrompt.isEmpty {
+            messages.append(["role": "system", "content": systemPrompt])
+        }
+
+        if imagePayloads.isEmpty {
+            messages.append(["role": "user", "content": prompt])
+            return messages
+        }
+
+        var content: [[String: Any]] = [["type": "text", "text": prompt]]
+        content.reserveCapacity(imagePayloads.count + 1)
+        for payload in imagePayloads {
+            content.append([
+                "type": "image_url",
+                "image_url": ["url": payload.dataURL],
+            ])
+        }
+        messages.append(["role": "user", "content": content])
+        return messages
+    }
+
+    private nonisolated static func visionPayload(for imageURL: URL) throws -> VisionPayload {
+        let data = try Data(contentsOf: imageURL)
+        return VisionPayload(
+            mimeType: imageMimeType(for: imageURL),
+            base64Data: data.base64EncodedString()
+        )
+    }
+
+    private nonisolated static func imageMimeType(for imageURL: URL) -> String {
+        switch imageURL.pathExtension.lowercased() {
+        case "jpg", "jpeg":
+            "image/jpeg"
+        case "gif":
+            "image/gif"
+        case "webp":
+            "image/webp"
+        case "heic", "heif":
+            "image/heic"
+        case "bmp":
+            "image/bmp"
+        case "tif", "tiff":
+            "image/tiff"
+        default:
+            "image/png"
+        }
     }
 
     private func openAICompatibleMessageText(from json: [String: Any]) -> String? {

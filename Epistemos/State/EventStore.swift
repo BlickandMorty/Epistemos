@@ -120,6 +120,23 @@ final class EventStore: Sendable {
         """)
         execute("CREATE INDEX IF NOT EXISTS idx_snapshots_time ON snapshots(timestamp);")
 
+        execute("""
+            CREATE TABLE IF NOT EXISTS session_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL UNIQUE,
+                recorded_at REAL NOT NULL,
+                classification TEXT NOT NULL,
+                displacement REAL NOT NULL,
+                path_length REAL NOT NULL,
+                curvature_ratio REAL NOT NULL,
+                loop_count INTEGER NOT NULL,
+                error_count INTEGER NOT NULL,
+                total_calls INTEGER NOT NULL,
+                efficiency REAL NOT NULL
+            );
+        """)
+        execute("CREATE INDEX IF NOT EXISTS idx_session_metrics_classification ON session_metrics(classification);")
+
         // Cognitive substrate tables (Phase 0)
         execute("""
             CREATE TABLE IF NOT EXISTS captured_artifacts (
@@ -241,6 +258,59 @@ final class EventStore: Sendable {
         }
     }
 
+    struct SessionMetricsRecord: Sendable, Equatable {
+        let sessionId: String
+        let recordedAt: Date
+        let classification: String
+        let displacement: Double
+        let pathLength: Double
+        let curvatureRatio: Double
+        let loopCount: Int
+        let errorCount: Int
+        let totalCalls: Int
+        let efficiency: Double
+    }
+
+    nonisolated func saveSessionMetrics(sessionId: String, metrics: ReasoningTrajectoryMetricsFFI) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            let db = self.db
+            let timestamp = Date().timeIntervalSince1970
+            let sql = """
+                INSERT INTO session_metrics (
+                    session_id, recorded_at, classification, displacement, path_length,
+                    curvature_ratio, loop_count, error_count, total_calls, efficiency
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    recorded_at = excluded.recorded_at,
+                    classification = excluded.classification,
+                    displacement = excluded.displacement,
+                    path_length = excluded.path_length,
+                    curvature_ratio = excluded.curvature_ratio,
+                    loop_count = excluded.loop_count,
+                    error_count = excluded.error_count,
+                    total_calls = excluded.total_calls,
+                    efficiency = excluded.efficiency;
+            """
+
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            defer { sqlite3_finalize(stmt) }
+
+            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
+            sqlite3_bind_double(stmt, 2, timestamp)
+            sqlite3_bind_text(stmt, 3, (metrics.classification as NSString).utf8String, -1, nil)
+            sqlite3_bind_double(stmt, 4, metrics.displacement)
+            sqlite3_bind_double(stmt, 5, metrics.pathLength)
+            sqlite3_bind_double(stmt, 6, metrics.curvatureRatio)
+            sqlite3_bind_int(stmt, 7, Int32(metrics.loopCount))
+            sqlite3_bind_int(stmt, 8, Int32(metrics.errorCount))
+            sqlite3_bind_int(stmt, 9, Int32(metrics.totalCalls))
+            sqlite3_bind_double(stmt, 10, metrics.efficiency)
+            sqlite3_step(stmt)
+        }
+    }
+
     // MARK: - Queries (for Time Machine)
 
     struct StoredSnapshot {
@@ -324,6 +394,44 @@ final class EventStore: Sendable {
             }
             return results
         } ?? []
+    }
+
+    nonisolated func sessionMetrics(for sessionId: String) -> SessionMetricsRecord? {
+        withDatabaseRead { db in
+            let sql = """
+                SELECT session_id, recorded_at, classification, displacement, path_length,
+                       curvature_ratio, loop_count, error_count, total_calls, efficiency
+                FROM session_metrics
+                WHERE session_id = ?
+                LIMIT 1;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+
+            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+
+            return SessionMetricsRecord(
+                sessionId: String(cString: sqlite3_column_text(stmt, 0)),
+                recordedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
+                classification: String(cString: sqlite3_column_text(stmt, 2)),
+                displacement: sqlite3_column_double(stmt, 3),
+                pathLength: sqlite3_column_double(stmt, 4),
+                curvatureRatio: sqlite3_column_double(stmt, 5),
+                loopCount: Int(sqlite3_column_int(stmt, 6)),
+                errorCount: Int(sqlite3_column_int(stmt, 7)),
+                totalCalls: Int(sqlite3_column_int(stmt, 8)),
+                efficiency: sqlite3_column_double(stmt, 9)
+            )
+        }
+    }
+
+    nonisolated func sessionMetricClassification(sessionId: String) -> String? {
+        guard let record = sessionMetrics(for: sessionId), record.totalCalls > 0 else {
+            return nil
+        }
+        return record.classification
     }
 
     struct SnapshotMeta: Identifiable {

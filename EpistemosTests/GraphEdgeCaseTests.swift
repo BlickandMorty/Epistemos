@@ -564,7 +564,7 @@ struct GraphNodeTypeEdgeCaseTests {
         #expect(store.nodes(ofType: .source).isEmpty)
     }
     
-    @Test("Graph with all 8 node types")
+    @Test("Graph with all 14 node types")
     func allNodeTypes() {
         let store = GraphStore()
         let types = GraphNodeType.allCases
@@ -573,7 +573,7 @@ struct GraphNodeTypeEdgeCaseTests {
             store.addNode(makeNode(id: "node-\(index)", type: type))
         }
 
-        #expect(store.nodeCount == 8)
+        #expect(store.nodeCount == 14)
 
         for type in types {
             #expect(store.nodes(ofType: type).count == 1)
@@ -584,7 +584,7 @@ struct GraphNodeTypeEdgeCaseTests {
             store.addEdge(makeEdge(source: "node-\(i)", target: "node-\(i+1)"))
         }
 
-        #expect(store.edgeCount == 7)
+        #expect(store.edgeCount == 13)
     }
     
     @Test("Node type filtering with edges")

@@ -84,6 +84,42 @@ struct ConversationPersistenceTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test("ssm state binding survives later metadata updates and companion markdown generation")
+    func ssmStateBindingSurvivesMetadataUpdatesAndMarkdownGeneration() async throws {
+        let root = temporaryRoot()
+        let persistence = ConversationPersistence(rootURL: root)
+        let sessionID = UUID()
+        let statePath = "/tmp/\(sessionID.uuidString).safetensors"
+
+        try await persistence.appendTurn(
+            turn: ConversationTurn(
+                role: .user,
+                content: "Resume this Mamba session later.",
+                model: "lfm2-1.2b"
+            ),
+            sessionID: sessionID
+        )
+
+        await persistence.bindSSMStatePath(sessionID: sessionID, statePath: statePath)
+
+        try await persistence.appendTurn(
+            turn: ConversationTurn(
+                role: .assistant,
+                content: "State cached and ready for resume.",
+                model: "lfm2-1.2b"
+            ),
+            sessionID: sessionID
+        )
+
+        let markdownURL = try await persistence.generateCompanionMarkdown(sessionID: sessionID)
+        let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
+
+        #expect(await persistence.ssmStatePath(sessionID: sessionID) == statePath)
+        #expect(markdown.contains("- SSM State: \(statePath)"))
+
+        try? FileManager.default.removeItem(at: root)
+    }
+
     private func temporaryRoot() -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-conversation-persistence-\(UUID().uuidString)", isDirectory: true)

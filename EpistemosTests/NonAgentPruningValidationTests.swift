@@ -85,15 +85,17 @@ struct NonAgentPruningValidationTests {
         #expect(!source.contains(".environment(bootstrap.inferenceState)"))
     }
 
-    @Test("settings sidebar exposes Omega and Knowledge Fusion sections")
+    @Test("settings sidebar exposes the current advanced sections without restoring Omega")
     func settingsSidebarShowsAdvancedSections() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
         #expect(source.contains("static let visibleSections"))
         #expect(source.contains("List(SettingsSection.visibleSections"))
         #expect(!source.contains("List(SettingsSection.allCases"))
+        #expect(source.contains(".cognitive"))
         #expect(source.contains(".knowledgeFusion"))
-        #expect(source.contains(".omega"))
+        #expect(source.contains(".modelVaults"))
+        #expect(!source.contains(".omega"))
     }
 
     @Test("backlinks popover offloads body scanning and avoids page loadBody in the view task")
@@ -260,11 +262,14 @@ struct NonAgentPruningValidationTests {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
         let shortcuts = try loadRepoTextFile("Epistemos/Intents/EpistemosShortcutsProvider.swift")
+        let omegaIntent = try loadRepoTextFile("Epistemos/Intents/Custom/OmegaIntent.swift")
         let uiState = try loadRepoTextFile("Epistemos/State/UIState.swift")
 
         #expect(!rootView.contains("omegaToolbarButton"))
         #expect(!app.contains("Button(\"Show Omega\")"))
         #expect(!shortcuts.contains("OmegaTaskIntent"))
+        #expect(omegaIntent.contains("static var isDiscoverable: Bool { false }"))
+        #expect(omegaIntent.contains("Agent Runtime shortcuts aren't available in this build"))
         #expect(!uiState.contains("Knowledge Fusion trains a model on your writing style"))
         #expect(uiState.contains("daily briefs summarize recent notes and conversations"))
     }
@@ -294,16 +299,8 @@ struct NonAgentPruningValidationTests {
         }
     }
 
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
-    }
-
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        try String(
-            contentsOf: repoRootURL().appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
+        try loadMirroredSourceTextFile(relativePath)
     }
 
     private func expectNoForceUnwraps(in relativePath: String) throws {

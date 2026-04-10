@@ -290,6 +290,16 @@ fn normalize_embedding(embedding: &mut [f32]) {
     }
 }
 
+/// Public wrapper for cross-module access (used by evolution::mutation_proposer).
+pub fn embed_text_public(text: &str) -> Vec<f32> {
+    embed_text(text)
+}
+
+/// Public wrapper for cross-module access (used by evolution::mutation_proposer).
+pub fn cosine_similarity_public(left: &[f32], right: &[f32]) -> f32 {
+    cosine_similarity(left, right)
+}
+
 fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {
     if left.is_empty() || right.is_empty() || left.len() != right.len() {
         return 0.0;

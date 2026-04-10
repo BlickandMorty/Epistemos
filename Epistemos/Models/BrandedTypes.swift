@@ -53,6 +53,19 @@ enum NavTab: String, Codable, Sendable, CaseIterable {
         case .settings: "Settings"
         }
     }
+
+    nonisolated var isReleaseVisible: Bool {
+        self != .omega
+    }
+
+    nonisolated var releaseSupportedVariant: NavTab {
+        switch self {
+        case .omega:
+            .home
+        case .home, .notes, .settings:
+            self
+        }
+    }
 }
 
 /// LLM providers

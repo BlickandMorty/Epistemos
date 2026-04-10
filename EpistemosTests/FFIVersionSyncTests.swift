@@ -10,15 +10,15 @@ struct FFIVersionSyncTests {
     
     // MARK: - GraphNodeType Alignment Tests
     
-    @Test("GraphNodeType case count matches Rust (8 cases)")
+    @Test("GraphNodeType case count matches Rust (14 cases)")
     func nodeTypeCaseCount() {
-        #expect(GraphNodeType.allCases.count == 8)
+        #expect(GraphNodeType.allCases.count == 14)
     }
-    
-    @Test("GraphNodeType rustIndex values are sequential 0-7")
+
+    @Test("GraphNodeType rustIndex values are sequential 0-13")
     func nodeTypeRustIndexSequential() {
         let indices = GraphNodeType.allCases.map { $0.rustIndex }.sorted()
-        #expect(indices == [0, 1, 2, 3, 4, 5, 6, 7])
+        #expect(indices == Array(0...13))
     }
     
     @Test("GraphNodeType.note rustIndex is 0")
@@ -60,6 +60,36 @@ struct FFIVersionSyncTests {
     func nodeTypeBlockRustIndex() {
         #expect(GraphNodeType.block.rustIndex == 7)
     }
+
+    @Test("GraphNodeType.person rustIndex is 8")
+    func nodeTypePersonRustIndex() {
+        #expect(GraphNodeType.person.rustIndex == 8)
+    }
+
+    @Test("GraphNodeType.project rustIndex is 9")
+    func nodeTypeProjectRustIndex() {
+        #expect(GraphNodeType.project.rustIndex == 9)
+    }
+
+    @Test("GraphNodeType.topic rustIndex is 10")
+    func nodeTypeTopicRustIndex() {
+        #expect(GraphNodeType.topic.rustIndex == 10)
+    }
+
+    @Test("GraphNodeType.decision rustIndex is 11")
+    func nodeTypeDecisionRustIndex() {
+        #expect(GraphNodeType.decision.rustIndex == 11)
+    }
+
+    @Test("GraphNodeType.event rustIndex is 12")
+    func nodeTypeEventRustIndex() {
+        #expect(GraphNodeType.event.rustIndex == 12)
+    }
+
+    @Test("GraphNodeType.resource rustIndex is 13")
+    func nodeTypeResourceRustIndex() {
+        #expect(GraphNodeType.resource.rustIndex == 13)
+    }
     
     @Test("GraphNodeType rustIndex values are unique")
     func nodeTypeRustIndexUnique() {
@@ -78,7 +108,7 @@ struct FFIVersionSyncTests {
     @Test("GraphNodeType all cases have valid rustIndex")
     func nodeTypeAllCasesValid() {
         for type in GraphNodeType.allCases {
-            #expect(type.rustIndex < 8, "\(type) has invalid rustIndex")
+            #expect(type.rustIndex < 14, "\(type) has invalid rustIndex")
         }
     }
     
@@ -218,7 +248,7 @@ struct FFIVersionSyncTests {
     
     @Test("Node type indices match C header documentation")
     func nodeTypeMatchesCHeader() {
-        // From graph_engine.h: 0=Note, 1=Chat, 2=Idea, 3=Source, 4=Folder, 5=Quote, 6=Tag, 7=Block
+        // From graph_engine.h: 0=Note ... 13=Resource
         #expect(GraphNodeType.note.rustIndex == 0)
         #expect(GraphNodeType.chat.rustIndex == 1)
         #expect(GraphNodeType.idea.rustIndex == 2)
@@ -227,6 +257,12 @@ struct FFIVersionSyncTests {
         #expect(GraphNodeType.quote.rustIndex == 5)
         #expect(GraphNodeType.tag.rustIndex == 6)
         #expect(GraphNodeType.block.rustIndex == 7)
+        #expect(GraphNodeType.person.rustIndex == 8)
+        #expect(GraphNodeType.project.rustIndex == 9)
+        #expect(GraphNodeType.topic.rustIndex == 10)
+        #expect(GraphNodeType.decision.rustIndex == 11)
+        #expect(GraphNodeType.event.rustIndex == 12)
+        #expect(GraphNodeType.resource.rustIndex == 13)
     }
     
     @Test("Edge type indices match C header documentation")
@@ -262,10 +298,10 @@ struct FFIVersionSyncTests {
     
     // MARK: - FFI Safety Validation Tests
     
-    @Test("Node type rustIndex never exceeds Rust enum max (7)")
+    @Test("Node type rustIndex never exceeds Rust enum max (13)")
     func nodeTypeNeverExceedsMax() {
         for type in GraphNodeType.allCases {
-            #expect(type.rustIndex <= 7, "Node type \(type) exceeds Rust max value")
+            #expect(type.rustIndex <= 13, "Node type \(type) exceeds Rust max value")
         }
     }
     
@@ -286,7 +322,7 @@ struct FFIVersionSyncTests {
         // Verify that adding a new case would require explicit rustIndex assignment
         // This is a documentation test - the actual enforcement is in the code
         let nodeIndices = GraphNodeType.allCases.map { $0.rustIndex }.sorted()
-        let expected: [UInt8] = Array(0..<8)
+        let expected: [UInt8] = Array(0...13)
         #expect(nodeIndices == expected)
     }
     
@@ -303,6 +339,12 @@ struct FFIVersionSyncTests {
         #expect(allCases[5] == .quote)
         #expect(allCases[6] == .tag)
         #expect(allCases[7] == .block)
+        #expect(allCases[8] == .person)
+        #expect(allCases[9] == .project)
+        #expect(allCases[10] == .topic)
+        #expect(allCases[11] == .decision)
+        #expect(allCases[12] == .event)
+        #expect(allCases[13] == .resource)
     }
     
     @Test("Edge type array for batch FFI is correctly ordered")
@@ -331,6 +373,12 @@ struct FFIVersionSyncTests {
         #expect(GraphNodeType.quote.rawValue == "quote")
         #expect(GraphNodeType.tag.rawValue == "tag")
         #expect(GraphNodeType.block.rawValue == "block")
+        #expect(GraphNodeType.person.rawValue == "person")
+        #expect(GraphNodeType.project.rawValue == "project")
+        #expect(GraphNodeType.topic.rawValue == "topic")
+        #expect(GraphNodeType.decision.rawValue == "decision")
+        #expect(GraphNodeType.event.rawValue == "event")
+        #expect(GraphNodeType.resource.rawValue == "resource")
     }
     
     @Test("Edge type rawValue is stable across versions")
@@ -353,9 +401,8 @@ struct FFIVersionSyncTests {
     
     @Test("Rust node type count is documented correctly")
     func rustNodeTypeCountDocumented() {
-        // From graph_engine.h: "0–7 matching NodeType enum"
-        // This means 8 types (0, 1, 2, 3, 4, 5, 6, 7)
-        #expect(GraphNodeType.allCases.count == 8)
+        // From graph_engine.h: "0–13 matching NodeType enum"
+        #expect(GraphNodeType.allCases.count == 14)
     }
     
     @Test("Rust edge type count is documented correctly")

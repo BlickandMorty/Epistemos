@@ -8,10 +8,19 @@ struct NoteBacklinksPopover: View {
     private struct BacklinkItem: Identifiable, Sendable, Equatable {
         let id: String
         let title: String
+        var edgeType: String? = nil  // semantic edge type (supports, contradicts, etc.)
+        var source: BacklinkSource = .wikilink
+
+        enum BacklinkSource: Sendable, Equatable {
+            case wikilink       // found via [[pageTitle]] text scan
+            case graphEdge      // found via GraphStore semantic edge
+        }
     }
 
     let pageTitle: String
+    let pageId: String?
     let onNavigate: (String) -> Void // pageId
+    var graphState: GraphState?
 
     @Environment(\.modelContext) private var modelContext
     @State private var backlinks: [BacklinkItem] = []
@@ -33,15 +42,30 @@ struct NoteBacklinksPopover: View {
                     Button {
                         onNavigate(link.id)
                     } label: {
-                        Text(link.title.isEmpty ? "Untitled" : link.title)
-                            .font(.system(size: 12, weight: .regular))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+                        HStack(spacing: 4) {
+                            Text(link.title.isEmpty ? "Untitled" : link.title)
+                                .font(.system(size: 12, weight: .regular))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .foregroundStyle(.primary)
+
+                            Spacer()
+
+                            // Show semantic edge type badge for graph-sourced backlinks
+                            if let edgeType = link.edgeType {
+                                Text(edgeType)
+                                    .font(.system(size: 9, weight: .medium))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(edgeBadgeColor(edgeType).opacity(0.15))
+                                    .foregroundStyle(edgeBadgeColor(edgeType))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -56,8 +80,18 @@ struct NoteBacklinksPopover: View {
             }
             .padding(6)
         }
-        .frame(width: 240).frame(maxHeight: 350)
+        .frame(width: 260).frame(maxHeight: 400)
         .task { await scanBacklinks() }
+    }
+
+    private func edgeBadgeColor(_ type: String) -> Color {
+        switch type {
+        case "supports":    return .green
+        case "contradicts": return .red
+        case "expands":     return .blue
+        case "questions":   return .orange
+        default:            return .secondary
+        }
     }
 
     private func scanBacklinks() async {
@@ -65,6 +99,7 @@ struct NoteBacklinksPopover: View {
         let target = "[[\(pageTitle)]]"
         let titleToFind = pageTitle
 
+        // Phase 1: Text-based backlinks (existing [[wikilink]] scan)
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.isArchived == false }
         )
@@ -74,7 +109,23 @@ struct NoteBacklinksPopover: View {
             guard page.title != titleToFind else { return nil }
             return BacklinkItem(id: page.id, title: page.title)
         }
-        let results = await Self.findBacklinks(candidates: candidates, target: target)
+        var results = await Self.findBacklinks(candidates: candidates, target: target)
+        let textBacklinkIds = Set(results.map(\.id))
+
+        // Phase 2: Graph-based semantic edges (supports, contradicts, expands, questions)
+        if let graphState, let currentPageId = pageId {
+            let graphBacklinks = await graphState.incomingEdges(forPageId: currentPageId)
+            for (sourcePageId, sourceTitle, edgeType) in graphBacklinks {
+                // Don't duplicate items already found via text scan
+                guard !textBacklinkIds.contains(sourcePageId) else { continue }
+                results.append(BacklinkItem(
+                    id: sourcePageId,
+                    title: sourceTitle,
+                    edgeType: edgeType,
+                    source: .graphEdge
+                ))
+            }
+        }
 
         if !Task.isCancelled {
             backlinks = results

@@ -7,10 +7,10 @@ import Testing
 @Suite("GraphNodeType - Basic Cases")
 struct GraphNodeTypeBasicTests {
     
-    @Test("GraphNodeType has exactly 8 cases")
+    @Test("GraphNodeType has exactly 14 cases")
     func caseCount() {
         let allCases = GraphNodeType.allCases
-        #expect(allCases.count == 8)
+        #expect(allCases.count == 14)
     }
     
     @Test("GraphNodeType.note exists with correct rawValue")
@@ -51,6 +51,36 @@ struct GraphNodeTypeBasicTests {
     @Test("GraphNodeType.block exists with correct rawValue")
     func blockCase() {
         #expect(GraphNodeType.block.rawValue == "block")
+    }
+
+    @Test("GraphNodeType.person exists with correct rawValue")
+    func personCase() {
+        #expect(GraphNodeType.person.rawValue == "person")
+    }
+
+    @Test("GraphNodeType.project exists with correct rawValue")
+    func projectCase() {
+        #expect(GraphNodeType.project.rawValue == "project")
+    }
+
+    @Test("GraphNodeType.topic exists with correct rawValue")
+    func topicCase() {
+        #expect(GraphNodeType.topic.rawValue == "topic")
+    }
+
+    @Test("GraphNodeType.decision exists with correct rawValue")
+    func decisionCase() {
+        #expect(GraphNodeType.decision.rawValue == "decision")
+    }
+
+    @Test("GraphNodeType.event exists with correct rawValue")
+    func eventCase() {
+        #expect(GraphNodeType.event.rawValue == "event")
+    }
+
+    @Test("GraphNodeType.resource exists with correct rawValue")
+    func resourceCase() {
+        #expect(GraphNodeType.resource.rawValue == "resource")
     }
 }
 
@@ -96,6 +126,36 @@ struct GraphNodeTypeDisplayNameTests {
     func blockDisplayName() {
         #expect(GraphNodeType.block.displayName == "Block")
     }
+
+    @Test("person has correct displayName")
+    func personDisplayName() {
+        #expect(GraphNodeType.person.displayName == "Person")
+    }
+
+    @Test("project has correct displayName")
+    func projectDisplayName() {
+        #expect(GraphNodeType.project.displayName == "Project")
+    }
+
+    @Test("topic has correct displayName")
+    func topicDisplayName() {
+        #expect(GraphNodeType.topic.displayName == "Topic")
+    }
+
+    @Test("decision has correct displayName")
+    func decisionDisplayName() {
+        #expect(GraphNodeType.decision.displayName == "Decision")
+    }
+
+    @Test("event has correct displayName")
+    func eventDisplayName() {
+        #expect(GraphNodeType.event.displayName == "Event")
+    }
+
+    @Test("resource has correct displayName")
+    func resourceDisplayName() {
+        #expect(GraphNodeType.resource.displayName == "Resource")
+    }
 }
 
 @Suite("GraphNodeType - Icons")
@@ -139,6 +199,36 @@ struct GraphNodeTypeIconTests {
     @Test("block has correct SF Symbol icon")
     func blockIcon() {
         #expect(GraphNodeType.block.icon == "text.line.first.and.arrowtriangle.forward")
+    }
+
+    @Test("person has correct SF Symbol icon")
+    func personIcon() {
+        #expect(GraphNodeType.person.icon == "person")
+    }
+
+    @Test("project has correct SF Symbol icon")
+    func projectIcon() {
+        #expect(GraphNodeType.project.icon == "hammer")
+    }
+
+    @Test("topic has correct SF Symbol icon")
+    func topicIcon() {
+        #expect(GraphNodeType.topic.icon == "text.book.closed")
+    }
+
+    @Test("decision has correct SF Symbol icon")
+    func decisionIcon() {
+        #expect(GraphNodeType.decision.icon == "checkmark.seal")
+    }
+
+    @Test("event has correct SF Symbol icon")
+    func eventIcon() {
+        #expect(GraphNodeType.event.icon == "calendar")
+    }
+
+    @Test("resource has correct SF Symbol icon")
+    func resourceIcon() {
+        #expect(GraphNodeType.resource.icon == "archivebox")
     }
 
     @Test("All icons are non-empty strings")
@@ -199,10 +289,40 @@ struct GraphNodeTypeRustIndexTests {
         #expect(GraphNodeType.block.rustIndex == 7)
     }
 
-    @Test("Rust indices are contiguous from 0 to 7")
+    @Test("person maps to rustIndex 8")
+    func personRustIndex() {
+        #expect(GraphNodeType.person.rustIndex == 8)
+    }
+
+    @Test("project maps to rustIndex 9")
+    func projectRustIndex() {
+        #expect(GraphNodeType.project.rustIndex == 9)
+    }
+
+    @Test("topic maps to rustIndex 10")
+    func topicRustIndex() {
+        #expect(GraphNodeType.topic.rustIndex == 10)
+    }
+
+    @Test("decision maps to rustIndex 11")
+    func decisionRustIndex() {
+        #expect(GraphNodeType.decision.rustIndex == 11)
+    }
+
+    @Test("event maps to rustIndex 12")
+    func eventRustIndex() {
+        #expect(GraphNodeType.event.rustIndex == 12)
+    }
+
+    @Test("resource maps to rustIndex 13")
+    func resourceRustIndex() {
+        #expect(GraphNodeType.resource.rustIndex == 13)
+    }
+
+    @Test("Rust indices are contiguous from 0 to 13")
     func rustIndicesContiguous() {
         let indices = GraphNodeType.allCases.map { $0.rustIndex }.sorted()
-        #expect(indices == [0, 1, 2, 3, 4, 5, 6, 7])
+        #expect(indices == Array(0...13))
     }
     
     @Test("All rust indices are unique")

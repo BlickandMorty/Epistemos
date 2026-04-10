@@ -4,8 +4,9 @@ use futures::{future::try_join_all, StreamExt};
 use tokio_util::sync::CancellationToken;
 
 use crate::bridge::AgentEventDelegate;
-use crate::prompts::{build_system_prompt, PromptMode};
+use crate::prompts::{build_system_prompt_with_index, PromptMode};
 use crate::provider::{AgentProvider, StreamEvent};
+use crate::reasoning_metrics::{compute_trajectory_metrics, ReasoningTrajectoryMetrics};
 use crate::tools::registry::{RiskLevel, ToolRegistry};
 use crate::types::{ContentBlock, Message, StopReason, TokenUsage, ToolResult, ToolResultContent};
 
@@ -55,6 +56,14 @@ pub struct AgentConfig {
     pub mcp_servers: Option<Vec<McpServerConfig>>,
     pub parallel_tool_execution: bool,
     pub permissions: PermissionConfig,
+    /// Vault root path for 5-tier context injection. When set, the agent loop
+    /// loads SOUL.md, decisions.md, skill descriptions, and prior session summaries.
+    pub vault_root: Option<String>,
+    /// Explicit prompt mode override. None = auto-detect from objective keywords.
+    pub prompt_mode_override: Option<PromptMode>,
+    /// Maximum USD cost for this agent session. None = unlimited.
+    /// On exceed: session pauses with budget_exceeded reason.
+    pub max_cost_usd: Option<f64>,
 }
 
 impl Default for AgentConfig {
@@ -73,6 +82,9 @@ impl Default for AgentConfig {
             mcp_servers: None,
             parallel_tool_execution: true,
             permissions: PermissionConfig::default(),
+            vault_root: None,
+            prompt_mode_override: None,
+            max_cost_usd: None,
         }
     }
 }
@@ -83,6 +95,7 @@ pub struct AgentResult {
     pub full_history: Vec<Message>,
     pub turns: u32,
     pub total_usage: TokenUsage,
+    pub trajectory_metrics: ReasoningTrajectoryMetrics,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -124,14 +137,53 @@ pub async fn run_agent_loop(
     let mut messages = vec![Message::user_text(&objective)];
     let mut turn_count = 0_u32;
     let mut total_usage = TokenUsage::default();
+    let mut trajectory_tool_calls: Vec<(String, String, String, bool)> = Vec::new();
     let max_turns = config.max_turns.unwrap_or(25);
+    let session_id = uuid::Uuid::new_v4().to_string();
 
-    let context_notes = tool_registry
-        .vault_search(&objective, 5)
-        .await
-        .unwrap_or_default();
-    let prompt_mode = prompt_mode_for_objective(&objective);
-    let system_prompt = build_system_prompt(config.system_prompt.as_deref(), &context_notes, prompt_mode);
+    // 5-tier context injection: load identity, facts, skills, and episodes from the vault
+    let context_notes = if let Some(ref vault_root) = config.vault_root {
+        let vault_path = std::path::Path::new(vault_root);
+        let session_ctx = crate::context_loader::load_session_context(
+            tool_registry.vault(),
+            vault_path,
+            &objective,
+            config.context_threshold,
+        )
+        .await;
+        let xml = session_ctx.to_xml();
+        if xml.is_empty() {
+            // Fallback to simple vault search if context loader found nothing
+            tool_registry
+                .vault_search(&objective, 5)
+                .await
+                .unwrap_or_default()
+        } else {
+            vec![xml]
+        }
+    } else {
+        // No vault root configured — use simple search
+        tool_registry
+            .vault_search(&objective, 5)
+            .await
+            .unwrap_or_default()
+    };
+    let prompt_mode = config.prompt_mode_override.unwrap_or_else(|| prompt_mode_for_objective(&objective));
+
+    // Read knowledge index from vault if available (written by Swift KnowledgeIndexBuilder)
+    let knowledge_index = if let Some(ref root) = config.vault_root {
+        let index_path = format!("{}/.epistemos/knowledge_index.md", root);
+        std::fs::read_to_string(&index_path).ok()
+    } else {
+        None
+    };
+
+    let system_prompt = build_system_prompt_with_index(
+        config.system_prompt.as_deref(),
+        &context_notes,
+        prompt_mode,
+        knowledge_index.as_deref(),
+    );
 
     loop {
         turn_count += 1;
@@ -225,6 +277,30 @@ pub async fn run_agent_loop(
             .cache_read_input_tokens
             .saturating_add(turn_usage.cache_read_input_tokens);
 
+        // Budget enforcement: estimate cost and check against limit
+        if let Some(budget) = config.max_cost_usd {
+            // Rough cost estimate based on Claude Sonnet 4.6 pricing ($3/$15 per MTok)
+            // This is conservative — actual cost varies by provider
+            let estimated_cost = (total_usage.input_tokens as f64 * 3.0
+                + total_usage.output_tokens as f64 * 15.0)
+                / 1_000_000.0;
+            if estimated_cost >= budget {
+                let msg = format!(
+                    "Budget limit ${:.2} reached (estimated ${:.2} spent). Task paused.",
+                    budget, estimated_cost
+                );
+                delegate.on_error(msg.clone());
+                messages.push(Message::assistant(response_blocks));
+                return Ok(AgentResult {
+                    final_content: vec![ContentBlock::Text { text: msg }],
+                    full_history: messages,
+                    turns: turn_count,
+                    total_usage,
+                    trajectory_metrics: compute_trajectory_metrics(&trajectory_tool_calls),
+                });
+            }
+        }
+
         match stop_reason {
             StopReason::EndTurn | StopReason::StopSequence => {
                 messages.push(Message::assistant(response_blocks.clone()));
@@ -242,6 +318,7 @@ pub async fn run_agent_loop(
                     full_history: messages,
                     turns: turn_count,
                     total_usage,
+                    trajectory_metrics: compute_trajectory_metrics(&trajectory_tool_calls),
                 });
             }
             StopReason::ToolUse => {
@@ -286,7 +363,50 @@ pub async fn run_agent_loop(
                     );
                 }
 
+                for ((_, name, input), result) in tool_calls.iter().zip(results.iter()) {
+                    let args_json = serde_json::to_string(input)
+                        .map_err(|error| AgentError::Serialization(error.to_string()))?;
+                    let result_text = result
+                        .content
+                        .iter()
+                        .filter_map(|content| match content {
+                            ToolResultContent::Text { text } => Some(text.as_str()),
+                            ToolResultContent::Image { .. } => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join("");
+                    trajectory_tool_calls.push((
+                        name.clone(),
+                        args_json,
+                        result_text,
+                        result.is_error,
+                    ));
+                }
+
                 messages.push(Message::user_tool_results(results));
+
+                // Write transparent working memory — user can open and edit this file
+                if let Some(ref root) = config.vault_root {
+                    let wm_path = format!(
+                        "{}/.epistemos/sessions/{}/working-memory.md",
+                        root, session_id
+                    );
+                    if let Some(parent) = std::path::Path::new(&wm_path).parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    let wm_content = format!(
+                        "---\nsession_id: {}\nobjective: \"{}\"\nstatus: running\nturn: {}\n---\n\n\
+                         ## Goal\n{}\n\n\
+                         ## Progress\n{} turns completed, {} messages in context.\n",
+                        session_id,
+                        objective.replace('"', "'"),
+                        turn_count,
+                        objective,
+                        turn_count,
+                        messages.len(),
+                    );
+                    let _ = std::fs::write(&wm_path, &wm_content);
+                }
 
                 let estimated_tokens = estimate_tokens(&messages);
                 if estimated_tokens > config.context_threshold {
@@ -383,7 +503,7 @@ async fn execute_one_tool(
         return Err(AgentError::Cancelled);
     }
 
-    let risk = tool_registry.get_risk_level(&name);
+    let risk = tool_risk_level(&name, &input, &tool_registry);
     let approved = match risk {
         RiskLevel::ReadOnly => permissions.auto_approve_read_only,
         RiskLevel::Modification => permissions.auto_approve_modification,
@@ -431,6 +551,23 @@ async fn execute_one_tool(
         }
     }
 
+    if name == "computer" {
+        let input_json = serde_json::to_string(&input)
+            .map_err(|error| AgentError::Serialization(error.to_string()))?;
+        let output = delegate.execute_computer_action(input_json.clone());
+        let is_error = serde_json::from_str::<serde_json::Value>(&output)
+            .ok()
+            .and_then(|value| value.get("success").and_then(serde_json::Value::as_bool))
+            .map(|success| !success)
+            .unwrap_or(false);
+        let redacted = crate::security::redact_credentials(&output);
+        return Ok(ToolResult::text(
+            id,
+            truncate_tool_output(redacted.into_owned(), 16_384),
+            is_error,
+        ));
+    }
+
     match tool_registry.execute(&name, &input).await {
         Ok(output) => {
             // Security: redact credentials from tool output.
@@ -450,6 +587,22 @@ async fn execute_one_tool(
         }
         Err(error) => Ok(ToolResult::text(id, format!("Tool error: {error}"), true)),
     }
+}
+
+fn tool_risk_level(
+    name: &str,
+    input: &serde_json::Value,
+    tool_registry: &ToolRegistry,
+) -> RiskLevel {
+    if name == "computer" {
+        return match input.get("action").and_then(serde_json::Value::as_str) {
+            Some("screenshot") | Some("get_ax_tree") => RiskLevel::ReadOnly,
+            Some("delete_file") => RiskLevel::Destructive,
+            _ => RiskLevel::Modification,
+        };
+    }
+
+    tool_registry.get_risk_level(name)
 }
 
 fn prompt_mode_for_objective(objective: &str) -> PromptMode {

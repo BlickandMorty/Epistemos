@@ -6,18 +6,12 @@ import os
 import QuartzCore
 import SwiftData
 
-// MARK: - Ship Mode Gate
-// When SHIP_MODE=release, agent subsystems are excluded from
-// the binary entirely (build-rust.sh skips agent crates). This flag
-// gates the Swift-side initialization so agent services never start.
+// MARK: - Ship Gate
+// Release builds ship the same linked agent dylibs as debug builds, so
+// Swift-side agent services stay available unless a future dedicated build
+// variant intentionally removes them.
 enum ShipGate {
-    /// Controls whether agent subsystems are compiled in.
-    /// Debug: enabled for development. Release: disabled for size + stability.
-    #if DEBUG
     static let agentsEnabled = true
-    #else
-    static let agentsEnabled = false
-    #endif
 }
 
 // MARK: - App Bootstrap
@@ -787,6 +781,7 @@ final class AppBootstrap {
     let cloudLLMClient: CloudLLMClient
     let triageService: TriageService
     let vaultSync: VaultSyncService
+    let ssmStateService: SSMStateService
     let noteInsightService: NoteInsightService
     let cloudKnowledgeDistillationService: CloudKnowledgeDistillationService
     private(set) var meaningAnchorService: MeaningAnchorService?
@@ -916,6 +911,31 @@ final class AppBootstrap {
         // VaultSyncService — hybrid persistence bridge
         self.vaultSync = VaultSyncService(modelContainer: container)
 
+        // SSMStateService — Mamba/SSM hidden state persistence for vault memory
+        let ssmStateRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Epistemos", isDirectory: true) ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let ssmStateService = SSMStateService(stateRoot: ssmStateRoot)
+        ssmStateService.activate(enabled: epistemosConfig.ssmStatePersistenceEnabled)
+        self.ssmStateService = ssmStateService
+
+        // Wire SSM state service into the local inference engine
+        Task {
+            await localInferenceService.setSsmStateService(ssmStateService)
+            await localInferenceService.setOnSSMStateSaved { sessionID, statePath in
+                Log.app.info("SSM state saved for session=\(sessionID) at \(statePath)")
+                guard let sessionUUID = UUID(uuidString: sessionID) else {
+                    Log.app.warning("Ignoring SSM state bind for non-UUID session id \(sessionID)")
+                    return
+                }
+                Task {
+                    await ConversationPersistence.shared.bindSSMStatePath(
+                        sessionID: sessionUUID,
+                        statePath: statePath
+                    )
+                }
+            }
+        }
+
         // NoteInsightService — on-device ML analysis for all notes
         self.noteInsightService = NoteInsightService(modelContainer: container)
 
@@ -1040,6 +1060,12 @@ final class AppBootstrap {
                 },
                 cloudKnowledgeJob: { [cloudKnowledgeDistillationService] in
                     _ = try await cloudKnowledgeDistillationService.rebuildAllModelVaults()
+                },
+                vaultPathProvider: { @MainActor [weak vaultSync] in
+                    vaultSync?.vaultURL?.path
+                },
+                ssmStateServiceProvider: { @MainActor [weak self] in
+                    self?.ssmStateService
                 }
             )
         }
@@ -1400,7 +1426,7 @@ final class AppBootstrap {
             if let ws = try modelContainer.mainContext.fetch(
                 FetchDescriptor(predicate: predicate)
             ).first, !ws.summary.isEmpty {
-                workspaceService.welcomeBack?.intentSummary = ws.summary
+                workspaceService.welcomeBack?.intentSummary = WelcomeBackInfo.cleanedSummaryText(from: ws.summary)
             }
         } catch {
             recordPersistenceIssue("Welcome-back summary fetch failed", error: error)

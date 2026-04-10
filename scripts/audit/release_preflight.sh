@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 DERIVED_DATA_PATH="${1:-/tmp/epistemos-release-preflight}"
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/Debug/Epistemos.app"
+TEST_DERIVED_DATA_PATH="${DERIVED_DATA_PATH}-tests"
+TEST_APP_PATH="$TEST_DERIVED_DATA_PATH/Build/Products/Debug/Epistemos.app"
 
 if [ -f "$HOME/.cargo/env" ]; then
     # shellcheck disable=SC1090
@@ -17,6 +19,11 @@ echo "Root: $ROOT_DIR"
 echo "DerivedData: $DERIVED_DATA_PATH"
 
 git diff --check
+
+(
+    cd agent_core
+    cargo test
+)
 
 (
     cd epistemos-core
@@ -39,8 +46,9 @@ git diff --check
 )
 
 rm -rf "$DERIVED_DATA_PATH"
+rm -rf "$TEST_DERIVED_DATA_PATH"
 
-xcodebuild -quiet \
+"$ROOT_DIR/scripts/xcodebuild_epistemos.sh" -quiet \
     -project Epistemos.xcodeproj \
     -scheme Epistemos \
     -configuration Debug \
@@ -48,16 +56,23 @@ xcodebuild -quiet \
     -derivedDataPath "$DERIVED_DATA_PATH" \
     build
 
-xcodebuild -quiet \
+"$ROOT_DIR/scripts/xcodebuild_epistemos.sh" -quiet \
     -project Epistemos.xcodeproj \
     -scheme Epistemos \
     -destination 'platform=macOS' \
+    -derivedDataPath "$TEST_DERIVED_DATA_PATH" \
     test \
     -only-testing:EpistemosTests/RuntimeValidationTests
+
+if [ ! -d "$TEST_APP_PATH" ]; then
+    echo "FAIL: hosted test app bundle missing at $TEST_APP_PATH" >&2
+    exit 1
+fi
 
 codesign --verify --deep --strict --verbose=4 "$APP_PATH"
 
 test -f "$APP_PATH/Contents/Frameworks/libepistemos_core.dylib"
+test -f "$APP_PATH/Contents/Frameworks/libagent_core.dylib"
 test -f "$APP_PATH/Contents/Frameworks/libomega_mcp.dylib"
 test -f "$APP_PATH/Contents/Frameworks/libomega_ax.dylib"
 test -f "$APP_PATH/Contents/Resources/model_manifest.json"

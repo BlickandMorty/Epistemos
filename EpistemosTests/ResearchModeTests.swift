@@ -245,7 +245,8 @@ struct ResearchModeTests {
 
     @Test("Research planning prompt does not contain blocked persona strings")
     func noHiddenPersonas() throws {
-        let content = try loadTextFile("Epistemos/Omega/Orchestrator/OmegaInferenceBridge.swift")
+        let content = try loadTextFile("agent_core/src/prompts.rs")
+        #expect(content.contains("RESEARCH_PROMPT"))
         #expect(!content.contains("research assistant"))
         #expect(!content.contains("You are a research"))
     }
@@ -269,14 +270,6 @@ struct ResearchModeTests {
     // MARK: - Helpers
 
     private func loadTextFile(_ relativePath: String) throws -> String {
-        try String(
-            contentsOf: repoRootURL().appendingPathComponent(relativePath),
-            encoding: .utf8
-        )
-    }
-
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

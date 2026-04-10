@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SwiftData
 
@@ -8,14 +9,31 @@ import SwiftData
 //
 // Updated for 7-type model: sources (absorbs thinkers/papers/books),
 // tags (absorbs concepts), ideas (absorbs insights/brainDumps).
+// Supports incremental scanning: skips notes whose content hash hasn't changed.
 
 @MainActor
 final class EntityExtractor {
 
     private let graphState: GraphState
 
+    /// Stores SHA-256 hash of note content at last successful extraction.
+    /// Persisted to UserDefaults to survive app restarts.
+    /// Key = page ID, Value = hex SHA-256 hash string.
+    private static let hashCacheKey = "EntityExtractor.processedHashes"
+
+    private var processedHashes: [String: String] {
+        get { UserDefaults.standard.dictionary(forKey: Self.hashCacheKey) as? [String: String] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: Self.hashCacheKey) }
+    }
+
     init(graphState: GraphState) {
         self.graphState = graphState
+    }
+
+    /// Compute SHA-256 hex string of note content for change detection.
+    private func contentHash(of text: String) -> String {
+        let digest = SHA256.hash(data: Data(text.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Scan Vault
@@ -31,14 +49,29 @@ final class EntityExtractor {
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
         graphState.loadGraph(context: context)
 
-        // 2. Fetch all active pages and process in batches of 5
-        let pages = (try? context.fetch(SDPage.activePagesDescriptor)) ?? []
+        // 2. Fetch all active pages, filter to only changed notes, process in batches of 10
+        let allPages = (try? context.fetch(SDPage.activePagesDescriptor)) ?? []
+        var currentHashes = processedHashes
+
+        // Incremental change detection: skip notes whose content hash matches last extraction
+        let pages = allPages.filter { page in
+            let body = page.loadBody(mapped: true)
+            let hash = contentHash(of: body)
+            let storedHash = currentHashes[page.id]
+            return storedHash != hash  // changed or new
+        }
+
+        let skipped = allPages.count - pages.count
+        if skipped > 0 {
+            Log.app.info("EntityExtractor: skipping \(skipped) unchanged notes, processing \(pages.count) changed")
+        }
+
         let totalWork = Double(pages.count + 1)  // +1 for chat phase
         var completed = 0.0
 
-        graphState.scanStatus = "Extracting entities from notes..."
+        graphState.scanStatus = "Extracting entities from \(pages.count) changed notes..."
 
-        let batchSize = 5
+        let batchSize = 10
         for batchStart in stride(from: 0, to: pages.count, by: batchSize) {
             guard !Task.isCancelled else {
                 Log.app.info("EntityExtractor: scan cancelled during note extraction")
@@ -82,6 +115,12 @@ final class EntityExtractor {
                 let response = try await llmService.generate(prompt: prompt, maxTokens: 2000)
                 if let extraction = parseJSON(response, as: ExtractionResult.self) {
                     processExtractionResult(extraction, sourcePages: batch, context: context)
+
+                    // Update hash cache for successfully processed notes
+                    for page in batch {
+                        let body = page.loadBody(mapped: true)
+                        currentHashes[page.id] = contentHash(of: body)
+                    }
                 } else {
                     Log.app.info("EntityExtractor: failed to parse JSON for note batch \(batchStart/batchSize + 1)")
                 }
@@ -137,13 +176,16 @@ final class EntityExtractor {
         completed += 1
         graphState.scanProgress = 1.0
 
-        // 4. Reload graph with new entities
+        // 4. Persist updated hash cache
+        processedHashes = currentHashes
+
+        // 5. Reload graph with new entities
         graphState.scanStatus = "Reloading graph..."
         graphState.loadGraph(context: context)
 
         graphState.isScanning = false
         graphState.scanStatus = ""
-        Log.app.info("EntityExtractor: scan complete")
+        Log.app.info("EntityExtractor: scan complete — \(pages.count) notes processed, \(skipped) skipped (unchanged)")
     }
 
     // MARK: - Process Extraction Result (Notes)

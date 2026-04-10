@@ -1,6 +1,9 @@
 import Testing
 @testable import Epistemos
 
+#if false
+// Retained for reference while the legacy ExecutionContext type is absent
+// from the live app. These tests should come back only if that type returns.
 @Suite("ExecutionContext")
 @MainActor
 struct ExecutionContextTests {
@@ -130,3 +133,4 @@ struct ExecutionContextTests {
         )
     }
 }
+#endif

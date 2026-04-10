@@ -173,17 +173,28 @@ actor LocalAgentLoop {
         constrainedDecoding: ConstrainedDecodingService? = nil,
         toolExecutor: @escaping LocalAgentToolExecutor,
         modelID: String? = nil,
-        maxTokenBudget: Int = 6_144,
+        maxTokenBudget: Int? = nil,
         maxResponseTokens: Int = 2_048,
         defaultReasoningMode: LocalReasoningMode = .fast
     ) -> LocalAgentLoop {
-        LocalAgentLoop(
+        // Derive token budget from model config: use 70% of maxContextTokens
+        // to leave room for system prompt + response. Falls back to 6K for unknown models.
+        let resolvedBudget: Int
+        if let budget = maxTokenBudget {
+            resolvedBudget = budget
+        } else if let id = modelID, let model = LocalTextModelID(rawValue: id) {
+            resolvedBudget = model.maxContextTokens * 70 / 100
+        } else {
+            resolvedBudget = 6_144
+        }
+
+        return LocalAgentLoop(
             generator: mlxGenerator(using: modelClient),
             streamingGenerator: mlxStreamingGenerator(using: modelClient),
             structuredGenerator: constrainedDecoding.map { constrainedGenerator(using: $0) },
             toolExecutor: toolExecutor,
             modelID: modelID,
-            maxTokenBudget: maxTokenBudget,
+            maxTokenBudget: resolvedBudget,
             maxResponseTokens: maxResponseTokens,
             defaultReasoningMode: defaultReasoningMode
         )

@@ -9,7 +9,7 @@ struct IntentSearchHit: Sendable, Equatable {
 
 enum AppIntentSearchSupport {
     nonisolated static var searchableTabs: [NavTab] {
-        NavTab.allCases.filter { $0 != .omega }
+        NavTab.allCases.filter(\.isReleaseVisible)
     }
 
     static func sanitizeSnippet(_ snippet: String) -> String? {

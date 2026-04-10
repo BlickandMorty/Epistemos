@@ -346,11 +346,12 @@ struct InlineAnnotationSummaryBar: View {
 /// Toggle between Focused and Inline response modes
 struct CodeAskBarModeToggle: View {
     @Binding var mode: CodeAskBarResponseMode
+    let availableModes: [CodeAskBarResponseMode]
     let onChange: (CodeAskBarResponseMode) -> Void
     
     var body: some View {
         Picker("", selection: $mode) {
-            ForEach(CodeAskBarResponseMode.allCases, id: \.self) { m in
+            ForEach(availableModes, id: \.self) { m in
                 Image(systemName: m.icon)
                     .tag(m)
                     .help(m.description)
@@ -369,6 +370,7 @@ struct CodeAskBarModeToggle: View {
 struct CodeAskBarInput: View {
     @Binding var query: String
     @Binding var responseMode: CodeAskBarResponseMode
+    let availableModes: [CodeAskBarResponseMode]
     let isQuerying: Bool
     let onSubmit: () -> Void
     let onModeChange: (CodeAskBarResponseMode) -> Void
@@ -396,8 +398,13 @@ struct CodeAskBarInput: View {
                     .scaleEffect(0.8)
             }
             
-            // Mode toggle
-            CodeAskBarModeToggle(mode: $responseMode, onChange: onModeChange)
+            if availableModes.count > 1 {
+                CodeAskBarModeToggle(
+                    mode: $responseMode,
+                    availableModes: availableModes,
+                    onChange: onModeChange
+                )
+            }
             
             // Send button
             Button {
@@ -508,6 +515,7 @@ struct CodeAskBarInput: View {
     CodeAskBarInput(
         query: $query,
         responseMode: $mode,
+        availableModes: CodeAskBarResponseMode.allCases,
         isQuerying: false,
         onSubmit: {},
         onModeChange: { _ in }

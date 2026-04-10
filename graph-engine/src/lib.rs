@@ -607,7 +607,7 @@ fn sanitize_position(v: f32, seed: u32) -> f32 {
     }
 }
 
-/// `node_type`: 0–6 matching NodeType enum.
+/// `node_type`: 0–13 matching NodeType enum.
 /// `link_count`: number of edges this node has (for radius sizing).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_add_node(
@@ -1565,13 +1565,11 @@ pub extern "C" fn graph_engine_set_node_embeddings_batch(
         let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
         let values = unsafe { std::slice::from_raw_parts(data, count * dim) };
 
-        for i in 0..count {
-            let uuid_str = if uuid_ptrs[i].is_null() {
+        for (i, uuid_ptr) in uuid_ptrs.iter().enumerate().take(count) {
+            let uuid_str = if uuid_ptr.is_null() {
                 ""
             } else {
-                unsafe { CStr::from_ptr(uuid_ptrs[i]) }
-                    .to_str()
-                    .unwrap_or("")
+                unsafe { CStr::from_ptr(*uuid_ptr) }.to_str().unwrap_or("")
             };
 
             if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
@@ -3272,8 +3270,13 @@ pub extern "C" fn graph_engine_set_label_policy(
     ffi_catch_unwind!("graph_engine_set_label_policy", {
         ffi_engine!(engine);
         engine.set_label_policy(
-            max_nodes, zoom_bias, zoom_pivot, focus_shrink,
-            folder_threshold, note_threshold, chat_threshold,
+            max_nodes,
+            zoom_bias,
+            zoom_pivot,
+            focus_shrink,
+            folder_threshold,
+            note_threshold,
+            chat_threshold,
         );
     });
 }
@@ -3296,9 +3299,7 @@ pub extern "C" fn graph_engine_set_label_glyph_table(
         }
         // SAFETY: caller guarantees `metrics` points to `count` contiguous
         // CGlyphMetric structs. We copy into our own HashMap immediately.
-        let slice = unsafe {
-            std::slice::from_raw_parts(metrics, count as usize)
-        };
+        let slice = unsafe { std::slice::from_raw_parts(metrics, count as usize) };
         engine.set_label_glyph_table(slice, line_height_em, px_range);
     });
 }
@@ -3353,7 +3354,11 @@ pub extern "C" fn graph_engine_set_labels_enabled(engine: *mut Engine, enabled: 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_label_extras(engine: *mut Engine, max_inner_nodes: u32, inner_offset: f32) {
+pub extern "C" fn graph_engine_set_label_extras(
+    engine: *mut Engine,
+    max_inner_nodes: u32,
+    inner_offset: f32,
+) {
     ffi_catch_unwind!("graph_engine_set_label_extras", {
         ffi_engine!(engine);
         engine.set_label_extras(max_inner_nodes, inner_offset);

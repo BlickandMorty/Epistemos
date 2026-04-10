@@ -99,6 +99,10 @@ enum UtilityPanel: String, CaseIterable {
     case omega
     case settings
 
+    static var statusBarPanels: [UtilityPanel] {
+        [.notes, .settings]
+    }
+
     var title: String {
         switch self {
         case .notes: "Notes"

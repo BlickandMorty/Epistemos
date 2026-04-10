@@ -29,6 +29,16 @@ final class EpistemosConfig {
     @ObservationIgnored @AppStorage("nightbrain.minIdleSeconds") var nightBrainMinIdleSeconds = 300.0
     @ObservationIgnored @AppStorage("nightbrain.menuBarAgent") var nightBrainMenuBarAgent = false
 
+    // MARK: - SSM State Persistence (Mamba vault memory)
+    @ObservationIgnored @AppStorage("ssm.statePersistenceEnabled") var ssmStatePersistenceEnabled = false
+    @ObservationIgnored @AppStorage("ssm.autoSaveOnTurnEnd") var ssmAutoSaveOnTurnEnd = true
+    @ObservationIgnored @AppStorage("ssm.maxSnapshotsPerModel") var ssmMaxSnapshotsPerModel: Int = 5
+
+    // MARK: - Claude Managed Sessions (Optional cloud agent backend)
+    @ObservationIgnored @AppStorage("cma.enabled") var claudeManagedSessionsEnabled = false
+    @ObservationIgnored @AppStorage("cma.defaultBudgetUSD") var defaultAgentBudgetUSD: Double = 0
+    // 0 = unlimited; any positive value = hard cap per session
+
     // MARK: - Agent Heartbeat (Background scheduled agent runs)
     @ObservationIgnored @AppStorage("heartbeat.enabled") var heartbeatEnabled = false
     @ObservationIgnored @AppStorage("heartbeat.intervalSeconds") var heartbeatIntervalSeconds = 3600.0

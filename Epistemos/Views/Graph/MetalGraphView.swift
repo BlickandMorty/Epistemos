@@ -117,6 +117,32 @@ nonisolated func graphRecommitCameraAction(
     return shouldSnapGlobalCamera ? .snapGlobalFit : .animateGlobalFit
 }
 
+nonisolated enum GraphInteractionRenderPolicy {
+    static func inFlightWaitMilliseconds(
+        isInteracting: Bool,
+        lowPowerMode: Bool
+    ) -> Int {
+        switch (isInteracting, lowPowerMode) {
+        case (true, false):
+            4
+        case (true, true):
+            2
+        case (false, false):
+            2
+        case (false, true):
+            1
+        }
+    }
+
+    static func selectedNodePublishDistance(isInteracting: Bool) -> CGFloat {
+        isInteracting ? 8 : 2
+    }
+
+    static func selectedNodeSampleIntervalFrames(isInteracting: Bool) -> Int {
+        isInteracting ? 4 : 1
+    }
+}
+
 struct GraphNodeHoverHapticState {
     private(set) var hoveredNodeId: String?
     private(set) var lastTickAt: TimeInterval?
@@ -186,8 +212,9 @@ final class GraphDeferredMetadataDriver {
 
                     self.rerunRequested = false
                     self.phase = .scheduled
-                    // Back off when graph is idle — 30s sleep prevents CPU saturation.
-                    try? await Task.sleep(for: .seconds(30))
+                    // Yield once so queued requests can coalesce without stalling
+                    // the rerun behind a long idle backoff.
+                    await Task.yield()
                 }
             }
         case .scheduled:
@@ -430,8 +457,8 @@ final class MetalGraphNSView: NSView {
     /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
     private let framePending = Atomic<Bool>(false)
 
-    /// Triple-buffer in-flight semaphore: allows up to 3 frames queued
-    /// between CPU and GPU, matching maximumDrawableCount=3. Without
+    /// Double-buffer in-flight semaphore: allows up to 2 frames queued
+    /// between CPU and GPU, matching maximumDrawableCount=2. Without
     /// this, the atomic bool drops frames instead of pipelining them.
     private let inFlightSemaphore = DispatchSemaphore(value: 2)
 
@@ -518,10 +545,13 @@ final class MetalGraphNSView: NSView {
     private var windowFrameOrigin: NSPoint?
     private var sampledSelectedNodeId: String?
     private var lastPublishedSelectedNodeScreenPoint: CGPoint?
-    private var pendingSelectedNodeScreenPoint: CGPoint?
-    private var selectedNodeScreenPointStableFrames = 0
     private var selectedNodeScreenPointSampleFrame = 0
-    private let selectedNodeScreenPointSampleIntervalFrames = 1
+    private var pendingPointerUpdate: SIMD2<Float>?
+    private var pendingScrollPanDelta = SIMD2<Float>(repeating: 0)
+    private var pendingScrollZoomAnchor: SIMD2<Float>?
+    private var pendingScrollZoomDelta: Float = 0
+    private var pendingPinchZoomAnchor: SIMD2<Float>?
+    private var pendingPinchZoomDelta: Float = 0
 
     // Track whether graph data has been committed.
     private(set) var isCommitted = false
@@ -551,8 +581,6 @@ final class MetalGraphNSView: NSView {
     private func resetSelectedNodeScreenPointTracking(for graphState: GraphState?) {
         sampledSelectedNodeId = nil
         lastPublishedSelectedNodeScreenPoint = nil
-        pendingSelectedNodeScreenPoint = nil
-        selectedNodeScreenPointStableFrames = 0
         selectedNodeScreenPointSampleFrame = 0
         graphState?.selectedNodeScreenPoint = nil
     }
@@ -1130,12 +1158,18 @@ final class MetalGraphNSView: NSView {
             return
         }
         guard let layer = metalLayer else { return }
+        let isInteracting = isDraggingNode || isPanning
+        let waitTimeoutMS = GraphInteractionRenderPolicy.inFlightWaitMilliseconds(
+            isInteracting: isInteracting,
+            lowPowerMode: PowerGuard.shared.shouldThrottleRendering
+        )
 
         // In-flight tracking: acquire a slot. The semaphore allows up to
         // 2 frames in the GPU pipeline (matching maximumDrawableCount=2).
         // Use a short timeout instead of .now() to avoid dropping frames
         // that just need one more millisecond to finish presenting.
-        guard inFlightSemaphore.wait(timeout: .now()) == .success else { return }
+        guard inFlightSemaphore.wait(timeout: .now() + .milliseconds(waitTimeoutMS)) == .success else { return }
+        defer { inFlightSemaphore.signal() }
 
         switch graphInitialRenderBootstrapState(
             isCommitted: isCommitted,
@@ -1319,6 +1353,8 @@ final class MetalGraphNSView: NSView {
             }
         }
 
+        flushPendingInteractionInputs(engine: engine)
+
         let size = layer.drawableSize
         let w = UInt32(size.width)
         let h = UInt32(size.height)
@@ -1332,20 +1368,17 @@ final class MetalGraphNSView: NSView {
             if sampledSelectedNodeId != nodeId {
                 sampledSelectedNodeId = nodeId
                 lastPublishedSelectedNodeScreenPoint = nil
-                pendingSelectedNodeScreenPoint = nil
-                selectedNodeScreenPointStableFrames = 0
                 selectedNodeScreenPointSampleFrame = 0
             }
 
+            let selectedNodeSampleIntervalFrames = GraphInteractionRenderPolicy.selectedNodeSampleIntervalFrames(
+                isInteracting: isInteracting
+            )
             selectedNodeScreenPointSampleFrame &+= 1
             let shouldSampleSelectedNodeScreenPoint =
                 graphState?.selectedNodeScreenPoint == nil
                 || lastPublishedSelectedNodeScreenPoint == nil
-                || pendingSelectedNodeScreenPoint == nil
-                || selectedNodeScreenPointStableFrames < 1
-                || isDraggingNode
-                || isPanning
-                || selectedNodeScreenPointSampleFrame % selectedNodeScreenPointSampleIntervalFrames == 0
+                || selectedNodeScreenPointSampleFrame % selectedNodeSampleIntervalFrames == 0
 
             if shouldSampleSelectedNodeScreenPoint {
                 var posBuf: [Float] = [0, 0]
@@ -1361,6 +1394,9 @@ final class MetalGraphNSView: NSView {
                     // Throttle @Observable writes: only publish when the point
                     // moved >2px. Writing every frame at 120Hz causes an
                     // observation storm that starves the main thread.
+                    let publishDistance = GraphInteractionRenderPolicy.selectedNodePublishDistance(
+                        isInteracting: isInteracting
+                    )
                     let delta: CGFloat
                     if let last = lastPublishedSelectedNodeScreenPoint {
                         let dx = pt.x - last.x
@@ -1369,7 +1405,7 @@ final class MetalGraphNSView: NSView {
                     } else {
                         delta = .greatestFiniteMagnitude
                     }
-                    if delta > 2.0 {
+                    if delta > publishDistance {
                         lastPublishedSelectedNodeScreenPoint = pt
                         graphState?.selectedNodeScreenPoint = pt
                     }
@@ -1391,7 +1427,6 @@ final class MetalGraphNSView: NSView {
         // Release the in-flight semaphore slot so the next frame can queue.
         // graph_engine_render() calls commandBuffer.commit() + present()
         // internally, so GPU work is submitted at this point.
-        inFlightSemaphore.signal()
     }
 
     // MARK: - Input Events
@@ -1418,6 +1453,7 @@ final class MetalGraphNSView: NSView {
         mouseDownLocation = loc
         let scale = metalLayer?.contentsScale ?? 2.0
         let shift: UInt8 = event.modifierFlags.contains(.shift) ? 1 : 0
+        pendingPointerUpdate = nil
         graph_engine_mouse_down(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale), shift)
 
         // Cursor feedback: closedHand for both node drag and pan.
@@ -1440,7 +1476,7 @@ final class MetalGraphNSView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let engine else { return }
+        guard engine != nil else { return }
 
         // In mini mode, background drag moves the floating window.
         if isMiniMode && isDraggingWindow, let origin = windowDragOrigin, let frameOrigin = windowFrameOrigin {
@@ -1455,7 +1491,7 @@ final class MetalGraphNSView: NSView {
         let scale = metalLayer?.contentsScale ?? 2.0
         let screenX = Float(loc.x * scale)
         let screenY = Float((bounds.height - loc.y) * scale)
-        graph_engine_mouse_moved(engine, screenX, screenY)
+        pendingPointerUpdate = SIMD2<Float>(screenX, screenY)
         needsRender = true
     }
 
@@ -1490,6 +1526,7 @@ final class MetalGraphNSView: NSView {
 
         let loc = convert(event.locationInWindow, from: nil)
         let scale = metalLayer?.contentsScale ?? 2.0
+        pendingPointerUpdate = nil
         graph_engine_mouse_up(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
 
         // Sync selection state: node click → select, background click → deselect.
@@ -1630,6 +1667,7 @@ final class MetalGraphNSView: NSView {
         let screenX = Float(loc.x * scale)
         let screenY = Float((bounds.height - loc.y) * scale)
         graph_engine_mouse_moved(engine, screenX, screenY)
+        var shouldRender = false
 
         // Connection mode: override cursor to crosshair.
         if let graphState, graphState.isConnecting {
@@ -1649,23 +1687,30 @@ final class MetalGraphNSView: NSView {
                     MainActor.assumeIsolated {
                         HapticHelper.sidebarHoverTick()
                     }
+                    shouldRender = true
                 }
                 if physicsCoordinator?.graphHoveredNodeId != hoveredId {
                     physicsCoordinator?.graphHoveredNodeId = hoveredId
+                    shouldRender = true
                 }
             } else {
                 NSCursor.arrow.set()
-                _ = hoverHapticState.update(hoveredNodeId: nil, now: event.timestamp)
+                if hoverHapticState.update(hoveredNodeId: nil, now: event.timestamp) {
+                    shouldRender = true
+                }
                 if physicsCoordinator?.graphHoveredNodeId != nil {
                     physicsCoordinator?.graphHoveredNodeId = nil
+                    shouldRender = true
                 }
             }
         }
-        needsRender = true
+        if shouldRender {
+            needsRender = true
+        }
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard let engine else { return }
+        guard engine != nil else { return }
         let scale = metalLayer?.contentsScale ?? 2.0
         let loc = convert(event.locationInWindow, from: nil)
         let sx = Float(loc.x * scale)
@@ -1677,12 +1722,14 @@ final class MetalGraphNSView: NSView {
             // Option+scroll → pan (standard 2D mode).
             let dx = Float(event.scrollingDeltaX * scale)
             let dy = Float(event.scrollingDeltaY * scale)
-            graph_engine_scroll(engine, dx, dy)
+            pendingScrollPanDelta.x += dx
+            pendingScrollPanDelta.y += dy
         } else {
             // Zoom toward cursor (default for both trackpad and mouse wheel).
             let sensitivity: Float = event.hasPreciseScrollingDeltas ? 0.005 : 0.06
             let magnification = Float(event.scrollingDeltaY) * sensitivity
-            graph_engine_magnify(engine, sx, sy, magnification)
+            pendingScrollZoomAnchor = SIMD2<Float>(sx, sy)
+            pendingScrollZoomDelta += magnification
         }
         needsRender = true
     }
@@ -1733,15 +1780,14 @@ final class MetalGraphNSView: NSView {
     }
 
     override func magnify(with event: NSEvent) {
-        guard let engine else { return }
+        guard engine != nil else { return }
         let loc = convert(event.locationInWindow, from: nil)
         let scale = metalLayer?.contentsScale ?? 2.0
-        graph_engine_magnify(
-            engine,
+        pendingPinchZoomAnchor = SIMD2<Float>(
             Float(loc.x * scale),
-            Float((bounds.height - loc.y) * scale),
-            Float(event.magnification)
+            Float((bounds.height - loc.y) * scale)
         )
+        pendingPinchZoomDelta += Float(event.magnification)
         needsRender = true
     }
 
@@ -1825,11 +1871,35 @@ final class MetalGraphNSView: NSView {
         )
     }
 
+    private func flushPendingInteractionInputs(engine: OpaquePointer) {
+        if let pointer = pendingPointerUpdate {
+            graph_engine_mouse_moved(engine, pointer.x, pointer.y)
+            pendingPointerUpdate = nil
+        }
+
+        if pendingScrollPanDelta != .zero {
+            graph_engine_scroll(engine, pendingScrollPanDelta.x, pendingScrollPanDelta.y)
+            pendingScrollPanDelta = .zero
+        }
+
+        if let anchor = pendingScrollZoomAnchor, pendingScrollZoomDelta != 0 {
+            graph_engine_magnify(engine, anchor.x, anchor.y, pendingScrollZoomDelta)
+            pendingScrollZoomAnchor = nil
+            pendingScrollZoomDelta = 0
+        }
+
+        if let anchor = pendingPinchZoomAnchor, pendingPinchZoomDelta != 0 {
+            graph_engine_magnify(engine, anchor.x, anchor.y, pendingPinchZoomDelta)
+            pendingPinchZoomAnchor = nil
+            pendingPinchZoomDelta = 0
+        }
+    }
+
     private func graphBaseDepth(for type: GraphNodeType) -> Int {
         switch type {
         case .folder: 0
         case .note, .chat: 2
-        case .idea, .source, .quote: 3
+        case .idea, .source, .quote, .person, .project, .topic, .decision, .event, .resource: 3
         case .tag, .block: 4
         }
     }

@@ -9,7 +9,7 @@ test-rust:
 
 # Swift tests via xcodebuild
 test-swift:
-	xcodebuild test -project Epistemos.xcodeproj -scheme Epistemos \
+	./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj -scheme Epistemos \
 		-destination 'platform=macOS' -only-testing:EpistemosTests \
 		2>&1 | grep -E "✘|✔|Test Suite|Executed|error:" | tail -40
 
@@ -28,7 +28,7 @@ deploy-rust: build-rust-release
 
 # Full Xcode build
 build:
-	xcodebuild -project Epistemos.xcodeproj -scheme Epistemos \
+	./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos \
 		-destination 'platform=macOS' build 2>&1 | tail -5
 
 # Full release: Rust release + Xcode build
@@ -37,4 +37,4 @@ release: deploy-rust build
 # Clean build artifacts
 clean:
 	cd graph-engine && cargo clean
-	xcodebuild -project Epistemos.xcodeproj -scheme Epistemos clean 2>&1 | tail -3
+	./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos clean 2>&1 | tail -3

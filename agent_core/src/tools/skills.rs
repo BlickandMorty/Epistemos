@@ -25,7 +25,6 @@ use serde_json::{json, Value};
 use super::registry::ToolHandler;
 
 const MAX_NAME_LENGTH: usize = 64;
-const MAX_DESCRIPTION_LENGTH: usize = 1024;
 const ALLOWED_SUBDIRS: &[&str] = &["references", "templates", "scripts", "assets"];
 
 // MARK: - Validation

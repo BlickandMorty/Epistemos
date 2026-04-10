@@ -24,13 +24,13 @@ use rustc_hash::FxHashMap;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct CGlyphMetric {
-    pub codepoint: u32, // Unicode code point (e.g. 65 for 'A')
-    pub uv_x: f32,      // atlas UV x (normalized [0,1])
-    pub uv_y: f32,      // atlas UV y (normalized [0,1])
-    pub uv_w: f32,      // atlas UV width
-    pub uv_h: f32,      // atlas UV height
-    pub half_w_em: f32, // half-width in em units
-    pub half_h_em: f32, // half-height in em units
+    pub codepoint: u32,    // Unicode code point (e.g. 65 for 'A')
+    pub uv_x: f32,         // atlas UV x (normalized [0,1])
+    pub uv_y: f32,         // atlas UV y (normalized [0,1])
+    pub uv_w: f32,         // atlas UV width
+    pub uv_h: f32,         // atlas UV height
+    pub half_w_em: f32,    // half-width in em units
+    pub half_h_em: f32,    // half-height in em units
     pub bearing_x_em: f32, // glyph center x-bearing in em
     pub bearing_y_em: f32, // glyph center y-bearing in em
     pub advance_em: f32,   // horizontal advance in em
@@ -58,11 +58,7 @@ pub struct GlyphTable {
 }
 
 impl GlyphTable {
-    pub fn from_c_metrics(
-        metrics: &[CGlyphMetric],
-        line_height_em: f32,
-        px_range: f32,
-    ) -> Self {
+    pub fn from_c_metrics(metrics: &[CGlyphMetric], line_height_em: f32, px_range: f32) -> Self {
         let mut glyphs = FxHashMap::default();
         glyphs.reserve(metrics.len());
         let mut fallback: Option<GlyphMetric> = None;
@@ -157,18 +153,12 @@ pub(crate) fn build_instances(
         if node_opacity < 0.01 {
             continue;
         }
-        let faded_color = [
-            color[0],
-            color[1],
-            color[2],
-            color[3] * node_opacity,
-        ];
+        let faded_color = [color[0], color[1], color[2], color[3] * node_opacity];
 
         let label_half_w_world = total_advance_em * world_px_per_em * 0.5;
         // Labels sit just below the node. Tier 1 §A3 puts them above, but
         // below-node matches the existing glow/node styling better.
-        let y_offset_world =
-            -(node_radius + world_px_per_em * line_height_em * 0.6);
+        let y_offset_world = -(node_radius + world_px_per_em * line_height_em * 0.6);
         let mut pen_x_world = node_x - label_half_w_world;
         let baseline_y = node_y + y_offset_world;
         let dx = node_x - camera_world[0];
@@ -190,10 +180,7 @@ pub(crate) fn build_instances(
             let center_y = baseline_y + g.bearing_y_em * world_px_per_em;
             out.push(crate::renderer::LabelInstance {
                 position: [center_x, center_y],
-                size: [
-                    g.half_w_em * world_px_per_em,
-                    g.half_h_em * world_px_per_em,
-                ],
+                size: [g.half_w_em * world_px_per_em, g.half_h_em * world_px_per_em],
                 uv_rect: g.uv_rect,
                 color: faded_color,
                 node_dist,
@@ -273,15 +260,7 @@ mod tests {
         let table = sample_table();
         let nodes: &[(f32, f32, f32, &str, f32)] = &[(0.0, 0.0, 10.0, "Ax", 1.0)];
         let mut out = Vec::new();
-        build_instances(
-            nodes,
-            &table,
-            [0.0, 0.0],
-            20.0,
-            [1.0; 4],
-            256,
-            &mut out,
-        );
+        build_instances(nodes, &table, [0.0, 0.0], 20.0, [1.0; 4], 256, &mut out);
         // 'A' renders, 'x' uses '?' fallback → 2 instances.
         assert_eq!(out.len(), 2);
     }
@@ -294,15 +273,7 @@ mod tests {
             (10.0, 0.0, 10.0, "AAAAAAAAAA", 1.0),
         ];
         let mut out = Vec::new();
-        build_instances(
-            nodes,
-            &table,
-            [0.0, 0.0],
-            20.0,
-            [1.0; 4],
-            7,
-            &mut out,
-        );
+        build_instances(nodes, &table, [0.0, 0.0], 20.0, [1.0; 4], 7, &mut out);
         assert_eq!(out.len(), 7);
     }
 
@@ -313,15 +284,7 @@ mod tests {
         let label: String = "A".repeat(40);
         let nodes: &[(f32, f32, f32, &str, f32)] = &[(0.0, 0.0, 10.0, &label, 1.0)];
         let mut out = Vec::new();
-        build_instances(
-            nodes,
-            &table,
-            [0.0, 0.0],
-            20.0,
-            [1.0; 4],
-            1000,
-            &mut out,
-        );
+        build_instances(nodes, &table, [0.0, 0.0], 20.0, [1.0; 4], 1000, &mut out);
         assert_eq!(out.len(), 32);
     }
 }

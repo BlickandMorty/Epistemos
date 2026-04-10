@@ -1657,10 +1657,12 @@ struct NoteDetailWorkspaceView: View {
             if let page = pages.first {
                 NoteBacklinksPopover(
                     pageTitle: page.title,
+                    pageId: page.id,
                     onNavigate: { targetId in
                         showBacklinksPopover = false
                         navState?.push(pageId: targetId, title: "")
-                    }
+                    },
+                    graphState: graphState
                 )
             }
         }

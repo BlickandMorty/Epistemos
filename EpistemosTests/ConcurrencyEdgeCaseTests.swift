@@ -488,13 +488,13 @@ struct ConcurrencySwiftDataTests {
 @MainActor
 struct ConcurrencyGraphStateTests {
 
-    @Test("Overlay physics policy opens in Crystal and hands off to Chaos")
+    @Test("Overlay physics policy opens in Deep Sea and hands off to Chaos")
     func overlayPhysicsPolicyDefaults() {
-        #expect(GraphOverlayPhysicsPolicy.openingPreset == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.openingPreset == .deepSea)
         #expect(GraphOverlayPhysicsPolicy.restingPreset == .chaos)
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .crystal)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .deepSea)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .deepSea)
         #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
     }
 

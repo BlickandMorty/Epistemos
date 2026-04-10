@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftData
 import os
@@ -158,13 +159,24 @@ final class ChatCoordinator {
                 let hasVault = bootstrap.ambientManifest != nil
                 Log.pipeline.info("handleQuery — hasVault=\(hasVault)")
 
+                // Wire active session ID and vault root to MLX inference for SSM state scoping
+                let sessionID = chatState.activeChatId ?? UUID().uuidString
+                await bootstrap.localInferenceService.setActiveSessionID(sessionID)
+                if let vaultURL = bootstrap.vaultSync.vaultURL {
+                    await bootstrap.localInferenceService.setActiveVaultRoot(vaultURL)
+                }
+
                 // Sync context window size from active model
                 chatState.maxContextTokens = inferenceState.preferredChatModelSelection.activeMaxContextTokens
                 chatState.recalculateContextEstimate()
 
+                let hasExplicitContext = Self.queryContainsExplicitContext(
+                    query,
+                    attachments: chatState.pendingContextAttachments
+                )
                 let notesContext: String?
                 let resolvedQuery: String
-                if hasVault, Self.queryContainsExplicitContext(query, attachments: chatState.pendingContextAttachments) {
+                if hasVault, hasExplicitContext {
                     let (ctx, cleaned) = await self.buildContextAttachments(
                         query: query,
                         attachments: chatState.pendingContextAttachments,
@@ -180,10 +192,18 @@ final class ChatCoordinator {
                 }
 
                 let userAttachments = chatState.messages.last(where: { $0.role == .user })?.attachments ?? []
-                let fileAttachmentContext = Self.buildFileAttachmentContext(from: userAttachments)
+                let hasExplicitUserContext = hasExplicitContext || !userAttachments.isEmpty
+                let supportsVision = inferenceState.preferredChatModelSelection.activeSupportsVision
+                let fileAttachmentContext = Self.buildFileAttachmentContext(
+                    from: userAttachments,
+                    supportsVision: supportsVision
+                )
+                let requiredContextContract = hasExplicitUserContext
+                    ? Self.buildRequiredAttachmentContractSection()
+                    : nil
 
                 // Extract image URLs for vision-capable models
-                if inferenceState.preferredChatModelSelection.activeSupportsVision {
+                if supportsVision {
                     inferenceState.pendingImageURLs = userAttachments
                         .filter { $0.type == .image }
                         .compactMap { Self.resolvedFileAttachmentURL(from: $0.uri) }
@@ -196,6 +216,7 @@ final class ChatCoordinator {
                 let effectiveQuery: String
                 if isVaultBriefing {
                     effectiveNotesContext = Self.mergedContextSections(
+                        requiredContextContract,
                         chatState.vaultBriefingManifest?.asContext(),
                         notesContext,
                         fileAttachmentContext
@@ -204,6 +225,7 @@ final class ChatCoordinator {
                     effectiveQuery = "Analyze my vault and provide a briefing: find cross-note connections, recurring themes, contradictions, topic gaps, stale notes worth revisiting, and notes that could be merged or split. Be specific — reference notes by title."
                 } else {
                     effectiveNotesContext = Self.mergedContextSections(
+                        requiredContextContract,
                         notesContext,
                         fileAttachmentContext
                     )
@@ -213,35 +235,55 @@ final class ChatCoordinator {
                 // Always inject lightweight workspace context (open notes + recent edits).
                 // For explicit session queries, inject deep context (full previews + chat history).
                 let isSessionQuery = Self.queryRequestsSessionContext(effectiveQuery)
-                let workspaceContext = Self.buildWorkspaceAwarenessContext(
-                    bootstrap: bootstrap,
-                    deepContext: isSessionQuery
-                )
+                let shouldInjectWorkspaceContext = isSessionQuery || !hasExplicitUserContext
+                let workspaceContextSection: String?
+                if shouldInjectWorkspaceContext {
+                    let workspaceContext = Self.buildWorkspaceAwarenessContext(
+                        bootstrap: bootstrap,
+                        deepContext: isSessionQuery
+                    )
+                    workspaceContextSection = Self.wrapSupplementalContextSection(
+                        title: "Workspace Awareness",
+                        instruction: "Treat this as optional background. Use it only when it helps answer the request, and let explicit user attachments take priority.",
+                        body: workspaceContext
+                    )
+                } else {
+                    workspaceContextSection = nil
+                }
                 let effectiveNotesContextWithWorkspace: String?
-                if !workspaceContext.isEmpty {
+                if let workspaceContextSection {
                     if let enc = effectiveNotesContext {
-                        effectiveNotesContextWithWorkspace = enc + "\n\n" + workspaceContext
+                        effectiveNotesContextWithWorkspace = enc + "\n\n" + workspaceContextSection
                     } else {
-                        effectiveNotesContextWithWorkspace = workspaceContext
+                        effectiveNotesContextWithWorkspace = workspaceContextSection
                     }
                 } else {
                     effectiveNotesContextWithWorkspace = effectiveNotesContext
                 }
 
                 // Build conversation history for multi-turn context.
+                // Budget: use at most 20% of the model's context window for history,
+                // leaving room for system prompt, notes context, and response.
                 let conversationHistory: String?
                 let priorMessages = chatState.messages.dropLast()
                 if !priorMessages.isEmpty && !isVaultBriefing {
-                    let recent = priorMessages.suffix(10)
+                    let historyBudgetChars = chatState.maxContextTokens * 4 / 5  // ~20% of context (4 chars ≈ 1 token)
+                    let maxMessagesForModel = min(20, max(4, chatState.maxContextTokens / 8_000))
+                    let recent = priorMessages.suffix(maxMessagesForModel)
                     var lines: [String] = []
-                    for msg in recent {
+                    var charCount = 0
+                    for msg in recent.reversed() {
                         let role: String = msg.role == .user ? "User" : "Assistant"
-                        let content: String = msg.content.count > 2000
-                            ? String(msg.content.prefix(2000)) + "…"
+                        let maxChars = min(2000, historyBudgetChars / max(1, recent.count))
+                        let content: String = msg.content.count > maxChars
+                            ? String(msg.content.prefix(maxChars)) + "…"
                             : msg.content
-                        lines.append(role + ": " + content)
+                        let line = role + ": " + content
+                        if charCount + line.count > historyBudgetChars { break }
+                        charCount += line.count
+                        lines.insert(line, at: 0)
                     }
-                    conversationHistory = lines.joined(separator: "\n\n")
+                    conversationHistory = lines.isEmpty ? nil : lines.joined(separator: "\n\n")
                 } else {
                     conversationHistory = nil
                 }
@@ -253,7 +295,7 @@ final class ChatCoordinator {
                 //        local / Apple Intelligence → PipelineService (Swift inference)
                 //        Rust agent fallback → PipelineService (cloud via Swift pipeline)
                 var usedRustAgent = false
-                if mode == .api {
+                if mode == .api, operatingMode == .agent {
                     do {
                         try await self.runRustAgentPath(
                             query: effectiveQuery,
@@ -345,6 +387,8 @@ final class ChatCoordinator {
         pendingAssistantId: String
     ) async throws {
         let sessionId = UUID().uuidString
+        var receivedAgentContent = false
+        var terminalAgentError: AgentRuntimeError?
 
         // Build system prompt with context
         var systemParts: [String] = []
@@ -369,12 +413,13 @@ final class ChatCoordinator {
         let agentConfig = AgentConfigFFI(
             maxTurns: 25,
             maxOutputTokens: 16384,
-            contextThreshold: 150_000,
+            contextThreshold: UInt32(chatState.maxContextTokens),
             enableThinking: true,
             effort: "medium",
             systemPrompt: systemParts.joined(separator: "\n\n"),
             autoApproveReads: true,
-            autoApproveWrites: false
+            autoApproveWrites: false,
+            promptMode: nil  // auto-detect from objective keywords
         )
 
         // Create async stream via StreamingDelegate — capture delegate for approval resolution
@@ -383,15 +428,19 @@ final class ChatCoordinator {
             let delegate = StreamingDelegate(continuation: continuation)
             capturedDelegate = delegate
 
-            Task.detached {
+            Task {
                 do {
-                    _ = try await runAgentSession(
+                    let result = try await runAgentSession(
                         sessionId: sessionId,
                         objective: query,
                         providerName: providerName,
                         toolConfig: toolConfig,
                         agentConfig: agentConfig,
                         delegate: delegate
+                    )
+                    EventStore.shared?.saveSessionMetrics(
+                        sessionId: sessionId,
+                        metrics: result.trajectoryMetrics
                     )
                 } catch {
                     continuation.yield(.error(AgentRuntimeError(message: error.localizedDescription)))
@@ -407,23 +456,21 @@ final class ChatCoordinator {
                 break
 
             case .textDelta(let text):
+                receivedAgentContent = true
                 chatState.appendStreamingText(text)
 
-            case .toolStarted(_, let name, let inputJson):
+            case .toolStarted(_, let name, _):
+                receivedAgentContent = true
                 chatState.activeToolName = name
                 chatState.isAgentExecuting = true
                 chatState.appendStreamingText("\n> **\(name)**\n")
 
-                // Computer use: intercept and execute natively via ComputerUseBridge
                 if name == "computer" {
-                    _ = await ComputerUseBridge.shared.execute(actionJSON: inputJson)
-                    // The result (screenshot + AX tree) is now available.
-                    // The Rust stub returns a placeholder, but the real result
-                    // is injected into the stream so the LLM sees it next turn.
-                    chatState.appendStreamingText("\n> Computer action executed\n")
+                    chatState.appendStreamingText("\n> Waiting for native computer observation…\n")
                 }
 
             case .toolCompleted(_, let result, let isError):
+                receivedAgentContent = true
                 chatState.activeToolName = nil
                 chatState.isAgentExecuting = false
                 if isError {
@@ -431,21 +478,24 @@ final class ChatCoordinator {
                 }
 
             case .permissionRequired(let request):
-                // Show approval inline and auto-approve for read-only tools.
-                // For destructive/modification tools, the Rust side blocks on
-                // wait_for_permission() until we call resolvePermission().
+                receivedAgentContent = true
                 let isReadOnly = request.riskLevel == .readOnly
+                let approved: Bool
                 if isReadOnly {
-                    capturedDelegate?.resolvePermission(permissionId: request.id, approved: true)
+                    approved = true
                 } else {
                     chatState.appendStreamingText(
-                        "\n> **Approval required:** \(request.toolName) (\(request.riskLevel == .destructive ? "destructive" : "modification"))\n"
+                        "\n> **Approval required:** \(request.toolName) (\(riskLabel(for: request.riskLevel)))\n"
                     )
-                    // Auto-approve for now — Phase 5 will add a real approval dialog
-                    capturedDelegate?.resolvePermission(permissionId: request.id, approved: true)
+                    approved = await promptForToolApproval(request)
+                    if !approved {
+                        chatState.appendStreamingText("\n> **Denied:** \(request.toolName)\n")
+                    }
                 }
+                capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
 
             case .complete(_, let inputTokens, let outputTokens, _):
+                receivedAgentContent = true
                 chatState.completeProcessing(
                     messageId: pendingAssistantId,
                     mode: .api
@@ -460,6 +510,14 @@ final class ChatCoordinator {
 
                 eventBus.emit(.pipelineComplete)
                 Log.pipeline.info("Agent session complete: \(inputTokens)in/\(outputTokens)out")
+
+                // Phase 4: Generate session knowledge graph in background
+                if let folderPath = sessionFolderPath(sessionId: sessionId) {
+                    Task.detached(priority: .utility) {
+                        let lifecycle = VaultLifecycleService(vaultPath: vaultPath)
+                        await lifecycle.generateGraphForSession(sessionFolderPath: folderPath)
+                    }
+                }
 
                 if !chatState.isIncognito {
                     self.persistChatCompletion(
@@ -477,12 +535,17 @@ final class ChatCoordinator {
                 }
 
             case .error(let error):
-                chatState.addErrorMessage("Agent error: \(error.message)")
+                if receivedAgentContent {
+                    chatState.addErrorMessage("Agent error: \(error.message)")
+                } else {
+                    terminalAgentError = error
+                }
 
             case .turnStarted(let turn, _):
+                receivedAgentContent = true
                 chatState.agentTurnCount = turn
 
-                // Hermes-style memory nudge: every 15 turns, prompt the agent
+                // Periodic memory nudge: every 15 turns, prompt the agent
                 // to reflect on what's worth persisting to memory
                 if turn > 0 && turn % 15 == 0 {
                     chatState.appendStreamingText(
@@ -491,11 +554,16 @@ final class ChatCoordinator {
                 }
 
             case .contextCompacting:
+                receivedAgentContent = true
                 chatState.appendStreamingText("\n> *Compacting context...*\n")
 
             case .toolInputStreaming, .subagentSpawned, .contextCompacted:
                 break
             }
+        }
+
+        if let terminalAgentError {
+            throw terminalAgentError
         }
     }
 
@@ -510,6 +578,41 @@ final class ChatCoordinator {
         case .minimax:    return "minimax"
         case .deepseek:   return "deepseek"
         case .localOnly:  return "ollama"
+        }
+    }
+
+    private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = request.riskLevel == .destructive ? .critical : .warning
+        alert.messageText = "Allow \(request.toolName)?"
+        alert.informativeText = """
+        The cloud agent requested a \(riskLabel(for: request.riskLevel)) action.
+
+        Request:
+        \(String(request.inputJson.prefix(500)))
+        """
+        alert.addButton(withTitle: "Allow")
+        alert.addButton(withTitle: "Deny")
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            return await withCheckedContinuation { continuation in
+                alert.beginSheetModal(for: window) { response in
+                    continuation.resume(returning: response == .alertFirstButtonReturn)
+                }
+            }
+        }
+
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func riskLabel(for riskLevel: AgentRuntimeRiskLevel) -> String {
+        switch riskLevel {
+        case .readOnly:
+            return "read-only"
+        case .modification:
+            return "modification"
+        case .destructive:
+            return "destructive"
         }
     }
 
@@ -1048,6 +1151,8 @@ final class ChatCoordinator {
         fetchChatMessages: @escaping @Sendable (String) async -> [AssistantMessage]
     ) async -> AttachedContextResolution {
         let hasAttachedNotes = attachments.contains { $0.kind == .note }
+        let requestedNoteContext = queryContainsExplicitNoteContext(query)
+            || attachments.contains(where: { $0.kind == .allNotes })
         let noteResolution = await resolveNotesContext(
             query: query,
             manifest: manifest,
@@ -1074,7 +1179,20 @@ final class ChatCoordinator {
             parts.append(attachedNoteContext)
         }
         if let context = noteResolution.context, !context.isEmpty {
-            parts.append(context)
+            let wrappedContext = requestedNoteContext
+                ? wrapRequiredContextSection(
+                    title: "Requested Note Context",
+                    instruction: "The user explicitly referenced these notes for the current request. Use them whenever they are relevant and prefer them over unsupported assumptions.",
+                    body: context
+                )
+                : wrapSupplementalContextSection(
+                    title: "Additional Note Context",
+                    instruction: "This note material was auto-matched from the vault to help answer the query. Use it only when it is relevant; explicit attachments above take priority.",
+                    body: context
+                )
+            if let wrappedContext {
+                parts.append(wrappedContext)
+            }
         }
         if let chatContext, !chatContext.isEmpty {
             parts.append(chatContext)
@@ -1323,7 +1441,15 @@ final class ChatCoordinator {
         for attachment in attachments {
             guard let body = bodiesByID[attachment.targetId] else { continue }
             guard seenIDs.insert(body.pageId).inserted else { continue }
-            sections.append("### Attached Note: \(body.title)\n\(body.body)")
+            sections.append(
+                """
+                ### Attached Note: \(body.title)
+                Reason: The user explicitly attached this note to the current request.
+                Priority: Required context. Use it when relevant and cite the note title.
+                Content:
+                \(body.body)
+                """
+            )
             loadedIDs.insert(body.pageId)
             if !loadedTitles.contains(body.title) {
                 loadedTitles.append(body.title)
@@ -1331,7 +1457,11 @@ final class ChatCoordinator {
         }
 
         return NotesContextResolution(
-            context: sections.isEmpty ? nil : sections.joined(separator: "\n\n"),
+            context: wrapRequiredContextSection(
+                title: "Required Attached Notes",
+                instruction: "These notes were explicitly attached by the user for this request. Use their contents whenever they are relevant.",
+                body: sections.joined(separator: "\n\n")
+            ),
             cleanedQuery: "",
             loadedNoteIds: loadedIDs,
             loadedNoteTitles: loadedTitles
@@ -1360,12 +1490,19 @@ final class ChatCoordinator {
             sections.append(
                 """
                 Attached chat context: \(attachment.title)
+                Reason: The user explicitly attached this conversation to the current request.
+                Priority: Required context. Use it when relevant and reference the chat title.
+                Transcript:
                 \(transcript.joined(separator: "\n\n"))
                 """
             )
         }
 
-        return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
+        return wrapRequiredContextSection(
+            title: "Required Attached Chats",
+            instruction: "These chats were explicitly attached by the user for this request. Use them whenever they are relevant.",
+            body: sections.joined(separator: "\n\n")
+        )
     }
 
     static func queryContainsExplicitNoteContext(_ query: String) -> Bool {
@@ -1405,10 +1542,14 @@ final class ChatCoordinator {
             in: context,
             label: "workspace awareness workspaces"
         ) ?? []
-        if let workspace = allWorkspaces.first(where: { $0.isAutoSave }), !workspace.summary.isEmpty {
-            parts.append("[Workspace Summary] \(workspace.summary)")
-            if !workspace.userNote.isEmpty {
-                parts.append("[User Session Note] \(workspace.userNote)")
+        if let workspace = allWorkspaces.first(where: { $0.isAutoSave }) {
+            if let summary = sanitizedWorkspaceContextValue(workspace.summary) {
+                parts.append("[Workspace Summary] \(summary)")
+            }
+
+            let userNote = workspace.userNote.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !userNote.isEmpty {
+                parts.append("[User Session Note] \(userNote)")
             }
         }
 
@@ -1478,54 +1619,51 @@ final class ChatCoordinator {
             }
         }
 
-        // Global activity profile (7-day engagement patterns)
-        let profile = tracker.globalActivityProfile()
-        if profile.totalEdits7d > 0 || profile.totalVisits7d > 0 {
-            parts.append("[Activity Profile] \(profile.formatForPrompt())")
-        }
-
-        // Recent meaning anchors — O(n) linear scan with fixed-size heap for top 5
-        let store = bootstrap.graphState.store
-        var anchorHeap: [GraphNodeRecord] = []
-        anchorHeap.reserveCapacity(6)
-        for node in store.nodes.values where node.type == .idea && node.metadata.originChatId != nil {
-            anchorHeap.append(node)
-            if anchorHeap.count > 5 {
-                // Remove oldest (keep 5 most recent)
-                if let minIdx = anchorHeap.indices.min(by: { anchorHeap[$0].createdAt < anchorHeap[$1].createdAt }) {
-                    anchorHeap.remove(at: minIdx)
-                }
-            }
-        }
-        let recentAnchors = anchorHeap.sorted { $0.createdAt > $1.createdAt }
-        if !recentAnchors.isEmpty {
-            let anchorLines = recentAnchors.map { node in
-                let summary = node.metadata.abstract ?? ""
-                let theme = node.metadata.clusterTheme ?? ""
-                return "- \(node.label): \(summary)\(theme.isEmpty ? "" : " [\(theme)]")"
-            }
-            parts.append("[Recent Insights]\n\(anchorLines.joined(separator: "\n"))")
-        }
-
-        // Graph topology for open notes
-        if !openPageIds.isEmpty {
-            let store = bootstrap.graphState.store
-            var edges: [String] = []
-            for pageId in openPageIds.prefix(4) {
-                guard let node = store.node(bySourceId: pageId, type: .note) else { continue }
-                guard let neighborIds = store.adjacency[node.id] else { continue }
-                for neighborId in neighborIds.prefix(3) {
-                    guard let neighbor = store.nodes[neighborId] else { continue }
-                    edges.append("[\(node.label)] -> [\(neighbor.label)]")
-                }
-            }
-            if !edges.isEmpty {
-                parts.append("[Knowledge Connections]\n\(edges.joined(separator: "\n"))")
-            }
-        }
-
-        // Deep context: include today's chat messages from SwiftData
         if deepContext {
+            // Global activity profile (7-day engagement patterns)
+            let profile = tracker.globalActivityProfile()
+            if profile.totalEdits7d > 0 || profile.totalVisits7d > 0 {
+                parts.append("[Activity Profile] \(profile.formatForPrompt())")
+            }
+
+            // Recent meaning anchors — O(n) linear scan with fixed-size heap for top 5
+            let store = bootstrap.graphState.store
+            var anchorHeap: [GraphNodeRecord] = []
+            anchorHeap.reserveCapacity(6)
+            for node in store.nodes.values where node.type == .idea && node.metadata.originChatId != nil {
+                anchorHeap.append(node)
+                if anchorHeap.count > 5 {
+                    if let minIdx = anchorHeap.indices.min(by: { anchorHeap[$0].createdAt < anchorHeap[$1].createdAt }) {
+                        anchorHeap.remove(at: minIdx)
+                    }
+                }
+            }
+            let recentAnchors = anchorHeap.sorted { $0.createdAt > $1.createdAt }
+            if !recentAnchors.isEmpty {
+                let anchorLines = recentAnchors.map { node in
+                    let summary = node.metadata.abstract ?? ""
+                    let theme = node.metadata.clusterTheme ?? ""
+                    return "- \(node.label): \(summary)\(theme.isEmpty ? "" : " [\(theme)]")"
+                }
+                parts.append("[Recent Insights]\n\(anchorLines.joined(separator: "\n"))")
+            }
+
+            if !openPageIds.isEmpty {
+                let store = bootstrap.graphState.store
+                var edges: [String] = []
+                for pageId in openPageIds.prefix(4) {
+                    guard let node = store.node(bySourceId: pageId, type: .note) else { continue }
+                    guard let neighborIds = store.adjacency[node.id] else { continue }
+                    for neighborId in neighborIds.prefix(3) {
+                        guard let neighbor = store.nodes[neighborId] else { continue }
+                        edges.append("[\(node.label)] -> [\(neighbor.label)]")
+                    }
+                }
+                if !edges.isEmpty {
+                    parts.append("[Knowledge Connections]\n\(edges.joined(separator: "\n"))")
+                }
+            }
+
             let todayStart = Calendar.current.startOfDay(for: Date())
             let chatDesc = FetchDescriptor<SDChat>(
                 predicate: #Predicate<SDChat> { $0.updatedAt >= todayStart },
@@ -1548,35 +1686,56 @@ final class ChatCoordinator {
                     parts.append("[Today's Conversations]\n\(chatSummaries.joined(separator: "\n\n"))")
                 }
             }
-        }
 
-        // Open mini chats
-        let miniChatCount = MiniChatWindowController.shared.openChatIds.count
-        if miniChatCount > 0 {
-            parts.append("[Open Mini Chats] \(miniChatCount)")
-        }
+            let miniChatCount = MiniChatWindowController.shared.openChatIds.count
+            if miniChatCount > 0 {
+                parts.append("[Open Mini Chats] \(miniChatCount)")
+            }
 
-        // Graph state
-        if HologramController.shared.isVisible {
-            let nodeCount = bootstrap.graphState.store.nodes.count
-            parts.append("[Knowledge Graph] Open with \(nodeCount) nodes")
-        }
+            if HologramController.shared.isVisible {
+                let nodeCount = bootstrap.graphState.store.nodes.count
+                parts.append("[Knowledge Graph] Open with \(nodeCount) nodes")
+            }
 
-        // Proactive intelligence: suggest connections from recent anchors
-        if !recentAnchors.isEmpty && deepContext {
-            let themes = Set(recentAnchors.compactMap { $0.metadata.clusterTheme }).prefix(3)
-            if !themes.isEmpty {
-                parts.append("[Proactive Hint] The user has been exploring these themes recently: \(themes.joined(separator: ", ")). Look for connections between their current question and these themes. Adapt your communication style to be concise and direct — the user works intensively and prefers actionable insights over lengthy explanations.")
+            if !recentAnchors.isEmpty {
+                let themes = Set(recentAnchors.compactMap { $0.metadata.clusterTheme }).prefix(3)
+                if !themes.isEmpty {
+                    parts.append("[Proactive Hint] The user has been exploring these themes recently: \(themes.joined(separator: ", ")). Look for connections between their current question and these themes. Adapt your communication style to be concise and direct — the user works intensively and prefers actionable insights over lengthy explanations.")
+                }
             }
         }
 
         return parts.joined(separator: "\n\n")
     }
 
-    nonisolated static func buildFileAttachmentContext(from attachments: [FileAttachment]) -> String? {
-        let sections = attachments.compactMap(fileAttachmentSection(for:))
-        guard !sections.isEmpty else { return nil }
-        return "Attached file context:\n\n" + sections.joined(separator: "\n\n")
+    private nonisolated static func sanitizedWorkspaceContextValue(_ raw: String) -> String? {
+        let cleaned = UserFacingModelOutput.finalVisibleText(from: raw)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return nil }
+        return cleaned
+    }
+
+    nonisolated static func buildFileAttachmentContext(
+        from attachments: [FileAttachment],
+        supportsVision: Bool = false
+    ) -> String? {
+        let sections = attachments.compactMap { fileAttachmentSection(for: $0, supportsVision: supportsVision) }
+        return wrapRequiredContextSection(
+            title: "Required File Attachments",
+            instruction: "These files were explicitly attached by the user to this message. Use them whenever they are relevant. Treat them as the primary subject of the request unless the user clearly says otherwise. Refer to them by name instead of treating them as optional background.",
+            body: sections.joined(separator: "\n\n")
+        )
+    }
+
+    private nonisolated static func buildRequiredAttachmentContractSection() -> String? {
+        wrapRequiredContextSection(
+            title: "Required Context Contract",
+            instruction: "The user intentionally attached or referenced files, notes, or chats for this request. Use that material directly, and do not ask them to provide it again unless something is missing or unreadable.",
+            body: """
+            Treat them as the primary subject of the request unless the user clearly says otherwise.
+            If anything is missing or unreadable, name the specific missing item instead of pretending no context was provided.
+            """
+        )
     }
 
     private nonisolated static func mergedContextSections(_ sections: String?...) -> String? {
@@ -1591,25 +1750,95 @@ final class ChatCoordinator {
         return nonEmptySections.joined(separator: "\n\n")
     }
 
-    private nonisolated static func fileAttachmentSection(for attachment: FileAttachment) -> String? {
+    private nonisolated static func wrapRequiredContextSection(
+        title: String,
+        instruction: String,
+        body: String
+    ) -> String? {
+        let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedBody.isEmpty else { return nil }
+        return """
+        ## \(title)
+        Status: Required context explicitly attached or requested by the user.
+        Instruction: \(instruction)
+
+        \(trimmedBody)
+        """
+    }
+
+    private nonisolated static func wrapSupplementalContextSection(
+        title: String,
+        instruction: String,
+        body: String
+    ) -> String? {
+        let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedBody.isEmpty else { return nil }
+        return """
+        ## \(title)
+        Status: Supplemental background context.
+        Instruction: \(instruction)
+
+        \(trimmedBody)
+        """
+    }
+
+    private nonisolated static func fileAttachmentSection(
+        for attachment: FileAttachment,
+        supportsVision: Bool
+    ) -> String? {
         switch attachment.type {
         case .text, .csv:
             guard let text = loadedTextAttachmentBody(for: attachment) else { return nil }
-            return "Attached file: \(attachment.name)\n\(text)"
+            return """
+            Attached file: \(attachment.name)
+            Reason: The user explicitly attached this file to the current request.
+            Priority: Required context. Use it when relevant and cite the file name.
+            Content:
+            \(text)
+            """
         case .pdf:
             // For PDFs, attempt to extract text content via the preview (already extracted at attach time).
             guard let preview = attachment.preview?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !preview.isEmpty else {
-                return "Attached file: \(attachment.name)\n(PDF content could not be extracted as text)"
+                return """
+                Attached file: \(attachment.name)
+                Reason: The user explicitly attached this PDF to the current request.
+                Priority: Required context.
+                Extraction status: PDF text could not be extracted automatically. If the answer depends on unseen PDF contents, say so instead of guessing.
+                """
             }
-            return "Attached file: \(attachment.name)\n\(preview)"
+            return """
+            Attached file: \(attachment.name)
+            Reason: The user explicitly attached this PDF to the current request.
+            Priority: Required context. Use the extracted text when relevant and cite the file name.
+            Content:
+            \(preview)
+            """
         case .image:
-            // Images can't be inlined as text context — note their presence.
-            return "Attached file: \(attachment.name) (image — visual content not available as text)"
+            if supportsVision {
+                return """
+                Attached file: \(attachment.name)
+                Reason: The user explicitly attached this image to the current request.
+                Priority: Required context.
+                Image handling: This model can inspect images directly. Use the visual contents when they are relevant to the answer.
+                """
+            }
+            return """
+            Attached file: \(attachment.name)
+            Reason: The user explicitly attached this image to the current request.
+            Priority: Required context.
+            Image handling: This model cannot inspect images directly. Do not invent visual details; acknowledge the limitation if the image matters.
+            """
         case .other:
             // Attempt text extraction as a best effort.
             if let text = loadedTextAttachmentBody(for: attachment) {
-                return "Attached file: \(attachment.name)\n\(text)"
+                return """
+                Attached file: \(attachment.name)
+                Reason: The user explicitly attached this file to the current request.
+                Priority: Required context. Use the recovered text when relevant and cite the file name.
+                Content:
+                \(text)
+                """
             }
             return nil
         }

@@ -1,6 +1,10 @@
 import Testing
 @testable import Epistemos
 
+// Legacy task graph tests are kept for reference while the old Omega task
+// graph implementation remains retired from the live runtime.
+#if false
+
 @Suite("TaskGraph")
 @MainActor
 struct TaskGraphTests {
@@ -95,3 +99,4 @@ struct TaskGraphTests {
         #expect(!graph.isComplete)
     }
 }
+#endif
