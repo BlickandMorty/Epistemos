@@ -166,11 +166,9 @@ impl ToolHandler for ReadFileHandler {
         }
 
         // Binary detection: read up to 8KB and scan for null bytes.
-        let mut probe =
-            File::open(&resolved).map_err(|e| ToolError::ExecutionFailed(format!(
-                "cannot open '{}': {e}",
-                resolved.display()
-            )))?;
+        let mut probe = File::open(&resolved).map_err(|e| {
+            ToolError::ExecutionFailed(format!("cannot open '{}': {e}", resolved.display()))
+        })?;
         let mut probe_buf = [0u8; 8192];
         let probe_bytes = probe
             .read(&mut probe_buf)
@@ -489,12 +487,7 @@ fn apply_fuzzy_patch(
     ))
 }
 
-fn try_exact(
-    original: &str,
-    old: &str,
-    new: &str,
-    replace_all: bool,
-) -> Option<(String, usize)> {
+fn try_exact(original: &str, old: &str, new: &str, replace_all: bool) -> Option<(String, usize)> {
     if !original.contains(old) {
         return None;
     }
@@ -797,18 +790,19 @@ impl ToolHandler for SearchFilesHandler {
             )));
         }
 
-        let glob_matcher = match file_glob {
-            Some(g) if !g.is_empty() => {
-                let mut builder = globset::GlobSetBuilder::new();
-                builder.add(globset::Glob::new(g).map_err(|e| {
-                    ToolError::InvalidArguments(format!("invalid glob '{g}': {e}"))
-                })?);
-                Some(builder.build().map_err(|e| {
-                    ToolError::ExecutionFailed(format!("glob build failed: {e}"))
-                })?)
-            }
-            _ => None,
-        };
+        let glob_matcher =
+            match file_glob {
+                Some(g) if !g.is_empty() => {
+                    let mut builder = globset::GlobSetBuilder::new();
+                    builder.add(globset::Glob::new(g).map_err(|e| {
+                        ToolError::InvalidArguments(format!("invalid glob '{g}': {e}"))
+                    })?);
+                    Some(builder.build().map_err(|e| {
+                        ToolError::ExecutionFailed(format!("glob build failed: {e}"))
+                    })?)
+                }
+                _ => None,
+            };
 
         match target {
             "files" => search_filenames(&root, pattern, case_insensitive, &glob_matcher, limit),
@@ -913,11 +907,7 @@ fn search_contents(
 
         if let Err(err) = search_result {
             // Skip files we cannot read; don't abort the entire search.
-            tracing::debug!(
-                "search_files: skipped {}: {}",
-                entry.path().display(),
-                err
-            );
+            tracing::debug!("search_files: skipped {}: {}", entry.path().display(), err);
             continue;
         }
 
@@ -969,10 +959,7 @@ fn search_filenames(
                 continue;
             }
         }
-        let name = entry
-            .file_name()
-            .to_str()
-            .unwrap_or_default();
+        let name = entry.file_name().to_str().unwrap_or_default();
         if let Ok(Some(_)) = regex.find(name.as_bytes()) {
             hits.push(json!({ "path": entry.path().display().to_string() }));
             if hits.len() >= limit {

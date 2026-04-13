@@ -86,12 +86,11 @@ fn compute_next_run(schedule: &str, after: DateTime<Utc>) -> Result<DateTime<Utc
     let sched = cron::Schedule::from_str(schedule).map_err(|e| {
         ToolError::InvalidArguments(format!("invalid cron expression '{schedule}': {e}"))
     })?;
-    sched
-        .after(&after)
-        .next()
-        .ok_or_else(|| ToolError::ExecutionFailed(format!(
+    sched.after(&after).next().ok_or_else(|| {
+        ToolError::ExecutionFailed(format!(
             "cron expression '{schedule}' has no future matches"
-        )))
+        ))
+    })
 }
 
 fn parse_row(row: &rusqlite::Row) -> rusqlite::Result<CronJob> {
@@ -468,10 +467,7 @@ mod tests {
         let parsed: Value = serde_json::from_str(&created).unwrap();
         assert_eq!(parsed["success"], json!(true));
 
-        let list = handler
-            .execute(&json!({ "action": "list" }))
-            .await
-            .unwrap();
+        let list = handler.execute(&json!({ "action": "list" })).await.unwrap();
         let list_parsed: Value = serde_json::from_str(&list).unwrap();
         assert!(list_parsed["count"].as_u64().unwrap() >= 1);
         assert!(list_parsed["jobs"]

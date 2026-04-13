@@ -18,9 +18,15 @@ private let isolatedInferenceDefaultsKeys = [
 
 private let triageInteractiveReleaseFixtureModelID = LocalTextModelID.gemma4_4B4Bit
 private let triageThinkingReleaseFixtureModelID = LocalTextModelID.gemma4_27BA4B4Bit
+private let ggufCapableTestHardwareSnapshot = LocalHardwareCapabilitySnapshot(
+    physicalMemoryBytes: 64_000_000_000,
+    roundedMemoryGB: 64,
+    maxRecommendedLocalContentLength: 28_000
+)
 
 @MainActor
 private func makeIsolatedInferenceState(
+    hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current,
     keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
     keychainSave: @escaping (String, String) -> Bool = { value, key in
         Keychain.save(value, for: key)
@@ -42,6 +48,7 @@ private func makeIsolatedInferenceState(
         }
     }
     return InferenceState(
+        hardwareCapabilitySnapshot: hardwareCapabilitySnapshot,
         keychainLoad: keychainLoad,
         keychainSave: keychainSave,
         keychainDelete: keychainDelete
@@ -128,7 +135,14 @@ struct TriageServiceTests {
     @Test("routing stays Apple plus local without stale cloud modes or providers")
     func routingSurfaceRemainsTwoState() {
         #expect(LocalRoutingMode.allCases == [.auto, .localOnly])
-        #expect(LLMProviderType.allCases == [.appleIntelligence, .localMLX, .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek])
+        #expect(LLMProviderType.allCases == [.appleIntelligence, .localGGUF, .localMLX, .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek])
+    }
+
+    @Test("routing summaries keep the local runtime primary in auto mode")
+    func routingSummariesStayLocalFirst() {
+        #expect(LocalRoutingMode.auto.summary.contains("local runtime primary"))
+        #expect(LocalRoutingMode.auto.summary.contains("Apple Intelligence remains available"))
+        #expect(LocalRoutingMode.localOnly.summary.contains("Apple Intelligence is bypassed"))
     }
 
     @Test("local routing errors no longer mention switch routing modes")
@@ -558,6 +572,85 @@ struct InferencePolicyEngineTests {
             ),
             runtimeConditions: runtimeConditions
         )
+    }
+}
+
+@Suite("Overseer Complexity Router")
+struct OverseerComplexityRouterTests {
+    @Test("simple agent chat stays local only with no tool budget")
+    @MainActor func simpleAgentChatStaysLocalOnly() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "Explain determinism in one concise paragraph.",
+            contentLength: 43,
+            operatingMode: .agent,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .localOnly)
+        #expect(executionPlan.localOperatingMode == .fast)
+        #expect(executionPlan.plan.route == .localOnly)
+        #expect(executionPlan.plan.depthBudget.maxToolCalls == 0)
+        #expect(executionPlan.plan.toolPermissions.isEmpty)
+    }
+
+    @Test("complex coding chat produces an overseer local execution plan")
+    @MainActor func complexCodingChatProducesOverseerLocalExecutionPlan() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "Review this Swift and Rust architecture, identify the migration risks, then use the vault and search tools only if needed to propose the safest execution order.",
+            contentLength: 3_400,
+            operatingMode: .agent,
+            hasExplicitContext: true,
+            attachmentCount: 2,
+            notesContext: "Architecture context",
+            conversationHistory: "User: Keep this local-first."
+        )
+
+        #expect(executionPlan.route == .overseerLocalExecution)
+        #expect(executionPlan.localOperatingMode == .agent)
+        #expect(executionPlan.plan.route == .overseerLocalExecution)
+        #expect(executionPlan.plan.depthBudget.maxToolCalls > 0)
+        #expect(executionPlan.plan.maskPlan.expertAllowlist.contains("reasoning.code"))
+        #expect(executionPlan.plan.toolPermissions.contains(where: { $0.mode == .allow || $0.mode == .ask }))
+    }
+
+    @Test("drive scale monitoring escalates to a managed agent session")
+    @MainActor func driveScaleMonitoringEscalatesToManagedAgentSession() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "Watch Gmail, Calendar, Drive, Reddit, and Twitter/X for a few hours, summarize everything important, and keep iterating until you have a final executive briefing.",
+            contentLength: 7_200,
+            operatingMode: .agent,
+            hasExplicitContext: true,
+            attachmentCount: 4,
+            notesContext: "Workspace dossier",
+            conversationHistory: "User: this can run for a while."
+        )
+
+        #expect(executionPlan.route == .managedAgentSession)
+        #expect(executionPlan.plan.route == .managedAgentSession)
+        #expect(executionPlan.plan.depthBudget.maxTurns >= 10)
+        #expect(executionPlan.plan.depthBudget.maxToolCalls >= 8)
     }
 }
 
@@ -1117,6 +1210,43 @@ struct TriageServiceIntegrationTests {
             }
 
             #expect(cloud.streamCalls.isEmpty)
+        }
+    }
+
+    @Test("explicit local streaming bypasses the selected cloud model")
+    @MainActor func explicitLocalStreamingBypassesSelectedCloudModel() async {
+        await withSavedAPIKey(for: .openAI) {
+            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
+
+            let local = TriageIntegrationMockLLMClient()
+            local.streamTokens = ["local", " answer"]
+
+            let cloud = TriageIntegrationMockCloudLLMClient()
+            cloud.streamTokens = ["cloud answer"]
+
+            let triage = makeService(
+                appleAvailable: true,
+                localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
+                localLLMService: local,
+                selectedChatModel: .cloud(.openAIGPT54),
+                cloudLLMService: cloud
+            )
+
+            let stream = triage.streamGeneralLocally(
+                prompt: "Use the local runtime",
+                systemPrompt: "Follow the local overseer plan.",
+                operation: .chatResponse(query: "Use the local runtime"),
+                contentLength: 21
+            )
+            let outcome = await LocalRuntimeSmokeSupport.collect(stream)
+
+            #expect(outcome.tokens.joined() == "local answer")
+            #expect(outcome.error == nil)
+            #expect(local.streamCalls.count == 1)
+            #expect(cloud.streamCalls.isEmpty)
+            let systemPrompt = try? #require(local.streamCalls.first?.systemPrompt)
+            #expect(systemPrompt?.contains("local Epistemos assistant running on-device") == true)
+            #expect(systemPrompt?.contains("Follow the local overseer plan.") == true)
         }
     }
 
@@ -1953,6 +2083,52 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
+    @Test("local client prefers prepared generation directories over missing installed snapshots")
+    func localClientPrefersPreparedGenerationDirectories() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_35BA3B4Bit.rawValue))
+        let preparedDirectory = paths.rootDirectory
+            .appendingPathComponent("prepared-primary", isDirectory: true)
+        try FileManager.default.createDirectory(at: preparedDirectory, withIntermediateDirectories: true)
+
+        let inference = makeIsolatedInferenceState()
+        inference.setPreferredLocalTextModelID(descriptor.id)
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        client.configurePreparedGenerationRuntime(
+            PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B-A3B APEXMini",
+                    artifactID: nil,
+                    modelID: descriptor.id,
+                    servedModelID: descriptor.id,
+                    adapterPath: nil,
+                    expectedAdapterBaseModelID: nil,
+                    baseModelID: nil,
+                    baseSnapshotPath: nil,
+                    mergeOutputPath: nil,
+                    mlxOutputPath: preparedDirectory.path,
+                    downloadPath: nil,
+                    status: "prepared",
+                    trustRemoteCode: false
+                ),
+                speculativeDraftGenerator: nil
+            )
+        )
+
+        _ = try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 64)
+        let request = try #require(await runtime.lastGenerateRequest)
+
+        #expect(request.modelDirectory.standardizedFileURL == preparedDirectory.standardizedFileURL)
+    }
+
+    @MainActor
     @Test("local client errors when no usable local model is installed")
     func errorsWithoutInstalledModel() async {
         let paths = temporaryLocalModelPaths()
@@ -1963,6 +2139,27 @@ struct TriageServiceIntegrationTests {
         let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
 
         await #expect(throws: LocalInferenceRoutingError.modelRequired) {
+            try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 32)
+        }
+    }
+
+    @MainActor
+    @Test("mlx client rejects gguf-only selections explicitly")
+    func mlxClientRejectsGGUFOnlySelectionsExplicitly() async {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let inference = makeIsolatedInferenceState(
+            hardwareCapabilitySnapshot: ggufCapableTestHardwareSnapshot
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwopus27Bv3.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwopus27Bv3.rawValue)
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        await #expect(throws: LocalInferenceRoutingError.runtimeUnavailable) {
             try await client.generate(prompt: "Hello", systemPrompt: nil, maxTokens: 32)
         }
     }
@@ -2088,6 +2285,10 @@ private actor RecordingLocalMLXRuntime: LocalMLXRuntime {
 
     func unload() async {
         unloadCount += 1
+    }
+
+    func profilingSnapshot() async -> LocalMLXRunProfile? {
+        nil
     }
 }
 

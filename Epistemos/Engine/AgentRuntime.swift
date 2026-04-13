@@ -1,14 +1,12 @@
 import Foundation
 
-// MARK: - AgentRuntime Protocol
-// Unified abstraction for all agent backends. The UI only talks to AgentRuntime —
-// swapping from local Rust loop to Claude Managed Sessions is a one-line change.
-//
-// Implementations:
-//   LocalRustRuntime — wraps existing Rust agent_core FFI (default)
-//   ClaudeManagedRuntime — wraps CMA API (optional, experimental)
+// MARK: - Archived Agent Runtime Surface
+// This compatibility layer remains in source as migration reference only.
+// The shipping app does not bootstrap it; live agent sessions route directly
+// through ChatCoordinator / IMessageDriver and the low-level bridges.
 
 /// Protocol that makes all agent backends interchangeable.
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
 @MainActor
 protocol AgentRuntime: AnyObject, Sendable {
     /// Unique identifier for this runtime type.
@@ -39,6 +37,7 @@ protocol AgentRuntime: AnyObject, Sendable {
 // MARK: - Session Config
 
 /// Unified session configuration — works for all backends.
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
 struct AgentSessionConfig: Sendable {
     var maxTurns: Int = 50
     var maxCostUSD: Double?
@@ -59,6 +58,7 @@ struct AgentSessionConfig: Sendable {
 // MARK: - Agent Events
 
 /// Unified event stream — identical schema regardless of backend.
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
 enum AgentRuntimeEvent: Sendable {
     case sessionStarted(sessionId: String)
     case turnStarted(turn: Int)
@@ -77,6 +77,7 @@ enum AgentRuntimeEvent: Sendable {
 // MARK: - Agent Session State
 
 /// Simplified session state for UI display.
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
 enum AgentSessionState: Sendable {
     case idle
     case running(turn: Int)
@@ -89,6 +90,7 @@ enum AgentSessionState: Sendable {
 // MARK: - Runtime Registry
 
 /// Manages available runtimes and provides the active one.
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
 @MainActor
 @Observable
 final class AgentRuntimeRegistry {

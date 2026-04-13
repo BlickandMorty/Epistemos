@@ -98,6 +98,22 @@ struct LocalModelInfrastructureTests {
         #expect(model.maxContextTokens >= 128_000)
     }
 
+    @Test("qwen 35B apexmini metadata reflects the 18GB target tier")
+    func qwen35APEXMiniMetadataReflectsTargetTier() {
+        let model = LocalTextModelID.qwen35_35BA3B4Bit
+
+        #expect(model.minimumRecommendedMemoryGB == 18)
+        #expect(model.displayName == "Qwen 3.5 35B APEXMini")
+        #expect(model.supportsThinkingMode)
+    }
+
+    @Test("local text models expose their execution runtime kind")
+    func localTextModelsExposeExecutionRuntimeKind() {
+        #expect(LocalTextModelID.qwen35_35BA3B4Bit.runtimeKind == .mlx)
+        #expect(LocalTextModelID.qwopus27Bv3.runtimeKind == .gguf)
+        #expect(LocalTextModelID.qwopusMoE35BA3B.runtimeKind == .gguf)
+    }
+
     @MainActor
     @Test("qwen 4B local picker no longer advertises unvalidated thinking or local agent modes")
     func qwen4BPickerOnlyShowsValidatedModes() {
@@ -264,9 +280,135 @@ struct LocalModelInfrastructureTests {
         )
         let constrained = try #require(snapshot.recommendedConstrainedLocalTextModelID)
 
-        #expect(snapshot.recommendedLocalTextModelID == .gemma4_27BA4B4Bit)
-        #expect(constrained == .deepseekR1Distill7B)
+        #expect(snapshot.recommendedLocalTextModelID == .qwen35_35BA3B4Bit)
+        #expect(constrained == .gemma4_27BA4B4Bit)
         #expect(LocalModelCatalog.descriptor(for: constrained.rawValue) != nil)
+    }
+
+    @Test("prepared model manifest exposes primary generation and draft runtime entries")
+    func preparedModelManifestExposesGenerationRuntimeEntries() throws {
+        let snapshot = try PreparedModelRegistry().load()
+        let generation = try #require(snapshot.generationRuntimeConfiguration)
+
+        #expect(generation.primaryGenerator.servedModelID == LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        #expect(generation.speculativeDraftGenerator?.servedModelID == "mlx-community/Qwen2.5-0.5B-Instruct-4bit")
+        #expect(
+            generation.primaryResolvedModelDirectory?.path
+                .hasSuffix("/PreparedModels/generation/qwen35-35b-a3b-apexmini/source") == true
+        )
+    }
+
+    @Test("prepared generation runtime marks only the primary generator as interactive-ready")
+    func preparedGenerationRuntimeMarksOnlyThePrimaryGeneratorAsInteractiveReady() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prepared-generation-\(UUID().uuidString)", isDirectory: true)
+        let primaryDirectory = root.appendingPathComponent("primary", isDirectory: true)
+        let draftDirectory = root.appendingPathComponent("draft", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: primaryDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: draftDirectory, withIntermediateDirectories: true)
+
+        let configuration = PreparedGenerationRuntimeConfiguration(
+            primaryGenerator: PreparedModelDescriptor(
+                key: "generator_primary",
+                role: .generator,
+                displayName: "Qwen 3.5 35B APEXMini",
+                artifactID: nil,
+                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                adapterPath: nil,
+                expectedAdapterBaseModelID: nil,
+                baseModelID: nil,
+                baseSnapshotPath: nil,
+                mergeOutputPath: nil,
+                mlxOutputPath: primaryDirectory.path,
+                downloadPath: nil,
+                status: "ready",
+                trustRemoteCode: false
+            ),
+            speculativeDraftGenerator: PreparedModelDescriptor(
+                key: "generator_speculative_draft",
+                role: .draftGenerator,
+                displayName: "Qwen 2.5 Draft",
+                artifactID: nil,
+                modelID: "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+                servedModelID: "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+                adapterPath: nil,
+                expectedAdapterBaseModelID: nil,
+                baseModelID: nil,
+                baseSnapshotPath: nil,
+                mergeOutputPath: nil,
+                mlxOutputPath: draftDirectory.path,
+                downloadPath: nil,
+                status: "ready",
+                trustRemoteCode: false
+            )
+        )
+
+        #expect(
+            configuration.interactiveLocalTextModelIDs()
+                == [LocalTextModelID.qwen35_35BA3B4Bit.rawValue]
+        )
+    }
+
+    @MainActor
+    @Test("prepared primary generator becomes a usable local runtime without an installed snapshot")
+    func preparedPrimaryGeneratorBecomesAUsableLocalRuntimeWithoutAnInstalledSnapshot() {
+        let inference = InferenceState()
+
+        inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+
+        #expect(inference.installedLocalTextModelIDs.isEmpty)
+        #expect(inference.localModelInstallStateSummary == .prepared)
+        #expect(inference.hasUsableLocalTextModel)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        #expect(
+            inference.releaseSelectableInstalledLocalTextModelIDs
+                == [LocalTextModelID.qwen35_35BA3B4Bit.rawValue]
+        )
+    }
+
+    @MainActor
+    @Test("prepared gguf models stay hidden until the gguf runtime is available")
+    func preparedGGUFModelsStayHiddenUntilGGUFIsAvailable() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+
+        inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwopus27Bv3.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwopus27Bv3.rawValue)
+
+        #expect(!inference.hasUsableLocalTextModel)
+        #expect(inference.effectiveLocalTextModelID == nil)
+
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+
+        #expect(inference.hasUsableLocalTextModel)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwopus27Bv3.rawValue)
+    }
+
+    @MainActor
+    @Test("local model manager surfaces prepared runtimes distinctly from installed snapshots")
+    func localModelManagerSurfacesPreparedRuntimesDistinctlyFromInstalledSnapshots() throws {
+        let inference = InferenceState()
+        inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: makeTemporaryRoot(),
+            installer: FakeLocalModelInstaller()
+        )
+        let descriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        )
+
+        #expect(manager.presentationState(for: descriptor) == .prepared)
     }
 
     @Test("constrained fallbacks skip quarantined interactive chat models")

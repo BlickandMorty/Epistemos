@@ -13,7 +13,6 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
 
 jobs:
   build-and-test:
@@ -105,32 +104,32 @@ jobs:
 
       - name: Resolve SPM dependencies
         run: |
-          xcodebuild -resolvePackageDependencies \
+          ./scripts/xcodebuild_epistemos.sh -resolvePackageDependencies \
             -project Epistemos.xcodeproj \
             -scheme Epistemos \
             -clonedSourcePackagesDirPath .spm-cache
         timeout-minutes: 10
 
-      - name: Build Epistemos (Debug)
+      - name: Build Epistemos Tests
         run: |
-          xcodebuild build \
+          ./scripts/xcodebuild_epistemos.sh build-for-testing \
             -project Epistemos.xcodeproj \
             -scheme Epistemos \
             -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath .derived-data-ci \
             -clonedSourcePackagesDirPath .spm-cache \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcpretty --color
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Run Swift tests
         run: |
-          xcodebuild test \
+          ./scripts/xcodebuild_epistemos.sh test-without-building \
             -project Epistemos.xcodeproj \
             -scheme Epistemos \
             -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath .derived-data-ci \
             -clonedSourcePackagesDirPath .spm-cache \
             CODE_SIGNING_ALLOWED=NO \
-            -resultBundlePath TestResults.xcresult \
-            | xcpretty --color
+            -resultBundlePath TestResults.xcresult
 
       - name: Upload test results
         if: always()

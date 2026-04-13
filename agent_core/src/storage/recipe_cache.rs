@@ -88,7 +88,10 @@ impl RecipeCache {
     }
 
     /// Open with custom configuration.
-    pub fn open_with_config(path: impl AsRef<Path>, config: CacheConfig) -> Result<Self, CacheError> {
+    pub fn open_with_config(
+        path: impl AsRef<Path>,
+        config: CacheConfig,
+    ) -> Result<Self, CacheError> {
         // Ensure parent directory exists.
         if let Some(parent) = path.as_ref().parent() {
             std::fs::create_dir_all(parent)?;
@@ -124,7 +127,11 @@ impl RecipeCache {
 
     /// Look up a cached result for the given tool call.
     /// Returns `None` if not cached or if the entry has expired.
-    pub fn get(&self, tool_name: &str, input: &serde_json::Value) -> Result<Option<CacheEntry>, CacheError> {
+    pub fn get(
+        &self,
+        tool_name: &str,
+        input: &serde_json::Value,
+    ) -> Result<Option<CacheEntry>, CacheError> {
         if self.is_uncacheable(tool_name) {
             return Ok(None);
         }
@@ -224,7 +231,8 @@ impl RecipeCache {
     /// Number of entries currently in the cache.
     pub fn len(&self) -> Result<usize, CacheError> {
         let conn = self.conn.lock().expect("recipe cache mutex poisoned");
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM recipe_cache", [], |row| row.get(0))?;
+        let count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM recipe_cache", [], |row| row.get(0))?;
         Ok(count as usize)
     }
 
@@ -238,12 +246,11 @@ impl RecipeCache {
         let conn = self.conn.lock().expect("recipe cache mutex poisoned");
         let entry_count: i64 =
             conn.query_row("SELECT COUNT(*) FROM recipe_cache", [], |row| row.get(0))?;
-        let total_hits: i64 = conn
-            .query_row(
-                "SELECT COALESCE(SUM(hit_count), 0) FROM recipe_cache",
-                [],
-                |row| row.get(0),
-            )?;
+        let total_hits: i64 = conn.query_row(
+            "SELECT COALESCE(SUM(hit_count), 0) FROM recipe_cache",
+            [],
+            |row| row.get(0),
+        )?;
         let distinct_tools: i64 = conn.query_row(
             "SELECT COUNT(DISTINCT tool_name) FROM recipe_cache",
             [],
@@ -260,10 +267,7 @@ impl RecipeCache {
     // ── Private helpers ──────────────────────────────────────────────
 
     fn is_uncacheable(&self, tool_name: &str) -> bool {
-        self.config
-            .uncacheable_tools
-            .iter()
-            .any(|t| t == tool_name)
+        self.config.uncacheable_tools.iter().any(|t| t == tool_name)
     }
 
     fn hash_input(input: &serde_json::Value) -> String {
@@ -282,7 +286,8 @@ impl RecipeCache {
     }
 
     fn evict_if_needed(&self, conn: &Connection) -> Result<(), CacheError> {
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM recipe_cache", [], |row| row.get(0))?;
+        let count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM recipe_cache", [], |row| row.get(0))?;
         if (count as usize) <= self.config.max_entries {
             return Ok(());
         }
@@ -427,9 +432,7 @@ mod tests {
     fn clear_removes_everything() {
         let cache = RecipeCache::in_memory().unwrap();
         for i in 0..10 {
-            cache
-                .put("tool", &json!({"n": i}), "r", false)
-                .unwrap();
+            cache.put("tool", &json!({"n": i}), "r", false).unwrap();
         }
         assert_eq!(cache.len().unwrap(), 10);
         cache.clear().unwrap();
@@ -481,8 +484,12 @@ mod tests {
         let cache = RecipeCache::in_memory().unwrap();
         let input = json!({"path": "test.txt"});
 
-        cache.put("read_file", &input, "old content", false).unwrap();
-        cache.put("read_file", &input, "new content", false).unwrap();
+        cache
+            .put("read_file", &input, "old content", false)
+            .unwrap();
+        cache
+            .put("read_file", &input, "new content", false)
+            .unwrap();
 
         let entry = cache.get("read_file", &input).unwrap().unwrap();
         assert_eq!(entry.output, "new content");

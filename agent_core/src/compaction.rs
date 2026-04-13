@@ -355,10 +355,7 @@ pub fn fix_role_alternation(messages: &mut Vec<Message>) {
                 (Message::User { content: first }, Message::User { content: second }) => {
                     first.extend(second);
                 }
-                (
-                    Message::Assistant { content: first },
-                    Message::Assistant { content: second },
-                ) => {
+                (Message::Assistant { content: first }, Message::Assistant { content: second }) => {
                     first.extend(second);
                 }
                 _ => unreachable!(),

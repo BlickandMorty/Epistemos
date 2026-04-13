@@ -7,6 +7,7 @@ STAMP="$(date +%F-%H%M%S)"
 REPORT_PATH="${ROOT_DIR}/docs/audits/verify-${STAMP}.md"
 DERIVED_DATA_PATH="${ROOT_DIR}/build/verify-derived-data"
 APP_BINARY="${DERIVED_DATA_PATH}/Build/Products/Release/Epistemos.app/Contents/MacOS/Epistemos"
+RUNTIME_TEST_RESULT_BUNDLE_PATH="${ROOT_DIR}/build/verify-runtime-tests.xcresult"
 FIX_FORMAT=0
 
 usage() {
@@ -198,7 +199,15 @@ rm -f "${strict_build_log}"
 
 run_shell \
   "Targeted Runtime Validation" \
-  "cd '${ROOT_DIR}' && ./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/PipelineServiceTests"
+  "cd '${ROOT_DIR}' && rm -rf '${RUNTIME_TEST_RESULT_BUNDLE_PATH}' && ./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath '${DERIVED_DATA_PATH}' -destination 'platform=macOS' -resultBundlePath '${RUNTIME_TEST_RESULT_BUNDLE_PATH}' CODE_SIGNING_ALLOWED=NO test -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/PipelineServiceTests"
+
+section "Runtime Validation Result Bundle"
+printf '```bash\n%s\n```\n\n' \
+  "xcrun xcresulttool get object --legacy --path '${RUNTIME_TEST_RESULT_BUNDLE_PATH}' --format json | jq -r '.actions._values[]?.actionResult.status._value // empty'" \
+  | tee -a "${REPORT_PATH}"
+xcrun xcresulttool get object --legacy --path "${RUNTIME_TEST_RESULT_BUNDLE_PATH}" --format json \
+  | jq -r '.actions._values[]?.actionResult.status._value // empty' \
+  | tee -a "${REPORT_PATH}"
 
 section "Manual Telemetry Commands"
 cat <<EOF | tee -a "${REPORT_PATH}"

@@ -80,7 +80,12 @@ impl SkillRouter {
                 }
 
                 // TF-IDF cosine similarity on skill description + name.
-                let skill_text = format!("{} {} {}", skill.name, skill.description, skill.triggers.join(" "));
+                let skill_text = format!(
+                    "{} {} {}",
+                    skill.name,
+                    skill.description,
+                    skill.triggers.join(" ")
+                );
                 let skill_terms = tokenize(&skill_text);
                 let skill_vec = tfidf_vector(&skill_terms, &self.idf);
                 let score = cosine_similarity(&query_vec, &skill_vec);
@@ -94,7 +99,11 @@ impl SkillRouter {
             .filter(|m| m.score > 0.05)
             .collect();
 
-        matches.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        matches.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         matches.truncate(top_k);
         matches
     }
@@ -213,7 +222,12 @@ fn compute_idf(skills: &[SkillEntry]) -> HashMap<String, f64> {
     let mut doc_freq: HashMap<String, usize> = HashMap::new();
 
     for skill in skills {
-        let text = format!("{} {} {}", skill.name, skill.description, skill.triggers.join(" "));
+        let text = format!(
+            "{} {} {}",
+            skill.name,
+            skill.description,
+            skill.triggers.join(" ")
+        );
         let terms: std::collections::HashSet<String> = tokenize(&text).into_iter().collect();
         for term in terms {
             *doc_freq.entry(term).or_insert(0) += 1;

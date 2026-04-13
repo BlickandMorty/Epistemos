@@ -113,7 +113,10 @@ fn split_into_chunks(text: &str, chunk_size: usize) -> Vec<String> {
 fn extract_keywords(instruction: &str) -> Vec<String> {
     instruction
         .split_whitespace()
-        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .map(|w| {
+            w.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
         .filter(|w| w.len() >= 4)
         .collect()
 }
@@ -287,9 +290,7 @@ impl ToolHandler for ChunkReduceHandler {
             .enumerate()
             .map(|(index, chunk)| {
                 let instr = instruction_owned.clone();
-                tokio::task::spawn(async move {
-                    map_chunk(&chunk, &instr, index, total)
-                })
+                tokio::task::spawn(async move { map_chunk(&chunk, &instr, index, total) })
             })
             .collect();
 
@@ -397,7 +398,10 @@ mod tests {
 
     #[test]
     fn reduce_deduplicate_removes_dupes() {
-        let results = vec!["line one\nline two".to_string(), "line two\nline three".to_string()];
+        let results = vec![
+            "line one\nline two".to_string(),
+            "line two\nline three".to_string(),
+        ];
         let output = reduce_results(results, "deduplicate", "");
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 3);

@@ -156,6 +156,128 @@ nonisolated struct AgentPermissionRequest: Sendable, Identifiable {
     let description: String
 }
 
+nonisolated enum AgentPermissionCategory: Sendable, Equatable {
+    case genericRead
+    case localDataRead
+    case localDataWrite
+    case modification
+    case destructive
+
+    nonisolated var approvalReason: String {
+        switch self {
+        case .genericRead:
+            return "a read-only external action"
+        case .localDataRead:
+            return "a sensitive read of local vault or workspace data"
+        case .localDataWrite:
+            return "a write to local vault or workspace data"
+        case .modification:
+            return "a modification action"
+        case .destructive:
+            return "a destructive action"
+        }
+    }
+}
+
+extension AgentPermissionRequest {
+    nonisolated private static let localDataReadTools: Set<String> = [
+        "vault_read",
+        "vault_search",
+        "vault_recall",
+        "vault_navigate",
+        "session_search",
+        "neural_recall",
+        "contradiction_check",
+        "read_file",
+        "search_files",
+        "workspace_search",
+        "find_symbol",
+        "get_function_source",
+        "get_dependencies",
+        "get_dependents",
+        "get_change_impact",
+        "graph_query",
+        "pkm_get",
+        "pkm_search",
+        "pkm_list_entity",
+        "pkm_graph_neighbors",
+    ]
+
+    nonisolated private static let localDataWriteTools: Set<String> = [
+        "vault_write",
+        "write_file",
+        "patch_file",
+        "pkm_write",
+    ]
+
+    nonisolated var permissionCategory: AgentPermissionCategory {
+        if riskLevel == .destructive {
+            return .destructive
+        }
+
+        let normalizedToolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if Self.localDataReadTools.contains(normalizedToolName) {
+            return .localDataRead
+        }
+        if Self.localDataWriteTools.contains(normalizedToolName) {
+            return .localDataWrite
+        }
+        if normalizedToolName == "file_ops" {
+            switch normalizedFileOpsAction {
+            case "read", "list", "search":
+                return .localDataRead
+            case "write", "patch", "delete", "move":
+                return .localDataWrite
+            default:
+                break
+            }
+        }
+
+        if riskLevel == .readOnly {
+            return .genericRead
+        }
+        return .modification
+    }
+
+    nonisolated var requiresHumanApproval: Bool {
+        permissionCategory != .genericRead
+    }
+
+    nonisolated var approvalReason: String {
+        permissionCategory.approvalReason
+    }
+
+    nonisolated var approvalTargetSummary: String? {
+        let object = jsonObject
+        return [
+            object?["path"] as? String,
+            object?["query"] as? String,
+            object?["url"] as? String,
+            object?["command"] as? String,
+            object?["symbol"] as? String,
+            object?["note_id"] as? String,
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .first { !$0.isEmpty }
+    }
+
+    nonisolated private var normalizedFileOpsAction: String? {
+        guard toolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "file_ops",
+              let action = jsonObject?["action"] as? String else {
+            return nil
+        }
+        return action.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    nonisolated private var jsonObject: [String: Any]? {
+        guard let data = inputJson.data(using: .utf8),
+              let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return value
+    }
+}
+
 nonisolated enum AgentRuntimeRiskLevel: Sendable {
     case readOnly
     case modification

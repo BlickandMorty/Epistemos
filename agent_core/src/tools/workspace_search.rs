@@ -278,7 +278,9 @@ impl ToolHandler for WorkspaceSearchHandler {
         .map_err(|e| ToolError::ExecutionFailed(format!("search task failed: {e}")))?;
 
         if results.is_empty() {
-            return Ok(format!("No matches found for '{query}' in {workspace_path}"));
+            return Ok(format!(
+                "No matches found for '{query}' in {workspace_path}"
+            ));
         }
 
         let output = results
@@ -319,34 +321,78 @@ impl ToolHandler for WorkspaceSearchHandler {
 /// indicates a definition site (not a usage site).
 const DEFINITION_PATTERNS: &[&str] = &[
     // Rust
-    "fn ", "pub fn ", "pub(crate) fn ", "async fn ", "pub async fn ",
-    "struct ", "pub struct ", "enum ", "pub enum ", "trait ", "pub trait ",
-    "type ", "pub type ", "const ", "pub const ", "static ", "pub static ",
-    "impl ", "mod ", "pub mod ", "pub(crate) mod ",
+    "fn ",
+    "pub fn ",
+    "pub(crate) fn ",
+    "async fn ",
+    "pub async fn ",
+    "struct ",
+    "pub struct ",
+    "enum ",
+    "pub enum ",
+    "trait ",
+    "pub trait ",
+    "type ",
+    "pub type ",
+    "const ",
+    "pub const ",
+    "static ",
+    "pub static ",
+    "impl ",
+    "mod ",
+    "pub mod ",
+    "pub(crate) mod ",
     // Swift
-    "func ", "class ", "struct ", "enum ", "protocol ", "extension ",
-    "typealias ", "let ", "var ", "actor ",
-    "private func ", "public func ", "internal func ", "open func ",
-    "private class ", "public class ", "open class ",
-    "private struct ", "public struct ",
+    "func ",
+    "class ",
+    "struct ",
+    "enum ",
+    "protocol ",
+    "extension ",
+    "typealias ",
+    "let ",
+    "var ",
+    "actor ",
+    "private func ",
+    "public func ",
+    "internal func ",
+    "open func ",
+    "private class ",
+    "public class ",
+    "open class ",
+    "private struct ",
+    "public struct ",
     // Python
-    "def ", "class ", "async def ",
+    "def ",
+    "class ",
+    "async def ",
     // TypeScript / JavaScript
-    "function ", "export function ", "export default function ",
-    "export class ", "export const ", "export let ",
-    "interface ", "export interface ", "type ", "export type ",
+    "function ",
+    "export function ",
+    "export default function ",
+    "export class ",
+    "export const ",
+    "export let ",
+    "interface ",
+    "export interface ",
+    "type ",
+    "export type ",
 ];
 
 /// Import/dependency patterns by language.
 const IMPORT_PATTERNS: &[&str] = &[
     // Rust
-    "use ", "pub use ", "extern crate ",
+    "use ",
+    "pub use ",
+    "extern crate ",
     // Swift
     "import ",
     // Python
-    "import ", "from ",
+    "import ",
+    "from ",
     // TypeScript / JavaScript
-    "import ", "require(",
+    "import ",
+    "require(",
 ];
 
 /// A structured symbol match with file location and source excerpt.
@@ -407,7 +453,9 @@ fn find_symbol_definitions(
                                     .collect::<Vec<_>>()
                                     .join("\n");
 
-                                let kind = pattern.trim().trim_start_matches("pub ")
+                                let kind = pattern
+                                    .trim()
+                                    .trim_start_matches("pub ")
                                     .trim_start_matches("pub(crate) ")
                                     .trim_start_matches("async ")
                                     .trim_start_matches("export ")
@@ -431,7 +479,11 @@ fn find_symbol_definitions(
                     }
                 }
             }
-            if matches.is_empty() { None } else { Some(matches) }
+            if matches.is_empty() {
+                None
+            } else {
+                Some(matches)
+            }
         })
         .flatten()
         .take_any(max_results)
@@ -550,7 +602,11 @@ fn extract_function_source(
                     source,
                 });
             }
-            if results.is_empty() { None } else { Some(results) }
+            if results.is_empty() {
+                None
+            } else {
+                Some(results)
+            }
         })
         .flatten()
         .collect()
@@ -614,10 +670,7 @@ fn find_dependents(
                 .lines()
                 .filter(|line| {
                     let trimmed = line.trim_start();
-                    IMPORT_PATTERNS
-                        .iter()
-                        .any(|p| trimmed.starts_with(p))
-                        && line.contains(symbol)
+                    IMPORT_PATTERNS.iter().any(|p| trimmed.starts_with(p)) && line.contains(symbol)
                 })
                 .map(|l| l.trim().to_string())
                 .collect();
@@ -658,19 +711,34 @@ pub struct FindSymbolHandler;
 #[async_trait]
 impl ToolHandler for FindSymbolHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input.get("workspace_path").and_then(Value::as_str)
+        let workspace_path = input
+            .get("workspace_path")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let symbol = input.get("symbol").and_then(Value::as_str)
+        let symbol = input
+            .get("symbol")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("symbol required".into()))?;
-        let extensions: Vec<String> = input.get("file_extensions")
+        let extensions: Vec<String> = input
+            .get("file_extensions")
             .and_then(Value::as_array)
-            .map(|arr| arr.iter().filter_map(Value::as_str).map(String::from).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
             .unwrap_or_default();
-        let max_results = input.get("max_results").and_then(Value::as_u64).unwrap_or(10) as usize;
+        let max_results = input
+            .get("max_results")
+            .and_then(Value::as_u64)
+            .unwrap_or(10) as usize;
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
-            return Err(ToolError::InvalidArguments(format!("not a directory: {workspace_path}")));
+            return Err(ToolError::InvalidArguments(format!(
+                "not a directory: {workspace_path}"
+            )));
         }
 
         let symbol_owned = symbol.to_string();
@@ -681,11 +749,13 @@ impl ToolHandler for FindSymbolHandler {
         .map_err(|e| ToolError::ExecutionFailed(format!("find_symbol task failed: {e}")))?;
 
         if results.is_empty() {
-            return Ok(format!("No definitions found for symbol '{symbol}' in {workspace_path}"));
+            return Ok(format!(
+                "No definitions found for symbol '{symbol}' in {workspace_path}"
+            ));
         }
 
-        let output = serde_json::to_string_pretty(&results)
-            .unwrap_or_else(|_| format!("{results:?}"));
+        let output =
+            serde_json::to_string_pretty(&results).unwrap_or_else(|_| format!("{results:?}"));
         Ok(output)
     }
 }
@@ -713,18 +783,30 @@ pub struct GetFunctionSourceHandler;
 #[async_trait]
 impl ToolHandler for GetFunctionSourceHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input.get("workspace_path").and_then(Value::as_str)
+        let workspace_path = input
+            .get("workspace_path")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let function_name = input.get("function_name").and_then(Value::as_str)
+        let function_name = input
+            .get("function_name")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("function_name required".into()))?;
-        let extensions: Vec<String> = input.get("file_extensions")
+        let extensions: Vec<String> = input
+            .get("file_extensions")
             .and_then(Value::as_array)
-            .map(|arr| arr.iter().filter_map(Value::as_str).map(String::from).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
             .unwrap_or_default();
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
-            return Err(ToolError::InvalidArguments(format!("not a directory: {workspace_path}")));
+            return Err(ToolError::InvalidArguments(format!(
+                "not a directory: {workspace_path}"
+            )));
         }
 
         let fn_owned = function_name.to_string();
@@ -735,11 +817,13 @@ impl ToolHandler for GetFunctionSourceHandler {
         .map_err(|e| ToolError::ExecutionFailed(format!("get_function_source task failed: {e}")))?;
 
         if results.is_empty() {
-            return Ok(format!("No function '{function_name}' found in {workspace_path}"));
+            return Ok(format!(
+                "No function '{function_name}' found in {workspace_path}"
+            ));
         }
 
-        let output = serde_json::to_string_pretty(&results)
-            .unwrap_or_else(|_| format!("{results:?}"));
+        let output =
+            serde_json::to_string_pretty(&results).unwrap_or_else(|_| format!("{results:?}"));
         Ok(output)
     }
 }
@@ -761,7 +845,9 @@ pub struct GetDependenciesHandler;
 #[async_trait]
 impl ToolHandler for GetDependenciesHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let file_path = input.get("file_path").and_then(Value::as_str)
+        let file_path = input
+            .get("file_path")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("file_path required".into()))?;
 
         let path = PathBuf::from(file_path);
@@ -772,13 +858,19 @@ impl ToolHandler for GetDependenciesHandler {
         let path_owned = path.clone();
         let deps = tokio::task::spawn_blocking(move || find_file_dependencies(&path_owned))
             .await
-            .map_err(|e| ToolError::ExecutionFailed(format!("get_dependencies task failed: {e}")))?;
+            .map_err(|e| {
+                ToolError::ExecutionFailed(format!("get_dependencies task failed: {e}"))
+            })?;
 
         if deps.is_empty() {
             return Ok(format!("No imports found in {file_path}"));
         }
 
-        Ok(format!("Dependencies in {}:\n{}", file_path, deps.join("\n")))
+        Ok(format!(
+            "Dependencies in {}:\n{}",
+            file_path,
+            deps.join("\n")
+        ))
     }
 }
 
@@ -805,19 +897,34 @@ pub struct GetDependentsHandler;
 #[async_trait]
 impl ToolHandler for GetDependentsHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input.get("workspace_path").and_then(Value::as_str)
+        let workspace_path = input
+            .get("workspace_path")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let symbol = input.get("symbol").and_then(Value::as_str)
+        let symbol = input
+            .get("symbol")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("symbol required".into()))?;
-        let extensions: Vec<String> = input.get("file_extensions")
+        let extensions: Vec<String> = input
+            .get("file_extensions")
             .and_then(Value::as_array)
-            .map(|arr| arr.iter().filter_map(Value::as_str).map(String::from).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
             .unwrap_or_default();
-        let max_results = input.get("max_results").and_then(Value::as_u64).unwrap_or(20) as usize;
+        let max_results = input
+            .get("max_results")
+            .and_then(Value::as_u64)
+            .unwrap_or(20) as usize;
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
-            return Err(ToolError::InvalidArguments(format!("not a directory: {workspace_path}")));
+            return Err(ToolError::InvalidArguments(format!(
+                "not a directory: {workspace_path}"
+            )));
         }
 
         let sym_owned = symbol.to_string();
@@ -828,14 +935,14 @@ impl ToolHandler for GetDependentsHandler {
         .map_err(|e| ToolError::ExecutionFailed(format!("get_dependents task failed: {e}")))?;
 
         if results.is_empty() {
-            return Ok(format!("No files import or reference '{symbol}' in {workspace_path}"));
+            return Ok(format!(
+                "No files import or reference '{symbol}' in {workspace_path}"
+            ));
         }
 
         let output: String = results
             .iter()
-            .map(|(path, imports)| {
-                format!("**{}**\n{}", path.display(), imports.join("\n"))
-            })
+            .map(|(path, imports)| format!("**{}**\n{}", path.display(), imports.join("\n")))
             .collect::<Vec<_>>()
             .join("\n\n");
         Ok(output)
@@ -865,18 +972,30 @@ pub struct GetChangeImpactHandler;
 #[async_trait]
 impl ToolHandler for GetChangeImpactHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input.get("workspace_path").and_then(Value::as_str)
+        let workspace_path = input
+            .get("workspace_path")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let symbol = input.get("symbol").and_then(Value::as_str)
+        let symbol = input
+            .get("symbol")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("symbol required".into()))?;
-        let extensions: Vec<String> = input.get("file_extensions")
+        let extensions: Vec<String> = input
+            .get("file_extensions")
             .and_then(Value::as_array)
-            .map(|arr| arr.iter().filter_map(Value::as_str).map(String::from).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
             .unwrap_or_default();
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
-            return Err(ToolError::InvalidArguments(format!("not a directory: {workspace_path}")));
+            return Err(ToolError::InvalidArguments(format!(
+                "not a directory: {workspace_path}"
+            )));
         }
 
         let sym_owned = symbol.to_string();
@@ -932,7 +1051,11 @@ impl ToolHandler for GetChangeImpactHandler {
             direct_dependents.len()
         ));
         for (path, imports) in &direct_dependents {
-            report.push_str(&format!("- **{}**: {}\n", path.display(), imports.join("; ")));
+            report.push_str(&format!(
+                "- **{}**: {}\n",
+                path.display(),
+                imports.join("; ")
+            ));
         }
 
         report.push_str(&format!(
@@ -1003,7 +1126,11 @@ mod tests {
             let components: Vec<_> = path.components().collect();
             for component in components {
                 let name = component.as_os_str().to_string_lossy();
-                assert!(!name.starts_with('.'), "found hidden path: {}", path.display());
+                assert!(
+                    !name.starts_with('.'),
+                    "found hidden path: {}",
+                    path.display()
+                );
             }
         }
     }
@@ -1045,12 +1172,8 @@ mod tests {
     #[test]
     fn find_symbol_does_not_match_prefix() {
         // 'lambda' should NOT match 'lambda_rlm_search' as a definition
-        let results = find_symbol_definitions(
-            Path::new("src/tools"),
-            "lambda",
-            &["rs".to_string()],
-            5,
-        );
+        let results =
+            find_symbol_definitions(Path::new("src/tools"), "lambda", &["rs".to_string()], 5);
         // 'lambda' is not defined as a standalone symbol in this codebase
         for r in &results {
             assert_eq!(r.name, "lambda");
@@ -1094,7 +1217,10 @@ mod tests {
         let result = handler.execute(&input).await;
         assert!(result.is_ok());
         let output = result.unwrap();
-        assert!(output.contains("WorkspaceSearchHandler"), "should find the struct definition");
+        assert!(
+            output.contains("WorkspaceSearchHandler"),
+            "should find the struct definition"
+        );
     }
 
     #[tokio::test]
@@ -1108,7 +1234,13 @@ mod tests {
         let result = handler.execute(&input).await;
         assert!(result.is_ok());
         let output = result.unwrap();
-        assert!(output.contains("collect_paths"), "should contain the function name");
-        assert!(output.contains("WalkDir"), "should contain the function body");
+        assert!(
+            output.contains("collect_paths"),
+            "should contain the function name"
+        );
+        assert!(
+            output.contains("WalkDir"),
+            "should contain the function body"
+        );
     }
 }

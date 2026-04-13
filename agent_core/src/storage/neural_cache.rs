@@ -240,7 +240,8 @@ impl NeuralCache {
         };
 
         let now = chrono::Utc::now();
-        let window_start = now - chrono::Duration::minutes(minutes_ago as i64 + window_minutes as i64);
+        let window_start =
+            now - chrono::Duration::minutes(minutes_ago as i64 + window_minutes as i64);
         let window_end = now - chrono::Duration::minutes(minutes_ago as i64);
 
         let mut results: Vec<CachedResult> = hot
@@ -256,7 +257,11 @@ impl NeuralCache {
             })
             .collect();
 
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         results
     }
 
@@ -296,9 +301,21 @@ mod tests {
         let cache = NeuralCache::new(100);
 
         // Warm some facts
-        cache.warm("notes/rust-ffi.md", "Rust FFI bridge uses UniFFI for Swift interop", 0.9);
-        cache.warm("notes/swift-actors.md", "Swift actors provide data isolation", 0.8);
-        cache.warm("notes/grpc.md", "gRPC is a remote procedure call framework", 0.7);
+        cache.warm(
+            "notes/rust-ffi.md",
+            "Rust FFI bridge uses UniFFI for Swift interop",
+            0.9,
+        );
+        cache.warm(
+            "notes/swift-actors.md",
+            "Swift actors provide data isolation",
+            0.8,
+        );
+        cache.warm(
+            "notes/grpc.md",
+            "gRPC is a remote procedure call framework",
+            0.7,
+        );
 
         // Search for Rust-related content
         let results = cache.search_hot("Rust FFI bridge", 5);

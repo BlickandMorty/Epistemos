@@ -192,6 +192,171 @@ struct IMessageDriverServiceRoutingTests {
     }
 
     @MainActor
+    @Test("driver channel messages prefer provider message ids for dedup")
+    func driverChannelMessagesPreferProviderMessageIDsForDedup() {
+        let message = DriverChannelMessage(
+            channelID: "imessage",
+            messageID: "42",
+            conversationID: "88",
+            senderID: "+15551234567",
+            text: "hello",
+            unix: 1_712_708_800
+        )
+        #expect(message.dedupKey == "imessage:42")
+    }
+
+    @MainActor
+    @Test("driver channel messages fall back to conversation sender timestamp when ids are missing")
+    func driverChannelMessagesFallbackToConversationSenderTimestamp() {
+        let message = DriverChannelMessage(
+            channelID: "imessage",
+            messageID: nil,
+            conversationID: "88",
+            senderID: "+15551234567",
+            text: "hello",
+            unix: 1_712_708_800
+        )
+        #expect(message.dedupKey == "imessage:88:+15551234567:1712708800")
+    }
+
+    @MainActor
+    @Test("iMessage unread parser preserves message and chat identifiers")
+    func iMessageUnreadParserPreservesMessageAndChatIdentifiers() {
+        let json = """
+        {
+          "messages": [
+            {
+              "message_id": 42,
+              "text": "hey there",
+              "unix": 1712708800,
+              "handle": "+15551234567",
+              "chat_id": 88
+            }
+          ]
+        }
+        """
+
+        let messages = IMessageChannelAdapter.parseUnreadMessages(from: json)
+        #expect(messages.count == 1)
+        #expect(messages.first?.messageID == "42")
+        #expect(messages.first?.conversationID == "88")
+        #expect(messages.first?.senderID == "+15551234567")
+        #expect(messages.first?.dedupKey == "imessage:42")
+    }
+
+    @MainActor
+    @Test("telegram adapter builds a send_message call with chat target")
+    func telegramAdapterBuildsSendMessageCall() throws {
+        let adapter = TelegramChannelAdapter()
+        let toolCall = try adapter.makeSendToolCall(message: "hello", recipientID: "123456")
+        let payload = try #require(jsonObject(from: toolCall.inputJson))
+
+        #expect(toolCall.toolName == "send_message")
+        #expect(payload["platform"] as? String == "telegram")
+        #expect(payload["message"] as? String == "hello")
+        #expect(payload["target"] as? String == "123456")
+    }
+
+    @MainActor
+    @Test("slack adapter routes webhook recipients without fabricating a target")
+    func slackAdapterRoutesWebhookRecipients() throws {
+        let adapter = SlackChannelAdapter()
+        let webhookURL = "https://hooks.slack.com/services/test"
+        let toolCall = try adapter.makeSendToolCall(message: "hello", recipientID: webhookURL)
+        let payload = try #require(jsonObject(from: toolCall.inputJson))
+
+        #expect(toolCall.toolName == "send_message")
+        #expect(payload["platform"] as? String == "slack")
+        #expect(payload["message"] as? String == "hello")
+        #expect(payload["webhook_url"] as? String == webhookURL)
+        #expect(payload["target"] == nil)
+    }
+
+    @MainActor
+    @Test("discord adapter routes webhook recipients without fabricating a target")
+    func discordAdapterRoutesWebhookRecipients() throws {
+        let adapter = DiscordChannelAdapter()
+        let webhookURL = "https://discord.com/api/webhooks/test"
+        let toolCall = try adapter.makeSendToolCall(message: "hello", recipientID: webhookURL)
+        let payload = try #require(jsonObject(from: toolCall.inputJson))
+
+        #expect(toolCall.toolName == "send_message")
+        #expect(payload["platform"] as? String == "discord")
+        #expect(payload["message"] as? String == "hello")
+        #expect(payload["webhook_url"] as? String == webhookURL)
+        #expect(payload["target"] == nil)
+    }
+
+    @MainActor
+    @Test("whatsapp adapter builds a send_message call with phone target")
+    func whatsappAdapterBuildsSendMessageCall() throws {
+        let adapter = WhatsAppChannelAdapter()
+        let toolCall = try adapter.makeSendToolCall(message: "hello", recipientID: "+15551234567")
+        let payload = try #require(jsonObject(from: toolCall.inputJson))
+
+        #expect(toolCall.toolName == "send_message")
+        #expect(payload["platform"] as? String == "whatsapp")
+        #expect(payload["message"] as? String == "hello")
+        #expect(payload["target"] as? String == "+15551234567")
+    }
+
+    @MainActor
+    @Test("signal adapter preserves multi-recipient routing in target")
+    func signalAdapterPreservesMultiRecipientRouting() throws {
+        let adapter = SignalChannelAdapter()
+        let toolCall = try adapter.makeSendToolCall(
+            message: "hello",
+            recipientID: "+15551234567,+15557654321"
+        )
+        let payload = try #require(jsonObject(from: toolCall.inputJson))
+
+        #expect(toolCall.toolName == "send_message")
+        #expect(payload["platform"] as? String == "signal")
+        #expect(payload["message"] as? String == "hello")
+        #expect(payload["target"] as? String == "+15551234567,+15557654321")
+    }
+
+    @MainActor
+    @Test("email adapter adds the subject required by send_message")
+    func emailAdapterAddsRequiredSubject() throws {
+        let adapter = EmailChannelAdapter(subject: "Epistemos Reply")
+        let toolCall = try adapter.makeSendToolCall(
+            message: "hello",
+            recipientID: "friend@example.com"
+        )
+        let payload = try #require(jsonObject(from: toolCall.inputJson))
+
+        #expect(toolCall.toolName == "send_message")
+        #expect(payload["platform"] as? String == "email")
+        #expect(payload["message"] as? String == "hello")
+        #expect(payload["to"] as? String == "friend@example.com")
+        #expect(payload["subject"] as? String == "Epistemos Reply")
+    }
+
+    @MainActor
+    @Test("send-only channel adapters fail fast on unread polling")
+    func sendOnlyChannelAdaptersFailFastOnUnreadPolling() async {
+        await #expect(throws: DriverChannelError.self) {
+            _ = try await TelegramChannelAdapter().fetchUnreadMessages(vaultPath: "/tmp/test", limit: 5)
+        }
+        await #expect(throws: DriverChannelError.self) {
+            _ = try await SlackChannelAdapter().fetchUnreadMessages(vaultPath: "/tmp/test", limit: 5)
+        }
+        await #expect(throws: DriverChannelError.self) {
+            _ = try await DiscordChannelAdapter().fetchUnreadMessages(vaultPath: "/tmp/test", limit: 5)
+        }
+        await #expect(throws: DriverChannelError.self) {
+            _ = try await WhatsAppChannelAdapter().fetchUnreadMessages(vaultPath: "/tmp/test", limit: 5)
+        }
+        await #expect(throws: DriverChannelError.self) {
+            _ = try await SignalChannelAdapter().fetchUnreadMessages(vaultPath: "/tmp/test", limit: 5)
+        }
+        await #expect(throws: DriverChannelError.self) {
+            _ = try await EmailChannelAdapter().fetchUnreadMessages(vaultPath: "/tmp/test", limit: 5)
+        }
+    }
+
+    @MainActor
     @Test("partner context query prefers the current line when it has signal")
     func partnerContextQueryPrefersCurrentLine() {
         let body = """
@@ -216,6 +381,14 @@ struct IMessageDriverServiceRoutingTests {
         #expect(AIPartnerService.safeCursorOffset(in: body, cursorOffset: 999) == (body as NSString).length)
         #expect(AIPartnerService.cursorLine(in: body, cursorOffset: -20) == 1)
         #expect(AIPartnerService.cursorLine(in: body, cursorOffset: 999) == 3)
+    }
+
+    private func jsonObject(from json: String) -> [String: Any]? {
+        guard let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return object
     }
 }
 

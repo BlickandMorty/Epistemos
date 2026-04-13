@@ -233,7 +233,12 @@ mod tests {
         node.access_count = 100;
         let rate_100 = node.effective_decay_rate();
 
-        assert!(rate_100 < rate_1, "rate at 100 accesses ({}) should be < rate at 1 ({})", rate_100, rate_1);
+        assert!(
+            rate_100 < rate_1,
+            "rate at 100 accesses ({}) should be < rate at 1 ({})",
+            rate_100,
+            rate_1
+        );
         // ln(100) ≈ 4.6, so rate_100 ≈ rate_1 / 5.6 ≈ 0.18x
         assert!(rate_100 < rate_1 * 0.25);
     }

@@ -169,8 +169,8 @@ impl ToolHandler for ContradictionCheckHandler {
             .collect();
 
         let contradictions = detect_contradictions(claim, &facts);
-        let safe_to_write = contradictions.is_empty()
-            || contradictions.iter().all(|c| c.confidence < 0.8);
+        let safe_to_write =
+            contradictions.is_empty() || contradictions.iter().all(|c| c.confidence < 0.8);
 
         let serialised: Vec<Value> = contradictions
             .iter()
@@ -337,9 +337,7 @@ impl ToolHandler for NeuralRecallHandler {
             .and_then(Value::as_u64)
             .unwrap_or(5)
             .clamp(1, 20) as usize;
-        let temporal_minutes_ago = input
-            .get("temporal_minutes_ago")
-            .and_then(Value::as_u64);
+        let temporal_minutes_ago = input.get("temporal_minutes_ago").and_then(Value::as_u64);
 
         // Temporal retrieval takes precedence when specified — this pulls the
         // hot-layer slice for a window around "minutes ago".
@@ -463,10 +461,7 @@ mod tests {
         {
             Ok(self.results.lock().unwrap().clone())
         }
-        async fn read(
-            &self,
-            _path: &str,
-        ) -> Result<String, crate::storage::vault::VaultError> {
+        async fn read(&self, _path: &str) -> Result<String, crate::storage::vault::VaultError> {
             Ok(String::new())
         }
         async fn write(
@@ -484,16 +479,10 @@ mod tests {
         ) -> Result<Vec<String>, crate::storage::vault::VaultError> {
             Ok(Vec::new())
         }
-        async fn exists(
-            &self,
-            _path: &str,
-        ) -> Result<bool, crate::storage::vault::VaultError> {
+        async fn exists(&self, _path: &str) -> Result<bool, crate::storage::vault::VaultError> {
             Ok(false)
         }
-        async fn delete(
-            &self,
-            _path: &str,
-        ) -> Result<bool, crate::storage::vault::VaultError> {
+        async fn delete(&self, _path: &str) -> Result<bool, crate::storage::vault::VaultError> {
             Ok(false)
         }
     }
@@ -575,10 +564,7 @@ mod tests {
         )]));
         let cache = Arc::new(NeuralCache::new(8));
         let handler = NeuralRecallHandler::new(vault, cache);
-        let result = handler
-            .execute(&json!({ "query": "cache" }))
-            .await
-            .unwrap();
+        let result = handler.execute(&json!({ "query": "cache" })).await.unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["mode"], json!("tiered"));
         assert!(parsed["count"].as_u64().unwrap() >= 1);

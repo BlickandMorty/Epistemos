@@ -469,10 +469,7 @@ async fn list_processes(reg: &Arc<ProcessRegistry>) -> Result<String, ToolError>
     .to_string())
 }
 
-async fn poll_process(
-    reg: &Arc<ProcessRegistry>,
-    input: &Value,
-) -> Result<String, ToolError> {
+async fn poll_process(reg: &Arc<ProcessRegistry>, input: &Value) -> Result<String, ToolError> {
     let id = input
         .get("session_id")
         .and_then(Value::as_str)
@@ -492,10 +489,7 @@ async fn poll_process(
     .to_string())
 }
 
-async fn read_log(
-    reg: &Arc<ProcessRegistry>,
-    input: &Value,
-) -> Result<String, ToolError> {
+async fn read_log(reg: &Arc<ProcessRegistry>, input: &Value) -> Result<String, ToolError> {
     let id = input
         .get("session_id")
         .and_then(Value::as_str)
@@ -520,10 +514,7 @@ async fn read_log(
     .to_string())
 }
 
-async fn kill_process(
-    reg: &Arc<ProcessRegistry>,
-    input: &Value,
-) -> Result<String, ToolError> {
+async fn kill_process(reg: &Arc<ProcessRegistry>, input: &Value) -> Result<String, ToolError> {
     let id = input
         .get("session_id")
         .and_then(Value::as_str)
@@ -547,10 +538,7 @@ async fn kill_process(
         // on the full 5s window — 500ms is plenty for well-behaved programs
         // and the pump task will update the status when the process actually
         // exits.
-        if matches!(
-            handle.lock().await.status,
-            ProcessStatus::Running
-        ) {
+        if matches!(handle.lock().await.status, ProcessStatus::Running) {
             unsafe { libc::kill(pid, libc::SIGKILL) };
         }
     }
@@ -575,10 +563,7 @@ async fn kill_process(
     .to_string())
 }
 
-async fn write_stdin(
-    reg: &Arc<ProcessRegistry>,
-    input: &Value,
-) -> Result<String, ToolError> {
+async fn write_stdin(reg: &Arc<ProcessRegistry>, input: &Value) -> Result<String, ToolError> {
     let id = input
         .get("session_id")
         .and_then(Value::as_str)
@@ -735,10 +720,7 @@ mod tests {
     #[tokio::test]
     async fn process_list_action_works() {
         let process = ProcessHandler;
-        let result = process
-            .execute(&json!({ "action": "list" }))
-            .await
-            .unwrap();
+        let result = process.execute(&json!({ "action": "list" })).await.unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert!(parsed["count"].is_number());
         assert!(parsed["processes"].is_array());

@@ -7,6 +7,7 @@ import SwiftUI
 struct SessionListView: View {
     let browser: SessionBrowser
     let vaultPath: String
+    @State private var searchQuery: String = ""
 
     var body: some View {
         Group {
@@ -30,20 +31,27 @@ struct SessionListView: View {
     }
 
     private var sessionList: some View {
-        List(selection: Binding(
-            get: { browser.selectedSession },
-            set: { browser.selectedSession = $0 }
-        )) {
-            ForEach(browser.groups) { group in
-                Section(group.label) {
-                    ForEach(group.sessions) { session in
-                        SessionRow(session: session)
-                            .tag(session)
+        VStack(spacing: 0) {
+            TextField("Search sessions", text: $searchQuery)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+            List(selection: Binding(
+                get: { browser.selectedSession },
+                set: { browser.selectedSession = $0 }
+            )) {
+                ForEach(browser.filteredGroups(matching: searchQuery)) { group in
+                    Section(group.label) {
+                        ForEach(group.sessions) { session in
+                            SessionRow(session: session)
+                                .tag(session)
+                        }
                     }
                 }
             }
+            .listStyle(.sidebar)
         }
-        .listStyle(.sidebar)
     }
 }
 
@@ -115,13 +123,26 @@ struct SessionDetailView: View {
     let session: SessionBrowser.SessionInfo
 
     @State private var summary: String?
-    @State private var metadataJSON: String?
+    @State private var summarySections: [SessionBrowser.SummarySection] = []
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                if let summary {
+                if !summarySections.isEmpty {
+                    ForEach(summarySections) { section in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(section.title)
+                                .font(.headline)
+                            Text(section.body)
+                                .font(.body)
+                                .textSelection(.enabled)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                } else if let summary {
                     Text(summary)
                         .font(.body.monospaced())
                         .textSelection(.enabled)
@@ -134,7 +155,7 @@ struct SessionDetailView: View {
         }
         .task {
             summary = browser.loadSummary(for: session)
-            metadataJSON = browser.loadMetadata(for: session)
+            summarySections = browser.summarySections(for: session)
         }
     }
 
@@ -158,6 +179,12 @@ struct SessionDetailView: View {
 
             if let classification = session.trajectoryClassification {
                 Text("Trajectory: \(classification.capitalized)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let lineage = browser.lineageSummary(for: session) {
+                Text(lineage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

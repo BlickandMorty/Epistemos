@@ -46,6 +46,7 @@ echo "🔨 Building Swift test target..."
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
     "${PACKAGE_ARGS[@]}" \
+    CODE_SIGNING_ALLOWED=NO \
     2>&1 | tee "$RESULTS_DIR/swift_build_$TIMESTAMP.log"
 
 echo ""
@@ -60,6 +61,7 @@ if "$PROJECT_DIR/scripts/xcodebuild_epistemos.sh" test-without-building \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
     "${PACKAGE_ARGS[@]}" \
+    CODE_SIGNING_ALLOWED=NO \
     -resultBundlePath "$RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult" \
     2>&1 | tee "$RESULTS_DIR/swift_tests_$TIMESTAMP.log"; then
     

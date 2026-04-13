@@ -129,8 +129,9 @@ struct SetupAssistantView: View {
 
     @ViewBuilder
     private var modelStep: some View {
-        let hasModel = !inference.installedLocalTextModelIDs.isEmpty
-        let installedModelLabel = inference.effectiveLocalTextModelID ?? "Unknown"
+        let hasModel = inference.hasUsableLocalTextModel
+        let runtimeStatusLabel = inference.localModelInstallStateSummary.displayName
+        let installedModelLabel = inference.activeLocalTextModelDisplayName
 
         VStack(spacing: 16) {
             Image(systemName: "cpu.fill")
@@ -147,7 +148,7 @@ struct SetupAssistantView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                    Text(verbatim: "Model installed: \(installedModelLabel)")
+                    Text(verbatim: "Local runtime ready (\(runtimeStatusLabel)): \(installedModelLabel)")
                         .font(.caption)
                 }
                 .padding()
@@ -247,7 +248,7 @@ struct SetupAssistantView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault", done: vaultSync.vaultURL != nil)
-                statusRow("Local AI", done: !inference.installedLocalTextModelIDs.isEmpty)
+                statusRow("Local AI", done: inference.hasUsableLocalTextModel)
                 statusRow("Cloud AI", done: inference.activeCloudProvider != nil)
             }
 

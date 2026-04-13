@@ -7,6 +7,8 @@ DESTINATION="${DESTINATION:-platform=macOS}"
 RESULT_ROOT="${RESULT_ROOT:-artifacts/reliability}"
 SUITE_ID="${SUITE_ID:-EpistemosTests/GeneratedReliabilityMatrixTests}"
 GATES="${GATES:-baseline,perf_diagnostics,asan,tsan,ubsan,soak_repeat}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+XCODEBUILD_WRAPPER="${ROOT_DIR}/scripts/xcodebuild_epistemos.sh"
 
 timestamp="$(date +%Y%m%d-%H%M%S)"
 out_dir="${RESULT_ROOT}/${timestamp}"
@@ -17,15 +19,18 @@ run_gate() {
   shift
   local log_file="${out_dir}/${name}.log"
   local result_bundle="${out_dir}/${name}.xcresult"
+  local derived_data="${out_dir}/derived-data-${name}"
 
   echo "=== ${name} ==="
   echo "log: ${log_file}"
   echo "xcresult: ${result_bundle}"
 
-  xcodebuild test \
+  "${XCODEBUILD_WRAPPER}" test \
     -project "${PROJECT}" \
     -scheme "${SCHEME}" \
     -destination "${DESTINATION}" \
+    -derivedDataPath "${derived_data}" \
+    CODE_SIGNING_ALLOWED=NO \
     -resultBundlePath "${result_bundle}" \
     -collect-test-diagnostics on-failure \
     -only-testing:"${SUITE_ID}" \

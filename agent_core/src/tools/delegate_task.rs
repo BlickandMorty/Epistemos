@@ -128,8 +128,10 @@ impl ToolHandler for DelegateTaskTool {
 
         let cancel = CancellationToken::new();
         let delegate: Arc<dyn crate::bridge::AgentEventDelegate> = Arc::new(SilentDelegate);
+        let session_id = uuid::Uuid::new_v4().to_string();
 
         let result = run_agent_loop(
+            session_id,
             objective.clone(),
             self.provider.clone(),
             self.tool_registry.clone(),

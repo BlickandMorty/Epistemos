@@ -407,6 +407,61 @@ struct PipelineServiceTests {
         _ = pipeline
         _ = triage
     }
+
+    @Test("agent execution plan forces the pipeline onto the local stream even when cloud is selected")
+    @MainActor func agentExecutionPlanForcesLocalStreamEvenWhenCloudIsSelected() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = ["Local", " plan"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "Review this architecture and give me the safest migration order.",
+            contentLength: 2_600,
+            operatingMode: .agent,
+            hasExplicitContext: true,
+            attachmentCount: 1,
+            notesContext: "Architecture context",
+            conversationHistory: nil
+        )
+
+        var visibleText = ""
+        let stream = pipeline.run(
+            query: "Review this architecture and give me the safest migration order.",
+            mode: .api,
+            notesContext: "Architecture context",
+            conversationHistory: nil,
+            operatingMode: executionPlan.localOperatingMode,
+            executionPlan: executionPlan
+        )
+
+        for try await event in stream {
+            if case .textDelta(let token) = event {
+                visibleText += token
+            }
+        }
+
+        #expect(visibleText == "Local plan")
+        #expect(mock.streamCalls.count == 1)
+        let systemPrompt = try #require(mock.streamCalls.first?.systemPrompt)
+        #expect(systemPrompt.contains("OVERSEER_PLAN_V1"))
+        #expect(systemPrompt.contains("\"mask_plan\""))
+    }
 }
 
 // MARK: - Pipeline Contract Tests

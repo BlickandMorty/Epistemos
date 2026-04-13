@@ -50,6 +50,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case gemma3_27BQAT4Bit = "mlx-community/gemma-3-27b-it-qat-4bit"
     case llama4Scout17B16E4Bit = "mlx-community/meta-llama-Llama-4-Scout-17B-16E-4bit"
 
+    var runtimeKind: BackendRuntimeKind {
+        switch self {
+        case .qwopus27Bv3, .qwopusMoE35BA3B:
+            .gguf
+        default:
+            .mlx
+        }
+    }
+
     var displayName: String {
         switch self {
         case .qwen35_0_8B4Bit: "Qwen 3.5 0.8B"
@@ -57,7 +66,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_4B4Bit: "Qwen 3.5 4B"
         case .qwen35_9B4Bit: "Qwen 3.5 9B"
         case .qwen35_27B4Bit: "Qwen 3.5 27B"
-        case .qwen35_35BA3B4Bit: "Qwen 3.5 35B MoE"
+        case .qwen35_35BA3B4Bit: "Qwen 3.5 35B APEXMini"
         case .gemma4_2B4Bit: "Gemma 4 2B"
         case .gemma4_4B4Bit: "Gemma 4 4B"
         case .gemma4_27BA4B4Bit: "Gemma 4 27B MoE"
@@ -93,7 +102,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_4B4Bit: "Qwen 4B"
         case .qwen35_9B4Bit: "Qwen 9B"
         case .qwen35_27B4Bit: "Qwen 27B"
-        case .qwen35_35BA3B4Bit: "Qwen 35B"
+        case .qwen35_35BA3B4Bit: "Qwen 35B APEX"
         case .gemma4_2B4Bit: "Gemma 2B"
         case .gemma4_4B4Bit: "Gemma 4B"
         case .gemma4_27BA4B4Bit: "Gemma 27B"
@@ -187,7 +196,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwopus27Bv3, .devstralSmall2505_4Bit,
              .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit: 24
         case .qwen35_27B4Bit: 48
-        case .qwen35_35BA3B4Bit, .qwopusMoE35BA3B, .llama4Scout17B16E4Bit: 24
+        case .qwen35_35BA3B4Bit: 18
+        case .qwopusMoE35BA3B, .llama4Scout17B16E4Bit: 24
         }
     }
 
@@ -576,6 +586,63 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         default:
             .general      // General assistant
         }
+    }
+}
+
+nonisolated struct LocalRuntimeHealthSnapshot: Sendable, Equatable {
+    let requestedRuntimeKind: BackendRuntimeKind?
+    let resolvedRuntimeKind: BackendRuntimeKind
+    let executionMode: BackendExecutionMode
+    let modelID: String
+    let artifactID: String?
+    let fallbackMode: String
+    let executionPhase: String
+    let timeToFirstTokenMS: Double?
+    let totalDurationMS: Double
+    let tokensPerSecond: Double?
+    let outputTokenCount: Int
+    let outputCharacterCount: Int
+    let availableMemoryBytes: UInt64?
+    let runtimeResourceURL: URL?
+}
+
+extension LocalRuntimeHealthSnapshot {
+    init(_ profile: LocalMLXRunProfile) {
+        self.init(
+            requestedRuntimeKind: profile.requestedRuntimeKind,
+            resolvedRuntimeKind: profile.resolvedRuntimeKind,
+            executionMode: profile.executionMode,
+            modelID: profile.modelID,
+            artifactID: profile.artifactID,
+            fallbackMode: profile.fallbackMode,
+            executionPhase: profile.serialPhase,
+            timeToFirstTokenMS: profile.firstTokenLatencyMS,
+            totalDurationMS: profile.totalDurationMS,
+            tokensPerSecond: profile.tokensPerSecond,
+            outputTokenCount: profile.outputTokenCount,
+            outputCharacterCount: profile.outputCharacterCount,
+            availableMemoryBytes: profile.availableMemoryBytes,
+            runtimeResourceURL: nil
+        )
+    }
+
+    init(_ profile: LocalGGUFRunProfile) {
+        self.init(
+            requestedRuntimeKind: profile.requestedRuntimeKind,
+            resolvedRuntimeKind: profile.resolvedRuntimeKind,
+            executionMode: profile.executionMode,
+            modelID: profile.modelID,
+            artifactID: profile.artifactID,
+            fallbackMode: profile.fallbackMode,
+            executionPhase: profile.executionPhase,
+            timeToFirstTokenMS: profile.firstTokenLatencyMS,
+            totalDurationMS: profile.totalDurationMS,
+            tokensPerSecond: profile.tokensPerSecond,
+            outputTokenCount: profile.outputTokenCount,
+            outputCharacterCount: profile.outputCharacterCount,
+            availableMemoryBytes: profile.availableMemoryBytes,
+            runtimeResourceURL: profile.modelURL
+        )
     }
 }
 
@@ -1854,9 +1921,9 @@ nonisolated enum LocalRoutingMode: String, Codable, Sendable, CaseIterable {
     var summary: String {
         switch self {
         case .auto:
-            "Apple Intelligence handles the lightest local work. Installed local models handle deeper tasks."
+            "Auto keeps the local runtime primary. Apple Intelligence remains available when you explicitly select it or when no usable local runtime is ready."
         case .localOnly:
-            "Always use an installed local model. Apple Intelligence is bypassed."
+            "Always use the prepared or installed local runtime. Apple Intelligence is bypassed."
         }
     }
 }
@@ -1938,11 +2005,13 @@ nonisolated struct OperatingModeCapabilities: Sendable, Equatable {
 
 nonisolated enum LocalModelInstallStateSummary: String, Codable, Sendable {
     case none
+    case prepared
     case installed
 
     var displayName: String {
         switch self {
         case .none: "None"
+        case .prepared: "Prepared"
         case .installed: "Installed"
         }
     }
@@ -2105,10 +2174,8 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
             .gemma4_4B4Bit           // Best 4B: multimodal, 131K context (was Qwen 2B)
         case ..<18:
             .deepseekR1Distill7B     // Best 7B: reasoning specialist (was Qwen 4B)
-        case ..<24:
-            .gemma4_27BA4B4Bit       // Best 18GB: MoE 4B active, 262K, multimodal (was Qwen 9B)
         case ..<48:
-            .qwen35_35BA3B4Bit       // 24GB MLX tier with strong reasoning and large context
+            .qwen35_35BA3B4Bit       // Primary 18GB APEXMini tier with strong reasoning and large context
         default:
             .qwen35_27B4Bit          // Largest dense MLX tier for high-memory Macs
         }
@@ -2280,8 +2347,12 @@ final class InferenceState {
     private var missingCloudOAuthProviders: Set<CloudModelProvider> = []
     private(set) var cloudProviderValidationStates: [CloudModelProvider: CloudProviderValidationState] = [:]
     private(set) var installedLocalTextModelIDs: Set<String> = []
+    private(set) var preparedLocalTextModelIDs: Set<String> = []
+    private(set) var availableLocalGenerationRuntimeKinds: Set<BackendRuntimeKind> = [.mlx]
     private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
-    let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current
+    private(set) var latestLocalRuntimeHealth: LocalRuntimeHealthSnapshot?
+    private(set) var latestLocalRuntimeProfile: LocalMLXRunProfile?
+    let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
     private let policyEngine = InferencePolicyEngine()
 
     var appleIntelligenceAvailable: Bool = false
@@ -2297,10 +2368,12 @@ final class InferenceState {
     private(set) var hasShownCloudSetupHint = false
 
     init(
+        hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current,
         keychainLoad: @escaping (String) -> String? = InferenceState.defaultKeychainLoad,
         keychainSave: @escaping (String, String) -> Bool = InferenceState.defaultKeychainSave,
         keychainDelete: @escaping (String) -> Void = InferenceState.defaultKeychainDelete
     ) {
+        self.hardwareCapabilitySnapshot = hardwareCapabilitySnapshot
         self.keychainLoad = keychainLoad
         self.keychainSave = keychainSave
         self.keychainDelete = keychainDelete
@@ -2515,7 +2588,91 @@ final class InferenceState {
 
 
     var localModelInstallStateSummary: LocalModelInstallStateSummary {
-        installedLocalTextModelIDs.isEmpty ? .none : .installed
+        if !supportedInstalledLocalTextModels.isEmpty {
+            return .installed
+        }
+        if !supportedPreparedLocalTextModels.isEmpty {
+            return .prepared
+        }
+        return .none
+    }
+
+    var localRuntimeFallbackMode: LocalInferenceSerialFallbackMode? {
+        guard let rawValue = currentLocalRuntimeHealth?.fallbackMode else {
+            return nil
+        }
+        guard let mode = LocalInferenceSerialFallbackMode(rawValue: rawValue),
+              mode == .ssdStreaming else {
+            return nil
+        }
+        return mode
+    }
+
+    var localRuntimeStatusSummary: String {
+        guard let currentLocalRuntimeHealth else {
+            return hasUsableLocalTextModel
+                ? "Idle until the next local request."
+                : "No local runtime activity yet."
+        }
+
+        if localRuntimeFallbackMode == .ssdStreaming {
+            return "SSD streaming fallback active"
+        }
+
+        let modelLabel = LocalTextModelID(rawValue: currentLocalRuntimeHealth.modelID)?.compactDisplayName
+            ?? currentLocalRuntimeHealth.modelID
+
+        switch currentLocalRuntimeHealth.resolvedRuntimeKind {
+        case .gguf:
+            return "GGUF local runtime (\(modelLabel))"
+        case .mlx:
+            return "Resident local runtime (\(modelLabel))"
+        case .remote:
+            return "Remote runtime (\(modelLabel))"
+        }
+    }
+
+    var localRuntimeStatusDetail: String? {
+        guard let currentLocalRuntimeHealth else {
+            return nil
+        }
+
+        let phaseLabel = currentLocalRuntimeHealth.executionPhase
+            .replacingOccurrences(of: "_", with: " ")
+            .capitalized
+
+        if let availableMemoryBytes = currentLocalRuntimeHealth.availableMemoryBytes {
+            let memoryLabel = ByteCountFormatter.string(
+                fromByteCount: Int64(clamping: availableMemoryBytes),
+                countStyle: .memory
+            )
+            return "\(phaseLabel) - available \(memoryLabel)"
+        }
+
+        if let runtimeResourceURL = currentLocalRuntimeHealth.runtimeResourceURL {
+            if runtimeResourceURL.isFileURL {
+                return "\(phaseLabel) - model \(runtimeResourceURL.lastPathComponent)"
+            }
+            return "\(phaseLabel) - endpoint \(runtimeResourceURL.absoluteString)"
+        }
+
+        return phaseLabel
+    }
+
+    var localRuntimeLastRunSummary: String? {
+        guard let currentLocalRuntimeHealth else {
+            return nil
+        }
+
+        let totalDuration = Int(currentLocalRuntimeHealth.totalDurationMS.rounded())
+        if let firstToken = currentLocalRuntimeHealth.timeToFirstTokenMS {
+            return "First token \(Int(firstToken.rounded())) ms, total \(totalDuration) ms"
+        }
+        return "Completed in \(totalDuration) ms"
+    }
+
+    private var currentLocalRuntimeHealth: LocalRuntimeHealthSnapshot? {
+        latestLocalRuntimeHealth ?? latestLocalRuntimeProfile.map(LocalRuntimeHealthSnapshot.init)
     }
 
     var policyContext: InferencePolicyContext {
@@ -2533,10 +2690,31 @@ final class InferenceState {
     }
 
     private var supportedInstalledLocalTextModels: [LocalTextModelID] {
-        installedLocalTextModelIDs
+        supportedInteractiveLocalTextModels(
+            from: installedLocalTextModelIDs
+        )
+    }
+
+    private var supportedPreparedLocalTextModels: [LocalTextModelID] {
+        supportedInteractiveLocalTextModels(
+            from: preparedLocalTextModelIDs
+        )
+    }
+
+    private var supportedAvailableLocalTextModels: [LocalTextModelID] {
+        supportedInteractiveLocalTextModels(
+            from: installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
+        )
+    }
+
+    private func supportedInteractiveLocalTextModels(
+        from ids: Set<String>
+    ) -> [LocalTextModelID] {
+        ids
             .compactMap(LocalTextModelID.init(rawValue:))
             .filter {
-                hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
+                availableLocalGenerationRuntimeKinds.contains($0.runtimeKind)
+                    && hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
                     && $0.isReleaseValidatedForInteractiveChat
             }
             .sorted { lhs, rhs in
@@ -2547,12 +2725,18 @@ final class InferenceState {
             }
     }
 
+    func setAvailableLocalGenerationRuntimeKinds(_ runtimeKinds: Set<BackendRuntimeKind>) {
+        availableLocalGenerationRuntimeKinds = runtimeKinds.isEmpty ? [.mlx] : runtimeKinds
+        sanitizeStoredLocalChatSelectionIfNeeded()
+    }
+
     var releaseSelectableInstalledLocalTextModelIDs: [String] {
-        supportedInstalledLocalTextModels.map(\.rawValue)
+        supportedAvailableLocalTextModels.map(\.rawValue)
     }
 
     var releaseHiddenInstalledLocalTextModelCount: Int {
         installedLocalTextModelIDs
+            .union(preparedLocalTextModelIDs)
             .compactMap(LocalTextModelID.init(rawValue:))
             .filter {
                 hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
@@ -3179,16 +3363,30 @@ final class InferenceState {
         localRuntimeConditions = conditions
     }
 
+    func setLatestLocalRuntimeProfile(_ profile: LocalMLXRunProfile?) {
+        latestLocalRuntimeProfile = profile
+        latestLocalRuntimeHealth = profile.map(LocalRuntimeHealthSnapshot.init)
+    }
+
+    func setLatestLocalRuntimeHealth(_ snapshot: LocalRuntimeHealthSnapshot?) {
+        latestLocalRuntimeHealth = snapshot
+    }
+
     func setInstalledLocalTextModelIDs(_ ids: Set<String>) {
         installedLocalTextModelIDs = ids
         sanitizeStoredLocalChatSelectionIfNeeded()
     }
 
+    func setPreparedLocalTextModelIDs(_ ids: Set<String>) {
+        preparedLocalTextModelIDs = ids
+        sanitizeStoredLocalChatSelectionIfNeeded()
+    }
+
     private func sanitizedInteractiveLocalTextModelID(for modelID: String) -> String? {
-        if supportedInstalledLocalTextModels.contains(where: { $0.rawValue == modelID }) {
+        if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == modelID }) {
             return modelID
         }
-        return supportedInstalledLocalTextModels.first?.rawValue
+        return supportedAvailableLocalTextModels.first?.rawValue
     }
 
     private func sanitizedStoredLocalChatModelID(for modelID: String) -> String {

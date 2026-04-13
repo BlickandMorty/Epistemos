@@ -18,6 +18,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 RESULTS_DIR="$PROJECT_DIR/test_results"
 DERIVED_DATA_DIR="${DERIVED_DATA_DIR:-$RESULTS_DIR/ci_derived_data}"
 SOURCE_PACKAGES_DIR="${SOURCE_PACKAGES_DIR:-}"
+XCODEBUILD_WRAPPER="$PROJECT_DIR/scripts/xcodebuild_epistemos.sh"
+RESULT_BUNDLE_PATH="$RESULTS_DIR/TestResults.xcresult"
 PACKAGE_ARGS=()
 
 mkdir -p "$RESULTS_DIR"
@@ -84,12 +86,13 @@ echo ""
 
 cd "$PROJECT_DIR"
 
-if xcodebuild build-for-testing \
+if "$XCODEBUILD_WRAPPER" build-for-testing \
     -project Epistemos.xcodeproj \
     -scheme Epistemos \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
     "${PACKAGE_ARGS[@]}" \
+    CODE_SIGNING_ALLOWED=NO \
     2>&1 | tee "$RESULTS_DIR/swift_build.log"; then
     
     echo "✅ Swift build successful"
@@ -108,15 +111,16 @@ echo "🧪 SWIFT TESTS"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-rm -rf "$RESULTS_DIR/TestResults.xcresult"
+rm -rf "$RESULT_BUNDLE_PATH"
 
-if xcodebuild test-without-building \
+if "$XCODEBUILD_WRAPPER" test-without-building \
     -project Epistemos.xcodeproj \
     -scheme Epistemos \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_DIR" \
     "${PACKAGE_ARGS[@]}" \
-    -resultBundlePath "$RESULTS_DIR/TestResults.xcresult" \
+    CODE_SIGNING_ALLOWED=NO \
+    -resultBundlePath "$RESULT_BUNDLE_PATH" \
     2>&1 | tee "$RESULTS_DIR/swift_tests.log"; then
     
     echo "✅ Swift tests completed"

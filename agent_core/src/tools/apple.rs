@@ -50,8 +50,7 @@ async fn run_osascript(script: &str) -> Result<String, ToolError> {
     let mut cmd = Command::new("osascript");
     cmd.arg("-e").arg(script);
 
-    let child = cmd
-        .output();
+    let child = cmd.output();
     let output = match tokio::time::timeout(OSASCRIPT_TIMEOUT, child).await {
         Ok(Ok(out)) => out,
         Ok(Err(e)) => {
@@ -544,7 +543,10 @@ async fn apple_calendar_create(input: &Value) -> Result<String, ToolError> {
         .get("end")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'end' (YYYY-MM-DD HH:MM)".into()))?;
-    let calendar = input.get("calendar").and_then(Value::as_str).unwrap_or("Calendar");
+    let calendar = input
+        .get("calendar")
+        .and_then(Value::as_str)
+        .unwrap_or("Calendar");
     let location = input.get("location").and_then(Value::as_str);
 
     let props = if let Some(loc) = location {
@@ -734,7 +736,10 @@ async fn apple_mail_send(input: &Value) -> Result<String, ToolError> {
         .get("body")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'body'".into()))?;
-    let send_now = input.get("send_now").and_then(Value::as_bool).unwrap_or(false);
+    let send_now = input
+        .get("send_now")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     // By default we create a draft and leave it in the user's Drafts folder —
     // sending without explicit confirmation is a hard-to-reverse action.

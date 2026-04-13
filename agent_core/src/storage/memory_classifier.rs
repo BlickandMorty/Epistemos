@@ -8,8 +8,8 @@ use crate::routing::{CloudProvider, LocalTask, RoutingDecision};
 pub const MEMORY_SIMILARITY_THRESHOLD: f32 = 0.85;
 const EMBEDDING_DIMENSION: usize = 384;
 const STOP_WORDS: &[&str] = &[
-    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "have", "in", "is", "it", "of", "on",
-    "or", "the", "to", "was", "were", "with",
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "have", "in", "is",
+    "it", "of", "on", "or", "the", "to", "was", "were", "with",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,7 +108,10 @@ pub fn classify_memory_operation(incoming: &str, existing_facts: &[VaultFact]) -
     classify_memory_operation_with_backend(incoming, existing_facts, &HeuristicMemoryClassifier)
 }
 
-pub fn plan_memory_operations(incoming: &str, existing_facts: &[VaultFact]) -> Vec<MemoryOperation> {
+pub fn plan_memory_operations(
+    incoming: &str,
+    existing_facts: &[VaultFact],
+) -> Vec<MemoryOperation> {
     let operation = classify_memory_operation(incoming, existing_facts);
     match operation {
         MemoryOperation::Delete {
@@ -133,7 +136,8 @@ fn classify_memory_operation_with_backend<B: MemoryClassificationBackend>(
     backend: &B,
 ) -> MemoryOperation {
     let incoming_embedding = embed_text(incoming);
-    let Some((fact, similarity)) = select_candidate_fact(&incoming_embedding, existing_facts) else {
+    let Some((fact, similarity)) = select_candidate_fact(&incoming_embedding, existing_facts)
+    else {
         return MemoryOperation::Add;
     };
 
@@ -186,7 +190,10 @@ enum FactRelationship {
     Add,
 }
 
-fn select_candidate_fact<'a>(incoming_embedding: &[f32], existing_facts: &'a [VaultFact]) -> Option<(&'a VaultFact, f32)> {
+fn select_candidate_fact<'a>(
+    incoming_embedding: &[f32],
+    existing_facts: &'a [VaultFact],
+) -> Option<(&'a VaultFact, f32)> {
     existing_facts
         .iter()
         .map(|fact| {
@@ -194,14 +201,20 @@ fn select_candidate_fact<'a>(incoming_embedding: &[f32], existing_facts: &'a [Va
             (fact, similarity)
         })
         .filter(|(_, similarity)| *similarity >= MEMORY_SIMILARITY_THRESHOLD)
-        .max_by(|(left_fact, left_similarity), (right_fact, right_similarity)| {
-            left_similarity
-                .total_cmp(right_similarity)
-                .then_with(|| left_fact.strength.total_cmp(&right_fact.strength))
-        })
+        .max_by(
+            |(left_fact, left_similarity), (right_fact, right_similarity)| {
+                left_similarity
+                    .total_cmp(right_similarity)
+                    .then_with(|| left_fact.strength.total_cmp(&right_fact.strength))
+            },
+        )
 }
 
-fn classify_relationship(incoming: &str, existing: &VaultFact, similarity: f32) -> FactRelationship {
+fn classify_relationship(
+    incoming: &str,
+    existing: &VaultFact,
+    similarity: f32,
+) -> FactRelationship {
     let incoming_normalized = normalize_text(incoming);
     let existing_normalized = normalize_text(&existing.content);
     if incoming_normalized == existing_normalized {
@@ -280,7 +293,11 @@ fn embed_text(text: &str) -> Vec<f32> {
 }
 
 fn normalize_embedding(embedding: &mut [f32]) {
-    let magnitude = embedding.iter().map(|value| value * value).sum::<f32>().sqrt();
+    let magnitude = embedding
+        .iter()
+        .map(|value| value * value)
+        .sum::<f32>()
+        .sqrt();
     if magnitude == 0.0 {
         return;
     }
@@ -358,9 +375,17 @@ fn has_boolean_conflict(left: &str, right: &str) -> bool {
 
 fn negation_state(text: &str) -> bool {
     let normalized = normalize_text(text);
-    [" not ", " no ", " never ", " without ", " disabled ", " removed ", " false "]
-        .iter()
-        .any(|needle| format!(" {normalized} ").contains(needle))
+    [
+        " not ",
+        " no ",
+        " never ",
+        " without ",
+        " disabled ",
+        " removed ",
+        " false ",
+    ]
+    .iter()
+    .any(|needle| format!(" {normalized} ").contains(needle))
 }
 
 fn has_antonym_conflict(left: &str, right: &str) -> bool {
@@ -406,7 +431,11 @@ fn truncate_for_prompt(text: &str, max_chars: usize) -> String {
     if normalized.chars().count() <= max_chars {
         normalized
     } else {
-        normalized.chars().take(max_chars.saturating_sub(1)).collect::<String>() + "…"
+        normalized
+            .chars()
+            .take(max_chars.saturating_sub(1))
+            .collect::<String>()
+            + "…"
     }
 }
 
@@ -436,7 +465,11 @@ mod tests {
 
     #[test]
     fn memory_classifier_identical_facts_return_noop() {
-        let existing = [fact("providers/claude.md", "pricing", "Claude costs $15 per month.")];
+        let existing = [fact(
+            "providers/claude.md",
+            "pricing",
+            "Claude costs $15 per month.",
+        )];
 
         let result = classify_memory_operation("Claude costs $15 per month.", &existing);
 
@@ -450,7 +483,11 @@ mod tests {
 
     #[test]
     fn memory_classifier_contradictions_expand_to_delete_then_add() {
-        let existing = [fact("providers/claude.md", "pricing", "Claude costs $15 per month.")];
+        let existing = [fact(
+            "providers/claude.md",
+            "pricing",
+            "Claude costs $15 per month.",
+        )];
 
         let result = plan_memory_operations("Claude costs $20 per month.", &existing);
 

@@ -93,8 +93,19 @@ impl ToolHandler for VisionAnalyzeHandler {
         };
 
         match provider.to_ascii_lowercase().as_str() {
-            "claude" => claude_vision(&self.client, &data_url, &media_type, &question, &source_label).await,
-            "openai" | "gpt-4v" => openai_vision(&self.client, &data_url, &question, &source_label).await,
+            "claude" => {
+                claude_vision(
+                    &self.client,
+                    &data_url,
+                    &media_type,
+                    &question,
+                    &source_label,
+                )
+                .await
+            }
+            "openai" | "gpt-4v" => {
+                openai_vision(&self.client, &data_url, &question, &source_label).await
+            }
             other => Err(ToolError::InvalidArguments(format!(
                 "provider '{other}' invalid (expected claude|openai|gpt-4v)"
             ))),
@@ -142,24 +153,25 @@ async fn claude_vision(
         .map_err(|_| ToolError::ExecutionFailed("ANTHROPIC_API_KEY not set".into()))?;
 
     // For data URLs we must pass base64 via the dedicated source type.
-    let image_block = if let Some(b64) = data_url.strip_prefix(&format!("data:{media_type};base64,")) {
-        json!({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": media_type,
-                "data": b64,
-            }
-        })
-    } else {
-        json!({
-            "type": "image",
-            "source": {
-                "type": "url",
-                "url": data_url,
-            }
-        })
-    };
+    let image_block =
+        if let Some(b64) = data_url.strip_prefix(&format!("data:{media_type};base64,")) {
+            json!({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": b64,
+                }
+            })
+        } else {
+            json!({
+                "type": "image",
+                "source": {
+                    "type": "url",
+                    "url": data_url,
+                }
+            })
+        };
 
     let body = json!({
         "model": "claude-sonnet-4-6",
@@ -453,9 +465,7 @@ impl ToolHandler for TextToSpeechHandler {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            return Err(ToolError::ExecutionFailed(format!(
-                "say failed: {stderr}"
-            )));
+            return Err(ToolError::ExecutionFailed(format!("say failed: {stderr}")));
         }
 
         Ok(json!({
@@ -557,10 +567,7 @@ mod tests {
     #[tokio::test]
     async fn image_generate_rejects_empty_prompt() {
         let handler = ImageGenerateHandler::new().unwrap();
-        let err = handler
-            .execute(&json!({ "prompt": "" }))
-            .await
-            .unwrap_err();
+        let err = handler.execute(&json!({ "prompt": "" })).await.unwrap_err();
         assert!(format!("{err}").contains("empty"));
     }
 
@@ -603,10 +610,7 @@ mod tests {
     async fn text_to_speech_rejects_oversized_text() {
         let handler = TextToSpeechHandler;
         let huge = "x".repeat(MAX_TTS_CHARS + 1);
-        let err = handler
-            .execute(&json!({ "text": huge }))
-            .await
-            .unwrap_err();
+        let err = handler.execute(&json!({ "text": huge })).await.unwrap_err();
         assert!(format!("{err}").contains("char cap"));
     }
 }

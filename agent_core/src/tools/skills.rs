@@ -702,8 +702,9 @@ impl ToolHandler for SkillManageHandler {
             "delete" => delete_skill(&self.skills_dir, input),
             "install_from_github" => install_skill_from_github(&self.skills_dir, input).await,
             "install_from_url" => install_skill_from_url(&self.skills_dir, input).await,
+            "install_from_local_path" => install_skill_from_local_path(&self.skills_dir, input).await,
             other => Err(super::registry::ToolError::InvalidArguments(format!(
-                "unknown action '{other}' (expected: create|edit|delete|install_from_github|install_from_url)"
+                "unknown action '{other}' (expected: create|edit|delete|install_from_github|install_from_url|install_from_local_path)"
             ))),
         }
     }
@@ -723,20 +724,23 @@ pub fn skill_manage_schema() -> crate::types::ToolSchema {
                land it under a quarantine/ subdirectory. The agent must explicitly \
                call this action again with {approve: true} to promote it.\n\
              - install_from_url: fetch a single SKILL.md over HTTPS and land it \
-               under quarantine/, same security scan pass."
+               under quarantine/, same security scan pass.\n\
+             - install_from_local_path: copy a local skill directory into \
+               quarantine/, then require an explicit promote step."
             .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["create", "edit", "delete", "install_from_github", "install_from_url"]
+                    "enum": ["create", "edit", "delete", "install_from_github", "install_from_url", "install_from_local_path"]
                 },
                 "name": { "type": "string", "description": "Skill identifier (required for create/edit/delete)." },
                 "content": { "type": "string", "description": "Full SKILL.md content (required for create/edit)." },
                 "category": { "type": "string", "description": "Optional category subdirectory." },
                 "git_url": { "type": "string", "description": "Git URL (install_from_github). Must be https://github.com/...." },
                 "url": { "type": "string", "description": "HTTPS URL to a raw SKILL.md (install_from_url)." },
+                "path": { "type": "string", "description": "Local path to a skill directory or SKILL.md (install_from_local_path)." },
                 "approve": { "type": "boolean", "description": "Set to true to promote an already-quarantined install.", "default": false }
             },
             "required": ["action"]
@@ -1058,6 +1062,124 @@ async fn install_skill_from_url(
         "status": "quarantined",
         "quarantine_path": quarantine_dir.display().to_string(),
         "high_severity_warnings": high,
+        "next_step": "call again with approve=true to promote out of quarantine",
+    })
+    .to_string())
+}
+
+async fn install_skill_from_local_path(
+    skills_dir: &Path,
+    input: &Value,
+) -> Result<String, super::registry::ToolError> {
+    let approve = input
+        .get("approve")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let path = input
+        .get("path")
+        .and_then(Value::as_str)
+        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'path'".into()))?;
+    let requested_name = input
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    let mut source_path = PathBuf::from(path);
+    if source_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("SKILL.md"))
+        .unwrap_or(false)
+    {
+        source_path.pop();
+    }
+    if !source_path.exists() || !source_path.is_dir() {
+        return Err(super::registry::ToolError::InvalidArguments(format!(
+            "local skill path does not exist or is not a directory: {}",
+            source_path.display()
+        )));
+    }
+
+    let canonical_source = fs::canonicalize(&source_path).map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(format!("canonicalize source: {e}"))
+    })?;
+    let skill_md = canonical_source.join("SKILL.md");
+    if !skill_md.exists() {
+        return Err(super::registry::ToolError::InvalidArguments(format!(
+            "local skill path must contain SKILL.md: {}",
+            canonical_source.display()
+        )));
+    }
+
+    let canonical_skills_dir =
+        fs::canonicalize(skills_dir).unwrap_or_else(|_| skills_dir.to_path_buf());
+    if canonical_source.starts_with(&canonical_skills_dir) {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "local skill path is already inside the managed skills directory".into(),
+        ));
+    }
+
+    let skill_name = requested_name
+        .map(str::to_string)
+        .or_else(|| {
+            canonical_source
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+        })
+        .ok_or_else(|| {
+            super::registry::ToolError::InvalidArguments("could not derive skill name".into())
+        })?;
+    if let Some(err) = validate_name(&skill_name) {
+        return Err(super::registry::ToolError::InvalidArguments(err));
+    }
+
+    let quarantine_dir = skills_dir.join("quarantine").join(&skill_name);
+    if quarantine_dir.exists() && approve {
+        return promote_quarantined(skills_dir, &quarantine_dir, &skill_name);
+    }
+    if quarantine_dir.exists() {
+        return Ok(json!({
+            "success": true,
+            "action": "install_from_local_path",
+            "status": "already_quarantined",
+            "quarantine_path": quarantine_dir.display().to_string(),
+            "next_step": "call again with approve=true to promote out of quarantine",
+        })
+        .to_string());
+    }
+
+    if let Some(parent) = quarantine_dir.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            super::registry::ToolError::ExecutionFailed(format!("mkdir quarantine: {e}"))
+        })?;
+    }
+    copy_quarantined_tree(&canonical_source, &quarantine_dir)?;
+
+    let scan_result = scan_quarantined_tree(&quarantine_dir);
+    if scan_result.skill_count == 0 {
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "local skill import did not contain any SKILL.md files at {}",
+            canonical_source.display()
+        )));
+    }
+    if scan_result.critical_count > 0 {
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "security scan blocked import: {} critical threats, {} high; quarantined at {}",
+            scan_result.critical_count,
+            scan_result.high_count,
+            quarantine_dir.display()
+        )));
+    }
+
+    Ok(json!({
+        "success": true,
+        "action": "install_from_local_path",
+        "status": "quarantined",
+        "quarantine_path": quarantine_dir.display().to_string(),
+        "skill_count": scan_result.skill_count,
+        "high_severity_warnings": scan_result.high_count,
         "next_step": "call again with approve=true to promote out of quarantine",
     })
     .to_string())
@@ -1486,6 +1608,67 @@ mod progressive_tests {
         .await
         .unwrap_err();
         assert!(format!("{err}").contains("github.com"));
+    }
+
+    #[tokio::test]
+    async fn install_from_local_path_quarantines_then_promotes() {
+        let dir = tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let source_dir = dir.path().join("external-skill");
+        fs::create_dir_all(&source_dir).unwrap();
+        fs::write(
+            source_dir.join("SKILL.md"),
+            "---\nname: external-skill\ndescription: imported skill\n---\n# Imported\n",
+        )
+        .unwrap();
+
+        let quarantined = install_skill_from_local_path(
+            &skills_dir,
+            &json!({
+                "path": source_dir.display().to_string(),
+                "name": "external-skill"
+            }),
+        )
+        .await
+        .unwrap();
+        assert!(quarantined.contains("\"status\":\"quarantined\""));
+        assert!(skills_dir
+            .join("quarantine")
+            .join("external-skill")
+            .join("SKILL.md")
+            .exists());
+
+        let promoted = install_skill_from_local_path(
+            &skills_dir,
+            &json!({
+                "path": source_dir.display().to_string(),
+                "name": "external-skill",
+                "approve": true
+            }),
+        )
+        .await
+        .unwrap();
+        assert!(promoted.contains("\"action\":\"promote\""));
+        assert!(skills_dir.join("external-skill").join("SKILL.md").exists());
+    }
+
+    #[tokio::test]
+    async fn install_from_local_path_rejects_missing_skill_md() {
+        let dir = tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let source_dir = dir.path().join("not-a-skill");
+        fs::create_dir_all(&source_dir).unwrap();
+
+        let err = install_skill_from_local_path(
+            &skills_dir,
+            &json!({
+                "path": source_dir.display().to_string(),
+                "name": "not-a-skill"
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert!(format!("{err}").contains("SKILL.md"));
     }
 
     #[test]

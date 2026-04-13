@@ -13,7 +13,9 @@
 use std::path::Path;
 
 use crate::skill_router::SkillRouter;
-use crate::storage::hyperbolic_topology::{build_topology, should_pierce_blanket, VaultNodeMetrics};
+use crate::storage::hyperbolic_topology::{
+    build_topology, should_pierce_blanket, VaultNodeMetrics,
+};
 use crate::storage::vault::VaultBackend;
 
 // ---------------------------------------------------------------------------
@@ -123,10 +125,10 @@ impl TierBudgets {
         }
 
         Self {
-            l4_identity: budget * 5 / 100,   // ~5%
-            l3_facts: budget * 48 / 100,      // ~48%
-            l2_skills: budget * 12 / 100,     // ~12%
-            l1_episodes: budget * 35 / 100,   // ~35%
+            l4_identity: budget * 5 / 100,  // ~5%
+            l3_facts: budget * 48 / 100,    // ~48%
+            l2_skills: budget * 12 / 100,   // ~12%
+            l1_episodes: budget * 35 / 100, // ~35%
         }
     }
 }
@@ -154,7 +156,10 @@ pub async fn load_session_context(
     if let Some(gist) = neocortex_gist {
         layers.push(ContextLayer {
             label: "L3_5_neocortex".to_string(),
-            content: format!("### Neocortex Awareness (from {} absorbed contexts)\n{}", gist.based_on_absorptions, gist.content),
+            content: format!(
+                "### Neocortex Awareness (from {} absorbed contexts)\n{}",
+                gist.based_on_absorptions, gist.content
+            ),
             token_estimate: estimate_tokens(&gist.content),
         });
     }
@@ -455,7 +460,11 @@ mod tests {
         let result = truncate_to_budget(&content, 10);
         // The truncation marker adds a few tokens; core content should be ≤ budget
         let core = result.split("[...truncated").next().unwrap_or(&result);
-        assert!(estimate_tokens(core) <= 10, "truncation overshot: {}", estimate_tokens(core));
+        assert!(
+            estimate_tokens(core) <= 10,
+            "truncation overshot: {}",
+            estimate_tokens(core)
+        );
         assert!(result.contains("[...truncated"));
     }
 
@@ -497,7 +506,8 @@ mod tests {
     fn tier_budgets_large_context() {
         // 128K context → 3% = ~3840 tokens budget
         let budgets = TierBudgets::for_max_tokens(128_000);
-        let total = budgets.l4_identity + budgets.l3_facts + budgets.l2_skills + budgets.l1_episodes;
+        let total =
+            budgets.l4_identity + budgets.l3_facts + budgets.l2_skills + budgets.l1_episodes;
         assert!(total <= 4200, "total={total} exceeds 4200");
         assert!(budgets.l4_identity > 0);
         assert!(budgets.l3_facts > 0);
@@ -518,7 +528,8 @@ mod tests {
     fn tier_budgets_medium_context() {
         // 32K context → 3% = 960 tokens → moderate budget
         let budgets = TierBudgets::for_max_tokens(32_000);
-        let total = budgets.l4_identity + budgets.l3_facts + budgets.l2_skills + budgets.l1_episodes;
+        let total =
+            budgets.l4_identity + budgets.l3_facts + budgets.l2_skills + budgets.l1_episodes;
         assert!(total > 0 && total <= 1000);
         assert!(budgets.l3_facts > budgets.l4_identity); // facts gets the largest share
     }
@@ -565,7 +576,10 @@ mod tests {
             Ok(())
         }
 
-        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, crate::storage::vault::VaultError> {
+        async fn list(
+            &self,
+            _path_prefix: &str,
+        ) -> Result<Vec<String>, crate::storage::vault::VaultError> {
             Ok(Vec::new())
         }
 

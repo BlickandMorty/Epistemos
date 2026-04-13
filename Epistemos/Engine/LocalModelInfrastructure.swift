@@ -40,6 +40,10 @@ nonisolated struct LocalModelDescriptor: Identifiable, Codable, Hashable, Sendab
     var approximateDownloadLabel: String {
         ByteCountFormatter.string(fromByteCount: approximateDownloadBytes, countStyle: .file)
     }
+
+    var runtimeKind: BackendRuntimeKind {
+        LocalTextModelID(rawValue: id)?.runtimeKind ?? .mlx
+    }
 }
 
 nonisolated struct LocalModelInstallRecord: Identifiable, Codable, Equatable, Sendable {
@@ -240,7 +244,7 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.qwen35_35BA3B4Bit.displayName,
             familyName: LocalTextModelID.qwen35_35BA3B4Bit.familyName,
-            summary: "Large MoE Qwen 3.5 tier for very high-memory Macs only.",
+            summary: "Primary 18GB-class MoE tier. Prefers the prepared APEXMini bundle when present and falls back to the installable MLX snapshot otherwise.",
             approximateDownloadBytes: 20_411_668_782,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen35_35BA3B4Bit.minimumRecommendedMemoryGB,
             revision: "1e20fd8d42056f870933bf98ca6211024744f7ec",
@@ -566,6 +570,7 @@ extension LocalHardwareCapabilitySnapshot {
 
 nonisolated enum LocalModelPresentationState: Equatable, Sendable {
     case installed(LocalModelInstallRecord)
+    case prepared
     case installing(progress: Double)
     case blocked(reason: String)
     case available
@@ -574,6 +579,8 @@ nonisolated enum LocalModelPresentationState: Equatable, Sendable {
         switch self {
         case .installed:
             "Installed"
+        case .prepared:
+            "Prepared"
         case .installing:
             "Downloading"
         case .blocked(let reason):
@@ -586,12 +593,15 @@ nonisolated enum LocalModelPresentationState: Equatable, Sendable {
 
 nonisolated enum PreparedModelRole: String, Codable, Sendable, CaseIterable {
     case retriever
+    case generator
+    case draftGenerator = "draft_generator"
 }
 
 nonisolated struct PreparedModelDescriptor: Hashable, Sendable {
     let key: String
     let role: PreparedModelRole
     let displayName: String
+    let declaredRuntimeKind: BackendRuntimeKind?
     let artifactID: String?
     let modelID: String?
     let servedModelID: String
@@ -604,6 +614,61 @@ nonisolated struct PreparedModelDescriptor: Hashable, Sendable {
     let downloadPath: String?
     let status: String?
     let trustRemoteCode: Bool
+
+    init(
+        key: String,
+        role: PreparedModelRole,
+        displayName: String,
+        declaredRuntimeKind: BackendRuntimeKind? = nil,
+        artifactID: String? = nil,
+        modelID: String? = nil,
+        servedModelID: String,
+        adapterPath: String? = nil,
+        expectedAdapterBaseModelID: String? = nil,
+        baseModelID: String? = nil,
+        baseSnapshotPath: String? = nil,
+        mergeOutputPath: String? = nil,
+        mlxOutputPath: String? = nil,
+        downloadPath: String? = nil,
+        status: String? = nil,
+        trustRemoteCode: Bool = false
+    ) {
+        self.key = key
+        self.role = role
+        self.displayName = displayName
+        self.declaredRuntimeKind = declaredRuntimeKind
+        self.artifactID = artifactID
+        self.modelID = modelID
+        self.servedModelID = servedModelID
+        self.adapterPath = adapterPath
+        self.expectedAdapterBaseModelID = expectedAdapterBaseModelID
+        self.baseModelID = baseModelID
+        self.baseSnapshotPath = baseSnapshotPath
+        self.mergeOutputPath = mergeOutputPath
+        self.mlxOutputPath = mlxOutputPath
+        self.downloadPath = downloadPath
+        self.status = status
+        self.trustRemoteCode = trustRemoteCode
+    }
+
+    var runtimeKind: BackendRuntimeKind {
+        if let declaredRuntimeKind {
+            return declaredRuntimeKind
+        }
+        if let servedModel = LocalTextModelID(rawValue: servedModelID) {
+            return servedModel.runtimeKind
+        }
+        if let modelID, let model = LocalTextModelID(rawValue: modelID) {
+            return model.runtimeKind
+        }
+        if let artifactID, artifactID.localizedCaseInsensitiveContains("gguf") {
+            return .gguf
+        }
+        if let downloadPath, downloadPath.localizedCaseInsensitiveContains(".gguf") {
+            return .gguf
+        }
+        return .mlx
+    }
 
     var resolvedAdapterPath: String? {
         Self.expandPath(adapterPath)
@@ -646,6 +711,14 @@ nonisolated struct PreparedModelRegistrySnapshot: Sendable, Equatable {
         entry(named: "retriever_primary")
     }
 
+    var primaryGenerator: PreparedModelDescriptor? {
+        entry(named: "generator_primary")
+    }
+
+    var speculativeDraftGenerator: PreparedModelDescriptor? {
+        entry(named: "generator_speculative_draft")
+    }
+
     var retrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
         guard let primaryRetriever else { return nil }
         return PreparedRetrievalRuntimeConfiguration(
@@ -653,6 +726,13 @@ nonisolated struct PreparedModelRegistrySnapshot: Sendable, Equatable {
         )
     }
 
+    var generationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration? {
+        guard let primaryGenerator else { return nil }
+        return PreparedGenerationRuntimeConfiguration(
+            primaryGenerator: primaryGenerator,
+            speculativeDraftGenerator: speculativeDraftGenerator
+        )
+    }
 }
 
 nonisolated struct PreparedRetrievalRuntimeConfiguration: Sendable, Equatable {
@@ -684,6 +764,85 @@ nonisolated struct PreparedRetrievalRuntimeConfiguration: Sendable, Equatable {
     private static func assetExists(at path: String?) -> Bool {
         guard let path, !path.isEmpty else { return false }
         return FileManager.default.fileExists(atPath: path)
+    }
+}
+
+nonisolated struct PreparedGenerationRuntimeConfiguration: Sendable, Equatable {
+    let primaryGenerator: PreparedModelDescriptor
+    let speculativeDraftGenerator: PreparedModelDescriptor?
+
+    var primaryResolvedModelDirectory: URL? {
+        resolvedModelDirectory(for: primaryGenerator)
+    }
+
+    var speculativeDraftResolvedModelDirectory: URL? {
+        guard let speculativeDraftGenerator else { return nil }
+        return resolvedModelDirectory(for: speculativeDraftGenerator)
+    }
+
+    func resolvedModelDirectory(for modelID: String) -> URL? {
+        if primaryGenerator.matchesSidecarModelID(modelID) {
+            return primaryResolvedModelDirectory
+        }
+        if let speculativeDraftGenerator,
+           speculativeDraftGenerator.matchesSidecarModelID(modelID) {
+            return speculativeDraftResolvedModelDirectory
+        }
+        return nil
+    }
+
+    func resolvedArtifactID(for modelID: String) -> String? {
+        if primaryGenerator.matchesSidecarModelID(modelID) {
+            return primaryGenerator.artifactID
+        }
+        if let speculativeDraftGenerator,
+           speculativeDraftGenerator.matchesSidecarModelID(modelID) {
+            return speculativeDraftGenerator.artifactID
+        }
+        return nil
+    }
+
+    func resolvedRuntimeKind(for modelID: String) -> BackendRuntimeKind? {
+        if primaryGenerator.matchesSidecarModelID(modelID) {
+            return primaryGenerator.runtimeKind
+        }
+        if let speculativeDraftGenerator,
+           speculativeDraftGenerator.matchesSidecarModelID(modelID) {
+            return speculativeDraftGenerator.runtimeKind
+        }
+        return nil
+    }
+
+    func interactiveLocalTextModelIDs(
+        availableRuntimeKinds: Set<BackendRuntimeKind> = [.mlx, .gguf],
+        fileManager: FileManager = .default
+    ) -> Set<String> {
+        if primaryGenerator.runtimeKind == .gguf {
+            guard availableRuntimeKinds.contains(.gguf) else {
+                return []
+            }
+            guard primaryGenerator.artifactID?.isEmpty == false || !primaryGenerator.servedModelID.isEmpty else {
+                return []
+            }
+            return [primaryGenerator.servedModelID]
+        }
+
+        guard let primaryResolvedModelDirectory,
+              availableRuntimeKinds.contains(primaryGenerator.runtimeKind),
+              fileManager.fileExists(atPath: primaryResolvedModelDirectory.path) else {
+            return []
+        }
+        return [primaryGenerator.servedModelID]
+    }
+
+    private func resolvedModelDirectory(for descriptor: PreparedModelDescriptor) -> URL? {
+        if let outputPath = descriptor.resolvedMLXOutputPath {
+            return URL(fileURLWithPath: outputPath).standardizedFileURL
+        }
+        if let downloadPath = descriptor.resolvedDownloadPath {
+            return URL(fileURLWithPath: downloadPath).standardizedFileURL
+        }
+        return nil
     }
 }
 
@@ -950,6 +1109,14 @@ final class PreparedModelRegistryState {
         entry(named: "retriever_primary")
     }
 
+    var primaryGenerator: PreparedModelDescriptor? {
+        entry(named: "generator_primary")
+    }
+
+    var speculativeDraftGenerator: PreparedModelDescriptor? {
+        entry(named: "generator_speculative_draft")
+    }
+
     var retrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
         guard let primaryRetriever else { return nil }
         return PreparedRetrievalRuntimeConfiguration(
@@ -957,6 +1124,13 @@ final class PreparedModelRegistryState {
         )
     }
 
+    var generationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration? {
+        guard let primaryGenerator else { return nil }
+        return PreparedGenerationRuntimeConfiguration(
+            primaryGenerator: primaryGenerator,
+            speculativeDraftGenerator: speculativeDraftGenerator
+        )
+    }
 }
 
 final class PreparedModelRegistry {
@@ -968,6 +1142,7 @@ final class PreparedModelRegistry {
     private struct Entry: Decodable {
         let role: PreparedModelRole
         let displayName: String
+        let runtimeKind: BackendRuntimeKind?
         let artifactID: String?
         let modelID: String?
         let servedModelID: String?
@@ -984,6 +1159,7 @@ final class PreparedModelRegistry {
         enum CodingKeys: String, CodingKey {
             case role
             case displayName = "display_name"
+            case runtimeKind = "runtime_kind"
             case artifactID = "artifact_id"
             case modelID = "model_id"
             case servedModelID = "served_model_id"
@@ -1032,6 +1208,7 @@ final class PreparedModelRegistry {
                     key: key,
                     role: entry.role,
                     displayName: entry.displayName,
+                    declaredRuntimeKind: entry.runtimeKind,
                     artifactID: entry.artifactID,
                     modelID: entry.modelID,
                     servedModelID: servedModelID,
@@ -1157,6 +1334,9 @@ final class LocalModelManager {
         }
         if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
             return .blocked(reason: "Needs \(descriptor.minimumRecommendedMemoryGB) GB")
+        }
+        if inference.preparedLocalTextModelIDs.contains(descriptor.id) {
+            return .prepared
         }
         return .available
     }

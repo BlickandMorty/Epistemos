@@ -1,6 +1,564 @@
 import Foundation
 import os
 
+nonisolated struct DriverChannelToolCall: Equatable, Sendable {
+    let toolName: String
+    let inputJson: String
+
+    init(toolName: String, payload: [String: Any]) throws {
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        self.toolName = toolName
+        self.inputJson = String(data: data, encoding: .utf8) ?? "{}"
+    }
+}
+
+nonisolated enum DriverChannelError: LocalizedError, Sendable, Equatable {
+    case toolCallFailed(channelID: String, reason: String)
+    case invalidResponse(channelID: String, reason: String)
+    case unreadPollingUnsupported(channelID: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .toolCallFailed(let channelID, let reason):
+            return "\(channelID) tool call failed: \(reason)"
+        case .invalidResponse(let channelID, let reason):
+            return "Invalid \(channelID) response: \(reason)"
+        case .unreadPollingUnsupported(let channelID):
+            return "\(channelID) does not support unread polling in Epistemos yet."
+        }
+    }
+}
+
+nonisolated enum DriverChannelToolExecutor {
+    static func execute(
+        _ toolCall: DriverChannelToolCall,
+        vaultPath: String,
+        tier: String = "agent",
+        channelID: String
+    ) async throws -> String {
+        #if canImport(agent_coreFFI)
+        let result = try await executeToolCall(
+            vaultPath: vaultPath,
+            tier: tier,
+            toolName: toolCall.toolName,
+            inputJson: toolCall.inputJson
+        )
+        guard result.success else {
+            throw DriverChannelError.toolCallFailed(
+                channelID: channelID,
+                reason: result.error ?? "unknown"
+            )
+        }
+        return result.outputJson
+        #else
+        throw DriverChannelError.toolCallFailed(
+            channelID: channelID,
+            reason: "agent_core bindings unavailable"
+        )
+        #endif
+    }
+}
+
+nonisolated struct DriverChannelMessage: Equatable, Sendable {
+    let channelID: String
+    let messageID: String?
+    let conversationID: String
+    let senderID: String
+    let text: String
+    let unix: Int64
+
+    var dedupKey: String {
+        if let messageID, !messageID.isEmpty {
+            return "\(channelID):\(messageID)"
+        }
+        let conversationKey = conversationID.isEmpty ? "unknown-conversation" : conversationID
+        let senderKey = senderID.isEmpty ? "unknown-sender" : senderID
+        return "\(channelID):\(conversationKey):\(senderKey):\(unix)"
+    }
+}
+
+nonisolated protocol DriverChannelReplying: Sendable {
+    var channelID: String { get }
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage]
+    func send(message: String, to recipientID: String, vaultPath: String) async throws
+}
+
+nonisolated struct IMessageChannelAdapter: DriverChannelAdapting {
+    let channelID = "imessage"
+    let displayName = "iMessage"
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging, .inboundPolling, .threadHistory, .auditTrail, .search, .relayPairing]
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        let outputJson = try await DriverChannelToolExecutor.execute(
+            try makeFetchUnreadToolCall(limit: limit),
+            vaultPath: vaultPath,
+            channelID: channelID
+        )
+        return Self.parseUnreadMessages(from: outputJson)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        _ = try await DriverChannelToolExecutor.execute(
+            try makeSendToolCall(message: message, recipientID: recipientID),
+            vaultPath: vaultPath,
+            channelID: channelID
+        )
+    }
+
+    func listThreads(vaultPath: String, limit: Int) async throws -> [DriverChannelThreadSummary] {
+        let outputJson = try await DriverChannelToolExecutor.execute(
+            try makeListChatsToolCall(limit: limit),
+            vaultPath: vaultPath,
+            channelID: channelID
+        )
+        return Self.parseThreads(from: outputJson)
+    }
+
+    func recentAuditEntries(vaultPath: String, limit: Int) async throws -> [DriverChannelAuditEntry] {
+        let outputJson = try await DriverChannelToolExecutor.execute(
+            try makeRecentAuditToolCall(limit: limit),
+            vaultPath: vaultPath,
+            channelID: channelID
+        )
+        return Self.parseAuditEntries(from: outputJson)
+    }
+
+    func makeFetchUnreadToolCall(limit: Int) throws -> DriverChannelToolCall {
+        try DriverChannelToolCall(
+            toolName: "imessage",
+            payload: [
+                "action": "unread",
+                "limit": limit,
+            ]
+        )
+    }
+
+    func makeListChatsToolCall(limit: Int) throws -> DriverChannelToolCall {
+        try DriverChannelToolCall(
+            toolName: "imessage",
+            payload: [
+                "action": "list_chats",
+                "limit": limit,
+            ]
+        )
+    }
+
+    func makeRecentAuditToolCall(limit: Int) throws -> DriverChannelToolCall {
+        try DriverChannelToolCall(
+            toolName: "imessage",
+            payload: [
+                "action": "recent",
+                "limit": limit,
+            ]
+        )
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        try DriverChannelToolCall(
+            toolName: "imessage",
+            payload: [
+                "action": "send",
+                "to": recipientID,
+                "message": message,
+            ]
+        )
+    }
+
+    static func parseUnreadMessages(from jsonString: String) -> [DriverChannelMessage] {
+        guard let data = jsonString.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let messages = root["messages"] as? [[String: Any]] else {
+            return []
+        }
+
+        return messages.compactMap { dict in
+            guard let senderID = driverChannelStringValue(dict["handle"]),
+                  let text = driverChannelStringValue(dict["text"]) else {
+                return nil
+            }
+            let messageID = driverChannelStringValue(dict["message_id"])
+            let conversationID = driverChannelStringValue(dict["chat_id"]) ?? senderID
+            let unix = (dict["unix"] as? Int64)
+                ?? (dict["unix"] as? Int).map(Int64.init)
+                ?? (dict["unix"] as? NSNumber)?.int64Value
+                ?? 0
+
+            return DriverChannelMessage(
+                channelID: "imessage",
+                messageID: messageID,
+                conversationID: conversationID,
+                senderID: senderID,
+                text: text,
+                unix: unix
+            )
+        }
+    }
+
+    static func parseThreads(from jsonString: String) -> [DriverChannelThreadSummary] {
+        guard let data = jsonString.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let chats = root["chats"] as? [[String: Any]] else {
+            return []
+        }
+
+        return chats.compactMap { dict in
+            guard let conversationID = driverChannelStringValue(dict["chat_id"]) else {
+                return nil
+            }
+            let title = driverChannelStringValue(dict["display_name"])?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let subtitle = driverChannelStringValue(dict["identifier"]) ?? ""
+            let resolvedTitle = (title?.isEmpty == false ? title : nil) ?? (subtitle.isEmpty ? "Unnamed Chat" : subtitle)
+            let lastActivityUnix = (dict["last_activity_unix"] as? Int64)
+                ?? (dict["last_activity_unix"] as? Int).map(Int64.init)
+                ?? (dict["last_activity_unix"] as? NSNumber)?.int64Value
+                ?? 0
+            let archived = (dict["archived"] as? Bool)
+                ?? ((dict["archived"] as? NSNumber)?.boolValue)
+                ?? false
+
+            return DriverChannelThreadSummary(
+                conversationID: conversationID,
+                title: resolvedTitle,
+                subtitle: subtitle,
+                lastActivityUnix: lastActivityUnix,
+                isArchived: archived
+            )
+        }
+    }
+
+    static func parseAuditEntries(from jsonString: String) -> [DriverChannelAuditEntry] {
+        guard let data = jsonString.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let messages = root["messages"] as? [[String: Any]] else {
+            return []
+        }
+
+        return messages.compactMap { dict in
+            guard let senderID = driverChannelStringValue(dict["handle"]),
+                  let conversationID = driverChannelStringValue(dict["chat_id"]) else {
+                return nil
+            }
+
+            let preview = driverChannelStringValue(dict["text"])?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "(no text)"
+            let unix = (dict["unix"] as? Int64)
+                ?? (dict["unix"] as? Int).map(Int64.init)
+                ?? (dict["unix"] as? NSNumber)?.int64Value
+                ?? 0
+            let messageID = driverChannelStringValue(dict["message_id"])
+            let isFromMe = (dict["from_me"] as? Bool)
+                ?? ((dict["from_me"] as? NSNumber)?.boolValue)
+                ?? false
+
+            return DriverChannelAuditEntry(
+                conversationID: conversationID,
+                messageID: messageID,
+                senderID: senderID,
+                preview: preview,
+                unix: unix,
+                isFromMe: isFromMe
+            )
+        }
+    }
+
+}
+
+nonisolated fileprivate enum CommunicationChannelRecipientField: String, Sendable {
+    case target
+    case to
+    case webhookURL = "webhook_url"
+}
+
+nonisolated struct CommunicationChannelAdapter: DriverChannelAdapting {
+    let channelID: String
+    private let platform: String
+    private let recipientField: CommunicationChannelRecipientField?
+    private let defaultRecipientID: String?
+    private let staticPayload: [String: String]
+
+    fileprivate init(
+        channelID: String,
+        platform: String,
+        recipientField: CommunicationChannelRecipientField?,
+        defaultRecipientID: String? = nil,
+        staticPayload: [String: String] = [:]
+    ) {
+        self.channelID = channelID
+        self.platform = platform
+        self.recipientField = recipientField
+        self.defaultRecipientID = defaultRecipientID
+        self.staticPayload = staticPayload
+    }
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging]
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        throw DriverChannelError.unreadPollingUnsupported(channelID: channelID)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        _ = try await DriverChannelToolExecutor.execute(
+            try makeSendToolCall(message: message, recipientID: recipientID),
+            vaultPath: vaultPath,
+            channelID: channelID
+        )
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        var payload: [String: Any] = [
+            "platform": platform,
+            "message": message,
+        ]
+        for (key, value) in staticPayload {
+            payload[key] = value
+        }
+        if let recipientField,
+           let resolvedRecipientID = resolvedRecipientID(explicitRecipientID: recipientID) {
+            payload[recipientField.rawValue] = resolvedRecipientID
+        }
+        return try DriverChannelToolCall(toolName: "send_message", payload: payload)
+    }
+
+    private func resolvedRecipientID(explicitRecipientID: String) -> String? {
+        let explicit = explicitRecipientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !explicit.isEmpty {
+            return explicit
+        }
+        guard let defaultRecipientID else {
+            return nil
+        }
+        let fallback = defaultRecipientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return fallback.isEmpty ? nil : fallback
+    }
+}
+
+nonisolated struct TelegramChannelAdapter: DriverChannelAdapting {
+    private let adapter: CommunicationChannelAdapter
+    var channelID: String { adapter.channelID }
+    let displayName = "Telegram"
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging]
+    }
+
+    init(chatID: String? = nil) {
+        self.adapter = CommunicationChannelAdapter(
+            channelID: "telegram",
+            platform: "telegram",
+            recipientField: .target,
+            defaultRecipientID: chatID
+        )
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        try await adapter.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        try await adapter.send(message: message, to: recipientID, vaultPath: vaultPath)
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        try adapter.makeSendToolCall(message: message, recipientID: recipientID)
+    }
+}
+
+nonisolated struct SlackChannelAdapter: DriverChannelAdapting {
+    private let adapter: CommunicationChannelAdapter
+    var channelID: String { adapter.channelID }
+    let displayName = "Slack"
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging]
+    }
+
+    init(webhookURL: String? = nil) {
+        self.adapter = CommunicationChannelAdapter(
+            channelID: "slack",
+            platform: "slack",
+            recipientField: .webhookURL,
+            defaultRecipientID: webhookURL
+        )
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        try await adapter.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        try await adapter.send(message: message, to: recipientID, vaultPath: vaultPath)
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        try adapter.makeSendToolCall(message: message, recipientID: recipientID)
+    }
+}
+
+nonisolated struct DiscordChannelAdapter: DriverChannelAdapting {
+    private let adapter: CommunicationChannelAdapter
+    var channelID: String { adapter.channelID }
+    let displayName = "Discord"
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging]
+    }
+
+    init(webhookURL: String? = nil) {
+        self.adapter = CommunicationChannelAdapter(
+            channelID: "discord",
+            platform: "discord",
+            recipientField: .webhookURL,
+            defaultRecipientID: webhookURL
+        )
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        try await adapter.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        try await adapter.send(message: message, to: recipientID, vaultPath: vaultPath)
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        try adapter.makeSendToolCall(message: message, recipientID: recipientID)
+    }
+}
+
+nonisolated struct WhatsAppChannelAdapter: DriverChannelAdapting {
+    private let adapter: CommunicationChannelAdapter
+    var channelID: String { adapter.channelID }
+    let displayName = "WhatsApp"
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging]
+    }
+
+    init(phoneNumber: String? = nil) {
+        self.adapter = CommunicationChannelAdapter(
+            channelID: "whatsapp",
+            platform: "whatsapp",
+            recipientField: .target,
+            defaultRecipientID: phoneNumber
+        )
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        try await adapter.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        try await adapter.send(message: message, to: recipientID, vaultPath: vaultPath)
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        try adapter.makeSendToolCall(message: message, recipientID: recipientID)
+    }
+}
+
+nonisolated struct SignalChannelAdapter: DriverChannelAdapting {
+    private let adapter: CommunicationChannelAdapter
+    var channelID: String { adapter.channelID }
+    let displayName = "Signal"
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging]
+    }
+
+    init(recipient: String? = nil) {
+        self.adapter = CommunicationChannelAdapter(
+            channelID: "signal",
+            platform: "signal",
+            recipientField: .target,
+            defaultRecipientID: recipient
+        )
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        try await adapter.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        try await adapter.send(message: message, to: recipientID, vaultPath: vaultPath)
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        try adapter.makeSendToolCall(message: message, recipientID: recipientID)
+    }
+}
+
+nonisolated struct EmailChannelAdapter: DriverChannelAdapting {
+    private let adapter: CommunicationChannelAdapter
+    var channelID: String { adapter.channelID }
+    let displayName = "Email"
+
+    var capabilities: [DriverChannelCapability] {
+        [.outboundMessaging]
+    }
+
+    init(subject: String = "Epistemos Reply", recipientEmail: String? = nil) {
+        self.adapter = CommunicationChannelAdapter(
+            channelID: "email",
+            platform: "email",
+            recipientField: .to,
+            defaultRecipientID: recipientEmail,
+            staticPayload: ["subject": subject]
+        )
+    }
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        try await adapter.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        try await adapter.send(message: message, to: recipientID, vaultPath: vaultPath)
+    }
+
+    func makeSendToolCall(message: String, recipientID: String) throws -> DriverChannelToolCall {
+        try adapter.makeSendToolCall(message: message, recipientID: recipientID)
+    }
+}
+
+nonisolated enum DriverChannelReplyTransport {
+    static let maxCharsPerMessage = 3_500
+
+    static func sendChunkedReply(
+        _ reply: String,
+        to recipientID: String,
+        vaultPath: String,
+        replyPrefix: String? = nil,
+        over channel: any DriverChannelReplying,
+        onSendError: (@Sendable (_ chunkIndex: Int, _ chunkCount: Int, _ errorDescription: String) async -> Void)? = nil
+    ) async {
+        let cleaned = LocalReplyAccumulator.stripMarkdown(reply)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalBody = cleaned.isEmpty ? "(no response)" : cleaned
+        let finalReply: String
+        if let replyPrefix, !replyPrefix.isEmpty {
+            finalReply = replyPrefix + finalBody
+        } else {
+            finalReply = finalBody
+        }
+
+        let chunks = LocalReplyAccumulator.chunk(finalReply, maxLength: maxCharsPerMessage)
+        for (index, chunk) in chunks.enumerated() {
+            do {
+                try await channel.send(message: chunk, to: recipientID, vaultPath: vaultPath)
+            } catch {
+                if let onSendError {
+                    await onSendError(index + 1, chunks.count, error.localizedDescription)
+                }
+            }
+            guard index < chunks.count - 1 else { continue }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
+}
+
 /// Background polling service that turns iMessage into the primary
 /// agent-user channel. Every `pollInterval` seconds it:
 ///
@@ -52,24 +610,29 @@ final class IMessageDriverService {
     // MARK: - Dependencies
 
     private let vaultPathProvider: @MainActor () -> String?
+    private let currentChannelConfigurationProvider: @MainActor () -> ChannelConfiguration?
     private let localModelClientProvider: @MainActor () -> (any LocalConfigurableLLMClient)?
     private let constrainedDecodingProvider: @MainActor () -> ConstrainedDecodingService?
+    private let channelAdapterProvider: @MainActor () -> (any DriverChannelReplying)
     private let logger = Logger(subsystem: "com.epistemos", category: "IMessageDriver")
 
     // MARK: - Task state
 
     private var pollTask: Task<Void, Never>?
-    /// Per-contact dedup — maps handle → last processed message timestamp (unix).
-    private var processedTimestamps: [String: Int64] = [:]
+    private var processedMessageKeys: Set<String> = []
 
     // MARK: - Init
 
     init(
         vaultPathProvider: @escaping @MainActor () -> String?,
+        currentChannelConfigurationProvider: @escaping @MainActor () -> ChannelConfiguration? = { nil },
+        channelAdapterProvider: @escaping @MainActor () -> (any DriverChannelReplying) = { IMessageChannelAdapter() },
         localModelClientProvider: @escaping @MainActor () -> (any LocalConfigurableLLMClient)? = { nil },
         constrainedDecodingProvider: @escaping @MainActor () -> ConstrainedDecodingService? = { nil }
     ) {
         self.vaultPathProvider = vaultPathProvider
+        self.currentChannelConfigurationProvider = currentChannelConfigurationProvider
+        self.channelAdapterProvider = channelAdapterProvider
         self.localModelClientProvider = localModelClientProvider
         self.constrainedDecodingProvider = constrainedDecodingProvider
     }
@@ -79,16 +642,15 @@ final class IMessageDriverService {
     func start() {
         guard !isRunning else { return }
         guard let _ = vaultPathProvider() else {
-            lastError = "No vault configured — cannot start iMessage driver"
+            lastError = "No vault configured — cannot start background driver"
             return
         }
         isRunning = true
         lastError = nil
-        let interval = pollIntervalSeconds
         pollTask = Task { [weak self] in
-            await self?.pollLoop(intervalSeconds: interval)
+            await self?.pollLoop()
         }
-        logger.info("iMessage driver started (poll=\(interval)s)")
+        logger.info("Channel driver started (poll=\(self.pollIntervalSeconds)s)")
     }
 
     func stop() {
@@ -96,15 +658,16 @@ final class IMessageDriverService {
         pollTask?.cancel()
         pollTask = nil
         isRunning = false
-        logger.info("iMessage driver stopped")
+        logger.info("Channel driver stopped")
     }
 
     // MARK: - Poll loop
 
-    private func pollLoop(intervalSeconds: Int) async {
+    private func pollLoop() async {
         while !Task.isCancelled {
             guard isRunning else { break }
             await tickOnce()
+            let intervalSeconds = max(1, pollIntervalSeconds)
             try? await Task.sleep(for: .seconds(intervalSeconds))
         }
     }
@@ -120,9 +683,18 @@ final class IMessageDriverService {
 
         #if canImport(agent_coreFFI)
         do {
-            let unread = try await fetchUnread(vaultPath: vaultPath, limit: 20)
+            let replyChannel = channelAdapterProvider()
+            let unread = try await fetchUnread(
+                vaultPath: vaultPath,
+                limit: 20,
+                over: replyChannel
+            )
             for message in unread {
-                await handleIncoming(message, vaultPath: vaultPath)
+                await handleIncoming(
+                    message,
+                    vaultPath: vaultPath,
+                    replyChannel: replyChannel
+                )
             }
             lastError = nil
         } catch {
@@ -136,56 +708,43 @@ final class IMessageDriverService {
 
     // MARK: - Incoming handler
 
-    private struct IncomingMessage {
-        let handle: String
-        let text: String
-        let unix: Int64
-        let chatId: Int64
+    private func fetchUnread(
+        vaultPath: String,
+        limit: Int,
+        over replyChannel: any DriverChannelReplying
+    ) async throws -> [DriverChannelMessage] {
+        try await replyChannel.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
     }
 
-    #if canImport(agent_coreFFI)
-    private func fetchUnread(vaultPath: String, limit: Int) async throws -> [IncomingMessage] {
-        let payload: [String: Any] = [
-            "action": "unread",
-            "limit": limit,
-        ]
+    private func resolveContact(
+        handle: String,
+        vaultPath: String,
+        channelID: String
+    ) async throws -> ResolvedContact? {
+        let payload = contactRoutingPayload(
+            action: "resolve",
+            handle: handle,
+            channelID: channelID
+        )
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
         let jsonStr = String(data: jsonData, encoding: .utf8) ?? "{}"
 
         let result = try await executeToolCall(
             vaultPath: vaultPath,
             tier: "agent",
-            toolName: "imessage",
+            toolName: contactRoutingToolName(for: channelID),
             inputJson: jsonStr
         )
         guard result.success else {
-            throw IMessageDriverError.toolCallFailed(result.error ?? "unknown")
+            return resolveDefaultChannelRoute(handle: handle, channelID: channelID)
         }
-        return Self.parseMessages(from: result.outputJson)
-    }
-
-    private func resolveContact(handle: String, vaultPath: String) async throws -> ResolvedContact? {
-        let payload: [String: Any] = [
-            "action": "resolve",
-            "handle": handle,
-        ]
-        let jsonData = try JSONSerialization.data(withJSONObject: payload)
-        let jsonStr = String(data: jsonData, encoding: .utf8) ?? "{}"
-
-        let result = try await executeToolCall(
-            vaultPath: vaultPath,
-            tier: "agent",
-            toolName: "imessage_contacts",
-            inputJson: jsonStr
-        )
-        guard result.success else { return nil }
 
         guard let data = result.outputJson.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return nil
+            return resolveDefaultChannelRoute(handle: handle, channelID: channelID)
         }
         let configured = root["configured"] as? Bool ?? false
-        guard configured else { return nil }
+        guard configured else { return resolveDefaultChannelRoute(handle: handle, channelID: channelID) }
         let contact = root["contact"] as? [String: Any] ?? [:]
         return ResolvedContact(
             handle: handle,
@@ -199,11 +758,59 @@ final class IMessageDriverService {
         )
     }
 
-    private func recordMessage(handle: String, vaultPath: String) async {
-        let payload: [String: Any] = [
-            "action": "record_message",
+    private func contactRoutingToolName(for channelID: String) -> String {
+        channelID == ChannelIdentity.imessage.rawValue ? "imessage_contacts" : "channel_contacts"
+    }
+
+    private func contactRoutingPayload(
+        action: String,
+        handle: String,
+        channelID: String
+    ) -> [String: Any] {
+        var payload: [String: Any] = [
+            "action": action,
             "handle": handle,
         ]
+        if channelID != ChannelIdentity.imessage.rawValue {
+            payload["channel_id"] = channelID
+        }
+        return payload
+    }
+
+    private func resolveDefaultChannelRoute(handle: String, channelID: String) -> ResolvedContact? {
+        guard let configuration = currentChannelConfigurationProvider(),
+              configuration.id.rawValue == channelID,
+              configuration.isEnabled else {
+            return nil
+        }
+        let preferredModel = configuration.routingPolicy.preferredModel
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let toolTier = configuration.routingPolicy.toolTier
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let promptMode = configuration.routingPolicy.promptMode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return ResolvedContact(
+            handle: handle,
+            displayName: handle,
+            model: preferredModel.isEmpty ? Self.defaultContactModel : preferredModel,
+            toolTier: toolTier.isEmpty ? "chat_pro" : toolTier,
+            promptMode: promptMode.isEmpty ? "general" : promptMode,
+            allowed: true,
+            autoReply: true,
+            autoApprove: configuration.routingPolicy.autoApproveWrites
+        )
+    }
+
+    private func recordMessage(
+        handle: String,
+        vaultPath: String,
+        channelID: String
+    ) async {
+        let payload = contactRoutingPayload(
+            action: "record_message",
+            handle: handle,
+            channelID: channelID
+        )
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
               let jsonStr = String(data: jsonData, encoding: .utf8) else {
             return
@@ -211,11 +818,10 @@ final class IMessageDriverService {
         _ = try? await executeToolCall(
             vaultPath: vaultPath,
             tier: "agent",
-            toolName: "imessage_contacts",
+            toolName: contactRoutingToolName(for: channelID),
             inputJson: jsonStr
         )
     }
-    #endif
 
     private struct ResolvedContact: Sendable {
         let handle: String
@@ -234,42 +840,53 @@ final class IMessageDriverService {
         case agentLoop
     }
 
-    private func handleIncoming(_ message: IncomingMessage, vaultPath: String) async {
-        // In-memory dedup using the message timestamp. Survives a single
-        // session; persistent dedup lives in `imessage_contacts.last_message`.
-        if let prior = processedTimestamps[message.handle], prior >= message.unix {
+    private func handleIncoming(
+        _ message: DriverChannelMessage,
+        vaultPath: String,
+        replyChannel: any DriverChannelReplying
+    ) async {
+        let dedupKey = message.dedupKey
+        if processedMessageKeys.contains(dedupKey) {
             return
         }
+        defer { processedMessageKeys.insert(dedupKey) }
 
         #if canImport(agent_coreFFI)
-        guard let contact = try? await resolveContact(handle: message.handle, vaultPath: vaultPath),
+        guard let contact = try? await resolveContact(
+            handle: message.senderID,
+            vaultPath: vaultPath,
+            channelID: replyChannel.channelID
+        ),
               contact.allowed,
               contact.autoReply else {
-            // Unconfigured / not allowed / auto_reply off → stamp and skip.
-            processedTimestamps[message.handle] = message.unix
             return
         }
 
-        logger.info("Dispatching iMessage from \(message.handle, privacy: .public) to model \(contact.model, privacy: .public) tier=\(contact.toolTier, privacy: .public)")
+        logger.info("Dispatching \(replyChannel.channelID, privacy: .public) from \(message.senderID, privacy: .public) to model \(contact.model, privacy: .public) tier=\(contact.toolTier, privacy: .public)")
 
         // Spawn the agent session.
         await runAgentForContact(
             contact: contact,
             message: message,
-            vaultPath: vaultPath
+            vaultPath: vaultPath,
+            replyChannel: replyChannel
         )
 
         // Stamp so we don't reprocess on the next tick.
-        processedTimestamps[message.handle] = message.unix
-        await recordMessage(handle: message.handle, vaultPath: vaultPath)
+        await recordMessage(
+            handle: message.senderID,
+            vaultPath: vaultPath,
+            channelID: replyChannel.channelID
+        )
         processedCount += 1
         #endif
     }
 
     private func runAgentForContact(
         contact: ResolvedContact,
-        message: IncomingMessage,
-        vaultPath: String
+        message: DriverChannelMessage,
+        vaultPath: String,
+        replyChannel: any DriverChannelReplying
     ) async {
         // Fan-out: a contact's model field can be a single name like
         // "qwen-2b" or a comma-separated list like "qwen-2b,claude-sonnet-4-6"
@@ -288,7 +905,8 @@ final class IMessageDriverService {
                 contact: contact,
                 message: message,
                 vaultPath: vaultPath,
-                usesGroup: usesGroup
+                usesGroup: usesGroup,
+                replyChannel: replyChannel
             )
         }
     }
@@ -298,9 +916,10 @@ final class IMessageDriverService {
     private func runSingleModelForContact(
         modelName: String,
         contact: ResolvedContact,
-        message: IncomingMessage,
+        message: DriverChannelMessage,
         vaultPath: String,
-        usesGroup: Bool
+        usesGroup: Bool,
+        replyChannel: any DriverChannelReplying
     ) async {
         let trimmedModel = modelName.trimmingCharacters(in: .whitespaces)
         let replyPrefix = usesGroup ? "[\(trimmedModel)] " : nil
@@ -313,7 +932,8 @@ final class IMessageDriverService {
                 contact: contact,
                 message: message,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
         } else {
             await runCloudAgentForContact(
@@ -321,7 +941,8 @@ final class IMessageDriverService {
                 contact: contact,
                 message: message,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
         }
     }
@@ -330,9 +951,10 @@ final class IMessageDriverService {
     private func runCloudAgentForContact(
         modelName: String,
         contact: ResolvedContact,
-        message: IncomingMessage,
+        message: DriverChannelMessage,
         vaultPath: String,
-        replyPrefix: String?
+        replyPrefix: String?,
+        replyChannel: any DriverChannelReplying
     ) async {
         let sessionId = UUID().uuidString
         let systemPrompt = Self.iMessageSystemPrompt(displayName: contact.displayName ?? contact.handle)
@@ -350,15 +972,16 @@ final class IMessageDriverService {
             enableThinking: false,
             effort: "medium",
             systemPrompt: systemPrompt,
-            autoApproveReads: true,
+            autoApproveReads: false,
             autoApproveWrites: contact.autoApprove,
             promptMode: contact.promptMode
         )
 
         let providerName = Self.providerNameForCloudModel(modelName)
         let delegate = IMessageReplyDelegate(
-            contactHandle: message.handle,
+            contactHandle: message.senderID,
             vaultPath: vaultPath,
+            replyChannel: replyChannel,
             autoApproveModifications: contact.autoApprove,
             replyPrefix: replyPrefix
         )
@@ -374,7 +997,7 @@ final class IMessageDriverService {
                 delegate: delegate
             )
         } catch {
-            logger.error("Cloud agent session failed for \(message.handle, privacy: .public) model=\(modelName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("Cloud agent session failed for \(message.senderID, privacy: .public) model=\(modelName, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
         #endif
     }
@@ -386,29 +1009,32 @@ final class IMessageDriverService {
     private func runLocalAgentForContact(
         localModelID: LocalTextModelID,
         contact: ResolvedContact,
-        message: IncomingMessage,
+        message: DriverChannelMessage,
         vaultPath: String,
-        replyPrefix: String?
+        replyPrefix: String?,
+        replyChannel: any DriverChannelReplying
     ) async {
         let modelClient = localModelClientProvider()
         switch Self.localDispatchPlan(for: localModelID, hasLocalClient: modelClient != nil) {
         case .unavailable:
-            logger.error("Local model client unavailable for handle=\(message.handle, privacy: .public) model=\(localModelID.rawValue, privacy: .public)")
+            logger.error("Local model client unavailable for handle=\(message.senderID, privacy: .public) model=\(localModelID.rawValue, privacy: .public)")
             await sendLocalReply(
                 reply: Self.localModelUnavailableReply(for: localModelID),
-                handle: message.handle,
+                handle: message.senderID,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
 
         case .directGenerate:
             guard let modelClient else {
-                logger.error("Local dispatch plan resolved to directGenerate without an active local client for handle=\(message.handle, privacy: .public)")
+                logger.error("Local dispatch plan resolved to directGenerate without an active local client for handle=\(message.senderID, privacy: .public)")
                 await sendLocalReply(
                     reply: Self.localModelUnavailableReply(for: localModelID),
-                    handle: message.handle,
+                    handle: message.senderID,
                     vaultPath: vaultPath,
-                    replyPrefix: replyPrefix
+                    replyPrefix: replyPrefix,
+                    replyChannel: replyChannel
                 )
                 return
             }
@@ -419,17 +1045,19 @@ final class IMessageDriverService {
                 contact: contact,
                 message: message,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
 
         case .agentLoop:
             guard let modelClient else {
-                logger.error("Local dispatch plan resolved to agentLoop without an active local client for handle=\(message.handle, privacy: .public)")
+                logger.error("Local dispatch plan resolved to agentLoop without an active local client for handle=\(message.senderID, privacy: .public)")
                 await sendLocalReply(
                     reply: Self.localModelUnavailableReply(for: localModelID),
-                    handle: message.handle,
+                    handle: message.senderID,
                     vaultPath: vaultPath,
-                    replyPrefix: replyPrefix
+                    replyPrefix: replyPrefix,
+                    replyChannel: replyChannel
                 )
                 return
             }
@@ -439,7 +1067,8 @@ final class IMessageDriverService {
                 contact: contact,
                 message: message,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
         }
     }
@@ -448,9 +1077,10 @@ final class IMessageDriverService {
         modelClient: any LocalConfigurableLLMClient,
         modelID: LocalTextModelID,
         contact: ResolvedContact,
-        message: IncomingMessage,
+        message: DriverChannelMessage,
         vaultPath: String,
-        replyPrefix: String?
+        replyPrefix: String?,
+        replyChannel: any DriverChannelReplying
     ) async {
         let systemPrompt = Self.iMessageSystemPrompt(displayName: contact.displayName ?? contact.handle)
         let bridge = ToolTierBridge(
@@ -484,17 +1114,19 @@ final class IMessageDriverService {
             let reply = result.isEmpty ? accumulator.finalText() : result
             await sendLocalReply(
                 reply: reply,
-                handle: message.handle,
+                handle: message.senderID,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
         } catch {
-            logger.error("Local agent session failed for \(message.handle, privacy: .public) model=\(modelID.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("Local agent session failed for \(message.senderID, privacy: .public) model=\(modelID.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await sendLocalReply(
                 reply: "Sorry, I hit a local-model error: \(error.localizedDescription)",
-                handle: message.handle,
+                handle: message.senderID,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
         }
     }
@@ -506,9 +1138,10 @@ final class IMessageDriverService {
         modelClient: any LocalConfigurableLLMClient,
         modelID: LocalTextModelID,
         contact: ResolvedContact,
-        message: IncomingMessage,
+        message: DriverChannelMessage,
         vaultPath: String,
-        replyPrefix: String?
+        replyPrefix: String?,
+        replyChannel: any DriverChannelReplying
     ) async {
         let systemPrompt = Self.iMessageSystemPrompt(displayName: contact.displayName ?? contact.handle)
         do {
@@ -521,17 +1154,19 @@ final class IMessageDriverService {
             )
             await sendLocalReply(
                 reply: reply,
-                handle: message.handle,
+                handle: message.senderID,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
         } catch {
-            logger.error("Direct local generate failed for \(message.handle, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("Direct local generate failed for \(message.senderID, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await sendLocalReply(
                 reply: "Sorry, I hit a local-model error: \(error.localizedDescription)",
-                handle: message.handle,
+                handle: message.senderID,
                 vaultPath: vaultPath,
-                replyPrefix: replyPrefix
+                replyPrefix: replyPrefix,
+                replyChannel: replyChannel
             )
         }
     }
@@ -542,47 +1177,29 @@ final class IMessageDriverService {
         reply: String,
         handle: String,
         vaultPath: String,
-        replyPrefix: String?
+        replyPrefix: String?,
+        replyChannel: any DriverChannelReplying
     ) async {
-        let cleaned = LocalReplyAccumulator.stripMarkdown(reply)
-        let final: String
-        if let prefix = replyPrefix, !prefix.isEmpty {
-            final = prefix + cleaned
-        } else {
-            final = cleaned.isEmpty ? "(no response)" : cleaned
-        }
-        let chunks = LocalReplyAccumulator.chunk(final, maxLength: 3_500)
-
-        #if canImport(agent_coreFFI)
-        for chunk in chunks {
-            let payload: [String: Any] = [
-                "action": "send",
-                "to": handle,
-                "message": chunk,
-            ]
-            guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
-                  let jsonStr = String(data: jsonData, encoding: .utf8) else {
-                continue
+        let channelID = replyChannel.channelID
+        await DriverChannelReplyTransport.sendChunkedReply(
+            reply,
+            to: handle,
+            vaultPath: vaultPath,
+            replyPrefix: replyPrefix,
+            over: replyChannel,
+            onSendError: { chunkIndex, chunkCount, errorDescription in
+                await MainActor.run {
+                    Logger(subsystem: "com.epistemos", category: "IMessageDriver")
+                        .warning("\(channelID, privacy: .public) send chunk \(chunkIndex)/\(chunkCount) failed: \(errorDescription, privacy: .public)")
+                }
             }
-            do {
-                _ = try await executeToolCall(
-                    vaultPath: vaultPath,
-                    tier: "agent",
-                    toolName: "imessage",
-                    inputJson: jsonStr
-                )
-            } catch {
-                logger.warning("imessage send chunk failed: \(error.localizedDescription, privacy: .public)")
-            }
-            try? await Task.sleep(for: .milliseconds(250))
-        }
-        #endif
+        )
     }
 
     private static func iMessageSystemPrompt(displayName: String) -> String {
         """
-        You are Epistemos responding to an iMessage from \(displayName). \
-        Keep replies concise and conversational — this is SMS/iMessage, not a long-form chat. \
+        You are Epistemos responding to a direct message from \(displayName). \
+        Keep replies concise and conversational unless they explicitly ask for depth. \
         Prefer short paragraphs. Avoid markdown headings, bold, and bullet lists unless \
         absolutely necessary. If you need to research, use web_search or vault_recall before \
         replying. Do NOT send messages to anyone except the contact you are replying to.
@@ -671,45 +1288,7 @@ final class IMessageDriverService {
         return "claude_sonnet"
     }
 
-    // MARK: - JSON parsing
-
-    private static func parseMessages(from jsonString: String) -> [IncomingMessage] {
-        guard let data = jsonString.data(using: .utf8),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let messages = root["messages"] as? [[String: Any]] else {
-            return []
-        }
-        return messages.compactMap { dict in
-            guard let handle = dict["handle"] as? String,
-                  let text = dict["text"] as? String else {
-                return nil
-            }
-            let unix = (dict["unix"] as? Int64) ?? (dict["unix"] as? Int).map(Int64.init) ?? 0
-            let chatId = (dict["chat_id"] as? Int64) ?? (dict["chat_id"] as? Int).map(Int64.init) ?? 0
-            return IncomingMessage(
-                handle: handle,
-                text: text,
-                unix: unix,
-                chatId: chatId
-            )
-        }
-    }
 }
-
-nonisolated enum IMessageDriverError: LocalizedError, Sendable {
-    case toolCallFailed(String)
-    case invalidResponse(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .toolCallFailed(let reason):
-            return "iMessage tool call failed: \(reason)"
-        case .invalidResponse(let reason):
-            return "Invalid iMessage response: \(reason)"
-        }
-    }
-}
-
 /// Token accumulator + chunker shared between the local-agent path
 /// (`IMessageDriverService.runLocalAgentForContact`) and the cloud reply
 /// delegate (`IMessageReplyDelegate`). Threadsafe so it can be filled from

@@ -67,8 +67,11 @@ impl HeuristicClassifier {
         }
 
         // Code detection: triple backticks or common code patterns → increase complexity
-        if normalized.contains("```") || normalized.contains("fn ") || normalized.contains("func ")
-            || normalized.contains("class ") || normalized.contains("impl ")
+        if normalized.contains("```")
+            || normalized.contains("fn ")
+            || normalized.contains("func ")
+            || normalized.contains("class ")
+            || normalized.contains("impl ")
         {
             complexity = (complexity + 0.15).min(1.0);
         }
@@ -80,16 +83,31 @@ impl HeuristicClassifier {
 
         let privacy_sensitive = contains_any(
             &normalized,
-            &["private", "confidential", "personal", "vault only", "local only"],
+            &[
+                "private",
+                "confidential",
+                "personal",
+                "vault only",
+                "local only",
+            ],
         );
         let shell_required = contains_any(
             &normalized,
-            &["shell", "bash", "command", "terminal", "script", "build", "compile"],
+            &[
+                "shell", "bash", "command", "terminal", "script", "build", "compile",
+            ],
         ) || normalized.contains("```"); // Code blocks often need execution
 
         let research_related = contains_any(
             &normalized,
-            &["research", "compare", "sources", "citations", "fact check", "web"],
+            &[
+                "research",
+                "compare",
+                "sources",
+                "citations",
+                "fact check",
+                "web",
+            ],
         );
         let tool_count_estimate = estimate_tool_count(&normalized);
 
@@ -117,7 +135,10 @@ impl ConfidenceRouter {
             return RoutingDecision::Local(LocalTask::Classify);
         }
 
-        if contains_any(&objective.to_lowercase(), &["draft", "rewrite", "continue writing"]) {
+        if contains_any(
+            &objective.to_lowercase(),
+            &["draft", "rewrite", "continue writing"],
+        ) {
             return RoutingDecision::Local(LocalTask::GhostWrite);
         }
 
@@ -182,10 +203,18 @@ fn contains_url(text: &str) -> bool {
 }
 
 fn estimate_tool_count(objective: &str) -> u8 {
-    let score = ["search", "read", "write", "compare", "summarize", "find", "open"]
-        .iter()
-        .filter(|needle| objective.contains(**needle))
-        .count();
+    let score = [
+        "search",
+        "read",
+        "write",
+        "compare",
+        "summarize",
+        "find",
+        "open",
+    ]
+    .iter()
+    .filter(|needle| objective.contains(**needle))
+    .count();
     score.max(1) as u8
 }
 

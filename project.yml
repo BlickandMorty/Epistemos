@@ -104,6 +104,8 @@ targets:
         product: MLXLLM
       - package: MLX-LM
         product: MLXVLM
+      - package: GGUFRuntimeBridge
+        product: GGUFRuntimeBridge
       - package: CodeEditSourceEditor
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
@@ -126,8 +128,27 @@ targets:
         script: |
           set -euo pipefail
           output_dir="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceMirror"
-          rm -rf "${output_dir}"
           mkdir -p "${output_dir}"
+
+          prune_artifact_directories() {
+            local destination_root="$1"
+
+            if [ ! -d "${destination_root}" ]; then
+              return 0
+            fi
+
+            find "${destination_root}" -type d \( \
+              -name 'target' -o \
+              -name '.build' -o \
+              -name 'build' -o \
+              -name 'DerivedData' -o \
+              -name '.git' -o \
+              -name 'node_modules' -o \
+              -name '.venv' -o \
+              -name 'venv' -o \
+              -name '__pycache__' \
+            \) -prune -exec rm -rf {} +
+          }
 
           copy_tree() {
             local relative_root="$1"
@@ -135,11 +156,22 @@ targets:
             local destination_root="${output_dir}/${relative_root}"
 
             if [ ! -d "${source_root}" ]; then
+              rm -rf "${destination_root}"
               return 0
             fi
 
             mkdir -p "${destination_root}"
+            prune_artifact_directories "${destination_root}"
             rsync -a --delete --prune-empty-dirs \
+              --exclude='target/' \
+              --exclude='.build/' \
+              --exclude='build/' \
+              --exclude='DerivedData/' \
+              --exclude='.git/' \
+              --exclude='node_modules/' \
+              --exclude='.venv/' \
+              --exclude='venv/' \
+              --exclude='__pycache__/' \
               --include='*/' \
               --include='*.swift' \
               --include='*.rs' \
@@ -170,11 +202,12 @@ targets:
             local destination_path="${output_dir}/${relative_path}"
 
             if [ ! -f "${source_path}" ]; then
+              rm -f "${destination_path}"
               return 0
             fi
 
             mkdir -p "$(dirname "${destination_path}")"
-            cp "${source_path}" "${destination_path}"
+            rsync -a "${source_path}" "${destination_path}"
           }
 
           copy_tree "Epistemos"
@@ -250,6 +283,8 @@ packages:
     revision: 6ba4827fb82c97d012eec9ab4b2de21f85c3b33d
   MLX-LM:
     path: LocalPackages/mlx-swift-lm
+  GGUFRuntimeBridge:
+    path: LocalPackages/GGUFRuntimeBridge
   CodeEditSourceEditor:
     url: https://github.com/CodeEditApp/CodeEditSourceEditor
     from: "0.15.2"

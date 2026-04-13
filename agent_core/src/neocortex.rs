@@ -167,7 +167,11 @@ impl NeocortexEngine {
 
         gist_parts.reverse(); // chronological order
 
-        let confidence = if absorbed.len() >= 5 { 0.8 } else { 0.5 + absorbed.len() as f64 * 0.06 };
+        let confidence = if absorbed.len() >= 5 {
+            0.8
+        } else {
+            0.5 + absorbed.len() as f64 * 0.06
+        };
 
         Some(NeocortexGist {
             content: gist_parts.join("\n\n"),
@@ -235,8 +239,14 @@ mod tests {
     fn absorb_and_generate_gist() {
         let neo = NeocortexEngine::new(10, 10_000);
 
-        neo.absorb("We decided to use Rust FFI for the agent bridge.", ContextSource::Compaction);
-        neo.absorb("The vault uses SQLite + Tantivy dual index.", ContextSource::Compaction);
+        neo.absorb(
+            "We decided to use Rust FFI for the agent bridge.",
+            ContextSource::Compaction,
+        );
+        neo.absorb(
+            "The vault uses SQLite + Tantivy dual index.",
+            ContextSource::Compaction,
+        );
 
         let gist = neo.generate_gist(1000).unwrap();
         assert!(gist.content.contains("Rust FFI"));
@@ -287,7 +297,10 @@ mod tests {
     fn gist_respects_token_budget() {
         let neo = NeocortexEngine::new(100, 100_000);
         for i in 0..20 {
-            neo.absorb(&format!("Fact number {i} about the system architecture"), ContextSource::Compaction);
+            neo.absorb(
+                &format!("Fact number {i} about the system architecture"),
+                ContextSource::Compaction,
+            );
         }
 
         let gist = neo.generate_gist(50).unwrap();
@@ -299,7 +312,12 @@ mod tests {
     fn source_labels_in_gist() {
         let neo = NeocortexEngine::new(10, 10_000);
         neo.absorb("pinned context", ContextSource::UserPinned);
-        neo.absorb("vault fact", ContextSource::VaultFact { path: "notes/arch.md".to_string() });
+        neo.absorb(
+            "vault fact",
+            ContextSource::VaultFact {
+                path: "notes/arch.md".to_string(),
+            },
+        );
 
         let gist = neo.generate_gist(1000).unwrap();
         assert!(gist.content.contains("[pinned]"));

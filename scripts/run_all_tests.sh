@@ -2,12 +2,15 @@
 # Run ALL tests - Swift + Rust
 # Comprehensive test execution with reporting
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 RESULTS_DIR="$PROJECT_DIR/test_results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DERIVED_DATA_DIR="${DERIVED_DATA_DIR:-$RESULTS_DIR/all_tests_derived_data}"
+XCODEBUILD_WRAPPER="$PROJECT_DIR/scripts/xcodebuild_epistemos.sh"
+RESULT_BUNDLE_PATH="$RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult"
 
 # Colors for output
 RED='\033[0;31m'
@@ -17,6 +20,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 mkdir -p "$RESULTS_DIR"
+rm -rf "$DERIVED_DATA_DIR"
 
 echo "╔════════════════════════════════════════════════════════════════════╗"
 echo "║                    EPISTEMOS TEST RUNNER                           ║"
@@ -80,14 +84,13 @@ echo ""
 
 cd "$PROJECT_DIR"
 
-echo "→ Cleaning derived data..."
-rm -rf ~/Library/Developer/Xcode/DerivedData/Epistemos-*
-
 echo "→ Building Swift test target..."
-if xcodebuild build-for-testing \
+if "$XCODEBUILD_WRAPPER" build-for-testing \
     -project Epistemos.xcodeproj \
     -scheme Epistemos \
     -destination 'platform=macOS' \
+    -derivedDataPath "$DERIVED_DATA_DIR" \
+    CODE_SIGNING_ALLOWED=NO \
     -quiet 2>&1 | tee "$RESULTS_DIR/swift_build_$TIMESTAMP.log"; then
     
     echo -e "${GREEN}✅ Swift build successful${NC}"
@@ -111,11 +114,13 @@ if [ "$BUILD_SUCCESS" = true ]; then
     echo "→ Running Swift tests (this may take several minutes)..."
     echo ""
     
-    if xcodebuild test \
+    if "$XCODEBUILD_WRAPPER" test-without-building \
         -project Epistemos.xcodeproj \
         -scheme Epistemos \
         -destination 'platform=macOS' \
-        -resultBundlePath "$RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult" \
+        -derivedDataPath "$DERIVED_DATA_DIR" \
+        CODE_SIGNING_ALLOWED=NO \
+        -resultBundlePath "$RESULT_BUNDLE_PATH" \
         2>&1 | tee "$RESULTS_DIR/swift_tests_$TIMESTAMP.log"; then
         
         echo ""
@@ -178,7 +183,7 @@ else
     echo "📁 Logs saved to:"
     echo "   $RESULTS_DIR/rust_tests_$TIMESTAMP.log"
     echo "   $RESULTS_DIR/swift_tests_$TIMESTAMP.log"
-    echo "   $RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult"
+    echo "   $RESULT_BUNDLE_PATH"
     echo ""
     echo "🔍 To view detailed results:"
     echo "   xcrun xcresulttool view $RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult"

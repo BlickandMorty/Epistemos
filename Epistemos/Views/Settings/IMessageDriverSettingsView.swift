@@ -33,7 +33,10 @@ struct IMessageDriverSettingsView: View {
     @Bindable var driver: IMessageDriverService
     let vaultPath: String
 
+    @Environment(ChannelRegistryState.self) private var registry
     @State private var contacts: [IMessageContact] = []
+    @State private var recentThreads: [DriverChannelThreadSummary] = []
+    @State private var recentAuditEntries: [DriverChannelAuditEntry] = []
     @State private var isLoading: Bool = false
     @State private var showAddSheet: Bool = false
     @State private var editingContact: IMessageContact?
@@ -88,7 +91,7 @@ struct IMessageDriverSettingsView: View {
             } header: {
                 Text("iMessage Driver")
             } footer: {
-                Text("When enabled, Epistemos polls Messages.app for new iMessages from allowlisted contacts and routes each one to the assigned model. Requires Full Disk Access (for reading chat.db) and Automation permission (for sending replies via Messages).")
+                Text("When enabled, Epistemos polls the configured iMessage transport for new messages from allowlisted contacts and routes each one to the assigned model. Native mode requires Full Disk Access for chat.db reads and Automation permission for Messages replies.")
                     .font(.caption)
             }
 
@@ -104,7 +107,7 @@ struct IMessageDriverSettingsView: View {
                         Button {
                             editingContact = contact
                         } label: {
-                            ContactRow(contact: contact)
+                            DriverRouteRow(contact: contact)
                         }
                         .buttonStyle(.plain)
                     }
@@ -136,6 +139,113 @@ struct IMessageDriverSettingsView: View {
                     .font(.caption)
             }
 
+            Section {
+                HStack(spacing: 12) {
+                    ChannelStatusPill(title: registry.configuration(for: .imessage).pairingState.title, tint: .blue)
+                    ChannelStatusPill(title: "\(contacts.count) contacts", tint: .secondary)
+                    ChannelStatusPill(title: "\(contacts.filter(\.autoReply).count) auto-reply", tint: .green)
+                    ChannelStatusPill(title: "\(contacts.filter(\.autoApprove).count) trusted", tint: .orange)
+                }
+
+                Text("Recent thread coverage")
+                    .font(.subheadline.weight(.medium))
+
+                if recentThreads.isEmpty {
+                    Text("No recent iMessage threads found yet.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else {
+                    Text("\(mappedRecentThreadCount) of the last \(recentThreads.count) threads are already mapped to a configured contact.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+
+                Button("Refresh thread continuity") {
+                    Task { await refreshOperationalSurfaces() }
+                }
+            } header: {
+                Text("Continuity")
+            } footer: {
+                Text("Pairing mode is configured in Settings → Channels. Native iMessage remains the flagship transport, and remote relay can now serve as the primary path with native fallback if you keep it armed.")
+                    .font(.caption)
+            }
+
+            Section {
+                if recentThreads.isEmpty {
+                    Text("No recent threads available.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else {
+                    ForEach(recentThreads) { thread in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(thread.title)
+                                        .font(.headline)
+                                    if !thread.subtitle.isEmpty {
+                                        Text(thread.subtitle)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                ChannelStatusPill(
+                                    title: isConfiguredThread(thread) ? "Mapped" : "Unmapped",
+                                    tint: isConfiguredThread(thread) ? .green : .orange
+                                )
+                            }
+
+                            if thread.lastActivityUnix > 0 {
+                                Text(Date(timeIntervalSince1970: TimeInterval(thread.lastActivityUnix)), style: .relative)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Recent Threads")
+            } footer: {
+                Text("This is driven by the native `imessage list_chats` read path, so it reflects what the Messages database can see locally.")
+                    .font(.caption)
+            }
+
+            Section {
+                if recentAuditEntries.isEmpty {
+                    Text("No recent message audit entries available.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else {
+                    ForEach(recentAuditEntries) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.senderID)
+                                        .font(.subheadline.weight(.semibold))
+                                    Text(entry.preview)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                                Spacer()
+                                ChannelStatusPill(title: entry.isFromMe ? "Outgoing" : "Incoming", tint: entry.isFromMe ? .blue : .green)
+                            }
+
+                            if entry.unix > 0 {
+                                Text(Date(timeIntervalSince1970: TimeInterval(entry.unix)), style: .relative)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Recent Message Audit")
+            } footer: {
+                Text("This is a lightweight audit trail from the native iMessage read tool so you can sanity-check what the driver is seeing without leaving Epistemos.")
+                    .font(.caption)
+            }
+
             if let errorMessage {
                 Section {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
@@ -146,7 +256,8 @@ struct IMessageDriverSettingsView: View {
         }
         .formStyle(.grouped)
         .sheet(isPresented: $showAddSheet) {
-            ContactEditorSheet(
+            DriverRouteEditorSheet(
+                channelID: .imessage,
                 contact: nil,
                 vaultPath: vaultPath,
                 onSaved: {
@@ -157,7 +268,8 @@ struct IMessageDriverSettingsView: View {
             )
         }
         .sheet(item: $editingContact) { contact in
-            ContactEditorSheet(
+            DriverRouteEditorSheet(
+                channelID: .imessage,
                 contact: contact,
                 vaultPath: vaultPath,
                 onSaved: {
@@ -178,6 +290,17 @@ struct IMessageDriverSettingsView: View {
         errorMessage = nil
         do {
             contacts = try await IMessageContactsStore.list(vaultPath: vaultPath)
+            await refreshOperationalSurfaces()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func refreshOperationalSurfaces() async {
+        do {
+            let adapter = registry.makeAdapter(for: .imessage)
+            recentThreads = try await adapter.listThreads(vaultPath: vaultPath, limit: 8)
+            recentAuditEntries = try await adapter.recentAuditEntries(vaultPath: vaultPath, limit: 8)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -190,14 +313,25 @@ struct IMessageDriverSettingsView: View {
                 try? await IMessageContactsStore.remove(handle: contact.handle, vaultPath: vaultPath)
             }
             await refreshContacts()
+            await refreshOperationalSurfaces()
+        }
+    }
+
+    private var mappedRecentThreadCount: Int {
+        recentThreads.filter(isConfiguredThread).count
+    }
+
+    private func isConfiguredThread(_ thread: DriverChannelThreadSummary) -> Bool {
+        contacts.contains { contact in
+            contact.handle == thread.subtitle || contact.handle == thread.title
         }
     }
 }
 
-// MARK: - Contact Row
+// MARK: - Shared Sender Route UI
 
-private struct ContactRow: View {
-    let contact: IMessageContact
+struct DriverRouteRow: View {
+    let contact: ChannelRouteContact
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -235,10 +369,9 @@ private struct ContactRow: View {
     }
 }
 
-// MARK: - Contact Editor Sheet
-
-private struct ContactEditorSheet: View {
-    let contact: IMessageContact?
+struct DriverRouteEditorSheet: View {
+    let channelID: ChannelIdentity
+    let contact: ChannelRouteContact?
     let vaultPath: String
     let onSaved: () -> Void
     let onCancelled: () -> Void
@@ -255,12 +388,6 @@ private struct ContactEditorSheet: View {
     @State private var isSaving: Bool = false
     @State private var errorMessage: String?
 
-    /// Single-model presets shown in the picker. Local short names map onto
-    /// `LocalTextModelID` via `IMessageDriverService.localTextModelID(forShortName:)`.
-    /// To assign a *group* of models to a contact, type a comma-separated list
-    /// in the model field (e.g. "qwen-4b,claude-sonnet-4-6") — the driver
-    /// fans out to all listed models sequentially and labels each reply with
-    /// the model name.
     private var modelOptions: [String] {
         IMessageDriverService.modelPresetOptions
     }
@@ -277,11 +404,22 @@ private struct ContactEditorSheet: View {
         ("research", "Research"),
     ]
 
+    private var routeSectionTitle: String {
+        channelID == .imessage ? "Contact" : "Sender Route"
+    }
+
+    private var navigationTitleText: String {
+        if channelID == .imessage {
+            return contact == nil ? "Add Contact" : "Edit Contact"
+        }
+        return contact == nil ? "Add Sender Route" : "Edit Sender Route"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Contact") {
-                    TextField("Handle (phone, email, chat id)", text: $handle)
+                Section(routeSectionTitle) {
+                    TextField(channelID.senderRouteLabel, text: $handle)
                         .disabled(contact != nil)
                     TextField("Display name", text: $displayName)
                     TextField("Notes", text: $notes, axis: .vertical)
@@ -296,7 +434,7 @@ private struct ContactEditorSheet: View {
                     }
                     TextField("Model (or comma list)", text: $model)
                         .textFieldStyle(.roundedBorder)
-                        .help("Type any model alias, full LocalTextModelID, or a comma-separated list to fan out to multiple models in parallel.")
+                        .help("Type any model alias, full LocalTextModelID, or a comma-separated list to fan out to multiple models sequentially.")
                     Picker("Tool tier", selection: $toolTier) {
                         ForEach(tierOptions, id: \.0) { option in
                             Text(option.1).tag(option.0)
@@ -310,13 +448,13 @@ private struct ContactEditorSheet: View {
                 }
 
                 Section("Safety") {
-                    Toggle("Allow this contact", isOn: $allowed)
+                    Toggle(channelID == .imessage ? "Allow this contact" : "Allow this sender", isOn: $allowed)
                     Toggle("Auto-reply", isOn: $autoReply)
                         .disabled(!allowed)
                     Toggle("Auto-approve writes", isOn: $autoApprove)
                         .disabled(!allowed || !autoReply)
                     if autoApprove {
-                        Label("Auto-approve lets the agent modify files, run scheduled jobs, and write to the vault without prompting. Enable only for contacts you fully trust.", systemImage: "exclamationmark.triangle")
+                        Label("Auto-approve covers non-vault modification tools only. Sensitive local reads plus any vault or workspace writes still require on-device approval and will be denied in the headless driver.", systemImage: "exclamationmark.triangle")
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
@@ -331,7 +469,7 @@ private struct ContactEditorSheet: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(contact == nil ? "Add Contact" : "Edit Contact")
+            .navigationTitle(navigationTitleText)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancelled)
@@ -340,7 +478,7 @@ private struct ContactEditorSheet: View {
                     Button("Save") {
                         Task { await save() }
                     }
-                    .disabled(handle.isEmpty || model.isEmpty || isSaving)
+                    .disabled(handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isEmpty || isSaving)
                 }
             }
             .task {
@@ -364,7 +502,8 @@ private struct ContactEditorSheet: View {
         defer { isSaving = false }
         errorMessage = nil
         do {
-            try await IMessageContactsStore.upsert(
+            try await ChannelContactsStore.upsert(
+                channelID: channelID,
                 handle: handle,
                 displayName: displayName.isEmpty ? nil : displayName,
                 model: model,
@@ -383,10 +522,10 @@ private struct ContactEditorSheet: View {
     }
 }
 
-// MARK: - Data model + Store
+// MARK: - Shared Sender Route Store
 
-struct IMessageContact: Identifiable, Hashable, Sendable {
-    var id: String { handle }
+struct ChannelRouteContact: Identifiable, Hashable, Sendable {
+    let channelID: String
     let handle: String
     let displayName: String?
     let model: String
@@ -396,9 +535,47 @@ struct IMessageContact: Identifiable, Hashable, Sendable {
     let autoReply: Bool
     let autoApprove: Bool
     let notes: String?
+
+    var id: String { "\(channelID):\(handle)" }
+
+    var channelIdentity: ChannelIdentity {
+        ChannelIdentity(rawValue: channelID) ?? .imessage
+    }
+
+    static func fromToolPayload(
+        _ dict: [String: Any],
+        defaultChannelID: ChannelIdentity
+    ) -> ChannelRouteContact? {
+        guard let handle = dict["handle"] as? String,
+              let model = dict["model"] as? String else {
+            return nil
+        }
+        let resolvedChannelID: String
+        if let channelID = dict["channel_id"] as? String {
+            let trimmedChannelID = channelID.trimmingCharacters(in: .whitespacesAndNewlines)
+            resolvedChannelID = trimmedChannelID.isEmpty ? defaultChannelID.rawValue : trimmedChannelID
+        } else {
+            resolvedChannelID = defaultChannelID.rawValue
+        }
+        return ChannelRouteContact(
+            channelID: resolvedChannelID,
+            handle: handle,
+            displayName: dict["display_name"] as? String,
+            model: model,
+            toolTier: dict["tool_tier"] as? String ?? "chat_pro",
+            promptMode: dict["prompt_mode"] as? String ?? "general",
+            allowed: dict["allowed"] as? Bool ?? false,
+            autoReply: dict["auto_reply"] as? Bool ?? false,
+            autoApprove: dict["auto_approve"] as? Bool ?? false,
+            notes: dict["notes"] as? String
+        )
+    }
 }
 
-enum IMessageContactsStoreError: LocalizedError {
+typealias IMessageContact = ChannelRouteContact
+typealias IMessageContactsStoreError = ChannelContactsStoreError
+
+enum ChannelContactsStoreError: LocalizedError {
     case bindingsUnavailable
     case invalidResponse(String)
     case toolError(String)
@@ -406,27 +583,29 @@ enum IMessageContactsStoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .bindingsUnavailable: "agent_core bindings unavailable"
-        case .invalidResponse(let s): "Invalid response: \(s)"
-        case .toolError(let s): s
+        case .invalidResponse(let result): "Invalid response: \(result)"
+        case .toolError(let result): result
         }
     }
 }
 
-enum IMessageContactsStore {
-    static func list(vaultPath: String) async throws -> [IMessageContact] {
+enum ChannelContactsStore {
+    static func list(channelID: ChannelIdentity, vaultPath: String) async throws -> [ChannelRouteContact] {
         let result = try await call(
+            channelID: channelID,
             payload: ["action": "list"],
             vaultPath: vaultPath
         )
         guard let data = result.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let arr = root["contacts"] as? [[String: Any]] else {
-            throw IMessageContactsStoreError.invalidResponse(result)
+              let contacts = root["contacts"] as? [[String: Any]] else {
+            throw ChannelContactsStoreError.invalidResponse(result)
         }
-        return arr.compactMap(parseContact)
+        return contacts.compactMap { ChannelRouteContact.fromToolPayload($0, defaultChannelID: channelID) }
     }
 
     static func upsert(
+        channelID: ChannelIdentity,
         handle: String,
         displayName: String?,
         model: String,
@@ -450,48 +629,100 @@ enum IMessageContactsStore {
         ]
         if let displayName { payload["display_name"] = displayName }
         if let notes { payload["notes"] = notes }
-        _ = try await call(payload: payload, vaultPath: vaultPath)
+        _ = try await call(channelID: channelID, payload: payload, vaultPath: vaultPath)
     }
 
-    static func remove(handle: String, vaultPath: String) async throws {
+    static func remove(
+        channelID: ChannelIdentity,
+        handle: String,
+        vaultPath: String
+    ) async throws {
         _ = try await call(
+            channelID: channelID,
             payload: ["action": "remove", "handle": handle],
             vaultPath: vaultPath
         )
     }
 
-    private static func call(payload: [String: Any], vaultPath: String) async throws -> String {
+    private static func scopedPayload(
+        channelID: ChannelIdentity,
+        payload: [String: Any]
+    ) -> [String: Any] {
+        guard channelID != .imessage else {
+            return payload
+        }
+        var payload = payload
+        payload["channel_id"] = channelID.rawValue
+        return payload
+    }
+
+    private static func toolName(for channelID: ChannelIdentity) -> String {
+        channelID == .imessage ? "imessage_contacts" : "channel_contacts"
+    }
+
+    private static func call(
+        channelID: ChannelIdentity,
+        payload: [String: Any],
+        vaultPath: String
+    ) async throws -> String {
         #if canImport(agent_coreFFI)
-        let jsonData = try JSONSerialization.data(withJSONObject: payload)
+        let jsonData = try JSONSerialization.data(
+            withJSONObject: scopedPayload(channelID: channelID, payload: payload)
+        )
         let jsonStr = String(data: jsonData, encoding: .utf8) ?? "{}"
         let result = try await executeToolCall(
             vaultPath: vaultPath,
             tier: "agent",
-            toolName: "imessage_contacts",
+            toolName: toolName(for: channelID),
             inputJson: jsonStr
         )
         guard result.success else {
-            throw IMessageContactsStoreError.toolError(result.error ?? "unknown")
+            throw ChannelContactsStoreError.toolError(result.error ?? "unknown")
         }
         return result.outputJson
         #else
-        throw IMessageContactsStoreError.bindingsUnavailable
+        throw ChannelContactsStoreError.bindingsUnavailable
         #endif
     }
+}
 
-    private static func parseContact(_ dict: [String: Any]) -> IMessageContact? {
-        guard let handle = dict["handle"] as? String,
-              let model = dict["model"] as? String else { return nil }
-        return IMessageContact(
+enum IMessageContactsStore {
+    static func list(vaultPath: String) async throws -> [IMessageContact] {
+        try await ChannelContactsStore.list(channelID: .imessage, vaultPath: vaultPath)
+    }
+
+    static func upsert(
+        handle: String,
+        displayName: String?,
+        model: String,
+        toolTier: String,
+        promptMode: String,
+        allowed: Bool,
+        autoReply: Bool,
+        autoApprove: Bool,
+        notes: String?,
+        vaultPath: String
+    ) async throws {
+        try await ChannelContactsStore.upsert(
+            channelID: .imessage,
             handle: handle,
-            displayName: dict["display_name"] as? String,
+            displayName: displayName,
             model: model,
-            toolTier: dict["tool_tier"] as? String ?? "chat_pro",
-            promptMode: dict["prompt_mode"] as? String ?? "general",
-            allowed: dict["allowed"] as? Bool ?? false,
-            autoReply: dict["auto_reply"] as? Bool ?? false,
-            autoApprove: dict["auto_approve"] as? Bool ?? false,
-            notes: dict["notes"] as? String
+            toolTier: toolTier,
+            promptMode: promptMode,
+            allowed: allowed,
+            autoReply: autoReply,
+            autoApprove: autoApprove,
+            notes: notes,
+            vaultPath: vaultPath
+        )
+    }
+
+    static func remove(handle: String, vaultPath: String) async throws {
+        try await ChannelContactsStore.remove(
+            channelID: .imessage,
+            handle: handle,
+            vaultPath: vaultPath
         )
     }
 }

@@ -68,8 +68,8 @@ impl SkillsRegistryStore {
         let entries = if registry_path.exists() {
             match fs::read_to_string(&registry_path) {
                 Ok(content) => {
-                    let list: Vec<SkillRegistryEntry> = serde_yaml::from_str(&content)
-                        .unwrap_or_default();
+                    let list: Vec<SkillRegistryEntry> =
+                        serde_yaml::from_str(&content).unwrap_or_default();
                     list.into_iter()
                         .map(|entry| (entry.name.clone(), entry))
                         .collect()

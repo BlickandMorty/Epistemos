@@ -1,19 +1,14 @@
 import Foundation
 import os
 
-// MARK: - ClaudeManagedRuntime
-// Optional cloud backend wrapping Claude Managed Agents API.
-// Uses raw URLSession — NO Swift SDK (per CLAUDE.md non-negotiable).
-//
-// This is EXPERIMENTAL and behind a settings toggle.
-// Sessions run in Anthropic's cloud infrastructure (~$0.08/session-hour active).
-//
-// Two vault integration patterns (from new3.md research):
-// 1. Live tool calls (preferred): PKM ops as custom tools, agent pauses, Swift executes locally
-// 2. Snapshot and merge (privacy): export subset → upload → agent processes → download → merge
+// MARK: - Archived ClaudeManagedRuntime
+// This compatibility surface is retained for migration reference only. The
+// shipping app has not yet moved its managed-agent connector work onto this
+// abstraction, so the type stays archived and unavailable.
 
 private let log = Logger(subsystem: "com.epistemos", category: "ClaudeManagedRuntime")
 
+@available(*, unavailable, message: "Archived compatibility surface. Provider connectors should conform to the Overseer protocol instead of reviving this runtime shim.")
 @MainActor
 final class ClaudeManagedRuntime: AgentRuntime {
     let runtimeId = "claude-managed"
@@ -53,16 +48,6 @@ final class ClaudeManagedRuntime: AgentRuntime {
 
         let sessionId = UUID().uuidString
         log.info("ClaudeManagedRuntime: starting CMA session \(sessionId)")
-
-        // TODO: Implement actual CMA API call when endpoint is stable
-        // POST https://api.anthropic.com/v1/sessions
-        // Body: { model, system, tools, max_tokens, ... }
-        // Returns: { session_id, status: "running" }
-        //
-        // For now, this is a placeholder that logs the attempt.
-        // The CMA API is in private beta and endpoints may change.
-
-        log.warning("ClaudeManagedRuntime: CMA API integration is experimental — session \(sessionId) not yet wired to live API")
         return sessionId
     }
 
@@ -70,17 +55,12 @@ final class ClaudeManagedRuntime: AgentRuntime {
         log.info("ClaudeManagedRuntime: cancelling CMA session \(sessionId)")
         activeSessions[sessionId]?.cancel()
         activeSessions.removeValue(forKey: sessionId)
-
-        // TODO: DELETE https://api.anthropic.com/v1/sessions/{id}
     }
 
     func sessionEvents(_ sessionId: String) -> AsyncStream<AgentRuntimeEvent> {
-        // TODO: Implement SSE streaming from CMA
-        // GET https://api.anthropic.com/v1/sessions/{id}/events
-        // Parse SSE stream → map to AgentRuntimeEvent enum
         AsyncStream { continuation in
             continuation.yield(.sessionStarted(sessionId: sessionId))
-            continuation.yield(.sessionFailed(error: "CMA API integration not yet active — use Local runtime"))
+            continuation.yield(.sessionFailed(error: "Archived Claude managed runtime surface"))
             continuation.finish()
         }
     }

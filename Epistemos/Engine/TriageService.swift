@@ -5,8 +5,8 @@ import os
 // MARK: - Notes Operation
 
 /// Classifies each notes AI operation with a base complexity score.
-/// Simple transforms (grammar, summarize) route to Apple Intelligence;
-/// deeper work routes to the local Qwen path.
+/// The local runtime remains primary when available; the lighter operations
+/// simply remain eligible for an Apple fallback when no usable local runtime is ready.
 nonisolated enum NotesOperation: Sendable {
     case grammarFix        // 0.15 — simple transform, ideal for on-device
     case summarize         // 0.20 — focused extraction
@@ -584,8 +584,8 @@ nonisolated enum CloudRoutingError: LocalizedError {
 
 // MARK: - Triage Service
 
-/// Routes AI operations between Apple Intelligence and the local model runtime
-/// based on automatic complexity scoring and prepared role availability.
+/// Routes AI operations across the local runtime, explicit Apple selection,
+/// and cloud paths while keeping the local runtime first in the automatic flow.
 @MainActor @Observable
 final class TriageService {
     private static let localMLXBaselineSystemPrompt = """
@@ -997,6 +997,32 @@ final class TriageService {
                 )
             )
         }
+    }
+
+    func streamGeneralLocally(
+        prompt: String,
+        systemPrompt: String? = nil,
+        operation: GeneralOperation,
+        contentLength: Int,
+        operatingMode: EpistemosOperatingMode = .fast,
+        localSurface: LocalModelSelectionSurface = .mainChat
+    ) -> AsyncThrowingStream<String, Error> {
+        prepareForRouting()
+        let decision = routeDecisionForGeneral(
+            operation: operation,
+            contentLength: contentLength,
+            operatingMode: operatingMode,
+            localSurface: localSurface
+        )
+        lastDecision = .localMLX
+        Log.engine.info("Triage: \(operation.displayName) → Local Model (forced local execution) (content: \(contentLength) chars)")
+        return userFacingStream(
+            localStreamOrFallback(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                selection: decision.localSelection
+            )
+        )
     }
 
     func generateGeneral(
@@ -1503,35 +1529,47 @@ final class TriageService {
             throw CloudRoutingError.modelFailed("\(modelName) failed: \(reason)")
         }
 
-        if inference.appleIntelligenceAvailable {
-            lastDecision = .appleIntelligence
-            let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
+        var lastLocalError: Error?
+
+        if localSelection != nil {
             do {
-                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
-                if !Self.shouldRetryWithLocalModel(result) {
-                    return result
-                }
-                Log.engine.info("Apple Intelligence fallback response was inadequate, continuing to the local model path")
+                lastDecision = .localMLX
+                return try await localGenerateOrFallback(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    selection: localSelection
+                )
             } catch {
+                lastLocalError = error
                 Log.engine.warning(
-                    "Apple Intelligence fallback failed after cloud retries: \(error.localizedDescription, privacy: .public)"
+                    "Local fallback failed after cloud retries, trying Apple Intelligence next: \(error.localizedDescription, privacy: .public)"
                 )
             }
         }
 
-        guard localSelection != nil else {
-            if let lastCloudError {
-                throw lastCloudError
+        if inference.appleIntelligenceAvailable {
+            let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
+            do {
+                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
+                if !Self.shouldRetryWithLocalModel(result) {
+                    lastDecision = .appleIntelligence
+                    return result
+                }
+                Log.engine.info("Apple Intelligence fallback response was inadequate after cloud/local retries")
+            } catch {
+                Log.engine.warning(
+                    "Apple Intelligence fallback failed after cloud/local retries: \(error.localizedDescription, privacy: .public)"
+                )
             }
-            throw LocalInferenceRoutingError.modelRequired
         }
 
-        lastDecision = .localMLX
-        return try await localGenerateOrFallback(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            selection: localSelection
-        )
+        if let lastLocalError {
+            throw lastLocalError
+        }
+        if let lastCloudError {
+            throw lastCloudError
+        }
+        throw LocalInferenceRoutingError.modelRequired
     }
 
     private func streamWithCloudFallbackChain(
@@ -1608,13 +1646,40 @@ final class TriageService {
                     return
                 }
 
-                // Auto mode: fall through to Apple Intelligence / local
+                var lastLocalError: Error?
+                if localSelection != nil {
+                    self.lastDecision = .localMLX
+                    let localFallback = self.localStreamOrFallback(
+                        prompt: prompt,
+                        systemPrompt: systemPrompt,
+                        selection: localSelection
+                    )
+                    var emittedLocalTokens = false
+                    do {
+                        for try await chunk in localFallback {
+                            emittedLocalTokens = true
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                        return
+                    } catch {
+                        lastLocalError = error
+                        if emittedLocalTokens {
+                            continuation.finish(throwing: error)
+                            return
+                        }
+                        Log.engine.warning(
+                            "Local stream fallback failed after cloud retries, trying Apple Intelligence next: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
+                }
+
                 if self.inference.appleIntelligenceAvailable {
                     self.lastDecision = .appleIntelligence
                     let appleFallback = self.appleIntelligenceStreamWithFallback(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
-                        localSelection: localSelection
+                        localSelection: lastLocalError == nil ? localSelection : nil
                     )
                     do {
                         for try await chunk in appleFallback {
@@ -1627,25 +1692,7 @@ final class TriageService {
                     return
                 }
 
-                guard localSelection != nil else {
-                    continuation.finish(throwing: lastCloudError ?? LocalInferenceRoutingError.modelRequired)
-                    return
-                }
-
-                self.lastDecision = .localMLX
-                let localFallback = self.localStreamOrFallback(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    selection: localSelection
-                )
-                do {
-                    for try await chunk in localFallback {
-                        continuation.yield(chunk)
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
+                continuation.finish(throwing: lastLocalError ?? lastCloudError ?? LocalInferenceRoutingError.modelRequired)
             }
 
             continuation.onTermination = { _ in

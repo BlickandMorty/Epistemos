@@ -8,12 +8,29 @@ use crate::types::{ContentBlock, Message, StopReason, TokenUsage, ToolSchema};
 
 #[derive(Debug, Clone)]
 pub enum StreamEvent {
-    ThinkingDelta { index: usize, text: String },
-    TextDelta { index: usize, text: String },
-    InputJsonDelta { index: usize, partial_json: String },
-    ContentBlockComplete { block: ContentBlock },
-    SignatureDelta { index: usize, signature: String },
-    MessageStop { stop_reason: StopReason, usage: TokenUsage },
+    ThinkingDelta {
+        index: usize,
+        text: String,
+    },
+    TextDelta {
+        index: usize,
+        text: String,
+    },
+    InputJsonDelta {
+        index: usize,
+        partial_json: String,
+    },
+    ContentBlockComplete {
+        block: ContentBlock,
+    },
+    SignatureDelta {
+        index: usize,
+        signature: String,
+    },
+    MessageStop {
+        stop_reason: StopReason,
+        usage: TokenUsage,
+    },
 }
 
 pub type MessageStream = Pin<Box<dyn Stream<Item = Result<StreamEvent, AgentError>> + Send>>;

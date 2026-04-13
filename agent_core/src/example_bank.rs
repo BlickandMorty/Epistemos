@@ -306,9 +306,7 @@ fn it_works() { assert!(true); }
 
     #[test]
     fn test_retrieve_empty_bank() {
-        let bank = ExampleBank {
-            examples: vec![],
-        };
+        let bank = ExampleBank { examples: vec![] };
         assert!(bank.retrieve("anything", &[], 5).is_empty());
     }
 
