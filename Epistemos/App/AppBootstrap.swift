@@ -676,14 +676,13 @@ final class AppBootstrap {
     let dialogueChatState = DialogueChatState()
     let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
+    let channelRegistry: ChannelRegistryState
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
     private var _iMessageDriver: IMessageDriverService?
     var iMessageDriver: IMessageDriverService { Self.requireInitialized(_iMessageDriver, name: "iMessageDriver") }
     private var _deviceAgent: DeviceAgentService?
     var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
-    private var _dualBrainRouter: DualBrainRouter?
-    var dualBrainRouter: DualBrainRouter { Self.requireInitialized(_dualBrainRouter, name: "dualBrainRouter") }
     private var _screen2AXFusion: Screen2AXFusion?
     var screen2AXFusion: Screen2AXFusion { Self.requireInitialized(_screen2AXFusion, name: "screen2AXFusion") }
     private var _visualVerifyLoop: VisualVerifyLoop?
@@ -776,13 +775,16 @@ final class AppBootstrap {
     // MARK: - Services
     let llmService: LLMService
     let localInferenceService: MLXInferenceService
+    let localRuntimeControlPlane: BackendRuntimeControlPlane
     let localMLXClient: LocalMLXClient
     let preparedModelRegistryState: PreparedModelRegistryState
     let preparedModelRegistry: PreparedModelRegistry
-    let localLLMClient: LocalMLXClient
+    let localLLMClient: any LocalConfigurableLLMClient
     let cloudLLMClient: CloudLLMClient
     let triageService: TriageService
     let vaultSync: VaultSyncService
+    let vaultChatMutator: VaultChatMutator
+    let liveNoteScheduler = LiveNoteSchedulerService()
     let ssmStateService: SSMStateService
     let noteInsightService: NoteInsightService
     let cloudKnowledgeDistillationService: CloudKnowledgeDistillationService
@@ -833,9 +835,13 @@ final class AppBootstrap {
         )
         StartupAutoDiscovery.log(autoDiscoveryReport)
 
+        let channelRegistry = ChannelRegistryState()
+        self.channelRegistry = channelRegistry
+
         // InferenceState reads Keychain + checks Apple Intelligence availability
         let inference = InferenceState()
         self.inferenceState = inference
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx])
         let localModelManager = LocalModelManager(
             inference: inference,
             installer: ModelDownloadManager()
@@ -849,6 +855,14 @@ final class AppBootstrap {
 
         let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)
         self.localInferenceService = localInferenceService
+        let localRuntimeControlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        self.localRuntimeControlPlane = localRuntimeControlPlane
 
         let preparedModelRegistryState = PreparedModelRegistryState()
         self.preparedModelRegistryState = preparedModelRegistryState
@@ -868,12 +882,77 @@ final class AppBootstrap {
             runtime: localInferenceService,
             inference: inference,
             paths: localModelManager.paths,
+            runtimeControlPlane: localRuntimeControlPlane,
             prepareForRequest: {
                 localModelRefreshThrottle.refreshIfNeeded()
             }
         )
+        localMLXClient.configurePreparedGenerationRuntime(
+            preparedModelRegistryState.generationRuntimeConfiguration
+        )
         self.localMLXClient = localMLXClient
-        self.localLLMClient = localMLXClient
+        let localGGUFRuntime = LocalGGUFInProcessRuntime()
+        let localGGUFClient = LocalGGUFClient(
+            runtime: localGGUFRuntime,
+            inference: inference,
+            runtimeControlPlane: localRuntimeControlPlane,
+            prepareForRequest: {
+                localModelRefreshThrottle.refreshIfNeeded()
+            }
+        )
+        localGGUFClient.configurePreparedGenerationRuntime(
+            preparedModelRegistryState.generationRuntimeConfiguration
+        )
+        localGGUFClient.setOnRunProfileUpdated { [weak inference] profile in
+            Task { @MainActor in
+                inference?.setLatestLocalRuntimeHealth(LocalRuntimeHealthSnapshot(profile))
+            }
+        }
+        let localLLMClient = LocalBackendLLMClient(
+            inference: inference,
+            runtimeControlPlane: localRuntimeControlPlane,
+            mlxClient: localMLXClient,
+            ggufClient: localGGUFClient,
+            refreshAvailableRuntimeKinds: { configuration, requestedModelID in
+                var availableRuntimeKinds: Set<BackendRuntimeKind> = [.mlx]
+
+                let probeModelID = requestedModelID
+                    ?? inference.effectiveLocalTextModelID
+                    ?? configuration?.primaryGenerator.servedModelID
+
+                let probeArtifactID = configuration.flatMap { config in
+                    if let probeModelID {
+                        return config.resolvedArtifactID(for: probeModelID) ?? config.primaryGenerator.artifactID
+                    }
+                    return config.primaryGenerator.artifactID
+                }
+                let probeModelDirectory = configuration.flatMap { config in
+                    if let probeModelID {
+                        return config.resolvedModelDirectory(for: probeModelID) ?? config.primaryResolvedModelDirectory
+                    }
+                    return config.primaryResolvedModelDirectory
+                }
+
+                if let probeModelID,
+                   (try? await localGGUFRuntime.availability(
+                    requestedModelID: probeModelID,
+                    artifactID: probeArtifactID,
+                    modelDirectory: probeModelDirectory
+                   )) != nil {
+                    availableRuntimeKinds.insert(.gguf)
+                }
+
+                return availableRuntimeKinds
+            },
+            preparedGenerationRuntimeConfiguration: preparedModelRegistryState.generationRuntimeConfiguration
+        )
+        localLLMClient.configurePreparedGenerationRuntime(
+            preparedModelRegistryState.generationRuntimeConfiguration
+        )
+        self.localLLMClient = localLLMClient
+        Task { @MainActor in
+            _ = await localLLMClient.refreshRuntimeAvailability()
+        }
         let cloudLLMClient = CloudLLMClient(inference: inference)
         self.cloudLLMClient = cloudLLMClient
 
@@ -912,6 +991,15 @@ final class AppBootstrap {
 
         // VaultSyncService — hybrid persistence bridge
         self.vaultSync = VaultSyncService(modelContainer: container)
+        self.vaultChatMutator = VaultChatMutator(
+            vaultResolver: { _ in
+                guard let root = await AppBootstrap.shared?.vaultSync.vaultURL else {
+                    throw VaultChatMutatorError.vaultUnavailable
+                }
+                return root
+            },
+            autoCommitInAgentMode: false
+        )
 
         // SSMStateService — Mamba/SSM hidden state persistence for vault memory
         let ssmStateRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
@@ -936,6 +1024,11 @@ final class AppBootstrap {
                     )
                 }
             }
+            await localInferenceService.setOnRunProfileUpdated { [weak inference] profile in
+                Task { @MainActor in
+                    inference?.setLatestLocalRuntimeProfile(profile)
+                }
+            }
         }
 
         // NoteInsightService — on-device ML analysis for all notes
@@ -958,7 +1051,7 @@ final class AppBootstrap {
             triageService: triage,
             inference: inference,
             eventBus: eventBus,
-            localModelClient: localMLXClient,
+            localModelClient: localLLMClient,
             constrainedDecoding: constrainedDecoding,
             vaultPathProvider: { [weak vaultSync] in
                 vaultSync?.vaultURL?.path
@@ -1029,6 +1122,15 @@ final class AppBootstrap {
             vaultPathProvider: { [weak vaultSync] in
                 vaultSync?.vaultURL?.path
             },
+            currentChannelConfigurationProvider: { [weak channelRegistry] in
+                guard let channelRegistry else {
+                    return nil
+                }
+                return channelRegistry.configuration(for: channelRegistry.driverChannel)
+            },
+            channelAdapterProvider: { [weak channelRegistry] in
+                channelRegistry?.makeDriverAdapter() ?? IMessageChannelAdapter()
+            },
             localModelClientProvider: { [weak self] in
                 self?.localMLXClient
             },
@@ -1036,14 +1138,19 @@ final class AppBootstrap {
                 self?.constrainedDecoding
             }
         )
+        let driverConfiguration = channelRegistry.configuration(for: channelRegistry.driverChannel)
+        if driverConfiguration.supportsInboundDriver,
+           driverConfiguration.pairingMetadata?.keepAliveOnLaunch == true,
+           vaultSync.vaultURL != nil {
+            self._iMessageDriver?.start()
+        }
 
-        // Initialize dual-brain infrastructure
+        // Initialize device-action infrastructure. The retired dual-brain
+        // router stays archived in source, but the live app keeps only the
+        // shared device-action services that still back computer-use flows.
         self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
-        self._dualBrainRouter = DualBrainRouter(
-            hardwareTier: hardwareTierManager,
-            deviceAgent: deviceAgent
-        )
-        // Wire Brain 2 to shared GPU backend (until dedicated ANE model is available post-Ω15)
+        // Wire the device-action path to the shared GPU backend until the
+        // dedicated ANE route lands in a later phase.
         deviceAgent.setBackend(
             SharedGPUBackend(
                 triageService: triage,
@@ -1406,6 +1513,7 @@ final class AppBootstrap {
         activityTracker.startTracking()
         workspaceSummaryService.startAutoSummaryLoop()
         workspaceService.startAutoSave()
+        refreshLiveNoteScheduler()
         didCompletePrimaryLaunchInitialization = true
 
         if workspaceService.welcomeBack != nil {
@@ -1440,6 +1548,7 @@ final class AppBootstrap {
             vaultBookmarkValidation: vaultBookmarkValidation
         )
         await vaultSync.restoreVaultFromBookmark()
+        refreshLiveNoteScheduler()
     }
 
     private func refreshWelcomeBackSummary() async {
@@ -1507,6 +1616,21 @@ final class AppBootstrap {
 
     func refreshAmbientManifest() { coordinator.refreshAmbientManifest() }
     func loadChat(chatId: String) { coordinator.loadChat(chatId: chatId) }
+
+    func refreshLiveNoteScheduler() {
+        guard !Self.isRunningTests else { return }
+        guard let vaultURL = vaultSync.vaultURL else {
+            liveNoteScheduler.stop()
+            return
+        }
+
+        liveNoteScheduler.start(
+            llmService: llmService,
+            modelContainer: modelContainer,
+            vaultRoot: vaultURL,
+            approvalMutator: vaultChatMutator
+        )
+    }
     func requestVaultBriefing(chatState: ChatState) { coordinator.requestVaultBriefing(chatState: chatState) }
     static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade { ChatCoordinator.gradeFromConfidence(confidence) }
 
@@ -1536,6 +1660,19 @@ final class AppBootstrap {
                 return
             }
             preparedModelRegistryState.apply(snapshot)
+            localMLXClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
+            if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
+                localLLMClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
+                Task { @MainActor in
+                    _ = await localLLMClient.refreshRuntimeAvailability()
+                }
+            } else {
+                inferenceState.setPreparedLocalTextModelIDs(
+                    snapshot.generationRuntimeConfiguration?.interactiveLocalTextModelIDs(
+                        availableRuntimeKinds: inferenceState.availableLocalGenerationRuntimeKinds
+                    ) ?? []
+                )
+            }
             applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
         } catch {
             guard preparedModelRegistryState.lastErrorMessage != error.localizedDescription
@@ -1543,6 +1680,14 @@ final class AppBootstrap {
                 return
             }
             preparedModelRegistryState.apply(error: error)
+            inferenceState.setPreparedLocalTextModelIDs([])
+            localMLXClient.configurePreparedGenerationRuntime(nil)
+            if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
+                localLLMClient.configurePreparedGenerationRuntime(nil)
+                Task { @MainActor in
+                    _ = await localLLMClient.refreshRuntimeAvailability()
+                }
+            }
             applyPreparedRetrievalRuntimeConfiguration(nil)
         }
     }

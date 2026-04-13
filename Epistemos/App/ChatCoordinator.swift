@@ -290,26 +290,43 @@ final class ChatCoordinator {
 
                 let pendingAssistantId = UUID().uuidString
                 let capturedChatId = chatState.activeChatId
+                let executionPlan = buildOverseerExecutionPlan(
+                    query: effectiveQuery,
+                    contentLength: effectiveQuery.count
+                        + (effectiveNotesContextWithWorkspace?.count ?? 0)
+                        + (conversationHistory?.count ?? 0),
+                    operatingMode: operatingMode,
+                    hasExplicitContext: hasExplicitUserContext,
+                    attachmentCount: userAttachments.count + chatState.pendingContextAttachments.count,
+                    notesContext: effectiveNotesContextWithWorkspace,
+                    conversationHistory: conversationHistory
+                )
 
-                // Route: cloud queries → Rust agent_core (full tool loop)
-                //        local / Apple Intelligence → PipelineService (Swift inference)
-                //        Rust agent fallback → PipelineService (cloud via Swift pipeline)
+                // Route: managed-agent sessions escalate to Rust agent_core,
+                // while local-only and overseer-local plans stay on the Swift
+                // pipeline with an explicit local execution plan.
                 var usedRustAgent = false
-                if mode == .api, operatingMode == .agent {
-                    do {
-                        try await self.runRustAgentPath(
-                            query: effectiveQuery,
-                            notesContext: effectiveNotesContextWithWorkspace,
-                            conversationHistory: conversationHistory,
-                            chatState: chatState,
-                            chatId: capturedChatId,
-                            originalQuery: query,
-                            hasVault: hasVault,
-                            pendingAssistantId: pendingAssistantId
-                        )
-                        usedRustAgent = true
-                    } catch {
-                        Log.pipeline.warning("Rust agent path unavailable, falling back to cloud pipeline: \(error.localizedDescription)")
+                if let executionPlan, mode == .api, operatingMode == .agent {
+                    switch executionPlan.route {
+                    case .managedAgentSession:
+                        do {
+                            try await self.runRustAgentPath(
+                                query: effectiveQuery,
+                                notesContext: effectiveNotesContextWithWorkspace,
+                                conversationHistory: conversationHistory,
+                                chatState: chatState,
+                                chatId: capturedChatId,
+                                originalQuery: query,
+                                hasVault: hasVault,
+                                pendingAssistantId: pendingAssistantId,
+                                executionPlan: executionPlan
+                            )
+                            usedRustAgent = true
+                        } catch {
+                            Log.pipeline.warning("Managed agent path unavailable, falling back to local execution: \(error.localizedDescription)")
+                        }
+                    case .localOnly, .overseerLocalExecution:
+                        break
                     }
                 }
 
@@ -319,7 +336,8 @@ final class ChatCoordinator {
                         mode: mode,
                         notesContext: effectiveNotesContextWithWorkspace,
                         conversationHistory: conversationHistory,
-                        operatingMode: operatingMode
+                        operatingMode: executionPlan?.localOperatingMode ?? operatingMode,
+                        executionPlan: executionPlan
                     )
 
                     for try await event in stream {
@@ -384,9 +402,11 @@ final class ChatCoordinator {
         chatId: String?,
         originalQuery: String,
         hasVault: Bool,
-        pendingAssistantId: String
+        pendingAssistantId: String,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan
     ) async throws {
         let sessionId = UUID().uuidString
+        let parentSessionID = AgentSessionLineageStore.shared.parentSessionID(forChatThread: chatId)
         var receivedAgentContent = false
         var terminalAgentError: AgentRuntimeError?
 
@@ -399,6 +419,7 @@ final class ChatCoordinator {
         if let history = conversationHistory {
             systemParts.append("Conversation history:\n\(history)")
         }
+        systemParts.append(executionPlan.additionalSystemPrompt())
 
         // Resolve provider name from current inference configuration
         let providerName = resolveRustProviderName()
@@ -418,7 +439,7 @@ final class ChatCoordinator {
             enableThinking: true,
             effort: "medium",
             systemPrompt: systemParts.joined(separator: "\n\n"),
-            autoApproveReads: true,
+            autoApproveReads: false,
             autoApproveWrites: false,
             promptMode: nil  // auto-detect from objective keywords
         )
@@ -474,18 +495,17 @@ final class ChatCoordinator {
 
             case .permissionRequired(let request):
                 receivedAgentContent = true
-                let isReadOnly = request.riskLevel == .readOnly
                 let approved: Bool
-                if isReadOnly {
-                    approved = true
-                } else {
+                if request.requiresHumanApproval {
                     chatState.appendStreamingText(
-                        "\n> **Approval required:** \(request.toolName) (\(riskLabel(for: request.riskLevel)))\n"
+                        "\n> **Approval required:** \(request.toolName) (\(request.approvalReason))\n"
                     )
                     approved = await promptForToolApproval(request)
                     if !approved {
                         chatState.appendStreamingText("\n> **Denied:** \(request.toolName)\n")
                     }
+                } else {
+                    approved = true
                 }
                 capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
 
@@ -508,6 +528,17 @@ final class ChatCoordinator {
 
                 // Phase 4: Generate session knowledge graph in background
                 if let folderPath = sessionFolderPath(sessionId: sessionId) {
+                    do {
+                        try AgentSessionLineageStore.shared.recordCompletedSession(
+                            sessionID: sessionId,
+                            chatThreadID: chatId,
+                            sessionFolderPath: folderPath
+                        )
+                    } catch {
+                        Log.pipeline.error(
+                            "Failed to persist agent session lineage: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
                     Task.detached(priority: .utility) {
                         let lifecycle = VaultLifecycleService(vaultPath: vaultPath)
                         await lifecycle.generateGraphForSession(sessionFolderPath: folderPath)
@@ -558,6 +589,19 @@ final class ChatCoordinator {
         }
 
         if let terminalAgentError {
+            if let folderPath = sessionFolderPath(sessionId: sessionId) {
+                do {
+                    try AgentSessionLineageStore.writeMetadata(
+                        sessionFolderPath: folderPath,
+                        parentSessionID: parentSessionID,
+                        chatThreadID: chatId
+                    )
+                } catch {
+                    Log.pipeline.error(
+                        "Failed to persist failed-session lineage: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
             throw terminalAgentError
         }
     }
@@ -576,14 +620,37 @@ final class ChatCoordinator {
         }
     }
 
+    private func buildOverseerExecutionPlan(
+        query: String,
+        contentLength: Int,
+        operatingMode: EpistemosOperatingMode,
+        hasExplicitContext: Bool,
+        attachmentCount: Int,
+        notesContext: String?,
+        conversationHistory: String?
+    ) -> OverseerComplexityRouter.ExecutionPlan? {
+        guard operatingMode == .agent else { return nil }
+        let router = OverseerComplexityRouter(inference: inferenceState)
+        return router.planForMainChat(
+            query: query,
+            contentLength: contentLength,
+            operatingMode: operatingMode,
+            hasExplicitContext: hasExplicitContext,
+            attachmentCount: attachmentCount,
+            notesContext: notesContext,
+            conversationHistory: conversationHistory
+        )
+    }
+
     private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool {
         let alert = NSAlert()
-        alert.alertStyle = request.riskLevel == .destructive ? .critical : .warning
+        alert.alertStyle = request.permissionCategory == .destructive ? .critical : .warning
         alert.messageText = "Allow \(request.toolName)?"
+        let targetSummary = request.approvalTargetSummary.map { "Target:\n\($0)\n\n" } ?? ""
         alert.informativeText = """
-        The cloud agent requested a \(riskLabel(for: request.riskLevel)) action.
+        The cloud agent requested \(request.approvalReason).
 
-        Request:
+        \(targetSummary)Request:
         \(String(request.inputJson.prefix(500)))
         """
         alert.addButton(withTitle: "Allow")
@@ -1919,89 +1986,66 @@ final class ChatCoordinator {
 
     // MARK: - Vault Action Execution
 
-    func executeVaultActions(in response: String) -> String {
+    static func sanitizeVaultActionMarkers(in response: String) -> (cleaned: String, blockedActions: [String]) {
         var cleaned = response
-        var executed: [String] = []
-        let context = modelContainer.mainContext
+        var blockedActions: [String] = []
 
-        // TAG action
-        if let range = response.range(of: #"\[ACTION:TAG\s+(.+?)\]"#, options: .regularExpression) {
-            let marker = String(response[range])
+        while let range = cleaned.range(of: #"\[ACTION:TAG\s+(.+?)\]"#, options: .regularExpression) {
+            let marker = String(cleaned[range])
             let raw = marker
                 .replacingOccurrences(of: "[ACTION:TAG ", with: "")
                 .replacingOccurrences(of: "]", with: "")
             let tags = raw.split(separator: ",")
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
                 .filter { !$0.isEmpty && $0.count < 30 }
-
             if !tags.isEmpty {
-                let targetId = notesUI.activePageId
-                let page: SDPage?
-                if let targetId {
-                    let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
-                    page = fetchFirst(desc, in: context, label: "action tag target page \(targetId)")
-                } else {
-                    var desc = FetchDescriptor<SDPage>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
-                    desc.fetchLimit = 1
-                    page = fetchFirst(desc, in: context, label: "action tag fallback page")
-                }
-                if let page {
-                    let newTags = tags.filter { !page.tags.contains($0) }
-                    if !newTags.isEmpty {
-                        page.tags.append(contentsOf: newTags)
-                        page.updatedAt = .now
-                        executed.append("✅ Added tags [\(newTags.joined(separator: ", "))] to \(page.title)")
-                    }
-                }
+                blockedActions.append("Approval required before adding tags [\(tags.joined(separator: ", "))].")
             }
             cleaned = cleaned.replacingOccurrences(of: marker, with: "")
         }
 
-        // MOVE action
-        if let range = response.range(of: #"\[ACTION:MOVE\s+(.+?)\]"#, options: .regularExpression) {
-            let marker = String(response[range])
+        while let range = cleaned.range(of: #"\[ACTION:MOVE\s+(.+?)\]"#, options: .regularExpression) {
+            let marker = String(cleaned[range])
             let folderName = marker
                 .replacingOccurrences(of: "[ACTION:MOVE ", with: "")
                 .replacingOccurrences(of: "]", with: "")
-                .trimmingCharacters(in: .whitespaces)
-            let folderDesc = FetchDescriptor<SDFolder>()
-            if let folders = fetchAll(folderDesc, in: context, label: "action move folders"),
-               let folder = folders.first(where: { $0.name.lowercased() == folderName.lowercased() }) {
-                var pageDesc = FetchDescriptor<SDPage>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
-                pageDesc.fetchLimit = 1
-                if let page = fetchFirst(pageDesc, in: context, label: "action move target page") {
-                    page.folder = folder
-                    page.updatedAt = .now
-                    executed.append("✅ Moved \(page.title) to \(folder.name)")
-                }
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !folderName.isEmpty {
+                blockedActions.append("Approval required before moving this note to \(folderName).")
             }
             cleaned = cleaned.replacingOccurrences(of: marker, with: "")
         }
 
-        // CREATE action
-        if let range = response.range(of: #"\[ACTION:CREATE\s+(.+?)\]"#, options: .regularExpression) {
-            let marker = String(response[range])
+        while let range = cleaned.range(of: #"\[ACTION:CREATE\s+(.+?)\]"#, options: .regularExpression) {
+            let marker = String(cleaned[range])
             let title = marker
                 .replacingOccurrences(of: "[ACTION:CREATE ", with: "")
                 .replacingOccurrences(of: "]", with: "")
-                .trimmingCharacters(in: .whitespaces)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             if !title.isEmpty {
-                Task {
-                    if await vaultSync.createPage(title: title) != nil {
-                        // Note created — user can navigate to it from sidebar
-                    }
-                }
-                executed.append("✅ Created note: \(title)")
+                blockedActions.append("Approval required before creating note: \(title).")
             }
             cleaned = cleaned.replacingOccurrences(of: marker, with: "")
         }
 
-        if !executed.isEmpty {
+        if !blockedActions.isEmpty {
             cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-            cleaned += "\n\n---\n" + executed.joined(separator: "\n")
         }
 
-        return cleaned
+        return (cleaned, blockedActions)
+    }
+
+    func executeVaultActions(in response: String) -> String {
+        let sanitized = Self.sanitizeVaultActionMarkers(in: response)
+        guard !sanitized.blockedActions.isEmpty else {
+            return sanitized.cleaned
+        }
+
+        if sanitized.cleaned.isEmpty {
+            return sanitized.blockedActions.joined(separator: "\n")
+        }
+
+        return sanitized.cleaned + "\n\n---\n" + sanitized.blockedActions.joined(separator: "\n")
     }
 
     // MARK: - Chat Persistence

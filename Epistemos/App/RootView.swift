@@ -496,8 +496,8 @@ struct LocalModelToolbarMenu: View {
             return "\(inference.releaseHiddenInstalledLocalTextModelCount) installed local model\(inference.releaseHiddenInstalledLocalTextModelCount == 1 ? " is" : "s are") hidden from the release picker because they are not release-ready yet."
         }
         return inference.appleIntelligenceAvailable
-            ? "Install a local model to add an on-device fallback here."
-            : "No supported local models are installed yet."
+            ? "Apple Intelligence is available, but the prepared or installed local runtime becomes the primary path as soon as it is ready."
+            : "No supported local runtimes are available yet."
     }
 
     @MainActor
@@ -599,7 +599,7 @@ struct LocalModelToolbarMenu: View {
                                 if inference.appleIntelligenceAvailable {
                                     selectionRow(
                                         title: "Apple Intelligence",
-                                        subtitle: "Fast on-device work for lightweight requests.",
+                                        subtitle: "Optional Apple on-device runtime for simple fallback work.",
                                         systemImage: "apple.intelligence",
                                         isSelected: selectedMenuItem == .appleIntelligence
                                     ) {

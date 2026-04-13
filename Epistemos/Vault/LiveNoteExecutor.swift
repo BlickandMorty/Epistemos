@@ -19,18 +19,35 @@ private let log = Logger(subsystem: "com.epistemos", category: "LiveNotes")
 final class LiveNoteExecutor {
 
     private let llmService: (any LLMClientProtocol)?
+    private let approvalMutator: VaultChatMutator?
 
-    init(llmService: (any LLMClientProtocol)? = nil) {
+    init(
+        llmService: (any LLMClientProtocol)? = nil,
+        approvalMutator: VaultChatMutator? = nil
+    ) {
         self.llmService = llmService
+        self.approvalMutator = approvalMutator
+    }
+
+    var hasPendingApproval: Bool {
+        approvalMutator?.stagedDiff != nil
     }
 
     /// Execute a single live note task.
-    /// Returns true if the note was successfully updated.
+    /// Returns true if the note change was successfully queued for approval.
     func execute(task: LiveNoteTask, context: ModelContext, vaultRoot: URL) async -> Bool {
         log.info("LiveNoteExecutor: executing task '\(task.targetId)' for \(task.notePath)")
 
         guard let llm = llmService else {
             log.warning("LiveNoteExecutor: no LLM service available, skipping task")
+            return false
+        }
+        guard let approvalMutator else {
+            log.warning("LiveNoteExecutor: no approval mutator available, skipping task")
+            return false
+        }
+        guard approvalMutator.stagedDiff == nil else {
+            log.info("LiveNoteExecutor: pending approval exists, skipping '\(task.targetId)'")
             return false
         }
 
@@ -55,97 +72,60 @@ final class LiveNoteExecutor {
             return false
         }
 
-        // Skip if no new updates
-        let trimmed = agentResult.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.lowercased().contains("no new updates") {
-            log.info("LiveNoteExecutor: no new updates for '\(task.targetId)'")
-            return updateLastRunAt(task: task, context: context)
-        }
-
         // 2. Load the note and replace target region
         guard let page = fetchPage(id: task.noteId, context: context) else {
             log.error("LiveNoteExecutor: page not found: \(task.noteId)")
             return false
         }
 
-        var body = page.loadBody(mapped: true)
-
-        let startMarker = "<!--task-target:\(task.targetId)-->"
-        let endMarker = "<!--/task-target:\(task.targetId)-->"
-
-        guard let startRange = body.range(of: startMarker),
-              let endRange = body.range(of: endMarker) else {
-            log.warning("LiveNoteExecutor: target markers not found for '\(task.targetId)' in \(task.notePath)")
+        let originalBody = page.loadBody(mapped: true)
+        guard let fileURL = resolvedVaultNoteURL(notePath: task.notePath, vaultRoot: vaultRoot) else {
+            log.error("LiveNoteExecutor: rejected escaped note path '\(task.notePath, privacy: .public)'")
             return false
         }
 
-        // Replace content between markers
-        let dateStr = ISO8601DateFormatter().string(from: Date())
-        let newContent = "\n*Updated \(dateStr)*\n\n\(trimmed)\n"
-        let replaceRange = startRange.upperBound..<endRange.lowerBound
-        body.replaceSubrange(replaceRange, with: newContent)
-
-        // 3. Update lastRunAt in the task JSON block
-        body = updateLastRunAtInBody(body: body, targetId: task.targetId)
-
-        // 4. Save the note
-        page.saveBody(body)
+        let trimmed = agentResult.trimmingCharacters(in: .whitespacesAndNewlines)
+        let proposedBody: String
         do {
-            try context.save()
-            log.info("LiveNoteExecutor: updated '\(task.targetId)' in \(task.notePath)")
+            proposedBody = try updatedBody(
+                for: task,
+                originalBody: originalBody,
+                agentResult: trimmed
+            )
         } catch {
-            log.error("LiveNoteExecutor: save failed — \(error.localizedDescription, privacy: .public)")
+            log.error("LiveNoteExecutor: failed to prepare update — \(error.localizedDescription, privacy: .public)")
             return false
         }
 
-        // 5. Write to vault file system if vault sync is active
-        let fileURL = vaultRoot.appendingPathComponent(task.notePath)
-        try? body.write(to: fileURL, atomically: true, encoding: .utf8)
-
-        return true
-    }
-
-    /// Update lastRunAt timestamp in the task JSON block within the note body.
-    private func updateLastRunAtInBody(body: String, targetId: String) -> String {
-        let dateStr = ISO8601DateFormatter().string(from: Date())
-
-        // Find the task block containing this targetId and update lastRunAt
-        // Pattern: "lastRunAt": null or "lastRunAt": "..."
-        var updated = body
-
-        // Replace null lastRunAt
-        let nullPattern = "\"lastRunAt\"\\s*:\\s*null"
-        if let regex = try? NSRegularExpression(pattern: nullPattern) {
-            let nsBody = updated as NSString
-            // Only replace the first occurrence near the targetId (simple approach)
-            let range = NSRange(location: 0, length: nsBody.length)
-            updated = regex.stringByReplacingMatches(
-                in: updated, range: range,
-                withTemplate: "\"lastRunAt\": \"\(dateStr)\""
-            )
+        do {
+            let title = page.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? task.targetId
+                : page.title
+            _ = try await approvalMutator.stageFileMutation(
+                targetVault: .personal,
+                repositoryRootURL: vaultRoot,
+                fileURL: fileURL,
+                before: originalBody,
+                after: proposedBody,
+                summary: "Update live note \(title)",
+                rationale: "Background live-note polling produced a candidate vault edit and queued it for human approval before any write.",
+                source: "live-note"
+            ) { diff in
+                page.saveBody(diff.after)
+                page.filePath = diff.fileURL.path
+                page.lastSyncedBodyHash = SDPage.bodyHash(diff.after)
+                page.lastSyncedAt = .now
+                page.needsVaultSync = false
+                try context.save()
+                NoteFileStorage.notifyBodyChanged(pageId: page.id)
+                AppBootstrap.shared?.eventBus.emit(.vaultPageChanged(pageId: page.id))
+            }
+            log.info("LiveNoteExecutor: staged approval for '\(task.targetId)' in \(task.notePath)")
+            return true
+        } catch {
+            log.error("LiveNoteExecutor: failed to stage diff — \(error.localizedDescription, privacy: .public)")
+            return false
         }
-
-        // Replace existing date
-        let datePattern = "\"lastRunAt\"\\s*:\\s*\"[^\"]*\""
-        if let regex = try? NSRegularExpression(pattern: datePattern) {
-            let nsBody = updated as NSString
-            let range = NSRange(location: 0, length: nsBody.length)
-            updated = regex.stringByReplacingMatches(
-                in: updated, range: range,
-                withTemplate: "\"lastRunAt\": \"\(dateStr)\""
-            )
-        }
-
-        return updated
-    }
-
-    /// Update just the lastRunAt without changing note content (for "no new updates" case).
-    private func updateLastRunAt(task: LiveNoteTask, context: ModelContext) -> Bool {
-        guard let page = fetchPage(id: task.noteId, context: context) else { return false }
-        var body = page.loadBody(mapped: true)
-        body = updateLastRunAtInBody(body: body, targetId: task.targetId)
-        page.saveBody(body)
-        return (try? context.save()) != nil
     }
 
     private func fetchPage(id: String, context: ModelContext) -> SDPage? {
@@ -153,6 +133,129 @@ final class LiveNoteExecutor {
             predicate: #Predicate<SDPage> { $0.id == id }
         )
         return (try? context.fetch(descriptor))?.first
+    }
+
+    private func updatedBody(
+        for task: LiveNoteTask,
+        originalBody: String,
+        agentResult: String
+    ) throws -> String {
+        let date = Date()
+        let bodyWithUpdatedTimestamp = updateLastRunAtInBody(
+            body: originalBody,
+            task: task,
+            updatedAt: date
+        )
+
+        if agentResult.lowercased().contains("no new updates") {
+            return bodyWithUpdatedTimestamp
+        }
+
+        let startMarker = "<!--task-target:\(task.targetId)-->"
+        let endMarker = "<!--/task-target:\(task.targetId)-->"
+
+        guard let startRange = bodyWithUpdatedTimestamp.range(of: startMarker),
+              let endRange = bodyWithUpdatedTimestamp.range(of: endMarker) else {
+            throw LiveNoteExecutorError.missingTargetMarkers(task.targetId)
+        }
+
+        var updatedBody = bodyWithUpdatedTimestamp
+        let dateStr = ISO8601DateFormatter().string(from: date)
+        let newContent = "\n*Updated \(dateStr)*\n\n\(agentResult)\n"
+        let replaceRange = startRange.upperBound..<endRange.lowerBound
+        updatedBody.replaceSubrange(replaceRange, with: newContent)
+        return updatedBody
+    }
+
+    private func updateLastRunAtInBody(
+        body: String,
+        task: LiveNoteTask,
+        updatedAt: Date
+    ) -> String {
+        let pattern = "```task\\s*\\n([\\s\\S]*?)\\n```"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return body
+        }
+
+        let nsRange = NSRange(body.startIndex..<body.endIndex, in: body)
+        for match in regex.matches(in: body, range: nsRange) {
+            guard match.numberOfRanges >= 2,
+                  let jsonRange = Range(match.range(at: 1), in: body) else {
+                continue
+            }
+
+            let taskBlock = String(body[jsonRange])
+            guard taskBlock.contains("\"targetId\""),
+                  taskBlock.contains("\"\(task.targetId)\"") else {
+                continue
+            }
+
+            let updatedTaskBlock = replacingLastRunAt(
+                in: taskBlock,
+                with: ISO8601DateFormatter().string(from: updatedAt)
+            )
+            guard updatedTaskBlock != taskBlock else {
+                return body
+            }
+
+            var updatedBody = body
+            updatedBody.replaceSubrange(jsonRange, with: updatedTaskBlock)
+            return updatedBody
+        }
+
+        return body
+    }
+
+    private func replacingLastRunAt(
+        in taskBlock: String,
+        with dateString: String
+    ) -> String {
+        let replacement = "\"lastRunAt\": \"\(dateString)\""
+        let patterns = [
+            "\"lastRunAt\"\\s*:\\s*null",
+            "\"lastRunAt\"\\s*:\\s*\"[^\"]*\"",
+        ]
+
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else {
+                continue
+            }
+            let nsRange = NSRange(taskBlock.startIndex..<taskBlock.endIndex, in: taskBlock)
+            guard let match = regex.firstMatch(in: taskBlock, range: nsRange) else {
+                continue
+            }
+            let mutable = NSMutableString(string: taskBlock)
+            mutable.replaceCharacters(in: match.range, with: replacement)
+            return String(mutable)
+        }
+
+        return taskBlock
+    }
+
+    private func resolvedVaultNoteURL(notePath: String, vaultRoot: URL) -> URL? {
+        let rootURL = vaultRoot.standardizedFileURL
+        let candidateURL = rootURL
+            .appendingPathComponent(notePath, isDirectory: false)
+            .standardizedFileURL
+        let rootPath = rootURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+
+        guard candidateURL.path.hasPrefix(prefix) else {
+            return nil
+        }
+
+        return candidateURL
+    }
+}
+
+private enum LiveNoteExecutorError: LocalizedError {
+    case missingTargetMarkers(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingTargetMarkers(let targetID):
+            return "Live note target markers are missing for \(targetID)."
+        }
     }
 }
 
@@ -169,16 +272,34 @@ final class LiveNoteSchedulerService {
     private var executor: LiveNoteExecutor?
     private weak var modelContainer: ModelContainer?
     private var vaultRoot: URL?
+    private var activeVaultRootPath: String?
     private var isRunning = false
 
     func start(
         llmService: (any LLMClientProtocol)?,
         modelContainer: ModelContainer,
-        vaultRoot: URL
+        vaultRoot: URL,
+        approvalMutator: VaultChatMutator
     ) {
-        self.executor = LiveNoteExecutor(llmService: llmService)
+        let standardizedRootPath = vaultRoot.standardizedFileURL.path
+        if timer != nil, activeVaultRootPath == standardizedRootPath {
+            self.executor = LiveNoteExecutor(
+                llmService: llmService,
+                approvalMutator: approvalMutator
+            )
+            self.modelContainer = modelContainer
+            self.vaultRoot = vaultRoot
+            return
+        }
+
+        stop()
+        self.executor = LiveNoteExecutor(
+            llmService: llmService,
+            approvalMutator: approvalMutator
+        )
         self.modelContainer = modelContainer
         self.vaultRoot = vaultRoot
+        self.activeVaultRootPath = standardizedRootPath
 
         let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
         timer.schedule(deadline: .now() + 15, repeating: 15)
@@ -195,6 +316,7 @@ final class LiveNoteSchedulerService {
     func stop() {
         timer?.cancel()
         timer = nil
+        activeVaultRootPath = nil
         log.info("LiveNoteSchedulerService: stopped")
     }
 
@@ -206,6 +328,7 @@ final class LiveNoteSchedulerService {
     private func tick() async {
         guard !isRunning else { return }  // prevent overlapping runs
         guard let container = modelContainer, let vaultRoot, let executor else { return }
+        guard !executor.hasPendingApproval else { return }
 
         isRunning = true
         defer { isRunning = false }
@@ -222,6 +345,9 @@ final class LiveNoteSchedulerService {
             let success = await executor.execute(task: task, context: context, vaultRoot: vaultRoot)
             if success {
                 log.info("LiveNoteSchedulerService: completed '\(task.targetId)'")
+            }
+            if executor.hasPendingApproval {
+                break
             }
         }
     }

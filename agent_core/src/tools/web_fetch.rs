@@ -25,13 +25,31 @@ pub(crate) fn is_private_url(url: &str) -> bool {
     let lower = url.to_lowercase();
     // Block private/internal IPs and localhost
     let blocked = [
-        "://localhost", "://127.", "://0.", "://10.",
-        "://172.16.", "://172.17.", "://172.18.", "://172.19.",
-        "://172.20.", "://172.21.", "://172.22.", "://172.23.",
-        "://172.24.", "://172.25.", "://172.26.", "://172.27.",
-        "://172.28.", "://172.29.", "://172.30.", "://172.31.",
-        "://192.168.", "://[::1]", "://169.254.",
-        "://metadata.google", "://metadata.aws",
+        "://localhost",
+        "://127.",
+        "://0.",
+        "://10.",
+        "://172.16.",
+        "://172.17.",
+        "://172.18.",
+        "://172.19.",
+        "://172.20.",
+        "://172.21.",
+        "://172.22.",
+        "://172.23.",
+        "://172.24.",
+        "://172.25.",
+        "://172.26.",
+        "://172.27.",
+        "://172.28.",
+        "://172.29.",
+        "://172.30.",
+        "://172.31.",
+        "://192.168.",
+        "://[::1]",
+        "://169.254.",
+        "://metadata.google",
+        "://metadata.aws",
     ];
     blocked.iter().any(|b| lower.contains(b))
 }
@@ -61,7 +79,9 @@ pub(crate) fn html_to_text(html: &str) -> String {
     let mut tag_name = String::new();
     let mut collecting_tag_name = false;
 
-    let skip_elements = ["script", "style", "nav", "header", "footer", "noscript", "svg"];
+    let skip_elements = [
+        "script", "style", "nav", "header", "footer", "noscript", "svg",
+    ];
 
     for ch in html.chars() {
         if ch == '<' {
@@ -77,7 +97,11 @@ pub(crate) fn html_to_text(html: &str) -> String {
 
             let tag_lower = tag_name.to_lowercase();
             let is_closing = tag_lower.starts_with('/');
-            let clean_tag = tag_lower.trim_start_matches('/').split_whitespace().next().unwrap_or("");
+            let clean_tag = tag_lower
+                .trim_start_matches('/')
+                .split_whitespace()
+                .next()
+                .unwrap_or("");
 
             if skip_elements.contains(&clean_tag) {
                 if is_closing {
@@ -92,7 +116,25 @@ pub(crate) fn html_to_text(html: &str) -> String {
             }
 
             // Add whitespace for block elements
-            if matches!(clean_tag, "p" | "div" | "br" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "li" | "tr" | "td" | "th" | "blockquote" | "pre" | "section" | "article") {
+            if matches!(
+                clean_tag,
+                "p" | "div"
+                    | "br"
+                    | "h1"
+                    | "h2"
+                    | "h3"
+                    | "h4"
+                    | "h5"
+                    | "h6"
+                    | "li"
+                    | "tr"
+                    | "td"
+                    | "th"
+                    | "blockquote"
+                    | "pre"
+                    | "section"
+                    | "article"
+            ) {
                 if !result.ends_with('\n') {
                     result.push('\n');
                 }
@@ -203,7 +245,9 @@ impl WebFetchTool {
         // Read body with size limit
         let bytes = match response.bytes().await {
             Ok(b) => b,
-            Err(e) => return json!({"success": false, "error": format!("Failed to read body: {e}")}),
+            Err(e) => {
+                return json!({"success": false, "error": format!("Failed to read body: {e}")})
+            }
         };
 
         if bytes.len() > MAX_RESPONSE_BYTES {
@@ -216,15 +260,20 @@ impl WebFetchTool {
         let body = String::from_utf8_lossy(&bytes);
 
         // Extract text based on content type
-        let text = if content_type.contains("text/html") || content_type.contains("application/xhtml") {
-            html_to_text(&body)
-        } else {
-            body.to_string()
-        };
+        let text =
+            if content_type.contains("text/html") || content_type.contains("application/xhtml") {
+                html_to_text(&body)
+            } else {
+                body.to_string()
+            };
 
         // Truncate for LLM context budget
         let truncated = if text.len() > 32_000 {
-            format!("{}...\n\n[Truncated: {} total chars]", &text[..32_000], text.len())
+            format!(
+                "{}...\n\n[Truncated: {} total chars]",
+                &text[..32_000],
+                text.len()
+            )
         } else {
             text
         };

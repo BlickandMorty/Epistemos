@@ -4,7 +4,7 @@ use std::sync::{Mutex, OnceLock};
 use tokio_util::sync::CancellationToken;
 
 use crate::reasoning_metrics::ReasoningTrajectoryMetrics;
-use crate::storage::session_store::SessionFolder;
+use crate::storage::session_store::{SessionFolder, TraceEvent, TranscriptTurn};
 
 static SESSIONS: OnceLock<Mutex<SessionRegistry>> = OnceLock::new();
 
@@ -69,6 +69,24 @@ impl GlobalSessions {
             .map(|f| f.root().to_string_lossy().to_string())
     }
 
+    pub fn append_transcript_turn(session_id: &str, turn: TranscriptTurn) {
+        let mut registry = Self::registry().lock().expect("session registry poisoned");
+        if let Some(handle) = registry.sessions.get_mut(session_id) {
+            if let Some(ref folder) = handle.folder {
+                let _ = folder.append_transcript_turn(&turn);
+            }
+        }
+    }
+
+    pub fn append_trace_event(session_id: &str, event: TraceEvent) {
+        let mut registry = Self::registry().lock().expect("session registry poisoned");
+        if let Some(handle) = registry.sessions.get_mut(session_id) {
+            if let Some(ref folder) = handle.folder {
+                let _ = folder.append_trace_event(&event);
+            }
+        }
+    }
+
     pub fn cancel(session_id: &str) {
         let registry = Self::registry().lock().expect("session registry poisoned");
         if let Some(handle) = registry.sessions.get(session_id) {
@@ -104,7 +122,12 @@ impl GlobalSessions {
     }
 
     /// Pause a running session to await human approval for a tool call.
-    pub fn pause_for_approval(session_id: &str, tool_name: &str, args_json: &str, deadline_secs: u64) {
+    pub fn pause_for_approval(
+        session_id: &str,
+        tool_name: &str,
+        args_json: &str,
+        deadline_secs: u64,
+    ) {
         let mut registry = Self::registry().lock().expect("session registry poisoned");
         if let Some(handle) = registry.sessions.get_mut(session_id) {
             handle.state = SessionState::PausedForApproval {
@@ -220,46 +243,56 @@ impl Drop for SessionGuard {
                 .expect("session registry poisoned");
             if let Some(handle) = registry.sessions.get_mut(&self.session_id) {
                 if let Some(ref mut folder) = handle.folder {
-                    let (status, turns, input, output, error, trajectory_metrics) = match &handle.state {
-                        SessionState::Completed {
-                            turns,
-                            input_tokens,
-                            output_tokens,
-                            trajectory_metrics,
-                        } => (
-                            "completed",
-                            *turns,
-                            *input_tokens,
-                            *output_tokens,
-                            None,
-                            trajectory_metrics.as_ref(),
-                        ),
-                        SessionState::Failed { error } => {
-                            ("failed", 0, 0, 0, Some(error.as_str()), None)
-                        }
-                        SessionState::Terminated => {
-                            ("terminated", 0, 0, 0, Some("session terminated by user"), None)
-                        }
-                        SessionState::Rescheduled { reason } => {
-                            ("rescheduled", 0, 0, 0, Some(reason.as_str()), None)
-                        }
-                        SessionState::Idle
-                        | SessionState::Running
-                        | SessionState::PausedForApproval { .. } => {
-                            (
+                    let (status, turns, input, output, error, trajectory_metrics) =
+                        match &handle.state {
+                            SessionState::Completed {
+                                turns,
+                                input_tokens,
+                                output_tokens,
+                                trajectory_metrics,
+                            } => (
+                                "completed",
+                                *turns,
+                                *input_tokens,
+                                *output_tokens,
+                                None,
+                                trajectory_metrics.as_ref(),
+                            ),
+                            SessionState::Failed { error } => {
+                                ("failed", 0, 0, 0, Some(error.as_str()), None)
+                            }
+                            SessionState::Terminated => (
+                                "terminated",
+                                0,
+                                0,
+                                0,
+                                Some("session terminated by user"),
+                                None,
+                            ),
+                            SessionState::Rescheduled { reason } => {
+                                ("rescheduled", 0, 0, 0, Some(reason.as_str()), None)
+                            }
+                            SessionState::Idle
+                            | SessionState::Running
+                            | SessionState::PausedForApproval { .. } => (
                                 "failed",
                                 0,
                                 0,
                                 0,
                                 Some("session dropped without finalization"),
                                 None,
-                            )
-                        }
-                    };
+                            ),
+                        };
                     // Best-effort finalize — ignore errors during drop
-                    let _ = folder.finalize(status, turns, input, output, error, trajectory_metrics);
+                    let _ =
+                        folder.finalize(status, turns, input, output, error, trajectory_metrics);
                     if !folder.root().join("summary.md").exists() {
-                        let summary = folder.generate_default_summary();
+                        let summary = folder.generate_structured_summary();
+                        let summary = if summary.trim().is_empty() {
+                            folder.generate_default_summary()
+                        } else {
+                            summary
+                        };
                         let _ = folder.write_summary(&summary);
                     }
                 }

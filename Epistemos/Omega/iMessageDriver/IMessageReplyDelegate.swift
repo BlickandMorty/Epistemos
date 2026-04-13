@@ -14,11 +14,13 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
     private let logger = Logger(subsystem: "com.epistemos", category: "IMessageReplyDelegate")
     private let contactHandle: String
     private let vaultPath: String
+    private let replyChannel: any DriverChannelReplying
     private let autoApproveModifications: Bool
-    private let maxCharsPerMessage: Int = 3_500
     /// Prefix prepended to every chunk before send. Used by group routing
     /// to label which model produced which reply (e.g. "[qwen-2b] ...").
     private let replyPrefix: String?
+    private let permissionLock = NSLock()
+    private var pendingPermissionRequests: [String: AgentPermissionRequest] = [:]
 
     // Accumulated output state — protected by `lock`.
     private let lock = NSLock()
@@ -29,11 +31,13 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
     init(
         contactHandle: String,
         vaultPath: String,
+        replyChannel: any DriverChannelReplying,
         autoApproveModifications: Bool,
         replyPrefix: String? = nil
     ) {
         self.contactHandle = contactHandle
         self.vaultPath = vaultPath
+        self.replyChannel = replyChannel
         self.autoApproveModifications = autoApproveModifications
         self.replyPrefix = replyPrefix
     }
@@ -74,10 +78,19 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
         inputJson: String,
         riskLevel: String
     ) {
-        // The driver never prompts the human — it's running on their behalf
-        // over iMessage. Pre-approve based on the contact's auto_approve
-        // flag. `waitForPermission` is where the ACTUAL decision happens.
-        logger.info("Permission required for \(toolName, privacy: .public) — auto_approve=\(self.autoApproveModifications)")
+        let request = AgentPermissionRequest(
+            id: permissionId,
+            toolName: toolName,
+            inputJson: inputJson,
+            riskLevel: AgentRuntimeRiskLevel(rustValue: riskLevel),
+            description: "Tool '\(toolName)' requires approval."
+        )
+
+        permissionLock.lock()
+        pendingPermissionRequests[permissionId] = request
+        permissionLock.unlock()
+
+        logger.info("Permission required for \(toolName, privacy: .public) — category=\(request.approvalReason, privacy: .public)")
     }
 
     func onContextCompacting(currentTokens: UInt32) {}
@@ -91,60 +104,29 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
         let reply: String = {
             lock.lock()
             defer { lock.unlock() }
-            let trimmed = accumulatedText.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                return "(no response)"
-            }
-            let cleaned = Self.stripMarkdown(trimmed)
-            if let prefix = replyPrefix, !prefix.isEmpty {
-                return prefix + cleaned
-            }
-            return cleaned
+            return accumulatedText.trimmingCharacters(in: .whitespacesAndNewlines)
         }()
 
-        // Chunk long replies so iMessage doesn't refuse to deliver.
-        let chunks = Self.chunk(reply, maxLength: maxCharsPerMessage)
         let contactHandle = self.contactHandle
         let vaultPath = self.vaultPath
+        let replyChannel = self.replyChannel
+        let replyPrefix = self.replyPrefix
+        let channelID = replyChannel.channelID
 
         Task.detached {
-            for (idx, chunk) in chunks.enumerated() {
-                let payload: [String: Any] = [
-                    "action": "send",
-                    "to": contactHandle,
-                    "message": chunk,
-                ]
-                guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
-                      let jsonStr = String(data: jsonData, encoding: .utf8) else {
-                    continue
-                }
-                do {
-                    #if canImport(agent_coreFFI)
-                    let result = try await executeToolCall(
-                        vaultPath: vaultPath,
-                        tier: "agent",
-                        toolName: "imessage",
-                        inputJson: jsonStr
-                    )
-                    if !result.success {
-                        // Log and continue — failing partway is better than
-                        // silently dropping the whole reply.
-                        await MainActor.run {
-                            Logger(subsystem: "com.epistemos", category: "IMessageReplyDelegate")
-                                .warning("imessage send chunk \(idx + 1)/\(chunks.count) failed: \(result.error ?? "unknown", privacy: .public)")
-                        }
-                    }
-                    #endif
-                } catch {
+            await DriverChannelReplyTransport.sendChunkedReply(
+                reply,
+                to: contactHandle,
+                vaultPath: vaultPath,
+                replyPrefix: replyPrefix,
+                over: replyChannel,
+                onSendError: { chunkIndex, chunkCount, errorDescription in
                     await MainActor.run {
                         Logger(subsystem: "com.epistemos", category: "IMessageReplyDelegate")
-                            .error("imessage send failed: \(error.localizedDescription, privacy: .public)")
+                            .warning("\(channelID, privacy: .public) send chunk \(chunkIndex)/\(chunkCount) failed: \(errorDescription, privacy: .public)")
                     }
                 }
-                // Small inter-chunk delay so the messages arrive in order
-                // and don't trigger Messages.app rate limiting.
-                try? await Task.sleep(for: .milliseconds(250))
-            }
+            )
         }
     }
 
@@ -154,25 +136,24 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
         logger.error("Agent error: \(message, privacy: .public)")
         let contactHandle = self.contactHandle
         let vaultPath = self.vaultPath
-        let prefix = self.replyPrefix ?? ""
+        let replyChannel = self.replyChannel
+        let replyPrefix = self.replyPrefix
+        let channelID = replyChannel.channelID
         let errorBody = "Sorry, I hit an error: \(message)"
         Task.detached {
-            let payload: [String: Any] = [
-                "action": "send",
-                "to": contactHandle,
-                "message": prefix + errorBody,
-            ]
-            if let jsonData = try? JSONSerialization.data(withJSONObject: payload),
-               let jsonStr = String(data: jsonData, encoding: .utf8) {
-                #if canImport(agent_coreFFI)
-                _ = try? await executeToolCall(
-                    vaultPath: vaultPath,
-                    tier: "agent",
-                    toolName: "imessage",
-                    inputJson: jsonStr
-                )
-                #endif
-            }
+            await DriverChannelReplyTransport.sendChunkedReply(
+                errorBody,
+                to: contactHandle,
+                vaultPath: vaultPath,
+                replyPrefix: replyPrefix,
+                over: replyChannel,
+                onSendError: { chunkIndex, chunkCount, errorDescription in
+                    await MainActor.run {
+                        Logger(subsystem: "com.epistemos", category: "IMessageReplyDelegate")
+                            .warning("\(channelID, privacy: .public) error send chunk \(chunkIndex)/\(chunkCount) failed: \(errorDescription, privacy: .public)")
+                    }
+                }
+            )
         }
     }
 
@@ -184,10 +165,23 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
     }
 
     func waitForPermission(permissionId: String) -> Bool {
-        // Auto-approve all tools whose tier is already allowed; fall back
-        // to the contact's auto_approve flag for anything that requires
-        // explicit approval.
-        return autoApproveModifications
+        permissionLock.lock()
+        let request = pendingPermissionRequests.removeValue(forKey: permissionId)
+        permissionLock.unlock()
+
+        guard let request else {
+            return false
+        }
+
+        switch request.permissionCategory {
+        case .genericRead:
+            return true
+        case .localDataRead, .localDataWrite, .destructive:
+            logger.warning("Denying \(request.toolName, privacy: .public) because it requires on-device human approval.")
+            return false
+        case .modification:
+            return autoApproveModifications
+        }
     }
 
     func askUserQuestion(questionJson: String) -> String {
@@ -221,18 +215,5 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
 
     func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String {
         "{\"success\":false,\"error\":\"inline_partner disabled in iMessage driver\"}"
-    }
-
-    // MARK: - Helpers
-
-    /// Break a long reply into iMessage-safe chunks at paragraph boundaries.
-    private static func chunk(_ text: String, maxLength: Int) -> [String] {
-        LocalReplyAccumulator.chunk(text, maxLength: maxLength)
-    }
-
-    /// Strip markdown emphasis / headings / code fences so the reply reads
-    /// cleanly in the iMessage conversation view.
-    private static func stripMarkdown(_ text: String) -> String {
-        LocalReplyAccumulator.stripMarkdown(text)
     }
 }

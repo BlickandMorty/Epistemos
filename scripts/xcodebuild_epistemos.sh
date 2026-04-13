@@ -6,10 +6,35 @@ set -euo pipefail
 # command declares an Output directory they never create. The plugin only honors
 # DISABLE_SWIFTLINT when it is present in the process environment, not as an
 # xcodebuild build setting.
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 local_model_sweep_override_file="/tmp/epi-local-model-sweep-models.txt"
 local_model_sweep_override_backup=""
 cleanup_deriveddata_epistemos=0
 main_invocation_is_package_resolution=0
+main_invocation_is_test_like=0
+result_bundle_path=""
+extra_xcodebuild_args=()
+
+argument_present() {
+  local expected="$1"
+  shift
+  local arg
+  for arg in "$@"; do
+    if [[ "${arg}" == "${expected}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+append_default_xcodebuild_arg() {
+  local expected="$1"
+  shift
+  if argument_present "${expected}" "$@"; then
+    return 0
+  fi
+  extra_xcodebuild_args+=("${expected}")
+}
 
 cleanup_deriveddata_epistemos_processes() {
   local pids
@@ -101,12 +126,15 @@ resolve_package_dependencies() {
     return
   fi
 
-  env DISABLE_SWIFTLINT=1 xcodebuild "${resolve_args[@]}" -resolvePackageDependencies
+  xcodebuild "${resolve_args[@]}" -resolvePackageDependencies
 }
 
 for arg in "$@"; do
   if [[ "${arg}" == "-resolvePackageDependencies" ]]; then
     main_invocation_is_package_resolution=1
+  fi
+  if [[ "${arg}" == "test" || "${arg}" == "build-for-testing" || "${arg}" == "test-without-building" ]]; then
+    main_invocation_is_test_like=1
   fi
   if [[ "${arg}" == *"LocalModelReleaseSweepTests"* ]]; then
     cleanup_deriveddata_epistemos=1
@@ -130,8 +158,31 @@ if [[ "${cleanup_deriveddata_epistemos}" == "1" ]]; then
   cleanup_deriveddata_epistemos_processes
 fi
 
+export DISABLE_SWIFTLINT=1
+
+if [[ "${main_invocation_is_package_resolution}" != "1" ]]; then
+  append_default_xcodebuild_arg "-disableAutomaticPackageResolution" "$@"
+  append_default_xcodebuild_arg "-onlyUsePackageVersionsFromResolvedFile" "$@"
+  append_default_xcodebuild_arg "-skipPackagePluginValidation" "$@"
+  append_default_xcodebuild_arg "-skipMacroValidation" "$@"
+  append_default_xcodebuild_arg "-hideShellScriptEnvironment" "$@"
+fi
+
+if [[ "${main_invocation_is_test_like}" == "1" ]]; then
+  if ! argument_present "-collect-test-diagnostics" "$@"; then
+    extra_xcodebuild_args+=("-collect-test-diagnostics" "never")
+  fi
+fi
+
+if [[ "${main_invocation_is_test_like}" == "1" ]] && ! argument_present "-resultBundlePath" "$@"; then
+  mkdir -p "${ROOT_DIR}/build/xcode-results"
+  result_bundle_path="${ROOT_DIR}/build/xcode-results/$(date +%F-%H%M%S)-$$.xcresult"
+  rm -rf "${result_bundle_path}"
+  extra_xcodebuild_args+=("-resultBundlePath" "${result_bundle_path}")
+fi
+
 if [[ "${main_invocation_is_package_resolution}" != "1" ]]; then
   resolve_package_dependencies "$@"
 fi
 
-env DISABLE_SWIFTLINT=1 xcodebuild "$@"
+xcodebuild "$@" "${extra_xcodebuild_args[@]}"

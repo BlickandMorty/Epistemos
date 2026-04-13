@@ -594,10 +594,7 @@ mod tests {
             .await
             .unwrap();
 
-        let all = handler
-            .execute(&json!({ "action": "list" }))
-            .await
-            .unwrap();
+        let all = handler.execute(&json!({ "action": "list" })).await.unwrap();
         let all_parsed: Value = serde_json::from_str(&all).unwrap();
         assert_eq!(all_parsed["count"], json!(2));
 

@@ -12,11 +12,14 @@ struct SettingsView: View {
 
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
+        case channels = "Channels"
         case cognitive = "Cognitive"
         case inference = "Inference"
         case knowledgeFusion = "Knowledge Fusion (Experimental)"
         case modelVaults = "Model Vaults"
         case iMessageDriver = "iMessage Driver"
+        case skills = "Skills"
+        case agentControl = "Agent Control"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -25,11 +28,14 @@ struct SettingsView: View {
 
         static let visibleSections: [SettingsSection] = [
             .general,
+            .channels,
             .cognitive,
             .inference,
             .knowledgeFusion,
             .modelVaults,
             .iMessageDriver,
+            .skills,
+            .agentControl,
             .landing,
             .appearance,
             .vault,
@@ -38,11 +44,14 @@ struct SettingsView: View {
         var icon: String {
             switch self {
             case .general: "gearshape"
+            case .channels: "point.3.connected.trianglepath.dotted"
             case .cognitive: "brain"
             case .inference: "cpu"
             case .knowledgeFusion: "brain.head.profile.fill"
             case .modelVaults: "tray.2.fill"
             case .iMessageDriver: "message.badge.fill"
+            case .skills: "shippingbox.fill"
+            case .agentControl: "slider.horizontal.3"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -84,11 +93,14 @@ struct SettingsView: View {
     private var settingsDetail: some View {
         switch selection {
         case .general: GeneralDetailView()
+        case .channels: ChannelsDetailView()
         case .cognitive: CognitiveSettingsSection()
         case .inference: InferenceDetailView()
         case .knowledgeFusion: KnowledgeFusionDetailView()
         case .modelVaults: ModelVaultsSettingsView()
         case .iMessageDriver: iMessageDriverDetailView()
+        case .skills: SkillsDetailView()
+        case .agentControl: AgentControlDetailView()
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()
@@ -670,7 +682,7 @@ private struct InferenceDetailView: View {
 
             Section {
                 SettingsDescriptionText(
-                    text: "Routing decides which model path handles each request. Local Qwen is the main reasoning path, while lightweight Apple Intelligence work can be used when the selected routing mode allows it."
+                    text: "Routing decides which local path handles each request. The prepared or installed local runtime stays primary, while Apple Intelligence remains an optional explicit fallback when you want it."
                 )
                 Picker(
                     "Routing Mode",
@@ -691,7 +703,7 @@ private struct InferenceDetailView: View {
 
                 if inference.appleIntelligenceAvailable {
                     Label(
-                        "Apple Intelligence available for lightweight on-device work",
+                        "Apple Intelligence available as an optional on-device fallback",
                         systemImage: "apple.intelligence"
                     )
                     .font(.caption)
@@ -706,8 +718,9 @@ private struct InferenceDetailView: View {
                     CloudHintPopover(
                         title: "Routing",
                         bulletPoints: [
-                            "Auto keeps Apple Intelligence available for the lightest local work.",
-                            "Local Only bypasses Apple Intelligence and keeps every request on your installed local models.",
+                            "Auto keeps the prepared or installed local runtime primary for normal chat and generation work.",
+                            "Apple Intelligence still appears as an explicit choice when it is available on this Mac.",
+                            "Local Only bypasses Apple Intelligence and keeps every request on your prepared or installed local runtime.",
                             "Cloud enablement is separate and lives below in the cloud workspace controls.",
                         ],
                         footnote: "Routing changes the local path first; cloud can still be disabled entirely.",
@@ -741,13 +754,30 @@ private struct InferenceDetailView: View {
                     Text(localModelManager.hardwareSummary)
                         .font(.system(size: 12, design: .monospaced))
                 }
-                LabeledContent("Installed") {
+                LabeledContent("Availability") {
                     Text(inference.localModelInstallStateSummary.displayName)
                         .font(.system(size: 12, weight: .medium))
                 }
                 LabeledContent("Active Tier") {
                     Text(activeLocalModelDisplayName)
                         .font(.system(size: 12, weight: .medium))
+                }
+                LabeledContent("Runtime Status") {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(inference.localRuntimeStatusSummary)
+                            .font(.system(size: 12, weight: .medium))
+                        if let detail = inference.localRuntimeStatusDetail {
+                            Text(detail)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                if let lastRunSummary = inference.localRuntimeLastRunSummary {
+                    LabeledContent("Last Local Run") {
+                        Text(lastRunSummary)
+                            .font(.system(size: 11, design: .monospaced))
+                    }
                 }
                 LabeledContent("Storage") {
                     Text(ByteCountFormatter.string(fromByteCount: localModelManager.totalInstalledStorageBytes, countStyle: .file))
@@ -1923,6 +1953,10 @@ private struct LocalModelRow: View {
                     ProgressView(value: progress)
                         .controlSize(.small)
                         .frame(maxWidth: 200)
+                } else if case .prepared = state {
+                    Text("Prepared runtime assets are already available for this tier. Install the snapshot only if you want a separate fallback copy.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 } else if case .blocked(let reason) = state {
                     Text(blockedGuidance(for: reason))
                         .font(.caption)
@@ -1954,6 +1988,12 @@ private struct LocalModelRow: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 }
+            case .prepared:
+                Button("Install Snapshot") {
+                    Task { try? await localModelManager.install(modelID: descriptor.id) }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             case .installing:
                 ProgressView()
                     .controlSize(.small)

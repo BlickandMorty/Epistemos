@@ -34,7 +34,11 @@ impl VaultRegistry {
         Self::default()
     }
 
-    pub fn register(&mut self, identity: VaultIdentity, path: impl Into<PathBuf>) -> Option<PathBuf> {
+    pub fn register(
+        &mut self,
+        identity: VaultIdentity,
+        path: impl Into<PathBuf>,
+    ) -> Option<PathBuf> {
         self.entries.insert(identity, path.into())
     }
 
@@ -128,8 +132,14 @@ mod tests {
     fn vault_registry_list_sorts_by_priority() {
         let mut registry = VaultRegistry::new();
         registry.register(VaultIdentity::Personal, "/vaults/personal");
-        registry.register(VaultIdentity::Model("claude".into()), "/vaults/models/claude");
-        registry.register(VaultIdentity::Agent("research".into()), "/vaults/agents/research");
+        registry.register(
+            VaultIdentity::Model("claude".into()),
+            "/vaults/models/claude",
+        );
+        registry.register(
+            VaultIdentity::Agent("research".into()),
+            "/vaults/agents/research",
+        );
 
         let identities = registry
             .list()
@@ -151,7 +161,10 @@ mod tests {
     fn merge_vaults_preserves_priority_and_deduplicates_paths() {
         let mut registry = VaultRegistry::new();
         registry.register(VaultIdentity::Personal, "/vaults/shared");
-        registry.register(VaultIdentity::Model("claude".into()), "/vaults/models/claude");
+        registry.register(
+            VaultIdentity::Model("claude".into()),
+            "/vaults/models/claude",
+        );
         registry.register(VaultIdentity::Agent("research".into()), "/vaults/shared");
 
         let merged = registry.merge_vaults(&[
@@ -167,6 +180,9 @@ mod tests {
                 PathBuf::from("/vaults/models/claude"),
             ]
         );
-        assert_eq!(merged.ordered_entries[0].0, VaultIdentity::Agent("research".into()));
+        assert_eq!(
+            merged.ordered_entries[0].0,
+            VaultIdentity::Agent("research".into())
+        );
     }
 }

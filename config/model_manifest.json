@@ -3,9 +3,32 @@
   "defaults": {
     "prepared_root": "~/Library/Application Support/Epistemos/PreparedModels",
     "download_root": "~/Library/Application Support/Epistemos/PreparedModels/downloads",
-    "target_hardware": "18GB-class Apple Silicon"
+    "target_hardware": "18GB-class Apple Silicon",
+    "generation_budget_bytes": 18000000000,
+    "generation_os_reserve_bytes": 3500000000,
+    "generation_kv_cache_bytes": 500000000,
+    "generation_lora_intermediate_bytes": 150000000,
+    "generation_headroom_bytes": 1200000000
   },
   "models": {
+    "generator_primary": {
+      "role": "generator",
+      "display_name": "Qwen 3.5 35B-A3B APEXMini",
+      "runtime_kind": "gguf",
+      "artifact_id": "qwen35-35b-a3b-apexmini",
+      "model_id": "mlx-community/Qwen3.5-35B-A3B-4bit",
+      "served_model_id": "mlx-community/Qwen3.5-35B-A3B-4bit",
+      "mlx_output_path": "~/Library/Application Support/Epistemos/PreparedModels/generation/qwen35-35b-a3b-apexmini/source",
+      "status": "missing"
+    },
+    "generator_speculative_draft": {
+      "role": "draft_generator",
+      "display_name": "Qwen 2.5 0.5B Instruct Draft",
+      "model_id": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+      "served_model_id": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+      "mlx_output_path": "~/Library/Application Support/Epistemos/PreparedModels/generation/qwen25-0_5b-instruct-draft/source",
+      "status": "missing"
+    },
     "retriever_primary": {
       "role": "retriever",
       "display_name": "BAAI BGE-M3",

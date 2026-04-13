@@ -570,6 +570,7 @@ impl ToolRegistry {
     }
 
     fn register_phase_six_imessage(&mut self) {
+        use crate::tools::channel_contacts::{channel_contacts_schema, ChannelContactsHandler};
         use crate::tools::imessage::{imessage_schema, IMessageHandler};
         use crate::tools::imessage_contacts::{imessage_contacts_schema, IMessageContactsHandler};
 
@@ -595,6 +596,16 @@ impl ToolRegistry {
             risk_level: RiskLevel::Modification,
             // Configurable from Chat Pro so the Pro chat agent can set up
             // the contact routing during conversation.
+            tier: ToolTier::ChatPro,
+        });
+
+        let channel_contacts = channel_contacts_schema();
+        self.register(RegisteredTool {
+            name: channel_contacts.name,
+            description: channel_contacts.description,
+            parameters: channel_contacts.parameters,
+            handler: Box::new(ChannelContactsHandler),
+            risk_level: RiskLevel::Modification,
             tier: ToolTier::ChatPro,
         });
     }

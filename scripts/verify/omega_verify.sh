@@ -21,6 +21,9 @@ PASS=0
 FAIL=0
 WARN=0
 EVIDENCE=""
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+XCODEBUILD_WRAPPER="${ROOT_DIR}/scripts/xcodebuild_epistemos.sh"
+OMEGA_VERIFY_DERIVED_DATA="${OMEGA_VERIFY_DERIVED_DATA:-${ROOT_DIR}/build/omega-verify-derived-data}"
 
 red()   { printf "\033[31m%s\033[0m\n" "$*"; }
 green() { printf "\033[32m%s\033[0m\n" "$*"; }
@@ -117,8 +120,9 @@ run_cargo_test_manifest() {
 run_swift_build_check() {
   local label="$1"
   local output
-  if output=$(xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos \
-    -destination 'platform=macOS' build 2>&1); then
+  if output=$("${XCODEBUILD_WRAPPER}" -quiet -project Epistemos.xcodeproj -scheme Epistemos \
+    -destination 'platform=macOS' -derivedDataPath "${OMEGA_VERIFY_DERIVED_DATA}" \
+    CODE_SIGNING_ALLOWED=NO build 2>&1); then
     printf '%s\n' "$output" | tail -3
     check_pass "$label"
   else
@@ -365,8 +369,9 @@ layer_3() {
   bold "═══ LAYER 3B: SWIFT BUILD ═══"
 
   if command -v xcodebuild &>/dev/null && [ -f "Epistemos.xcodeproj/project.pbxproj" ]; then
-    if xcodebuild -project Epistemos.xcodeproj -scheme Epistemos \
-      -destination 'platform=macOS' build-for-testing 2>&1 | grep -q "BUILD SUCCEEDED"; then
+    if "${XCODEBUILD_WRAPPER}" -project Epistemos.xcodeproj -scheme Epistemos \
+      -destination 'platform=macOS' -derivedDataPath "${OMEGA_VERIFY_DERIVED_DATA}" \
+      CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | grep -q "BUILD SUCCEEDED"; then
       check_pass "Swift build-for-testing succeeded"
     else
       check_fail "Swift build-for-testing failed"
@@ -392,8 +397,9 @@ layer_3() {
     done
 
     local focused_output
-    focused_output=$(xcodebuild -project Epistemos.xcodeproj -scheme Epistemos \
-      -destination 'platform=macOS' test-without-building "${only_args[@]}" 2>&1)
+    focused_output=$("${XCODEBUILD_WRAPPER}" -project Epistemos.xcodeproj -scheme Epistemos \
+      -destination 'platform=macOS' -derivedDataPath "${OMEGA_VERIFY_DERIVED_DATA}" \
+      CODE_SIGNING_ALLOWED=NO test-without-building "${only_args[@]}" 2>&1)
     if echo "$focused_output" | grep -qE "TEST FAILED|TEST EXECUTE FAILED"; then
       check_fail "Focused agent tests failed"
     elif echo "$focused_output" | grep -qE "Test Suite.*passed|Test run with [0-9]+ tests passed|\\*\\* TEST EXECUTE SUCCEEDED \\*\\*"; then

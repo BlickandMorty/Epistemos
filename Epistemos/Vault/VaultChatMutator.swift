@@ -117,6 +117,7 @@ enum VaultChatMutatorError: LocalizedError {
     case emptyMessage
     case vaultUnavailable
     case nothingStaged
+    case fileOutsideRepositoryRoot
     case gitCommandFailed(String)
 
     var errorDescription: String? {
@@ -127,6 +128,8 @@ enum VaultChatMutatorError: LocalizedError {
             return "No vault is available for mutation."
         case .nothingStaged:
             return "There is no staged diff to approve."
+        case .fileOutsideRepositoryRoot:
+            return "Vault mutations must stay inside the attached vault root."
         case .gitCommandFailed(let output):
             return output.isEmpty ? "Git command failed." : output
         }
@@ -136,6 +139,7 @@ enum VaultChatMutatorError: LocalizedError {
 @MainActor @Observable
 final class VaultChatMutator {
     typealias VaultResolver = @Sendable (VaultIdentity) async throws -> URL
+    typealias ApprovalHandler = @MainActor (DiffResult) async throws -> Void
 
     var stagedDiff: DiffResult?
     var lastCommittedDiff: DiffResult?
@@ -148,6 +152,8 @@ final class VaultChatMutator {
 
     private let vaultResolver: VaultResolver
     private let io = VaultMutationIO()
+    @ObservationIgnored
+    private var stagedApprovalHandler: ApprovalHandler?
 
     init(
         vaultSync: VaultSyncService? = nil,
@@ -188,8 +194,7 @@ final class VaultChatMutator {
                 repositoryRootURL: repositoryRootURL,
                 agentReasoning: agentReasoning
             )
-            stagedDiff = diff
-            lastError = nil
+            stagePreparedDiff(diff, approvalHandler: nil)
 
             if autoCommitInAgentMode && diff.operation != .noop {
                 _ = try await approvePendingDiff()
@@ -212,6 +217,7 @@ final class VaultChatMutator {
             lastCommittedDiff = stagedDiff
             lastCommitReference = "noop"
             self.stagedDiff = nil
+            stagedApprovalHandler = nil
             return "noop"
         }
 
@@ -219,11 +225,15 @@ final class VaultChatMutator {
         defer { isCommitting = false }
 
         do {
+            if let stagedApprovalHandler {
+                try await stagedApprovalHandler(stagedDiff)
+            }
             let commitReference = try await io.commit(diff: stagedDiff)
             lastCommittedDiff = stagedDiff
             lastCommitReference = commitReference
             lastError = nil
             self.stagedDiff = nil
+            stagedApprovalHandler = nil
             return commitReference
         } catch {
             lastError = error.localizedDescription
@@ -233,6 +243,53 @@ final class VaultChatMutator {
 
     func rejectPendingDiff() {
         stagedDiff = nil
+        stagedApprovalHandler = nil
+    }
+
+    @discardableResult
+    func stageFileMutation(
+        targetVault: VaultIdentity,
+        repositoryRootURL: URL,
+        fileURL: URL,
+        before: String,
+        after: String,
+        summary: String,
+        rationale: String,
+        source: String,
+        scope: String = "VAULT",
+        approvalHandler: ApprovalHandler? = nil
+    ) async throws -> DiffResult {
+        isMutating = true
+        defer { isMutating = false }
+
+        do {
+            let diff = try await io.prepareFileMutation(
+                targetVault: targetVault,
+                repositoryRootURL: repositoryRootURL,
+                fileURL: fileURL,
+                before: before,
+                after: after,
+                summary: summary,
+                rationale: rationale,
+                source: source,
+                scope: scope,
+                agentReasoning: agentReasoning
+            )
+            stagePreparedDiff(diff, approvalHandler: approvalHandler)
+            return diff
+        } catch {
+            lastError = error.localizedDescription
+            throw error
+        }
+    }
+
+    private func stagePreparedDiff(
+        _ diff: DiffResult,
+        approvalHandler: ApprovalHandler?
+    ) {
+        stagedDiff = diff
+        stagedApprovalHandler = approvalHandler
+        lastError = nil
     }
 }
 
@@ -278,6 +335,7 @@ private actor VaultMutationIO {
         )
         let commitMessage = makeCommitMessage(
             operation: proposal.operation,
+            scope: "MEMORY",
             relativePath: relativePath,
             summary: proposal.summary,
             source: "vault-chat",
@@ -297,6 +355,56 @@ private actor VaultMutationIO {
             unifiedDiff: unifiedDiff,
             commitMessage: commitMessage,
             requiresApproval: proposal.operation != .noop
+        )
+    }
+
+    func prepareFileMutation(
+        targetVault: VaultIdentity,
+        repositoryRootURL: URL,
+        fileURL: URL,
+        before: String,
+        after: String,
+        summary: String,
+        rationale: String,
+        source: String,
+        scope: String,
+        agentReasoning: String?
+    ) throws -> DiffResult {
+        try FileManager.default.createDirectory(
+            at: repositoryRootURL,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+
+        let relativePath = try relativePath(for: fileURL, in: repositoryRootURL)
+        let operation = mutationOperation(old: before, new: after)
+        let unifiedDiff = makeUnifiedDiff(
+            old: before,
+            new: after,
+            relativePath: relativePath
+        )
+        let commitMessage = makeCommitMessage(
+            operation: operation,
+            scope: scope,
+            relativePath: relativePath,
+            summary: summary,
+            source: source,
+            reasoning: agentReasoning
+        )
+
+        return DiffResult(
+            targetVault: targetVault,
+            repositoryRootURL: repositoryRootURL,
+            fileURL: fileURL,
+            relativePath: relativePath,
+            operation: operation,
+            summary: summary,
+            rationale: rationale,
+            before: before,
+            after: after,
+            unifiedDiff: unifiedDiff,
+            commitMessage: commitMessage,
+            requiresApproval: operation != .noop
         )
     }
 
@@ -458,13 +566,14 @@ private actor VaultMutationIO {
 
     private func makeCommitMessage(
         operation: VaultMutationOperation,
+        scope: String,
         relativePath: String,
         summary: String,
         source: String,
         reasoning: String?
     ) -> String {
         var lines = [
-            "[MEMORY:\(operation.rawValue)] \(relativePath)",
+            "[\(scope):\(operation.rawValue)] \(relativePath)",
             "  - \(summary)",
             "  - source: \(source)",
             "  - strength: 1.0"
@@ -475,6 +584,31 @@ private actor VaultMutationIO {
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    private func mutationOperation(old: String, new: String) -> VaultMutationOperation {
+        if old == new {
+            return .noop
+        }
+        if old.isEmpty && !new.isEmpty {
+            return .add
+        }
+        if !old.isEmpty && new.isEmpty {
+            return .delete
+        }
+        return .update
+    }
+
+    private func relativePath(for fileURL: URL, in repositoryRootURL: URL) throws -> String {
+        let rootPath = repositoryRootURL.standardizedFileURL.path
+        let filePath = fileURL.standardizedFileURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+
+        guard filePath.hasPrefix(prefix) else {
+            throw VaultChatMutatorError.fileOutsideRepositoryRoot
+        }
+
+        return String(filePath.dropFirst(prefix.count))
     }
 
     private func ensureGitRepository(at rootURL: URL) async throws {
@@ -554,8 +688,8 @@ private actor VaultMutationIO {
 
 struct DiffApprovalSheet: View {
     let diffResult: DiffResult
-    let onApprove: @Sendable () -> Void
-    let onReject: @Sendable () -> Void
+    let onApprove: () -> Void
+    let onReject: () -> Void
 
     private var stats: DiffStats {
         LineDiff.compute(old: diffResult.before, new: diffResult.after).stats

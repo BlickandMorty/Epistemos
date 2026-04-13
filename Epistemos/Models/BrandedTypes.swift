@@ -71,6 +71,7 @@ enum NavTab: String, Codable, Sendable, CaseIterable {
 /// LLM providers
 enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     case appleIntelligence
+    case localGGUF
     case localMLX
     case openAI
     case anthropic
@@ -84,6 +85,7 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     nonisolated var displayName: String {
         switch self {
         case .appleIntelligence: "Apple Intelligence"
+        case .localGGUF: "Local GGUF"
         case .localMLX: "Local Model"
         case .openAI: "OpenAI"
         case .anthropic: "Anthropic"
@@ -99,6 +101,7 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     nonisolated var iconName: String {
         switch self {
         case .appleIntelligence: "apple.intelligence"
+        case .localGGUF: "shippingbox"
         case .localMLX: "memorychip"
         case .openAI: "sparkles.rectangle.stack"
         case .anthropic: "brain.head.profile"
@@ -114,6 +117,7 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     var badgeColor: Color {
         switch self {
         case .appleIntelligence: Color.purple
+        case .localGGUF: Color(red: 0.19, green: 0.58, blue: 0.64)
         case .localMLX: Color(red: 0.22, green: 0.64, blue: 0.78)
         case .openAI: Color(red: 0.07, green: 0.67, blue: 0.54)
         case .anthropic: Color(red: 0.77, green: 0.48, blue: 0.18)

@@ -1,5 +1,7 @@
 pub mod agent_loop;
+pub mod approval;
 pub mod bridge;
+pub mod channel_relay;
 pub mod compaction;
 pub mod context_compiler;
 pub mod context_loader;
@@ -47,12 +49,14 @@ pub mod storage {
 }
 
 pub mod shared_memory;
+pub mod tirith;
 
 pub mod mcp;
 
 pub mod tools {
     pub mod apple;
     pub mod browser;
+    pub mod channel_contacts;
     pub mod chunk_reduce;
     pub mod clarify;
     pub mod communication;

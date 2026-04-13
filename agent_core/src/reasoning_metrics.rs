@@ -87,7 +87,11 @@ pub fn compute_trajectory_metrics(
         let hash = simple_hash(&format!("{name}:{args}"));
         *call_hashes.entry(hash).or_insert(0) += 1;
     }
-    let loop_count: u32 = call_hashes.values().filter(|&&count| count >= 2).map(|c| c - 1).sum();
+    let loop_count: u32 = call_hashes
+        .values()
+        .filter(|&&count| count >= 2)
+        .map(|c| c - 1)
+        .sum();
 
     // Error count
     let error_count = tool_calls.iter().filter(|(_, _, _, err)| *err).count() as u32;
@@ -101,10 +105,7 @@ pub fn compute_trajectory_metrics(
 
     // Displacement: distance between first and last
     let displacement = if tool_calls.len() >= 2 {
-        jaccard_distance(
-            &tool_calls[0].2,
-            &tool_calls[tool_calls.len() - 1].2,
-        )
+        jaccard_distance(&tool_calls[0].2, &tool_calls[tool_calls.len() - 1].2)
     } else {
         0.5 // single call — assume moderate displacement
     };
@@ -188,9 +189,12 @@ mod tests {
 
     #[test]
     fn single_successful_call_is_efficient() {
-        let calls = vec![
-            ("vault_search".into(), "query".into(), "found 3 results about MOHAWK".into(), false),
-        ];
+        let calls = vec![(
+            "vault_search".into(),
+            "query".into(),
+            "found 3 results about MOHAWK".into(),
+            false,
+        )];
         let metrics = compute_trajectory_metrics(&calls);
         assert_eq!(metrics.classification, TrajectoryClassification::Efficient);
     }
@@ -198,10 +202,30 @@ mod tests {
     #[test]
     fn repeated_identical_calls_detect_loops() {
         let calls = vec![
-            ("vault_search".into(), "query".into(), "result A".into(), false),
-            ("vault_search".into(), "query".into(), "result A".into(), false),
-            ("vault_search".into(), "query".into(), "result A".into(), false),
-            ("vault_search".into(), "query".into(), "result A".into(), false),
+            (
+                "vault_search".into(),
+                "query".into(),
+                "result A".into(),
+                false,
+            ),
+            (
+                "vault_search".into(),
+                "query".into(),
+                "result A".into(),
+                false,
+            ),
+            (
+                "vault_search".into(),
+                "query".into(),
+                "result A".into(),
+                false,
+            ),
+            (
+                "vault_search".into(),
+                "query".into(),
+                "result A".into(),
+                false,
+            ),
         ];
         let metrics = compute_trajectory_metrics(&calls);
         assert!(metrics.loop_count >= 3);
@@ -211,9 +235,24 @@ mod tests {
     #[test]
     fn diverse_calls_with_progress_are_efficient() {
         let calls = vec![
-            ("vault_search".into(), "MOHAWK".into(), "found training pipeline documentation".into(), false),
-            ("vault_read".into(), "MOHAWK/README.md".into(), "full content of training pipeline with 15 categories".into(), false),
-            ("vault_read".into(), "MOHAWK/eval.jsonl".into(), "evaluation results showing 92% accuracy on benchmark".into(), false),
+            (
+                "vault_search".into(),
+                "MOHAWK".into(),
+                "found training pipeline documentation".into(),
+                false,
+            ),
+            (
+                "vault_read".into(),
+                "MOHAWK/README.md".into(),
+                "full content of training pipeline with 15 categories".into(),
+                false,
+            ),
+            (
+                "vault_read".into(),
+                "MOHAWK/eval.jsonl".into(),
+                "evaluation results showing 92% accuracy on benchmark".into(),
+                false,
+            ),
         ];
         let metrics = compute_trajectory_metrics(&calls);
         assert_eq!(metrics.loop_count, 0);

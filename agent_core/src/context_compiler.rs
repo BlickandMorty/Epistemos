@@ -190,8 +190,10 @@ fn load_skill_summaries(vault_path: &Path) -> Result<Vec<String>, ContextCompile
     skill_paths
         .into_iter()
         .map(|path| {
-            let content = fs::read_to_string(&path)
-                .map_err(|source| ContextCompilerError::Io { path: path.clone(), source })?;
+            let content = fs::read_to_string(&path).map_err(|source| ContextCompilerError::Io {
+                path: path.clone(),
+                source,
+            })?;
             let summary = content
                 .lines()
                 .filter(|line| !line.trim().is_empty())
@@ -328,7 +330,11 @@ fn excerpt(content: &str, max_chars: usize) -> String {
 }
 
 fn trim_whitespace(compiled: &mut CompiledContext) {
-    compiled.system_prompt = compiled.system_prompt.split_whitespace().collect::<Vec<_>>().join(" ");
+    compiled.system_prompt = compiled
+        .system_prompt
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     for section in [
         &mut compiled.tools,
         &mut compiled.skills,
@@ -352,8 +358,16 @@ fn summarize_conversation(compiled: &mut CompiledContext) {
     if compiled.conversation_history.len() <= 2 {
         return;
     }
-    let first = compiled.conversation_history.first().cloned().unwrap_or_default();
-    let last = compiled.conversation_history.last().cloned().unwrap_or_default();
+    let first = compiled
+        .conversation_history
+        .first()
+        .cloned()
+        .unwrap_or_default();
+    let last = compiled
+        .conversation_history
+        .last()
+        .cloned()
+        .unwrap_or_default();
     compiled.conversation_history = vec![
         first,
         format!(
@@ -369,15 +383,11 @@ fn reduce_memory(compiled: &mut CompiledContext) {
         return;
     }
     let original = compiled.memory.clone();
-    compiled.memory.retain(|entry| {
-        entry.contains("[strength:high]") || entry.contains("[strength:critical]")
-    });
+    compiled
+        .memory
+        .retain(|entry| entry.contains("[strength:high]") || entry.contains("[strength:critical]"));
     if compiled.memory.is_empty() {
-        compiled.memory = original
-            .iter()
-            .take(3)
-            .cloned()
-            .collect::<Vec<_>>();
+        compiled.memory = original.iter().take(3).cloned().collect::<Vec<_>>();
     }
 }
 
@@ -398,7 +408,11 @@ fn hard_cap(compiled: &mut CompiledContext, max_chars: usize) {
     }
 
     if compiled.conversation_history.len() > 1 {
-        let last = compiled.conversation_history.last().cloned().unwrap_or_default();
+        let last = compiled
+            .conversation_history
+            .last()
+            .cloned()
+            .unwrap_or_default();
         compiled.conversation_history = vec![
             format!(
                 "[summary of {} earlier turns omitted for budget]",
@@ -461,24 +475,42 @@ mod tests {
     fn context_compiler_respects_cache_optimal_order() {
         let root = temp_root("context-compiler-order");
         fs::write(root.join("SYSTEM.md"), "System rules").unwrap();
-        fs::write(root.join("MEMORY.md"), "## Durable Facts\n[strength:high] Memory A").unwrap();
+        fs::write(
+            root.join("MEMORY.md"),
+            "## Durable Facts\n[strength:high] Memory A",
+        )
+        .unwrap();
         fs::write(
             root.join("EXAMPLES.md"),
             "Example one\n---\nA longer example that should appear after the shorter one",
         )
         .unwrap();
         fs::create_dir_all(root.join("skills")).unwrap();
-        fs::write(root.join("skills/research.md"), "# Research\nUse primary sources").unwrap();
-        fs::write(root.join("topic.md"), "Primary sources are preferred for evidence review.").unwrap();
+        fs::write(
+            root.join("skills/research.md"),
+            "# Research\nUse primary sources",
+        )
+        .unwrap();
+        fs::write(
+            root.join("topic.md"),
+            "Primary sources are preferred for evidence review.",
+        )
+        .unwrap();
 
         let compiled = ContextCompiler::new(VaultIdentity::Personal)
             .compile("primary sources", "claude-sonnet", &root)
             .unwrap();
         let prompt = compiled.assembled_prompt();
 
-        assert!(prompt.find("## Tool Definitions").unwrap() < prompt.find("## System Prompt").unwrap());
-        assert!(prompt.find("## System Prompt").unwrap() < prompt.find("## Skill Context").unwrap());
-        assert!(prompt.find("## Skill Context").unwrap() < prompt.find("## Memory Context").unwrap());
+        assert!(
+            prompt.find("## Tool Definitions").unwrap() < prompt.find("## System Prompt").unwrap()
+        );
+        assert!(
+            prompt.find("## System Prompt").unwrap() < prompt.find("## Skill Context").unwrap()
+        );
+        assert!(
+            prompt.find("## Skill Context").unwrap() < prompt.find("## Memory Context").unwrap()
+        );
         assert_eq!(compiled.cache_breakpoints, vec![4, 5]);
     }
 
@@ -495,7 +527,11 @@ mod tests {
             "## Durable Facts\n[strength:low] old note\n---\n[strength:high] anchor fact",
         )
         .unwrap();
-        fs::write(root.join("EXAMPLES.md"), "Example A\n---\nExample B\n---\nExample C").unwrap();
+        fs::write(
+            root.join("EXAMPLES.md"),
+            "Example A\n---\nExample B\n---\nExample C",
+        )
+        .unwrap();
 
         let compiled = ContextCompiler::new(VaultIdentity::Personal)
             .with_max_context_chars(900)
@@ -503,7 +539,10 @@ mod tests {
             .unwrap();
 
         assert!(compiled.assembled_prompt().len() <= 900);
-        assert!(compiled.conversation_history.iter().any(|entry| entry.contains("summary")));
+        assert!(compiled
+            .conversation_history
+            .iter()
+            .any(|entry| entry.contains("summary")));
         assert!(compiled.few_shot_examples.len() <= 1);
     }
 

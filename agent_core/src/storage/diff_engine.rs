@@ -129,7 +129,9 @@ pub fn apply_text_patch(original: &str, diff: &UnifiedDiff) -> Result<String, Di
 }
 
 fn normalize_diff_line(line: String) -> String {
-    line.trim_end_matches('\n').trim_end_matches('\r').to_string()
+    line.trim_end_matches('\n')
+        .trim_end_matches('\r')
+        .to_string()
 }
 
 fn to_unified_start(start: usize, count: usize) -> usize {
@@ -327,8 +329,10 @@ mod tests {
     fn diff_engine_applies_patch_when_context_shifted_by_three_lines() {
         let old = "header\nalpha\nbeta\ngamma\n";
         let new = "header\nalpha\nbeta revised\ngamma\n";
-        let shifted_original = "preamble one\npreamble two\npreamble three\nheader\nalpha\nbeta\ngamma\n";
-        let shifted_expected = "preamble one\npreamble two\npreamble three\nheader\nalpha\nbeta revised\ngamma\n";
+        let shifted_original =
+            "preamble one\npreamble two\npreamble three\nheader\nalpha\nbeta\ngamma\n";
+        let shifted_expected =
+            "preamble one\npreamble two\npreamble three\nheader\nalpha\nbeta revised\ngamma\n";
 
         let diff = generate_text_diff(old, new);
         let applied = apply_text_patch(shifted_original, &diff).expect("fuzzy patch should apply");

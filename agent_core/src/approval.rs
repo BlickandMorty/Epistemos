@@ -37,49 +37,197 @@ pub enum RiskLevel {
 
 const DANGEROUS_PATTERNS: &[DangerPattern] = &[
     // Critical: filesystem destruction
-    DangerPattern { pattern: "rm -rf /", level: RiskLevel::Critical, reason: "Recursive deletion of root filesystem" },
-    DangerPattern { pattern: "rm -rf ~", level: RiskLevel::Critical, reason: "Recursive deletion of home directory" },
-    DangerPattern { pattern: "rm -rf /*", level: RiskLevel::Critical, reason: "Recursive deletion from root" },
-    DangerPattern { pattern: "mkfs", level: RiskLevel::Critical, reason: "Filesystem formatting" },
-    DangerPattern { pattern: "dd if=/dev/zero of=/dev/sd", level: RiskLevel::Critical, reason: "Raw disk destruction" },
-    DangerPattern { pattern: "dd if=/dev/random of=/dev/sd", level: RiskLevel::Critical, reason: "Raw disk destruction" },
-    DangerPattern { pattern: "> /dev/sda", level: RiskLevel::Critical, reason: "Direct disk write" },
-    DangerPattern { pattern: "diskutil eraseDisk", level: RiskLevel::Critical, reason: "Disk erasure" },
-    DangerPattern { pattern: "diskutil eraseVolume", level: RiskLevel::Critical, reason: "Volume erasure" },
+    DangerPattern {
+        pattern: "rm -rf /",
+        level: RiskLevel::Critical,
+        reason: "Recursive deletion of root filesystem",
+    },
+    DangerPattern {
+        pattern: "rm -rf ~",
+        level: RiskLevel::Critical,
+        reason: "Recursive deletion of home directory",
+    },
+    DangerPattern {
+        pattern: "rm -rf /*",
+        level: RiskLevel::Critical,
+        reason: "Recursive deletion from root",
+    },
+    DangerPattern {
+        pattern: "mkfs",
+        level: RiskLevel::Critical,
+        reason: "Filesystem formatting",
+    },
+    DangerPattern {
+        pattern: "dd if=/dev/zero of=/dev/sd",
+        level: RiskLevel::Critical,
+        reason: "Raw disk destruction",
+    },
+    DangerPattern {
+        pattern: "dd if=/dev/random of=/dev/sd",
+        level: RiskLevel::Critical,
+        reason: "Raw disk destruction",
+    },
+    DangerPattern {
+        pattern: "> /dev/sda",
+        level: RiskLevel::Critical,
+        reason: "Direct disk write",
+    },
+    DangerPattern {
+        pattern: "diskutil eraseDisk",
+        level: RiskLevel::Critical,
+        reason: "Disk erasure",
+    },
+    DangerPattern {
+        pattern: "diskutil eraseVolume",
+        level: RiskLevel::Critical,
+        reason: "Volume erasure",
+    },
     // High: privilege escalation / system modification
-    DangerPattern { pattern: "chmod -R 777", level: RiskLevel::High, reason: "World-writable recursive permissions" },
-    DangerPattern { pattern: "chmod -R 000", level: RiskLevel::High, reason: "Permission removal" },
-    DangerPattern { pattern: "chmod u+s", level: RiskLevel::High, reason: "SetUID bit manipulation" },
-    DangerPattern { pattern: "chown -R", level: RiskLevel::High, reason: "Recursive ownership change" },
-    DangerPattern { pattern: "kill -9 1", level: RiskLevel::High, reason: "Kill init/launchd" },
-    DangerPattern { pattern: "killall", level: RiskLevel::High, reason: "Mass process termination" },
-    DangerPattern { pattern: "shutdown", level: RiskLevel::High, reason: "System shutdown" },
-    DangerPattern { pattern: "reboot", level: RiskLevel::High, reason: "System reboot" },
-    DangerPattern { pattern: "halt", level: RiskLevel::High, reason: "System halt" },
+    DangerPattern {
+        pattern: "chmod -R 777",
+        level: RiskLevel::High,
+        reason: "World-writable recursive permissions",
+    },
+    DangerPattern {
+        pattern: "chmod -R 000",
+        level: RiskLevel::High,
+        reason: "Permission removal",
+    },
+    DangerPattern {
+        pattern: "chmod u+s",
+        level: RiskLevel::High,
+        reason: "SetUID bit manipulation",
+    },
+    DangerPattern {
+        pattern: "chown -R",
+        level: RiskLevel::High,
+        reason: "Recursive ownership change",
+    },
+    DangerPattern {
+        pattern: "kill -9 1",
+        level: RiskLevel::High,
+        reason: "Kill init/launchd",
+    },
+    DangerPattern {
+        pattern: "killall",
+        level: RiskLevel::High,
+        reason: "Mass process termination",
+    },
+    DangerPattern {
+        pattern: "shutdown",
+        level: RiskLevel::High,
+        reason: "System shutdown",
+    },
+    DangerPattern {
+        pattern: "reboot",
+        level: RiskLevel::High,
+        reason: "System reboot",
+    },
+    DangerPattern {
+        pattern: "halt",
+        level: RiskLevel::High,
+        reason: "System halt",
+    },
     // High: security bypass
-    DangerPattern { pattern: "csrutil disable", level: RiskLevel::High, reason: "Disable System Integrity Protection" },
-    DangerPattern { pattern: "nvram", level: RiskLevel::High, reason: "Firmware variable modification" },
-    DangerPattern { pattern: "bless", level: RiskLevel::High, reason: "Boot configuration modification" },
-    DangerPattern { pattern: "security find-generic-password", level: RiskLevel::High, reason: "Keychain password extraction" },
-    DangerPattern { pattern: "security dump-keychain", level: RiskLevel::High, reason: "Keychain dump" },
+    DangerPattern {
+        pattern: "csrutil disable",
+        level: RiskLevel::High,
+        reason: "Disable System Integrity Protection",
+    },
+    DangerPattern {
+        pattern: "nvram",
+        level: RiskLevel::High,
+        reason: "Firmware variable modification",
+    },
+    DangerPattern {
+        pattern: "bless",
+        level: RiskLevel::High,
+        reason: "Boot configuration modification",
+    },
+    DangerPattern {
+        pattern: "security find-generic-password",
+        level: RiskLevel::High,
+        reason: "Keychain password extraction",
+    },
+    DangerPattern {
+        pattern: "security dump-keychain",
+        level: RiskLevel::High,
+        reason: "Keychain dump",
+    },
     // Medium: remote code execution
-    DangerPattern { pattern: "curl.*|.*sh", level: RiskLevel::High, reason: "Pipe remote script to shell" },
-    DangerPattern { pattern: "curl.*|.*bash", level: RiskLevel::High, reason: "Pipe remote script to bash" },
-    DangerPattern { pattern: "wget.*|.*sh", level: RiskLevel::High, reason: "Pipe remote script to shell" },
-    DangerPattern { pattern: "wget.*|.*bash", level: RiskLevel::High, reason: "Pipe remote script to bash" },
+    DangerPattern {
+        pattern: "curl.*|.*sh",
+        level: RiskLevel::High,
+        reason: "Pipe remote script to shell",
+    },
+    DangerPattern {
+        pattern: "curl.*|.*bash",
+        level: RiskLevel::High,
+        reason: "Pipe remote script to bash",
+    },
+    DangerPattern {
+        pattern: "wget.*|.*sh",
+        level: RiskLevel::High,
+        reason: "Pipe remote script to shell",
+    },
+    DangerPattern {
+        pattern: "wget.*|.*bash",
+        level: RiskLevel::High,
+        reason: "Pipe remote script to bash",
+    },
     // Medium: package installation
-    DangerPattern { pattern: "pip install", level: RiskLevel::Medium, reason: "Python package installation" },
-    DangerPattern { pattern: "npm install -g", level: RiskLevel::Medium, reason: "Global npm package installation" },
-    DangerPattern { pattern: "brew install", level: RiskLevel::Medium, reason: "Homebrew package installation" },
-    DangerPattern { pattern: "cargo install", level: RiskLevel::Medium, reason: "Rust package installation" },
+    DangerPattern {
+        pattern: "pip install",
+        level: RiskLevel::Medium,
+        reason: "Python package installation",
+    },
+    DangerPattern {
+        pattern: "npm install -g",
+        level: RiskLevel::Medium,
+        reason: "Global npm package installation",
+    },
+    DangerPattern {
+        pattern: "brew install",
+        level: RiskLevel::Medium,
+        reason: "Homebrew package installation",
+    },
+    DangerPattern {
+        pattern: "cargo install",
+        level: RiskLevel::Medium,
+        reason: "Rust package installation",
+    },
     // Medium: network / remote access
-    DangerPattern { pattern: "ssh ", level: RiskLevel::Medium, reason: "SSH remote connection" },
-    DangerPattern { pattern: "scp ", level: RiskLevel::Medium, reason: "Remote file copy" },
-    DangerPattern { pattern: "nc -e", level: RiskLevel::High, reason: "Netcat reverse shell" },
-    DangerPattern { pattern: "nmap", level: RiskLevel::Medium, reason: "Network scanning" },
+    DangerPattern {
+        pattern: "ssh ",
+        level: RiskLevel::Medium,
+        reason: "SSH remote connection",
+    },
+    DangerPattern {
+        pattern: "scp ",
+        level: RiskLevel::Medium,
+        reason: "Remote file copy",
+    },
+    DangerPattern {
+        pattern: "nc -e",
+        level: RiskLevel::High,
+        reason: "Netcat reverse shell",
+    },
+    DangerPattern {
+        pattern: "nmap",
+        level: RiskLevel::Medium,
+        reason: "Network scanning",
+    },
     // Low: scripting / automation
-    DangerPattern { pattern: "osascript", level: RiskLevel::Medium, reason: "AppleScript execution" },
-    DangerPattern { pattern: "open -a Terminal", level: RiskLevel::Low, reason: "Opening Terminal app" },
+    DangerPattern {
+        pattern: "osascript",
+        level: RiskLevel::Medium,
+        reason: "AppleScript execution",
+    },
+    DangerPattern {
+        pattern: "open -a Terminal",
+        level: RiskLevel::Low,
+        reason: "Opening Terminal app",
+    },
 ];
 
 /// Check if a command matches any dangerous pattern.
@@ -98,7 +246,9 @@ pub fn check_patterns(command: &str) -> Vec<PatternMatch> {
     }
     // Also check pipe-to-shell with regex-like behavior
     if (normalized.contains("curl") || normalized.contains("wget"))
-        && (normalized.contains("| sh") || normalized.contains("| bash") || normalized.contains("| zsh"))
+        && (normalized.contains("| sh")
+            || normalized.contains("| bash")
+            || normalized.contains("| zsh"))
     {
         if !matches.iter().any(|m| m.reason.contains("Pipe remote")) {
             matches.push(PatternMatch {
@@ -159,12 +309,16 @@ impl ApprovalLists {
 
     pub fn is_allowed(&self, command: &str) -> bool {
         let normalized = command.to_lowercase();
-        self.allowlist.iter().any(|pat| normalized.contains(&pat.to_lowercase()))
+        self.allowlist
+            .iter()
+            .any(|pat| normalized.contains(&pat.to_lowercase()))
     }
 
     pub fn is_blocked(&self, command: &str) -> bool {
         let normalized = command.to_lowercase();
-        self.blocklist.iter().any(|pat| normalized.contains(&pat.to_lowercase()))
+        self.blocklist
+            .iter()
+            .any(|pat| normalized.contains(&pat.to_lowercase()))
     }
 }
 
@@ -228,7 +382,8 @@ pub struct SmartApproval {
 
 impl SmartApproval {
     pub fn new(config: SmartApprovalConfig, vault_root: Option<PathBuf>) -> Self {
-        let lists = vault_root.as_ref()
+        let lists = vault_root
+            .as_ref()
             .and_then(|root| ApprovalLists::load(root))
             .unwrap_or_default();
         let in_container = detect_container_environment();
@@ -256,6 +411,7 @@ impl SmartApproval {
 
         // Extract command from input for bash/shell tools
         let command = extract_command(tool_name, input_json);
+        let approval_key = approval_key(tool_name, input_json);
 
         // Check permanent blocklist
         {
@@ -274,17 +430,21 @@ impl SmartApproval {
 
         // Check session-level approvals
         {
-            let states = self.session_states.lock().unwrap_or_else(|e| e.into_inner());
+            let states = self
+                .session_states
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             if let Some(state) = states.get(session_id) {
-                if let Some(ref cmd) = command {
-                    if state.approved_this_session.contains(cmd) {
-                        return ApprovalDecision::AutoApprove;
-                    }
-                    if state.denied_this_session.contains(cmd) {
-                        return ApprovalDecision::Deny {
-                            reason: format!("Command was denied earlier this session: {}", cmd),
-                        };
-                    }
+                if state.approved_this_session.contains(&approval_key) {
+                    return ApprovalDecision::AutoApprove;
+                }
+                if state.denied_this_session.contains(&approval_key) {
+                    return ApprovalDecision::Deny {
+                        reason: format!(
+                            "Command was denied earlier this session: {}",
+                            approval_key
+                        ),
+                    };
                 }
             }
         }
@@ -293,9 +453,14 @@ impl SmartApproval {
         if let Some(ref cmd) = command {
             let pattern_matches = check_patterns(cmd);
             if !pattern_matches.is_empty() {
-                let max_level = pattern_matches.iter().map(|m| m.level).max().unwrap_or(RiskLevel::Safe);
+                let max_level = pattern_matches
+                    .iter()
+                    .map(|m| m.level)
+                    .max()
+                    .unwrap_or(RiskLevel::Safe);
                 if max_level >= self.config.min_trigger_level {
-                    let reasons: Vec<String> = pattern_matches.into_iter()
+                    let reasons: Vec<String> = pattern_matches
+                        .into_iter()
                         .map(|m| format!("{} (matched: {})", m.reason, m.matched_pattern))
                         .collect();
                     return ApprovalDecision::RequireApproval {
@@ -308,29 +473,38 @@ impl SmartApproval {
             // Tirith security scan (content-level threat detection)
             // Run in a blocking thread since we're in a sync context.
             let tirith_result = std::thread::scope(|s| {
-                s.spawn(|| {
-                    match tokio::runtime::Runtime::new() {
-                        Ok(rt) => rt.block_on(async {
-                            let mut client = crate::tirith::TirithClient::new();
-                            Some(client.scan_command(cmd).await)
-                        }),
-                        Err(_) => None,
-                    }
-                }).join().ok().flatten()
+                s.spawn(|| match tokio::runtime::Runtime::new() {
+                    Ok(rt) => rt.block_on(async {
+                        let mut client = crate::tirith::TirithClient::new();
+                        Some(client.scan_command(cmd).await)
+                    }),
+                    Err(_) => None,
+                })
+                .join()
+                .ok()
+                .flatten()
             });
 
             if let Some(result) = tirith_result {
                 if result.assessment.should_block() {
-                    let threat_desc: Vec<String> = result.threats.iter()
+                    let threat_desc: Vec<String> = result
+                        .threats
+                        .iter()
                         .map(|t| format!("{}: {}", t.category, t.description))
                         .collect();
                     return ApprovalDecision::Deny {
-                        reason: format!("Tirith security scan detected threats: {}", threat_desc.join("; ")),
+                        reason: format!(
+                            "Tirith security scan detected threats: {}",
+                            threat_desc.join("; ")
+                        ),
                     };
                 }
                 if result.assessment > crate::tirith::ThreatAssessment::Low {
                     return ApprovalDecision::RequireApproval {
-                        reason: format!("Tirith flagged suspicious content: {:?}", result.assessment),
+                        reason: format!(
+                            "Tirith flagged suspicious content: {:?}",
+                            result.assessment
+                        ),
                         risk_level: format!("{:?}", result.assessment).to_lowercase(),
                     };
                 }
@@ -343,25 +517,24 @@ impl SmartApproval {
                 // Already checked patterns above; if we got here, no dangerous patterns matched
                 ApprovalDecision::AutoApprove
             }
-            "vault_write" | "file_ops" => {
-                ApprovalDecision::RequireApproval {
-                    reason: "File modification operation".to_string(),
-                    risk_level: "medium".to_string(),
-                }
-            }
-            "execute_code" => {
-                ApprovalDecision::RequireApproval {
-                    reason: "Code execution in sandboxed environment".to_string(),
-                    risk_level: "high".to_string(),
-                }
-            }
+            "vault_write" | "file_ops" => ApprovalDecision::RequireApproval {
+                reason: "File modification operation".to_string(),
+                risk_level: "medium".to_string(),
+            },
+            "execute_code" => ApprovalDecision::RequireApproval {
+                reason: "Code execution in sandboxed environment".to_string(),
+                risk_level: "high".to_string(),
+            },
             _ => ApprovalDecision::AutoApprove,
         }
     }
 
     /// Record an approval decision for this session.
     pub fn record_decision(&self, session_id: &str, command: &str, approved: bool) {
-        let mut states = self.session_states.lock().unwrap_or_else(|e| e.into_inner());
+        let mut states = self
+            .session_states
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let state = states.entry(session_id.to_string()).or_default();
         if approved {
             state.approved_this_session.insert(command.to_string());
@@ -415,13 +588,22 @@ impl SmartApproval {
     }
 }
 
+pub fn approval_key(tool_name: &str, input_json: &str) -> String {
+    extract_command(tool_name, input_json).unwrap_or_else(|| format!("{tool_name}:{input_json}"))
+}
+
 /// Extract the command string from tool input JSON.
 fn extract_command(tool_name: &str, input_json: &str) -> Option<String> {
     if tool_name != "bash_execute" && tool_name != "shell" {
         return None;
     }
-    serde_json::from_str::<serde_json::Value>(input_json).ok()
-        .and_then(|v| v.get("command").and_then(serde_json::Value::as_str).map(String::from))
+    serde_json::from_str::<serde_json::Value>(input_json)
+        .ok()
+        .and_then(|v| {
+            v.get("command")
+                .and_then(serde_json::Value::as_str)
+                .map(String::from)
+        })
 }
 
 /// Detect if we're running inside a container.
@@ -432,14 +614,15 @@ fn detect_container_environment() -> bool {
     }
     // Check cgroup for docker/containerd
     if let Ok(contents) = std::fs::read_to_string("/proc/self/cgroup") {
-        if contents.contains("docker") || contents.contains("containerd") || contents.contains("kubepods") {
+        if contents.contains("docker")
+            || contents.contains("containerd")
+            || contents.contains("kubepods")
+        {
             return true;
         }
     }
     // Check for container-specific env vars
-    if std::env::var("KUBERNETES_SERVICE_HOST").is_ok()
-        || std::env::var("container").is_ok()
-    {
+    if std::env::var("KUBERNETES_SERVICE_HOST").is_ok() || std::env::var("container").is_ok() {
         return true;
     }
     false
@@ -499,7 +682,8 @@ mod tests {
     #[test]
     fn smart_approval_blocks_critical() {
         let approval = SmartApproval::new(SmartApprovalConfig::default(), None);
-        let decision = approval.assess("bash_execute", r#"{"command": "rm -rf /"}"#, "test_session");
+        let decision =
+            approval.assess("bash_execute", r#"{"command": "rm -rf /"}"#, "test_session");
         assert!(matches!(decision, ApprovalDecision::RequireApproval { .. }));
     }
 
@@ -512,22 +696,33 @@ mod tests {
 
     #[test]
     fn smart_approval_yolo_mode() {
-        let config = SmartApprovalConfig { yolo_mode: true, ..Default::default() };
+        let config = SmartApprovalConfig {
+            yolo_mode: true,
+            ..Default::default()
+        };
         let approval = SmartApproval::new(config, None);
-        let decision = approval.assess("bash_execute", r#"{"command": "rm -rf /"}"#, "test_session");
+        let decision =
+            approval.assess("bash_execute", r#"{"command": "rm -rf /"}"#, "test_session");
         assert_eq!(decision, ApprovalDecision::AutoApprove);
     }
 
     #[test]
     fn smart_approval_vault_write_requires_approval() {
         let approval = SmartApproval::new(SmartApprovalConfig::default(), None);
-        let decision = approval.assess("vault_write", r#"{"path": "test.md", "content": "hi"}"#, "test_session");
+        let decision = approval.assess(
+            "vault_write",
+            r#"{"path": "test.md", "content": "hi"}"#,
+            "test_session",
+        );
         assert!(matches!(decision, ApprovalDecision::RequireApproval { .. }));
     }
 
     #[test]
     fn extract_command_parses_json() {
-        let cmd = extract_command("bash_execute", r#"{"command": "echo hello", "timeout": 30}"#);
+        let cmd = extract_command(
+            "bash_execute",
+            r#"{"command": "echo hello", "timeout": 30}"#,
+        );
         assert_eq!(cmd, Some("echo hello".to_string()));
     }
 
@@ -535,7 +730,7 @@ mod tests {
     fn session_approval_persistence() {
         let approval = SmartApproval::new(SmartApprovalConfig::default(), None);
         approval.record_decision("sess_1", "git push", true);
-        
+
         // Second call should be auto-approved
         let decision = approval.assess("bash_execute", r#"{"command": "git push"}"#, "sess_1");
         assert_eq!(decision, ApprovalDecision::AutoApprove);
@@ -544,13 +739,16 @@ mod tests {
     #[test]
     fn allowlist_persistence() {
         let tmp = tempfile::tempdir().unwrap();
-        let approval = SmartApproval::new(SmartApprovalConfig::default(), Some(tmp.path().to_path_buf()));
-        
+        let approval = SmartApproval::new(
+            SmartApprovalConfig::default(),
+            Some(tmp.path().to_path_buf()),
+        );
+
         approval.add_to_allowlist("git status").unwrap();
-        
+
         let lists = approval.get_lists();
         assert!(lists.allowlist.contains("git status"));
-        
+
         // Should auto-approve based on allowlist
         let decision = approval.assess("bash_execute", r#"{"command": "git status"}"#, "sess_2");
         assert_eq!(decision, ApprovalDecision::AutoApprove);
@@ -559,11 +757,15 @@ mod tests {
     #[test]
     fn blocklist_blocks_permanently() {
         let tmp = tempfile::tempdir().unwrap();
-        let approval = SmartApproval::new(SmartApprovalConfig::default(), Some(tmp.path().to_path_buf()));
-        
+        let approval = SmartApproval::new(
+            SmartApprovalConfig::default(),
+            Some(tmp.path().to_path_buf()),
+        );
+
         approval.add_to_blocklist("rm -rf").unwrap();
-        
-        let decision = approval.assess("bash_execute", r#"{"command": "rm -rf somedir"}"#, "sess_1");
+
+        let decision =
+            approval.assess("bash_execute", r#"{"command": "rm -rf somedir"}"#, "sess_1");
         assert!(matches!(decision, ApprovalDecision::Deny { .. }));
     }
 }

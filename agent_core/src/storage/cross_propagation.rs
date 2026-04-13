@@ -59,10 +59,8 @@ pub fn generate_propagation_diffs(
             continue;
         }
 
-        let mut diff = generate_text_diff(
-            &format!("{matched_line}\n"),
-            &format!("{updated_line}\n"),
-        );
+        let mut diff =
+            generate_text_diff(&format!("{matched_line}\n"), &format!("{updated_line}\n"));
         rebase_diff_to_line(&mut diff, *line_number);
         diffs.push((path.clone(), diff));
     }
@@ -79,7 +77,10 @@ pub fn apply_atomic_propagation(
     }
 
     let mut originals = Vec::with_capacity(result.secondary_diffs.len() + 1);
-    originals.push((primary_path.to_path_buf(), std::fs::read_to_string(primary_path)?));
+    originals.push((
+        primary_path.to_path_buf(),
+        std::fs::read_to_string(primary_path)?,
+    ));
     for (path, _) in &result.secondary_diffs {
         originals.push((path.clone(), std::fs::read_to_string(path)?));
     }
@@ -118,7 +119,11 @@ fn rollback_originals(originals: &[(PathBuf, String)]) -> Result<(), std::io::Er
     Ok(())
 }
 
-fn scan_with_tantivy(changed_entity: &str, vault_root: &Path, exclude: &Path) -> Option<Vec<(PathBuf, String, usize)>> {
+fn scan_with_tantivy(
+    changed_entity: &str,
+    vault_root: &Path,
+    exclude: &Path,
+) -> Option<Vec<(PathBuf, String, usize)>> {
     let index_path = vault_root.join(".epistemos").join("tantivy");
     if !index_path.exists() {
         return None;
@@ -162,7 +167,11 @@ fn scan_with_tantivy(changed_entity: &str, vault_root: &Path, exclude: &Path) ->
     Some(references)
 }
 
-fn scan_with_filesystem(changed_entity: &str, vault_root: &Path, exclude: &Path) -> Vec<(PathBuf, String, usize)> {
+fn scan_with_filesystem(
+    changed_entity: &str,
+    vault_root: &Path,
+    exclude: &Path,
+) -> Vec<(PathBuf, String, usize)> {
     let mut references = Vec::new();
     let mut stack = vec![vault_root.to_path_buf()];
 
@@ -174,7 +183,10 @@ fn scan_with_filesystem(changed_entity: &str, vault_root: &Path, exclude: &Path)
 
         for entry in entries.flatten() {
             let path = entry.path();
-            let name = path.file_name().and_then(|value| value.to_str()).unwrap_or("");
+            let name = path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
             if name.starts_with('.') {
                 continue;
             }
@@ -184,7 +196,9 @@ fn scan_with_filesystem(changed_entity: &str, vault_root: &Path, exclude: &Path)
                 continue;
             }
 
-            if path.extension().and_then(|value| value.to_str()) != Some("md") || paths_match(&path, exclude) {
+            if path.extension().and_then(|value| value.to_str()) != Some("md")
+                || paths_match(&path, exclude)
+            {
                 continue;
             }
 
@@ -220,7 +234,9 @@ fn extract_replacements(diff: &UnifiedDiff) -> Vec<(String, String)> {
             match line {
                 DiffLine::Remove(text) => removed.push(text.clone()),
                 DiffLine::Add(text) => added.push(text.clone()),
-                DiffLine::Context(_) => flush_replacement(&mut replacements, &mut removed, &mut added),
+                DiffLine::Context(_) => {
+                    flush_replacement(&mut replacements, &mut removed, &mut added)
+                }
             }
         }
         flush_replacement(&mut replacements, &mut removed, &mut added);
@@ -300,16 +316,14 @@ mod tests {
             "Claude costs $15 per month.\n",
             "Claude costs $20 per month.\n",
         );
-        let references = scan_for_references("Claude costs $15 per month.", &vault_root, &primary_path);
+        let references =
+            scan_for_references("Claude costs $15 per month.", &vault_root, &primary_path);
         let diffs = generate_propagation_diffs(&primary_diff, &references);
 
         assert_eq!(diffs.len(), 1);
         let (_, diff) = &diffs[0];
-        let patched = apply_text_patch(
-            &std::fs::read_to_string(&reference_path).unwrap(),
-            diff,
-        )
-        .unwrap();
+        let patched =
+            apply_text_patch(&std::fs::read_to_string(&reference_path).unwrap(), diff).unwrap();
         assert!(patched.contains("Claude costs $20 per month."));
 
         std::fs::remove_dir_all(vault_root).unwrap();
@@ -323,7 +337,8 @@ mod tests {
         std::fs::write(&primary_path, "Claude costs $15 per month.\n").unwrap();
         std::fs::write(&unrelated_path, "Hermes is managed as a subprocess.\n").unwrap();
 
-        let references = scan_for_references("Claude costs $15 per month.", &vault_root, &primary_path);
+        let references =
+            scan_for_references("Claude costs $15 per month.", &vault_root, &primary_path);
 
         assert!(references.is_empty());
         std::fs::remove_dir_all(vault_root).unwrap();
@@ -344,7 +359,10 @@ mod tests {
             ),
             secondary_diffs: vec![(
                 secondary_path.clone(),
-                generate_text_diff("Claude costs $15 per month.\n", "Claude costs $20 per month.\n"),
+                generate_text_diff(
+                    "Claude costs $15 per month.\n",
+                    "Claude costs $20 per month.\n",
+                ),
             )],
             all_atomic: true,
         };

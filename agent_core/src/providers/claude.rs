@@ -64,8 +64,6 @@ impl ClaudeProvider {
     }
 }
 
-
-
 #[derive(Serialize)]
 struct ThinkingConfig {
     #[serde(rename = "type")]
@@ -93,20 +91,29 @@ impl ThinkingConfig {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum RawSseEvent {
-    MessageStart { message: MessageStartData },
+    MessageStart {
+        message: MessageStartData,
+    },
     ContentBlockStart {
         index: usize,
         content_block: ContentBlockStartData,
     },
-    ContentBlockDelta { index: usize, delta: DeltaData },
-    ContentBlockStop { index: usize },
+    ContentBlockDelta {
+        index: usize,
+        delta: DeltaData,
+    },
+    ContentBlockStop {
+        index: usize,
+    },
     MessageDelta {
         delta: MessageDeltaData,
         usage: Option<UsageData>,
     },
     MessageStop,
     Ping,
-    Error { error: ErrorData },
+    Error {
+        error: ErrorData,
+    },
 }
 
 #[derive(Deserialize, Debug)]
@@ -117,8 +124,13 @@ struct MessageStartData {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ContentBlockStartData {
-    Text { text: String },
-    Thinking { thinking: String, signature: String },
+    Text {
+        text: String,
+    },
+    Thinking {
+        thinking: String,
+        signature: String,
+    },
     ToolUse {
         id: String,
         name: String,
@@ -162,7 +174,10 @@ struct ErrorData {
 
 enum BlockInProgress {
     Text(String),
-    Thinking { text: String, signature: String },
+    Thinking {
+        text: String,
+        signature: String,
+    },
     ToolUse {
         id: String,
         name: String,
@@ -216,7 +231,9 @@ impl AgentProvider for ClaudeProvider {
         }
 
         // Build system prompt with cache breakpoint (breakpoint 1 of 4).
-        let system_value = config.system_prompt.as_deref()
+        let system_value = config
+            .system_prompt
+            .as_deref()
             .map(|s| crate::prompt_caching::cache_system_prompt(s));
 
         // Build messages with cache breakpoints on strategic positions.
@@ -252,37 +269,41 @@ impl AgentProvider for ClaudeProvider {
         let client = self.client.clone();
         let api_key = self.api_key.clone();
 
-        let response = with_retry(&retry_config, &tokio_util::sync::CancellationToken::new(), || {
-            let client = client.clone();
-            let api_key = api_key.clone();
-            let body = body.clone();
-            async move {
-                let response = client
-                    .post(ANTHROPIC_API)
-                    .header("x-api-key", api_key)
-                    .header("anthropic-version", ANTHROPIC_VERSION)
-                    .header("anthropic-beta", BETA_HEADER)
-                    .header("content-type", "application/json")
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(|error| AgentError::HttpError(error.to_string()))?;
+        let response = with_retry(
+            &retry_config,
+            &tokio_util::sync::CancellationToken::new(),
+            || {
+                let client = client.clone();
+                let api_key = api_key.clone();
+                let body = body.clone();
+                async move {
+                    let response = client
+                        .post(ANTHROPIC_API)
+                        .header("x-api-key", api_key)
+                        .header("anthropic-version", ANTHROPIC_VERSION)
+                        .header("anthropic-beta", BETA_HEADER)
+                        .header("content-type", "application/json")
+                        .json(&body)
+                        .send()
+                        .await
+                        .map_err(|error| AgentError::HttpError(error.to_string()))?;
 
-                if !response.status().is_success() {
-                    let status = response.status().as_u16();
-                    let retry_after = response
-                        .headers()
-                        .get("retry-after")
-                        .and_then(|header| header.to_str().ok())
-                        .map(ToString::to_string);
-                    let body = response.text().await.unwrap_or_default();
-                    let _ = retry_after;
-                    return Err(AgentError::ApiError { status, body });
+                    if !response.status().is_success() {
+                        let status = response.status().as_u16();
+                        let retry_after = response
+                            .headers()
+                            .get("retry-after")
+                            .and_then(|header| header.to_str().ok())
+                            .map(ToString::to_string);
+                        let body = response.text().await.unwrap_or_default();
+                        let _ = retry_after;
+                        return Err(AgentError::ApiError { status, body });
+                    }
+
+                    Ok(response)
                 }
-
-                Ok(response)
-            }
-        })
+            },
+        )
         .await?;
 
         let event_stream = response.bytes_stream().eventsource();
@@ -571,7 +592,6 @@ fn map_stop_reason(reason: &str) -> StopReason {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{content_block_to_json, initial_input_json, map_stop_reason};
@@ -591,7 +611,10 @@ mod tests {
 
     #[test]
     fn keeps_initial_tool_input_when_block_start_includes_it() {
-        assert_eq!(initial_input_json(json!({"query": "rust"})), "{\"query\":\"rust\"}");
+        assert_eq!(
+            initial_input_json(json!({"query": "rust"})),
+            "{\"query\":\"rust\"}"
+        );
         assert!(initial_input_json(json!({})).is_empty());
     }
 

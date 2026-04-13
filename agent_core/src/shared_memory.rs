@@ -34,18 +34,13 @@ impl SharedMemorySegment {
     ///
     /// The segment name should be unique per payload (e.g., "/epistemos_ast_{session_id}").
     pub fn create(name: &str, size: usize) -> io::Result<Self> {
-        let c_name = CString::new(name).map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidInput, "invalid segment name")
-        })?;
+        let c_name = CString::new(name)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid segment name"))?;
 
         // SAFETY: shm_open with O_CREAT|O_RDWR creates or opens the segment.
         // ftruncate sets the size. mmap maps it into our address space.
         unsafe {
-            let fd = libc::shm_open(
-                c_name.as_ptr(),
-                libc::O_RDWR | libc::O_CREAT,
-                0o600,
-            );
+            let fd = libc::shm_open(c_name.as_ptr(), libc::O_RDWR | libc::O_CREAT, 0o600);
             if fd < 0 {
                 return Err(io::Error::last_os_error());
             }
@@ -82,9 +77,8 @@ impl SharedMemorySegment {
 
     /// Open an existing shared memory segment for reading.
     pub fn open_read(name: &str, size: usize) -> io::Result<Self> {
-        let c_name = CString::new(name).map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidInput, "invalid segment name")
-        })?;
+        let c_name = CString::new(name)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid segment name"))?;
 
         // SAFETY: shm_open with O_RDONLY opens existing segment read-only.
         unsafe {
@@ -355,11 +349,7 @@ impl ShmPool {
 /// to shared memory and return the ShmReference JSON instead.
 ///
 /// If the result is small enough, returns it unchanged.
-pub fn maybe_offload_to_shm(
-    session_id: &str,
-    result: String,
-    content_type: &str,
-) -> String {
+pub fn maybe_offload_to_shm(session_id: &str, result: String, content_type: &str) -> String {
     if result.len() <= SHM_OFFLOAD_THRESHOLD {
         return result;
     }
@@ -507,7 +497,8 @@ mod tests {
         let large = "x".repeat(SHM_OFFLOAD_THRESHOLD + 1);
         let result = maybe_offload_to_shm("sess_large", large, "application/json");
         // Should be a JSON ShmReference
-        let parsed: ShmReference = serde_json::from_str(&result).expect("should be ShmReference JSON");
+        let parsed: ShmReference =
+            serde_json::from_str(&result).expect("should be ShmReference JSON");
         assert!(parsed.segment_name.contains("sess_large"));
         assert!(parsed.byte_length > SHM_OFFLOAD_THRESHOLD);
         ShmPool::cleanup_session("sess_large");

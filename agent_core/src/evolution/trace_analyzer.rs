@@ -181,7 +181,10 @@ fn detect_signals(sessions: &[Vec<TraceEvent>], skill_name: &str) -> Vec<Improve
         durations.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let avg = durations.iter().sum::<f64>() / durations.len() as f64;
         let p95_idx = (durations.len() as f64 * 0.95) as usize;
-        let p95 = durations.get(p95_idx.min(durations.len() - 1)).copied().unwrap_or(avg);
+        let p95 = durations
+            .get(p95_idx.min(durations.len() - 1))
+            .copied()
+            .unwrap_or(avg);
         if avg > 5000.0 {
             signals.push(ImprovementSignal::SlowExecution {
                 step: tool,
@@ -271,7 +274,10 @@ mod tests {
         write_trace(&s2, &events);
 
         let pattern = analyze_traces(&[s1.as_path(), s2.as_path()], "vault_search").unwrap();
-        assert!(pattern.improvement_signals.iter().any(|s| matches!(s, ImprovementSignal::FrequentRetries { .. })));
+        assert!(pattern
+            .improvement_signals
+            .iter()
+            .any(|s| matches!(s, ImprovementSignal::FrequentRetries { .. })));
     }
 
     #[test]
@@ -289,7 +295,10 @@ mod tests {
         write_trace(&s1, &events);
 
         let pattern = analyze_traces(&[s1.as_path()], "web_fetch").unwrap();
-        assert!(pattern.improvement_signals.iter().any(|s| matches!(s, ImprovementSignal::SlowExecution { .. })));
+        assert!(pattern
+            .improvement_signals
+            .iter()
+            .any(|s| matches!(s, ImprovementSignal::SlowExecution { .. })));
     }
 
     #[test]
@@ -306,7 +315,10 @@ mod tests {
         write_trace(&s1, &events);
 
         let pattern = analyze_traces(&[s1.as_path()], "api_call").unwrap();
-        assert!(pattern.improvement_signals.iter().any(|s| matches!(s, ImprovementSignal::ConsistentFailure { .. })));
+        assert!(pattern
+            .improvement_signals
+            .iter()
+            .any(|s| matches!(s, ImprovementSignal::ConsistentFailure { .. })));
     }
 
     #[test]

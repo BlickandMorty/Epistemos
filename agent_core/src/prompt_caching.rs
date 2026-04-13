@@ -80,10 +80,7 @@ fn stamp_last_content_block(message: &mut Value) {
 
     let last = content.last_mut().unwrap();
     if let Value::Object(ref mut map) = last {
-        map.insert(
-            "cache_control".to_string(),
-            json!({ "type": "ephemeral" }),
-        );
+        map.insert("cache_control".to_string(), json!({ "type": "ephemeral" }));
     }
 }
 

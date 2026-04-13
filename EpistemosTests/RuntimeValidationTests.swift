@@ -73,6 +73,86 @@ struct RuntimeValidationTests {
     }
 
     @MainActor
+    @Test("inference surfaces serial fallback runtime health from local mlx profiles")
+    func inferenceSurfacesSerialFallbackRuntimeHealth() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+
+            let profile = LocalMLXRunProfile(
+                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                artifactID: "qwen35-35b-a3b-apexmini",
+                requestedRuntimeKind: nil,
+                resolvedRuntimeKind: .mlx,
+                executionMode: .local,
+                coldLoad: false,
+                lowPowerModeEnabled: false,
+                appActive: true,
+                thermalState: .nominal,
+                loadDurationMS: 0,
+                firstTokenLatencyMS: 250,
+                totalDurationMS: 1_600,
+                outputTokenCount: 128,
+                tokensPerSecond: 80,
+                outputCharacterCount: 512,
+                chunkCount: 18,
+                continuationCount: 0,
+                stopReason: "completed",
+                memoryLimitBytes: 1_000,
+                cacheLimitBytes: 1_000,
+                serialPhase: "between_stages",
+                fallbackMode: LocalInferenceSerialFallbackMode.ssdStreaming.rawValue,
+                availableMemoryBytes: 900_000_000
+            )
+
+            inference.setLatestLocalRuntimeProfile(profile)
+
+            #expect(inference.localRuntimeFallbackMode == .ssdStreaming)
+            #expect(inference.localRuntimeStatusSummary == "SSD streaming fallback active")
+            #expect(inference.localRuntimeStatusDetail?.contains("Between Stages") == true)
+            #expect(inference.localRuntimeStatusDetail?.contains("available") == true)
+            #expect(inference.localRuntimeLastRunSummary == "First token 250 ms, total 1600 ms")
+        }
+    }
+
+    @MainActor
+    @Test("inference surfaces gguf runtime health through the shared local status model")
+    func inferenceSurfacesGGUFRuntimeHealth() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+
+            let profile = LocalGGUFRunProfile(
+                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                artifactID: "qwen35-35b-a3b-apexmini",
+                requestedRuntimeKind: .gguf,
+                resolvedRuntimeKind: .gguf,
+                executionMode: .local,
+                modelURL: URL(fileURLWithPath: "/tmp/qwen35-35b-a3b-apexmini.gguf"),
+                resolvedModelID: "qwen35-35b-a3b-apexmini",
+                firstTokenLatencyMS: 180,
+                totalDurationMS: 940,
+                outputTokenCount: 72,
+                tokensPerSecond: 76.5,
+                outputCharacterCount: 288,
+                executionPhase: "decode",
+                fallbackMode: LocalInferenceSerialFallbackMode.resident.rawValue,
+                availableMemoryBytes: 1_900_000_000
+            )
+
+            inference.setLatestLocalRuntimeHealth(LocalRuntimeHealthSnapshot(profile))
+
+            #expect(inference.localRuntimeFallbackMode == nil)
+            #expect(inference.localRuntimeStatusSummary == "GGUF local runtime (Qwen 35B APEX)")
+            #expect(inference.localRuntimeStatusDetail?.contains("Decode") == true)
+            #expect(inference.localRuntimeStatusDetail?.contains("available") == true)
+            #expect(inference.localRuntimeLastRunSummary == "First token 180 ms, total 940 ms")
+        }
+    }
+
+    @MainActor
     @Test("inference keeps only local routing defaults after legacy cleanup")
     func inferenceKeepsOnlyLocalRoutingDefaults() async {
         await withResetInferenceDefaults {
@@ -172,6 +252,77 @@ struct RuntimeValidationTests {
         )
         #expect(!source.contains("shouldPrewarmHermesAtLaunch"))
         #expect(!source.contains("shouldSuperviseHermesAtLaunch"))
+    }
+
+    @Test("local runtime health is wired from mlx and gguf inference into settings surfaces")
+    func localRuntimeHealthIsWiredIntoSettingsSurfaces() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let settingsView = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(appBootstrap.contains("setOnRunProfileUpdated"))
+        #expect(appBootstrap.contains("setLatestLocalRuntimeProfile(profile)"))
+        #expect(appBootstrap.contains("localGGUFClient.setOnRunProfileUpdated"))
+        #expect(appBootstrap.contains("setLatestLocalRuntimeHealth(LocalRuntimeHealthSnapshot(profile))"))
+        #expect(settingsView.contains("Runtime Status"))
+        #expect(settingsView.contains("Last Local Run"))
+        #expect(settingsView.contains("inference.localRuntimeStatusSummary"))
+        #expect(settingsView.contains("inference.localRuntimeStatusDetail"))
+    }
+
+    @Test("live notes route through the global staged vault approval flow")
+    func liveNotesRouteThroughGlobalStagedVaultApprovalFlow() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let appEnvironment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let liveNoteExecutor = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
+
+        #expect(appBootstrap.contains("let vaultChatMutator"))
+        #expect(appBootstrap.contains("let liveNoteScheduler = LiveNoteSchedulerService()"))
+        #expect(appBootstrap.contains("refreshLiveNoteScheduler()"))
+        #expect(appBootstrap.contains("approvalMutator: vaultChatMutator"))
+        #expect(appEnvironment.contains(".environment(bootstrap.vaultChatMutator)"))
+        #expect(app.contains("DiffApprovalSheet("))
+        #expect(liveNoteExecutor.contains("stageFileMutation("))
+        #expect(!liveNoteExecutor.contains("try? body.write(to: fileURL"))
+    }
+
+    @Test("bootstrap archives the retired dual brain router instead of booting it into the live app")
+    func bootstrapArchivesTheRetiredDualBrainRouterInsteadOfBootingItIntoTheLiveApp() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let appEnvironment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
+
+        #expect(!appBootstrap.contains("private var _dualBrainRouter"))
+        #expect(!appBootstrap.contains("var dualBrainRouter: DualBrainRouter"))
+        #expect(!appBootstrap.contains("self._dualBrainRouter = DualBrainRouter("))
+        #expect(!appEnvironment.contains(".environment(bootstrap.dualBrainRouter)"))
+        #expect(appBootstrap.contains("Initialize device-action infrastructure"))
+        #expect(appBootstrap.contains("deviceAgent.setBackend("))
+    }
+
+    @Test("archived runtime shims are compile-time unavailable so they cannot drift back into the live app")
+    func archivedRuntimeShimsAreCompileTimeUnavailableSoTheyCannotDriftBackIntoTheLiveApp() throws {
+        let agentRuntime = try loadRepoTextFile("Epistemos/Engine/AgentRuntime.swift")
+        let localRuntime = try loadRepoTextFile("Epistemos/Engine/LocalRustRuntime.swift")
+        let claudeRuntime = try loadRepoTextFile("Epistemos/Engine/ClaudeManagedRuntime.swift")
+
+        #expect(agentRuntime.contains("Archived Agent Runtime Surface"))
+        #expect(agentRuntime.contains("@available(*, unavailable"))
+        #expect(localRuntime.contains("Archived LocalRustRuntime"))
+        #expect(localRuntime.contains("@available(*, unavailable"))
+        #expect(claudeRuntime.contains("Archived ClaudeManagedRuntime"))
+        #expect(claudeRuntime.contains("@available(*, unavailable"))
+        #expect(!claudeRuntime.contains("not yet wired to live API"))
+    }
+
+    @Test("chat coordinator blocks legacy vault action directives until a real approval UI exists")
+    func chatCoordinatorBlocksLegacyVaultActionDirectivesUntilApprovalUIExists() throws {
+        let source = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(source.contains("sanitizeVaultActionMarkers"))
+        #expect(source.contains("Approval required before adding tags"))
+        #expect(!source.contains("page.tags.append(contentsOf:"))
+        #expect(!source.contains("page.folder = folder"))
+        #expect(!source.contains("await vaultSync.createPage(title: title)"))
     }
 
     @Test("test hosts route application support paths into a temporary runtime root")
@@ -482,6 +633,31 @@ struct RuntimeValidationTests {
         #expect(bundleAssetsScript.contains("KnowledgeFusion/MoLoRA/sgmm_kernel.py"))
         #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/eval_bfcl.py"))
         #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl"))
+    }
+
+    @Test("test source mirror stays incremental and skips heavyweight build artifacts")
+    func testSourceMirrorStaysIncrementalAndSkipsHeavyweightBuildArtifacts() throws {
+        let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let spec = try loadRepoTextFile("project.yml")
+
+        for source in [project, spec] {
+            #expect(source.contains("Bundle Test Source Mirror"))
+            #expect(!source.contains("rm -rf \"${output_dir}\""))
+            #expect(source.contains("prune_artifact_directories"))
+            #expect(
+                source.contains("prune_artifact_directories \"${destination_root}\"")
+                    || source.contains("prune_artifact_directories \\\"${destination_root}\\\"")
+            )
+            #expect(source.contains("--exclude='target/'"))
+            #expect(source.contains("--exclude='.build/'"))
+            #expect(source.contains("--exclude='build/'"))
+            #expect(source.contains("--exclude='DerivedData/'"))
+            #expect(source.contains("--exclude='.git/'"))
+            #expect(
+                source.contains("rsync -a \"${source_path}\" \"${destination_path}\"")
+                    || source.contains("rsync -a \\\"${source_path}\\\" \\\"${destination_path}\\\"")
+            )
+        }
     }
 
     @Test("structured diagnostic logger keeps fire-and-forget writes alive")
@@ -878,6 +1054,7 @@ struct RuntimeValidationTests {
         #expect(bootstrap.contains("preparedModelRegistry.load()"))
         #expect(bootstrap.contains("queryEngine.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
         #expect(bootstrap.contains("graphState.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
+        #expect(bootstrap.contains("inferenceState.setPreparedLocalTextModelIDs("))
         #expect(bootstrap.contains("self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()"))
     }
 
@@ -887,6 +1064,15 @@ struct RuntimeValidationTests {
         let bootstrap = AppBootstrap()
 
         #expect(bootstrap.preparedModelRegistryState.primaryRetriever?.servedModelID == "BAAI/bge-m3")
+        #expect(
+            bootstrap.preparedModelRegistryState.primaryGenerator?.servedModelID
+                == LocalTextModelID.qwen35_35BA3B4Bit.rawValue
+        )
+        #expect(
+            bootstrap.preparedModelRegistryState.generationRuntimeConfiguration?
+                .speculativeDraftGenerator?.servedModelID
+                == "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
+        )
         #expect(bootstrap.preparedModelRegistryState.lastErrorMessage == nil)
     }
 
@@ -1038,7 +1224,7 @@ struct RuntimeValidationTests {
         #expect(omega.contains("Agent settings are now part of the main chat configuration."))
         #expect(cognitive.contains("Stores compact activity artifacts"))
         #expect(cognitive.contains("No keystroke logging"))
-        #expect(settings.contains("Routing decides which model path handles each request"))
+        #expect(settings.contains("Routing decides which local path handles each request"))
         #expect(settings.contains("Your vault is the on-disk markdown workspace"))
     }
 
@@ -2469,13 +2655,14 @@ struct RuntimeValidationTests {
         #expect(vaultRegistry.contains("VaultRegistry: failed to inspect modification date"))
     }
 
-    @Test("cloud standard chats stay on the standard pipeline unless agent mode is explicitly selected")
-    func cloudStandardChatsStayOnStandardPipelineUnlessAgentModeIsSelected() throws {
+    @Test("agent chats build an overseer execution plan before choosing local or managed execution")
+    func agentChatsBuildAnOverseerExecutionPlanBeforeChoosingLocalOrManagedExecution() throws {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
 
-        #expect(coordinator.contains("if mode == .api, operatingMode == .agent"))
-        #expect(coordinator.contains("pipeline.run("))
-        #expect(coordinator.contains("operatingMode: operatingMode"))
+        #expect(coordinator.contains("let executionPlan = buildOverseerExecutionPlan("))
+        #expect(coordinator.contains("switch executionPlan.route"))
+        #expect(coordinator.contains("case .managedAgentSession"))
+        #expect(coordinator.contains("executionPlan: executionPlan"))
     }
 
     @Test("workspace and attachment-heavy chats keep lightweight workspace context on the default path")
@@ -3300,18 +3487,84 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("SkillMutationProposal(from: decodedProposal)"))
     }
 
-    @Test("chat coordinator prompts before non-read-only tools and leaves computer execution to the bridge delegate")
-    func chatCoordinatorPromptsBeforeNonReadOnlyToolsAndLeavesComputerExecutionToDelegate() throws {
+    @Test("chat coordinator prompts before sensitive reads and non-read-only tools and leaves computer execution to the bridge delegate")
+    func chatCoordinatorPromptsBeforeSensitiveReadsAndNonReadOnlyToolsAndLeavesComputerExecutionToDelegate() throws {
         let source = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/App/ChatCoordinator.swift",
             testsFilePath: #filePath
         )
 
+        #expect(source.contains("if request.requiresHumanApproval"))
         #expect(source.contains("approved = await promptForToolApproval(request)"))
+        #expect(source.contains("request.approvalReason"))
         #expect(source.contains("capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"))
         #expect(source.contains("private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool"))
+        #expect(!source.contains("let isReadOnly = request.riskLevel == .readOnly"))
         #expect(!source.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
         #expect(!source.contains("Auto-approve for now"))
+    }
+
+    @Test("cloud and channel agent entry points keep reads human-approved")
+    func agentEntryPointsKeepReadsHumanApproved() throws {
+        let chatCoordinator = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/ChatCoordinator.swift",
+            testsFilePath: #filePath
+        )
+        let iMessageDriver = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Omega/iMessageDriver/IMessageDriverService.swift",
+            testsFilePath: #filePath
+        )
+        let iMessageDelegate = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Omega/iMessageDriver/IMessageReplyDelegate.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(chatCoordinator.contains("autoApproveReads: false"))
+        #expect(iMessageDriver.contains("autoApproveReads: false"))
+        #expect(iMessageDelegate.contains("case .localDataRead, .localDataWrite, .destructive:"))
+        #expect(iMessageDelegate.contains("case .genericRead:"))
+        #expect(!chatCoordinator.contains("autoApproveReads: true"))
+        #expect(!iMessageDriver.contains("autoApproveReads: true"))
+    }
+
+    @Test("channel safety copy reflects that vault writes stay gated even with auto approve enabled")
+    func channelSafetyCopyReflectsThatVaultWritesStayGated() throws {
+        let iMessageSettings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/IMessageDriverSettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let channelsSettings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/ChannelsSettingsView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(iMessageSettings.contains("Sensitive local reads plus any vault or workspace writes still require on-device approval"))
+        #expect(channelsSettings.contains("Sensitive local reads plus vault or workspace writes still require an on-device approval surface."))
+        #expect(!iMessageSettings.contains("write to the vault without prompting"))
+    }
+
+    @Test("cloud fallback chains try the local runtime before Apple Intelligence")
+    func cloudFallbackChainsPreferLocalBeforeApple() throws {
+        let triage = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/TriageService.swift",
+            testsFilePath: #filePath
+        )
+
+        let generateLocal = try #require(
+            triage.range(
+                of: "lastDecision = .localMLX\n                return try await localGenerateOrFallback("
+            )
+        )
+        let generateApple = try #require(triage.range(of: "if inference.appleIntelligenceAvailable {"))
+        #expect(generateLocal.lowerBound < generateApple.lowerBound)
+
+        let streamLocal = try #require(triage.range(of: "self.lastDecision = .localMLX\n                let localFallback = self.localStreamOrFallback("))
+        let streamApple = try #require(
+            triage.range(
+                of: "if self.inference.appleIntelligenceAvailable {\n                    self.lastDecision = .appleIntelligence"
+            )
+        )
+        #expect(streamLocal.lowerBound < streamApple.lowerBound)
     }
 
     @Test("streaming delegate and rust agent loop return native computer-use results")

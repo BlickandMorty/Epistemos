@@ -248,7 +248,10 @@ mod tests {
             avg_retry_count: 3.5,
             sessions_affected: 3,
         }];
-        let result = propose_mutation("# Vault Search\n\nSearches the vault.", &make_pattern(signals));
+        let result = propose_mutation(
+            "# Vault Search\n\nSearches the vault.",
+            &make_pattern(signals),
+        );
         assert!(result.is_some());
         let mutation = result.unwrap();
         assert!(mutation.new_content.contains("Error Handling: web_fetch"));

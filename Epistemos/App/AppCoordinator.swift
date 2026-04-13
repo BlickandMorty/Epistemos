@@ -100,6 +100,7 @@ final class AppCoordinator {
             case .vaultChanged:
                 self.refreshAmbientManifest()
                 self.bootstrap.noteInsightService.reindex()
+                self.bootstrap.refreshLiveNoteScheduler()
             case .vaultPageChanged(let pageId):
                 self.refreshAmbientManifest()
                 self.bootstrap.noteInsightService.reanalyze(pageId: pageId)

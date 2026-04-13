@@ -71,21 +71,40 @@ pub fn dispatch_intent(
 
     // Step 3: Keyword heuristics for agent type routing
     let lower = objective.to_lowercase();
-    if contains_any(&lower, &["research", "search", "find", "look up", "what is", "compare"]) {
+    if contains_any(
+        &lower,
+        &[
+            "research", "search", "find", "look up", "what is", "compare",
+        ],
+    ) {
         return DispatchDecision {
             target: DispatchTarget::Agent("research".to_string()),
             confidence: 0.6,
             reasoning: "Keyword match: research/search intent detected".to_string(),
         };
     }
-    if contains_any(&lower, &["code", "implement", "fix", "debug", "refactor", "test", "compile"]) {
+    if contains_any(
+        &lower,
+        &[
+            "code",
+            "implement",
+            "fix",
+            "debug",
+            "refactor",
+            "test",
+            "compile",
+        ],
+    ) {
         return DispatchDecision {
             target: DispatchTarget::Agent("code".to_string()),
             confidence: 0.6,
             reasoning: "Keyword match: code/engineering intent detected".to_string(),
         };
     }
-    if contains_any(&lower, &["write", "draft", "compose", "creative", "story", "poem"]) {
+    if contains_any(
+        &lower,
+        &["write", "draft", "compose", "creative", "story", "poem"],
+    ) {
         return DispatchDecision {
             target: DispatchTarget::Agent("creative".to_string()),
             confidence: 0.5,
@@ -136,13 +155,19 @@ mod tests {
     fn research_agent_for_search_query() {
         let router = SkillRouter::load(Path::new("/nonexistent"));
         let decision = dispatch_intent("research the latest transformer papers", &router, &[]);
-        assert_eq!(decision.target, DispatchTarget::Agent("research".to_string()));
+        assert_eq!(
+            decision.target,
+            DispatchTarget::Agent("research".to_string())
+        );
     }
 
     #[test]
     fn creative_agent_for_writing_query() {
         let router = SkillRouter::load(Path::new("/nonexistent"));
         let decision = dispatch_intent("write a draft blog post about Rust", &router, &[]);
-        assert_eq!(decision.target, DispatchTarget::Agent("creative".to_string()));
+        assert_eq!(
+            decision.target,
+            DispatchTarget::Agent("creative".to_string())
+        );
     }
 }

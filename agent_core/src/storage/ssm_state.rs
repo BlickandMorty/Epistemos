@@ -82,14 +82,15 @@ impl SSMState {
 
 /// Save an SSM state to a flat binary file.
 /// Format is designed for zero-copy mmap on load.
-pub fn save_ssm_state(
-    state: &SSMState,
-    vault_root: &Path,
-) -> Result<PathBuf, VaultError> {
+pub fn save_ssm_state(state: &SSMState, vault_root: &Path) -> Result<PathBuf, VaultError> {
     let state_dir = vault_root.join("ssm_state");
     fs::create_dir_all(&state_dir)?;
 
-    let filename = format!("{}_{}.mambastate", state.model_id.replace('/', "_"), state.session_id);
+    let filename = format!(
+        "{}_{}.mambastate",
+        state.model_id.replace('/', "_"),
+        state.session_id
+    );
     let file_path = state_dir.join(&filename);
 
     let session_id_bytes = state.session_id.as_bytes();
@@ -128,7 +129,9 @@ pub fn save_ssm_state(
 pub fn load_ssm_state(file_path: &Path) -> Result<SSMState, VaultError> {
     let data = fs::read(file_path)?;
     if data.len() < HEADER_SIZE {
-        return Err(VaultError::DatabaseError("SSM state file too small".to_string()));
+        return Err(VaultError::DatabaseError(
+            "SSM state file too small".to_string(),
+        ));
     }
 
     // Parse header
@@ -157,7 +160,9 @@ pub fn load_ssm_state(file_path: &Path) -> Result<SSMState, VaultError> {
     let session_id_start = HEADER_SIZE;
     let session_id_end = session_id_start + session_id_len;
     if session_id_end > data.len() {
-        return Err(VaultError::DatabaseError("SSM state truncated at session_id".to_string()));
+        return Err(VaultError::DatabaseError(
+            "SSM state truncated at session_id".to_string(),
+        ));
     }
     let session_id = String::from_utf8_lossy(&data[session_id_start..session_id_end]).to_string();
 
@@ -210,10 +215,11 @@ pub fn list_ssm_states(vault_root: &Path) -> Result<Vec<SSMStateMetadata>, Vault
         let layer_count = u32::from_le_bytes([header[8], header[9], header[10], header[11]]);
         let state_dim = u32::from_le_bytes([header[12], header[13], header[14], header[15]]);
         let head_dim = u32::from_le_bytes([header[16], header[17], header[18], header[19]]);
-        let session_id_len = u32::from_le_bytes([header[24], header[25], header[26], header[27]]) as usize;
+        let session_id_len =
+            u32::from_le_bytes([header[24], header[25], header[26], header[27]]) as usize;
         let timestamp = u64::from_le_bytes([
-            header[28], header[29], header[30], header[31],
-            header[32], header[33], header[34], header[35],
+            header[28], header[29], header[30], header[31], header[32], header[33], header[34],
+            header[35],
         ]);
 
         // Read session_id
@@ -226,7 +232,11 @@ pub fn list_ssm_states(vault_root: &Path) -> Result<Vec<SSMStateMetadata>, Vault
 
         // Extract model_id from filename
         let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-        let model_id = filename.rsplitn(2, '_').last().unwrap_or("").replace('_', "/");
+        let model_id = filename
+            .rsplitn(2, '_')
+            .last()
+            .unwrap_or("")
+            .replace('_', "/");
 
         let total_bytes = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
 

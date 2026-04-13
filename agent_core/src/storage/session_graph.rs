@@ -104,14 +104,26 @@ pub fn extract_session_graph(
     let mut passes = vec!["deterministic_transcript".to_string()];
     if transcript_path.exists() {
         let content = fs::read_to_string(transcript_path)?;
-        extract_from_transcript(&content, &session_node_id, &mut nodes, &mut edges, &mut node_ids);
+        extract_from_transcript(
+            &content,
+            &session_node_id,
+            &mut nodes,
+            &mut edges,
+            &mut node_ids,
+        );
     }
 
     // Pass 1b: Extract concepts from summary
     if summary_path.exists() {
         passes.push("summary_concepts".to_string());
         let summary = fs::read_to_string(summary_path)?;
-        extract_from_summary(&summary, &session_node_id, &mut nodes, &mut edges, &mut node_ids);
+        extract_from_summary(
+            &summary,
+            &session_node_id,
+            &mut nodes,
+            &mut edges,
+            &mut node_ids,
+        );
     }
 
     // Pass 2: Semantic similarity edges (lightweight, no LLM)
@@ -136,11 +148,20 @@ pub fn extract_session_graph(
 /// Generate a GRAPH_REPORT.md from a session graph.
 pub fn generate_graph_report(graph: &SessionGraph) -> String {
     let mut report = String::new();
-    report.push_str(&format!("# Graph Report: {}\n\n", graph.metadata.session_id));
-    report.push_str(&format!("- Extracted at: {}\n", graph.metadata.extracted_at));
+    report.push_str(&format!(
+        "# Graph Report: {}\n\n",
+        graph.metadata.session_id
+    ));
+    report.push_str(&format!(
+        "- Extracted at: {}\n",
+        graph.metadata.extracted_at
+    ));
     report.push_str(&format!("- Nodes: {}\n", graph.metadata.node_count));
     report.push_str(&format!("- Edges: {}\n", graph.metadata.edge_count));
-    report.push_str(&format!("- Passes: {}\n\n", graph.metadata.extraction_passes.join(", ")));
+    report.push_str(&format!(
+        "- Passes: {}\n\n",
+        graph.metadata.extraction_passes.join(", ")
+    ));
 
     // Node type breakdown
     let mut type_counts: HashMap<&str, usize> = HashMap::new();
@@ -163,7 +184,9 @@ pub fn generate_graph_report(graph: &SessionGraph) -> String {
 
     report.push_str("\n## Most Connected Nodes (God Nodes)\n\n");
     for (node_id, deg) in sorted_degrees.iter().take(10) {
-        let label = graph.nodes.iter()
+        let label = graph
+            .nodes
+            .iter()
             .find(|n| n.id == **node_id)
             .map(|n| n.label.as_str())
             .unwrap_or(*node_id);
@@ -171,9 +194,21 @@ pub fn generate_graph_report(graph: &SessionGraph) -> String {
     }
 
     // Edge confidence breakdown
-    let extracted = graph.edges.iter().filter(|e| e.confidence == EdgeConfidence::Extracted).count();
-    let inferred = graph.edges.iter().filter(|e| e.confidence == EdgeConfidence::Inferred).count();
-    let ambiguous = graph.edges.iter().filter(|e| e.confidence == EdgeConfidence::Ambiguous).count();
+    let extracted = graph
+        .edges
+        .iter()
+        .filter(|e| e.confidence == EdgeConfidence::Extracted)
+        .count();
+    let inferred = graph
+        .edges
+        .iter()
+        .filter(|e| e.confidence == EdgeConfidence::Inferred)
+        .count();
+    let ambiguous = graph
+        .edges
+        .iter()
+        .filter(|e| e.confidence == EdgeConfidence::Ambiguous)
+        .count();
     report.push_str("\n## Edge Confidence\n\n");
     report.push_str(&format!("- Extracted: {extracted}\n"));
     report.push_str(&format!("- Inferred: {inferred}\n"));
@@ -245,7 +280,8 @@ fn extract_file_entities(
 ) {
     // Simple heuristic: find path-like strings
     for word in text.split_whitespace() {
-        let trimmed = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.' && c != '_');
+        let trimmed =
+            word.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.' && c != '_');
         if looks_like_file_path(trimmed) {
             let file_id = format!("file_{}", trimmed.replace('/', "_"));
             if node_ids.insert(file_id.clone()) {
@@ -273,7 +309,9 @@ fn looks_like_file_path(text: &str) -> bool {
     if text.len() < 3 {
         return false;
     }
-    let extensions = [".rs", ".swift", ".md", ".json", ".toml", ".yaml", ".yml", ".py", ".ts", ".js"];
+    let extensions = [
+        ".rs", ".swift", ".md", ".json", ".toml", ".yaml", ".yml", ".py", ".ts", ".js",
+    ];
     extensions.iter().any(|ext| text.ends_with(ext))
         || (text.contains('/') && !text.starts_with("http"))
 }
@@ -321,9 +359,8 @@ fn extract_from_summary(
 fn add_semantic_edges(nodes: &[GraphNode], edges: &mut Vec<GraphEdge>) {
     // Use simple word overlap as a lightweight "semantic" signal
     // (full embedding-based similarity deferred to Phase 6 with LLM integration)
-    let content_nodes: Vec<&GraphNode> = nodes.iter()
-        .filter(|n| n.node_type != "session")
-        .collect();
+    let content_nodes: Vec<&GraphNode> =
+        nodes.iter().filter(|n| n.node_type != "session").collect();
 
     for i in 0..content_nodes.len() {
         for j in (i + 1)..content_nodes.len() {
@@ -347,8 +384,14 @@ fn add_semantic_edges(nodes: &[GraphNode], edges: &mut Vec<GraphEdge>) {
 fn word_overlap_similarity(a: &str, b: &str) -> f64 {
     let a_lower = a.to_lowercase();
     let b_lower = b.to_lowercase();
-    let a_words: HashSet<&str> = a_lower.split(|c: char| !c.is_alphanumeric()).filter(|s| !s.is_empty()).collect();
-    let b_words: HashSet<&str> = b_lower.split(|c: char| !c.is_alphanumeric()).filter(|s| !s.is_empty()).collect();
+    let a_words: HashSet<&str> = a_lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let b_words: HashSet<&str> = b_lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
     if a_words.is_empty() || b_words.is_empty() {
         return 0.0;
     }
@@ -405,7 +448,10 @@ mod tests {
 
         // Should have: session node + tool node + file node
         assert!(graph.nodes.len() >= 2);
-        assert!(graph.nodes.iter().any(|n| n.node_type == "tool" && n.label == "bash"));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|n| n.node_type == "tool" && n.label == "bash"));
 
         // Should have: uses_tool edge
         assert!(graph.edges.iter().any(|e| e.relation == "uses_tool"));
@@ -430,7 +476,10 @@ mod tests {
         let summary = tmp.path().join("summary.md");
 
         let graph = extract_session_graph(&transcript, &summary, "test3").unwrap();
-        assert!(graph.nodes.iter().any(|n| n.node_type == "file" && n.label.contains("decisions.md")));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|n| n.node_type == "file" && n.label.contains("decisions.md")));
     }
 
     #[test]
@@ -438,23 +487,50 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let transcript = write_transcript(tmp.path(), &[]);
         let summary_path = tmp.path().join("summary.md");
-        fs::write(&summary_path, "# Summary\n\n## Key Decisions\nSome decisions\n\n## Tool Usage\nSome tools\n").unwrap();
+        fs::write(
+            &summary_path,
+            "# Summary\n\n## Key Decisions\nSome decisions\n\n## Tool Usage\nSome tools\n",
+        )
+        .unwrap();
 
         let graph = extract_session_graph(&transcript, &summary_path, "test4").unwrap();
-        assert!(graph.nodes.iter().any(|n| n.node_type == "concept" && n.label == "Key Decisions"));
-        assert!(graph.nodes.iter().any(|n| n.node_type == "concept" && n.label == "Tool Usage"));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|n| n.node_type == "concept" && n.label == "Key Decisions"));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|n| n.node_type == "concept" && n.label == "Tool Usage"));
     }
 
     #[test]
     fn graph_report_generation() {
         let graph = SessionGraph {
             nodes: vec![
-                GraphNode { id: "s1".into(), label: "session".into(), node_type: "session".into(), properties: HashMap::new(), community_id: None },
-                GraphNode { id: "t1".into(), label: "bash".into(), node_type: "tool".into(), properties: HashMap::new(), community_id: None },
+                GraphNode {
+                    id: "s1".into(),
+                    label: "session".into(),
+                    node_type: "session".into(),
+                    properties: HashMap::new(),
+                    community_id: None,
+                },
+                GraphNode {
+                    id: "t1".into(),
+                    label: "bash".into(),
+                    node_type: "tool".into(),
+                    properties: HashMap::new(),
+                    community_id: None,
+                },
             ],
-            edges: vec![
-                GraphEdge { source: "s1".into(), target: "t1".into(), relation: "uses".into(), confidence: EdgeConfidence::Extracted, score: 1.0, session_id: None },
-            ],
+            edges: vec![GraphEdge {
+                source: "s1".into(),
+                target: "t1".into(),
+                relation: "uses".into(),
+                confidence: EdgeConfidence::Extracted,
+                score: 1.0,
+                session_id: None,
+            }],
             metadata: GraphMetadata {
                 session_id: "test5".into(),
                 extracted_at: "2026-04-08".into(),

@@ -17,9 +17,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use crate::storage::hyperbolic_topology::{
-    build_topology, VaultNodeMetrics, VaultTopology,
-};
+use crate::storage::hyperbolic_topology::{build_topology, VaultNodeMetrics, VaultTopology};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -152,17 +150,11 @@ fn god_nodes(topology: &VaultTopology, limit: usize) -> Result<String, ToolError
     .to_string())
 }
 
-fn related(
-    topology: &VaultTopology,
-    input: &Value,
-    limit: usize,
-) -> Result<String, ToolError> {
+fn related(topology: &VaultTopology, input: &Value, limit: usize) -> Result<String, ToolError> {
     let query = input
         .get("query")
         .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ToolError::InvalidArguments("mode='related' requires 'query'".into())
-        })?;
+        .ok_or_else(|| ToolError::InvalidArguments("mode='related' requires 'query'".into()))?;
     let query_lower = query.to_lowercase();
 
     let mut scored: Vec<(f64, &VaultNodeMetrics)> = topology
@@ -200,21 +192,11 @@ fn related(
     .to_string())
 }
 
-fn spatial(
-    topology: &VaultTopology,
-    input: &Value,
-    limit: usize,
-) -> Result<String, ToolError> {
-    let origin_path = input
-        .get("origin")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ToolError::InvalidArguments("mode='spatial' requires 'origin' path".into())
-        })?;
-    let radius = input
-        .get("radius")
-        .and_then(Value::as_f64)
-        .unwrap_or(1.5);
+fn spatial(topology: &VaultTopology, input: &Value, limit: usize) -> Result<String, ToolError> {
+    let origin_path = input.get("origin").and_then(Value::as_str).ok_or_else(|| {
+        ToolError::InvalidArguments("mode='spatial' requires 'origin' path".into())
+    })?;
+    let radius = input.get("radius").and_then(Value::as_f64).unwrap_or(1.5);
 
     let origin = topology
         .nodes
@@ -348,7 +330,11 @@ fn communities(topology: &VaultTopology, limit: usize) -> Result<String, ToolErr
     }
 
     let mut ordered: Vec<(String, (f64, Vec<String>))> = groups.into_iter().collect();
-    ordered.sort_by(|a, b| b.1 .0.partial_cmp(&a.1 .0).unwrap_or(std::cmp::Ordering::Equal));
+    ordered.sort_by(|a, b| {
+        b.1 .0
+            .partial_cmp(&a.1 .0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let communities: Vec<Value> = ordered
         .into_iter()
@@ -564,7 +550,11 @@ mod tests {
         fs::create_dir_all(&notes_a).unwrap();
         fs::create_dir_all(&notes_b).unwrap();
         fs::write(notes_a.join("intro.md"), "alpha intro").unwrap();
-        fs::write(notes_a.join("design.md"), "alpha design references intro.md").unwrap();
+        fs::write(
+            notes_a.join("design.md"),
+            "alpha design references intro.md",
+        )
+        .unwrap();
         fs::write(notes_b.join("intro.md"), "beta intro references alpha").unwrap();
     }
 

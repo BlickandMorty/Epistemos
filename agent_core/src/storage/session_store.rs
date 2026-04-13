@@ -39,6 +39,10 @@ pub struct SessionMetadata {
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_metrics: Option<ReasoningTrajectoryMetrics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chat_thread_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -139,6 +143,8 @@ impl SessionFolder {
             status: "running".to_string(),
             error: None,
             reasoning_metrics: None,
+            parent_session_id: None,
+            chat_thread_id: None,
         };
 
         // Write initial session.json
@@ -184,8 +190,7 @@ impl SessionFolder {
     pub fn append_trace_event(&self, event: &TraceEvent) -> Result<(), VaultError> {
         let trace_path = self.root.join("trace.json");
         let existing = fs::read_to_string(&trace_path).unwrap_or_else(|_| "[]".to_string());
-        let mut events: Vec<TraceEvent> = serde_json::from_str(&existing)
-            .unwrap_or_default();
+        let mut events: Vec<TraceEvent> = serde_json::from_str(&existing).unwrap_or_default();
         events.push(event.clone());
 
         let json = serde_json::to_string_pretty(&events)
@@ -204,6 +209,7 @@ impl SessionFolder {
         error: Option<&str>,
         trajectory_metrics: Option<&ReasoningTrajectoryMetrics>,
     ) -> Result<(), VaultError> {
+        self.merge_external_lineage_metadata();
         self.metadata.ended_at = Some(Utc::now());
         self.metadata.status = status.to_string();
         self.metadata.turn_count = turns;
@@ -218,6 +224,16 @@ impl SessionFolder {
             .map_err(|e| VaultError::DatabaseError(format!("session json: {e}")))?;
         fs::write(self.root.join("session.json"), json)?;
         Ok(())
+    }
+
+    pub fn set_lineage(
+        &mut self,
+        parent_session_id: Option<String>,
+        chat_thread_id: Option<String>,
+    ) -> Result<(), VaultError> {
+        self.metadata.parent_session_id = parent_session_id;
+        self.metadata.chat_thread_id = chat_thread_id;
+        self.persist_metadata()
     }
 
     /// Write the 9-section structured summary.
@@ -263,6 +279,334 @@ impl SessionFolder {
             status = self.metadata.status,
         )
     }
+
+    /// Generate a richer 9-section summary from transcript and trace artifacts.
+    pub fn generate_structured_summary(&self) -> String {
+        let transcript = self.load_transcript_turns();
+        let trace = self.load_trace_events();
+
+        let user_intent = transcript
+            .iter()
+            .find(|turn| matches!(turn.role.as_str(), "user" | "human"))
+            .map(|turn| normalize_summary_text(&turn.content))
+            .filter(|text| !text.is_empty())
+            .unwrap_or_else(|| "(objective not captured)".to_string());
+
+        let assistant_turns: Vec<&TranscriptTurn> = transcript
+            .iter()
+            .filter(|turn| matches!(turn.role.as_str(), "assistant" | "gpt" | "ai"))
+            .collect();
+        let last_assistant_text = assistant_turns
+            .last()
+            .map(|turn| normalize_summary_text(&turn.content))
+            .filter(|text| !text.is_empty());
+
+        let mut decisions = Vec::new();
+        for turn in &assistant_turns {
+            decisions.extend(extract_decision_lines(&turn.content));
+        }
+        decisions = dedup_preserving_order(decisions);
+
+        let knowledge_lines = last_assistant_text
+            .as_deref()
+            .map(extract_notable_lines)
+            .unwrap_or_default();
+        let open_questions = transcript
+            .iter()
+            .flat_map(|turn| extract_open_questions(&turn.content))
+            .collect::<Vec<_>>();
+        let open_questions = dedup_preserving_order(open_questions);
+
+        let mut tool_counts: std::collections::BTreeMap<String, (u32, u32)> =
+            std::collections::BTreeMap::new();
+        for turn in &transcript {
+            for tool in &turn.tool_calls {
+                let entry = tool_counts.entry(tool.name.clone()).or_insert((0, 0));
+                entry.0 += 1;
+                if tool.is_error {
+                    entry.1 += 1;
+                }
+            }
+        }
+
+        let compaction_count = trace
+            .iter()
+            .filter(|event| event.kind == "compaction")
+            .count();
+        let approval_count = trace
+            .iter()
+            .filter(|event| event.kind == "approval")
+            .count();
+        let tool_event_count = trace
+            .iter()
+            .filter(|event| event.kind == "tool_call")
+            .count();
+        let follow_ups = build_follow_ups(
+            &tool_counts,
+            &open_questions,
+            self.metadata.status.as_str(),
+            self.metadata.error.as_deref(),
+        );
+
+        let mut lines = vec![
+            format!("# Session Summary: {}", self.metadata.id),
+            String::new(),
+        ];
+
+        push_section(&mut lines, "1. User Intent", &[user_intent]);
+
+        let mut context_loaded = vec![
+            format!(
+                "Provider: {} via {}.",
+                self.metadata.model, self.metadata.provider
+            ),
+            format!(
+                "Turn count: {} with {} input / {} output tokens.",
+                self.metadata.turn_count,
+                self.metadata.token_count.input,
+                self.metadata.token_count.output
+            ),
+        ];
+        if let Some(parent) = &self.metadata.parent_session_id {
+            context_loaded.push(format!("Parent session: {}.", parent));
+        }
+        if let Some(chat_thread_id) = &self.metadata.chat_thread_id {
+            context_loaded.push(format!("Chat thread: {}.", chat_thread_id));
+        }
+        push_section(&mut lines, "2. Context Loaded", &context_loaded);
+
+        let mut approach = vec![format!(
+            "Processed {} assistant turn(s) and {} recorded tool event(s).",
+            assistant_turns.len(),
+            tool_event_count
+        )];
+        if compaction_count > 0 {
+            approach.push(format!(
+                "Compacted context {} time(s) to preserve working state.",
+                compaction_count
+            ));
+        }
+        if approval_count > 0 {
+            approach.push(format!(
+                "Paused {} time(s) for explicit tool approval.",
+                approval_count
+            ));
+        }
+        push_section(&mut lines, "3. Approach Taken", &approach);
+
+        push_section(
+            &mut lines,
+            "4. Key Decisions",
+            &non_empty_or_placeholder(
+                decisions,
+                "No explicit decisions were captured in the transcript.",
+            ),
+        );
+
+        let tool_summary = if tool_counts.is_empty() {
+            vec!["No tools were recorded.".to_string()]
+        } else {
+            tool_counts
+                .into_iter()
+                .map(|(name, (count, errors))| {
+                    if errors == 0 {
+                        format!("{name}: {count} call(s), all successful.")
+                    } else {
+                        format!("{name}: {count} call(s), {errors} error(s).")
+                    }
+                })
+                .collect()
+        };
+        push_section(&mut lines, "5. Tool Usage Summary", &tool_summary);
+
+        let mut outcomes = vec![format!(
+            "Session finished with status: {}.",
+            self.metadata.status
+        )];
+        if let Some(last_assistant_text) = last_assistant_text {
+            outcomes.push(last_assistant_text);
+        } else if let Some(error) = &self.metadata.error {
+            outcomes.push(error.clone());
+        }
+        push_section(&mut lines, "6. Outcomes", &outcomes);
+
+        push_section(
+            &mut lines,
+            "7. Knowledge Extracted",
+            &non_empty_or_placeholder(
+                knowledge_lines,
+                "No durable knowledge summary was extracted from the final response.",
+            ),
+        );
+
+        push_section(
+            &mut lines,
+            "8. Open Questions",
+            &non_empty_or_placeholder(open_questions, "No explicit open questions were recorded."),
+        );
+
+        push_section(&mut lines, "9. Follow-ups", &follow_ups);
+        lines.join("\n")
+    }
+
+    fn persist_metadata(&self) -> Result<(), VaultError> {
+        let json = serde_json::to_string_pretty(&self.metadata)
+            .map_err(|e| VaultError::DatabaseError(format!("session json: {e}")))?;
+        fs::write(self.root.join("session.json"), json)?;
+        Ok(())
+    }
+
+    fn merge_external_lineage_metadata(&mut self) {
+        let meta_path = self.root.join("session.json");
+        let Ok(content) = fs::read_to_string(meta_path) else {
+            return;
+        };
+        let Ok(existing) = serde_json::from_str::<SessionMetadata>(&content) else {
+            return;
+        };
+        if self.metadata.parent_session_id.is_none() {
+            self.metadata.parent_session_id = existing.parent_session_id;
+        }
+        if self.metadata.chat_thread_id.is_none() {
+            self.metadata.chat_thread_id = existing.chat_thread_id;
+        }
+    }
+
+    fn load_transcript_turns(&self) -> Vec<TranscriptTurn> {
+        let transcript_path = self.root.join("transcript.jsonl");
+        let content = match fs::read_to_string(&transcript_path) {
+            Ok(content) => content,
+            Err(_) => return Vec::new(),
+        };
+
+        content
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    }
+
+    fn load_trace_events(&self) -> Vec<TraceEvent> {
+        let trace_path = self.root.join("trace.json");
+        let content = match fs::read_to_string(&trace_path) {
+            Ok(content) => content,
+            Err(_) => return Vec::new(),
+        };
+        serde_json::from_str(&content).unwrap_or_default()
+    }
+}
+
+fn push_section(lines: &mut Vec<String>, title: &str, body_lines: &[String]) {
+    lines.push(format!("## {title}"));
+    lines.push(String::new());
+    for line in body_lines {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        lines.push(format!("- {trimmed}"));
+    }
+    lines.push(String::new());
+}
+
+fn non_empty_or_placeholder(items: Vec<String>, placeholder: &str) -> Vec<String> {
+    if items.is_empty() {
+        vec![placeholder.to_string()]
+    } else {
+        items
+    }
+}
+
+fn normalize_summary_text(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn extract_decision_lines(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| {
+            line.starts_with("I should")
+                || line.starts_with("I'll ")
+                || line.starts_with("Plan:")
+                || line.starts_with("Decision:")
+                || line.starts_with("Strategy:")
+        })
+        .map(|line| truncate_summary_line(line, 180))
+        .collect()
+}
+
+fn extract_notable_lines(text: &str) -> Vec<String> {
+    let mut lines = Vec::new();
+    for raw_line in text.lines() {
+        let trimmed = raw_line.trim().trim_start_matches('-').trim();
+        if trimmed.is_empty() || trimmed.starts_with("```") {
+            continue;
+        }
+        lines.push(truncate_summary_line(trimmed, 180));
+        if lines.len() == 4 {
+            break;
+        }
+    }
+    lines
+}
+
+fn extract_open_questions(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| line.ends_with('?'))
+        .map(|line| truncate_summary_line(line, 180))
+        .collect()
+}
+
+fn build_follow_ups(
+    tool_counts: &std::collections::BTreeMap<String, (u32, u32)>,
+    open_questions: &[String],
+    status: &str,
+    error: Option<&str>,
+) -> Vec<String> {
+    let mut follow_ups = Vec::new();
+    if tool_counts.keys().any(|name| name.contains("send_message")) {
+        follow_ups
+            .push("Validate outbound channel delivery with a live end-to-end message.".to_string());
+    }
+    if !open_questions.is_empty() {
+        follow_ups.push(
+            "Resolve the remaining open questions before promoting this workflow.".to_string(),
+        );
+    }
+    if status != "completed" {
+        follow_ups.push(format!(
+            "Investigate why the session ended with status `{status}`."
+        ));
+    }
+    if let Some(error) = error {
+        follow_ups.push(format!(
+            "Address the terminal issue: {}.",
+            truncate_summary_line(error, 160)
+        ));
+    }
+    non_empty_or_placeholder(follow_ups, "No explicit follow-up actions were recorded.")
+}
+
+fn truncate_summary_line(text: &str, max_chars: usize) -> String {
+    let char_count = text.chars().count();
+    if char_count <= max_chars {
+        return text.to_string();
+    }
+    let mut truncated: String = text.chars().take(max_chars).collect();
+    truncated.push('…');
+    truncated
+}
+
+fn dedup_preserving_order(items: Vec<String>) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut deduped = Vec::new();
+    for item in items {
+        if seen.insert(item.clone()) {
+            deduped.push(item);
+        }
+    }
+    deduped
 }
 
 // ---------------------------------------------------------------------------
@@ -324,7 +668,11 @@ pub fn list_session_folders(vault_root: &Path) -> Result<Vec<SessionFolderInfo>,
     }
 
     // Sort newest first
-    results.sort_by(|a, b| b.started_at_epoch.partial_cmp(&a.started_at_epoch).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.started_at_epoch
+            .partial_cmp(&a.started_at_epoch)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     Ok(results)
 }
@@ -350,13 +698,9 @@ mod tests {
     #[test]
     fn create_session_folder() {
         let tmp = TempDir::new().unwrap();
-        let folder = SessionFolder::create(
-            tmp.path(),
-            "test_abc12345",
-            "claude-opus-4",
-            "anthropic",
-        )
-        .unwrap();
+        let folder =
+            SessionFolder::create(tmp.path(), "test_abc12345", "claude-opus-4", "anthropic")
+                .unwrap();
 
         assert!(folder.root().join("session.json").exists());
         assert!(folder.root().join("transcript.jsonl").exists());
@@ -443,7 +787,9 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let mut folder = SessionFolder::create(tmp.path(), "sess3", "claude", "anthropic").unwrap();
 
-        folder.finalize("completed", 5, 1000, 2000, None, None).unwrap();
+        folder
+            .finalize("completed", 5, 1000, 2000, None, None)
+            .unwrap();
 
         let content = fs::read_to_string(folder.root().join("session.json")).unwrap();
         let meta: SessionMetadata = serde_json::from_str(&content).unwrap();
@@ -491,6 +837,82 @@ mod tests {
         let content = fs::read_to_string(folder.root().join("summary.md")).unwrap();
         assert!(content.contains("## 1. User Intent"));
         assert!(content.contains("## 9. Follow-ups"));
+    }
+
+    #[test]
+    fn lineage_metadata_round_trips_in_session_json() {
+        let tmp = TempDir::new().unwrap();
+        let mut folder =
+            SessionFolder::create(tmp.path(), "sess_lineage", "model", "provider").unwrap();
+
+        folder
+            .set_lineage(
+                Some("sess_parent".to_string()),
+                Some("chat-thread-1".to_string()),
+            )
+            .unwrap();
+
+        let json_str = read_session_metadata(folder.root()).unwrap();
+        let meta: SessionMetadata = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(meta.parent_session_id.as_deref(), Some("sess_parent"));
+        assert_eq!(meta.chat_thread_id.as_deref(), Some("chat-thread-1"));
+    }
+
+    #[test]
+    fn structured_summary_uses_transcript_and_trace() {
+        let tmp = TempDir::new().unwrap();
+        let folder =
+            SessionFolder::create(tmp.path(), "sess_structured", "claude", "anthropic").unwrap();
+
+        folder
+            .append_transcript_turn(&TranscriptTurn {
+                timestamp: Utc::now(),
+                role: "user".to_string(),
+                content: "Compare OpenClaw and Hermes for channel control.".to_string(),
+                model: None,
+                tokens: Some(8),
+                tool_calls: Vec::new(),
+                latency_ms: None,
+            })
+            .unwrap();
+        folder
+            .append_transcript_turn(&TranscriptTurn {
+                timestamp: Utc::now(),
+                role: "assistant".to_string(),
+                content: "I’ll audit the existing channel adapters and prioritize iMessage first."
+                    .to_string(),
+                model: Some("claude-sonnet".to_string()),
+                tokens: Some(22),
+                tool_calls: vec![ToolCallRecord {
+                    name: "send_message".to_string(),
+                    tool_use_id: "tc_send".to_string(),
+                    input_summary: Some("{\"platform\":\"imessage\"}".to_string()),
+                    result_summary: Some("drafted outbound test payload".to_string()),
+                    is_error: false,
+                }],
+                latency_ms: Some(340),
+            })
+            .unwrap();
+        folder
+            .append_trace_event(&TraceEvent {
+                timestamp: Utc::now(),
+                kind: "compaction".to_string(),
+                name: None,
+                input_summary: Some("context grew past 80%".to_string()),
+                output_summary: Some("inserted structured compacted context block".to_string()),
+                duration_ms: Some(19),
+                outcome: Some("success".to_string()),
+            })
+            .unwrap();
+
+        let summary = folder.generate_structured_summary();
+
+        assert!(summary.contains("## 1. User Intent"));
+        assert!(summary.contains("Compare OpenClaw and Hermes"));
+        assert!(summary.contains("## 5. Tool Usage Summary"));
+        assert!(summary.contains("send_message"));
+        assert!(summary.contains("## 6. Outcomes"));
+        assert!(summary.contains("## 9. Follow-ups"));
     }
 
     #[test]

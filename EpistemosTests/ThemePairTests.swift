@@ -1299,7 +1299,9 @@ LD_RUNPATH_SEARCH_PATHS = (
 
         #expect(bootstrap.contains("let localInferenceService: MLXInferenceService"))
         #expect(bootstrap.contains("let localMLXClient: LocalMLXClient"))
-        #expect(bootstrap.contains("let localLLMClient: LocalMLXClient"))
+        #expect(bootstrap.contains("let localLLMClient: any LocalConfigurableLLMClient"))
+        #expect(bootstrap.contains("let localGGUFRuntime = LocalGGUFInProcessRuntime()"))
+        #expect(bootstrap.contains("let localLLMClient = LocalBackendLLMClient("))
         #expect(bootstrap.contains("let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)"))
         #expect(bootstrap.contains("localLLMService: localLLMClient"))
     }

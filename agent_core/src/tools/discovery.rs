@@ -55,10 +55,7 @@ impl ToolHandler for McpDiscoverHandler {
             if !dir.exists() {
                 if create_missing {
                     if let Err(e) = std::fs::create_dir_all(&dir) {
-                        tracing::warn!(
-                            "mcp_discover: failed to create {}: {e}",
-                            dir.display()
-                        );
+                        tracing::warn!("mcp_discover: failed to create {}: {e}", dir.display());
                     } else {
                         created.push(dir_str.clone());
                     }
@@ -70,10 +67,7 @@ impl ToolHandler for McpDiscoverHandler {
             let entries = match std::fs::read_dir(&dir) {
                 Ok(e) => e,
                 Err(e) => {
-                    tracing::warn!(
-                        "mcp_discover: failed to read {}: {e}",
-                        dir.display()
-                    );
+                    tracing::warn!("mcp_discover: failed to read {}: {e}", dir.display());
                     continue;
                 }
             };
@@ -277,18 +271,63 @@ impl ModelCatalogHandler {
         // local picker honest even when offline. If you add a model in
         // Swift, add it here too.
         let local = [
-            ("mlx-community/Qwen3.5-0.8B-4bit", "Qwen 3.5 0.8B", 32_768usize, false),
+            (
+                "mlx-community/Qwen3.5-0.8B-4bit",
+                "Qwen 3.5 0.8B",
+                32_768usize,
+                false,
+            ),
             ("mlx-community/Qwen3.5-2B-4bit", "Qwen 3.5 2B", 32_768, true),
             ("mlx-community/Qwen3.5-4B-4bit", "Qwen 3.5 4B", 32_768, true),
             ("mlx-community/Qwen3.5-9B-4bit", "Qwen 3.5 9B", 32_768, true),
-            ("mlx-community/Qwen3.5-27B-4bit", "Qwen 3.5 27B", 65_536, true),
-            ("mlx-community/Qwen3.5-35B-A3B-4bit", "Qwen 3.5 35B MoE", 65_536, true),
-            ("mlx-community/gemma-4-e2b-it-4bit", "Gemma 4 2B", 8_192, false),
-            ("mlx-community/gemma-4-e4b-it-4bit", "Gemma 4 4B", 8_192, true),
-            ("mlx-community/gemma-4-26b-a4b-it-4bit", "Gemma 4 27B MoE", 32_768, true),
-            ("mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit", "DeepSeek R1 7B", 65_536, false),
-            ("mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "Qwen 2.5 Coder 7B", 32_768, true),
-            ("mlx-community/mamba2-2.7b-4bit", "Mamba2 2.7B", 1_048_576, false),
+            (
+                "mlx-community/Qwen3.5-27B-4bit",
+                "Qwen 3.5 27B",
+                65_536,
+                true,
+            ),
+            (
+                "mlx-community/Qwen3.5-35B-A3B-4bit",
+                "Qwen 3.5 35B MoE",
+                65_536,
+                true,
+            ),
+            (
+                "mlx-community/gemma-4-e2b-it-4bit",
+                "Gemma 4 2B",
+                8_192,
+                false,
+            ),
+            (
+                "mlx-community/gemma-4-e4b-it-4bit",
+                "Gemma 4 4B",
+                8_192,
+                true,
+            ),
+            (
+                "mlx-community/gemma-4-26b-a4b-it-4bit",
+                "Gemma 4 27B MoE",
+                32_768,
+                true,
+            ),
+            (
+                "mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit",
+                "DeepSeek R1 7B",
+                65_536,
+                false,
+            ),
+            (
+                "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+                "Qwen 2.5 Coder 7B",
+                32_768,
+                true,
+            ),
+            (
+                "mlx-community/mamba2-2.7b-4bit",
+                "Mamba2 2.7B",
+                1_048_576,
+                false,
+            ),
             ("mlx-community/SmolLM3-3B-4bit", "SmolLM3 3B", 32_768, false),
         ];
 

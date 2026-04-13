@@ -72,7 +72,9 @@ impl ToolHandler for SendMessageHandler {
             .ok_or_else(|| ToolError::InvalidArguments("missing 'message'".into()))?
             .to_string();
         if message.is_empty() {
-            return Err(ToolError::InvalidArguments("message cannot be empty".into()));
+            return Err(ToolError::InvalidArguments(
+                "message cannot be empty".into(),
+            ));
         }
 
         // Per-platform cap — email gets a larger budget than chat platforms.
@@ -154,9 +156,8 @@ async fn send_telegram(
     message: &str,
     target: Option<&str>,
 ) -> Result<String, ToolError> {
-    let token = std::env::var("TELEGRAM_BOT_TOKEN").map_err(|_| {
-        ToolError::ExecutionFailed("TELEGRAM_BOT_TOKEN not set".into())
-    })?;
+    let token = std::env::var("TELEGRAM_BOT_TOKEN")
+        .map_err(|_| ToolError::ExecutionFailed("TELEGRAM_BOT_TOKEN not set".into()))?;
     let chat_id = target
         .map(String::from)
         .unwrap_or_else(|| std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default());
@@ -300,9 +301,7 @@ async fn send_matrix(
         .or_else(|| target.map(String::from))
         .or_else(|| std::env::var("MATRIX_ROOM_ID").ok())
         .ok_or_else(|| {
-            ToolError::InvalidArguments(
-                "matrix needs 'room_id' / 'target' / MATRIX_ROOM_ID".into(),
-            )
+            ToolError::InvalidArguments("matrix needs 'room_id' / 'target' / MATRIX_ROOM_ID".into())
         })?;
 
     validate_outbound_url(&homeserver)?;
@@ -378,8 +377,7 @@ async fn send_whatsapp(
         .map_err(|_| ToolError::ExecutionFailed("WHATSAPP_ACCESS_TOKEN not set".into()))?;
     let phone_number_id = std::env::var("WHATSAPP_PHONE_NUMBER_ID")
         .map_err(|_| ToolError::ExecutionFailed("WHATSAPP_PHONE_NUMBER_ID not set".into()))?;
-    let api_version =
-        std::env::var("WHATSAPP_API_VERSION").unwrap_or_else(|_| "v20.0".to_string());
+    let api_version = std::env::var("WHATSAPP_API_VERSION").unwrap_or_else(|_| "v20.0".to_string());
 
     let recipient = input
         .get("to")
@@ -845,7 +843,9 @@ mod tests {
 
         let handler = SendMessageHandler::new().unwrap();
         let err = handler
-            .execute(&json!({ "platform": "matrix", "message": "hi", "target": "!abc:example.org" }))
+            .execute(
+                &json!({ "platform": "matrix", "message": "hi", "target": "!abc:example.org" }),
+            )
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("MATRIX_HOMESERVER"));

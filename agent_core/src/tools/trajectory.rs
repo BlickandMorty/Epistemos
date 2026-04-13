@@ -34,9 +34,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
-use crate::storage::session_store::{
-    list_session_folders, SessionFolderInfo, TranscriptTurn,
-};
+use crate::storage::session_store::{list_session_folders, SessionFolderInfo, TranscriptTurn};
 
 // ── Handler ────────────────────────────────────────────────────────────────
 
@@ -84,9 +82,7 @@ impl ToolHandler for TrajectoryExportHandler {
         };
 
         if candidates.is_empty() {
-            return Err(ToolError::NotFound(
-                "no sessions matched the filter".into(),
-            ));
+            return Err(ToolError::NotFound("no sessions matched the filter".into()));
         }
 
         let mut lines: Vec<String> = Vec::with_capacity(candidates.len());
@@ -166,19 +162,16 @@ fn resolve_output_path(path: &str) -> Result<PathBuf, ToolError> {
 }
 
 /// Convert a single session's `transcript.jsonl` into a ShareGPT JSONL line.
-fn build_sharegpt_line(
-    folder: &Path,
-    include_tool_calls: bool,
-) -> Result<(String, usize), String> {
+fn build_sharegpt_line(folder: &Path, include_tool_calls: bool) -> Result<(String, usize), String> {
     let metadata_path = folder.join("session.json");
-    let metadata_raw = fs::read_to_string(&metadata_path)
-        .map_err(|e| format!("read session.json: {e}"))?;
+    let metadata_raw =
+        fs::read_to_string(&metadata_path).map_err(|e| format!("read session.json: {e}"))?;
     let metadata: Value =
         serde_json::from_str(&metadata_raw).map_err(|e| format!("parse session.json: {e}"))?;
 
     let transcript_path = folder.join("transcript.jsonl");
-    let file = fs::File::open(&transcript_path)
-        .map_err(|e| format!("open transcript.jsonl: {e}"))?;
+    let file =
+        fs::File::open(&transcript_path).map_err(|e| format!("open transcript.jsonl: {e}"))?;
     let reader = BufReader::new(file);
 
     let mut conversations: Vec<Value> = Vec::new();
@@ -338,8 +331,12 @@ mod tests {
         let first: Value = serde_json::from_str(lines[0].as_str().unwrap()).unwrap();
         assert_eq!(first["id"], json!("abc12345"));
         let convs = first["conversations"].as_array().unwrap();
-        assert!(convs.iter().any(|c| c["from"] == "human" && c["value"] == "hello"));
-        assert!(convs.iter().any(|c| c["from"] == "gpt" && c["value"] == "hi there"));
+        assert!(convs
+            .iter()
+            .any(|c| c["from"] == "human" && c["value"] == "hello"));
+        assert!(convs
+            .iter()
+            .any(|c| c["from"] == "gpt" && c["value"] == "hi there"));
         assert!(convs.iter().any(|c| c["from"] == "tool_call"));
     }
 
@@ -381,10 +378,7 @@ mod tests {
         fake_session(dir.path(), "sess0003");
 
         let handler = TrajectoryExportHandler::new(dir.path().to_path_buf());
-        let result = handler
-            .execute(&json!({ "limit": 2 }))
-            .await
-            .unwrap();
+        let result = handler.execute(&json!({ "limit": 2 })).await.unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["sessions_exported"], json!(2));
     }

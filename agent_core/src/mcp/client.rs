@@ -51,27 +51,41 @@ impl McpServerConnection {
             "params": params,
         });
 
-        let stdin = self.process.stdin.as_mut()
+        let stdin = self
+            .process
+            .stdin
+            .as_mut()
             .ok_or("MCP server stdin unavailable")?;
         let line = serde_json::to_string(&request)
             .map_err(|e| format!("JSON serialization failed: {e}"))?;
-        stdin.write_all(line.as_bytes()).await
+        stdin
+            .write_all(line.as_bytes())
+            .await
             .map_err(|e| format!("Write to MCP server failed: {e}"))?;
-        stdin.write_all(b"\n").await
+        stdin
+            .write_all(b"\n")
+            .await
             .map_err(|e| format!("Write newline failed: {e}"))?;
-        stdin.flush().await
+        stdin
+            .flush()
+            .await
             .map_err(|e| format!("Flush failed: {e}"))?;
 
         // Read response
-        let stdout = self.process.stdout.as_mut()
+        let stdout = self
+            .process
+            .stdout
+            .as_mut()
             .ok_or("MCP server stdout unavailable")?;
         let mut reader = BufReader::new(stdout);
         let mut line = String::new();
-        reader.read_line(&mut line).await
+        reader
+            .read_line(&mut line)
+            .await
             .map_err(|e| format!("Read from MCP server failed: {e}"))?;
 
-        let response: Value = serde_json::from_str(&line)
-            .map_err(|e| format!("MCP response parse failed: {e}"))?;
+        let response: Value =
+            serde_json::from_str(&line).map_err(|e| format!("MCP response parse failed: {e}"))?;
 
         if let Some(error) = response.get("error") {
             return Err(format!("MCP error: {}", error));
@@ -105,7 +119,8 @@ impl McpClient {
                 .join("mcp")
                 .join("servers.json");
             if let Ok(data) = std::fs::read_to_string(&global_path) {
-                if let Ok(parsed) = serde_json::from_str::<HashMap<String, McpServerConfig>>(&data) {
+                if let Ok(parsed) = serde_json::from_str::<HashMap<String, McpServerConfig>>(&data)
+                {
                     configs.extend(parsed.into_values());
                 }
             }
@@ -135,7 +150,8 @@ impl McpClient {
             cmd.env(k, v);
         }
 
-        let child = cmd.spawn()
+        let child = cmd
+            .spawn()
             .map_err(|e| format!("Failed to spawn MCP server '{}': {e}", config.name))?;
 
         let mut conn = McpServerConnection {
@@ -145,14 +161,19 @@ impl McpClient {
         };
 
         // Initialize handshake
-        let _init_result = conn.send_request("initialize", json!({
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {
-                "name": "epistemos",
-                "version": "1.0.0",
-            },
-        })).await?;
+        let _init_result = conn
+            .send_request(
+                "initialize",
+                json!({
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {
+                        "name": "epistemos",
+                        "version": "1.0.0",
+                    },
+                }),
+            )
+            .await?;
 
         // Send initialized notification (no response expected)
         // For simplicity, skip the notification and go straight to tools/list
@@ -161,17 +182,20 @@ impl McpClient {
         let tools_result = conn.send_request("tools/list", json!({})).await?;
 
         let tools: Vec<ToolSchema> = if let Some(tools_array) = tools_result["tools"].as_array() {
-            tools_array.iter().filter_map(|t| {
-                let name = t["name"].as_str()?;
-                let description = t["description"].as_str().unwrap_or("");
-                let params = t["inputSchema"].clone();
+            tools_array
+                .iter()
+                .filter_map(|t| {
+                    let name = t["name"].as_str()?;
+                    let description = t["description"].as_str().unwrap_or("");
+                    let params = t["inputSchema"].clone();
 
-                Some(ToolSchema {
-                    name: format!("mcp_{}/{}", config.name, name),
-                    description: format!("[MCP: {}] {}", config.name, description),
-                    parameters: params,
+                    Some(ToolSchema {
+                        name: format!("mcp_{}/{}", config.name, name),
+                        description: format!("[MCP: {}] {}", config.name, description),
+                        parameters: params,
+                    })
                 })
-            }).collect()
+                .collect()
         } else {
             Vec::new()
         };
@@ -189,19 +213,24 @@ impl McpClient {
         tool_name: &str,
         arguments: Value,
     ) -> Result<String, String> {
-        let conn = self.servers.get_mut(server_name)
+        let conn = self
+            .servers
+            .get_mut(server_name)
             .ok_or_else(|| format!("MCP server '{}' not connected", server_name))?;
 
-        let result = conn.send_request("tools/call", json!({
-            "name": tool_name,
-            "arguments": arguments,
-        })).await?;
+        let result = conn
+            .send_request(
+                "tools/call",
+                json!({
+                    "name": tool_name,
+                    "arguments": arguments,
+                }),
+            )
+            .await?;
 
         // Extract text content from MCP tool result
         if let Some(content) = result["content"].as_array() {
-            let texts: Vec<&str> = content.iter()
-                .filter_map(|c| c["text"].as_str())
-                .collect();
+            let texts: Vec<&str> = content.iter().filter_map(|c| c["text"].as_str()).collect();
             Ok(texts.join("\n"))
         } else {
             Ok(result.to_string())
@@ -210,7 +239,8 @@ impl McpClient {
 
     /// Returns all discovered tool schemas from connected servers.
     pub fn all_tools(&self) -> Vec<ToolSchema> {
-        self.servers.values()
+        self.servers
+            .values()
             .flat_map(|conn| conn.tools.iter().cloned())
             .collect()
     }

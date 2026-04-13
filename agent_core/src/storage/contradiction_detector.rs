@@ -54,10 +54,7 @@ pub struct ExistingFactRef {
 ///
 /// Returns an empty vec if no contradictions are found. Each contradiction
 /// includes the conflict type and a confidence score.
-pub fn detect_contradictions(
-    incoming: &str,
-    existing_facts: &[VaultFact],
-) -> Vec<Contradiction> {
+pub fn detect_contradictions(incoming: &str, existing_facts: &[VaultFact]) -> Vec<Contradiction> {
     let incoming_normalized = normalize(incoming);
     if incoming_normalized.is_empty() {
         return Vec::new();
@@ -114,7 +111,11 @@ pub fn detect_contradictions(
     }
 
     // Sort by confidence descending
-    contradictions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+    contradictions.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     contradictions
 }
 
@@ -145,7 +146,8 @@ fn topics_overlap(left: &str, right: &str) -> bool {
 fn extract_numeric_tokens(text: &str) -> Vec<String> {
     text.split_whitespace()
         .filter(|word| {
-            let stripped = word.trim_start_matches('$')
+            let stripped = word
+                .trim_start_matches('$')
                 .trim_end_matches('%')
                 .trim_end_matches(',');
             stripped.parse::<f64>().is_ok()
@@ -166,7 +168,10 @@ fn has_boolean_conflict(left: &str, right: &str) -> bool {
 
 fn negation_state(text: &str) -> bool {
     let normalized = normalize(text);
-    let negation_words = ["not", "no", "never", "none", "neither", "without", "cannot", "cant", "dont", "doesnt", "isnt", "arent"];
+    let negation_words = [
+        "not", "no", "never", "none", "neither", "without", "cannot", "cant", "dont", "doesnt",
+        "isnt", "arent",
+    ];
     negation_words.iter().any(|word| normalized.contains(word))
 }
 
@@ -260,7 +265,10 @@ mod tests {
             make_fact("The service is online and costs $10"),
             make_fact("Caching is not enabled"),
         ];
-        let contradictions = detect_contradictions("The service is offline and costs $20 and caching is enabled", &facts);
+        let contradictions = detect_contradictions(
+            "The service is offline and costs $20 and caching is enabled",
+            &facts,
+        );
         assert!(contradictions.len() >= 1);
         // Should be sorted by confidence (highest first)
         for window in contradictions.windows(2) {

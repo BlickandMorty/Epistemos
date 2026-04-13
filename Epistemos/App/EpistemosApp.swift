@@ -526,6 +526,39 @@ struct EpistemosApp: App {
                         }
                         .withAppEnvironment(bootstrap)
                     }
+                    .sheet(isPresented: Binding(
+                        get: { bootstrap.vaultChatMutator.stagedDiff != nil },
+                        set: { isPresented in
+                            if !isPresented {
+                                bootstrap.vaultChatMutator.rejectPendingDiff()
+                            }
+                        }
+                    )) {
+                        if let diff = bootstrap.vaultChatMutator.stagedDiff {
+                            DiffApprovalSheet(
+                                diffResult: diff,
+                                onApprove: {
+                                    Task { @MainActor in
+                                        do {
+                                            _ = try await bootstrap.vaultChatMutator.approvePendingDiff()
+                                            bootstrap.uiState.showToast(
+                                                "Vault change committed.",
+                                                type: .success
+                                            )
+                                        } catch {
+                                            bootstrap.uiState.showToast(
+                                                error.localizedDescription,
+                                                type: .error
+                                            )
+                                        }
+                                    }
+                                },
+                                onReject: {
+                                    bootstrap.vaultChatMutator.rejectPendingDiff()
+                                }
+                            )
+                        }
+                    }
                     .background(ModularZoomWindowObserver().allowsHitTesting(false))
                     .onAppear {
                         guard !Self.isRunningTests else { return }

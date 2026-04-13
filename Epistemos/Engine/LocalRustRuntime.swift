@@ -1,12 +1,13 @@
 import Foundation
 import os
 
-// MARK: - LocalRustRuntime
-// Wraps the existing Rust agent_core FFI layer as an AgentRuntime.
-// This is the default runtime — runs entirely on-device.
+// MARK: - Archived LocalRustRuntime
+// Kept only as a migration reference while the shipping app uses the
+// lower-level session bridges directly.
 
 private let log = Logger(subsystem: "com.epistemos", category: "LocalRustRuntime")
 
+@available(*, unavailable, message: "Archived compatibility surface. Use ChatCoordinator and the low-level Rust bridge for shipping agent sessions.")
 @MainActor
 final class LocalRustRuntime: AgentRuntime {
     let runtimeId = "local-rust"
@@ -25,10 +26,6 @@ final class LocalRustRuntime: AgentRuntime {
     ) async throws -> String {
         let sessionId = UUID().uuidString
         log.info("LocalRustRuntime: starting session \(sessionId)")
-
-        // The actual implementation delegates to the existing Rust FFI bridge.
-        // This is a placeholder that emits the expected event sequence.
-        // Wire to the real bridge via StreamingDelegate callbacks → AgentRuntimeEvent mapping.
         return sessionId
     }
 
@@ -56,7 +53,6 @@ final class LocalRustRuntime: AgentRuntime {
         return .idle
     }
 
-    /// Called by StreamingDelegate to forward Rust events into the unified stream.
     func emitEvent(_ sessionId: String, event: AgentRuntimeEvent) {
         activeSessions[sessionId]?.yield(event)
     }

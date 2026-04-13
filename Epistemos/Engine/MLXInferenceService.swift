@@ -185,6 +185,7 @@ nonisolated struct LocalMLXLoopGuard: Sendable {
 protocol LocalMLXRuntime: Sendable {
     func generate(request: LocalMLXRequest) async throws -> String
     func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error>
+    func profilingSnapshot() async -> LocalMLXRunProfile?
     func unload() async
 }
 
@@ -207,6 +208,10 @@ nonisolated struct LocalMLXMemoryPolicy: Sendable, Equatable {
 
 nonisolated struct LocalMLXRunProfile: Sendable, Equatable {
     let modelID: String
+    let artifactID: String?
+    let requestedRuntimeKind: BackendRuntimeKind?
+    let resolvedRuntimeKind: BackendRuntimeKind
+    let executionMode: BackendExecutionMode
     let coldLoad: Bool
     let lowPowerModeEnabled: Bool
     let appActive: Bool
@@ -214,12 +219,17 @@ nonisolated struct LocalMLXRunProfile: Sendable, Equatable {
     let loadDurationMS: Double
     let firstTokenLatencyMS: Double?
     let totalDurationMS: Double
+    let outputTokenCount: Int
+    let tokensPerSecond: Double?
     let outputCharacterCount: Int
     let chunkCount: Int
     let continuationCount: Int
     let stopReason: String
     let memoryLimitBytes: Int
     let cacheLimitBytes: Int
+    let serialPhase: String
+    let fallbackMode: String
+    let availableMemoryBytes: UInt64
 }
 
 actor LocalMLXRequestGate {
@@ -452,22 +462,32 @@ nonisolated enum LocalMLXRuntimeTuning {
 }
 
 @MainActor
-final class LocalMLXClient: LocalConfigurableLLMClient {
+final class LocalMLXClient: RoutedLocalRuntimeClient {
     private let runtime: any LocalMLXRuntime
     private let inference: InferenceState
     private let paths: LocalModelPaths
+    private let runtimeControlPlane: BackendRuntimeControlPlane
     private let prepareForRequest: @MainActor @Sendable () async -> Void
+    private var preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?
 
     init(
         runtime: any LocalMLXRuntime,
         inference: InferenceState,
         paths: LocalModelPaths,
+        runtimeControlPlane: BackendRuntimeControlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(availableRuntimeKinds: [.mlx])
+        ),
         prepareForRequest: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.runtime = runtime
         self.inference = inference
         self.paths = paths
+        self.runtimeControlPlane = runtimeControlPlane
         self.prepareForRequest = prepareForRequest
+    }
+
+    func configurePreparedGenerationRuntime(_ configuration: PreparedGenerationRuntimeConfiguration?) {
+        preparedGenerationRuntimeConfiguration = configuration
     }
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
@@ -475,7 +495,8 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            reasoningMode: .fast
+            reasoningMode: .fast,
+            requestedRuntimeKind: nil
         )
     }
 
@@ -486,6 +507,24 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil
     ) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: reasoningMode,
+            modelID: modelID,
+            requestedRuntimeKind: nil
+        )
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String? = nil,
+        requestedRuntimeKind: BackendRuntimeKind?
+    ) async throws -> String {
         let request = try resolvedRequest(
             prompt: prompt,
             systemPrompt: systemPrompt,
@@ -493,8 +532,66 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             reasoningMode: reasoningMode,
             modelID: modelID
         )
+        let contractRequest = backendGenerationRequest(
+            for: request,
+            requestedRuntimeKind: requestedRuntimeKind
+        )
         await prepareForRequest()
-        return try await runtime.generate(request: request)
+        let launch = try await runtimeControlPlane.generate(request: contractRequest)
+        guard launch.resolvedRuntimeKind == .mlx else {
+            throw LocalInferenceRoutingError.runtimeUnavailable
+        }
+
+        try await runtimeControlPlane.appendStarted(streamHandle: launch.streamHandle)
+        try await runtimeControlPlane.appendStatus(
+            streamHandle: launch.streamHandle,
+            status: "loading_model"
+        )
+        do {
+            let output = try await runtime.generate(request: request)
+            try await runtimeControlPlane.appendToken(streamHandle: launch.streamHandle, text: output)
+            let summary = await backendSummary(
+                from: request,
+                launch: launch,
+                output: output,
+                cancelled: false,
+                errorClass: nil
+            )
+            try await runtimeControlPlane.finishCompleted(
+                streamHandle: launch.streamHandle,
+                summary: summary
+            )
+            return output
+        } catch is CancellationError {
+            let summary = await backendSummary(
+                from: request,
+                launch: launch,
+                output: nil,
+                cancelled: true,
+                errorClass: .cancelled
+            )
+            try? await runtimeControlPlane.finishCancelled(
+                streamHandle: launch.streamHandle,
+                summary: summary
+            )
+            throw CancellationError()
+        } catch {
+            let mapped = Self.mapBackendError(error)
+            let summary = await backendSummary(
+                from: request,
+                launch: launch,
+                output: nil,
+                cancelled: false,
+                errorClass: mapped
+            )
+            try? await runtimeControlPlane.finishFailed(
+                streamHandle: launch.streamHandle,
+                errorClass: mapped,
+                message: error.localizedDescription,
+                summary: summary
+            )
+            throw error
+        }
     }
 
     func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
@@ -502,7 +599,8 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            reasoningMode: .fast
+            reasoningMode: .fast,
+            requestedRuntimeKind: nil
         )
     }
 
@@ -513,6 +611,24 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: reasoningMode,
+            modelID: modelID,
+            requestedRuntimeKind: nil
+        )
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String? = nil,
+        requestedRuntimeKind: BackendRuntimeKind?
+    ) -> AsyncThrowingStream<String, Error> {
         do {
             let request = try resolvedRequest(
                 prompt: prompt,
@@ -521,16 +637,79 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
                 reasoningMode: reasoningMode,
                 modelID: modelID
             )
+            let contractRequest = backendGenerationRequest(
+                for: request,
+                requestedRuntimeKind: requestedRuntimeKind
+            )
             return AsyncThrowingStream { continuation in
                 let task = Task {
                     await self.prepareForRequest()
-                    let stream = await self.runtime.stream(request: request)
+                    var launch: BackendGenerationLaunch?
+                    var output = ""
                     do {
+                        let preparedLaunch = try await self.runtimeControlPlane.generate(request: contractRequest)
+                        launch = preparedLaunch
+                        guard preparedLaunch.resolvedRuntimeKind == .mlx else {
+                            throw LocalInferenceRoutingError.runtimeUnavailable
+                        }
+                        try await self.runtimeControlPlane.appendStarted(streamHandle: preparedLaunch.streamHandle)
+                        try await self.runtimeControlPlane.appendStatus(
+                            streamHandle: preparedLaunch.streamHandle,
+                            status: "loading_model"
+                        )
+                        let stream = await self.runtime.stream(request: request)
                         for try await chunk in stream {
+                            output += chunk
+                            try await self.runtimeControlPlane.appendToken(
+                                streamHandle: preparedLaunch.streamHandle,
+                                text: chunk
+                            )
                             continuation.yield(chunk)
                         }
+                        let summary = await self.backendSummary(
+                            from: request,
+                            launch: preparedLaunch,
+                            output: output,
+                            cancelled: false,
+                            errorClass: nil
+                        )
+                        try await self.runtimeControlPlane.finishCompleted(
+                            streamHandle: preparedLaunch.streamHandle,
+                            summary: summary
+                        )
                         continuation.finish()
+                    } catch is CancellationError {
+                        if let launch {
+                            let summary = await self.backendSummary(
+                                from: request,
+                                launch: launch,
+                                output: output,
+                                cancelled: true,
+                                errorClass: .cancelled
+                            )
+                            try? await self.runtimeControlPlane.finishCancelled(
+                                streamHandle: launch.streamHandle,
+                                summary: summary
+                            )
+                        }
+                        continuation.finish(throwing: CancellationError())
                     } catch {
+                        if let launch {
+                            let mapped = Self.mapBackendError(error)
+                            let summary = await self.backendSummary(
+                                from: request,
+                                launch: launch,
+                                output: output,
+                                cancelled: false,
+                                errorClass: mapped
+                            )
+                            try? await self.runtimeControlPlane.finishFailed(
+                                streamHandle: launch.streamHandle,
+                                errorClass: mapped,
+                                message: error.localizedDescription,
+                                summary: summary
+                            )
+                        }
                         continuation.finish(throwing: error)
                     }
                 }
@@ -558,7 +737,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
 
     func configSnapshot() -> LLMSnapshot {
         LLMSnapshot(
-            provider: .localMLX,
+            provider: .localProvider(runtimeKind: .mlx),
             model: inference.effectiveLocalTextModelID ?? "",
             reasoningMode: .fast
         )
@@ -573,12 +752,17 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
         imageURLs: [URL] = []
     ) throws -> LocalMLXRequest {
         guard let modelID = modelID ?? inference.effectiveLocalTextModelID,
-              let descriptor = LocalModelCatalog.descriptor(for: modelID) else {
+              let resolvedModel = LocalTextModelID(rawValue: modelID) else {
+            throw LocalInferenceRoutingError.modelRequired
+        }
+        guard resolvedModel.runtimeKind == .mlx else {
+            throw LocalInferenceRoutingError.runtimeUnavailable
+        }
+        guard let descriptor = LocalModelCatalog.descriptor(for: modelID) else {
             throw LocalInferenceRoutingError.modelRequired
         }
 
-        let modelDirectory = paths.activeDirectory(for: descriptor)
-        guard FileManager.default.fileExists(atPath: modelDirectory.path) else {
+        guard let modelDirectory = resolvedModelDirectory(for: descriptor, modelID: modelID) else {
             throw LocalInferenceRoutingError.modelRequired
         }
 
@@ -609,6 +793,126 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
             reasoningMode: reasoningMode,
             imageURLs: resolvedImages
         )
+    }
+
+    private func resolvedModelDirectory(
+        for descriptor: LocalModelDescriptor,
+        modelID: String
+    ) -> URL? {
+        if let preparedDirectory = preparedGenerationRuntimeConfiguration?.resolvedModelDirectory(for: modelID),
+           FileManager.default.fileExists(atPath: preparedDirectory.path) {
+            return preparedDirectory
+        }
+
+        let installedDirectory = paths.activeDirectory(for: descriptor)
+        guard FileManager.default.fileExists(atPath: installedDirectory.path) else {
+            return nil
+        }
+        return installedDirectory
+    }
+
+    private func resolvedArtifactID(for modelID: String) -> String? {
+        preparedGenerationRuntimeConfiguration?.resolvedArtifactID(for: modelID)
+    }
+
+    private func backendGenerationRequest(
+        for request: LocalMLXRequest,
+        requestedRuntimeKind: BackendRuntimeKind?
+    ) -> BackendGenerationRequest {
+        BackendGenerationRequest(
+            requestID: UUID().uuidString,
+            requestedRuntimeKind: requestedRuntimeKind,
+            executionMode: .local,
+            modelID: request.modelID,
+            artifactID: resolvedArtifactID(for: request.modelID),
+            modelHandleID: nil,
+            prompt: request.prompt,
+            systemPrompt: request.systemPrompt,
+            maxOutputTokens: request.maxTokens,
+            temperature: request.reasoningMode == .thinking ? 0.35 : 0.2,
+            stopSequences: [],
+            toolPolicyRef: nil,
+            contextRef: nil,
+            reasoningProfile: BackendReasoningProfile(localReasoningMode: request.reasoningMode),
+            executionPolicyRef: nil,
+            priority: 0,
+            timeoutMS: 60_000,
+            streamOptions: BackendGenerationStreamOptions()
+        )
+    }
+
+    private func backendSummary(
+        from request: LocalMLXRequest,
+        launch: BackendGenerationLaunch,
+        output: String?,
+        cancelled: Bool,
+        errorClass: BackendRuntimeContractError?
+    ) async -> BackendGenerationSummary {
+        let profile = await runtime.profilingSnapshot()
+        let resolvedStats = try? await runtimeControlPlane.stats(target: .stream(launch.streamHandle))
+        let resolvedOutput = output ?? ""
+        let outputTokenCount = profile?.outputTokenCount ?? Self.estimatedTokenCount(for: resolvedOutput)
+        let totalDurationMS = profile?.totalDurationMS ?? 0
+        let tokensPerSecond =
+            profile?.tokensPerSecond
+            ?? (totalDurationMS > 0 && outputTokenCount > 0
+                ? Double(outputTokenCount) / (totalDurationMS / 1_000)
+                : nil)
+        let fallbackMode = profile?.fallbackMode ?? LocalInferenceSerialFallbackMode.resident.rawValue
+        let memoryPressureState =
+            fallbackMode == LocalInferenceSerialFallbackMode.ssdStreaming.rawValue
+            ? "pressure"
+            : "normal"
+
+        return BackendGenerationSummary(
+            requestID: launch.requestID,
+            requestedRuntimeKind: launch.requestedRuntimeKind,
+            resolvedRuntimeKind: launch.resolvedRuntimeKind,
+            requestedReasoningProfile: launch.requestedReasoningProfile,
+            resolvedReasoningProfile: resolvedStats?.resolvedReasoningProfile ?? launch.resolvedReasoningProfile,
+            executionMode: .local,
+            modelID: request.modelID,
+            artifactID: resolvedArtifactID(for: request.modelID),
+            executionPolicyID: resolvedStats?.executionPolicyID ?? launch.executionPolicyID,
+            fallbackMode: fallbackMode,
+            timeToFirstTokenMS: profile?.firstTokenLatencyMS,
+            totalDurationMS: totalDurationMS,
+            tokensPerSecond: tokensPerSecond,
+            outputTokenCount: outputTokenCount,
+            outputCharacterCount: profile?.outputCharacterCount ?? resolvedOutput.count,
+            memoryPressureState: memoryPressureState,
+            executionPhase: profile?.serialPhase ?? "unknown",
+            maskingState: resolvedStats?.maskingState ?? "dense",
+            kvPolicyState: resolvedStats?.kvPolicyState ?? "baseline",
+            expertBudgetState: resolvedStats?.expertBudgetState ?? "default",
+            adaptationState: resolvedStats?.adaptationState ?? "disabled",
+            guardrailState: resolvedStats?.guardrailState ?? "clear",
+            cancelled: cancelled,
+            errorClass: errorClass
+        )
+    }
+
+    private nonisolated static func mapBackendError(_ error: Error) -> BackendRuntimeContractError {
+        if error is CancellationError {
+            return .cancelled
+        }
+        if let routingError = error as? LocalInferenceRoutingError {
+            switch routingError {
+            case .modelRequired:
+                return .modelNotLoaded
+            case .runtimeUnavailable:
+                return .runtimeUnavailable
+            }
+        }
+        return .backendFailure
+    }
+
+    private nonisolated static func estimatedTokenCount(for text: String) -> Int {
+        guard !text.isEmpty else { return 0 }
+        let words = text.split(whereSeparator: \.isWhitespace).count
+        let charEstimate = Int(ceil(Double(text.count) / 3.5))
+        let wordEstimate = Int(ceil(Double(words) * 1.33))
+        return max(charEstimate, wordEstimate)
     }
 
     nonisolated static func trimForLocalRuntime(
@@ -653,6 +957,7 @@ final class LocalMLXClient: LocalConfigurableLLMClient {
 actor MLXInferenceService: LocalMLXRuntime {
     private let log = Logger(subsystem: "com.epistemos", category: "MLXInference")
     private let snapshot: LocalHardwareCapabilitySnapshot
+    private let serialController: LocalInferenceSerialController
     private var metalRuntimeManager: MetalRuntimeManager?
 
     private(set) var container: ModelContainer?
@@ -663,6 +968,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     private var activeRequestCount = 0
     private let requestGate = LocalMLXRequestGate()
     private var preparedCustomSSMRuntimeKey: String?
+    private var lastSerialSnapshot: LocalInferenceSerialSnapshot?
 
     /// SSM state persistence service — set by AppBootstrap after initialization.
     private var ssmStateService: SSMStateService?
@@ -676,6 +982,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// Callback invoked when an SSM state file is saved, so callers
     /// (e.g. ChatCoordinator) can bind the path to ConversationPersistence.
     var onSSMStateSaved: (@Sendable (_ sessionID: String, _ statePath: String) -> Void)?
+    var onRunProfileUpdated: (@Sendable (LocalMLXRunProfile) -> Void)?
 
     func setSsmStateService(_ service: SSMStateService) {
         self.ssmStateService = service
@@ -691,6 +998,10 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     func setOnSSMStateSaved(_ handler: @escaping @Sendable (_ sessionID: String, _ statePath: String) -> Void) {
         self.onSSMStateSaved = handler
+    }
+
+    func setOnRunProfileUpdated(_ handler: @escaping @Sendable (LocalMLXRunProfile) -> Void) {
+        self.onRunProfileUpdated = handler
     }
 
     private struct GenerationExecutionSummary {
@@ -711,6 +1022,7 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     init(snapshot: LocalHardwareCapabilitySnapshot = .current) {
         self.snapshot = snapshot
+        self.serialController = LocalInferenceSerialController()
         self.runtimeConditions = .current()
         let policy = LocalMLXRuntimeTuning.runtimePolicy(
             snapshot: snapshot,
@@ -725,6 +1037,8 @@ actor MLXInferenceService: LocalMLXRuntime {
         let start = ContinuousClock.now
         let policy = currentRuntimePolicy()
         do {
+            try beginSerialTurn()
+            defer { endSerialTurnIfNeeded() }
             let load = try await loadContainerIfNeeded(for: request, policy: policy)
             let parameters = generationParameters(for: request)
 
@@ -768,12 +1082,13 @@ actor MLXInferenceService: LocalMLXRuntime {
                 }
             }
 
-            let response = try await executeRequest(
+            let response = try await executeGpuBoundRequest(
                 request: request,
                 session: session,
                 requestStart: start,
                 emit: nil
             )
+            let serialSnapshot = currentSerialSnapshot()
             let profiledStopReason = Self.normalizedStopReason(
                 response.stopReason,
                 outputCharacterCount: response.outputCharacterCount,
@@ -782,6 +1097,10 @@ actor MLXInferenceService: LocalMLXRuntime {
             let totalDurationMS = start.duration(to: ContinuousClock.now).millisecondsValue
             lastRunProfile = LocalMLXRunProfile(
                 modelID: request.modelID,
+                artifactID: nil,
+                requestedRuntimeKind: nil,
+                resolvedRuntimeKind: .mlx,
+                executionMode: .local,
                 coldLoad: load.coldLoad,
                 lowPowerModeEnabled: runtimeConditions.lowPowerModeEnabled,
                 appActive: runtimeConditions.appActive,
@@ -789,12 +1108,20 @@ actor MLXInferenceService: LocalMLXRuntime {
                 loadDurationMS: load.loadDurationMS,
                 firstTokenLatencyMS: response.firstTokenLatencyMS,
                 totalDurationMS: totalDurationMS,
+                outputTokenCount: Self.estimatedTokenCount(for: response.text),
+                tokensPerSecond: Self.tokensPerSecond(
+                    output: response.text,
+                    totalDurationMS: totalDurationMS
+                ),
                 outputCharacterCount: response.outputCharacterCount,
                 chunkCount: response.chunkCount,
                 continuationCount: response.continuationCount,
                 stopReason: Self.stopReasonLabel(profiledStopReason),
                 memoryLimitBytes: policy.memoryPolicy.memoryLimitBytes,
-                cacheLimitBytes: policy.memoryPolicy.cacheLimitBytes
+                cacheLimitBytes: adjustedCacheLimitBytes(for: policy.memoryPolicy.cacheLimitBytes),
+                serialPhase: serialSnapshot.phase,
+                fallbackMode: serialSnapshot.fallbackMode.rawValue,
+                availableMemoryBytes: serialSnapshot.availableMemoryBytes
             )
             log.info(
                 "Local generate model=\(request.modelID, privacy: .public) cold=\(load.coldLoad) loadMs=\(load.loadDurationMS, privacy: .public) totalMs=\(totalDurationMS, privacy: .public) stop=\(Self.stopReasonLabel(profiledStopReason), privacy: .public) continuations=\(response.continuationCount, privacy: .public) lowPower=\(self.runtimeConditions.lowPowerModeEnabled) appActive=\(self.runtimeConditions.appActive)"
@@ -827,6 +1154,8 @@ actor MLXInferenceService: LocalMLXRuntime {
             let task = Task {
                 let policy = await self.beginRequestAndResolvePolicy()
                 do {
+                    try self.beginSerialTurn()
+                    defer { self.endSerialTurnIfNeeded() }
                     let start = ContinuousClock.now
                     let load = try await self.loadContainerIfNeeded(for: request, policy: policy)
                     let parameters = self.generationParameters(for: request)
@@ -866,13 +1195,14 @@ actor MLXInferenceService: LocalMLXRuntime {
                             }
                         }
                     }
-                    let response = try await self.executeRequest(
+                    let response = try await self.executeGpuBoundRequest(
                         request: request,
                         session: session,
-                        requestStart: start
-                    ) { chunk in
+                        requestStart: start,
+                        emit: { chunk in
                         continuation.yield(chunk)
-                    }
+                    })
+                    let serialSnapshot = self.currentSerialSnapshot()
                     let profiledStopReason = Self.normalizedStopReason(
                         response.stopReason,
                         outputCharacterCount: response.outputCharacterCount,
@@ -882,6 +1212,10 @@ actor MLXInferenceService: LocalMLXRuntime {
                     self.recordProfile(
                         LocalMLXRunProfile(
                             modelID: request.modelID,
+                            artifactID: nil,
+                            requestedRuntimeKind: nil,
+                            resolvedRuntimeKind: .mlx,
+                            executionMode: .local,
                             coldLoad: load.coldLoad,
                             lowPowerModeEnabled: self.runtimeConditions.lowPowerModeEnabled,
                             appActive: self.runtimeConditions.appActive,
@@ -889,12 +1223,20 @@ actor MLXInferenceService: LocalMLXRuntime {
                             loadDurationMS: load.loadDurationMS,
                             firstTokenLatencyMS: response.firstTokenLatencyMS,
                             totalDurationMS: totalDurationMS,
+                            outputTokenCount: Self.estimatedTokenCount(for: response.text),
+                            tokensPerSecond: Self.tokensPerSecond(
+                                output: response.text,
+                                totalDurationMS: totalDurationMS
+                            ),
                             outputCharacterCount: response.outputCharacterCount,
                             chunkCount: response.chunkCount,
                             continuationCount: response.continuationCount,
                             stopReason: Self.stopReasonLabel(profiledStopReason),
                             memoryLimitBytes: policy.memoryPolicy.memoryLimitBytes,
-                            cacheLimitBytes: policy.memoryPolicy.cacheLimitBytes
+                            cacheLimitBytes: self.adjustedCacheLimitBytes(for: policy.memoryPolicy.cacheLimitBytes),
+                            serialPhase: serialSnapshot.phase,
+                            fallbackMode: serialSnapshot.fallbackMode.rawValue,
+                            availableMemoryBytes: serialSnapshot.availableMemoryBytes
                         )
                     )
                     self.log.info(
@@ -976,6 +1318,24 @@ actor MLXInferenceService: LocalMLXRuntime {
         lastRunProfile
     }
 
+    private nonisolated static func tokensPerSecond(
+        output: String,
+        totalDurationMS: Double
+    ) -> Double? {
+        guard totalDurationMS > 0 else { return nil }
+        let estimatedTokens = estimatedTokenCount(for: output)
+        guard estimatedTokens > 0 else { return nil }
+        return Double(estimatedTokens) / (totalDurationMS / 1_000)
+    }
+
+    private nonisolated static func estimatedTokenCount(for text: String) -> Int {
+        guard !text.isEmpty else { return 0 }
+        let words = text.split(whereSeparator: \.isWhitespace).count
+        let charEstimate = Int(ceil(Double(text.count) / 3.5))
+        let wordEstimate = Int(ceil(Double(words) * 1.33))
+        return max(charEstimate, wordEstimate)
+    }
+
     private func loadContainerIfNeeded(
         for request: LocalMLXRequest,
         policy: LocalMLXRuntimePolicy
@@ -986,6 +1346,10 @@ actor MLXInferenceService: LocalMLXRuntime {
             await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
             return (container, false, 0)
         }
+
+        try recordTurnBoundaryReadaheadIfNeeded()
+        try beginSsdReadIfNeeded()
+        defer { finishSsdReadIfNeeded() }
 
         await unload()
         let start = ContinuousClock.now
@@ -1119,12 +1483,12 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     private func applyActiveMemoryPolicy(_ policy: LocalMLXRuntimePolicy) {
         Memory.memoryLimit = policy.memoryPolicy.memoryLimitBytes
-        Memory.cacheLimit = policy.memoryPolicy.cacheLimitBytes
+        Memory.cacheLimit = adjustedCacheLimitBytes(for: policy.memoryPolicy.cacheLimitBytes)
     }
 
     private func applyIdleMemoryPolicy(_ policy: LocalMLXRuntimePolicy) {
         Memory.memoryLimit = policy.idleMemoryPolicy.memoryLimitBytes
-        Memory.cacheLimit = policy.idleMemoryPolicy.cacheLimitBytes
+        Memory.cacheLimit = adjustedCacheLimitBytes(for: policy.idleMemoryPolicy.cacheLimitBytes)
     }
 
     private func currentRuntimePolicy() -> LocalMLXRuntimePolicy {
@@ -1136,6 +1500,82 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     private func recordProfile(_ profile: LocalMLXRunProfile) {
         lastRunProfile = profile
+        onRunProfileUpdated?(profile)
+    }
+
+    private func beginSerialTurn() throws {
+        lastSerialSnapshot = serialController.refreshAvailableMemory()
+        try serialController.beginTurn()
+        lastSerialSnapshot = serialController.snapshot()
+    }
+
+    private func endSerialTurnIfNeeded() {
+        do {
+            try serialController.endTurn()
+        } catch {
+            log.debug("Serial inference endTurn ignored: \(error.localizedDescription, privacy: .public)")
+        }
+        lastSerialSnapshot = serialController.snapshot()
+    }
+
+    private func recordTurnBoundaryReadaheadIfNeeded() throws {
+        do {
+            try serialController.recordTurnBoundaryReadahead()
+            lastSerialSnapshot = serialController.snapshot()
+        } catch let error as LocalInferenceSerialControllerError where error == .invalidTransition || error == .noTurnOpen {
+            throw error
+        } catch {
+            log.debug("Serial inference readahead skipped: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func beginSsdReadIfNeeded() throws {
+        try serialController.beginSsdRead()
+        lastSerialSnapshot = serialController.snapshot()
+    }
+
+    private func finishSsdReadIfNeeded() {
+        do {
+            try serialController.finishSsdRead()
+        } catch {
+            log.error("Serial inference finishSsdRead failed: \(error.localizedDescription, privacy: .public)")
+        }
+        lastSerialSnapshot = serialController.snapshot()
+    }
+
+    private func adjustedCacheLimitBytes(for suggestedBytes: Int) -> Int {
+        serialController.adjustedCacheLimitBytes(suggestedBytes: suggestedBytes)
+    }
+
+    private func currentSerialSnapshot() -> LocalInferenceSerialSnapshot {
+        let snapshot = serialController.snapshot()
+        lastSerialSnapshot = snapshot
+        return snapshot
+    }
+
+    private func executeGpuBoundRequest(
+        request: LocalMLXRequest,
+        session: ChatSession,
+        requestStart: ContinuousClock.Instant,
+        emit: ((String) -> Void)?
+    ) async throws -> GenerationExecutionSummary {
+        try serialController.beginGpuCompute()
+        lastSerialSnapshot = serialController.snapshot()
+        defer {
+            do {
+                try serialController.finishGpuCompute()
+            } catch {
+                log.error("Serial inference finishGpuCompute failed: \(error.localizedDescription, privacy: .public)")
+            }
+            lastSerialSnapshot = serialController.snapshot()
+        }
+
+        return try await executeRequest(
+            request: request,
+            session: session,
+            requestStart: requestStart,
+            emit: emit
+        )
     }
 
     private func executeRequest(
@@ -1371,6 +1811,7 @@ actor MLXInferenceService: LocalMLXRuntime {
 #else
 actor MLXInferenceService: LocalMLXRuntime {
     private var lastRunProfile: LocalMLXRunProfile?
+    var onRunProfileUpdated: (@Sendable (LocalMLXRunProfile) -> Void)?
 
     init(snapshot: LocalHardwareCapabilitySnapshot = .current) {
         _ = snapshot
@@ -1396,6 +1837,10 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     func profilingSnapshot() -> LocalMLXRunProfile? {
         lastRunProfile
+    }
+
+    func setOnRunProfileUpdated(_ handler: @escaping @Sendable (LocalMLXRunProfile) -> Void) {
+        self.onRunProfileUpdated = handler
     }
 }
 #endif

@@ -11,7 +11,9 @@ use serde_json::{json, Value};
 use crate::agent_loop::{AgentConfig, AgentError, Effort};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
-use crate::types::{ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent};
+use crate::types::{
+    ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent,
+};
 
 const PERPLEXITY_API: &str = "https://api.perplexity.ai/v1/sonar";
 
@@ -109,32 +111,36 @@ impl AgentProvider for PerplexityProvider {
         let client = self.client.clone();
         let api_key = self.api_key.clone();
 
-        let response = with_retry(&retry_config, &tokio_util::sync::CancellationToken::new(), || {
-            let client = client.clone();
-            let api_key = api_key.clone();
-            let body = serde_json::to_value(&body)
-                .map_err(|error| AgentError::Serialization(error.to_string()));
+        let response = with_retry(
+            &retry_config,
+            &tokio_util::sync::CancellationToken::new(),
+            || {
+                let client = client.clone();
+                let api_key = api_key.clone();
+                let body = serde_json::to_value(&body)
+                    .map_err(|error| AgentError::Serialization(error.to_string()));
 
-            async move {
-                let body = body?;
-                let response = client
-                    .post(PERPLEXITY_API)
-                    .header("authorization", format!("Bearer {api_key}"))
-                    .header("content-type", "application/json")
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(|error| AgentError::HttpError(error.to_string()))?;
+                async move {
+                    let body = body?;
+                    let response = client
+                        .post(PERPLEXITY_API)
+                        .header("authorization", format!("Bearer {api_key}"))
+                        .header("content-type", "application/json")
+                        .json(&body)
+                        .send()
+                        .await
+                        .map_err(|error| AgentError::HttpError(error.to_string()))?;
 
-                if !response.status().is_success() {
-                    let status = response.status().as_u16();
-                    let body = response.text().await.unwrap_or_default();
-                    return Err(AgentError::ApiError { status, body });
+                    if !response.status().is_success() {
+                        let status = response.status().as_u16();
+                        let body = response.text().await.unwrap_or_default();
+                        return Err(AgentError::ApiError { status, body });
+                    }
+
+                    Ok(response)
                 }
-
-                Ok(response)
-            }
-        })
+            },
+        )
         .await?;
 
         let event_stream = response.bytes_stream().eventsource();

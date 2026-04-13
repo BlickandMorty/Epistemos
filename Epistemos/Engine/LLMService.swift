@@ -137,6 +137,24 @@ extension LLMClientProtocol {
 
 // MARK: - LLM Service
 
+extension LLMProviderType {
+    nonisolated static func localProvider(runtimeKind: BackendRuntimeKind) -> Self {
+        switch runtimeKind {
+        case .gguf:
+            .localGGUF
+        case .mlx, .remote:
+            .localMLX
+        }
+    }
+
+    nonisolated static func localProvider(modelID: String?) -> Self {
+        guard let modelID, let localModel = LocalTextModelID(rawValue: modelID) else {
+            return .localMLX
+        }
+        return localProvider(runtimeKind: localModel.runtimeKind)
+    }
+}
+
 /// Shared text generation gateway for older subsystems that still expect
 /// a single generation service. It exposes the current Apple Intelligence vs.
 /// local Qwen snapshot without duplicating the higher-level triage engine.
@@ -186,7 +204,7 @@ final class LLMService: LLMClientProtocol {
                 continuation.onTermination = { _ in task.cancel() }
             }
 
-        case .localMLX:
+        case .localGGUF, .localMLX:
             guard let localLLMClient else {
                 return AsyncThrowingStream { continuation in
                     continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
@@ -268,7 +286,11 @@ final class LLMService: LLMClientProtocol {
         }
 
         if let modelID = inference.activeLocalTextModelID {
-            return LLMSnapshot(provider: .localMLX, model: modelID, reasoningMode: .fast)
+            return LLMSnapshot(
+                provider: .localProvider(modelID: modelID),
+                model: modelID,
+                reasoningMode: .fast
+            )
         }
 
         return LLMSnapshot(
@@ -293,7 +315,7 @@ final class LLMService: LLMClientProtocol {
                 systemPrompt: systemPrompt
             )
 
-        case .localMLX:
+        case .localGGUF, .localMLX:
             return try await sharedLocalGenerate(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
@@ -1410,7 +1432,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             credential: credential
         )
         request.httpBody = try JSONSerialization.data(
-            withJSONObject: compatibleChatCompletionBody(
+            withJSONObject: OpenAICompatibleChatSupport.completionBody(
                 modelID: model.vendorModelID,
                 prompt: prompt,
                 systemPrompt: systemPrompt,
@@ -1421,7 +1443,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         )
 
         let json = try await sendJSON(request)
-        guard let text = openAICompatibleMessageText(from: json), !text.isEmpty else {
+        guard let text = OpenAICompatibleChatSupport.messageText(from: json), !text.isEmpty else {
             throw CloudLLMError.invalidResponse
         }
         return text
@@ -1443,7 +1465,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 credential: credential
             )
             builtRequest.httpBody = try JSONSerialization.data(
-                withJSONObject: compatibleChatCompletionBody(
+                withJSONObject: OpenAICompatibleChatSupport.completionBody(
                     modelID: model.vendorModelID,
                     prompt: prompt,
                     systemPrompt: systemPrompt,
@@ -1932,76 +1954,12 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         _ request: URLRequest,
         chunkExtractor: @escaping @Sendable ([String: Any]) -> String?
     ) -> AsyncThrowingStream<String, Error> {
-        ProcessActivity.makeStream(reason: "Streaming cloud response") { [self] continuation in
-            do {
-                let (bytes, response) = try await urlSession.bytes(for: request)
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    throw CloudLLMError.invalidResponse
-                }
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    let body = try await Self.collectAsyncBytes(bytes)
-                    throw LLMError.apiError(statusCode: httpResponse.statusCode, body: body)
-                }
-
-                var eventName: String?
-                var dataLines: [String] = []
-
-                func flushEvent() throws {
-                    guard !dataLines.isEmpty else {
-                        eventName = nil
-                        return
-                    }
-
-                    let payload = dataLines.joined(separator: "\n")
-                    let currentEventName = eventName
-                    eventName = nil
-                    dataLines.removeAll(keepingCapacity: true)
-
-                    if payload == "[DONE]" {
-                        return
-                    }
-
-                    guard let jsonData = payload.data(using: .utf8),
-                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-                        return
-                    }
-
-                    if let error = CloudStreamingParser.streamError(from: json, eventName: currentEventName) {
-                        throw error
-                    }
-
-                    if let chunk = chunkExtractor(json), !chunk.isEmpty {
-                        continuation.yield(chunk)
-                    }
-                }
-
-                for try await line in bytes.lines {
-                    if Task.isCancelled {
-                        continuation.finish()
-                        return
-                    }
-
-                    if line.isEmpty {
-                        try flushEvent()
-                        continue
-                    }
-
-                    if line.hasPrefix("event:") {
-                        eventName = Self.sseFieldValue(from: line)
-                        continue
-                    }
-
-                    if line.hasPrefix("data:") {
-                        dataLines.append(Self.sseFieldValue(from: line))
-                    }
-                }
-
-                try flushEvent()
-                continuation.finish()
-            } catch {
-                continuation.finish(throwing: error)
-            }
-        }
+        URLSessionTransportSupport.streamSSE(
+            using: urlSession,
+            request: request,
+            invalidResponse: { CloudLLMError.invalidResponse },
+            chunkExtractor: chunkExtractor
+        )
     }
 
     private nonisolated static func sseFieldValue(from line: String) -> String {
@@ -2021,18 +1979,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     private func sendJSON(_ request: URLRequest) async throws -> [String: Any] {
-        let (data, response) = try await urlSession.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudLLMError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw LLMError.apiError(statusCode: httpResponse.statusCode, body: body)
-        }
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw CloudLLMError.invalidResponse
-        }
-        return json
+        try await URLSessionTransportSupport.sendJSON(
+            using: urlSession,
+            request: request,
+            invalidResponse: { CloudLLMError.invalidResponse }
+        )
     }
 
     private func openAIToolsConfiguration() -> [[String: Any]] {

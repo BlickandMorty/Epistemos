@@ -32,8 +32,8 @@ fn scan_memory_content(content: &str) -> Option<String> {
 
     // Invisible unicode injection
     let invisible_chars = [
-        '\u{200b}', '\u{200c}', '\u{200d}', '\u{2060}', '\u{feff}',
-        '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}', '\u{202e}',
+        '\u{200b}', '\u{200c}', '\u{200d}', '\u{2060}', '\u{feff}', '\u{202a}', '\u{202b}',
+        '\u{202c}', '\u{202d}', '\u{202e}',
     ];
     for ch in &invisible_chars {
         if content.contains(*ch) {
@@ -69,9 +69,14 @@ fn scan_memory_content(content: &str) -> Option<String> {
 
     // Exfiltration patterns (curl/wget with secrets)
     if (lower.contains("curl") || lower.contains("wget"))
-        && (lower.contains("key") || lower.contains("token") || lower.contains("secret") || lower.contains("password"))
+        && (lower.contains("key")
+            || lower.contains("token")
+            || lower.contains("secret")
+            || lower.contains("password"))
     {
-        return Some("Blocked: content contains potential secret exfiltration command.".to_string());
+        return Some(
+            "Blocked: content contains potential secret exfiltration command.".to_string(),
+        );
     }
 
     None
@@ -109,10 +114,7 @@ impl MemoryStore {
         dedup_preserve_order(&mut self.user_entries);
 
         // Freeze snapshot for system prompt
-        self.system_prompt_snapshot = (
-            self.render_block("memory"),
-            self.render_block("user"),
-        );
+        self.system_prompt_snapshot = (self.render_block("memory"), self.render_block("user"));
     }
 
     /// Returns the frozen system prompt text for injection.
@@ -180,7 +182,8 @@ impl MemoryStore {
             return json!({"success": false, "error": err});
         }
 
-        let matches: Vec<usize> = self.entries(target)
+        let matches: Vec<usize> = self
+            .entries(target)
             .iter()
             .enumerate()
             .filter(|(_, e)| e.contains(substring))
@@ -202,7 +205,8 @@ impl MemoryStore {
     }
 
     pub fn remove(&mut self, target: &str, substring: &str) -> Value {
-        let matches: Vec<usize> = self.entries(target)
+        let matches: Vec<usize> = self
+            .entries(target)
             .iter()
             .enumerate()
             .filter(|(_, e)| e.contains(substring))
@@ -253,7 +257,11 @@ impl MemoryStore {
     }
 
     fn save_to_disk(&self, target: &str) {
-        let filename = if target == "user" { "USER.md" } else { "MEMORY.md" };
+        let filename = if target == "user" {
+            "USER.md"
+        } else {
+            "MEMORY.md"
+        };
         let path = self.memory_dir.join(filename);
         let content = self.entries(target).join(ENTRY_DELIMITER);
 
@@ -314,7 +322,11 @@ impl MemoryStore {
 }
 
 fn char_limit(target: &str) -> usize {
-    if target == "user" { USER_CHAR_LIMIT } else { MEMORY_CHAR_LIMIT }
+    if target == "user" {
+        USER_CHAR_LIMIT
+    } else {
+        MEMORY_CHAR_LIMIT
+    }
 }
 
 fn dedup_preserve_order(entries: &mut Vec<String>) {

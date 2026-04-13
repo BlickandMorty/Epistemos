@@ -136,12 +136,12 @@ pub fn build_topology(vault_root: &Path) -> Result<VaultTopology, io::Error> {
 
     // Phase 4: Identify God Nodes (top 10 by gravity)
     let mut by_gravity = nodes.clone();
-    by_gravity.sort_by(|a, b| b.gravity.partial_cmp(&a.gravity).unwrap_or(std::cmp::Ordering::Equal));
-    let god_nodes: Vec<String> = by_gravity
-        .iter()
-        .take(10)
-        .map(|n| n.path.clone())
-        .collect();
+    by_gravity.sort_by(|a, b| {
+        b.gravity
+            .partial_cmp(&a.gravity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let god_nodes: Vec<String> = by_gravity.iter().take(10).map(|n| n.path.clone()).collect();
 
     Ok(VaultTopology {
         vault_root: vault_root.to_string_lossy().to_string(),
@@ -208,9 +208,7 @@ fn walk_tree(
         let vs = estimate_volatility(&path);
 
         let child_count = if is_dir {
-            fs::read_dir(&path)
-                .map(|rd| rd.count() as u32)
-                .unwrap_or(0)
+            fs::read_dir(&path).map(|rd| rd.count() as u32).unwrap_or(0)
         } else {
             0
         };
@@ -256,10 +254,7 @@ fn walk_tree(
 // ---------------------------------------------------------------------------
 
 fn estimate_file_complexity(path: &Path) -> f64 {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
     // Base complexity from file size (log scale, 1.0–8.0)
     let size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
@@ -267,7 +262,7 @@ fn estimate_file_complexity(path: &Path) -> f64 {
 
     // Language complexity modifier
     let lang_mod = match ext {
-        "rs" | "swift" => 1.3,    // systems languages = higher complexity
+        "rs" | "swift" => 1.3, // systems languages = higher complexity
         "py" | "ts" | "js" => 1.0,
         "md" | "txt" => 0.7,
         "json" | "yaml" | "toml" => 0.5,
@@ -312,9 +307,7 @@ fn walkdir_size(path: &Path) -> u64 {
 
 fn estimate_volatility(path: &Path) -> f64 {
     // Based on last modified time — exponential decay with ~7-day half-life
-    let modified = fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok();
+    let modified = fs::metadata(path).and_then(|m| m.modified()).ok();
 
     let Some(modified) = modified else {
         return 0.0;
@@ -430,10 +423,7 @@ fn generate_blanket_summaries(nodes: &mut [VaultNodeMetrics]) {
 /// is less likely to be relevant).
 ///
 /// Returns: (should_pierce, confidence: 0.0–1.0)
-pub fn should_pierce_blanket(
-    query: &str,
-    node: &VaultNodeMetrics,
-) -> (bool, f64) {
+pub fn should_pierce_blanket(query: &str, node: &VaultNodeMetrics) -> (bool, f64) {
     // Non-directories always "pierce" (nothing to descend into)
     if !node.is_directory {
         return (true, 1.0);
@@ -447,21 +437,21 @@ pub fn should_pierce_blanket(
 
     // Jaccard similarity between query terms and blanket summary terms
     let query_lower = query.to_lowercase();
-    let query_terms: std::collections::HashSet<&str> = query_lower
-        .split_whitespace()
-        .collect();
+    let query_terms: std::collections::HashSet<&str> = query_lower.split_whitespace().collect();
     let summary_lower = summary.to_lowercase();
-    let summary_terms: std::collections::HashSet<&str> = summary_lower
-        .split_whitespace()
-        .collect();
+    let summary_terms: std::collections::HashSet<&str> = summary_lower.split_whitespace().collect();
 
     let intersection = query_terms.intersection(&summary_terms).count() as f64;
     let union = query_terms.union(&summary_terms).count() as f64;
-    let jaccard = if union > 0.0 { intersection / union } else { 0.0 };
+    let jaccard = if union > 0.0 {
+        intersection / union
+    } else {
+        0.0
+    };
 
     // Adjust by gravity (hub bonus) and volatility (recency bonus)
     let gravity_bonus = (node.gravity / 10.0).min(0.2); // max +0.2 for high-gravity dirs
-    let volatility_bonus = node.volatility * 0.1;        // max +0.1 for recently-edited
+    let volatility_bonus = node.volatility * 0.1; // max +0.1 for recently-edited
     let confidence = (jaccard + gravity_bonus + volatility_bonus).min(1.0);
 
     // Pierce if confidence exceeds threshold (0.15 is lenient — prefer exploration over missing)
@@ -492,12 +482,13 @@ pub fn topology_to_agent_context(topology: &VaultTopology, max_tokens: usize) ->
     lines.push(String::new());
 
     // Show directories first (Markov Blankets), sorted by gravity
-    let mut dirs: Vec<&VaultNodeMetrics> = topology
-        .nodes
-        .iter()
-        .filter(|n| n.is_directory)
-        .collect();
-    dirs.sort_by(|a, b| b.gravity.partial_cmp(&a.gravity).unwrap_or(std::cmp::Ordering::Equal));
+    let mut dirs: Vec<&VaultNodeMetrics> =
+        topology.nodes.iter().filter(|n| n.is_directory).collect();
+    dirs.sort_by(|a, b| {
+        b.gravity
+            .partial_cmp(&a.gravity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let max_words = max_tokens * 3 / 4; // rough word budget
     let mut word_count = 0;
@@ -541,11 +532,23 @@ mod tests {
         fs::write(root.join("sessions/2026-04-08_abc/transcript.jsonl"), "").unwrap();
 
         fs::create_dir_all(root.join("memory")).unwrap();
-        fs::write(root.join("memory/decisions.md"), "# Decisions\n- Use Rust FFI").unwrap();
-        fs::write(root.join("memory/knowledge.md"), "# Knowledge\n- MLX for inference").unwrap();
+        fs::write(
+            root.join("memory/decisions.md"),
+            "# Decisions\n- Use Rust FFI",
+        )
+        .unwrap();
+        fs::write(
+            root.join("memory/knowledge.md"),
+            "# Knowledge\n- MLX for inference",
+        )
+        .unwrap();
 
         fs::create_dir_all(root.join("skills/vault-search")).unwrap();
-        fs::write(root.join("skills/vault-search/SKILL.md"), "---\nname: vault-search\n---\nSearches the vault.").unwrap();
+        fs::write(
+            root.join("skills/vault-search/SKILL.md"),
+            "---\nname: vault-search\n---\nSearches the vault.",
+        )
+        .unwrap();
 
         fs::write(root.join("SOUL.md"), "You are Epistemos.").unwrap();
         fs::write(root.join("_index.md"), "# Vault Index").unwrap();
@@ -570,8 +573,12 @@ mod tests {
         let topology = build_topology(tmp.path()).unwrap();
 
         for node in &topology.nodes {
-            assert!(node.position.r >= 0.0 && node.position.r < 1.0,
-                "r={} for {} is outside Poincaré disk", node.position.r, node.path);
+            assert!(
+                node.position.r >= 0.0 && node.position.r < 1.0,
+                "r={} for {} is outside Poincaré disk",
+                node.position.r,
+                node.path
+            );
             assert!(node.position.x.is_finite());
             assert!(node.position.y.is_finite());
         }
@@ -582,15 +589,29 @@ mod tests {
         let tmp = create_test_vault();
         let topology = build_topology(tmp.path()).unwrap();
 
-        let depths: Vec<(u32, f64)> = topology.nodes.iter().map(|n| (n.depth, n.position.r)).collect();
+        let depths: Vec<(u32, f64)> = topology
+            .nodes
+            .iter()
+            .map(|n| (n.depth, n.position.r))
+            .collect();
         // On average, deeper nodes should have larger r
-        let shallow: f64 = depths.iter().filter(|(d, _)| *d == 0).map(|(_, r)| r).sum::<f64>();
-        let deep: f64 = depths.iter().filter(|(d, _)| *d >= 2).map(|(_, r)| r).sum::<f64>();
+        let shallow: f64 = depths
+            .iter()
+            .filter(|(d, _)| *d == 0)
+            .map(|(_, r)| r)
+            .sum::<f64>();
+        let deep: f64 = depths
+            .iter()
+            .filter(|(d, _)| *d >= 2)
+            .map(|(_, r)| r)
+            .sum::<f64>();
         let shallow_count = depths.iter().filter(|(d, _)| *d == 0).count() as f64;
         let deep_count = depths.iter().filter(|(d, _)| *d >= 2).count().max(1) as f64;
         if shallow_count > 0.0 && deep_count > 0.0 {
-            assert!(deep / deep_count >= shallow / shallow_count,
-                "Deep nodes should have larger r than shallow ones");
+            assert!(
+                deep / deep_count >= shallow / shallow_count,
+                "Deep nodes should have larger r than shallow ones"
+            );
         }
     }
 
@@ -600,8 +621,12 @@ mod tests {
         let topology = build_topology(tmp.path()).unwrap();
 
         for node in &topology.nodes {
-            assert!(node.complexity_weight >= 1.0 && node.complexity_weight <= 10.0,
-                "Cw={} for {} is out of range", node.complexity_weight, node.path);
+            assert!(
+                node.complexity_weight >= 1.0 && node.complexity_weight <= 10.0,
+                "Cw={} for {} is out of range",
+                node.complexity_weight,
+                node.path
+            );
         }
     }
 
@@ -611,8 +636,12 @@ mod tests {
         let topology = build_topology(tmp.path()).unwrap();
 
         for node in &topology.nodes {
-            assert!(node.volatility >= 0.0 && node.volatility <= 1.0,
-                "Vs={} for {} is out of range", node.volatility, node.path);
+            assert!(
+                node.volatility >= 0.0 && node.volatility <= 1.0,
+                "Vs={} for {} is out of range",
+                node.volatility,
+                node.path
+            );
         }
     }
 
@@ -621,13 +650,18 @@ mod tests {
         let tmp = create_test_vault();
         let topology = build_topology(tmp.path()).unwrap();
 
-        let dirs_with_children: Vec<&VaultNodeMetrics> = topology.nodes.iter()
+        let dirs_with_children: Vec<&VaultNodeMetrics> = topology
+            .nodes
+            .iter()
             .filter(|n| n.is_directory && n.child_count > 0)
             .collect();
 
         for dir in &dirs_with_children {
-            assert!(dir.blanket_summary.is_some(),
-                "Directory {} should have a blanket summary", dir.path);
+            assert!(
+                dir.blanket_summary.is_some(),
+                "Directory {} should have a blanket summary",
+                dir.path
+            );
         }
     }
 
@@ -640,7 +674,10 @@ mod tests {
         let d_near = origin.hyperbolic_distance(&near);
         let d_far = origin.hyperbolic_distance(&far);
 
-        assert!(d_far > d_near, "Far point should have larger hyperbolic distance");
+        assert!(
+            d_far > d_near,
+            "Far point should have larger hyperbolic distance"
+        );
         assert!(d_near > 0.0, "Non-zero distance");
     }
 

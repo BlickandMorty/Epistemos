@@ -255,7 +255,9 @@ impl TirithClient {
     }
 
     async fn run_tirith(&self, binary: &Path, input_file: &Path) -> TirithScanResult {
-        let output = match tokio::process::Command::new(binary)
+        let output = match tokio::time::timeout(
+            TIRITH_TIMEOUT,
+            tokio::process::Command::new(binary)
             .arg("scan")
             .arg("--input")
             .arg(input_file)
@@ -264,25 +266,30 @@ impl TirithClient {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
-            .output()
-            .await
+            .output(),
+        )
+        .await
         {
-            Ok(o) => o,
-            Err(e) => {
+            Ok(Ok(o)) => o,
+            Ok(Err(e)) => {
                 return self.fallback_result(&format!("Failed to run tirith: {e}"));
             }
+            Err(_) => return self.fallback_result("Tirith timed out"),
         };
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = truncate_debug_output(String::from_utf8_lossy(&output.stdout).as_ref());
+        let stderr = truncate_debug_output(String::from_utf8_lossy(&output.stderr).as_ref());
 
         if !output.status.success() {
             return TirithScanResult {
                 success: false,
                 assessment: ThreatAssessment::Clean,
                 threats: Vec::new(),
-                raw_output: Some(stderr.to_string()),
-                error: Some(format!("Tirith exited with code {:?}", output.status.code())),
+                raw_output: Some(stderr),
+                error: Some(format!(
+                    "Tirith exited with code {:?}",
+                    output.status.code()
+                )),
             };
         }
 
@@ -293,7 +300,7 @@ impl TirithClient {
                 success: true,
                 assessment: ThreatAssessment::Clean,
                 threats: Vec::new(),
-                raw_output: Some(stdout.to_string()),
+                raw_output: Some(stdout),
                 error: Some(format!("Parse error: {e}")),
             },
         }
@@ -338,11 +345,26 @@ fn write_temp_scan_file(content: &str) -> Result<PathBuf, std::io::Error> {
     Ok(path)
 }
 
+fn truncate_debug_output(output: &str) -> String {
+    if output.len() <= MAX_OUTPUT_SIZE {
+        return output.to_string();
+    }
+
+    let mut boundary = MAX_OUTPUT_SIZE;
+    while boundary > 0 && !output.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+
+    let mut truncated = output[..boundary].to_string();
+    truncated.push_str("\n...[truncated]");
+    truncated
+}
+
 /// Parse tirith JSON output into structured result.
 fn parse_tirith_output(output: &str) -> Result<TirithScanResult, String> {
     // Tirith output format varies by version. We support multiple formats.
-    let value: serde_json::Value = serde_json::from_str(output)
-        .map_err(|e| format!("Invalid JSON: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_str(output).map_err(|e| format!("Invalid JSON: {e}"))?;
 
     // Try to extract threats array
     let threats = if let Some(threats_arr) = value.get("threats").and_then(|v| v.as_array()) {
@@ -410,9 +432,15 @@ mod tests {
     fn threat_assessment_from_string() {
         assert_eq!(ThreatAssessment::from_str("clean"), ThreatAssessment::Clean);
         assert_eq!(ThreatAssessment::from_str("low"), ThreatAssessment::Low);
-        assert_eq!(ThreatAssessment::from_str("medium"), ThreatAssessment::Medium);
+        assert_eq!(
+            ThreatAssessment::from_str("medium"),
+            ThreatAssessment::Medium
+        );
         assert_eq!(ThreatAssessment::from_str("high"), ThreatAssessment::High);
-        assert_eq!(ThreatAssessment::from_str("critical"), ThreatAssessment::Critical);
+        assert_eq!(
+            ThreatAssessment::from_str("critical"),
+            ThreatAssessment::Critical
+        );
     }
 
     #[test]
@@ -488,5 +516,23 @@ mod tests {
         let content = std::fs::read_to_string(&path).unwrap();
         assert_eq!(content, "test content");
         std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn truncate_debug_output_respects_limit() {
+        let input = "a".repeat(MAX_OUTPUT_SIZE + 10);
+        let output = truncate_debug_output(&input);
+        assert!(output.len() > MAX_OUTPUT_SIZE);
+        assert!(output.ends_with("\n...[truncated]"));
+        assert!(output.starts_with(&"a".repeat(MAX_OUTPUT_SIZE)));
+    }
+
+    #[test]
+    fn truncate_debug_output_preserves_utf8_boundaries() {
+        let prefix = "a".repeat(MAX_OUTPUT_SIZE.saturating_sub(1));
+        let input = format!("{prefix}émore");
+        let output = truncate_debug_output(&input);
+        assert!(output.is_char_boundary(output.find('\n').unwrap_or(output.len())));
+        assert!(!output.contains('\u{FFFD}'));
     }
 }

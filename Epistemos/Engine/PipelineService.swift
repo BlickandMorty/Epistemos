@@ -64,7 +64,8 @@ final class PipelineService {
         mode: InferenceMode,
         notesContext: String? = nil,
         conversationHistory: String? = nil,
-        operatingMode: EpistemosOperatingMode = .fast
+        operatingMode: EpistemosOperatingMode = .fast,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         let _ = (mode, llmService, inference, eventBus)
         let runID = UUID()
@@ -72,7 +73,7 @@ final class PipelineService {
 
         let finisher = FinishOnce()
 
-        return AsyncThrowingStream { continuation in
+        return AsyncThrowingStream { (continuation: AsyncThrowingStream<PipelineEvent, Error>.Continuation) in
             let mainTask = Task { @MainActor [weak self] in
                 guard let self else {
                     if finisher.tryFinish() { continuation.finish() }
@@ -86,8 +87,12 @@ final class PipelineService {
                 do {
                     pipelineState.startProcessing()
 
-                    let useToolLoop = shouldUseToolLoop(operatingMode: operatingMode)
+                    let useToolLoop = shouldUseToolLoop(
+                        operatingMode: operatingMode,
+                        executionPlan: executionPlan
+                    )
                     let isLocalModelSelected: Bool = {
+                        if executionPlan?.forcesLocalExecution == true { return true }
                         if case .localMLX = inference.preferredChatModelSelection { return true }
                         return false
                     }()
@@ -105,6 +110,7 @@ final class PipelineService {
                             notesContext: notesContext,
                             conversationHistory: conversationHistory,
                             operatingMode: operatingMode,
+                            executionPlan: executionPlan,
                             vaultPath: vaultPath,
                             localClient: localClient,
                             onToken: { token in
@@ -118,7 +124,8 @@ final class PipelineService {
                             query: query,
                             notesContext: notesContext,
                             conversationHistory: conversationHistory,
-                            operatingMode: operatingMode
+                            operatingMode: operatingMode,
+                            executionPlan: executionPlan
                         )
                         for try await token in directStream {
                             emittedVisibleText += token
@@ -167,14 +174,25 @@ final class PipelineService {
     /// with tier-filtered tools. Fast / Thinking / Pro all qualify when a
     /// local model client is wired. Agent mode goes through the Rust
     /// agent loop instead (handled by ChatCoordinator, not here).
-    private func shouldUseToolLoop(operatingMode: EpistemosOperatingMode) -> Bool {
+    private func shouldUseToolLoop(
+        operatingMode: EpistemosOperatingMode,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan?
+    ) -> Bool {
+        if let executionPlan {
+            switch executionPlan.route {
+            case .managedAgentSession:
+                return false
+            case .localOnly:
+                return false
+            case .overseerLocalExecution:
+                return executionPlan.allowsToolExecution
+            }
+        }
+
         switch operatingMode {
         case .fast, .thinking, .pro:
             return true
         case .agent:
-            // Agent mode is handled by ChatCoordinator via runRustAgentPath
-            // before it ever reaches PipelineService.run. If we somehow land
-            // here in agent mode, fall back to the legacy stream.
             return false
         }
     }
@@ -187,13 +205,17 @@ final class PipelineService {
         notesContext: String?,
         conversationHistory: String?,
         operatingMode: EpistemosOperatingMode,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan?,
         vaultPath: String,
         localClient: any LocalConfigurableLLMClient,
         onToken: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         let tier = ChatToolTier.from(operatingMode: operatingMode)
         let bridge = ToolTierBridge(vaultPath: vaultPath, tier: tier)
-        let tools = bridge.loadTools()
+        let tools = filteredTools(
+            bridge.loadTools(),
+            using: executionPlan
+        )
 
         // If no tools loaded (bindings missing, empty registry), fall back
         // to the legacy stream so we don't break builds that haven't linked
@@ -205,7 +227,8 @@ final class PipelineService {
                 query: query,
                 notesContext: notesContext,
                 conversationHistory: conversationHistory,
-                operatingMode: operatingMode
+                operatingMode: operatingMode,
+                executionPlan: executionPlan
             )
             for try await token in stream {
                 accumulated += token
@@ -234,10 +257,13 @@ final class PipelineService {
         }
 
         let modelID: String? = {
+            if executionPlan?.forcesLocalExecution == true {
+                return inference.effectiveLocalTextModelID
+            }
             if case .localMLX(let id) = inference.preferredChatModelSelection {
                 return id
             }
-            return nil
+            return inference.effectiveLocalTextModelID
         }()
         let loop = LocalAgentLoop.liveLoop(
             using: localClient,
@@ -251,7 +277,7 @@ final class PipelineService {
             "🔧 Tool loop starting — tier=\(tier.rawValue) tools=\(tools.count) mode=\(String(describing: operatingMode))"
         )
 
-        let additional: String? = nil
+        let additional = executionPlan?.additionalSystemPrompt()
         let result = try await loop.run(
             objective: objective,
             tools: tools,
@@ -307,7 +333,8 @@ final class PipelineService {
         query: String,
         notesContext: String? = nil,
         conversationHistory: String? = nil,
-        operatingMode: EpistemosOperatingMode = .fast
+        operatingMode: EpistemosOperatingMode = .fast,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil
     ) -> AsyncThrowingStream<String, Error> {
         Log.pipeline.info("🔬 generateDirectStream — chatMode=PLAIN queryLen=\(query.count)")
 
@@ -327,13 +354,36 @@ final class PipelineService {
             "🔬 systemPrompt length=0 chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(conversationHistory != nil)"
         )
 
+        let systemPrompt = executionPlan?.additionalSystemPrompt()
+
+        if executionPlan?.forcesLocalExecution == true {
+            return triageService.streamGeneralLocally(
+                prompt: finalPrompt,
+                systemPrompt: systemPrompt,
+                operation: .chatResponse(query: query),
+                contentLength: finalPrompt.count,
+                operatingMode: operatingMode,
+                localSurface: .miniChat
+            )
+        }
+
         return triageService.streamGeneral(
             prompt: finalPrompt,
-            systemPrompt: nil,
+            systemPrompt: systemPrompt,
             operation: .chatResponse(query: query),
             contentLength: finalPrompt.count,
             operatingMode: operatingMode,
             localSurface: .miniChat
         )
+    }
+
+    private func filteredTools(
+        _ tools: [OmegaToolDefinition],
+        using executionPlan: OverseerComplexityRouter.ExecutionPlan?
+    ) -> [OmegaToolDefinition] {
+        guard let executionPlan else { return tools }
+        let allowed = executionPlan.allowedToolNames
+        guard !allowed.isEmpty else { return [] }
+        return tools.filter { allowed.contains($0.name) }
     }
 }

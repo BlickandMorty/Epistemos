@@ -75,6 +75,44 @@ struct ReleaseScriptAuditTests {
         #expect(script.contains("-resolvePackageDependencies"))
     }
 
+    @Test("xcodebuild helper hardens package plugin and result bundle defaults for release verification")
+    func xcodebuildHelperHardensPluginAndResultBundleDefaults() throws {
+        let script = try loadReleaseScript("scripts/xcodebuild_epistemos.sh")
+
+        #expect(script.contains("export DISABLE_SWIFTLINT=1"))
+        #expect(script.contains("-disableAutomaticPackageResolution"))
+        #expect(script.contains("-onlyUsePackageVersionsFromResolvedFile"))
+        #expect(script.contains("-skipPackagePluginValidation"))
+        #expect(script.contains("-skipMacroValidation"))
+        #expect(script.contains("-hideShellScriptEnvironment"))
+        #expect(script.contains("-collect-test-diagnostics"))
+        #expect(script.contains("\"never\""))
+        #expect(script.contains("-resultBundlePath"))
+        #expect(script.contains("build/xcode-results"))
+    }
+
+    @Test("swift verification entrypoints route through the repo xcodebuild wrapper")
+    func swiftVerificationEntrypointsRouteThroughRepoXcodebuildWrapper() throws {
+        let scripts = try [
+            loadReleaseScript("scripts/ci_test.sh"),
+            loadReleaseScript("scripts/run_all_tests.sh"),
+            loadReleaseScript("scripts/run_swift_tests.sh"),
+            loadReleaseScript("scripts/run_quick_test.sh"),
+            loadReleaseScript("scripts/run_performance_tests.sh"),
+            loadReleaseScript("scripts/run_memory_leak_tests.sh"),
+            loadReleaseScript("scripts/run_stability_tests.sh"),
+            loadReleaseScript("scripts/run_chaos_tests.sh"),
+            loadReleaseScript("scripts/run_reliability_quality_gates.sh"),
+            loadReleaseScript("scripts/verify/omega_verify.sh"),
+        ]
+
+        for script in scripts {
+            #expect(script.contains("scripts/xcodebuild_epistemos.sh"))
+            #expect(script.contains("CODE_SIGNING_ALLOWED=NO"))
+            #expect(script.contains("-derivedDataPath"))
+        }
+    }
+
     @Test("release workflow fails closed when dmg creation breaks")
     func releaseWorkflowFailsClosedWhenDMGCreationBreaks() throws {
         let workflow = try loadReleaseScript(".github/workflows/release.yml")
@@ -89,6 +127,19 @@ struct ReleaseScriptAuditTests {
         let workflow = try loadReleaseScript(".github/workflows/release.yml")
 
         #expect(workflow.contains("./scripts/xcodebuild_epistemos.sh"))
+        #expect(!workflow.contains("DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer"))
+        #expect(!workflow.contains("| xcpretty --color"))
+    }
+
+    @Test("ci workflow uses the repo xcodebuild wrapper for deterministic Swift verification")
+    func ciWorkflowUsesRepoXcodebuildWrapperForSwiftVerification() throws {
+        let workflow = try loadReleaseScript(".github/workflows/ci.yml")
+
+        #expect(workflow.contains("./scripts/xcodebuild_epistemos.sh"))
+        #expect(workflow.contains("-resolvePackageDependencies"))
+        #expect(workflow.contains("build-for-testing"))
+        #expect(workflow.contains("test-without-building"))
+        #expect(workflow.contains("-derivedDataPath .derived-data-ci"))
         #expect(!workflow.contains("DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer"))
         #expect(!workflow.contains("| xcpretty --color"))
     }
@@ -134,6 +185,10 @@ struct ReleaseScriptAuditTests {
         #expect(script.contains("-configuration Release"))
         #expect(script.contains("strict-concurrency=complete"))
         #expect(script.contains("-only-testing:EpistemosTests/RuntimeValidationTests"))
+        #expect(script.contains("RUNTIME_TEST_RESULT_BUNDLE_PATH"))
+        #expect(script.contains("-derivedDataPath '${DERIVED_DATA_PATH}'"))
+        #expect(script.contains("-resultBundlePath '${RUNTIME_TEST_RESULT_BUNDLE_PATH}'"))
+        #expect(script.contains("xcresulttool get object --legacy"))
     }
 
     @Test("audit preflight isolates hosted tests from the bundle it verifies")

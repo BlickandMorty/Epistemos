@@ -4,11 +4,13 @@
 
 pub mod agent_runtime;
 pub mod auto_tuner;
+pub mod inference_control;
 pub mod instant_recall;
 pub mod quality_filter;
 pub mod recovery;
 pub mod repo_analyzer;
 pub mod retrieval;
+pub mod runtime_contract;
 pub mod scheduler;
 pub mod skill_engine;
 pub mod ssm_state;
@@ -21,8 +23,19 @@ pub mod vault_analyzer;
 // Re-export types for UniFFI
 pub use agent_runtime::{AgentEvent, AgentSession, AgentTurnResult};
 pub use auto_tuner::hyperparams::AutoTuneConfig;
+pub use inference_control::{
+    SerialFallbackMode, SerialInferenceController, SerialInferenceSnapshot,
+    SerialInferenceTransitionError,
+};
 pub use quality_filter::{DedupResult, QualityScore};
 pub use recovery::{BinaryTextExtraction, BinaryTextRegion, CorruptionAnalysis, RepairCandidate};
+pub use runtime_contract::{
+    ExecutionMode, GenerationEventKind, ReasoningProfile, RuntimeCapabilities,
+    RuntimeContractError, RuntimeControlPlane, RuntimeGenerationEvent,
+    RuntimeGenerationRequest, RuntimeGenerationStreamOptions, RuntimeGenerationSummary,
+    RuntimeHandshake, RuntimeHandshakeRequest, RuntimeKind, RuntimeModelHandle,
+    RuntimeModelLoadRequest, RuntimeOperation, RuntimePolicy, RuntimeStats, RuntimeStatsTarget,
+};
 pub use scheduler::tier_scheduler::{TrainingDecision, TrainingTier};
 pub use skill_engine::RoutingDecision;
 pub use ssm_state::SSMStateError;

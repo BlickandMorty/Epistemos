@@ -598,7 +598,16 @@ async fn run_agent_session_inner(
     tool_registry.register_delegate_tools(Arc::clone(&delegate));
     let tool_registry = Arc::new(tool_registry);
 
-    let result = run_agent_loop(objective, provider, tool_registry, delegate, config, cancel).await;
+    let result = run_agent_loop(
+        session_id.clone(),
+        objective,
+        provider,
+        tool_registry,
+        delegate,
+        config,
+        cancel,
+    )
+    .await;
     match result {
         Ok(result) => {
             // Clean up shared memory segments for this session

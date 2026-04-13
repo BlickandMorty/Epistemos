@@ -83,9 +83,7 @@ fn write_todos(input: &Value, merge: bool) -> Result<String, ToolError> {
             .get("content")
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty())
-            .ok_or_else(|| {
-                ToolError::InvalidArguments(format!("todo[{idx}] missing 'content'"))
-            })?;
+            .ok_or_else(|| ToolError::InvalidArguments(format!("todo[{idx}] missing 'content'")))?;
         let status = entry
             .get("status")
             .and_then(Value::as_str)
@@ -276,7 +274,9 @@ mod tests {
         assert_eq!(parsed["summary"]["total"], json!(2));
         assert_eq!(parsed["summary"]["completed"], json!(1));
         let todos = parsed["todos"].as_array().unwrap();
-        assert!(todos.iter().any(|t| t["id"] == "a" && t["status"] == "completed"));
+        assert!(todos
+            .iter()
+            .any(|t| t["id"] == "a" && t["status"] == "completed"));
         assert!(todos.iter().any(|t| t["id"] == "b"));
     }
 
@@ -300,10 +300,7 @@ mod tests {
         let _gate = lock_tests();
         // Just ensure list runs without panicking.
         let handler = TodoHandler;
-        let result = handler
-            .execute(&json!({ "action": "list" }))
-            .await
-            .unwrap();
+        let result = handler.execute(&json!({ "action": "list" })).await.unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert!(parsed["summary"]["total"].is_number());
     }

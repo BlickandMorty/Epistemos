@@ -35,7 +35,8 @@ pub enum VaultGitError {
 impl VaultGit {
     pub fn open(vault_root: &Path) -> Result<Self, VaultGitError> {
         std::fs::create_dir_all(vault_root)?;
-        let repo = git2::Repository::open(vault_root).or_else(|_| git2::Repository::init(vault_root))?;
+        let repo =
+            git2::Repository::open(vault_root).or_else(|_| git2::Repository::init(vault_root))?;
         Ok(Self {
             repo,
             vault_root: vault_root.to_path_buf(),
@@ -97,21 +98,43 @@ impl VaultGit {
         let oid = if let Ok(head) = self.repo.head() {
             if let Some(parent_oid) = head.target() {
                 let parent = self.repo.find_commit(parent_oid)?;
-                self.repo
-                    .commit(Some("HEAD"), &signature, &signature, &commit_message, &tree, &[&parent])?
+                self.repo.commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    &commit_message,
+                    &tree,
+                    &[&parent],
+                )?
             } else {
-                self.repo
-                    .commit(Some("HEAD"), &signature, &signature, &commit_message, &tree, &[])?
+                self.repo.commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    &commit_message,
+                    &tree,
+                    &[],
+                )?
             }
         } else {
-            self.repo
-                .commit(Some("HEAD"), &signature, &signature, &commit_message, &tree, &[])?
+            self.repo.commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                &commit_message,
+                &tree,
+                &[],
+            )?
         };
 
         Ok(oid)
     }
 
-    pub fn history(&self, file_path: &Path, limit: usize) -> Result<Vec<CommitInfo>, VaultGitError> {
+    pub fn history(
+        &self,
+        file_path: &Path,
+        limit: usize,
+    ) -> Result<Vec<CommitInfo>, VaultGitError> {
         let relative_path = self.relative_path(&self.absolute_path(file_path)?)?;
         let mut revwalk = self.repo.revwalk()?;
         revwalk.push_head()?;
@@ -189,7 +212,11 @@ impl VaultGit {
         let first_path = self.relative_path(&self.absolute_path(&diffs[0].0)?)?;
         let summary = message
             .lines()
-            .find(|line| !line.trim().is_empty() && !line.trim_start().starts_with("source:") && !line.trim_start().starts_with("strength:"))
+            .find(|line| {
+                !line.trim().is_empty()
+                    && !line.trim_start().starts_with("source:")
+                    && !line.trim_start().starts_with("strength:")
+            })
             .map(str::trim)
             .unwrap_or("vault mutation");
         let source = message
@@ -223,7 +250,9 @@ impl VaultGit {
             .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)?;
 
         for delta in diff.deltas() {
-            if delta.new_file().path() == Some(relative_path) || delta.old_file().path() == Some(relative_path) {
+            if delta.new_file().path() == Some(relative_path)
+                || delta.old_file().path() == Some(relative_path)
+            {
                 return Ok(true);
             }
         }

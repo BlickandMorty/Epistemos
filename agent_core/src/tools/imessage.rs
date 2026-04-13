@@ -96,9 +96,7 @@ async fn run_osascript(script: &str) -> Result<String, ToolError> {
     let output = match tokio::time::timeout(OSASCRIPT_TIMEOUT, child).await {
         Ok(Ok(out)) => out,
         Ok(Err(e)) => {
-            return Err(ToolError::ExecutionFailed(format!(
-                "osascript spawn: {e}"
-            )));
+            return Err(ToolError::ExecutionFailed(format!("osascript spawn: {e}")));
         }
         Err(_) => {
             return Err(ToolError::ExecutionFailed(
@@ -144,16 +142,17 @@ impl ToolHandler for IMessageHandler {
 // MARK: - Write path (send)
 
 async fn imessage_send(input: &Value) -> Result<String, ToolError> {
-    let to = input
-        .get("to")
-        .and_then(Value::as_str)
-        .ok_or_else(|| ToolError::InvalidArguments("missing 'to' (phone, email, or handle)".into()))?;
+    let to = input.get("to").and_then(Value::as_str).ok_or_else(|| {
+        ToolError::InvalidArguments("missing 'to' (phone, email, or handle)".into())
+    })?;
     let message = input
         .get("message")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'message'".into()))?;
     if message.is_empty() {
-        return Err(ToolError::InvalidArguments("message cannot be empty".into()));
+        return Err(ToolError::InvalidArguments(
+            "message cannot be empty".into(),
+        ));
     }
     if message.len() > MAX_MESSAGE_LEN {
         return Err(ToolError::InvalidArguments(format!(
@@ -554,11 +553,8 @@ mod tests {
             [],
         )
         .unwrap();
-        conn.execute(
-            "INSERT INTO handle (id) VALUES ('alice@example.com')",
-            [],
-        )
-        .unwrap();
+        conn.execute("INSERT INTO handle (id) VALUES ('alice@example.com')", [])
+            .unwrap();
         // Two messages — one outbound (read), one inbound (unread).
         conn.execute(
             "INSERT INTO message (text, is_from_me, is_read, date, handle_id) VALUES
@@ -582,7 +578,10 @@ mod tests {
         // Seconds-form input (pre-Sierra): 10 seconds past apple epoch.
         assert_eq!(apple_timestamp_to_unix(10), 978_307_200 + 10);
         // Nanoseconds-form input (post-Sierra): 5e12 ns = 5,000 seconds past.
-        assert_eq!(apple_timestamp_to_unix(5_000_000_000_000), 978_307_200 + 5_000);
+        assert_eq!(
+            apple_timestamp_to_unix(5_000_000_000_000),
+            978_307_200 + 5_000
+        );
     }
 
     #[test]
@@ -661,10 +660,7 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["count"], json!(1));
-        assert_eq!(
-            parsed["messages"][0]["text"],
-            json!("search target token")
-        );
+        assert_eq!(parsed["messages"][0]["text"], json!("search target token"));
 
         std::env::remove_var("EPISTEMOS_IMESSAGE_DB");
     }

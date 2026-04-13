@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
-use tantivy::schema::{Field, Schema, Value, STRING, STORED, TEXT};
+use tantivy::schema::{Field, Schema, Value, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -91,7 +91,8 @@ impl VaultStore {
         std::fs::create_dir_all(&meta_dir)?;
 
         let db_path = meta_dir.join("vault.db");
-        let db = Connection::open(&db_path).map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        let db = Connection::open(&db_path)
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
 
         db.execute_batch(
             "
@@ -129,8 +130,8 @@ impl VaultStore {
 
         let directory = tantivy::directory::MmapDirectory::open(&index_path)
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
-        let ft_index =
-            Index::open_or_create(directory, schema).map_err(|error| VaultError::IndexError(error.to_string()))?;
+        let ft_index = Index::open_or_create(directory, schema)
+            .map_err(|error| VaultError::IndexError(error.to_string()))?;
         let ft_reader = ft_index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
@@ -183,13 +184,25 @@ impl VaultStore {
                     tags.extend(
                         values
                             .split(',')
-                            .map(|value| value.trim().trim_matches('"').trim_matches('\'').to_string())
+                            .map(|value| {
+                                value
+                                    .trim()
+                                    .trim_matches('"')
+                                    .trim_matches('\'')
+                                    .to_string()
+                            })
                             .filter(|value| !value.is_empty()),
                     );
                     in_tags = false;
                 }
             } else if in_tags && trimmed.starts_with("- ") {
-                tags.push(trimmed[2..].trim().trim_matches('"').trim_matches('\'').to_string());
+                tags.push(
+                    trimmed[2..]
+                        .trim()
+                        .trim_matches('"')
+                        .trim_matches('\'')
+                        .to_string(),
+                );
             } else if in_tags && !trimmed.is_empty() {
                 in_tags = false;
             }
@@ -237,9 +250,7 @@ impl VaultStore {
         let mut stmt = conn
             .prepare("SELECT content_hash FROM notes WHERE path = ?1")
             .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
-        let hash: Option<String> = stmt
-            .query_row(params![path], |row| row.get(0))
-            .ok();
+        let hash: Option<String> = stmt.query_row(params![path], |row| row.get(0)).ok();
         Ok(hash)
     }
 
@@ -299,7 +310,10 @@ impl VaultStore {
         for entry in std::fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
-            let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
             if name.starts_with('.') {
                 continue;
             }
@@ -326,12 +340,16 @@ impl VaultBackend for VaultStore {
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError> {
         let searcher = self.ft_reader.searcher();
-        let query_parser = QueryParser::for_index(&self.ft_index, vec![self.field_content, self.field_tags]);
+        let query_parser =
+            QueryParser::for_index(&self.ft_index, vec![self.field_content, self.field_tags]);
         let parsed_query = query_parser
             .parse_query(query)
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
         let top_docs = searcher
-            .search(&parsed_query, &TopDocs::with_limit(limit.saturating_mul(2).max(1)))
+            .search(
+                &parsed_query,
+                &TopDocs::with_limit(limit.saturating_mul(2).max(1)),
+            )
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
 
         let mut results = Vec::new();

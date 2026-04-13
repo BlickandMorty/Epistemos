@@ -56,10 +56,7 @@ impl OpenAIProvider {
     }
 
     pub fn o1() -> Self {
-        Self::new(
-            std::env::var("OPENAI_API_KEY").unwrap_or_default(),
-            "o1",
-        )
+        Self::new(std::env::var("OPENAI_API_KEY").unwrap_or_default(), "o1")
     }
 
     pub fn o3_mini() -> Self {
@@ -512,7 +509,9 @@ fn map_finish_reason(reason: &str) -> StopReason {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ContentBlock, ImageSource, Message, ToolResult, ToolResultContent, UserContent};
+    use crate::types::{
+        ContentBlock, ImageSource, Message, ToolResult, ToolResultContent, UserContent,
+    };
     use serde_json::json;
 
     // -- Message formatting tests --
@@ -830,7 +829,10 @@ mod tests {
         assert_eq!(map_finish_reason("stop"), StopReason::EndTurn);
         assert_eq!(map_finish_reason("tool_calls"), StopReason::ToolUse);
         assert_eq!(map_finish_reason("length"), StopReason::MaxTokens);
-        assert_eq!(map_finish_reason("content_filter"), StopReason::StopSequence);
+        assert_eq!(
+            map_finish_reason("content_filter"),
+            StopReason::StopSequence
+        );
         assert_eq!(map_finish_reason("unknown_reason"), StopReason::EndTurn);
     }
 

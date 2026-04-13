@@ -94,7 +94,10 @@ fn validate_path(path_str: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(path_str);
 
     // Prevent path traversal
-    if path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+    if path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
         return Err("Path traversal ('..') is not allowed.".to_string());
     }
 
@@ -121,7 +124,12 @@ impl FileOpsTool {
         }
     }
 
-    fn read_file(&self, path_str: &str, start_line: Option<usize>, end_line: Option<usize>) -> Value {
+    fn read_file(
+        &self,
+        path_str: &str,
+        start_line: Option<usize>,
+        end_line: Option<usize>,
+    ) -> Value {
         let path = match validate_path(path_str) {
             Ok(p) => p,
             Err(e) => return json!({"success": false, "error": e}),

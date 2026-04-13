@@ -191,6 +191,23 @@ interface AgentSession {
     string route_objective_json(string objective);
 };
 
+[Enum]
+interface SerialFallbackMode {
+    Resident();
+    SsdStreaming();
+};
+
+dictionary SerialInferenceSnapshot {
+    string phase;
+    SerialFallbackMode fallback_mode;
+    boolean should_stream_experts_from_ssd;
+    boolean turn_boundary_readahead_allowed;
+    boolean expert_prefetch_allowed;
+    u64 turn_index;
+    u64 available_memory_bytes;
+    u64 non_expert_resident_bytes;
+};
+
 // ── Exported Types ──────────────────────────────────────────────────────────
 
 dictionary AutoTuneConfig {
@@ -316,4 +333,287 @@ enum TextNormalizationError {
 enum SSMStateError {
     "Io",
     "InvalidFormat"
+};
+
+[Error]
+enum SerialInferenceTransitionError {
+    "InvalidTransition",
+    "TurnBoundaryOnly",
+    "GpuComputeActive",
+    "NoOpenTurn"
+};
+
+interface SerialInferenceController {
+    constructor(
+        u64 pressure_threshold_bytes,
+        u64 recovery_threshold_bytes,
+        u64 non_expert_resident_bytes
+    );
+    void update_available_memory(u64 available_bytes);
+    [Throws=SerialInferenceTransitionError]
+    void begin_turn();
+    [Throws=SerialInferenceTransitionError]
+    void end_turn();
+    [Throws=SerialInferenceTransitionError]
+    void record_turn_boundary_readahead();
+    [Throws=SerialInferenceTransitionError]
+    void begin_ssd_read();
+    [Throws=SerialInferenceTransitionError]
+    void finish_ssd_read();
+    [Throws=SerialInferenceTransitionError]
+    void begin_gpu_compute();
+    [Throws=SerialInferenceTransitionError]
+    void finish_gpu_compute();
+    SerialInferenceSnapshot snapshot();
+};
+
+[Enum]
+interface RuntimeKind {
+    Gguf();
+    Mlx();
+    Remote();
+};
+
+[Enum]
+interface ExecutionMode {
+    Local();
+    Remote();
+    Hybrid();
+};
+
+[Enum]
+interface ReasoningProfile {
+    Standard();
+    Deep();
+    Adaptive();
+    Experimental();
+};
+
+[Enum]
+interface RuntimeOperation {
+    Generate();
+    Embed();
+    Adapt();
+    ImageGenerate();
+};
+
+[Enum]
+interface GenerationEventKind {
+    Started();
+    Token();
+    Status();
+    ToolStatus();
+    Summary();
+    Completed();
+    Failed();
+    Cancelled();
+};
+
+[Error]
+enum RuntimeContractError {
+    "ModelNotFound",
+    "ModelNotLoaded",
+    "UnsupportedCapability",
+    "Timeout",
+    "Cancelled",
+    "PolicyDenied",
+    "RuntimeUnavailable",
+    "MemoryPressure",
+    "InvalidTransition",
+    "BackendFailure",
+    "ContractViolation"
+};
+
+dictionary RuntimePolicy {
+    sequence<RuntimeKind> available_runtime_kinds;
+    RuntimeKind primary_generation_runtime_kind;
+    boolean allow_mlx_generation_fallback;
+    sequence<ReasoningProfile> allowed_reasoning_profiles;
+    ReasoningProfile default_reasoning_profile;
+};
+
+dictionary RuntimeModelLoadRequest {
+    RuntimeKind? requested_runtime_kind;
+    ExecutionMode execution_mode;
+    string model_id;
+    string? artifact_id;
+};
+
+dictionary RuntimeModelHandle {
+    string handle_id;
+    RuntimeKind runtime_kind;
+    ExecutionMode execution_mode;
+    string model_id;
+    string? artifact_id;
+};
+
+dictionary RuntimeGenerationStreamOptions {
+    boolean include_status_events;
+};
+
+dictionary RuntimeHandshakeRequest {
+    RuntimeKind? requested_runtime_kind;
+    ExecutionMode execution_mode;
+    RuntimeOperation operation;
+    ReasoningProfile? reasoning_profile;
+    string? execution_policy_ref;
+};
+
+dictionary RuntimeHandshake {
+    RuntimeKind? requested_runtime_kind;
+    RuntimeKind resolved_runtime_kind;
+    ReasoningProfile? requested_reasoning_profile;
+    ReasoningProfile? resolved_reasoning_profile;
+    string? execution_policy_id;
+    RuntimeCapabilities capabilities;
+    boolean used_fallback_resolution;
+};
+
+dictionary RuntimeGenerationRequest {
+    string request_id;
+    RuntimeKind? requested_runtime_kind;
+    ExecutionMode execution_mode;
+    string model_id;
+    string? artifact_id;
+    string? model_handle_id;
+    string prompt;
+    string? system_prompt;
+    u32 max_output_tokens;
+    double temperature;
+    sequence<string> stop_sequences;
+    string? tool_policy_ref;
+    string? context_ref;
+    ReasoningProfile? reasoning_profile;
+    string? execution_policy_ref;
+    i32 priority;
+    u32 timeout_ms;
+    RuntimeGenerationStreamOptions stream_options;
+};
+
+dictionary RuntimeGenerationSummary {
+    string request_id;
+    RuntimeKind? requested_runtime_kind;
+    RuntimeKind resolved_runtime_kind;
+    ReasoningProfile? requested_reasoning_profile;
+    ReasoningProfile resolved_reasoning_profile;
+    ExecutionMode execution_mode;
+    string model_id;
+    string? artifact_id;
+    string? execution_policy_id;
+    string fallback_mode;
+    double? time_to_first_token_ms;
+    double total_duration_ms;
+    double? tokens_per_second;
+    u32 output_token_count;
+    u32 output_character_count;
+    string memory_pressure_state;
+    string execution_phase;
+    string masking_state;
+    string kv_policy_state;
+    string expert_budget_state;
+    string adaptation_state;
+    string guardrail_state;
+    boolean cancelled;
+    RuntimeContractError? error_class;
+};
+
+dictionary RuntimeGenerationEvent {
+    GenerationEventKind kind;
+    string? text;
+    string? status;
+    RuntimeGenerationSummary? summary;
+    RuntimeContractError? error_class;
+    string? error_message;
+};
+
+dictionary RuntimeStatsTarget {
+    string? model_handle_id;
+    string? stream_handle;
+};
+
+dictionary RuntimeCapabilities {
+    boolean supports_generate;
+    boolean supports_embed;
+    boolean supports_adapt;
+    boolean supports_image_generate;
+    boolean supports_structured_masking;
+    boolean supports_dynamic_sparsity;
+    boolean supports_speculative_decoding;
+    boolean supports_streaming_from_ssd;
+    boolean supports_kv_policy;
+    boolean supports_expert_budgeting;
+    boolean supports_serial_io_audit;
+    boolean supports_tool_calls;
+};
+
+dictionary RuntimeStats {
+    RuntimeKind? requested_runtime_kind;
+    RuntimeKind? resolved_runtime_kind;
+    ReasoningProfile? requested_reasoning_profile;
+    ReasoningProfile? resolved_reasoning_profile;
+    string? model_id;
+    string? artifact_id;
+    string? execution_policy_id;
+    string? fallback_mode;
+    string? memory_pressure_state;
+    string? execution_phase;
+    string masking_state;
+    string kv_policy_state;
+    string expert_budget_state;
+    string adaptation_state;
+    string guardrail_state;
+    RuntimeCapabilities capabilities;
+    boolean cancelled;
+    boolean terminal_event_emitted;
+};
+
+interface RuntimeControlPlane {
+    constructor(
+        sequence<RuntimeKind> available_runtime_kinds,
+        RuntimeKind primary_generation_runtime_kind,
+        boolean allow_mlx_generation_fallback
+    );
+    void set_policy(RuntimePolicy policy);
+    [Throws=RuntimeContractError]
+    RuntimeModelHandle load_model(RuntimeModelLoadRequest request);
+    [Throws=RuntimeContractError]
+    void unload_model(string handle_id);
+    [Throws=RuntimeContractError]
+    string generate(RuntimeGenerationRequest request);
+    [Throws=RuntimeContractError]
+    RuntimeHandshake handshake(RuntimeHandshakeRequest request);
+    [Throws=RuntimeContractError]
+    void emit_started(string stream_handle);
+    [Throws=RuntimeContractError]
+    void emit_status(string stream_handle, string status);
+    [Throws=RuntimeContractError]
+    void emit_token(string stream_handle, string text);
+    [Throws=RuntimeContractError]
+    void emit_summary(string stream_handle, RuntimeGenerationSummary summary);
+    [Throws=RuntimeContractError]
+    void finish_completed(string stream_handle, RuntimeGenerationSummary summary);
+    [Throws=RuntimeContractError]
+    void finish_failed(
+        string stream_handle,
+        RuntimeContractError error_class,
+        string error_message,
+        RuntimeGenerationSummary? summary
+    );
+    [Throws=RuntimeContractError]
+    void finish_cancelled(string stream_handle, RuntimeGenerationSummary? summary);
+    [Throws=RuntimeContractError]
+    void cancel(string stream_handle);
+    [Throws=RuntimeContractError]
+    RuntimeGenerationEvent? poll_event(string stream_handle);
+    [Throws=RuntimeContractError]
+    sequence<RuntimeGenerationEvent> poll_events(string stream_handle, u32 max_events);
+    boolean close_stream(string stream_handle);
+    [Throws=RuntimeContractError]
+    RuntimeStats stats(RuntimeStatsTarget target);
+    [Throws=RuntimeContractError]
+    void embed();
+    [Throws=RuntimeContractError]
+    void adapt();
+    [Throws=RuntimeContractError]
+    void image_generate();
 };
