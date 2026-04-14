@@ -14,9 +14,10 @@ nonisolated enum BackendExecutionMode: String, Codable, Sendable, CaseIterable {
 
 nonisolated enum BackendReasoningProfile: String, Codable, Sendable, CaseIterable {
     case standard
-    case deep
+    case deep = "deep_graph"
     case adaptive
     case experimental
+    case visualSidecar = "visual_sidecar"
 
     init(localReasoningMode: LocalReasoningMode) {
         switch localReasoningMode {
@@ -25,6 +26,33 @@ nonisolated enum BackendReasoningProfile: String, Codable, Sendable, CaseIterabl
         case .thinking:
             self = .deep
         }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        switch value {
+        case Self.standard.rawValue:
+            self = .standard
+        case "deep", Self.deep.rawValue:
+            self = .deep
+        case Self.adaptive.rawValue:
+            self = .adaptive
+        case Self.experimental.rawValue:
+            self = .experimental
+        case Self.visualSidecar.rawValue:
+            self = .visualSidecar
+        default:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported backend reasoning profile: \(value)"
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -72,6 +100,108 @@ nonisolated enum BackendGenerationEventKind: String, Codable, Sendable, Equatabl
         }
     }
 }
+
+// MARK: - Phase 2: Compute Steering Types
+
+nonisolated enum BackendComputeProfile: String, Codable, Sendable, CaseIterable, Equatable {
+    case standard
+    case deepGraph = "deep_graph"
+    case adaptive
+    case experimental
+    case visualSidecar = "visual_sidecar"
+}
+
+nonisolated enum BackendExpertBudgetClass: String, Codable, Sendable, CaseIterable, Equatable {
+    case `default`
+    case constrained
+    case deep
+}
+
+nonisolated enum BackendKVPolicyKind: String, Codable, Sendable, CaseIterable, Equatable {
+    case baseline
+    case compressed
+    case blocked
+}
+
+nonisolated struct BackendComputeBudget: Sendable, Equatable, Codable {
+    let maxWallMS: UInt64?
+    let maxTokens: UInt32?
+    let maxIOBytes: UInt64?
+    let maxAdaptSteps: UInt32?
+    let maxAuxCalls: UInt32?
+
+    var isUnbounded: Bool {
+        maxWallMS == nil && maxTokens == nil && maxIOBytes == nil
+            && maxAdaptSteps == nil && maxAuxCalls == nil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case maxWallMS = "max_wall_ms"
+        case maxTokens = "max_tokens"
+        case maxIOBytes = "max_io_bytes"
+        case maxAdaptSteps = "max_adapt_steps"
+        case maxAuxCalls = "max_aux_calls"
+    }
+}
+
+nonisolated struct BackendSteeringHints: Sendable, Equatable, Codable {
+    let maskPlan: BackendSteeringMaskPlan?
+    let kvPolicyHint: String?
+    let depthBudget: BackendSteeringDepthBudget?
+    let loraBlendCoefficients: [BackendSteeringLoRACoefficient]?
+
+    func toJSON() -> String? {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        guard let data = try? encoder.encode(self) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case maskPlan = "mask_plan"
+        case kvPolicyHint = "kv_policy_hint"
+        case depthBudget = "depth_budget"
+        case loraBlendCoefficients = "lora_blend_coefficients"
+    }
+}
+
+nonisolated struct BackendSteeringMaskPlan: Sendable, Equatable, Codable {
+    let expertAllowlist: [String]
+    let blockSize: UInt32
+    let rationale: String?
+
+    enum CodingKeys: String, CodingKey {
+        case expertAllowlist = "expert_allowlist"
+        case blockSize = "block_size"
+        case rationale
+    }
+}
+
+nonisolated struct BackendSteeringDepthBudget: Sendable, Equatable, Codable {
+    let maxTurns: UInt32
+    let maxReasoningSteps: UInt32
+    let maxToolCalls: UInt32
+    let maxOutputTokens: UInt32
+
+    enum CodingKeys: String, CodingKey {
+        case maxTurns = "max_turns"
+        case maxReasoningSteps = "max_reasoning_steps"
+        case maxToolCalls = "max_tool_calls"
+        case maxOutputTokens = "max_output_tokens"
+    }
+}
+
+nonisolated struct BackendSteeringLoRACoefficient: Sendable, Equatable, Codable {
+    let adapterID: String
+    let coefficient: Double
+
+    enum CodingKeys: String, CodingKey {
+        case adapterID = "adapter_id"
+        case coefficient
+    }
+}
+
+// MARK: - Runtime Policy
 
 nonisolated struct BackendRuntimePolicy: Sendable, Equatable {
     let availableRuntimeKinds: Set<BackendRuntimeKind>
@@ -152,6 +282,7 @@ nonisolated struct BackendGenerationRequest: Sendable, Equatable {
     let contextRef: String?
     let reasoningProfile: BackendReasoningProfile?
     let executionPolicyRef: String?
+    let steeringHintsJSON: String?
     let priority: Int
     let timeoutMS: Int
     let streamOptions: BackendGenerationStreamOptions
@@ -166,6 +297,25 @@ nonisolated struct BackendGenerationLaunch: Sendable, Equatable {
     let requestedReasoningProfile: BackendReasoningProfile?
     let resolvedReasoningProfile: BackendReasoningProfile
     let executionPolicyID: String?
+}
+
+nonisolated struct BackendEmbeddingRequest: Sendable, Equatable {
+    let requestedRuntimeKind: BackendRuntimeKind?
+    let executionMode: BackendExecutionMode
+    let modelID: String?
+    let artifactID: String?
+    let text: String
+    let expectedDimension: Int?
+}
+
+nonisolated struct BackendEmbeddingResult: Sendable, Equatable {
+    let requestedRuntimeKind: BackendRuntimeKind?
+    let resolvedRuntimeKind: BackendRuntimeKind
+    let executionMode: BackendExecutionMode
+    let modelID: String?
+    let artifactID: String?
+    let vector: [Float]
+    let dimension: Int
 }
 
 nonisolated struct BackendGenerationSummary: Sendable, Equatable {
@@ -191,6 +341,9 @@ nonisolated struct BackendGenerationSummary: Sendable, Equatable {
     let expertBudgetState: String
     let adaptationState: String
     let guardrailState: String
+    let sidecarState: String
+    let budgetOutcome: String
+    let planTracePresent: Bool
     let cancelled: Bool
     let errorClass: BackendRuntimeContractError?
 }
@@ -265,6 +418,12 @@ nonisolated struct BackendRuntimeStats: Sendable, Equatable {
     let expertBudgetState: String
     let adaptationState: String
     let guardrailState: String
+    let sidecarState: String
+    let budgetOutcome: String
+    let planTracePresent: Bool
+    let computeProfile: BackendComputeProfile?
+    let expertBudgetClass: BackendExpertBudgetClass?
+    let kvPolicyKind: BackendKVPolicyKind?
     let capabilities: BackendRuntimeCapabilities
     let cancelled: Bool
     let terminalEventEmitted: Bool
@@ -339,9 +498,14 @@ actor BackendRuntimeControlPlane {
     private let runtimeControlPlane: RuntimeControlPlane
     private var policy: BackendRuntimePolicy
     private var modelHandles: [String: BackendModelHandle] = [:]
+    private let embeddingResolver: (@MainActor @Sendable (BackendEmbeddingRequest) -> [Float]?)?
 
-    init(policy: BackendRuntimePolicy) {
+    init(
+        policy: BackendRuntimePolicy,
+        embeddingResolver: (@MainActor @Sendable (BackendEmbeddingRequest) -> [Float]?)? = nil
+    ) {
         self.policy = policy
+        self.embeddingResolver = embeddingResolver
         let runtimeControlPlane = RuntimeControlPlane(
             availableRuntimeKinds: policy.orderedRuntimeKinds,
             primaryGenerationRuntimeKind: policy.primaryGenerationRuntimeKind.runtimeKind,
@@ -531,6 +695,37 @@ actor BackendRuntimeControlPlane {
         }
     }
 
+    func embed(request: BackendEmbeddingRequest) async throws -> BackendEmbeddingResult {
+        let handshake = try self.handshake(
+            request: BackendRuntimeHandshakeRequest(
+                requestedRuntimeKind: request.requestedRuntimeKind,
+                executionMode: request.executionMode,
+                operation: .embed,
+                reasoningProfile: nil,
+                executionPolicyRef: nil
+            )
+        )
+        guard handshake.capabilities.supportsEmbed, handshake.resolvedRuntimeKind == .mlx else {
+            throw BackendRuntimeContractError.unsupportedCapability
+        }
+        guard let embeddingResolver else {
+            throw BackendRuntimeContractError.unsupportedCapability
+        }
+        guard let vector = await embeddingResolver(request) else {
+            throw BackendRuntimeContractError.backendFailure
+        }
+
+        return BackendEmbeddingResult(
+            requestedRuntimeKind: request.requestedRuntimeKind,
+            resolvedRuntimeKind: handshake.resolvedRuntimeKind,
+            executionMode: request.executionMode,
+            modelID: request.modelID,
+            artifactID: request.artifactID,
+            vector: vector,
+            dimension: vector.count
+        )
+    }
+
     func embed() throws {
         try mapRuntimeError {
             try runtimeControlPlane.embed()
@@ -619,6 +814,8 @@ private extension BackendReasoningProfile {
             self = .adaptive
         case .experimental:
             self = .experimental
+        case .visualSidecar:
+            self = .visualSidecar
         }
     }
 
@@ -632,6 +829,8 @@ private extension BackendReasoningProfile {
             .adaptive
         case .experimental:
             .experimental
+        case .visualSidecar:
+            .visualSidecar
         }
     }
 }
@@ -792,6 +991,7 @@ private extension BackendGenerationRequest {
             contextRef: contextRef,
             reasoningProfile: reasoningProfile?.reasoningProfile,
             executionPolicyRef: executionPolicyRef,
+            steeringHintsJson: steeringHintsJSON,
             priority: Int32(clamping: priority),
             timeoutMs: UInt32(clamping: timeoutMS),
             streamOptions: streamOptions.runtimeGenerationStreamOptions
@@ -836,6 +1036,9 @@ private extension BackendGenerationSummary {
             expertBudgetState: expertBudgetState,
             adaptationState: adaptationState,
             guardrailState: guardrailState,
+            sidecarState: sidecarState,
+            budgetOutcome: budgetOutcome,
+            planTracePresent: planTracePresent,
             cancelled: cancelled,
             errorClass: errorClass?.runtimeContractError
         )
@@ -941,6 +1144,12 @@ private extension BackendRuntimeStats {
             expertBudgetState: runtimeStats.expertBudgetState,
             adaptationState: runtimeStats.adaptationState,
             guardrailState: runtimeStats.guardrailState,
+            sidecarState: runtimeStats.sidecarState,
+            budgetOutcome: runtimeStats.budgetOutcome,
+            planTracePresent: runtimeStats.planTracePresent,
+            computeProfile: runtimeStats.computeProfile.map(BackendComputeProfile.init),
+            expertBudgetClass: runtimeStats.expertBudgetClass.map(BackendExpertBudgetClass.init),
+            kvPolicyKind: runtimeStats.kvPolicyKind.map(BackendKVPolicyKind.init),
             capabilities: BackendRuntimeCapabilities(runtimeStats.capabilities),
             cancelled: runtimeStats.cancelled,
             terminalEventEmitted: runtimeStats.terminalEventEmitted
@@ -973,8 +1182,56 @@ private extension BackendGenerationSummary {
             expertBudgetState: runtimeGenerationSummary.expertBudgetState,
             adaptationState: runtimeGenerationSummary.adaptationState,
             guardrailState: runtimeGenerationSummary.guardrailState,
+            sidecarState: runtimeGenerationSummary.sidecarState,
+            budgetOutcome: runtimeGenerationSummary.budgetOutcome,
+            planTracePresent: runtimeGenerationSummary.planTracePresent,
             cancelled: runtimeGenerationSummary.cancelled,
             errorClass: runtimeGenerationSummary.errorClass.map(BackendRuntimeContractError.init)
         )
+    }
+}
+
+// MARK: - Phase 2: Compute Steering FFI Bridging
+
+private extension BackendComputeProfile {
+    nonisolated init(_ computeProfile: ComputeProfile) {
+        switch computeProfile {
+        case .standard:
+            self = .standard
+        case .deepGraph:
+            self = .deepGraph
+        case .adaptive:
+            self = .adaptive
+        case .experimental:
+            self = .experimental
+        case .visualSidecar:
+            self = .visualSidecar
+        }
+    }
+}
+
+private extension BackendExpertBudgetClass {
+    nonisolated init(_ expertBudgetClass: ExpertBudgetClass) {
+        switch expertBudgetClass {
+        case .default:
+            self = .default
+        case .constrained:
+            self = .constrained
+        case .deep:
+            self = .deep
+        }
+    }
+}
+
+private extension BackendKVPolicyKind {
+    nonisolated init(_ kvPolicyKind: KvPolicyKind) {
+        switch kvPolicyKind {
+        case .baseline:
+            self = .baseline
+        case .compressed:
+            self = .compressed
+        case .blocked:
+            self = .blocked
+        }
     }
 }

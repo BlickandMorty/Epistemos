@@ -267,7 +267,9 @@ impl SegmentedIndex {
         {
             let growing = self.growing.read();
             for entry in growing.iter() {
-                let score: f32 = entry.embedding.iter()
+                let score: f32 = entry
+                    .embedding
+                    .iter()
                     .zip(query.iter())
                     .map(|(a, b)| a * b)
                     .sum();
@@ -307,7 +309,11 @@ impl SegmentedIndex {
         }
 
         // Sort by score descending, take top_k
-        results.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_unstable_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         results.truncate(top_k);
         results
     }
@@ -317,7 +323,9 @@ impl SegmentedIndex {
     /// Background re-encoding is driven by temperature scheduling.
     pub fn swap_rotation(&self, new_rotation: ButterflyRotation) {
         let guard = &epoch::pin();
-        let old = self.rotation.swap(Owned::new(new_rotation), Ordering::AcqRel, guard);
+        let old = self
+            .rotation
+            .swap(Owned::new(new_rotation), Ordering::AcqRel, guard);
         // SAFETY: old rotation deferred for destruction after all readers pass.
         unsafe { guard.defer_destroy(old) };
     }
@@ -333,7 +341,12 @@ impl SegmentedIndex {
 
         let mut temps: Vec<(u64, f64)> = sealed_list
             .iter()
-            .map(|seg| (seg.id, seg.temperature(clock, self.config.temperature_half_life)))
+            .map(|seg| {
+                (
+                    seg.id,
+                    seg.temperature(clock, self.config.temperature_half_life),
+                )
+            })
             .collect();
         temps.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         temps
@@ -345,10 +358,7 @@ impl SegmentedIndex {
         let growing_count = self.growing.read().len();
         let sealed_ptr = self.sealed.load(Ordering::Acquire, guard);
         // SAFETY: pointer valid under guard.
-        let sealed_count: usize = unsafe { sealed_ptr.deref() }
-            .iter()
-            .map(|s| s.len())
-            .sum();
+        let sealed_count: usize = unsafe { sealed_ptr.deref() }.iter().map(|s| s.len()).sum();
         growing_count + sealed_count
     }
 
@@ -380,7 +390,9 @@ mod tests {
     }
 
     fn make_embedding(seed: u8, dim: usize) -> Vec<f32> {
-        (0..dim).map(|i| ((seed as f32) * 0.1 + (i as f32) * 0.01).sin()).collect()
+        (0..dim)
+            .map(|i| ((seed as f32) * 0.1 + (i as f32) * 0.01).sin())
+            .collect()
     }
 
     #[test]
@@ -397,7 +409,11 @@ mod tests {
         let config = test_config(); // seal_threshold = 5
         let idx = SegmentedIndex::new(config);
         for i in 0..6 {
-            idx.insert(format!("doc{i}"), make_embedding(i as u8, 16), format!("text{i}"));
+            idx.insert(
+                format!("doc{i}"),
+                make_embedding(i as u8, 16),
+                format!("text{i}"),
+            );
         }
         // 5 should have been sealed, 1 in growing
         assert_eq!(idx.num_sealed_segments(), 1);
@@ -427,7 +443,11 @@ mod tests {
 
         // Insert 3 (triggers seal) + 1 more in growing
         for i in 0..4 {
-            idx.insert(format!("doc{i}"), make_embedding(i as u8, 16), format!("text{i}"));
+            idx.insert(
+                format!("doc{i}"),
+                make_embedding(i as u8, 16),
+                format!("text{i}"),
+            );
         }
         assert_eq!(idx.num_sealed_segments(), 1);
 
@@ -471,7 +491,11 @@ mod tests {
 
         // Create two sealed segments
         for i in 0..4 {
-            idx.insert(format!("doc{i}"), make_embedding(i as u8, 16), format!("text{i}"));
+            idx.insert(
+                format!("doc{i}"),
+                make_embedding(i as u8, 16),
+                format!("text{i}"),
+            );
         }
         assert_eq!(idx.num_sealed_segments(), 2);
 
@@ -483,7 +507,10 @@ mod tests {
         let temps = idx.segments_by_temperature();
         assert_eq!(temps.len(), 2);
         // Both segments should have been accessed
-        assert!(temps[0].1 > 0.0, "Accessed segments should have positive temperature");
+        assert!(
+            temps[0].1 > 0.0,
+            "Accessed segments should have positive temperature"
+        );
     }
 
     #[test]

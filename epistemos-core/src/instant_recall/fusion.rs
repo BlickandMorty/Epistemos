@@ -133,7 +133,11 @@ pub fn reciprocal_rank_fusion(
         })
         .collect();
 
-    results.sort_by(|a, b| b.rrf_score.partial_cmp(&a.rrf_score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.rrf_score
+            .partial_cmp(&a.rrf_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results.truncate(config.fusion_top_k);
     results
 }
@@ -173,7 +177,8 @@ pub fn cross_encoder_rerank(
 
     // Sort by rerank score descending
     fused.sort_by(|a, b| {
-        b.rerank_score.unwrap_or(0.0)
+        b.rerank_score
+            .unwrap_or(0.0)
             .partial_cmp(&a.rerank_score.unwrap_or(0.0))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
@@ -206,23 +211,36 @@ impl BM25CrossEncoder {
 impl CrossEncoder for BM25CrossEncoder {
     fn score_batch(&self, query: &str, documents: &[&str]) -> Vec<f64> {
         let query_terms: Vec<&str> = query.split_whitespace().collect();
-        let avg_dl: f64 = documents.iter().map(|d| d.split_whitespace().count() as f64).sum::<f64>()
+        let avg_dl: f64 = documents
+            .iter()
+            .map(|d| d.split_whitespace().count() as f64)
+            .sum::<f64>()
             / documents.len().max(1) as f64;
 
-        documents.iter().map(|doc| {
-            let doc_terms: Vec<&str> = doc.split_whitespace().collect();
-            let dl = doc_terms.len() as f64;
+        documents
+            .iter()
+            .map(|doc| {
+                let doc_terms: Vec<&str> = doc.split_whitespace().collect();
+                let dl = doc_terms.len() as f64;
 
-            query_terms.iter().map(|qt| {
-                let qt_lower = qt.to_lowercase();
-                let tf = doc_terms.iter().filter(|dt| dt.to_lowercase() == qt_lower).count() as f64;
-                if tf == 0.0 {
-                    return 0.0;
-                }
-                // Simplified BM25 (no IDF since we don't have corpus stats)
-                (tf * (self.k1 + 1.0)) / (tf + self.k1 * (1.0 - self.b + self.b * dl / avg_dl))
-            }).sum()
-        }).collect()
+                query_terms
+                    .iter()
+                    .map(|qt| {
+                        let qt_lower = qt.to_lowercase();
+                        let tf = doc_terms
+                            .iter()
+                            .filter(|dt| dt.to_lowercase() == qt_lower)
+                            .count() as f64;
+                        if tf == 0.0 {
+                            return 0.0;
+                        }
+                        // Simplified BM25 (no IDF since we don't have corpus stats)
+                        (tf * (self.k1 + 1.0))
+                            / (tf + self.k1 * (1.0 - self.b + self.b * dl / avg_dl))
+                    })
+                    .sum()
+            })
+            .collect()
     }
 }
 
@@ -255,7 +273,12 @@ impl HybridSearchPipeline {
     /// Execute the full pipeline: fuse signals → rerank → return top results.
     pub fn execute(&self, query: &str, signals: &[Vec<RetrievalHit>]) -> Vec<FusedResult> {
         let fused = reciprocal_rank_fusion(signals, &self.config);
-        cross_encoder_rerank(query, fused, self.cross_encoder.as_ref(), self.config.final_top_k)
+        cross_encoder_rerank(
+            query,
+            fused,
+            self.cross_encoder.as_ref(),
+            self.config.final_top_k,
+        )
     }
 }
 
@@ -265,17 +288,47 @@ mod tests {
 
     fn make_fts_hits() -> Vec<RetrievalHit> {
         vec![
-            RetrievalHit { doc_id: "doc-a".into(), text: "Rust systems programming".into(), score: 5.0, source: RetrievalSource::FullText },
-            RetrievalHit { doc_id: "doc-b".into(), text: "Swift macOS development".into(), score: 4.0, source: RetrievalSource::FullText },
-            RetrievalHit { doc_id: "doc-c".into(), text: "Python data science".into(), score: 3.0, source: RetrievalSource::FullText },
+            RetrievalHit {
+                doc_id: "doc-a".into(),
+                text: "Rust systems programming".into(),
+                score: 5.0,
+                source: RetrievalSource::FullText,
+            },
+            RetrievalHit {
+                doc_id: "doc-b".into(),
+                text: "Swift macOS development".into(),
+                score: 4.0,
+                source: RetrievalSource::FullText,
+            },
+            RetrievalHit {
+                doc_id: "doc-c".into(),
+                text: "Python data science".into(),
+                score: 3.0,
+                source: RetrievalSource::FullText,
+            },
         ]
     }
 
     fn make_vector_hits() -> Vec<RetrievalHit> {
         vec![
-            RetrievalHit { doc_id: "doc-b".into(), text: "Swift macOS development".into(), score: 0.9, source: RetrievalSource::Vector },
-            RetrievalHit { doc_id: "doc-a".into(), text: "Rust systems programming".into(), score: 0.8, source: RetrievalSource::Vector },
-            RetrievalHit { doc_id: "doc-d".into(), text: "Machine learning neural nets".into(), score: 0.7, source: RetrievalSource::Vector },
+            RetrievalHit {
+                doc_id: "doc-b".into(),
+                text: "Swift macOS development".into(),
+                score: 0.9,
+                source: RetrievalSource::Vector,
+            },
+            RetrievalHit {
+                doc_id: "doc-a".into(),
+                text: "Rust systems programming".into(),
+                score: 0.8,
+                source: RetrievalSource::Vector,
+            },
+            RetrievalHit {
+                doc_id: "doc-d".into(),
+                text: "Machine learning neural nets".into(),
+                score: 0.7,
+                source: RetrievalSource::Vector,
+            },
         ]
     }
 
@@ -290,8 +343,10 @@ mod tests {
         // doc-a and doc-b appear in both signals, should rank high
         assert!(!fused.is_empty());
         let top_ids: Vec<&str> = fused.iter().take(2).map(|r| r.doc_id.as_str()).collect();
-        assert!(top_ids.contains(&"doc-a") || top_ids.contains(&"doc-b"),
-            "Documents in both signals should rank highly");
+        assert!(
+            top_ids.contains(&"doc-a") || top_ids.contains(&"doc-b"),
+            "Documents in both signals should rank highly"
+        );
     }
 
     #[test]
@@ -333,18 +388,37 @@ mod tests {
         let encoder = BM25CrossEncoder::new();
         let scores = encoder.score_batch(
             "Rust programming",
-            &["Rust systems programming language", "Python data science", "Rust and Go comparison"],
+            &[
+                "Rust systems programming language",
+                "Python data science",
+                "Rust and Go comparison",
+            ],
         );
         assert_eq!(scores.len(), 3);
         // First doc should score highest (contains both "Rust" and "programming")
-        assert!(scores[0] > scores[1], "Doc with query terms should score higher");
+        assert!(
+            scores[0] > scores[1],
+            "Doc with query terms should score higher"
+        );
     }
 
     #[test]
     fn cross_encoder_rerank_reorders() {
         let fused = vec![
-            FusedResult { doc_id: "low".into(), text: "cooking recipes".into(), rrf_score: 0.5, sources: vec![RetrievalSource::FullText], rerank_score: None },
-            FusedResult { doc_id: "high".into(), text: "Rust programming systems".into(), rrf_score: 0.3, sources: vec![RetrievalSource::Vector], rerank_score: None },
+            FusedResult {
+                doc_id: "low".into(),
+                text: "cooking recipes".into(),
+                rrf_score: 0.5,
+                sources: vec![RetrievalSource::FullText],
+                rerank_score: None,
+            },
+            FusedResult {
+                doc_id: "high".into(),
+                text: "Rust programming systems".into(),
+                rrf_score: 0.3,
+                sources: vec![RetrievalSource::Vector],
+                rerank_score: None,
+            },
         ];
 
         let encoder = BM25CrossEncoder::new();
@@ -387,7 +461,9 @@ mod tests {
         let doc_d = fused.iter().find(|r| r.doc_id == "doc-d").unwrap();
 
         // doc-c should score higher because FTS is weighted 2x
-        assert!(doc_c.rrf_score > doc_d.rrf_score,
-            "FTS-only doc with 2x weight should beat vector-only doc with 0.5x weight");
+        assert!(
+            doc_c.rrf_score > doc_d.rrf_score,
+            "FTS-only doc with 2x weight should beat vector-only doc with 0.5x weight"
+        );
     }
 }

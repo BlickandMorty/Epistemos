@@ -120,7 +120,9 @@ impl CommandPalette {
 
     /// List all commands, optionally filtered by category.
     pub fn list(&self, category: Option<CommandCategory>) -> Vec<&SlashCommand> {
-        let mut cmds: Vec<&SlashCommand> = self.commands.values()
+        let mut cmds: Vec<&SlashCommand> = self
+            .commands
+            .values()
             .filter(|cmd| category.map_or(true, |cat| cmd.category == cat))
             .collect();
         cmds.sort_by(|a, b| a.name.cmp(&b.name));
@@ -130,10 +132,11 @@ impl CommandPalette {
     /// Fuzzy-match commands by prefix.
     pub fn search(&self, prefix: &str) -> Vec<&SlashCommand> {
         let lower = prefix.to_lowercase();
-        let mut matches: Vec<&SlashCommand> = self.commands.values()
+        let mut matches: Vec<&SlashCommand> = self
+            .commands
+            .values()
             .filter(|cmd| {
-                cmd.name.starts_with(&lower) ||
-                cmd.description.to_lowercase().contains(&lower)
+                cmd.name.starts_with(&lower) || cmd.description.to_lowercase().contains(&lower)
             })
             .collect();
         matches.sort_by(|a, b| {
@@ -254,7 +257,10 @@ pub fn parse_slash_command(input: &str) -> Option<ParsedCommand> {
     let mut words = rest.split_whitespace().peekable();
 
     while let Some(word) = words.next() {
-        if let Some(eq_pos) = word.strip_prefix("--").and_then(|w| w.find('=').map(|p| p + 2)) {
+        if let Some(eq_pos) = word
+            .strip_prefix("--")
+            .and_then(|w| w.find('=').map(|p| p + 2))
+        {
             // --key=value form
             let key = word[2..eq_pos].to_string();
             let value = word[eq_pos + 1..].to_string();
@@ -348,7 +354,9 @@ mod tests {
         let palette = CommandPalette::new();
         let research_cmds = palette.list(Some(CommandCategory::Research));
         assert!(research_cmds.len() >= 2); // research + review
-        assert!(research_cmds.iter().all(|c| c.category == CommandCategory::Research));
+        assert!(research_cmds
+            .iter()
+            .all(|c| c.category == CommandCategory::Research));
     }
 
     #[test]
@@ -372,16 +380,14 @@ mod tests {
         use std::path::PathBuf;
 
         let mut palette = CommandPalette::new();
-        let skills = vec![
-            SkillCatalogEntry {
-                name: "custom-analysis".into(),
-                description: "Custom data analysis".into(),
-                category: "research".into(),
-                triggers: vec!["/analyze".into()],
-                version: 1,
-                source_path: PathBuf::from("test.md"),
-            },
-        ];
+        let skills = vec![SkillCatalogEntry {
+            name: "custom-analysis".into(),
+            description: "Custom data analysis".into(),
+            category: "research".into(),
+            triggers: vec!["/analyze".into()],
+            version: 1,
+            source_path: PathBuf::from("test.md"),
+        }];
 
         palette.register_from_skills(&skills);
         let cmd = palette.get("analyze");
@@ -395,16 +401,14 @@ mod tests {
         use std::path::PathBuf;
 
         let mut palette = CommandPalette::new();
-        let skills = vec![
-            SkillCatalogEntry {
-                name: "custom-research".into(),
-                description: "My custom research".into(),
-                category: "research".into(),
-                triggers: vec!["/research".into()], // Same as builtin
-                version: 1,
-                source_path: PathBuf::from("test.md"),
-            },
-        ];
+        let skills = vec![SkillCatalogEntry {
+            name: "custom-research".into(),
+            description: "My custom research".into(),
+            category: "research".into(),
+            triggers: vec!["/research".into()], // Same as builtin
+            version: 1,
+            source_path: PathBuf::from("test.md"),
+        }];
 
         palette.register_from_skills(&skills);
         let cmd = palette.get("research").unwrap();

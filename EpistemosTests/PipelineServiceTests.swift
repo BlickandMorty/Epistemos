@@ -462,6 +462,65 @@ struct PipelineServiceTests {
         #expect(systemPrompt.contains("OVERSEER_PLAN_V1"))
         #expect(systemPrompt.contains("\"mask_plan\""))
     }
+
+    @Test("local overseer execution plan forwards steering hints into the local runtime path")
+    @MainActor func localExecutionPlanForwardsSteeringHintsToLocalRuntime() async throws {
+        let localClient = RecordingConfigurableLocalLLMClient()
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_35BA3B4Bit.rawValue))
+
+        let triage = TriageService(inference: inference, localLLMService: localClient)
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: localClient,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus,
+            localModelClient: localClient
+        )
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "Summarize the migration plan conservatively.",
+            contentLength: 1400,
+            operatingMode: .fast,
+            hasExplicitContext: true,
+            attachmentCount: 0,
+            notesContext: "Migration context",
+            conversationHistory: nil
+        )
+        #expect(executionPlan.route == .overseerLocalExecution)
+        let expectedHints = try #require(executionPlan.steeringHintsJSON)
+
+        let stream = pipeline.run(
+            query: "Summarize the migration plan conservatively.",
+            mode: .api,
+            notesContext: "Migration context",
+            conversationHistory: nil,
+            operatingMode: executionPlan.localOperatingMode,
+            executionPlan: executionPlan
+        )
+
+        for try await _ in stream {}
+
+        #expect(localClient.streamRequests.count == 1)
+        let actualHints = try #require(localClient.streamRequests.first?.steeringHintsJSON)
+        let normalizedActual = try normalizedJSONString(actualHints)
+        let normalizedExpected = try normalizedJSONString(expectedHints)
+        #expect(normalizedActual == normalizedExpected)
+    }
+}
+
+private func normalizedJSONString(_ string: String) throws -> String {
+    let data = try #require(string.data(using: .utf8))
+    let object = try JSONSerialization.jsonObject(with: data)
+    let normalizedData = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+    let normalizedString = try #require(String(data: normalizedData, encoding: .utf8))
+    return normalizedString
 }
 
 // MARK: - Pipeline Contract Tests

@@ -50,16 +50,25 @@ pub fn tmac_quantize(vector: &[f32], num_bits: usize) -> TMacVector {
     let num_levels = (1u32 << num_bits) - 1;
 
     // Compute asymmetric quantization parameters
-    let (min_val, max_val) = vector.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-        (mn.min(v), mx.max(v))
-    });
+    let (min_val, max_val) = vector
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
     let range = max_val - min_val;
-    let scale = if range > 1e-10 { range / num_levels as f32 } else { 1.0 };
+    let scale = if range > 1e-10 {
+        range / num_levels as f32
+    } else {
+        1.0
+    };
 
     // Quantize to integer levels
-    let quantized: Vec<u8> = vector.iter().map(|&v| {
-        ((v - min_val) / scale).round().clamp(0.0, num_levels as f32) as u8
-    }).collect();
+    let quantized: Vec<u8> = vector
+        .iter()
+        .map(|&v| {
+            ((v - min_val) / scale)
+                .round()
+                .clamp(0.0, num_levels as f32) as u8
+        })
+        .collect();
 
     // Decompose into bit planes
     let bytes_per_plane = (dim + 7) / 8;
@@ -190,35 +199,38 @@ pub fn tmac_batch_dot_product(query: &[f32], vectors: &[TMacVector]) -> Vec<f32>
     let query_sum: f32 = query[..dim].iter().sum();
 
     // Compute dot product for each stored vector using shared LUTs
-    vectors.iter().map(|tmac_vec| {
-        let mut quant_dot = 0.0_f32;
-        for (bit, plane) in tmac_vec.bit_planes.iter().enumerate() {
-            let bit_weight = (1u32 << bit) as f32;
-            let mut plane_sum = 0.0_f32;
+    vectors
+        .iter()
+        .map(|tmac_vec| {
+            let mut quant_dot = 0.0_f32;
+            for (bit, plane) in tmac_vec.bit_planes.iter().enumerate() {
+                let bit_weight = (1u32 << bit) as f32;
+                let mut plane_sum = 0.0_f32;
 
-            for (group_idx, lut) in luts.iter().enumerate() {
-                let base_idx = group_idx * LUT_GROUP_SIZE;
-                let mut pattern: usize = 0;
+                for (group_idx, lut) in luts.iter().enumerate() {
+                    let base_idx = group_idx * LUT_GROUP_SIZE;
+                    let mut pattern: usize = 0;
 
-                for bit_pos in 0..LUT_GROUP_SIZE {
-                    let elem_idx = base_idx + bit_pos;
-                    if elem_idx >= tmac_vec.dim {
-                        break;
+                    for bit_pos in 0..LUT_GROUP_SIZE {
+                        let elem_idx = base_idx + bit_pos;
+                        if elem_idx >= tmac_vec.dim {
+                            break;
+                        }
+                        let byte_idx = elem_idx / 8;
+                        let bit_idx = elem_idx % 8;
+                        if byte_idx < plane.len() && (plane[byte_idx] >> bit_idx) & 1 == 1 {
+                            pattern |= 1 << bit_pos;
+                        }
                     }
-                    let byte_idx = elem_idx / 8;
-                    let bit_idx = elem_idx % 8;
-                    if byte_idx < plane.len() && (plane[byte_idx] >> bit_idx) & 1 == 1 {
-                        pattern |= 1 << bit_pos;
-                    }
+
+                    plane_sum += lut[pattern];
                 }
 
-                plane_sum += lut[pattern];
+                quant_dot += plane_sum * bit_weight;
             }
-
-            quant_dot += plane_sum * bit_weight;
-        }
-        quant_dot * tmac_vec.scale + tmac_vec.zero_point * query_sum
-    }).collect()
+            quant_dot * tmac_vec.scale + tmac_vec.zero_point * query_sum
+        })
+        .collect()
 }
 
 /// Memory footprint of a T-MAC vector in bytes.
@@ -278,29 +290,37 @@ mod tests {
         // Result should approximate sum of vector elements (since query is all-ones)
         let expected: f32 = vector.iter().sum();
         // T-MAC introduces quantization error; check within reasonable bound
-        assert!((result - expected).abs() / expected.abs().max(1.0) < 0.5,
-            "T-MAC dot product too far from expected: got {result}, expected ~{expected}");
+        assert!(
+            (result - expected).abs() / expected.abs().max(1.0) < 0.5,
+            "T-MAC dot product too far from expected: got {result}, expected ~{expected}"
+        );
     }
 
     #[test]
     fn batch_matches_individual() {
         let dim = 32;
         let query: Vec<f32> = (0..dim).map(|i| (i as f32 * 0.1).sin()).collect();
-        let vectors: Vec<Vec<f32>> = (0..5).map(|seed| {
-            (0..dim).map(|i| ((seed as f32) * 0.3 + (i as f32) * 0.1).cos()).collect()
-        }).collect();
-
-        let tmac_vecs: Vec<TMacVector> = vectors.iter()
-            .map(|v| tmac_quantize(v, 2))
+        let vectors: Vec<Vec<f32>> = (0..5)
+            .map(|seed| {
+                (0..dim)
+                    .map(|i| ((seed as f32) * 0.3 + (i as f32) * 0.1).cos())
+                    .collect()
+            })
             .collect();
 
+        let tmac_vecs: Vec<TMacVector> = vectors.iter().map(|v| tmac_quantize(v, 2)).collect();
+
         let batch_results = tmac_batch_dot_product(&query, &tmac_vecs);
-        let individual_results: Vec<f32> = tmac_vecs.iter()
+        let individual_results: Vec<f32> = tmac_vecs
+            .iter()
             .map(|tv| tmac_dot_product(&query, tv))
             .collect();
 
         for (b, i) in batch_results.iter().zip(individual_results.iter()) {
-            assert!((b - i).abs() < 1e-6, "Batch and individual should match: {b} vs {i}");
+            assert!(
+                (b - i).abs() < 1e-6,
+                "Batch and individual should match: {b} vs {i}"
+            );
         }
     }
 
@@ -325,8 +345,10 @@ mod tests {
         let err2 = (r2 - exact).abs();
         let err4 = (r4 - exact).abs();
 
-        assert!(err4 <= err2 || err2 <= err1,
-            "Higher precision should generally reduce error: 1bit={err1}, 2bit={err2}, 4bit={err4}");
+        assert!(
+            err4 <= err2 || err2 <= err1,
+            "Higher precision should generally reduce error: 1bit={err1}, 2bit={err2}, 4bit={err4}"
+        );
     }
 
     #[test]
@@ -345,7 +367,10 @@ mod tests {
 
         let tmac = tmac_quantize(&vector, 2);
         let result = tmac_dot_product(&query, &tmac);
-        assert!(result.is_finite(), "Should handle non-multiple-of-4 dimensions");
+        assert!(
+            result.is_finite(),
+            "Should handle non-multiple-of-4 dimensions"
+        );
     }
 
     #[test]
@@ -356,6 +381,9 @@ mod tests {
 
         let tmac = tmac_quantize(&vector, 2);
         let result = tmac_dot_product(&query, &tmac);
-        assert!((result).abs() < 1e-6, "Zero query should produce zero dot product");
+        assert!(
+            (result).abs() < 1e-6,
+            "Zero query should produce zero dot product"
+        );
     }
 }

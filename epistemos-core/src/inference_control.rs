@@ -110,7 +110,9 @@ impl SerialInferenceController {
         if let Ok(mut state) = self.state.lock() {
             state.available_memory_bytes = available_bytes;
             state.fallback_mode = match state.fallback_mode {
-                SerialFallbackMode::Resident if available_bytes <= self.pressure_threshold_bytes => {
+                SerialFallbackMode::Resident
+                    if available_bytes <= self.pressure_threshold_bytes =>
+                {
                     SerialFallbackMode::SsdStreaming
                 }
                 SerialFallbackMode::SsdStreaming
@@ -242,7 +244,10 @@ impl SerialInferenceController {
     }
 
     pub fn snapshot(&self) -> SerialInferenceSnapshot {
-        let state = self.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         SerialInferenceSnapshot {
             phase: state.phase.as_str().to_string(),
             fallback_mode: state.fallback_mode.clone(),
@@ -258,17 +263,12 @@ impl SerialInferenceController {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        SerialFallbackMode, SerialInferenceController, SerialInferenceTransitionError,
-    };
+    use super::{SerialFallbackMode, SerialInferenceController, SerialInferenceTransitionError};
 
     #[test]
     fn allows_turn_boundary_readahead_but_not_mid_compute_readahead() {
-        let controller = SerialInferenceController::new(
-            1_200_000_000,
-            1_800_000_000,
-            3_000_000_000,
-        );
+        let controller =
+            SerialInferenceController::new(1_200_000_000, 1_800_000_000, 3_000_000_000);
 
         controller.begin_turn().unwrap();
         controller.record_turn_boundary_readahead().unwrap();
@@ -283,11 +283,8 @@ mod tests {
 
     #[test]
     fn forbids_disk_reads_during_active_gpu_compute() {
-        let controller = SerialInferenceController::new(
-            1_200_000_000,
-            1_800_000_000,
-            3_000_000_000,
-        );
+        let controller =
+            SerialInferenceController::new(1_200_000_000, 1_800_000_000, 3_000_000_000);
 
         controller.begin_turn().unwrap();
         controller.begin_gpu_compute().unwrap();
@@ -301,11 +298,8 @@ mod tests {
 
     #[test]
     fn supports_serial_gpu_and_ssd_alternation_within_a_turn() {
-        let controller = SerialInferenceController::new(
-            1_200_000_000,
-            1_800_000_000,
-            3_000_000_000,
-        );
+        let controller =
+            SerialInferenceController::new(1_200_000_000, 1_800_000_000, 3_000_000_000);
 
         controller.begin_turn().unwrap();
         controller.begin_gpu_compute().unwrap();
@@ -323,11 +317,8 @@ mod tests {
 
     #[test]
     fn enters_and_recovers_from_ssd_streaming_fallback_based_on_available_memory() {
-        let controller = SerialInferenceController::new(
-            1_200_000_000,
-            1_800_000_000,
-            3_000_000_000,
-        );
+        let controller =
+            SerialInferenceController::new(1_200_000_000, 1_800_000_000, 3_000_000_000);
 
         controller.update_available_memory(900_000_000);
         let pressured = controller.snapshot();

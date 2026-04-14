@@ -45,7 +45,7 @@ final class LiveNoteScanner {
     /// Scan all pages for live_note: true frontmatter and parse their task blocks.
     func scanForLiveNotes(context: ModelContext) -> [LiveNoteTask] {
         let descriptor = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.isDeleted == false }
+            predicate: #Predicate<SDPage> { $0.isArchived == false }
         )
         let pages = (try? context.fetch(descriptor)) ?? []
         var tasks: [LiveNoteTask] = []

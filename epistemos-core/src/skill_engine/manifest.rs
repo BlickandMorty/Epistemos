@@ -60,7 +60,10 @@ pub struct SkillManifest {
 // ── Parsing ─────────────────────────────────────────────────────────────────
 
 /// Parse a SKILL.md file into a full SkillManifest.
-pub fn parse_skill_manifest(content: &str, source_path: &Path) -> Result<SkillManifest, SkillParseError> {
+pub fn parse_skill_manifest(
+    content: &str,
+    source_path: &Path,
+) -> Result<SkillManifest, SkillParseError> {
     let (frontmatter, body) = split_frontmatter(content)?;
     let catalog = parse_frontmatter(&frontmatter, source_path)?;
     let instructions = parse_instructions_section(&body);
@@ -75,7 +78,10 @@ pub fn parse_skill_manifest(content: &str, source_path: &Path) -> Result<SkillMa
 
 /// Parse only Level 0 (catalog entry) from a SKILL.md file.
 /// Used by the registry to index skills without loading full content.
-pub fn parse_catalog_entry(content: &str, source_path: &Path) -> Result<SkillCatalogEntry, SkillParseError> {
+pub fn parse_catalog_entry(
+    content: &str,
+    source_path: &Path,
+) -> Result<SkillCatalogEntry, SkillParseError> {
     let (frontmatter, _) = split_frontmatter(content)?;
     parse_frontmatter(&frontmatter, source_path)
 }
@@ -139,7 +145,10 @@ fn split_frontmatter(content: &str) -> Result<(String, String), SkillParseError>
     }
 }
 
-fn parse_frontmatter(yaml_text: &str, source_path: &Path) -> Result<SkillCatalogEntry, SkillParseError> {
+fn parse_frontmatter(
+    yaml_text: &str,
+    source_path: &Path,
+) -> Result<SkillCatalogEntry, SkillParseError> {
     // Simple YAML key-value parser (no serde_yaml dependency for frontmatter parsing).
     // Handles: name, description, category, version (scalars) and triggers (list).
     let mut map: HashMap<String, String> = HashMap::new();
@@ -164,7 +173,11 @@ fn parse_frontmatter(yaml_text: &str, source_path: &Path) -> Result<SkillCatalog
 
         if let Some((key, value)) = trimmed.split_once(':') {
             let key = key.trim().to_string();
-            let value = value.trim().trim_matches('"').trim_matches('\'').to_string();
+            let value = value
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .to_string();
 
             if key == "triggers" && value.is_empty() {
                 in_triggers = true;
@@ -174,21 +187,25 @@ fn parse_frontmatter(yaml_text: &str, source_path: &Path) -> Result<SkillCatalog
         }
     }
 
-    let name = map.get("name")
+    let name = map
+        .get("name")
         .filter(|s| !s.is_empty())
         .ok_or_else(|| SkillParseError::MissingField("name".to_string()))?
         .clone();
 
-    let description = map.get("description")
+    let description = map
+        .get("description")
         .filter(|s| !s.is_empty())
         .ok_or_else(|| SkillParseError::MissingField("description".to_string()))?
         .clone();
 
-    let category = map.get("category")
+    let category = map
+        .get("category")
         .cloned()
         .unwrap_or_else(|| "general".to_string());
 
-    let version = map.get("version")
+    let version = map
+        .get("version")
         .and_then(|v| v.parse::<u32>().ok())
         .unwrap_or(1);
 
@@ -294,7 +311,10 @@ fn parse_parameters_block(section: &str) -> Vec<SkillParameter> {
             let default_value = extract_parenthesized(desc_raw, "default:");
             let description = desc_raw
                 .replace("(required)", "")
-                .replace(&format!("(default: {})", default_value.as_deref().unwrap_or("")), "")
+                .replace(
+                    &format!("(default: {})", default_value.as_deref().unwrap_or("")),
+                    "",
+                )
                 .trim()
                 .to_string();
 
@@ -390,14 +410,19 @@ pub fn scan_skill_directory(dir: &Path) -> Vec<SkillCatalogEntry> {
         let path = entry.path();
 
         // Accept both SKILL.md files and directories containing SKILL.md
-        let skill_path = if path.is_file() && path.file_name().map_or(false, |n| {
-            let name = n.to_string_lossy();
-            name == "SKILL.md" || name.ends_with(".skill.md")
-        }) {
+        let skill_path = if path.is_file()
+            && path.file_name().map_or(false, |n| {
+                let name = n.to_string_lossy();
+                name == "SKILL.md" || name.ends_with(".skill.md")
+            }) {
             path.clone()
         } else if path.is_dir() {
             let nested = path.join("SKILL.md");
-            if nested.is_file() { nested } else { continue }
+            if nested.is_file() {
+                nested
+            } else {
+                continue;
+            }
         } else {
             continue;
         };
@@ -479,7 +504,10 @@ You are a research assistant. Given a topic, search the user's vault for relevan
     fn test_parse_full_manifest() {
         let manifest = parse_skill_manifest(SAMPLE_SKILL, Path::new("test/SKILL.md")).unwrap();
         assert_eq!(manifest.catalog.name, "research-notes");
-        assert_eq!(manifest.catalog.description, "Deep research on a topic using vault notes");
+        assert_eq!(
+            manifest.catalog.description,
+            "Deep research on a topic using vault notes"
+        );
         assert_eq!(manifest.catalog.category, "research");
         assert_eq!(manifest.catalog.triggers, vec!["/research", "investigate"]);
         assert_eq!(manifest.catalog.version, 2);
@@ -498,7 +526,10 @@ You are a research assistant. Given a topic, search the user's vault for relevan
         assert!(manifest.instructions.prompt.contains("research assistant"));
         assert_eq!(manifest.instructions.parameters.len(), 2);
         assert!(manifest.instructions.parameters[0].required);
-        assert_eq!(manifest.instructions.parameters[1].default_value.as_deref(), Some("medium"));
+        assert_eq!(
+            manifest.instructions.parameters[1].default_value.as_deref(),
+            Some("medium")
+        );
         assert_eq!(manifest.instructions.examples.len(), 2);
     }
 
@@ -507,7 +538,10 @@ You are a research assistant. Given a topic, search the user's vault for relevan
         let manifest = parse_skill_manifest(SAMPLE_SKILL, Path::new("test/SKILL.md")).unwrap();
         assert_eq!(manifest.resources.file_patterns.len(), 2);
         assert!(manifest.resources.file_patterns[0].contains("*.md"));
-        assert_eq!(manifest.resources.required_tools, vec!["vault_search", "vault_read"]);
+        assert_eq!(
+            manifest.resources.required_tools,
+            vec!["vault_search", "vault_read"]
+        );
         assert_eq!(manifest.resources.context_rules.len(), 2);
     }
 

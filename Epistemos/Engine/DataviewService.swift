@@ -147,7 +147,7 @@ final class DataviewService {
                 // Folder-based FROM
                 let folderPrefix = from
                 predicate = #Predicate<SDPage> {
-                    $0.isDeleted == false && ($0.subfolder ?? "").contains(folderPrefix)
+                    $0.isArchived == false && ($0.subfolder ?? "").contains(folderPrefix)
                 }
             }
         }
@@ -160,7 +160,7 @@ final class DataviewService {
             )
         } else {
             descriptor = FetchDescriptor<SDPage>(
-                predicate: #Predicate<SDPage> { $0.isDeleted == false },
+                predicate: #Predicate<SDPage> { $0.isArchived == false },
                 sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
             )
         }

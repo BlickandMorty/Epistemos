@@ -20,7 +20,9 @@
 //   3. Progressive right-shift degrades gracefully as context grows
 
 /// Precision level for a KV cache tensor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum KVPrecision {
     /// Full precision (16-bit float).
     FP16,
@@ -148,7 +150,8 @@ pub fn profile_kv_sensitivity(
         .iter()
         .map(|l| (l.layer_idx, l.key_sensitivity + l.value_sensitivity))
         .collect();
-    combined_sensitivities.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    combined_sensitivities
+        .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
     // Assign from least sensitive to most sensitive
     let total = config.num_layers;
@@ -172,9 +175,11 @@ pub fn profile_kv_sensitivity(
         layers[layer_idx].value_default_precision = v_prec;
     }
 
-    let avg_bits = layers.iter().map(|l| {
-        (l.key_default_precision.bits() + l.value_default_precision.bits()) as f32 / 2.0
-    }).sum::<f32>() / total as f32;
+    let avg_bits = layers
+        .iter()
+        .map(|l| (l.key_default_precision.bits() + l.value_default_precision.bits()) as f32 / 2.0)
+        .sum::<f32>()
+        / total as f32;
 
     let memory_ratio = avg_bits / 16.0; // vs FP16
 
@@ -231,7 +236,12 @@ struct KVToken {
 
 impl ProgressiveKVCache {
     /// Create a new progressive KV cache.
-    pub fn new(profile: KVTunerProfile, memory_budget: usize, head_dim: usize, num_heads: usize) -> Self {
+    pub fn new(
+        profile: KVTunerProfile,
+        memory_budget: usize,
+        head_dim: usize,
+        num_heads: usize,
+    ) -> Self {
         let num_layers = profile.layers.len();
         let layers = (0..num_layers)
             .map(|i| KVCacheLayer {
@@ -271,8 +281,8 @@ impl ProgressiveKVCache {
         // Quantize Value per-token (entire vector as one group)
         let (value_data, value_scale, value_zero) = quantize_per_token(value, v_prec);
 
-        let token_memory = key_data.len() + value_data.len()
-            + key_scales.len() * 4 + key_zeros.len() * 4 + 8; // scales + zeros + 2 f32
+        let token_memory =
+            key_data.len() + value_data.len() + key_scales.len() * 4 + key_zeros.len() * 4 + 8; // scales + zeros + 2 f32
 
         self.current_memory += token_memory;
 
@@ -368,7 +378,10 @@ impl ProgressiveKVCache {
 
     /// Current precision for each layer (Key, Value).
     pub fn precision_per_layer(&self) -> Vec<(KVPrecision, KVPrecision)> {
-        self.layers.iter().map(|l| (l.key_precision, l.value_precision)).collect()
+        self.layers
+            .iter()
+            .map(|l| (l.key_precision, l.value_precision))
+            .collect()
     }
 
     /// Total number of cached tokens across all layers.
@@ -407,16 +420,22 @@ fn quantize_per_channel(
         let end = (start + group_size).min(data.len());
         let group = &data[start..end];
 
-        let (min_val, max_val) = group.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-            (mn.min(v), mx.max(v))
-        });
+        let (min_val, max_val) = group
+            .iter()
+            .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
         let range = max_val - min_val;
-        let scale = if range > 1e-10 { range / num_levels as f32 } else { 1.0 };
+        let scale = if range > 1e-10 {
+            range / num_levels as f32
+        } else {
+            1.0
+        };
         scales.push(scale);
         zeros.push(min_val);
 
         for (i, &val) in group.iter().enumerate() {
-            let q = ((val - min_val) / scale).round().clamp(0.0, num_levels as f32) as u8;
+            let q = ((val - min_val) / scale)
+                .round()
+                .clamp(0.0, num_levels as f32) as u8;
             let global_idx = start + i;
             let byte_idx = global_idx / per_byte;
             let bit_offset = (global_idx % per_byte) * bits;
@@ -430,25 +449,28 @@ fn quantize_per_channel(
 
 /// Quantize a vector per-token (single scale/zero for entire vector).
 /// Used for Value caches where distributions are more uniform.
-fn quantize_per_token(
-    data: &[f32],
-    precision: KVPrecision,
-) -> (Vec<u8>, f32, f32) {
+fn quantize_per_token(data: &[f32], precision: KVPrecision) -> (Vec<u8>, f32, f32) {
     let num_levels = (1u32 << precision.bits()) - 1;
     let bits = precision.bits();
     let per_byte = 8 / bits;
 
-    let (min_val, max_val) = data.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-        (mn.min(v), mx.max(v))
-    });
+    let (min_val, max_val) = data
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
     let range = max_val - min_val;
-    let scale = if range > 1e-10 { range / num_levels as f32 } else { 1.0 };
+    let scale = if range > 1e-10 {
+        range / num_levels as f32
+    } else {
+        1.0
+    };
 
     let total_packed = (data.len() + per_byte - 1) / per_byte;
     let mut packed = vec![0u8; total_packed];
 
     for (i, &val) in data.iter().enumerate() {
-        let q = ((val - min_val) / scale).round().clamp(0.0, num_levels as f32) as u8;
+        let q = ((val - min_val) / scale)
+            .round()
+            .clamp(0.0, num_levels as f32) as u8;
         let byte_idx = i / per_byte;
         let bit_offset = (i % per_byte) * bits;
         let mask = ((1u16 << bits) - 1) as u8;
@@ -521,20 +543,28 @@ mod tests {
         assert_eq!(profile.layers.len(), 8);
 
         // Least sensitive layers should get lower precision
-        let precisions: Vec<(KVPrecision, KVPrecision)> = profile.layers.iter()
+        let precisions: Vec<(KVPrecision, KVPrecision)> = profile
+            .layers
+            .iter()
             .map(|l| (l.key_default_precision, l.value_default_precision))
             .collect();
 
         // Should have a mix of precisions, not all the same
         let unique: std::collections::HashSet<_> = precisions.iter().collect();
-        assert!(unique.len() > 1, "Should assign different precisions to different layers");
+        assert!(
+            unique.len() > 1,
+            "Should assign different precisions to different layers"
+        );
     }
 
     #[test]
     fn profile_avg_bits_reasonable() {
         let profile = make_profile(32);
-        assert!(profile.avg_bits > 2.0 && profile.avg_bits < 10.0,
-            "Average bits should be reasonable: got {}", profile.avg_bits);
+        assert!(
+            profile.avg_bits > 2.0 && profile.avg_bits < 10.0,
+            "Average bits should be reasonable: got {}",
+            profile.avg_bits
+        );
         assert!(profile.memory_ratio < 1.0, "Should save memory vs FP16");
     }
 
@@ -573,7 +603,10 @@ mod tests {
         // Some layers should have degraded
         let precisions = cache.precision_per_layer();
         let has_degraded = precisions.iter().any(|(_k, v)| *v == KVPrecision::INT2);
-        assert!(has_degraded, "Under memory pressure, some layers should degrade");
+        assert!(
+            has_degraded,
+            "Under memory pressure, some layers should degrade"
+        );
     }
 
     #[test]

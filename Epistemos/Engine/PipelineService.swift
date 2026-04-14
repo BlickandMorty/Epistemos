@@ -270,6 +270,7 @@ final class PipelineService {
             constrainedDecoding: constrainedDecoding,
             toolExecutor: bridge.toolExecutor(),
             modelID: modelID,
+            steeringHintsJSON: executionPlan?.steeringHintsJSON,
             defaultReasoningMode: reasoningMode
         )
 
@@ -363,7 +364,8 @@ final class PipelineService {
                 operation: .chatResponse(query: query),
                 contentLength: finalPrompt.count,
                 operatingMode: operatingMode,
-                localSurface: .miniChat
+                localSurface: .miniChat,
+                steeringHintsJSON: executionPlan?.steeringHintsJSON
             )
         }
 
@@ -373,7 +375,8 @@ final class PipelineService {
             operation: .chatResponse(query: query),
             contentLength: finalPrompt.count,
             operatingMode: operatingMode,
-            localSurface: .miniChat
+            localSurface: .miniChat,
+            steeringHintsJSON: executionPlan?.steeringHintsJSON
         )
     }
 

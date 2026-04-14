@@ -23,7 +23,10 @@
 /// We normalize by 1/√d to make it orthogonal.
 pub fn walsh_hadamard_transform(x: &mut [f32]) {
     let n = x.len();
-    assert!(n.is_power_of_two(), "WHT requires power-of-two length, got {n}");
+    assert!(
+        n.is_power_of_two(),
+        "WHT requires power-of-two length, got {n}"
+    );
 
     let mut h = 1;
     while h < n {
@@ -129,12 +132,16 @@ pub fn turbo_quantize(mut vector: Vec<f32>, bits: TurboQuantBits) -> TurboQuantV
     walsh_hadamard_transform(&mut vector);
 
     // Step 2: Compute asymmetric quantization parameters
-    let (min_val, max_val) = vector.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-        (mn.min(v), mx.max(v))
-    });
+    let (min_val, max_val) = vector
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
     let num_levels = bits.num_levels() as f32;
     let range = max_val - min_val;
-    let scale = if range > 1e-10 { range / (num_levels - 1.0) } else { 1.0 };
+    let scale = if range > 1e-10 {
+        range / (num_levels - 1.0)
+    } else {
+        1.0
+    };
     let zero_point = min_val;
 
     // Step 3: Quantize and pack
@@ -145,7 +152,9 @@ pub fn turbo_quantize(mut vector: Vec<f32>, bits: TurboQuantBits) -> TurboQuantV
     let mask = bits.mask();
 
     for (i, &val) in vector.iter().enumerate() {
-        let q = ((val - zero_point) / scale).round().clamp(0.0, (bits.num_levels() - 1) as f32) as u8;
+        let q = ((val - zero_point) / scale)
+            .round()
+            .clamp(0.0, (bits.num_levels() - 1) as f32) as u8;
         let byte_idx = i / per_byte;
         let bit_offset = (i % per_byte) * bit_width;
         data[byte_idx] |= (q & mask) << bit_offset;
@@ -218,12 +227,16 @@ pub fn turbo_quantize_pre_rotated(rotated: Vec<f32>, bits: TurboQuantBits) -> Tu
     let padded_dim = original_dim.next_power_of_two();
 
     // Compute asymmetric quantization parameters
-    let (min_val, max_val) = rotated.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-        (mn.min(v), mx.max(v))
-    });
+    let (min_val, max_val) = rotated
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
     let num_levels = bits.num_levels() as f32;
     let range = max_val - min_val;
-    let scale = if range > 1e-10 { range / (num_levels - 1.0) } else { 1.0 };
+    let scale = if range > 1e-10 {
+        range / (num_levels - 1.0)
+    } else {
+        1.0
+    };
     let zero_point = min_val;
 
     // Quantize and pack
@@ -234,7 +247,9 @@ pub fn turbo_quantize_pre_rotated(rotated: Vec<f32>, bits: TurboQuantBits) -> Tu
     let mask = bits.mask();
 
     for (i, &val) in rotated.iter().enumerate() {
-        let q = ((val - zero_point) / scale).round().clamp(0.0, (bits.num_levels() - 1) as f32) as u8;
+        let q = ((val - zero_point) / scale)
+            .round()
+            .clamp(0.0, (bits.num_levels() - 1) as f32) as u8;
         let byte_idx = i / per_byte;
         let bit_offset = (i % per_byte) * bit_width;
         data[byte_idx] |= (q & mask) << bit_offset;
@@ -393,11 +408,17 @@ mod tests {
         let mut x = original.clone();
         walsh_hadamard_transform(&mut x);
         // After WHT, values should change
-        assert!(x.iter().zip(original.iter()).any(|(a, b)| (a - b).abs() > 0.01));
+        assert!(x
+            .iter()
+            .zip(original.iter())
+            .any(|(a, b)| (a - b).abs() > 0.01));
         walsh_hadamard_inverse(&mut x);
         // Should recover original
         for (a, b) in x.iter().zip(original.iter()) {
-            assert!((a - b).abs() < 1e-4, "WHT roundtrip failed: got {a}, expected {b}");
+            assert!(
+                (a - b).abs() < 1e-4,
+                "WHT roundtrip failed: got {a}, expected {b}"
+            );
         }
     }
 
@@ -410,8 +431,10 @@ mod tests {
         walsh_hadamard_transform(&mut transformed);
         let transformed_norm: f32 = transformed.iter().map(|v| v * v).sum::<f32>().sqrt();
 
-        assert!((original_norm - transformed_norm).abs() < 1e-3,
-            "WHT must preserve L2 norm: {original_norm} vs {transformed_norm}");
+        assert!(
+            (original_norm - transformed_norm).abs() < 1e-3,
+            "WHT must preserve L2 norm: {original_norm} vs {transformed_norm}"
+        );
     }
 
     #[test]
@@ -421,9 +444,12 @@ mod tests {
         let restored = turbo_dequantize(&tqv);
 
         assert_eq!(restored.len(), 64);
-        let mse: f32 = vector.iter().zip(restored.iter())
+        let mse: f32 = vector
+            .iter()
+            .zip(restored.iter())
             .map(|(a, b)| (a - b).powi(2))
-            .sum::<f32>() / vector.len() as f32;
+            .sum::<f32>()
+            / vector.len() as f32;
         assert!(mse < 0.1, "4-bit TurboQuant MSE too high: {mse}");
     }
 
@@ -435,9 +461,12 @@ mod tests {
 
         assert_eq!(restored.len(), 32);
         // 2-bit is coarser, allow higher error
-        let mse: f32 = vector.iter().zip(restored.iter())
+        let mse: f32 = vector
+            .iter()
+            .zip(restored.iter())
             .map(|(a, b)| (a - b).powi(2))
-            .sum::<f32>() / vector.len() as f32;
+            .sum::<f32>()
+            / vector.len() as f32;
         assert!(mse < 0.5, "2-bit TurboQuant MSE too high: {mse}");
     }
 

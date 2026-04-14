@@ -1,3 +1,4 @@
+use crate::compute_steering::{self, ComputeProfile, SteeringResolution};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
 
@@ -25,6 +26,7 @@ pub enum ReasoningProfile {
     Deep,
     Adaptive,
     Experimental,
+    VisualSidecar,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,6 +159,7 @@ pub struct RuntimeGenerationRequest {
     pub context_ref: Option<String>,
     pub reasoning_profile: Option<ReasoningProfile>,
     pub execution_policy_ref: Option<String>,
+    pub steering_hints_json: Option<String>,
     pub priority: i32,
     pub timeout_ms: u32,
     pub stream_options: RuntimeGenerationStreamOptions,
@@ -186,6 +189,9 @@ pub struct RuntimeGenerationSummary {
     pub expert_budget_state: String,
     pub adaptation_state: String,
     pub guardrail_state: String,
+    pub sidecar_state: String,
+    pub budget_outcome: String,
+    pub plan_trace_present: bool,
     pub cancelled: bool,
     pub error_class: Option<RuntimeContractError>,
 }
@@ -223,6 +229,12 @@ pub struct RuntimeStats {
     pub expert_budget_state: String,
     pub adaptation_state: String,
     pub guardrail_state: String,
+    pub sidecar_state: String,
+    pub budget_outcome: String,
+    pub plan_trace_present: bool,
+    pub compute_profile: Option<ComputeProfile>,
+    pub expert_budget_class: Option<compute_steering::ExpertBudgetClass>,
+    pub kv_policy_kind: Option<compute_steering::KVPolicyKind>,
     pub capabilities: RuntimeCapabilities,
     pub cancelled: bool,
     pub terminal_event_emitted: bool,
@@ -245,7 +257,7 @@ pub struct RuntimeCapabilities {
 }
 
 impl RuntimeCapabilities {
-    fn for_runtime(runtime_kind: RuntimeKind) -> Self {
+    pub(crate) fn for_runtime(runtime_kind: RuntimeKind) -> Self {
         match runtime_kind {
             RuntimeKind::Gguf => Self {
                 supports_generate: true,
@@ -342,73 +354,92 @@ impl StreamState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct RuntimeExecutionPlan {
-    execution_policy_id: String,
-    masking_state: String,
-    kv_policy_state: String,
-    expert_budget_state: String,
-    adaptation_state: String,
-    guardrail_state: String,
+    resolution: SteeringResolution,
 }
 
 impl RuntimeExecutionPlan {
     fn resolved(
+        resolved_runtime_kind: RuntimeKind,
         execution_mode: ExecutionMode,
         reasoning_profile: ReasoningProfile,
         requested_execution_policy_id: Option<&str>,
+        overseer_hints: Option<compute_steering::OverseerHints>,
     ) -> Result<Self, RuntimeContractError> {
-        let resolved_execution_policy_id =
-            format!("policy.{}.{}", reasoning_profile.label(), execution_mode.label());
-        if let Some(requested_execution_policy_id) = requested_execution_policy_id {
-            if requested_execution_policy_id != resolved_execution_policy_id {
-                return Err(RuntimeContractError::PolicyDenied);
-            }
-        }
+        let capabilities = RuntimeCapabilities::for_runtime(resolved_runtime_kind);
+        let resolution = compute_steering::resolve(
+            reasoning_profile,
+            execution_mode,
+            &capabilities,
+            requested_execution_policy_id,
+            overseer_hints,
+        )?;
+        Ok(Self { resolution })
+    }
 
-        let expert_budget_state = match reasoning_profile {
-            ReasoningProfile::Standard => "default",
-            ReasoningProfile::Deep => "deep",
-            ReasoningProfile::Adaptive => "adaptive_helper",
-            ReasoningProfile::Experimental => "experimental",
-        };
-        let adaptation_state = match reasoning_profile {
-            ReasoningProfile::Adaptive => "helper_model_only",
-            ReasoningProfile::Standard
-            | ReasoningProfile::Deep
-            | ReasoningProfile::Experimental => "disabled",
-        };
-        let guardrail_state = match reasoning_profile {
-            ReasoningProfile::Experimental => "experimental",
-            ReasoningProfile::Standard
-            | ReasoningProfile::Deep
-            | ReasoningProfile::Adaptive => "clear",
-        };
+    fn execution_policy_id(&self) -> &str {
+        &self.resolution.execution_policy_id
+    }
 
-        Ok(Self {
-            execution_policy_id: resolved_execution_policy_id,
-            masking_state: "dense".into(),
-            kv_policy_state: "baseline".into(),
-            expert_budget_state: expert_budget_state.into(),
-            adaptation_state: adaptation_state.into(),
-            guardrail_state: guardrail_state.into(),
-        })
+    fn masking_state(&self) -> &str {
+        self.resolution.masking_state.label()
+    }
+
+    fn kv_policy_state(&self) -> &str {
+        self.resolution.kv_policy_kind.label()
+    }
+
+    fn expert_budget_state(&self) -> &str {
+        self.resolution.expert_budget_class.label()
+    }
+
+    fn adaptation_state(&self) -> &str {
+        &self.resolution.adaptation_state
+    }
+
+    fn guardrail_state(&self) -> &str {
+        &self.resolution.guardrail_state
+    }
+
+    fn sidecar_state(&self) -> &str {
+        &self.resolution.sidecar_state
+    }
+
+    fn budget_outcome(&self) -> &str {
+        &self.resolution.budget_outcome
+    }
+
+    fn plan_trace_present(&self) -> bool {
+        self.resolution.plan_trace_present
+    }
+
+    fn compute_profile(&self) -> ComputeProfile {
+        self.resolution.compute_profile
+    }
+
+    fn max_output_token_budget(&self) -> Option<u32> {
+        self.resolution
+            .compute_budget
+            .as_ref()
+            .and_then(|budget| budget.max_tokens)
     }
 }
 
 impl ReasoningProfile {
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             Self::Standard => "standard",
-            Self::Deep => "deep",
+            Self::Deep => "deep_graph",
             Self::Adaptive => "adaptive",
             Self::Experimental => "experimental",
+            Self::VisualSidecar => "visual_sidecar",
         }
     }
 }
 
 impl ExecutionMode {
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             Self::Local => "local",
             Self::Remote => "remote",
@@ -496,7 +527,7 @@ impl RuntimeControlPlane {
         let resolved_reasoning_profile = handshake
             .resolved_reasoning_profile
             .ok_or(RuntimeContractError::ContractViolation)?;
-        let execution_plan = self.resolve_execution_plan(&request, resolved_reasoning_profile)?;
+        let execution_plan = self.resolve_execution_plan(&request, resolved_runtime_kind, resolved_reasoning_profile)?;
         let model_handle = self.resolve_or_load_model_handle(&request, resolved_runtime_kind)?;
         let stream_handle = next_handle_id("stream");
         let state = StreamState::new(
@@ -536,11 +567,14 @@ impl RuntimeControlPlane {
         let execution_policy_id = match resolved_reasoning_profile {
             Some(resolved_reasoning_profile) => Some(
                 RuntimeExecutionPlan::resolved(
+                    resolved_runtime_kind,
                     request.execution_mode,
                     resolved_reasoning_profile,
                     request.execution_policy_ref.as_deref(),
+                    None,
                 )?
-                .execution_policy_id,
+                .execution_policy_id()
+                .to_string(),
             ),
             None => None,
         };
@@ -781,6 +815,12 @@ impl RuntimeControlPlane {
                 expert_budget_state: "default".into(),
                 adaptation_state: "disabled".into(),
                 guardrail_state: "clear".into(),
+                sidecar_state: "disabled".into(),
+                budget_outcome: "not_evaluated".into(),
+                plan_trace_present: false,
+                compute_profile: None,
+                expert_budget_class: None,
+                kv_policy_kind: None,
                 capabilities: RuntimeCapabilities::for_runtime(handle.runtime_kind),
                 cancelled: false,
                 terminal_event_emitted: false,
@@ -808,7 +848,7 @@ impl RuntimeControlPlane {
                 .latest_summary
                 .as_ref()
                 .and_then(|summary| summary.execution_policy_id.clone())
-                .or_else(|| Some(stream.execution_plan.execution_policy_id.clone())),
+                .or_else(|| Some(stream.execution_plan.execution_policy_id().to_string())),
             fallback_mode: stream
                 .latest_summary
                 .as_ref()
@@ -825,27 +865,45 @@ impl RuntimeControlPlane {
                 .latest_summary
                 .as_ref()
                 .map(|summary| summary.masking_state.clone())
-                .unwrap_or_else(|| stream.execution_plan.masking_state.clone()),
+                .unwrap_or_else(|| stream.execution_plan.masking_state().to_string()),
             kv_policy_state: stream
                 .latest_summary
                 .as_ref()
                 .map(|summary| summary.kv_policy_state.clone())
-                .unwrap_or_else(|| stream.execution_plan.kv_policy_state.clone()),
+                .unwrap_or_else(|| stream.execution_plan.kv_policy_state().to_string()),
             expert_budget_state: stream
                 .latest_summary
                 .as_ref()
                 .map(|summary| summary.expert_budget_state.clone())
-                .unwrap_or_else(|| stream.execution_plan.expert_budget_state.clone()),
+                .unwrap_or_else(|| stream.execution_plan.expert_budget_state().to_string()),
             adaptation_state: stream
                 .latest_summary
                 .as_ref()
                 .map(|summary| summary.adaptation_state.clone())
-                .unwrap_or_else(|| stream.execution_plan.adaptation_state.clone()),
+                .unwrap_or_else(|| stream.execution_plan.adaptation_state().to_string()),
             guardrail_state: stream
                 .latest_summary
                 .as_ref()
                 .map(|summary| summary.guardrail_state.clone())
-                .unwrap_or_else(|| stream.execution_plan.guardrail_state.clone()),
+                .unwrap_or_else(|| stream.execution_plan.guardrail_state().to_string()),
+            sidecar_state: stream
+                .latest_summary
+                .as_ref()
+                .map(|summary| summary.sidecar_state.clone())
+                .unwrap_or_else(|| stream.execution_plan.sidecar_state().to_string()),
+            budget_outcome: stream
+                .latest_summary
+                .as_ref()
+                .map(|summary| summary.budget_outcome.clone())
+                .unwrap_or_else(|| stream.execution_plan.budget_outcome().to_string()),
+            plan_trace_present: stream
+                .latest_summary
+                .as_ref()
+                .map(|summary| summary.plan_trace_present)
+                .unwrap_or(stream.execution_plan.plan_trace_present()),
+            compute_profile: Some(stream.execution_plan.compute_profile()),
+            expert_budget_class: Some(stream.execution_plan.resolution.expert_budget_class),
+            kv_policy_kind: Some(stream.execution_plan.resolution.kv_policy_kind),
             capabilities: RuntimeCapabilities::for_runtime(stream.resolved_runtime_kind),
             cancelled: stream.cancellation_requested,
             terminal_event_emitted: stream.terminal_emitted,
@@ -944,13 +1002,28 @@ impl RuntimeControlPlane {
     fn resolve_execution_plan(
         &self,
         request: &RuntimeGenerationRequest,
+        resolved_runtime_kind: RuntimeKind,
         resolved_reasoning_profile: ReasoningProfile,
     ) -> Result<RuntimeExecutionPlan, RuntimeContractError> {
-        RuntimeExecutionPlan::resolved(
+        let overseer_hints = request
+            .steering_hints_json
+            .as_deref()
+            .and_then(compute_steering::OverseerHints::from_json);
+        let execution_plan = RuntimeExecutionPlan::resolved(
+            resolved_runtime_kind,
             request.execution_mode,
             resolved_reasoning_profile,
             request.execution_policy_ref.as_deref(),
-        )
+            overseer_hints,
+        )?;
+
+        if let Some(max_tokens) = execution_plan.max_output_token_budget() {
+            if request.max_output_tokens > max_tokens {
+                return Err(RuntimeContractError::PolicyDenied);
+            }
+        }
+
+        Ok(execution_plan)
     }
 
     fn resolve_or_load_model_handle(
@@ -1038,12 +1111,15 @@ impl RuntimeControlPlane {
         summary.execution_mode = stream.model_handle.execution_mode;
         summary.model_id = stream.model_handle.model_id.clone();
         summary.artifact_id = stream.model_handle.artifact_id.clone();
-        summary.execution_policy_id = Some(stream.execution_plan.execution_policy_id.clone());
-        summary.masking_state = stream.execution_plan.masking_state.clone();
-        summary.kv_policy_state = stream.execution_plan.kv_policy_state.clone();
-        summary.expert_budget_state = stream.execution_plan.expert_budget_state.clone();
-        summary.adaptation_state = stream.execution_plan.adaptation_state.clone();
-        summary.guardrail_state = stream.execution_plan.guardrail_state.clone();
+        summary.execution_policy_id = Some(stream.execution_plan.execution_policy_id().to_string());
+        summary.masking_state = stream.execution_plan.masking_state().to_string();
+        summary.kv_policy_state = stream.execution_plan.kv_policy_state().to_string();
+        summary.expert_budget_state = stream.execution_plan.expert_budget_state().to_string();
+        summary.adaptation_state = stream.execution_plan.adaptation_state().to_string();
+        summary.guardrail_state = stream.execution_plan.guardrail_state().to_string();
+        summary.sidecar_state = stream.execution_plan.sidecar_state().to_string();
+        summary.budget_outcome = stream.execution_plan.budget_outcome().to_string();
+        summary.plan_trace_present = stream.execution_plan.plan_trace_present();
         summary
     }
 }
@@ -1082,7 +1158,7 @@ mod tests {
         );
         assert_eq!(
             handshake.execution_policy_id.as_deref(),
-            Some("policy.deep.local")
+            Some("policy.deep_graph.local")
         );
         assert!(!handshake.used_fallback_resolution);
         assert!(handshake.capabilities.supports_generate);
@@ -1177,6 +1253,7 @@ mod tests {
                 context_ref: None,
                 reasoning_profile: Some(ReasoningProfile::Standard),
                 execution_policy_ref: None,
+                steering_hints_json: None,
                 priority: 0,
                 timeout_ms: 1_000,
                 stream_options: RuntimeGenerationStreamOptions::default(),
@@ -1205,7 +1282,8 @@ mod tests {
                 tool_policy_ref: None,
                 context_ref: None,
                 reasoning_profile: Some(ReasoningProfile::Deep),
-                execution_policy_ref: Some("policy.deep.local".into()),
+                execution_policy_ref: Some("policy.deep_graph.local".into()),
+                steering_hints_json: None,
                 priority: 0,
                 timeout_ms: 1_000,
                 stream_options: RuntimeGenerationStreamOptions::default(),
@@ -1230,7 +1308,7 @@ mod tests {
                     execution_mode: ExecutionMode::Local,
                     model_id: "qwen".into(),
                     artifact_id: Some("qwen-apex".into()),
-                    execution_policy_id: Some("policy.deep.local".into()),
+                    execution_policy_id: Some("policy.deep_graph.local".into()),
                     fallback_mode: "resident".into(),
                     time_to_first_token_ms: Some(10.0),
                     total_duration_ms: 20.0,
@@ -1244,6 +1322,9 @@ mod tests {
                     expert_budget_state: "default".into(),
                     adaptation_state: "disabled".into(),
                     guardrail_state: "clear".into(),
+                    sidecar_state: "disabled".into(),
+                    budget_outcome: "within_budget".into(),
+                    plan_trace_present: true,
                     cancelled: false,
                     error_class: None,
                 },
@@ -1274,11 +1355,12 @@ mod tests {
         );
         assert_eq!(
             stats.execution_policy_id.as_deref(),
-            Some("policy.deep.local")
+            Some("policy.deep_graph.local")
         );
         assert!(stats.capabilities.supports_generate);
         assert!(stats.capabilities.supports_serial_io_audit);
         assert!(!stats.capabilities.supports_adapt);
+        assert!(stats.plan_trace_present);
 
         let error = control_plane
             .emit_token(stream_handle, "late".into())
@@ -1306,6 +1388,7 @@ mod tests {
                 context_ref: None,
                 reasoning_profile: Some(ReasoningProfile::Adaptive),
                 execution_policy_ref: Some("policy.adaptive.helper".into()),
+                steering_hints_json: None,
                 priority: 0,
                 timeout_ms: 1_000,
                 stream_options: RuntimeGenerationStreamOptions::default(),
@@ -1335,6 +1418,7 @@ mod tests {
                 context_ref: None,
                 reasoning_profile: Some(ReasoningProfile::Deep),
                 execution_policy_ref: None,
+                steering_hints_json: None,
                 priority: 0,
                 timeout_ms: 1_000,
                 stream_options: RuntimeGenerationStreamOptions::default(),
@@ -1350,13 +1434,14 @@ mod tests {
 
         assert_eq!(
             stats.execution_policy_id.as_deref(),
-            Some("policy.deep.local")
+            Some("policy.deep_graph.local")
         );
         assert_eq!(stats.masking_state, "dense");
         assert_eq!(stats.kv_policy_state, "baseline");
         assert_eq!(stats.expert_budget_state, "deep");
         assert_eq!(stats.adaptation_state, "disabled");
         assert_eq!(stats.guardrail_state, "clear");
+        assert!(stats.plan_trace_present);
     }
 
     #[test]
@@ -1379,6 +1464,7 @@ mod tests {
                 context_ref: None,
                 reasoning_profile: Some(ReasoningProfile::Deep),
                 execution_policy_ref: Some("policy.standard.local".into()),
+                steering_hints_json: None,
                 priority: 0,
                 timeout_ms: 1_000,
                 stream_options: RuntimeGenerationStreamOptions::default(),
@@ -1386,5 +1472,81 @@ mod tests {
             .expect_err("mismatched policy ids must fail closed");
 
         assert_eq!(error, RuntimeContractError::PolicyDenied);
+    }
+
+    #[test]
+    fn steering_hints_json_is_parsed_and_forwarded() {
+        let control_plane = make_policy(vec![RuntimeKind::Gguf, RuntimeKind::Mlx]);
+        let stream_handle = control_plane
+            .generate(RuntimeGenerationRequest {
+                request_id: "req-hints".into(),
+                requested_runtime_kind: Some(RuntimeKind::Gguf),
+                execution_mode: ExecutionMode::Local,
+                model_id: "qwen".into(),
+                artifact_id: None,
+                model_handle_id: None,
+                prompt: "hello".into(),
+                system_prompt: None,
+                max_output_tokens: 32,
+                temperature: 0.2,
+                stop_sequences: Vec::new(),
+                tool_policy_ref: None,
+                context_ref: None,
+                reasoning_profile: Some(ReasoningProfile::Standard),
+                execution_policy_ref: None,
+                steering_hints_json: Some(r#"{"kv_policy_hint": "flush_all"}"#.into()),
+                priority: 0,
+                timeout_ms: 1_000,
+                stream_options: RuntimeGenerationStreamOptions::default(),
+            })
+            .expect("generate with hints");
+
+        let stats = control_plane
+            .stats(RuntimeStatsTarget {
+                model_handle_id: None,
+                stream_handle: Some(stream_handle),
+            })
+            .expect("stats");
+
+        assert_eq!(stats.kv_policy_state, "baseline");
+        assert!(stats.compute_profile.is_some());
+    }
+
+    #[test]
+    fn execution_plan_uses_resolved_runtime_capabilities() {
+        let control_plane = make_policy(vec![RuntimeKind::Mlx]);
+        let stream_handle = control_plane
+            .generate(RuntimeGenerationRequest {
+                request_id: "req-mlx".into(),
+                requested_runtime_kind: Some(RuntimeKind::Gguf),
+                execution_mode: ExecutionMode::Local,
+                model_id: "qwen".into(),
+                artifact_id: None,
+                model_handle_id: None,
+                prompt: "hello".into(),
+                system_prompt: None,
+                max_output_tokens: 32,
+                temperature: 0.2,
+                stop_sequences: Vec::new(),
+                tool_policy_ref: None,
+                context_ref: None,
+                reasoning_profile: Some(ReasoningProfile::Standard),
+                execution_policy_ref: None,
+                steering_hints_json: None,
+                priority: 0,
+                timeout_ms: 1_000,
+                stream_options: RuntimeGenerationStreamOptions::default(),
+            })
+            .expect("generate with mlx fallback");
+
+        let stats = control_plane
+            .stats(RuntimeStatsTarget {
+                model_handle_id: None,
+                stream_handle: Some(stream_handle),
+            })
+            .expect("stats");
+
+        assert_eq!(stats.resolved_runtime_kind, Some(RuntimeKind::Mlx));
+        assert!(stats.capabilities.supports_embed);
     }
 }

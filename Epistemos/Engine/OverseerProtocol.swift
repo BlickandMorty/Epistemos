@@ -204,6 +204,27 @@ nonisolated struct OverseerPlanV1: Codable, Sendable, Equatable {
         return json
     }
 
+    func toSteeringHintsJSON() -> String? {
+        let hints = BackendSteeringHints(
+            maskPlan: BackendSteeringMaskPlan(
+                expertAllowlist: maskPlan.expertAllowlist,
+                blockSize: 128,
+                rationale: maskPlan.rationale
+            ),
+            kvPolicyHint: kvPolicyFlag.rawValue,
+            depthBudget: BackendSteeringDepthBudget(
+                maxTurns: UInt32(depthBudget.maxTurns),
+                maxReasoningSteps: UInt32(depthBudget.maxReasoningSteps),
+                maxToolCalls: UInt32(depthBudget.maxToolCalls),
+                maxOutputTokens: UInt32(depthBudget.maxOutputTokens)
+            ),
+            loraBlendCoefficients: loraBlendCoefficients.map {
+                BackendSteeringLoRACoefficient(adapterID: $0.adapterID, coefficient: $0.coefficient)
+            }
+        )
+        return hints.toJSON()
+    }
+
     static func decode(json: String) throws -> OverseerPlanV1 {
         let decoder = JSONDecoder()
         return try decoder.decode(OverseerPlanV1.self, from: Data(json.utf8)).validated()
@@ -435,6 +456,10 @@ final class OverseerComplexityRouter {
                     .filter { $0.mode == .allow || $0.mode == .ask }
                     .map(\.toolName)
             )
+        }
+
+        var steeringHintsJSON: String? {
+            plan.toSteeringHintsJSON()
         }
 
         func additionalSystemPrompt() -> String {

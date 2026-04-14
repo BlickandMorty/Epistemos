@@ -84,7 +84,11 @@ impl KittyBoostMap {
 
         // Sort by MSE descending — highest sensitivity channels get boosted
         let mut sorted: Vec<ChannelSensitivity> = sensitivities.to_vec();
-        sorted.sort_by(|a, b| b.mse_score.partial_cmp(&a.mse_score).unwrap_or(std::cmp::Ordering::Equal));
+        sorted.sort_by(|a, b| {
+            b.mse_score
+                .partial_cmp(&a.mse_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let mut boosted_channels = bitvec![u8, Lsb0; 0; dim];
         let mut boosted_indices = Vec::with_capacity(num_boost);
@@ -139,11 +143,15 @@ pub fn kitty_quantize(vector: &[f32], boost_map: &KittyBoostMap) -> KittyVector 
     assert_eq!(dim, boost_map.dim, "Vector dim must match boost map dim");
 
     // Compute base scale/zero (asymmetric quantization over all channels)
-    let (min_val, max_val) = vector.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-        (mn.min(v), mx.max(v))
-    });
+    let (min_val, max_val) = vector
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
     let base_range = max_val - min_val;
-    let base_scale = if base_range > 1e-10 { base_range / 3.0 } else { 1.0 }; // 2-bit → 4 levels (0..3)
+    let base_scale = if base_range > 1e-10 {
+        base_range / 3.0
+    } else {
+        1.0
+    }; // 2-bit → 4 levels (0..3)
     let base_zero = min_val;
 
     // Quantize all channels to 2-bit base
@@ -152,7 +160,9 @@ pub fn kitty_quantize(vector: &[f32], boost_map: &KittyBoostMap) -> KittyVector 
     let mut base_dequant = vec![0.0_f32; dim]; // for computing residuals
 
     for i in 0..dim {
-        let q = ((vector[i] - base_zero) / base_scale).round().clamp(0.0, 3.0) as u8;
+        let q = ((vector[i] - base_zero) / base_scale)
+            .round()
+            .clamp(0.0, 3.0) as u8;
         let byte_idx = i / 4;
         let bit_offset = (i % 4) * 2;
         base[byte_idx] |= q << bit_offset;
@@ -179,18 +189,24 @@ pub fn kitty_quantize(vector: &[f32], boost_map: &KittyBoostMap) -> KittyVector 
         .collect();
 
     // Quantize residuals to 2-bit
-    let (res_min, res_max) = residuals.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-        (mn.min(v), mx.max(v))
-    });
+    let (res_min, res_max) = residuals
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
     let res_range = res_max - res_min;
-    let boost_scale = if res_range > 1e-10 { res_range / 3.0 } else { 1.0 };
+    let boost_scale = if res_range > 1e-10 {
+        res_range / 3.0
+    } else {
+        1.0
+    };
     let boost_zero = res_min;
 
     let boost_bytes = (num_boosted + 3) / 4;
     let mut boost = vec![0u8; boost_bytes];
 
     for (j, &residual) in residuals.iter().enumerate() {
-        let q = ((residual - boost_zero) / boost_scale).round().clamp(0.0, 3.0) as u8;
+        let q = ((residual - boost_zero) / boost_scale)
+            .round()
+            .clamp(0.0, 3.0) as u8;
         let byte_idx = j / 4;
         let bit_offset = (j % 4) * 2;
         boost[byte_idx] |= q << bit_offset;
@@ -233,10 +249,16 @@ pub fn kitty_dequantize(kv: &KittyVector, boost_map: &KittyBoostMap) -> Vec<f32>
 
 /// Compute per-channel sensitivity by measuring MSE at 2-bit quantization.
 /// Used to select which channels deserve the boost.
-pub fn compute_channel_sensitivities(calibration_data: &[Vec<f32>], dim: usize) -> Vec<ChannelSensitivity> {
+pub fn compute_channel_sensitivities(
+    calibration_data: &[Vec<f32>],
+    dim: usize,
+) -> Vec<ChannelSensitivity> {
     if calibration_data.is_empty() {
         return (0..dim)
-            .map(|i| ChannelSensitivity { channel_idx: i, mse_score: 0.0 })
+            .map(|i| ChannelSensitivity {
+                channel_idx: i,
+                mse_score: 0.0,
+            })
             .collect();
     }
 
@@ -244,19 +266,23 @@ pub fn compute_channel_sensitivities(calibration_data: &[Vec<f32>], dim: usize) 
 
     for channel in 0..dim {
         let values: Vec<f32> = calibration_data.iter().map(|v| v[channel]).collect();
-        let (min_val, max_val) = values.iter().fold((f32::MAX, f32::MIN), |(mn, mx), &v| {
-            (mn.min(v), mx.max(v))
-        });
+        let (min_val, max_val) = values
+            .iter()
+            .fold((f32::MAX, f32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
         let range = max_val - min_val;
         let scale = if range > 1e-10 { range / 3.0 } else { 1.0 };
 
         // MSE of 2-bit quantization for this channel
-        let mse: f32 = values.iter().map(|&v| {
-            let q = ((v - min_val) / scale).round().clamp(0.0, 3.0);
-            let dq = q * scale + min_val;
-            let diff = v - dq;
-            diff * diff
-        }).sum::<f32>() / values.len() as f32;
+        let mse: f32 = values
+            .iter()
+            .map(|&v| {
+                let q = ((v - min_val) / scale).round().clamp(0.0, 3.0);
+                let dq = q * scale + min_val;
+                let diff = v - dq;
+                diff * diff
+            })
+            .sum::<f32>()
+            / values.len() as f32;
 
         sensitivities.push(ChannelSensitivity {
             channel_idx: channel,
@@ -302,7 +328,10 @@ mod tests {
     #[test]
     fn boost_map_selects_correct_count() {
         let dim = 128;
-        let config = KittyConfig { boost_ratio: 0.125, dim };
+        let config = KittyConfig {
+            boost_ratio: 0.125,
+            dim,
+        };
         let sensitivities: Vec<ChannelSensitivity> = (0..dim)
             .map(|i| ChannelSensitivity {
                 channel_idx: i,
@@ -315,7 +344,10 @@ mod tests {
 
         // Top 16 by MSE should be channels 112..128
         for &idx in &map.boosted_indices {
-            assert!(idx >= 112, "Expected high-index channels to be boosted, got {idx}");
+            assert!(
+                idx >= 112,
+                "Expected high-index channels to be boosted, got {idx}"
+            );
         }
     }
 
@@ -341,10 +373,12 @@ mod tests {
         // Compute MSE for boosted vs non-boosted
         let boosted_mse: f32 = (0..16)
             .map(|i| (restored[i] - vector[i]).powi(2))
-            .sum::<f32>() / 16.0;
+            .sum::<f32>()
+            / 16.0;
         let unboosted_mse: f32 = (16..dim)
             .map(|i| (restored[i] - vector[i]).powi(2))
-            .sum::<f32>() / (dim - 16) as f32;
+            .sum::<f32>()
+            / (dim - 16) as f32;
 
         // Can't guarantee boosted is always better due to global scale,
         // but the mechanism should work
@@ -374,16 +408,25 @@ mod tests {
         let sens = compute_channel_sensitivities(&data, dim);
         assert_eq!(sens.len(), dim);
         // Channel 0 should have highest sensitivity (widest range = most quantization error)
-        let max_channel = sens.iter().max_by(|a, b| a.mse_score.partial_cmp(&b.mse_score).unwrap()).unwrap();
+        let max_channel = sens
+            .iter()
+            .max_by(|a, b| a.mse_score.partial_cmp(&b.mse_score).unwrap())
+            .unwrap();
         assert_eq!(max_channel.channel_idx, 0);
     }
 
     #[test]
     fn empty_boost_works() {
         let dim = 16;
-        let config = KittyConfig { boost_ratio: 0.0, dim };
+        let config = KittyConfig {
+            boost_ratio: 0.0,
+            dim,
+        };
         let sensitivities: Vec<ChannelSensitivity> = (0..dim)
-            .map(|i| ChannelSensitivity { channel_idx: i, mse_score: 0.0 })
+            .map(|i| ChannelSensitivity {
+                channel_idx: i,
+                mse_score: 0.0,
+            })
             .collect();
         let map = KittyBoostMap::from_sensitivities(&sensitivities, &config);
         assert_eq!(map.num_boosted(), 0);

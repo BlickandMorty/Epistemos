@@ -387,6 +387,7 @@ interface ReasoningProfile {
     Deep();
     Adaptive();
     Experimental();
+    VisualSidecar();
 };
 
 [Enum]
@@ -408,6 +409,41 @@ interface GenerationEventKind {
     Failed();
     Cancelled();
 };
+
+// ── Phase 2: Compute Steering Types ─────────────────────────────────────────
+
+[Enum]
+interface ComputeProfile {
+    Standard();
+    DeepGraph();
+    Adaptive();
+    Experimental();
+    VisualSidecar();
+};
+
+[Enum]
+interface ExpertBudgetClass {
+    Default();
+    Constrained();
+    Deep();
+};
+
+[Enum]
+interface KVPolicyKind {
+    Baseline();
+    Compressed();
+    Blocked();
+};
+
+dictionary ComputeBudget {
+    u64? max_wall_ms;
+    u32? max_tokens;
+    u64? max_io_bytes;
+    u32? max_adapt_steps;
+    u32? max_aux_calls;
+};
+
+// ── End Phase 2 Compute Steering Types ──────────────────────────────────────
 
 [Error]
 enum RuntimeContractError {
@@ -485,6 +521,7 @@ dictionary RuntimeGenerationRequest {
     string? context_ref;
     ReasoningProfile? reasoning_profile;
     string? execution_policy_ref;
+    string? steering_hints_json;
     i32 priority;
     u32 timeout_ms;
     RuntimeGenerationStreamOptions stream_options;
@@ -513,6 +550,9 @@ dictionary RuntimeGenerationSummary {
     string expert_budget_state;
     string adaptation_state;
     string guardrail_state;
+    string sidecar_state;
+    string budget_outcome;
+    boolean plan_trace_present;
     boolean cancelled;
     RuntimeContractError? error_class;
 };
@@ -562,6 +602,12 @@ dictionary RuntimeStats {
     string expert_budget_state;
     string adaptation_state;
     string guardrail_state;
+    string sidecar_state;
+    string budget_outcome;
+    boolean plan_trace_present;
+    ComputeProfile? compute_profile;
+    ExpertBudgetClass? expert_budget_class;
+    KVPolicyKind? kv_policy_kind;
     RuntimeCapabilities capabilities;
     boolean cancelled;
     boolean terminal_event_emitted;
@@ -616,4 +662,96 @@ interface RuntimeControlPlane {
     void adapt();
     [Throws=RuntimeContractError]
     void image_generate();
+};
+
+// ── Phase 3: Adaptation Subsystem Types ─────────────────────────────────────
+
+[Error]
+enum AdaptSessionError {
+    "SessionNotFound",
+    "InvalidTransition",
+    "NormCapExceeded",
+    "CanaryFailed",
+    "BudgetExhausted",
+    "InternalError"
+};
+
+dictionary AdaptSessionConfig {
+    string adapter_id;
+    string model_id;
+    u32 min_chunk_tokens;
+    u32 max_update_count;
+    u32 max_adapt_steps;
+    double gradient_norm_cap;
+    double canary_loss_threshold_multiplier;
+};
+
+dictionary AdaptUpdateResult {
+    boolean accepted;
+    double canary_loss;
+    double anchor_divergence;
+    double gradient_norm;
+    boolean rollback_triggered;
+    double duration_ms;
+};
+
+dictionary AdaptSessionSnapshot {
+    string session_id;
+    string state;
+    string adapter_id;
+    string model_id;
+    u32 update_count;
+    u32 accumulated_tokens;
+    u32 rollback_count;
+    double baseline_canary_loss;
+    double last_canary_loss;
+    double anchor_divergence;
+    double total_duration_ms;
+};
+
+[Error]
+enum SidecarSessionError {
+    "SessionNotFound",
+    "InvalidTransition",
+    "CompressionFailed",
+    "InternalError"
+};
+
+dictionary SidecarSessionSnapshot {
+    string session_id;
+    string state;
+    u32 input_token_count;
+    u32 compressed_token_count;
+    double compression_ratio;
+    double duration_ms;
+};
+
+interface AdaptationSubsystem {
+    constructor();
+    [Throws=AdaptSessionError]
+    string begin_adapt_session(AdaptSessionConfig config);
+    [Throws=AdaptSessionError]
+    void submit_training_signal(string session_id, u32 token_count);
+    [Throws=AdaptSessionError]
+    void set_baseline_canary_loss(string session_id, double baseline_loss);
+    [Throws=AdaptSessionError]
+    void fire_update(string session_id);
+    [Throws=AdaptSessionError]
+    void report_update_result(string session_id, AdaptUpdateResult result);
+    [Throws=AdaptSessionError]
+    AdaptSessionSnapshot end_adapt_session(string session_id);
+    [Throws=AdaptSessionError]
+    AdaptSessionSnapshot adapt_session_snapshot(string session_id);
+    boolean has_active_session();
+    string active_session_adaptation_state();
+    [Throws=SidecarSessionError]
+    string begin_sidecar_compression(u32 input_token_count);
+    [Throws=SidecarSessionError]
+    void report_sidecar_result(string session_id, u32 compressed_token_count, double duration_ms);
+    [Throws=SidecarSessionError]
+    void report_sidecar_failure(string session_id);
+    [Throws=SidecarSessionError]
+    SidecarSessionSnapshot end_sidecar_session(string session_id);
+    [Throws=SidecarSessionError]
+    SidecarSessionSnapshot sidecar_session_snapshot(string session_id);
 };

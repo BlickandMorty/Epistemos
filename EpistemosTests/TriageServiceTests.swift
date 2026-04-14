@@ -134,8 +134,20 @@ struct TriageServiceTests {
 
     @Test("routing stays Apple plus local without stale cloud modes or providers")
     func routingSurfaceRemainsTwoState() {
+        let expectedProviders: [LLMProviderType] = [
+            .appleIntelligence,
+            .localGGUF,
+            .localMLX,
+            .openAI,
+            .anthropic,
+            .google,
+            .zai,
+            .kimi,
+            .minimax,
+            .deepseek,
+        ]
         #expect(LocalRoutingMode.allCases == [.auto, .localOnly])
-        #expect(LLMProviderType.allCases == [.appleIntelligence, .localGGUF, .localMLX, .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek])
+        #expect(LLMProviderType.allCases == expectedProviders)
     }
 
     @Test("routing summaries keep the local runtime primary in auto mode")
@@ -754,9 +766,20 @@ final class RecordingConfigurableLocalLLMClient: LocalConfigurableLLMClient {
         let maxTokens: Int
         let reasoningMode: LocalReasoningMode
         let modelID: String?
+        let steeringHintsJSON: String?
+    }
+
+    struct StreamRequest: Equatable {
+        let prompt: String
+        let systemPrompt: String?
+        let maxTokens: Int
+        let reasoningMode: LocalReasoningMode
+        let modelID: String?
+        let steeringHintsJSON: String?
     }
 
     var generateRequests: [GenerateRequest] = []
+    var streamRequests: [StreamRequest] = []
     var generateResult = "mock-generate"
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
@@ -784,7 +807,8 @@ final class RecordingConfigurableLocalLLMClient: LocalConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
-        modelID: String?
+        modelID: String?,
+        steeringHintsJSON: String?
     ) async throws -> String {
         generateRequests.append(
             GenerateRequest(
@@ -792,7 +816,8 @@ final class RecordingConfigurableLocalLLMClient: LocalConfigurableLLMClient {
                 systemPrompt: systemPrompt,
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
-                modelID: modelID
+                modelID: modelID,
+                steeringHintsJSON: steeringHintsJSON
             )
         )
         return generateResult
@@ -803,9 +828,20 @@ final class RecordingConfigurableLocalLLMClient: LocalConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
-        modelID: String?
+        modelID: String?,
+        steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        streamRequests.append(
+            StreamRequest(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                modelID: modelID,
+                steeringHintsJSON: steeringHintsJSON
+            )
+        )
+        return AsyncThrowingStream<String, Error> { continuation in
             continuation.finish()
         }
     }
@@ -1248,6 +1284,30 @@ struct TriageServiceIntegrationTests {
             #expect(systemPrompt?.contains("local Epistemos assistant running on-device") == true)
             #expect(systemPrompt?.contains("Follow the local overseer plan.") == true)
         }
+    }
+
+    @Test("explicit local streaming forwards steering hints to the configurable runtime")
+    @MainActor func explicitLocalStreamingForwardsSteeringHints() async {
+        let local = RecordingConfigurableLocalLLMClient()
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
+            localLLMService: local
+        )
+        let hintsJSON = #"{"kv_policy_hint":"flush_all","depth_budget":{"max_turns":2,"max_reasoning_steps":4,"max_tool_calls":1,"max_output_tokens":512}}"#
+
+        let stream = triage.streamGeneralLocally(
+            prompt: "Use the local runtime",
+            systemPrompt: "Follow the local overseer plan.",
+            operation: .chatResponse(query: "Use the local runtime"),
+            contentLength: 21,
+            steeringHintsJSON: hintsJSON
+        )
+        let outcome = await LocalRuntimeSmokeSupport.collect(stream)
+
+        #expect(outcome.error == nil)
+        #expect(local.streamRequests.count == 1)
+        #expect(local.streamRequests.first?.steeringHintsJSON == hintsJSON)
     }
 
     @Test("missing cloud provider keys are cached after the initial miss")
@@ -1731,6 +1791,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: "Be thorough.",
             maxTokens: 0,
             reasoningMode: .fast,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
 
@@ -1836,6 +1897,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: "Think deeply and be comprehensive.",
             maxTokens: 6000,
             reasoningMode: .thinking,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
 
@@ -1851,6 +1913,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: nil,
             maxTokens: 256,
             reasoningMode: .thinking,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
 
@@ -1866,6 +1929,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: nil,
             maxTokens: 256,
             reasoningMode: .thinking,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
         let fastRequest = LocalMLXRequest(
@@ -1875,6 +1939,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: nil,
             maxTokens: 256,
             reasoningMode: .fast,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
         let largerThinkingRequest = LocalMLXRequest(
@@ -1884,6 +1949,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: nil,
             maxTokens: 256,
             reasoningMode: .thinking,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
 
@@ -1901,6 +1967,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: nil,
             maxTokens: 256,
             reasoningMode: .thinking,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
         var guardrail = LocalMLXLoopGuard(request: request)
@@ -1923,6 +1990,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: nil,
             maxTokens: 256,
             reasoningMode: .thinking,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
         let rawLoopingOutput = "<think>repeating the same hidden reasoning forever without closing the loop"
@@ -1945,6 +2013,7 @@ struct TriageServiceIntegrationTests {
             systemPrompt: nil,
             maxTokens: 256,
             reasoningMode: .thinking,
+            steeringHintsJSON: nil,
             imageURLs: []
         )
 

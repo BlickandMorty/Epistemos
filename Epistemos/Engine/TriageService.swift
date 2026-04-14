@@ -939,7 +939,8 @@ final class TriageService {
         operation: GeneralOperation,
         contentLength: Int,
         operatingMode: EpistemosOperatingMode = .fast,
-        localSurface: LocalModelSelectionSurface = .mainChat
+        localSurface: LocalModelSelectionSurface = .mainChat,
+        steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
         let decision = routeDecisionForGeneral(
@@ -956,7 +957,8 @@ final class TriageService {
                     prompt: prompt,
                     systemPrompt: systemPrompt,
                     operatingMode: operatingMode,
-                    localSelection: decision.localSelection
+                    localSelection: decision.localSelection,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             )
         }
@@ -970,7 +972,8 @@ final class TriageService {
                 appleIntelligenceStreamWithFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
-                localSelection: decision.localSelection
+                localSelection: decision.localSelection,
+                steeringHintsJSON: steeringHintsJSON
                 )
             )
         case .localMLX:
@@ -978,7 +981,8 @@ final class TriageService {
                 localStreamOrFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
-                selection: decision.localSelection
+                selection: decision.localSelection,
+                steeringHintsJSON: steeringHintsJSON
                 )
             )
         case .cloud:
@@ -1005,7 +1009,8 @@ final class TriageService {
         operation: GeneralOperation,
         contentLength: Int,
         operatingMode: EpistemosOperatingMode = .fast,
-        localSurface: LocalModelSelectionSurface = .mainChat
+        localSurface: LocalModelSelectionSurface = .mainChat,
+        steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
         let decision = routeDecisionForGeneral(
@@ -1020,7 +1025,8 @@ final class TriageService {
             localStreamOrFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
-                selection: decision.localSelection
+                selection: decision.localSelection,
+                steeringHintsJSON: steeringHintsJSON
             )
         )
     }
@@ -1031,7 +1037,8 @@ final class TriageService {
         operation: GeneralOperation,
         contentLength: Int,
         operatingMode: EpistemosOperatingMode = .fast,
-        localSurface: LocalModelSelectionSurface = .mainChat
+        localSurface: LocalModelSelectionSurface = .mainChat,
+        steeringHintsJSON: String? = nil
     ) async throws -> String {
         prepareForRouting()
         let decision = routeDecisionForGeneral(
@@ -1047,7 +1054,8 @@ final class TriageService {
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 operatingMode: operatingMode,
-                localSelection: decision.localSelection
+                localSelection: decision.localSelection,
+                steeringHintsJSON: steeringHintsJSON
             ))
         }
         let triageDecision = triageDecision(for: decision.selectedRoute)
@@ -1065,7 +1073,8 @@ final class TriageService {
                     return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
-                        selection: decision.localSelection
+                        selection: decision.localSelection,
+                        steeringHintsJSON: steeringHintsJSON
                     ))
                 }
                 return UserFacingModelOutput.finalVisibleText(from: result)
@@ -1075,14 +1084,16 @@ final class TriageService {
                 return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
-                    selection: decision.localSelection
+                    selection: decision.localSelection,
+                    steeringHintsJSON: steeringHintsJSON
                 ))
             }
         case .localMLX:
             return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
-                selection: decision.localSelection
+                selection: decision.localSelection,
+                steeringHintsJSON: steeringHintsJSON
             ))
         case .cloud:
             guard let model = selectedCloudModel() else {
@@ -1106,7 +1117,8 @@ final class TriageService {
     private func appleIntelligenceStreamWithFallback(
         prompt: String,
         systemPrompt: String?,
-        localSelection: LocalModelSelection?
+        localSelection: LocalModelSelection?,
+        steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
         let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
 
@@ -1130,7 +1142,8 @@ final class TriageService {
                             let fallbackStream = self.localStreamOrFallback(
                                 prompt: prompt,
                                 systemPrompt: systemPrompt,
-                                selection: localSelection
+                                selection: localSelection,
+                                steeringHintsJSON: steeringHintsJSON
                             )
                             for try await chunk in fallbackStream {
                                 continuation.yield(chunk)
@@ -1157,7 +1170,8 @@ final class TriageService {
                         let fallbackStream = self.localStreamOrFallback(
                             prompt: prompt,
                             systemPrompt: systemPrompt,
-                            selection: localSelection
+                            selection: localSelection,
+                            steeringHintsJSON: steeringHintsJSON
                         )
                         for try await chunk in fallbackStream {
                             continuation.yield(chunk)
@@ -1493,7 +1507,8 @@ final class TriageService {
         prompt: String,
         systemPrompt: String?,
         operatingMode: EpistemosOperatingMode,
-        localSelection: LocalModelSelection?
+        localSelection: LocalModelSelection?,
+        steeringHintsJSON: String? = nil
     ) async throws -> String {
         let fallbackChain = inference.cloudFallbackChain(for: operatingMode)
         let useAutoFallback = inference.cloudAutoFallback
@@ -1537,7 +1552,8 @@ final class TriageService {
                 return try await localGenerateOrFallback(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
-                    selection: localSelection
+                    selection: localSelection,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             } catch {
                 lastLocalError = error
@@ -1576,7 +1592,8 @@ final class TriageService {
         prompt: String,
         systemPrompt: String?,
         operatingMode: EpistemosOperatingMode,
-        localSelection: LocalModelSelection?
+        localSelection: LocalModelSelection?,
+        steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
@@ -1652,7 +1669,8 @@ final class TriageService {
                     let localFallback = self.localStreamOrFallback(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
-                        selection: localSelection
+                        selection: localSelection,
+                        steeringHintsJSON: steeringHintsJSON
                     )
                     var emittedLocalTokens = false
                     do {
@@ -1679,7 +1697,8 @@ final class TriageService {
                     let appleFallback = self.appleIntelligenceStreamWithFallback(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
-                        localSelection: lastLocalError == nil ? localSelection : nil
+                        localSelection: lastLocalError == nil ? localSelection : nil,
+                        steeringHintsJSON: steeringHintsJSON
                     )
                     do {
                         for try await chunk in appleFallback {
@@ -1706,7 +1725,8 @@ final class TriageService {
     private func localGenerateOrFallback(
         prompt: String,
         systemPrompt: String?,
-        selection: LocalModelSelection?
+        selection: LocalModelSelection?,
+        steeringHintsJSON: String? = nil
     ) async throws -> String {
         guard let selection else {
             throw LocalInferenceRoutingError.modelRequired
@@ -1724,7 +1744,8 @@ final class TriageService {
                     systemPrompt: effectiveSystemPrompt,
                     maxTokens: 0,
                     reasoningMode: selection.reasoningMode,
-                    modelID: selection.modelID
+                    modelID: selection.modelID,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             }
             return try await localLLMService.generate(prompt: prompt, systemPrompt: effectiveSystemPrompt)
@@ -1736,7 +1757,8 @@ final class TriageService {
     private func localStreamOrFallback(
         prompt: String,
         systemPrompt: String?,
-        selection: LocalModelSelection?
+        selection: LocalModelSelection?,
+        steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
         guard let selection else {
             return AsyncThrowingStream { continuation in
@@ -1759,7 +1781,8 @@ final class TriageService {
                             systemPrompt: effectiveSystemPrompt,
                             maxTokens: 0,
                             reasoningMode: selection.reasoningMode,
-                            modelID: selection.modelID
+                            modelID: selection.modelID,
+                            steeringHintsJSON: steeringHintsJSON
                         )
                     } else {
                         stream = localLLMService.stream(prompt: prompt, systemPrompt: effectiveSystemPrompt)
