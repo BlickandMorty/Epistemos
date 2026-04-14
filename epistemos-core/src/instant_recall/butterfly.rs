@@ -100,7 +100,10 @@ pub struct ButterflyRotation {
 impl ButterflyRotation {
     /// Create a new butterfly rotation with identity initialization (all angles = 0).
     pub fn identity(dim: usize) -> Self {
-        assert!(dim.is_power_of_two(), "ButterflyRotation requires power-of-two dimension, got {dim}");
+        assert!(
+            dim.is_power_of_two(),
+            "ButterflyRotation requires power-of-two dimension, got {dim}"
+        );
         let num_stages = dim.trailing_zeros() as usize;
         let stages = (0..num_stages)
             .map(|s| {
@@ -120,7 +123,10 @@ impl ButterflyRotation {
 
     /// Create a butterfly rotation with random angles (good initialization for learning).
     pub fn random(dim: usize, seed: u64) -> Self {
-        assert!(dim.is_power_of_two(), "ButterflyRotation requires power-of-two dimension, got {dim}");
+        assert!(
+            dim.is_power_of_two(),
+            "ButterflyRotation requires power-of-two dimension, got {dim}"
+        );
         let num_stages = dim.trailing_zeros() as usize;
 
         // Simple deterministic PRNG (xorshift64) for reproducibility
@@ -158,7 +164,13 @@ impl ButterflyRotation {
     /// Stages applied in order: stage 0 (stride=1), stage 1 (stride=2), ...
     #[inline]
     pub fn rotate_forward(&self, x: &mut [f32]) {
-        debug_assert_eq!(x.len(), self.dim, "Vector dim {} != rotation dim {}", x.len(), self.dim);
+        debug_assert_eq!(
+            x.len(),
+            self.dim,
+            "Vector dim {} != rotation dim {}",
+            x.len(),
+            self.dim
+        );
         for stage in &self.stages {
             stage.apply_forward(x);
         }
@@ -168,7 +180,13 @@ impl ButterflyRotation {
     /// Stages applied in reverse order with negated angles.
     #[inline]
     pub fn rotate_inverse(&self, x: &mut [f32]) {
-        debug_assert_eq!(x.len(), self.dim, "Vector dim {} != rotation dim {}", x.len(), self.dim);
+        debug_assert_eq!(
+            x.len(),
+            self.dim,
+            "Vector dim {} != rotation dim {}",
+            x.len(),
+            self.dim
+        );
         for stage in self.stages.iter().rev() {
             stage.apply_inverse(x);
         }
@@ -184,13 +202,8 @@ impl ButterflyRotation {
     ///                approximation (for computing reconstruction error).
     /// `steps`: number of SGD steps (default ~500 per ButterflyQuant paper).
     /// `lr`: learning rate (default 0.01).
-    pub fn learn<F>(
-        &mut self,
-        data: &[Vec<f32>],
-        quantize_fn: F,
-        steps: usize,
-        lr: f32,
-    ) where
+    pub fn learn<F>(&mut self, data: &[Vec<f32>], quantize_fn: F, steps: usize, lr: f32)
+    where
         F: Fn(&[f32]) -> Vec<f32>,
     {
         if data.is_empty() {
@@ -270,8 +283,9 @@ mod tests {
     #[test]
     fn identity_rotation_is_noop() {
         let rot = ButterflyRotation::identity(16);
-        let original = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0,
-                            9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0];
+        let original = vec![
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+        ];
         let mut x = original.clone();
         rot.rotate_forward(&mut x);
         for (a, b) in x.iter().zip(original.iter()) {
@@ -287,13 +301,22 @@ mod tests {
 
         rot.rotate_forward(&mut x);
         // After rotation, vector should be different
-        assert!(x.iter().zip(original.iter()).any(|(a, b)| (a - b).abs() > 1e-4),
-            "Rotation should change the vector");
+        assert!(
+            x.iter()
+                .zip(original.iter())
+                .any(|(a, b)| (a - b).abs() > 1e-4),
+            "Rotation should change the vector"
+        );
 
         rot.rotate_inverse(&mut x);
         // After inverse, should recover original
         for (a, b) in x.iter().zip(original.iter()) {
-            assert!((a - b).abs() < 1e-4, "Inverse should recover original: got {} expected {}", a, b);
+            assert!(
+                (a - b).abs() < 1e-4,
+                "Inverse should recover original: got {} expected {}",
+                a,
+                b
+            );
         }
     }
 
@@ -307,8 +330,12 @@ mod tests {
         rot.rotate_forward(&mut x);
         let rotated_norm: f32 = x.iter().map(|x| x * x).sum::<f32>().sqrt();
 
-        assert!((original_norm - rotated_norm).abs() < 1e-3,
-            "Orthogonal rotation must preserve L2 norm: {} vs {}", original_norm, rotated_norm);
+        assert!(
+            (original_norm - rotated_norm).abs() < 1e-3,
+            "Orthogonal rotation must preserve L2 norm: {} vs {}",
+            original_norm,
+            rotated_norm
+        );
     }
 
     #[test]
@@ -354,23 +381,26 @@ mod tests {
             .collect();
 
         // Simple uniform quantizer (round to nearest 0.5)
-        let quantize = |x: &[f32]| -> Vec<f32> {
-            x.iter().map(|v| (v * 2.0).round() / 2.0).collect()
-        };
+        let quantize =
+            |x: &[f32]| -> Vec<f32> { x.iter().map(|v| (v * 2.0).round() / 2.0).collect() };
 
         let loss_before = rot.compute_loss(&data, &quantize);
         rot.learn(&data, quantize, 20, 0.05);
         let loss_after = rot.compute_loss(&data, &quantize);
 
-        assert!(loss_after < loss_before,
-            "Learning should reduce quantization error: before={loss_before}, after={loss_after}");
+        assert!(
+            loss_after < loss_before,
+            "Learning should reduce quantization error: before={loss_before}, after={loss_after}"
+        );
     }
 
     #[test]
     fn different_seeds_produce_different_rotations() {
         let r1 = ButterflyRotation::random(32, 1);
         let r2 = ButterflyRotation::random(32, 2);
-        let differ = r1.stages[0].angles.iter()
+        let differ = r1.stages[0]
+            .angles
+            .iter()
             .zip(r2.stages[0].angles.iter())
             .any(|(a, b)| (a - b).abs() > 1e-6);
         assert!(differ, "Different seeds should produce different rotations");

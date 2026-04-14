@@ -400,6 +400,7 @@ private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
         let maxTokens: Int
         let reasoningMode: LocalReasoningMode
         let modelID: String?
+        let steeringHintsJSON: String?
     }
 
     var generateRequests: [GenerateRequest] = []
@@ -411,7 +412,8 @@ private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: .fast,
-            modelID: nil
+            modelID: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -421,7 +423,8 @@ private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: .fast,
-            modelID: nil
+            modelID: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -430,7 +433,8 @@ private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
-        modelID: String?
+        modelID: String?,
+        steeringHintsJSON: String?
     ) async throws -> String {
         generateRequests.append(
             GenerateRequest(
@@ -438,7 +442,8 @@ private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
                 systemPrompt: systemPrompt,
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
-                modelID: modelID
+                modelID: modelID,
+                steeringHintsJSON: steeringHintsJSON
             )
         )
         return generateResult
@@ -449,7 +454,8 @@ private final class RecordingDeviceLocalLLMClient: LocalConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
-        modelID: String?
+        modelID: String?,
+        steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             continuation.finish()

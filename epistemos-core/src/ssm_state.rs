@@ -123,10 +123,7 @@ pub fn hash_model_id(model_id: &str) -> u64 {
 
 /// Save an SSM state to a flat binary file (v2 format).
 /// Directory: {vault_root}/ssm_state/{model_hash_hex}/
-pub fn save_ssm_state(
-    state: &SSMState,
-    vault_root: &Path,
-) -> Result<PathBuf, SSMStateError> {
+pub fn save_ssm_state(state: &SSMState, vault_root: &Path) -> Result<PathBuf, SSMStateError> {
     let model_dir = vault_root
         .join("ssm_state")
         .join(format!("{:016x}", state.model_hash));
@@ -476,7 +473,11 @@ mod tests {
     #[test]
     fn invalid_magic_rejected() {
         let tmp = TempDir::new().unwrap();
-        let bad_file = tmp.path().join("ssm_state").join("bad").join("bad.mambastate");
+        let bad_file = tmp
+            .path()
+            .join("ssm_state")
+            .join("bad")
+            .join("bad.mambastate");
         fs::create_dir_all(bad_file.parent().unwrap()).unwrap();
         fs::write(&bad_file, &[0u8; 64]).unwrap();
 

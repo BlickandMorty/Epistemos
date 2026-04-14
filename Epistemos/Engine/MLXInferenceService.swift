@@ -21,6 +21,7 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     let systemPrompt: String?
     let maxTokens: Int
     let reasoningMode: LocalReasoningMode
+    let steeringHintsJSON: String?
     let imageURLs: [URL]
 
     var resolvedMaxTokens: Int? {
@@ -496,7 +497,8 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: .fast,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -513,7 +515,8 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -523,14 +526,16 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) async throws -> String {
         let request = try resolvedRequest(
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
-            modelID: modelID
+            modelID: modelID,
+            steeringHintsJSON: steeringHintsJSON
         )
         let contractRequest = backendGenerationRequest(
             for: request,
@@ -600,7 +605,8 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: .fast,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -617,7 +623,8 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -627,7 +634,8 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error> {
         do {
             let request = try resolvedRequest(
@@ -635,7 +643,8 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 systemPrompt: systemPrompt,
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
-                modelID: modelID
+                modelID: modelID,
+                steeringHintsJSON: steeringHintsJSON
             )
             let contractRequest = backendGenerationRequest(
                 for: request,
@@ -749,6 +758,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String? = nil,
+        steeringHintsJSON: String? = nil,
         imageURLs: [URL] = []
     ) throws -> LocalMLXRequest {
         guard let modelID = modelID ?? inference.effectiveLocalTextModelID,
@@ -791,6 +801,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             systemPrompt: trimmed.systemPrompt,
             maxTokens: max(0, maxTokens),
             reasoningMode: reasoningMode,
+            steeringHintsJSON: steeringHintsJSON,
             imageURLs: resolvedImages
         )
     }
@@ -835,6 +846,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             contextRef: nil,
             reasoningProfile: BackendReasoningProfile(localReasoningMode: request.reasoningMode),
             executionPolicyRef: nil,
+            steeringHintsJSON: request.steeringHintsJSON,
             priority: 0,
             timeoutMS: 60_000,
             streamOptions: BackendGenerationStreamOptions()
@@ -887,6 +899,9 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             expertBudgetState: resolvedStats?.expertBudgetState ?? "default",
             adaptationState: resolvedStats?.adaptationState ?? "disabled",
             guardrailState: resolvedStats?.guardrailState ?? "clear",
+            sidecarState: resolvedStats?.sidecarState ?? "disabled",
+            budgetOutcome: resolvedStats?.budgetOutcome ?? "within_budget",
+            planTracePresent: resolvedStats?.planTracePresent ?? true,
             cancelled: cancelled,
             errorClass: errorClass
         )

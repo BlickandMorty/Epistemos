@@ -147,7 +147,10 @@ pub fn evaluate_nightbrain(
 }
 
 /// Build a research plan from flagged notes.
-pub fn build_research_plan(flagged_notes: &[FlaggedNote], vault_note_ids: &[String]) -> ResearchPlan {
+pub fn build_research_plan(
+    flagged_notes: &[FlaggedNote],
+    vault_note_ids: &[String],
+) -> ResearchPlan {
     let mut tasks: Vec<ResearchTask> = flagged_notes
         .iter()
         .enumerate()
@@ -202,7 +205,10 @@ pub fn generate_morning_summary(
         }
 
         if total_connections > 0 {
-            lines.push(format!("Discovered {} new connections between notes.", total_connections));
+            lines.push(format!(
+                "Discovered {} new connections between notes.",
+                total_connections
+            ));
         }
 
         lines.join("\n")
@@ -236,7 +242,8 @@ fn derive_research_queries(title: &str, excerpt: &str, directive: &str) -> Vec<S
 
     // Extract key phrases from excerpt (simple approach: first sentence)
     if !excerpt.is_empty() {
-        let first_sentence = excerpt.split(['.', '!', '?'])
+        let first_sentence = excerpt
+            .split(['.', '!', '?'])
             .next()
             .unwrap_or(excerpt)
             .trim();
@@ -392,7 +399,8 @@ mod tests {
             },
         ];
 
-        let summary = generate_morning_summary(&results, "2026-03-29T01:00:00Z", "2026-03-29T03:00:00Z");
+        let summary =
+            generate_morning_summary(&results, "2026-03-29T01:00:00Z", "2026-03-29T03:00:00Z");
         assert_eq!(summary.notes_researched, 2);
         assert_eq!(summary.connections_found, 2);
         assert!(summary.digest.contains("Researched 2 notes"));

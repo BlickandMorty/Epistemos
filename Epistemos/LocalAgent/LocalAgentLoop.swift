@@ -92,7 +92,8 @@ actor LocalAgentLoop {
 
     @MainActor
     static func mlxGenerator(
-        using modelClient: any LocalConfigurableLLMClient
+        using modelClient: any LocalConfigurableLLMClient,
+        steeringHintsJSON: String? = nil
     ) -> LocalAgentGenerationHandler {
         let clientBox = MainActorLocalModelClientBox(client: modelClient)
         return { prompt, systemPrompt, maxTokens, reasoningMode, modelID, onToken in
@@ -102,7 +103,8 @@ actor LocalAgentLoop {
                     systemPrompt: systemPrompt,
                     maxTokens: maxTokens,
                     reasoningMode: reasoningMode,
-                    modelID: modelID
+                    modelID: modelID,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             }
 
@@ -117,7 +119,8 @@ actor LocalAgentLoop {
 
     @MainActor
     static func mlxOneShotGenerator(
-        using modelClient: any LocalConfigurableLLMClient
+        using modelClient: any LocalConfigurableLLMClient,
+        steeringHintsJSON: String? = nil
     ) -> LocalAgentGenerationHandler {
         let clientBox = MainActorLocalModelClientBox(client: modelClient)
         return { prompt, systemPrompt, maxTokens, reasoningMode, modelID, onToken in
@@ -127,7 +130,8 @@ actor LocalAgentLoop {
                     systemPrompt: systemPrompt,
                     maxTokens: maxTokens,
                     reasoningMode: reasoningMode,
-                    modelID: modelID
+                    modelID: modelID,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             }.value
             await onToken(output)
@@ -151,7 +155,8 @@ actor LocalAgentLoop {
 
     @MainActor
     static func mlxStreamingGenerator(
-        using modelClient: any LocalConfigurableLLMClient
+        using modelClient: any LocalConfigurableLLMClient,
+        steeringHintsJSON: String? = nil
     ) -> LocalAgentStreamingGeneratorFactory {
         let clientBox = MainActorLocalModelClientBox(client: modelClient)
         return { prompt, systemPrompt, maxTokens, reasoningMode, modelID in
@@ -161,7 +166,8 @@ actor LocalAgentLoop {
                     systemPrompt: systemPrompt,
                     maxTokens: maxTokens,
                     reasoningMode: reasoningMode,
-                    modelID: modelID
+                    modelID: modelID,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             }
         }
@@ -173,6 +179,7 @@ actor LocalAgentLoop {
         constrainedDecoding: ConstrainedDecodingService? = nil,
         toolExecutor: @escaping LocalAgentToolExecutor,
         modelID: String? = nil,
+        steeringHintsJSON: String? = nil,
         maxTokenBudget: Int? = nil,
         maxResponseTokens: Int = 2_048,
         defaultReasoningMode: LocalReasoningMode = .fast
@@ -189,8 +196,8 @@ actor LocalAgentLoop {
         }
 
         return LocalAgentLoop(
-            generator: mlxGenerator(using: modelClient),
-            streamingGenerator: mlxStreamingGenerator(using: modelClient),
+            generator: mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON),
+            streamingGenerator: mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON),
             structuredGenerator: constrainedDecoding.map { constrainedGenerator(using: $0) },
             toolExecutor: toolExecutor,
             modelID: modelID,

@@ -59,7 +59,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: .fast,
             modelID: nil,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -76,7 +77,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -86,7 +88,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String?,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) async throws -> String {
         let preference = runtimePreference(for: modelID, requestedRuntimeKindOverride: requestedRuntimeKind)
         _ = await refreshRuntimeAvailability(for: modelID)
@@ -105,7 +108,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
                 modelID: modelID,
-                requestedRuntimeKind: preference.requestedRuntimeKind
+                requestedRuntimeKind: preference.requestedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
             )
         case .mlx:
             return try await mlxClient.generate(
@@ -114,7 +118,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
                 modelID: modelID,
-                requestedRuntimeKind: preference.requestedRuntimeKind
+                requestedRuntimeKind: preference.requestedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
             )
         case .remote:
             throw LocalInferenceRoutingError.runtimeUnavailable
@@ -128,7 +133,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: .fast,
             modelID: nil,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -145,7 +151,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -155,7 +162,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String?,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { @MainActor in
@@ -180,7 +188,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                             maxTokens: maxTokens,
                             reasoningMode: reasoningMode,
                             modelID: modelID,
-                            requestedRuntimeKind: preference.requestedRuntimeKind
+                            requestedRuntimeKind: preference.requestedRuntimeKind,
+                            steeringHintsJSON: steeringHintsJSON
                         )
                     case .mlx:
                         stream = mlxClient.stream(
@@ -189,7 +198,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                             maxTokens: maxTokens,
                             reasoningMode: reasoningMode,
                             modelID: modelID,
-                            requestedRuntimeKind: preference.requestedRuntimeKind
+                            requestedRuntimeKind: preference.requestedRuntimeKind,
+                            steeringHintsJSON: steeringHintsJSON
                         )
                     case .remote:
                         throw LocalInferenceRoutingError.runtimeUnavailable

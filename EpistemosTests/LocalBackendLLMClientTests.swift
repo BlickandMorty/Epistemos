@@ -12,6 +12,7 @@ struct LocalBackendLLMClientTests {
         let reasoningMode: LocalReasoningMode
         let modelID: String?
         let requestedRuntimeKind: BackendRuntimeKind?
+        let steeringHintsJSON: String?
     }
 
     private final class StubRoutedLocalClient: RoutedLocalRuntimeClient {
@@ -29,7 +30,8 @@ struct LocalBackendLLMClientTests {
                 maxTokens: maxTokens,
                 reasoningMode: .fast,
                 modelID: nil,
-                requestedRuntimeKind: nil
+                requestedRuntimeKind: nil,
+                steeringHintsJSON: nil
             )
         }
 
@@ -40,7 +42,8 @@ struct LocalBackendLLMClientTests {
                 maxTokens: maxTokens,
                 reasoningMode: .fast,
                 modelID: nil,
-                requestedRuntimeKind: nil
+                requestedRuntimeKind: nil,
+                steeringHintsJSON: nil
             )
         }
 
@@ -57,7 +60,8 @@ struct LocalBackendLLMClientTests {
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
                 modelID: modelID,
-                requestedRuntimeKind: nil
+                requestedRuntimeKind: nil,
+                steeringHintsJSON: nil
             )
         }
 
@@ -74,7 +78,8 @@ struct LocalBackendLLMClientTests {
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
                 modelID: modelID,
-                requestedRuntimeKind: nil
+                requestedRuntimeKind: nil,
+                steeringHintsJSON: nil
             )
         }
 
@@ -84,7 +89,8 @@ struct LocalBackendLLMClientTests {
             maxTokens: Int,
             reasoningMode: LocalReasoningMode,
             modelID: String?,
-            requestedRuntimeKind: BackendRuntimeKind?
+            requestedRuntimeKind: BackendRuntimeKind?,
+            steeringHintsJSON: String?
         ) async throws -> String {
             generateCalls.append(
                 RoutedCall(
@@ -93,7 +99,8 @@ struct LocalBackendLLMClientTests {
                     maxTokens: maxTokens,
                     reasoningMode: reasoningMode,
                     modelID: modelID,
-                    requestedRuntimeKind: requestedRuntimeKind
+                    requestedRuntimeKind: requestedRuntimeKind,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             )
             return response
@@ -105,7 +112,8 @@ struct LocalBackendLLMClientTests {
             maxTokens: Int,
             reasoningMode: LocalReasoningMode,
             modelID: String?,
-            requestedRuntimeKind: BackendRuntimeKind?
+            requestedRuntimeKind: BackendRuntimeKind?,
+            steeringHintsJSON: String?
         ) -> AsyncThrowingStream<String, Error> {
             generateCalls.append(
                 RoutedCall(
@@ -114,7 +122,8 @@ struct LocalBackendLLMClientTests {
                     maxTokens: maxTokens,
                     reasoningMode: reasoningMode,
                     modelID: modelID,
-                    requestedRuntimeKind: requestedRuntimeKind
+                    requestedRuntimeKind: requestedRuntimeKind,
+                    steeringHintsJSON: steeringHintsJSON
                 )
             )
             return AsyncThrowingStream { continuation in

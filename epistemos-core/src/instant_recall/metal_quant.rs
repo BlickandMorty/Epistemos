@@ -312,7 +312,13 @@ pub fn compute_buffer_sizes_2bit(
     let scales_bytes = num_vectors * 4; // one float32 per vector
     let zeros_bytes = num_vectors * 4;
     let output_bytes = num_vectors * 4;
-    (query_bytes, quant_bytes, scales_bytes, zeros_bytes, output_bytes)
+    (
+        query_bytes,
+        quant_bytes,
+        scales_bytes,
+        zeros_bytes,
+        output_bytes,
+    )
 }
 
 /// Compute buffer sizes for 4-bit.
@@ -326,7 +332,13 @@ pub fn compute_buffer_sizes_4bit(
     let scales_bytes = num_vectors * 4;
     let zeros_bytes = num_vectors * 4;
     let output_bytes = num_vectors * 4;
-    (query_bytes, quant_bytes, scales_bytes, zeros_bytes, output_bytes)
+    (
+        query_bytes,
+        quant_bytes,
+        scales_bytes,
+        zeros_bytes,
+        output_bytes,
+    )
 }
 
 /// Pack quantized vectors into a contiguous buffer suitable for Metal.
@@ -443,9 +455,7 @@ mod tests {
 
         // Read back
         // SAFETY: buffer contains valid float32 data
-        let scores = unsafe {
-            read_scores_from_metal_buffer(buffer.as_ptr(), query.len())
-        };
+        let scores = unsafe { read_scores_from_metal_buffer(buffer.as_ptr(), query.len()) };
 
         for (a, b) in query.iter().zip(scores.iter()) {
             assert_eq!(*a, *b, "Zero-copy roundtrip should preserve values");

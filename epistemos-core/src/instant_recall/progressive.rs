@@ -13,8 +13,8 @@
 //
 // The ProgressiveRetriever merges results from all 3 layers with weighted scoring.
 
-use crate::instant_recall::{InstantRecallConfig, InstantRecallIndex};
 use crate::instant_recall::embedder::TrigramEmbedder;
+use crate::instant_recall::{InstantRecallConfig, InstantRecallIndex};
 
 /// A memory entry with its source layer and metadata.
 #[derive(Debug, Clone)]
@@ -195,7 +195,9 @@ impl ProgressiveRetriever {
         results.extend(working_results);
 
         // Layer 2: Session memory (semantic search)
-        let session_results = self.session_index.search(&query_embedding, self.config.session_limit);
+        let session_results = self
+            .session_index
+            .search(&query_embedding, self.config.session_limit);
         for r in session_results {
             results.push(MemoryEntry {
                 doc_id: r.doc_id,
@@ -207,7 +209,9 @@ impl ProgressiveRetriever {
         }
 
         // Layer 3: Long-term memory (semantic search)
-        let longterm_results = self.longterm_index.search(&query_embedding, self.config.longterm_limit);
+        let longterm_results = self
+            .longterm_index
+            .search(&query_embedding, self.config.longterm_limit);
         for r in longterm_results {
             results.push(MemoryEntry {
                 doc_id: r.doc_id,
@@ -221,7 +225,8 @@ impl ProgressiveRetriever {
         // Apply recency decay
         for entry in &mut results {
             if entry.age_seconds > 0 && self.config.recency_half_life_secs > 0 {
-                let decay = 0.5_f64.powf(entry.age_seconds as f64 / self.config.recency_half_life_secs as f64);
+                let decay = 0.5_f64
+                    .powf(entry.age_seconds as f64 / self.config.recency_half_life_secs as f64);
                 entry.score *= decay;
             }
         }
@@ -233,7 +238,11 @@ impl ProgressiveRetriever {
         deduplicate_by_id(&mut results);
 
         // Sort by score descending
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Truncate to total limit
         results.truncate(self.config.total_limit);
@@ -258,8 +267,14 @@ impl ProgressiveRetriever {
         self.working_items
             .iter()
             .filter_map(|item| {
-                let matches = item.keywords.iter()
-                    .filter(|kw| query_words.iter().any(|qw| kw.contains(qw) || qw.contains(kw.as_str())))
+                let matches = item
+                    .keywords
+                    .iter()
+                    .filter(|kw| {
+                        query_words
+                            .iter()
+                            .any(|qw| kw.contains(qw) || qw.contains(kw.as_str()))
+                    })
                     .count();
 
                 if matches == 0 {
@@ -285,10 +300,9 @@ impl ProgressiveRetriever {
 /// Extract keywords from text (lowercase, deduplicated, no stop words).
 fn extract_keywords(text: &str) -> Vec<String> {
     let stop_words = [
-        "a", "an", "the", "is", "are", "was", "were", "be", "been", "have",
-        "has", "had", "do", "does", "did", "will", "would", "can", "could",
-        "to", "of", "in", "for", "on", "with", "at", "by", "from", "and",
-        "but", "or", "not", "that", "this", "it", "its", "my", "your",
+        "a", "an", "the", "is", "are", "was", "were", "be", "been", "have", "has", "had", "do",
+        "does", "did", "will", "would", "can", "could", "to", "of", "in", "for", "on", "with",
+        "at", "by", "from", "and", "but", "or", "not", "that", "this", "it", "its", "my", "your",
     ];
 
     let mut seen = std::collections::HashSet::new();
@@ -371,13 +385,20 @@ mod tests {
     #[test]
     fn test_session_memory_search() {
         let mut retriever = ProgressiveRetriever::new(test_config());
-        retriever.add_session("s1".into(), "agent completed research on quantum physics".into());
-        retriever.add_session("s2".into(), "agent deployed web application successfully".into());
+        retriever.add_session(
+            "s1".into(),
+            "agent completed research on quantum physics".into(),
+        );
+        retriever.add_session(
+            "s2".into(),
+            "agent deployed web application successfully".into(),
+        );
 
         let results = retriever.search("quantum physics research");
         assert!(!results.is_empty());
         // Session results should have Session layer
-        let session_results: Vec<_> = results.iter()
+        let session_results: Vec<_> = results
+            .iter()
             .filter(|r| r.layer == MemoryLayer::Session)
             .collect();
         assert!(!session_results.is_empty());
@@ -386,12 +407,16 @@ mod tests {
     #[test]
     fn test_longterm_memory_search() {
         let mut retriever = ProgressiveRetriever::new(test_config());
-        retriever.add_longterm("lt1".into(), "machine learning neural networks deep learning".into());
+        retriever.add_longterm(
+            "lt1".into(),
+            "machine learning neural networks deep learning".into(),
+        );
         retriever.add_longterm("lt2".into(), "Italian cooking pasta recipes".into());
 
         let results = retriever.search("neural networks deep learning");
         assert!(!results.is_empty());
-        let lt_results: Vec<_> = results.iter()
+        let lt_results: Vec<_> = results
+            .iter()
             .filter(|r| r.layer == MemoryLayer::LongTerm)
             .collect();
         assert!(!lt_results.is_empty());
@@ -451,7 +476,10 @@ mod tests {
         let mut retriever = ProgressiveRetriever::new(config);
 
         for i in 0..20 {
-            retriever.add_longterm(format!("lt{i}"), format!("topic {i} about programming systems"));
+            retriever.add_longterm(
+                format!("lt{i}"),
+                format!("topic {i} about programming systems"),
+            );
         }
 
         let results = retriever.search("programming systems");

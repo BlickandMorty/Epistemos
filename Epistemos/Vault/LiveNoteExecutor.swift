@@ -301,7 +301,7 @@ final class LiveNoteSchedulerService {
         self.vaultRoot = vaultRoot
         self.activeVaultRootPath = standardizedRootPath
 
-        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 15, repeating: 15)
         timer.setEventHandler { [weak self] in
             Task { @MainActor in

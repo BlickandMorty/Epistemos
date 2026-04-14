@@ -60,6 +60,7 @@ struct LocalGGUFClientTests {
                 systemPrompt: "Be concise.",
                 maxTokens: 24,
                 reasoningMode: .fast,
+                steeringHintsJSON: nil,
                 requestedRuntimeKind: .gguf,
                 resolvedRuntimeKind: .gguf
             )
@@ -136,7 +137,8 @@ struct LocalGGUFClientTests {
             maxTokens: 24,
             reasoningMode: .fast,
             modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
-            requestedRuntimeKind: .gguf
+            requestedRuntimeKind: .gguf,
+            steeringHintsJSON: nil
         )
 
         #expect(output == "Profile from gguf")

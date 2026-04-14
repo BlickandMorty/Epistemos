@@ -19,14 +19,16 @@ protocol LocalConfigurableLLMClient: LLMClientProtocol {
         systemPrompt: String?,
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
-        modelID: String?
+        modelID: String?,
+        steeringHintsJSON: String?
     ) async throws -> String
     func stream(
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
-        modelID: String?
+        modelID: String?,
+        steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error>
 }
 
@@ -105,7 +107,8 @@ extension LocalConfigurableLLMClient {
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
-            modelID: nil
+            modelID: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -120,7 +123,42 @@ extension LocalConfigurableLLMClient {
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
-            modelID: nil
+            modelID: nil,
+            steeringHintsJSON: nil
+        )
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?
+    ) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: reasoningMode,
+            modelID: modelID,
+            steeringHintsJSON: nil
+        )
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?
+    ) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: reasoningMode,
+            modelID: modelID,
+            steeringHintsJSON: nil
         )
     }
 }

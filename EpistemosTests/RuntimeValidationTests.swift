@@ -286,6 +286,14 @@ struct RuntimeValidationTests {
         #expect(!liveNoteExecutor.contains("try? body.write(to: fileURL"))
     }
 
+    @Test("live note scheduler timer stays on the main queue to avoid actor isolation crashes")
+    func liveNoteSchedulerTimerStaysOnMainQueue() throws {
+        let source = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
+
+        #expect(source.contains("DispatchSource.makeTimerSource(queue: .main)"))
+        #expect(!source.contains("DispatchSource.makeTimerSource(queue: .global(qos: .utility))"))
+    }
+
     @Test("bootstrap archives the retired dual brain router instead of booting it into the live app")
     func bootstrapArchivesTheRetiredDualBrainRouterInsteadOfBootingItIntoTheLiveApp() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")

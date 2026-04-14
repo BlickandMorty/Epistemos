@@ -28,7 +28,8 @@ struct BackendRuntimeContractTests {
         #expect(handshake.resolvedRuntimeKind == .gguf)
         #expect(handshake.requestedReasoningProfile == .deep)
         #expect(handshake.resolvedReasoningProfile == .deep)
-        #expect(handshake.executionPolicyID == "policy.deep.local")
+        #expect(BackendReasoningProfile.deep.rawValue == "deep_graph")
+        #expect(handshake.executionPolicyID == "policy.deep_graph.local")
         #expect(!handshake.usedFallbackResolution)
         #expect(handshake.capabilities.supportsGenerate)
         #expect(handshake.capabilities.supportsStreamingFromSSD)
@@ -160,7 +161,8 @@ struct BackendRuntimeContractTests {
                 toolPolicyRef: nil,
                 contextRef: nil,
                 reasoningProfile: .deep,
-                executionPolicyRef: "policy.deep.local",
+                executionPolicyRef: "policy.deep_graph.local",
+                steeringHintsJSON: nil,
                 priority: 0,
                 timeoutMS: 30_000,
                 streamOptions: BackendGenerationStreamOptions()
@@ -171,7 +173,7 @@ struct BackendRuntimeContractTests {
         #expect(launch.resolvedRuntimeKind == .mlx)
         #expect(launch.requestedReasoningProfile == .deep)
         #expect(launch.resolvedReasoningProfile == .deep)
-        #expect(launch.executionPolicyID == "policy.deep.local")
+        #expect(launch.executionPolicyID == "policy.deep_graph.local")
 
         try await controlPlane.appendStarted(streamHandle: launch.streamHandle)
         try await controlPlane.appendToken(streamHandle: launch.streamHandle, text: "Hello")
@@ -186,7 +188,7 @@ struct BackendRuntimeContractTests {
                 executionMode: .local,
                 modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
                 artifactID: "qwen35-35b-a3b-apexmini",
-                executionPolicyID: "policy.deep.local",
+                executionPolicyID: "policy.deep_graph.local",
                 fallbackMode: "resident",
                 timeToFirstTokenMS: 42,
                 totalDurationMS: 120,
@@ -200,6 +202,9 @@ struct BackendRuntimeContractTests {
                 expertBudgetState: "default",
                 adaptationState: "disabled",
                 guardrailState: "clear",
+                sidecarState: "disabled",
+                budgetOutcome: "within_budget",
+                planTracePresent: true,
                 cancelled: false,
                 errorClass: nil
             )
@@ -215,15 +220,21 @@ struct BackendRuntimeContractTests {
         #expect(events.last?.summary?.resolvedRuntimeKind == .mlx)
         #expect(events.last?.summary?.requestedReasoningProfile == .deep)
         #expect(events.last?.summary?.resolvedReasoningProfile == .deep)
-        #expect(events.last?.summary?.executionPolicyID == "policy.deep.local")
+        #expect(events.last?.summary?.executionPolicyID == "policy.deep_graph.local")
+        #expect(events.last?.summary?.sidecarState == "disabled")
+        #expect(events.last?.summary?.budgetOutcome == "within_budget")
+        #expect(events.last?.summary?.planTracePresent == true)
 
         let stats = try await controlPlane.stats(target: .stream(launch.streamHandle))
         #expect(stats.requestedReasoningProfile == .deep)
         #expect(stats.resolvedReasoningProfile == .deep)
-        #expect(stats.executionPolicyID == "policy.deep.local")
+        #expect(stats.executionPolicyID == "policy.deep_graph.local")
+        #expect(stats.planTracePresent == true)
         #expect(stats.capabilities.supportsGenerate)
         #expect(stats.capabilities.supportsSerialIOAudit)
         #expect(!stats.capabilities.supportsAdapt)
+        #expect(stats.sidecarState == "disabled")
+        #expect(stats.budgetOutcome == "within_budget")
     }
 
     @Test("default execution policy metadata is resolved by the control plane")
@@ -253,21 +264,105 @@ struct BackendRuntimeContractTests {
                 contextRef: nil,
                 reasoningProfile: .deep,
                 executionPolicyRef: nil,
+                steeringHintsJSON: nil,
                 priority: 0,
                 timeoutMS: 30_000,
                 streamOptions: BackendGenerationStreamOptions()
             )
         )
 
-        #expect(launch.executionPolicyID == "policy.deep.local")
+        #expect(launch.executionPolicyID == "policy.deep_graph.local")
 
         let stats = try await controlPlane.stats(target: .stream(launch.streamHandle))
-        #expect(stats.executionPolicyID == "policy.deep.local")
+        #expect(stats.executionPolicyID == "policy.deep_graph.local")
+        #expect(stats.planTracePresent == true)
         #expect(stats.maskingState == "dense")
         #expect(stats.kvPolicyState == "baseline")
         #expect(stats.expertBudgetState == "deep")
         #expect(stats.adaptationState == "disabled")
         #expect(stats.guardrailState == "clear")
+        #expect(stats.sidecarState == "disabled")
+        #expect(stats.budgetOutcome == "within_budget")
+    }
+
+    @Test("output token budgets are denied before generation launches")
+    func outputTokenBudgetsAreDeniedBeforeGenerationLaunches() async throws {
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.gguf, .mlx],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+
+        await #expect(throws: BackendRuntimeContractError.policyDenied) {
+            _ = try await controlPlane.generate(
+                request: BackendGenerationRequest(
+                    requestID: "req-token-budget",
+                    requestedRuntimeKind: .gguf,
+                    executionMode: .local,
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelHandleID: nil,
+                    prompt: "Hello",
+                    systemPrompt: nil,
+                    maxOutputTokens: 256,
+                    temperature: 0.2,
+                    stopSequences: [],
+                    toolPolicyRef: nil,
+                    contextRef: nil,
+                    reasoningProfile: .standard,
+                    executionPolicyRef: nil,
+                    steeringHintsJSON: """
+                    {"depth_budget":{"max_turns":2,"max_reasoning_steps":4,"max_tool_calls":3,"max_output_tokens":64}}
+                    """,
+                    priority: 0,
+                    timeoutMS: 30_000,
+                    streamOptions: BackendGenerationStreamOptions()
+                )
+            )
+        }
+    }
+
+    @Test("budget trimming is surfaced in runtime stats")
+    func budgetTrimmingIsSurfacedInRuntimeStats() async throws {
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.gguf, .mlx],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+
+        let launch = try await controlPlane.generate(
+            request: BackendGenerationRequest(
+                requestID: "req-budget-trim",
+                requestedRuntimeKind: .gguf,
+                executionMode: .local,
+                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                artifactID: "qwen35-35b-a3b-apexmini",
+                modelHandleID: nil,
+                prompt: "Hello",
+                systemPrompt: nil,
+                maxOutputTokens: 32,
+                temperature: 0.2,
+                stopSequences: [],
+                toolPolicyRef: nil,
+                contextRef: nil,
+                reasoningProfile: .deep,
+                executionPolicyRef: nil,
+                steeringHintsJSON: """
+                {"depth_budget":{"max_turns":2,"max_reasoning_steps":4,"max_tool_calls":0,"max_output_tokens":64}}
+                """,
+                priority: 0,
+                timeoutMS: 30_000,
+                streamOptions: BackendGenerationStreamOptions()
+            )
+        )
+
+        let stats = try await controlPlane.stats(target: .stream(launch.streamHandle))
+        #expect(stats.sidecarState == "disabled")
+        #expect(stats.budgetOutcome == "trimmed_to_minimal_graph")
     }
 
     @Test("model handles are runtime scoped")
@@ -307,6 +402,7 @@ struct BackendRuntimeContractTests {
                     contextRef: nil,
                     reasoningProfile: .standard,
                     executionPolicyRef: nil,
+                    steeringHintsJSON: nil,
                     priority: 0,
                     timeoutMS: 5_000,
                     streamOptions: BackendGenerationStreamOptions()
@@ -334,6 +430,38 @@ struct BackendRuntimeContractTests {
         await #expect(throws: BackendRuntimeContractError.unsupportedCapability) {
             try await controlPlane.imageGenerate()
         }
+    }
+
+    @Test("embed requests resolve through the mlx runtime contract")
+    func embedRequestsResolveThroughTheMLXRuntimeContract() async throws {
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            ),
+            embeddingResolver: { request in
+                #expect(request.requestedRuntimeKind == .mlx)
+                #expect(request.expectedDimension == 2)
+                return [0.25, 0.75]
+            }
+        )
+
+        let result = try await controlPlane.embed(
+            request: BackendEmbeddingRequest(
+                requestedRuntimeKind: .mlx,
+                executionMode: .local,
+                modelID: "apple.nl.embedding",
+                artifactID: nil,
+                text: "hello world",
+                expectedDimension: 2
+            )
+        )
+
+        #expect(result.requestedRuntimeKind == .mlx)
+        #expect(result.resolvedRuntimeKind == .mlx)
+        #expect(result.dimension == 2)
+        #expect(result.vector == [0.25, 0.75])
     }
 
     @Test("unsupported advanced reasoning profiles are denied by policy")
@@ -364,6 +492,33 @@ struct BackendRuntimeContractTests {
                     contextRef: nil,
                     reasoningProfile: .adaptive,
                     executionPolicyRef: "policy.adaptive.helper",
+                    steeringHintsJSON: nil,
+                    priority: 0,
+                    timeoutMS: 30_000,
+                    streamOptions: BackendGenerationStreamOptions()
+                )
+            )
+        }
+
+        await #expect(throws: BackendRuntimeContractError.policyDenied) {
+            _ = try await controlPlane.generate(
+                request: BackendGenerationRequest(
+                    requestID: "req-visual-sidecar",
+                    requestedRuntimeKind: .mlx,
+                    executionMode: .local,
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelHandleID: nil,
+                    prompt: "Hello",
+                    systemPrompt: nil,
+                    maxOutputTokens: 32,
+                    temperature: 0.2,
+                    stopSequences: [],
+                    toolPolicyRef: nil,
+                    contextRef: nil,
+                    reasoningProfile: .visualSidecar,
+                    executionPolicyRef: "policy.visual_sidecar.local",
+                    steeringHintsJSON: nil,
                     priority: 0,
                     timeoutMS: 30_000,
                     streamOptions: BackendGenerationStreamOptions()
@@ -400,6 +555,7 @@ struct BackendRuntimeContractTests {
                     contextRef: nil,
                     reasoningProfile: .deep,
                     executionPolicyRef: "policy.standard.local",
+                    steeringHintsJSON: nil,
                     priority: 0,
                     timeoutMS: 30_000,
                     streamOptions: BackendGenerationStreamOptions()
@@ -435,6 +591,7 @@ struct BackendRuntimeContractTests {
                 contextRef: nil,
                 reasoningProfile: .standard,
                 executionPolicyRef: nil,
+                steeringHintsJSON: nil,
                 priority: 0,
                 timeoutMS: 10_000,
                 streamOptions: BackendGenerationStreamOptions()
@@ -467,6 +624,9 @@ struct BackendRuntimeContractTests {
                 expertBudgetState: "default",
                 adaptationState: "disabled",
                 guardrailState: "clear",
+                sidecarState: "disabled",
+                budgetOutcome: "within_budget",
+                planTracePresent: true,
                 cancelled: false,
                 errorClass: nil
             )

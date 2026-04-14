@@ -18,6 +18,7 @@ nonisolated struct LocalGGUFRequest: Sendable, Equatable {
     let systemPrompt: String?
     let maxTokens: Int
     let reasoningMode: LocalReasoningMode
+    let steeringHintsJSON: String?
     let requestedRuntimeKind: BackendRuntimeKind?
     let resolvedRuntimeKind: BackendRuntimeKind
 }
@@ -509,7 +510,8 @@ protocol RoutedLocalRuntimeClient: LocalConfigurableLLMClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String?,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) async throws -> String
 
     func stream(
@@ -518,8 +520,49 @@ protocol RoutedLocalRuntimeClient: LocalConfigurableLLMClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String?,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error>
+}
+
+extension RoutedLocalRuntimeClient {
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: reasoningMode,
+            modelID: modelID,
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: steeringHintsJSON
+        )
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: reasoningMode,
+            modelID: modelID,
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: steeringHintsJSON
+        )
+    }
 }
 
 @MainActor
@@ -558,7 +601,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: .fast,
             modelID: nil,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -575,7 +619,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -585,7 +630,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String?,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) async throws -> String {
         let request = try resolvedRequest(
             prompt: prompt,
@@ -593,7 +639,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID,
-            requestedRuntimeKind: requestedRuntimeKind
+            requestedRuntimeKind: requestedRuntimeKind,
+            steeringHintsJSON: steeringHintsJSON
         )
         let contractRequest = backendGenerationRequest(for: request)
 
@@ -630,7 +677,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: .fast,
             modelID: nil,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -647,7 +695,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             maxTokens: maxTokens,
             reasoningMode: reasoningMode,
             modelID: modelID,
-            requestedRuntimeKind: nil
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: nil
         )
     }
 
@@ -657,7 +706,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String?,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error> {
         do {
             let request = try resolvedRequest(
@@ -666,7 +716,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                 maxTokens: maxTokens,
                 reasoningMode: reasoningMode,
                 modelID: modelID,
-                requestedRuntimeKind: requestedRuntimeKind
+                requestedRuntimeKind: requestedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
             )
             let contractRequest = backendGenerationRequest(for: request)
 
@@ -788,7 +839,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
         maxTokens: Int,
         reasoningMode: LocalReasoningMode,
         modelID: String?,
-        requestedRuntimeKind: BackendRuntimeKind?
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
     ) throws -> LocalGGUFRequest {
         guard let resolvedModelID = modelID ?? inference.effectiveLocalTextModelID else {
             throw LocalInferenceRoutingError.modelRequired
@@ -818,6 +870,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             systemPrompt: trimmed.systemPrompt,
             maxTokens: max(0, maxTokens),
             reasoningMode: reasoningMode,
+            steeringHintsJSON: steeringHintsJSON,
             requestedRuntimeKind: requestedRuntimeKind,
             resolvedRuntimeKind: .gguf
         )
@@ -856,6 +909,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             contextRef: nil,
             reasoningProfile: BackendReasoningProfile(localReasoningMode: request.reasoningMode),
             executionPolicyRef: nil,
+            steeringHintsJSON: request.steeringHintsJSON,
             priority: 0,
             timeoutMS: 60_000,
             streamOptions: BackendGenerationStreamOptions()
@@ -903,6 +957,9 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             expertBudgetState: resolvedStats?.expertBudgetState ?? "default",
             adaptationState: resolvedStats?.adaptationState ?? "disabled",
             guardrailState: resolvedStats?.guardrailState ?? "clear",
+            sidecarState: resolvedStats?.sidecarState ?? "disabled",
+            budgetOutcome: resolvedStats?.budgetOutcome ?? "within_budget",
+            planTracePresent: resolvedStats?.planTracePresent ?? true,
             cancelled: cancelled,
             errorClass: errorClass
         )

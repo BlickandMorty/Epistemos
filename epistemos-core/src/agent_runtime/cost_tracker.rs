@@ -130,13 +130,13 @@ impl CostTracker {
 
     /// Calculate cost for a given usage without recording it.
     pub fn calculate_cost(&self, model_id: &str, usage: &TokenUsage) -> CostBreakdown {
-        let pricing = self.pricing.get(model_id)
-            .or_else(|| {
-                // Fuzzy match: try prefix matching
-                self.pricing.iter()
-                    .find(|(k, _)| model_id.starts_with(k.as_str()) || k.starts_with(model_id))
-                    .map(|(_, v)| v)
-            });
+        let pricing = self.pricing.get(model_id).or_else(|| {
+            // Fuzzy match: try prefix matching
+            self.pricing
+                .iter()
+                .find(|(k, _)| model_id.starts_with(k.as_str()) || k.starts_with(model_id))
+                .map(|(_, v)| v)
+        });
 
         match pricing {
             Some(p) => {
@@ -166,8 +166,10 @@ impl CostTracker {
             // Totals
             summary.total_cost.input_cost_microdollars += record.cost.input_cost_microdollars;
             summary.total_cost.output_cost_microdollars += record.cost.output_cost_microdollars;
-            summary.total_cost.cache_read_cost_microdollars += record.cost.cache_read_cost_microdollars;
-            summary.total_cost.cache_creation_cost_microdollars += record.cost.cache_creation_cost_microdollars;
+            summary.total_cost.cache_read_cost_microdollars +=
+                record.cost.cache_read_cost_microdollars;
+            summary.total_cost.cache_creation_cost_microdollars +=
+                record.cost.cache_creation_cost_microdollars;
             summary.total_cost.total_cost_microdollars += record.cost.total_cost_microdollars;
 
             summary.total_tokens.input_tokens += record.usage.input_tokens;
@@ -182,7 +184,8 @@ impl CostTracker {
             }
 
             // Per-model
-            let model_entry = summary.per_model
+            let model_entry = summary
+                .per_model
                 .entry(record.model_id.clone())
                 .or_default();
             model_entry.total_cost_microdollars += record.cost.total_cost_microdollars;
@@ -190,7 +193,8 @@ impl CostTracker {
             model_entry.output_cost_microdollars += record.cost.output_cost_microdollars;
 
             // Per-provider
-            let provider_entry = summary.per_provider
+            let provider_entry = summary
+                .per_provider
                 .entry(record.provider.clone())
                 .or_default();
             provider_entry.total_cost_microdollars += record.cost.total_cost_microdollars;
@@ -224,9 +228,9 @@ impl CostTracker {
             // Claude Opus 4.6: $15/$75 per MTok
             ModelPricing {
                 model_id: "claude-opus-4-6".into(),
-                input_per_token: 15,       // $15/MTok = 15 micro-dollars/token
-                output_per_token: 75,      // $75/MTok
-                cache_read_per_token: 2,   // $1.50/MTok
+                input_per_token: 15,          // $15/MTok = 15 micro-dollars/token
+                output_per_token: 75,         // $75/MTok
+                cache_read_per_token: 2,      // $1.50/MTok
                 cache_creation_per_token: 19, // $18.75/MTok
             },
             // Claude Sonnet 4.6: $3/$15 per MTok
@@ -234,13 +238,13 @@ impl CostTracker {
                 model_id: "claude-sonnet-4-6".into(),
                 input_per_token: 3,
                 output_per_token: 15,
-                cache_read_per_token: 0,   // $0.30/MTok rounds to 0 micro-dollars
+                cache_read_per_token: 0, // $0.30/MTok rounds to 0 micro-dollars
                 cache_creation_per_token: 4, // $3.75/MTok
             },
             // Claude Haiku 4.5: $0.80/$4 per MTok
             ModelPricing {
                 model_id: "claude-haiku-4-5".into(),
-                input_per_token: 1,        // $0.80/MTok rounds to 1
+                input_per_token: 1, // $0.80/MTok rounds to 1
                 output_per_token: 4,
                 cache_read_per_token: 0,
                 cache_creation_per_token: 1,
@@ -344,7 +348,11 @@ mod tests {
         tracker.record_usage(
             "claude-sonnet-4-6",
             "anthropic",
-            TokenUsage { input_tokens: 1000, output_tokens: 500, ..Default::default() },
+            TokenUsage {
+                input_tokens: 1000,
+                output_tokens: 500,
+                ..Default::default()
+            },
             "session-1",
             3,
             "2026-03-29T10:00:00Z",
@@ -353,7 +361,11 @@ mod tests {
         tracker.record_usage(
             "claude-sonnet-4-6",
             "anthropic",
-            TokenUsage { input_tokens: 2000, output_tokens: 1000, ..Default::default() },
+            TokenUsage {
+                input_tokens: 2000,
+                output_tokens: 1000,
+                ..Default::default()
+            },
             "session-1",
             5,
             "2026-03-29T10:05:00Z",
@@ -374,14 +386,28 @@ mod tests {
         let mut tracker = CostTracker::new();
 
         tracker.record_usage(
-            "claude-opus-4-6", "anthropic",
-            TokenUsage { input_tokens: 100, output_tokens: 50, ..Default::default() },
-            "s1", 1, "2026-03-29T10:00:00Z",
+            "claude-opus-4-6",
+            "anthropic",
+            TokenUsage {
+                input_tokens: 100,
+                output_tokens: 50,
+                ..Default::default()
+            },
+            "s1",
+            1,
+            "2026-03-29T10:00:00Z",
         );
         tracker.record_usage(
-            "sonar-pro", "perplexity",
-            TokenUsage { input_tokens: 200, output_tokens: 100, ..Default::default() },
-            "s2", 1, "2026-03-29T11:00:00Z",
+            "sonar-pro",
+            "perplexity",
+            TokenUsage {
+                input_tokens: 200,
+                output_tokens: 100,
+                ..Default::default()
+            },
+            "s2",
+            1,
+            "2026-03-29T11:00:00Z",
         );
 
         let summary = tracker.summary();
@@ -420,9 +446,16 @@ mod tests {
     fn test_export_json() {
         let mut tracker = CostTracker::new();
         tracker.record_usage(
-            "local", "local",
-            TokenUsage { input_tokens: 100, output_tokens: 50, ..Default::default() },
-            "s1", 1, "2026-03-29T10:00:00Z",
+            "local",
+            "local",
+            TokenUsage {
+                input_tokens: 100,
+                output_tokens: 50,
+                ..Default::default()
+            },
+            "s1",
+            1,
+            "2026-03-29T10:00:00Z",
         );
         let json = tracker.export_json();
         assert!(json.contains("local"));
@@ -432,10 +465,7 @@ mod tests {
     #[test]
     fn test_clear() {
         let mut tracker = CostTracker::new();
-        tracker.record_usage(
-            "local", "local",
-            TokenUsage::default(), "s1", 1, "now",
-        );
+        tracker.record_usage("local", "local", TokenUsage::default(), "s1", 1, "now");
         assert_eq!(tracker.record_count(), 1);
         tracker.clear();
         assert_eq!(tracker.record_count(), 0);
@@ -445,8 +475,15 @@ mod tests {
     fn test_fuzzy_model_match() {
         let tracker = CostTracker::new();
         // "claude-opus-4-6-20260315" should fuzzy-match "claude-opus-4-6"
-        let usage = TokenUsage { input_tokens: 100, output_tokens: 50, ..Default::default() };
+        let usage = TokenUsage {
+            input_tokens: 100,
+            output_tokens: 50,
+            ..Default::default()
+        };
         let cost = tracker.calculate_cost("claude-opus-4-6-20260315", &usage);
-        assert!(cost.total_cost_microdollars > 0, "Fuzzy match should find pricing");
+        assert!(
+            cost.total_cost_microdollars > 0,
+            "Fuzzy match should find pricing"
+        );
     }
 }

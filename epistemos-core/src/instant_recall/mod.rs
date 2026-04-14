@@ -28,14 +28,13 @@ pub mod turbo_quant;
 pub use butterfly::ButterflyRotation;
 pub use embedder::TrigramEmbedder;
 pub use fusion::{
-    CrossEncoder, FusedResult, FusionConfig, HybridSearchPipeline, RetrievalHit,
-    RetrievalSource,
+    CrossEncoder, FusedResult, FusionConfig, HybridSearchPipeline, RetrievalHit, RetrievalSource,
 };
 pub use index::{InstantRecallIndex, RecallResult};
 pub use kitty::{KittyBoostMap, KittyConfig, KittyVector};
 pub use kv_cache_quant::{KVPrecision, KVTunerProfile, ProgressiveKVCache};
 pub use quantizer::{hamming_distance, quantize_to_binary};
-pub use segment::{SegmentConfig, SegmentedIndex, SegmentSearchResult};
+pub use segment::{SegmentConfig, SegmentSearchResult, SegmentedIndex};
 pub use tmac::TMacVector;
 pub use turbo_quant::{TurboQuantBits, TurboQuantVector};
 

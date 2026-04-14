@@ -55,7 +55,12 @@ pub fn generate_skill_md(summary: &TaskSummary) -> String {
     // ── Instructions (Level 1) ──
     writeln!(out, "## Instructions").ok();
     writeln!(out).ok();
-    writeln!(out, "{}", derive_instructions(&summary.objective, &summary.outcome)).ok();
+    writeln!(
+        out,
+        "{}",
+        derive_instructions(&summary.objective, &summary.outcome)
+    )
+    .ok();
     writeln!(out).ok();
 
     if summary.turn_count > 1 {
@@ -92,7 +97,10 @@ pub fn generate_skill_md(summary: &TaskSummary) -> String {
 }
 
 /// Write a generated SKILL.md to disk in the skills directory.
-pub fn write_skill_file(skills_dir: &Path, summary: &TaskSummary) -> Result<std::path::PathBuf, std::io::Error> {
+pub fn write_skill_file(
+    skills_dir: &Path,
+    summary: &TaskSummary,
+) -> Result<std::path::PathBuf, std::io::Error> {
     let name = derive_skill_name(&summary.objective);
     let dir = skills_dir.join(&name);
     std::fs::create_dir_all(&dir)?;
@@ -128,7 +136,13 @@ fn derive_skill_name(objective: &str) -> String {
     let name: String = words.join("-");
     // Sanitize: only alphanumeric + hyphens
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .trim_matches('-')
         .to_string()
@@ -159,13 +173,27 @@ fn derive_description(objective: &str, outcome: &str) -> String {
 fn detect_category(tools: &[String], objective: &str) -> String {
     let lower = objective.to_lowercase();
 
-    if tools.iter().any(|t| t.contains("search") || t.contains("research")) || lower.contains("research") {
+    if tools
+        .iter()
+        .any(|t| t.contains("search") || t.contains("research"))
+        || lower.contains("research")
+    {
         return "research".to_string();
     }
-    if tools.iter().any(|t| t.contains("write") || t.contains("edit")) || lower.contains("write") || lower.contains("edit") {
+    if tools
+        .iter()
+        .any(|t| t.contains("write") || t.contains("edit"))
+        || lower.contains("write")
+        || lower.contains("edit")
+    {
         return "writing".to_string();
     }
-    if tools.iter().any(|t| t.contains("bash") || t.contains("terminal")) || lower.contains("deploy") || lower.contains("build") {
+    if tools
+        .iter()
+        .any(|t| t.contains("bash") || t.contains("terminal"))
+        || lower.contains("deploy")
+        || lower.contains("build")
+    {
         return "development".to_string();
     }
     if lower.contains("review") || lower.contains("analyze") {
@@ -181,8 +209,20 @@ fn derive_triggers(objective: &str, skill_name: &str) -> Vec<String> {
 
     // Extract the primary verb
     let lower = objective.to_lowercase();
-    let verbs = ["research", "review", "analyze", "write", "build", "deploy",
-                  "search", "find", "summarize", "debug", "test", "refactor"];
+    let verbs = [
+        "research",
+        "review",
+        "analyze",
+        "write",
+        "build",
+        "deploy",
+        "search",
+        "find",
+        "summarize",
+        "debug",
+        "test",
+        "refactor",
+    ];
 
     for verb in verbs {
         if lower.contains(verb) {
@@ -209,13 +249,12 @@ fn derive_instructions(objective: &str, outcome: &str) -> String {
 }
 
 const STOP_WORDS: &[&str] = &[
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "shall",
-    "should", "may", "might", "must", "can", "could", "to", "of", "in",
-    "for", "on", "with", "at", "by", "from", "as", "into", "through",
-    "during", "before", "after", "above", "below", "between", "out",
-    "about", "and", "but", "or", "nor", "not", "so", "if", "then",
-    "than", "that", "this", "these", "those", "it", "its", "my", "your",
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+    "do", "does", "did", "will", "would", "shall", "should", "may", "might", "must", "can",
+    "could", "to", "of", "in", "for", "on", "with", "at", "by", "from", "as", "into", "through",
+    "during", "before", "after", "above", "below", "between", "out", "about", "and", "but", "or",
+    "nor", "not", "so", "if", "then", "than", "that", "this", "these", "those", "it", "its", "my",
+    "your",
 ];
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -249,16 +288,28 @@ mod tests {
 
     #[test]
     fn test_derive_skill_name() {
-        assert_eq!(derive_skill_name("Research quantum computing"), "research-quantum-computing");
-        assert_eq!(derive_skill_name("Please help me write a draft"), "write-draft");
+        assert_eq!(
+            derive_skill_name("Research quantum computing"),
+            "research-quantum-computing"
+        );
+        assert_eq!(
+            derive_skill_name("Please help me write a draft"),
+            "write-draft"
+        );
         assert_eq!(derive_skill_name(""), "auto-skill");
         assert_eq!(derive_skill_name("the a an"), "auto-skill");
     }
 
     #[test]
     fn test_detect_category() {
-        assert_eq!(detect_category(&["vault_search".into()], "research this"), "research");
-        assert_eq!(detect_category(&["bash".into()], "deploy the app"), "development");
+        assert_eq!(
+            detect_category(&["vault_search".into()], "research this"),
+            "research"
+        );
+        assert_eq!(
+            detect_category(&["bash".into()], "deploy the app"),
+            "development"
+        );
         assert_eq!(detect_category(&[], "write a summary"), "writing");
         assert_eq!(detect_category(&[], "hello world"), "general");
     }

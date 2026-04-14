@@ -188,6 +188,7 @@ Every run emits a normalized summary containing:
 - `expert_budget_state`
 - `adaptation_state`
 - `guardrail_state`
+- `plan_trace_present`
 - `cancelled`
 - `error_class`
 
@@ -315,6 +316,7 @@ Rules:
 - every run reports runtime identity, model identity, TTFT, tok/s, fallback mode, phase, and error class
 - cancelled runs still emit normalized summary data
 - artifact-specific diagnostics remain visible through `artifact_id`
+- plan trace presence remains visible through summaries and stats
 
 ## Assumptions and Defaults
 - Phase 1 primary text-generation runtime is `gguf`.

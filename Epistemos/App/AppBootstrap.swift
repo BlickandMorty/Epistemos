@@ -855,12 +855,19 @@ final class AppBootstrap {
 
         let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)
         self.localInferenceService = localInferenceService
+        let embeddingService = graphState.embeddingService
         let localRuntimeControlPlane = BackendRuntimeControlPlane(
             policy: BackendRuntimePolicy(
                 availableRuntimeKinds: [.mlx],
                 primaryGenerationRuntimeKind: .gguf,
                 allowMLXGenerationFallback: true
-            )
+            ),
+            embeddingResolver: { request in
+                embeddingService.queryEmbedding(
+                    for: request.text,
+                    expectedDimension: request.expectedDimension
+                )
+            }
         )
         self.localRuntimeControlPlane = localRuntimeControlPlane
 
