@@ -191,6 +191,7 @@ final class HologramOverlay {
     private var controlsHostView: NSHostingView<AnyView>?
     private var sidebarHostView: NSHostingView<AnyView>?
     private var routeHostView: NSHostingView<AnyView>?
+    private var routeObserver: Any?
     private var controlsConstraints: [NSLayoutConstraint] = []
     private var sidebarConstraints: [NSLayoutConstraint] = []
     private var routeConstraints: [NSLayoutConstraint] = []
@@ -1341,6 +1342,9 @@ final class HologramOverlay {
         if let obs = parentDeminiaturizeObserver { NotificationCenter.default.removeObserver(obs) }
         parentMiniaturizeObserver = nil
         parentDeminiaturizeObserver = nil
+        // Remove graph workspace route observer.
+        if let obs = routeObserver { NotificationCenter.default.removeObserver(obs) }
+        routeObserver = nil
         // Cancel fade-in task.
         fadeInTask?.cancel()
         fadeInTask = nil
@@ -1428,10 +1432,17 @@ final class HologramOverlay {
         contentView.addSubview(graphView)
 
         // Graph Workspace Route overlay (SwiftUI hosted — full screen or pass-through).
+        //
+        // The route host view sits above the Metal canvas and draws the note /
+        // folder pages when the user deep-links into a node. While the route
+        // is `.canvas`, the host is hidden entirely so mouse events flow to
+        // `MetalGraphNSView` unchanged. A Notification.Name observer flips
+        // `isHidden` whenever `GraphState.currentRoute` changes.
         let routeView = NSHostingView(
             rootView: HologramOverlayHostedViewBuilder.root(GraphWorkspaceContainer())
         )
         routeView.translatesAutoresizingMaskIntoConstraints = false
+        routeView.isHidden = graphState.currentRoute.isCanvas
         contentView.addSubview(routeView, positioned: .above, relativeTo: graphView)
         self.routeHostView = routeView
 
@@ -1443,6 +1454,15 @@ final class HologramOverlay {
         ]
         NSLayoutConstraint.activate(rtConstraints)
         self.routeConstraints = rtConstraints
+
+        routeObserver = NotificationCenter.default.addObserver(
+            forName: .graphRouteDidChange,
+            object: graphState,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.routeHostView?.isHidden = self.graphState.currentRoute.isCanvas
+        }
 
         // Floating controls (SwiftUI hosted — draggable).
         let controlsView = NSHostingView(

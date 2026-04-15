@@ -506,6 +506,7 @@
 		C705B47BDB938F54E217C963 /* MLXImageGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 244D6B9E0B5B4BD5B4BA4F09 /* MLXImageGenerationService.swift */; };
 		C815C91234890695D71321A0 /* OverseerProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D918E87B1A112ED0D68406B8 /* OverseerProtocolTests.swift */; };
 		C8980C716EEE1FBB3D2662E5 /* ProseTextView2AppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C009EB7CCEE00469F8AE4FF /* ProseTextView2AppearanceTests.swift */; };
+		C9264F7B139E87080987993D /* GraphWorkspaceRouteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81E04ADD62CA171A1579623 /* GraphWorkspaceRouteTests.swift */; };
 		C9D17154299D8B521AC1A991 /* FFIDataStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0D2AD44CC0DF5C65E22D7F /* FFIDataStructureTests.swift */; };
 		C9E3A3EFAA815C9E250BF631 /* PipelineErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F8256BEE8E59EF5C0CDFC8A /* PipelineErrorTests.swift */; };
 		CB160446A7AB4386EBDE487B /* ToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5196A30CBF41CC0A7864E2 /* ToolCallParser.swift */; };
@@ -1268,6 +1269,7 @@
 		F795D6B0E1251BA1F02382BF /* URLSessionTransportSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionTransportSupport.swift; sourceTree = "<group>"; };
 		F796002DDA40C60CE1212EFA /* SDFLabelInstanceBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDFLabelInstanceBuilder.swift; sourceTree = "<group>"; };
 		F7A66EE4CAA9A47D6005092C /* DialogueChatState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogueChatState.swift; sourceTree = "<group>"; };
+		F81E04ADD62CA171A1579623 /* GraphWorkspaceRouteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphWorkspaceRouteTests.swift; sourceTree = "<group>"; };
 		F83053E2F36E60FA638AE9D9 /* AdapterSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdapterSelectorView.swift; sourceTree = "<group>"; };
 		F9AA67AA1013F943B25D1C35 /* SDPageDerivedStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDPageDerivedStateTests.swift; sourceTree = "<group>"; };
 		FA87DCD8CFD54B3CD164EDDA /* GhostComputerAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhostComputerAgent.swift; sourceTree = "<group>"; };
@@ -2222,6 +2224,7 @@
 				67C73F7481A55053C8AB9A57 /* GraphStoreTests.swift */,
 				B03EBFAA3B4AD42204FAA7AA /* GraphTypesComprehensiveTests.swift */,
 				DF9A3E0395E02F012F805C48 /* GraphTypesTests.swift */,
+				F81E04ADD62CA171A1579623 /* GraphWorkspaceRouteTests.swift */,
 				8FD180C15AB89307D31E8CE8 /* HardenedASTFuzzTests.swift */,
 				E0443EBB7571F5309B2984ED /* HardenedConcurrencyTests.swift */,
 				74B02D0B2D772560DF3302E4 /* HarnessSubsystemTests.swift */,
@@ -2761,6 +2764,7 @@
 				C5DEB26A0F8F784F288EFFBF /* GraphSyncTests.swift in Sources */,
 				EE19C5B19DBE094C7D0BAEA8 /* GraphTypesComprehensiveTests.swift in Sources */,
 				1CC9C1F804D68BA4D79AD7C6 /* GraphTypesTests.swift in Sources */,
+				C9264F7B139E87080987993D /* GraphWorkspaceRouteTests.swift in Sources */,
 				E4F578EBD9F8541942CED4ED /* HardenedASTFuzzTests.swift in Sources */,
 				0BABE9C1F9290DC3903C3111 /* HardenedConcurrencyTests.swift in Sources */,
 				E34D3DCF36EF0BEB6DC4AEFE /* HarnessSubsystemTests.swift in Sources */,

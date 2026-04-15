@@ -389,40 +389,75 @@ final class GraphState {
     /// live execution-memory nodes without re-enabling disabled source/quote types.
     var vaultMode: GraphVaultMode = .humanVault
 
-    /// The local navigation state for the graph workspace (Step 2 routing foundation).
-    /// Tracks if we are looking at the 3D canvas or deep-linked into a specific node's page.
-    var currentRoute: GraphWorkspaceRoute = .canvas
-
     // MARK: - Local Workspace Routing (Phase 7)
-    
+    //
+    // The graph workspace uses a Finder-style navigation history: `routeHistory`
+    // records every route the user has visited, and `routeCursor` indexes the
+    // currently-displayed one. Pushing a new route truncates any forward history
+    // past the cursor (browser semantics). `goBack` / `goForward` move the
+    // cursor without mutating the history. A `.graphRouteDidChange` notification
+    // is posted on every mutation so non-SwiftUI observers (HologramOverlay) can
+    // toggle hit-testing on the page-host NSHostingView.
+
+    private(set) var routeHistory: [GraphWorkspaceRoute] = [.canvas]
+    private(set) var routeCursor: Int = 0
+
+    /// The route currently displayed by the graph workspace.
+    var currentRoute: GraphWorkspaceRoute {
+        routeHistory[routeCursor]
+    }
+
+    var canGoBack: Bool { routeCursor > 0 }
+    var canGoForward: Bool { routeCursor < routeHistory.count - 1 }
+
     /// Called when a node is requested to be opened (e.g. via double tap or context menu).
     func openNode(_ id: String) {
-        // Find the node to determine its type and dispatch to the right route.
         guard let node = store.nodes[id] else { return }
-        
+
         switch node.type {
         case .folder:
             openFolder(id)
         default:
-            // For now, map all content/document nodes to the note route
             if let sourceId = node.sourceId, !sourceId.isEmpty {
                 openNote(sourceId)
             } else {
-                openNote(id) // Missing source ID fallback to the node ID
+                openNote(id)
             }
         }
     }
 
     func openNote(_ sourceId: String) {
-        currentRoute = .note(id: sourceId)
+        pushRoute(.note(id: sourceId))
     }
 
     func openFolder(_ id: String) {
-        currentRoute = .folder(id: id)
+        pushRoute(.folder(id: id))
     }
 
     func returnToCanvas() {
-        currentRoute = .canvas
+        pushRoute(.canvas)
+    }
+
+    func goBack() {
+        guard canGoBack else { return }
+        routeCursor -= 1
+        NotificationCenter.default.post(name: .graphRouteDidChange, object: self)
+    }
+
+    func goForward() {
+        guard canGoForward else { return }
+        routeCursor += 1
+        NotificationCenter.default.post(name: .graphRouteDidChange, object: self)
+    }
+
+    private func pushRoute(_ route: GraphWorkspaceRoute) {
+        if routeHistory[routeCursor] == route { return }
+        if routeCursor < routeHistory.count - 1 {
+            routeHistory.removeSubrange((routeCursor + 1)...)
+        }
+        routeHistory.append(route)
+        routeCursor = routeHistory.count - 1
+        NotificationCenter.default.post(name: .graphRouteDidChange, object: self)
     }
 
     private static let visualThemeDefaultsKey = "graphVisualTheme"
