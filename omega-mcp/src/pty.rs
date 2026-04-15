@@ -561,9 +561,19 @@ pub enum PtyError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, MutexGuard, OnceLock};
+
+    fn test_guard() -> MutexGuard<'static, ()> {
+        static TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+        TEST_MUTEX
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("pty test mutex poisoned")
+    }
 
     #[test]
     fn test_pty_spawn_and_execute() {
+        let _guard = test_guard();
         let pty_id = PtyPool::spawn("test-exec-1", PtyConfig::default())
             .expect("spawn failed");
 
@@ -589,6 +599,7 @@ mod tests {
 
     #[test]
     fn test_pty_working_dir_persistence() {
+        let _guard = test_guard();
         let pty_id = PtyPool::spawn("test-exec-2", PtyConfig::default())
             .expect("spawn failed");
 
@@ -610,6 +621,7 @@ mod tests {
 
     #[test]
     fn test_pty_timeout() {
+        let _guard = test_guard();
         let pty_id = PtyPool::spawn("test-exec-3", PtyConfig::default())
             .expect("spawn failed");
 
@@ -625,6 +637,7 @@ mod tests {
 
     #[test]
     fn test_pty_cleanup() {
+        let _guard = test_guard();
         let pty_id = PtyPool::spawn("test-exec-4", PtyConfig::default())
             .expect("spawn failed");
 
@@ -637,6 +650,7 @@ mod tests {
 
     #[test]
     fn test_close_all_for_session() {
+        let _guard = test_guard();
         let id1 = PtyPool::spawn("test-exec-5", PtyConfig::default())
             .expect("spawn 1 failed");
         let id2 = PtyPool::spawn("test-exec-5", PtyConfig::default())
@@ -656,6 +670,7 @@ mod tests {
 
     #[test]
     fn test_strip_ansi() {
+        let _guard = test_guard();
         let input = "\x1b[?2004lhello\x1b[0m world\r\n";
         let clean = strip_ansi(input);
         assert_eq!(clean, "hello world\n");
@@ -663,6 +678,7 @@ mod tests {
 
     #[test]
     fn test_extract_working_dir_ignores_echoed_marker() {
+        let _guard = test_guard();
         let clean = r#"pwd
 __eec=$?; echo "__EPSENT123__0"; echo "__EPPWD__$(pwd)"
 /tmp

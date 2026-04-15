@@ -122,6 +122,43 @@ private struct LaunchIntegrityGateView<Content: View>: View {
     }
 }
 
+enum SavedApplicationStatePurger {
+    private static let log = Logger(subsystem: "com.epistemos", category: "SavedApplicationState")
+
+    static func purgeIfNeeded(bundleIdentifier: String? = Bundle.main.bundleIdentifier) {
+        guard let bundleIdentifier, !bundleIdentifier.isEmpty else { return }
+        let fileManager = FileManager.default
+
+        for directory in candidateDirectories(for: bundleIdentifier) {
+            guard fileManager.fileExists(atPath: directory.path) else { continue }
+            do {
+                try fileManager.removeItem(at: directory)
+            } catch {
+                log.error(
+                    "Failed to remove saved state directory \(directory.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+    }
+
+    private static func candidateDirectories(for bundleIdentifier: String) -> [URL] {
+        var directories: [URL] = [
+            URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+                .appendingPathComponent("\(bundleIdentifier).savedState", isDirectory: true)
+        ]
+
+        if let libraryDirectory = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {
+            directories.append(
+                libraryDirectory
+                    .appendingPathComponent("Saved Application State", isDirectory: true)
+                    .appendingPathComponent("\(bundleIdentifier).savedState", isDirectory: true)
+            )
+        }
+
+        return directories
+    }
+}
+
 // MetricKit calls didReceive(_:) on com.apple.metrickit.manager.queue, NOT the
 // main actor. The entire class is nonisolated — it only does file I/O, no UI.
 // Using @unchecked Sendable because NSObject subclass with internal
@@ -497,6 +534,7 @@ struct EpistemosApp: App {
     @AppStorage("epistemos.setupComplete") private var setupComplete = false
 
     init() {
+        SavedApplicationStatePurger.purgeIfNeeded()
         if !Self.isRunningTests {
             CrashReportCollector.shared.startCollecting()
             RuntimeDiagnostics.logStorageLocations()
@@ -590,6 +628,7 @@ struct EpistemosApp: App {
                     }
             }
         }
+        .restorationBehavior(.disabled)
         .defaultSize(width: 1100, height: 720)
         .windowResizability(.contentSize)
         .modelContainer(bootstrap.modelContainer)
@@ -651,6 +690,10 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         Task { @MainActor in
             NSApp.windows.forEach(Self.applyMainWindowPolicyIfNeeded(to:))
         }
+    }
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        SavedApplicationStatePurger.purgeIfNeeded()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -718,7 +761,9 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         bootstrap.activityTracker.flushToDisk()
         bootstrap.workspaceSummaryService.stopAutoSummaryLoop()
         bootstrap.workspaceService.stopAutoSave()
-        bootstrap.workspaceService.autoSave()
+        if !bootstrap.workspaceService.consumeSkipAutoSaveRequest() {
+            bootstrap.workspaceService.autoSave()
+        }
         bootstrap.vaultSync.stopWatching(preserveData: true)
         StatusBar.shared.remove()
         HologramController.shared.teardown()
@@ -729,7 +774,10 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 
     @MainActor
     private static func applyMainWindowPolicyIfNeeded(to window: NSWindow) {
-        guard window.title == "Epistemos" else { return }
+        guard HomeWindowIdentity.matches(window) else { return }
+        if window.isRestorable {
+            window.isRestorable = false
+        }
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
     }
 
@@ -749,11 +797,8 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
 
         await MainActor.run {
-            NSApp.activate(ignoringOtherApps: true)
             AppBootstrap.shared?.loadChat(chatId: chatId)
-            if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                main.makeKeyAndOrderFront(nil)
-            }
+            HomeWindowIdentity.surfaceHomeWindow()
         }
     }
 
@@ -774,6 +819,20 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         miniChat.target = self
         menu.addItem(miniChat)
 
+        menu.addItem(.separator())
+
+        let skipRestore = NSMenuItem(
+            title: "Skip Restore and Relaunch Home",
+            action: #selector(dockSkipRestoreAndRelaunch),
+            keyEquivalent: ""
+        )
+        skipRestore.image = NSImage(
+            systemSymbolName: "arrow.clockwise.circle",
+            accessibilityDescription: "Skip Restore and Relaunch Home"
+        )
+        skipRestore.target = self
+        menu.addItem(skipRestore)
+
         return menu
     }
 
@@ -790,6 +849,12 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     @objc private func dockMiniChat() {
         Task { @MainActor in
             MiniChatWindowController.shared.openNewChat()
+        }
+    }
+
+    @objc private func dockSkipRestoreAndRelaunch() {
+        Task { @MainActor in
+            AppBootstrap.shared?.relaunchSkippingRestoreAndDiscardSession()
         }
     }
 }
@@ -831,10 +896,7 @@ struct EpistemosCommands: Commands {
                 chat.goHome()
                 ui.homeTab = .home
                 ui.setActivePanel(.home)
-                NSApp.activate()
-                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                    main.makeKeyAndOrderFront(nil)
-                }
+                HomeWindowIdentity.surfaceHomeWindow()
             }
             .keyboardShortcut("1", modifiers: .command)
 
@@ -882,10 +944,7 @@ struct EpistemosCommands: Commands {
                 chat.goHome()
                 ui.setActivePanel(.home)
                 ui.homeTab = .home
-                NSApp.activate()
-                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                    main.makeKeyAndOrderFront(nil)
-                }
+                HomeWindowIdentity.surfaceHomeWindow()
             }
             .keyboardShortcut("h", modifiers: .command)
 

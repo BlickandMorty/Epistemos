@@ -130,6 +130,13 @@ final class MCPBridge {
         _ = dispatcher?.registerBuiltinTools()
     }
 
+    // MARK: - Agent Command Center
+
+    /// Tools grouped by agent for the Command Center inspector.
+    var toolsByAgent: [String: [OmegaToolDefinition]] {
+        Dictionary(grouping: OmegaToolRegistry.all, by: \.agent)
+    }
+
     // MARK: - Catalog Query
 
     /// Returns the built-in tool catalog from Rust as a JSON array.

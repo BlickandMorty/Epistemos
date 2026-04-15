@@ -1,6 +1,27 @@
 import Foundation
 import os
 
+nonisolated enum ToolSurfacePolicy {
+    /// User-facing tool surfaces must stay aligned with the runtime contract.
+    /// If the app cannot actually satisfy a capability today, the tool should
+    /// disappear from visible planning surfaces instead of being advertised and
+    /// then failing at runtime.
+    static func surfacedTools(_ tools: [OmegaToolDefinition]) -> [OmegaToolDefinition] {
+        tools.filter { isSurfacedToolName($0.name) }
+    }
+
+    static func isSurfacedToolName(_ toolName: String) -> Bool {
+        switch toolName {
+        case "image_generate":
+            return BackendRuntimeKind.allCases.contains {
+                BackendRuntimeCapabilities.runtime($0).supportsImageGenerate
+            }
+        default:
+            return true
+        }
+    }
+}
+
 /// Bridges the Rust `agent_core` tool tier system to Swift. This is the glue
 /// that lets normal chat modes (Fast / Thinking / Pro) call tools without
 /// running the full agent loop — they use a tier-filtered registry + a
@@ -70,11 +91,17 @@ nonisolated enum ChatToolTier: String, Sendable, CaseIterable {
 final class ToolTierBridge {
     private let vaultPath: String
     private let tier: ChatToolTier
+    private let allowedToolNames: Set<String>?
     private let logger = Logger(subsystem: "com.epistemos", category: "ToolTierBridge")
 
-    init(vaultPath: String, tier: ChatToolTier) {
+    init(
+        vaultPath: String,
+        tier: ChatToolTier,
+        allowedToolNames: Set<String>? = nil
+    ) {
         self.vaultPath = vaultPath
         self.tier = tier
+        self.allowedToolNames = allowedToolNames
     }
 
     /// Load the tier-filtered tool list as `OmegaToolDefinition` structs so
@@ -90,8 +117,17 @@ final class ToolTierBridge {
 
         #if canImport(agent_coreFFI)
         do {
-            let schemas = try listToolsForTier(vaultPath: vaultPath, tier: tier.rawValue)
-            return schemas.map { schema in
+            let schemas: [ToolSchemaFfi]
+            if let allowedToolNames {
+                schemas = try listToolsForTierFiltered(
+                    vaultPath: vaultPath,
+                    tier: tier.rawValue,
+                    allowedToolNames: Array(allowedToolNames).sorted()
+                )
+            } else {
+                schemas = try listToolsForTier(vaultPath: vaultPath, tier: tier.rawValue)
+            }
+            let tools = schemas.map { schema in
                 OmegaToolDefinition(
                     name: schema.name,
                     agent: "rust",
@@ -102,6 +138,7 @@ final class ToolTierBridge {
                     requiresConfirmation: schema.riskLevel == "destructive"
                 )
             }
+            return ToolSurfacePolicy.surfacedTools(tools)
         } catch {
             logger.warning("Tool list fetch failed: \(error.localizedDescription, privacy: .public)")
             return []
@@ -117,12 +154,14 @@ final class ToolTierBridge {
     func toolExecutor() -> LocalAgentToolExecutor {
         let path = self.vaultPath
         let tierRaw = self.tier.rawValue
+        let allowlist = self.allowedToolNames.map { Array($0).sorted() }
         return { @Sendable name, argumentsJson in
             await Self.executeToolCallBridged(
                 vaultPath: path,
                 tier: tierRaw,
                 toolName: name,
-                inputJson: argumentsJson
+                inputJson: argumentsJson,
+                allowedToolNames: allowlist
             )
         }
     }
@@ -134,16 +173,28 @@ final class ToolTierBridge {
         vaultPath: String,
         tier: String,
         toolName: String,
-        inputJson: String
+        inputJson: String,
+        allowedToolNames: [String]?
     ) async -> LocalToolResult {
         #if canImport(agent_coreFFI)
         do {
-            let result = try await executeToolCall(
-                vaultPath: vaultPath,
-                tier: tier,
-                toolName: toolName,
-                inputJson: inputJson
-            )
+            let result: ToolExecutionResultFfi
+            if let allowedToolNames {
+                result = try await executeToolCallFiltered(
+                    vaultPath: vaultPath,
+                    tier: tier,
+                    toolName: toolName,
+                    inputJson: inputJson,
+                    allowedToolNames: allowedToolNames
+                )
+            } else {
+                result = try await executeToolCall(
+                    vaultPath: vaultPath,
+                    tier: tier,
+                    toolName: toolName,
+                    inputJson: inputJson
+                )
+            }
             if result.success {
                 return LocalToolResult(
                     toolName: toolName,

@@ -29,7 +29,9 @@ fi
 mkdir -p ../build-rust
 rm -f ../build-rust/libomega_ax.a
 rm -f ../build-rust/libomega_ax.dylib
-lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output ../build-rust/libomega_ax.dylib
+TEMP_OUTPUT="$(mktemp ../build-rust/libomega_ax.XXXXXX.dylib)"
+lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output "$TEMP_OUTPUT"
+mv -f "$TEMP_OUTPUT" ../build-rust/libomega_ax.dylib
 install_name_tool -id "@rpath/libomega_ax.dylib" ../build-rust/libomega_ax.dylib
 
 if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ]; then

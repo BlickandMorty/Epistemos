@@ -182,17 +182,17 @@ nonisolated enum AgentHierarchyTopology {
 }
 
 private extension HierarchicalAgentMessage {
-    static func trimmed(_ value: String) -> String {
+    nonisolated static func trimmed(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func trimmedOrNil(_ value: String?) -> String? {
+    nonisolated static func trimmedOrNil(_ value: String?) -> String? {
         guard let value else { return nil }
         let trimmed = trimmed(value)
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    static func uniqueTrimmedStrings(_ values: [String]) -> [String] {
+    nonisolated static func uniqueTrimmedStrings(_ values: [String]) -> [String] {
         var seen = Set<String>()
         var result: [String] = []
         for value in values.map(trimmed) where !value.isEmpty {

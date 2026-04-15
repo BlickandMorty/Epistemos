@@ -35,6 +35,7 @@ protocol AgentStreamEventDelegate: AnyObject, Sendable {
     func startScreenWatch(watchJson: String) -> String
     func manageSsmState(actionJson: String) -> String
     func generateConstrained(prompt: String, grammarJson: String) -> String
+    func generateImage(prompt: String, aspectRatio: String) -> String
     func triggerNightbrainJob(jobType: String, priority: String) -> String
     func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String
 }
@@ -46,6 +47,12 @@ struct ToolConfig: Sendable {
     /// Tool tier: "none" | "chat_lite" | "chat_pro" | "agent" | "full".
     /// nil is treated as "agent" by the Rust side.
     let toolTier: String?
+    /// Explicit per-tool allowlist. When non-nil, the Rust tool registry will
+    /// ONLY surface / execute tools whose names are in this list (intersected
+    /// with the tier). nil means tier is the only gate — backward compatible
+    /// with callers that don't know about per-tool toggles. Phase 5 authority:
+    /// populated by CommandCenterRequestCompiler from the ACC toggle state.
+    let allowedToolNames: [String]?
 }
 
 struct ToolSchemaFFI: Sendable {
@@ -558,6 +565,33 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
         }
         // Constrained decoding can take a while on big prompts — wait up to
         // five minutes before giving up.
+        _ = semaphore.wait(timeout: .now() + 300)
+        return result.get()
+    }
+
+    /// Phase 6 Specialty C3: MLX-first image generation per PLAN_V2 §5.1
+    /// and §16. Routes through `MLXImageGenerationService` which owns the
+    /// Apple-native flux.swift / MLXDiffusers integration when configured.
+    /// Returns an explicit `{"error": ..., "hint": ...}` envelope when
+    /// MLX Flux is not yet wired — the Rust side surfaces this as a tool
+    /// error, callers can then opt into FAL by passing `provider: "fal"`.
+    /// There is no silent cloud escalation (PLAN_V2 §3.4).
+    func generateImage(prompt: String, aspectRatio: String) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = LockedStringBox(
+            "{\"error\":\"image_generate bridge unavailable\"}"
+        )
+        Task { @MainActor in
+            let payload = await MLXImageGenerationService.shared.generate(
+                prompt: prompt,
+                aspectRatio: aspectRatio
+            )
+            result.set(payload)
+            semaphore.signal()
+        }
+        // MLX Flux inference can take a while on larger prompts / aspect
+        // ratios — wait up to five minutes before giving up, matching the
+        // constrained decoding timeout.
         _ = semaphore.wait(timeout: .now() + 300)
         return result.get()
     }

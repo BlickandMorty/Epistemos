@@ -913,6 +913,44 @@ These are longer-term features from the Gemini brainstorm that elevate Epistemos
 - **Dependencies:** Wave 2.2 (AppCoordinator), Wave 14.1 (local AI), Wave 21.3b (Windows native AI for Retro)
 - **Status:** [ ] NOT STARTED
 
+### 14.2a Agent Command Center (Delegation Home)
+- **Priority:** P5
+- **Source:** UX synthesis inspired by Cursor composer, Antigravity, and the Epistemos agent architecture plan
+- **Description:** Add a dedicated Agent Command Center to the landing/home surface so agentic delegation has an explicit, premium-native entry point instead of relying on a blank-canvas mental model.
+- **Migration rule:** Advanced agentic controls that already live in the main chat surface should move into this dedicated Agent home rather than being duplicated. Main chat remains the lightweight conversational entry; the Agent home becomes the full control surface.
+- **UX Shape:**
+  - Dedicated Agent home reachable from a fourth top-toolbar icon in the Home / landing toolbar alongside the existing top controls
+  - Global shortcut to summon the agent layer instantly
+  - Dimmed background + liquid-glass overlay with a centered floating command bar
+  - `/` opens a floating suggestion box for:
+    - modes such as ask / debug / plan / research / review
+    - commands such as read-branch / summarize / explain / review
+    - skills from the local skill registry
+    - model / brain switching
+    - MCP server and tool presets
+  - `@` opens explicit context selectors such as current graph, all notes, folders, apps, or workspace scopes
+  - Inline capsule toggles enable or restrict MCP servers, tools, and capabilities for the current request
+  - Inline "brain" selector swaps the active reasoning provider/model while preserving native Epistemos styling
+  - Right-side inspector panel shows summary / review / plan state, attached context, enabled skills/tools/MCP servers, selected brain, and live run diagnostics
+  - The Agent home owns the full advanced stack currently spread through agent-capable chat surfaces:
+    - plan mode
+    - model / brain picker
+    - slash commands
+    - skill selection
+    - MCP / tool toggles
+    - plan / review / summary side panel
+  - UX and interaction references should study Cursor, Antigravity, and OpenCode, then translate those affordances into a native Epistemos command center
+- **State / Architecture Requirements:**
+  - New `@Observable` `AgentCommandCenterState`
+  - Keybind routing through app environment / event monitoring without destroying current editor selection
+  - Reusable low-latency suggestion menu / popover engine for slash commands and mentions
+  - Token-aware command parser that can normalize free text + slash commands + mentions + provider selection + tool restrictions into one request draft
+  - Direct wiring of capability pills to Rust orchestration, MCP dispatcher, and tool registry
+  - Right-side panel state model with execution preview and live run state
+  - Clear separation between authoring mode and delegating mode
+- **Dependencies:** Wave 14.2 (Autonomous Agents), landing/navigation infrastructure, MCP dispatcher wiring
+- **Status:** [ ] NOT STARTED
+
 ### 14.3 Research Mode 2.0 (Lucid Lens)
 - **Priority:** P5
 - **Source:** Gemini backlog #3

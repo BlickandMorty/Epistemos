@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 nonisolated enum ChannelIdentity: String, CaseIterable, Codable, Identifiable, Sendable {
     case imessage
@@ -206,6 +207,7 @@ private nonisolated struct ChannelRegistrySnapshot: Codable, Sendable {
 @MainActor @Observable
 final class ChannelRegistryState {
     private static let storageKey = "epistemos.channelRegistry.v1"
+    private let logger = Logger(subsystem: "com.epistemos", category: "ChannelRegistry")
 
     var driverChannel: ChannelIdentity {
         didSet { persist() }
@@ -214,6 +216,8 @@ final class ChannelRegistryState {
     var channels: [ChannelConfiguration] {
         didSet { persist() }
     }
+
+    private(set) var lastFallbackEvent: DriverChannelFallbackEvent?
 
     private let userDefaults: UserDefaults
 
@@ -264,7 +268,12 @@ final class ChannelRegistryState {
                configuration.pairingMetadata?.enableNativeFallback == true {
                 return FallbackDriverChannelAdapter(
                     primary: relayAdapter,
-                    fallback: IMessageChannelAdapter()
+                    fallback: IMessageChannelAdapter(),
+                    onFallback: { [weak self] event in
+                        Task { @MainActor [weak self] in
+                            self?.recordFallbackEvent(event)
+                        }
+                    }
                 )
             }
             return relayAdapter
@@ -288,6 +297,13 @@ final class ChannelRegistryState {
                 recipientEmail: configuration.threadLocator.defaultRecipient
             )
         }
+    }
+
+    private func recordFallbackEvent(_ event: DriverChannelFallbackEvent) {
+        lastFallbackEvent = event
+        logger.notice(
+            "Channel fallback activated for \(event.channelID, privacy: .public) op=\(event.operation.rawValue, privacy: .public) primary=\(event.primaryDisplayName, privacy: .public) fallback=\(event.fallbackDisplayName, privacy: .public) reason=\(event.errorDescription, privacy: .public)"
+        )
     }
 
     func makeSendToolCall(

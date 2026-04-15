@@ -334,7 +334,7 @@ final class LiveNoteSchedulerService {
         defer { isRunning = false }
 
         let context = ModelContext(container)
-        let tasks = scanner.scanForLiveNotes(context: context)
+        let tasks = await scanner.scanForLiveNotes(modelContainer: container)
         let dueTasks = tasks.filter { scanner.isDue($0) }
 
         guard !dueTasks.isEmpty else { return }

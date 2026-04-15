@@ -280,7 +280,11 @@ struct OutlineParser {
               let nameRange = Range(match.range(at: 1), in: line) else {
             return nil
         }
-        return String(line[nameRange]).trimmingCharacters(in: .whitespaces)
+        let rawName = String(line[nameRange]).trimmingCharacters(in: .whitespaces)
+        let cleanedName = rawName
+            .replacingOccurrences(of: #"\s*\{\s*$"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        return cleanedName.isEmpty ? nil : cleanedName
     }
 
     private static func parseRustSymbol(line: String, lineNumber: Int, indentLevel: Int) -> OutlineItem? {

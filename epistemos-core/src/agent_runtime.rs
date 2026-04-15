@@ -638,6 +638,283 @@ impl AgentProvider for ScaffoldProvider {
     }
 }
 
+// ── Phase 4: Agent Budget Ledger ────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgentBudgetLimits {
+    pub max_tokens: u64,
+    pub max_wall_ms: u64,
+    pub max_recursion_depth: u32,
+    pub max_child_agents: u32,
+    pub max_review_rounds: u32,
+}
+
+impl Default for AgentBudgetLimits {
+    fn default() -> Self {
+        Self {
+            max_tokens: 50_000,
+            max_wall_ms: 120_000,
+            max_recursion_depth: 3,
+            max_child_agents: 5,
+            max_review_rounds: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BudgetDimension {
+    Tokens,
+    WallClock,
+    RecursionDepth,
+    ChildAgents,
+    ReviewRounds,
+}
+
+impl BudgetDimension {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Tokens => "tokens",
+            Self::WallClock => "wall_clock",
+            Self::RecursionDepth => "recursion_depth",
+            Self::ChildAgents => "child_agents",
+            Self::ReviewRounds => "review_rounds",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BudgetCheckResult {
+    WithinBudget,
+    Exhausted(String),
+}
+
+#[derive(Debug)]
+pub struct AgentBudgetLedger {
+    limits: AgentBudgetLimits,
+    tokens_spent: Mutex<u64>,
+    wall_ms_spent: Mutex<u64>,
+    recursion_depth: Mutex<u32>,
+    child_agent_count: Mutex<u32>,
+    review_round_count: Mutex<u32>,
+}
+
+impl AgentBudgetLedger {
+    pub fn new(limits: AgentBudgetLimits) -> Self {
+        Self {
+            limits,
+            tokens_spent: Mutex::new(0),
+            wall_ms_spent: Mutex::new(0),
+            recursion_depth: Mutex::new(0),
+            child_agent_count: Mutex::new(0),
+            review_round_count: Mutex::new(0),
+        }
+    }
+
+    pub fn record_tokens(&self, count: u64) {
+        if let Ok(mut spent) = self.tokens_spent.lock() {
+            *spent = spent.saturating_add(count);
+        }
+    }
+
+    pub fn record_wall_ms(&self, ms: u64) {
+        if let Ok(mut spent) = self.wall_ms_spent.lock() {
+            *spent = spent.saturating_add(ms);
+        }
+    }
+
+    pub fn record_recursion_depth(&self, depth: u32) {
+        if let Ok(mut d) = self.recursion_depth.lock() {
+            *d = depth;
+        }
+    }
+
+    pub fn record_child_agent(&self) {
+        if let Ok(mut count) = self.child_agent_count.lock() {
+            *count = count.saturating_add(1);
+        }
+    }
+
+    pub fn record_review_round(&self) {
+        if let Ok(mut count) = self.review_round_count.lock() {
+            *count = count.saturating_add(1);
+        }
+    }
+
+    pub fn check(&self, dimension: BudgetDimension) -> BudgetCheckResult {
+        match dimension {
+            BudgetDimension::Tokens => {
+                let spent = self.tokens_spent.lock().map(|v| *v).unwrap_or(0);
+                if spent >= self.limits.max_tokens {
+                    BudgetCheckResult::Exhausted(format!(
+                        "token budget exhausted: {spent}/{}", self.limits.max_tokens
+                    ))
+                } else {
+                    BudgetCheckResult::WithinBudget
+                }
+            }
+            BudgetDimension::WallClock => {
+                let spent = self.wall_ms_spent.lock().map(|v| *v).unwrap_or(0);
+                if spent >= self.limits.max_wall_ms {
+                    BudgetCheckResult::Exhausted(format!(
+                        "wall-clock budget exhausted: {spent}ms/{}ms", self.limits.max_wall_ms
+                    ))
+                } else {
+                    BudgetCheckResult::WithinBudget
+                }
+            }
+            BudgetDimension::RecursionDepth => {
+                let depth = self.recursion_depth.lock().map(|v| *v).unwrap_or(0);
+                if depth >= self.limits.max_recursion_depth {
+                    BudgetCheckResult::Exhausted(format!(
+                        "recursion depth exhausted: {depth}/{}", self.limits.max_recursion_depth
+                    ))
+                } else {
+                    BudgetCheckResult::WithinBudget
+                }
+            }
+            BudgetDimension::ChildAgents => {
+                let count = self.child_agent_count.lock().map(|v| *v).unwrap_or(0);
+                if count >= self.limits.max_child_agents {
+                    BudgetCheckResult::Exhausted(format!(
+                        "child agent limit reached: {count}/{}", self.limits.max_child_agents
+                    ))
+                } else {
+                    BudgetCheckResult::WithinBudget
+                }
+            }
+            BudgetDimension::ReviewRounds => {
+                let count = self.review_round_count.lock().map(|v| *v).unwrap_or(0);
+                if count >= self.limits.max_review_rounds {
+                    BudgetCheckResult::Exhausted(format!(
+                        "review round limit reached: {count}/{}", self.limits.max_review_rounds
+                    ))
+                } else {
+                    BudgetCheckResult::WithinBudget
+                }
+            }
+        }
+    }
+
+    pub fn check_all(&self) -> BudgetCheckResult {
+        for dim in [
+            BudgetDimension::Tokens,
+            BudgetDimension::WallClock,
+            BudgetDimension::RecursionDepth,
+            BudgetDimension::ChildAgents,
+            BudgetDimension::ReviewRounds,
+        ] {
+            let result = self.check(dim);
+            if result != BudgetCheckResult::WithinBudget {
+                return result;
+            }
+        }
+        BudgetCheckResult::WithinBudget
+    }
+
+    pub fn snapshot(&self) -> AgentBudgetSnapshot {
+        AgentBudgetSnapshot {
+            tokens_spent: self.tokens_spent.lock().map(|v| *v).unwrap_or(0),
+            wall_ms_spent: self.wall_ms_spent.lock().map(|v| *v).unwrap_or(0),
+            recursion_depth: self.recursion_depth.lock().map(|v| *v).unwrap_or(0),
+            child_agent_count: self.child_agent_count.lock().map(|v| *v).unwrap_or(0),
+            review_round_count: self.review_round_count.lock().map(|v| *v).unwrap_or(0),
+            max_tokens: self.limits.max_tokens,
+            max_wall_ms: self.limits.max_wall_ms,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgentBudgetSnapshot {
+    pub tokens_spent: u64,
+    pub wall_ms_spent: u64,
+    pub recursion_depth: u32,
+    pub child_agent_count: u32,
+    pub review_round_count: u32,
+    pub max_tokens: u64,
+    pub max_wall_ms: u64,
+}
+
+// ── Phase 4: Agent Audit Log ────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AgentAuditEntry {
+    pub message_id: String,
+    pub task_id: String,
+    pub sender_role: String,
+    pub sender_id: String,
+    pub recipient_role: String,
+    pub recipient_id: String,
+    pub message_type: String,
+    pub purpose: String,
+    pub confidence: Option<f64>,
+    pub token_cost: u64,
+    pub wall_ms: u64,
+    pub changed_result: bool,
+    pub timestamp: String,
+}
+
+#[derive(Debug)]
+pub struct AgentAuditLog {
+    entries: Mutex<Vec<AgentAuditEntry>>,
+}
+
+impl AgentAuditLog {
+    pub fn new() -> Self {
+        Self {
+            entries: Mutex::new(Vec::new()),
+        }
+    }
+
+    pub fn record(&self, entry: AgentAuditEntry) {
+        if let Ok(mut entries) = self.entries.lock() {
+            entries.push(entry);
+        }
+    }
+
+    pub fn entries(&self) -> Vec<AgentAuditEntry> {
+        self.entries.lock().map(|e| e.clone()).unwrap_or_default()
+    }
+
+    pub fn entry_count(&self) -> usize {
+        self.entries.lock().map(|e| e.len()).unwrap_or(0)
+    }
+
+    pub fn total_token_cost(&self) -> u64 {
+        self.entries
+            .lock()
+            .map(|e| e.iter().map(|entry| entry.token_cost).sum())
+            .unwrap_or(0)
+    }
+
+    pub fn entries_for_task(&self, task_id: &str) -> Vec<AgentAuditEntry> {
+        self.entries
+            .lock()
+            .map(|e| {
+                e.iter()
+                    .filter(|entry| entry.task_id == task_id)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn persist_jsonl(&self, path: &std::path::Path) -> Result<(), std::io::Error> {
+        let entries = self.entries();
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
+        let mut writer = std::io::BufWriter::new(file);
+        for entry in &entries {
+            if let Ok(json) = serde_json::to_string(entry) {
+                writeln!(writer, "{}", json)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -892,5 +1169,162 @@ mod tests {
         });
 
         format!("http://{}", address)
+    }
+
+    // ── Phase 4: Budget Ledger Tests ────────────────────────────────────
+
+    #[test]
+    fn budget_ledger_tracks_token_spend() {
+        let ledger = AgentBudgetLedger::new(AgentBudgetLimits {
+            max_tokens: 100,
+            ..Default::default()
+        });
+        ledger.record_tokens(50);
+        assert_eq!(ledger.check(BudgetDimension::Tokens), BudgetCheckResult::WithinBudget);
+        ledger.record_tokens(60);
+        assert!(matches!(
+            ledger.check(BudgetDimension::Tokens),
+            BudgetCheckResult::Exhausted(_)
+        ));
+    }
+
+    #[test]
+    fn budget_ledger_tracks_wall_clock() {
+        let ledger = AgentBudgetLedger::new(AgentBudgetLimits {
+            max_wall_ms: 1000,
+            ..Default::default()
+        });
+        ledger.record_wall_ms(500);
+        assert_eq!(ledger.check(BudgetDimension::WallClock), BudgetCheckResult::WithinBudget);
+        ledger.record_wall_ms(600);
+        assert!(matches!(
+            ledger.check(BudgetDimension::WallClock),
+            BudgetCheckResult::Exhausted(_)
+        ));
+    }
+
+    #[test]
+    fn budget_ledger_enforces_recursion_depth() {
+        let ledger = AgentBudgetLedger::new(AgentBudgetLimits {
+            max_recursion_depth: 2,
+            ..Default::default()
+        });
+        ledger.record_recursion_depth(1);
+        assert_eq!(ledger.check(BudgetDimension::RecursionDepth), BudgetCheckResult::WithinBudget);
+        ledger.record_recursion_depth(3);
+        assert!(matches!(
+            ledger.check(BudgetDimension::RecursionDepth),
+            BudgetCheckResult::Exhausted(_)
+        ));
+    }
+
+    #[test]
+    fn budget_ledger_enforces_child_agent_limit() {
+        let ledger = AgentBudgetLedger::new(AgentBudgetLimits {
+            max_child_agents: 2,
+            ..Default::default()
+        });
+        ledger.record_child_agent();
+        ledger.record_child_agent();
+        assert!(matches!(
+            ledger.check(BudgetDimension::ChildAgents),
+            BudgetCheckResult::Exhausted(_)
+        ));
+    }
+
+    #[test]
+    fn budget_ledger_check_all_returns_first_exhaustion() {
+        let ledger = AgentBudgetLedger::new(AgentBudgetLimits {
+            max_tokens: 10,
+            max_wall_ms: 100_000,
+            ..Default::default()
+        });
+        ledger.record_tokens(20);
+        let result = ledger.check_all();
+        assert!(matches!(result, BudgetCheckResult::Exhausted(_)));
+    }
+
+    #[test]
+    fn budget_ledger_snapshot_reflects_state() {
+        let ledger = AgentBudgetLedger::new(AgentBudgetLimits::default());
+        ledger.record_tokens(42);
+        ledger.record_wall_ms(100);
+        let snap = ledger.snapshot();
+        assert_eq!(snap.tokens_spent, 42);
+        assert_eq!(snap.wall_ms_spent, 100);
+    }
+
+    // ── Phase 4: Audit Log Tests ────────────────────────────────────────
+
+    #[test]
+    fn audit_log_records_entries() {
+        let log = AgentAuditLog::new();
+        log.record(AgentAuditEntry {
+            message_id: "msg-1".into(),
+            task_id: "task-1".into(),
+            sender_role: "overseer".into(),
+            sender_id: "os-1".into(),
+            recipient_role: "main_agent".into(),
+            recipient_id: "agent-1".into(),
+            message_type: "instruction".into(),
+            purpose: "plan next step".into(),
+            confidence: Some(0.9),
+            token_cost: 100,
+            wall_ms: 50,
+            changed_result: true,
+            timestamp: "2026-04-13T12:00:00Z".into(),
+        });
+        assert_eq!(log.entry_count(), 1);
+        assert_eq!(log.total_token_cost(), 100);
+    }
+
+    #[test]
+    fn audit_log_filters_by_task() {
+        let log = AgentAuditLog::new();
+        for i in 0..3 {
+            log.record(AgentAuditEntry {
+                message_id: format!("msg-{i}"),
+                task_id: if i < 2 { "task-a".into() } else { "task-b".into() },
+                sender_role: "overseer".into(),
+                sender_id: "os".into(),
+                recipient_role: "main_agent".into(),
+                recipient_id: "ag".into(),
+                message_type: "instruction".into(),
+                purpose: "test".into(),
+                confidence: None,
+                token_cost: 10,
+                wall_ms: 5,
+                changed_result: false,
+                timestamp: "2026-04-13T12:00:00Z".into(),
+            });
+        }
+        assert_eq!(log.entries_for_task("task-a").len(), 2);
+        assert_eq!(log.entries_for_task("task-b").len(), 1);
+    }
+
+    #[test]
+    fn audit_log_persists_to_jsonl() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("audit.jsonl");
+        let log = AgentAuditLog::new();
+        log.record(AgentAuditEntry {
+            message_id: "msg-persist".into(),
+            task_id: "task-persist".into(),
+            sender_role: "overseer".into(),
+            sender_id: "os".into(),
+            recipient_role: "main_agent".into(),
+            recipient_id: "ag".into(),
+            message_type: "instruction".into(),
+            purpose: "persist test".into(),
+            confidence: Some(0.8),
+            token_cost: 50,
+            wall_ms: 25,
+            changed_result: true,
+            timestamp: "2026-04-13T12:00:00Z".into(),
+        });
+        log.persist_jsonl(&path).expect("persist should succeed");
+        let content = fs::read_to_string(&path).expect("read file");
+        assert!(content.contains("msg-persist"));
+        assert!(content.contains("task-persist"));
     }
 }

@@ -107,7 +107,68 @@ User-facing surfaces:
 - notes
 - graph
 - code/editor
+- agent command center
 - future image and voice panels
+
+#### Agent Command Center
+The interface layer should expose a dedicated Agent Command Center rather than hiding agentic delegation behind a blank landing canvas.
+
+Purpose:
+- make agent capabilities discoverable
+- separate authoring mode from delegating mode
+- provide a keyboard-first command surface for agent workflows
+- move advanced agentic controls out of the general main-chat surface and into one dedicated, inspectable home
+
+Interaction model:
+- a dedicated Agent home in the Home / landing surface, reachable from a fourth top-toolbar icon and a global shortcut
+- a global shortcut to summon the command surface instantly
+- a dimmed, receding background with a centered glass command bar
+- slash commands for modes, commands, skills, models, and tool presets
+- at-mentions for explicit context attachment
+- inline capability pills for MCP servers, tools, and runtime restrictions
+- an inline brain / provider selector that stays native to Epistemos rather than feeling like a generic web chat
+- a low-latency floating suggestion box that follows `/` and `@` input in real time
+- a right-side inspector panel for plan/review/summary, active context, enabled tools/skills, selected brain, and live execution state
+- the dedicated Agent home becomes the primary surface for advanced agent workflows that may already exist in main chat:
+  - model / brain picker
+  - plan mode
+  - review / summarize / debug modes
+  - slash-command invocation
+  - skill selection
+  - tool / MCP restriction toggles
+  - execution inspection and review panels
+
+Architectural requirements:
+- a dedicated `AgentCommandCenterState` as an `@Observable` Swift state object
+- keybind routing that can surface the command center without destroying current selection or editor context
+- a reusable low-latency suggestion menu engine for `/` and `@`
+- direct wiring from command-center capability toggles into the Rust control plane, MCP dispatcher, and tool registry
+- a token-aware input parser that can segment free text, slash commands, at-mentions, inline capability toggles, selected model/provider state, and task scope into a normalized command draft
+- a registry-backed suggestion source for:
+  - modes such as ask / debug / plan / research / review
+  - commands such as read-branch / summarize / review / explain
+  - skills discovered from local skill registries
+  - models / brains
+  - MCP servers
+  - local tools
+  - explicit context providers
+- a right-side panel state model that can render:
+  - current mode / command intent
+  - selected brain / provider
+  - attached contexts
+  - active skill, tool, and MCP restrictions
+  - execution preview / plan summary
+  - live run diagnostics or action stream when a task is executing
+- a full binding pipeline from SwiftUI command state into Rust request compilation so the UI is not cosmetic:
+  - slash / mention parsing happens in Swift
+  - the normalized request is compiled into a control-plane request
+  - Rust applies capability handshake, policy, MCP/tool restrictions, and routing truth
+  - execution state flows back into the right-side inspector and output surface
+- provider- and agent-aware output styling so different brains or local agents feel native and inspectable rather than like one generic chat stream
+- use Cursor, Antigravity, and OpenCode as interaction references, but translate them into an Apple-native Epistemos surface rather than copying web-chat styling directly
+- treat main chat as the lightweight conversational surface and the Agent home as the full agentic control surface, so the same controls are not duplicated across both places unless there is a deliberate minimal shortcut
+
+The command center is a user-facing delegation surface, not a second control plane. Rust still owns routing, policy, permissions, and runtime truth.
 
 ### 4.2 Knowledge Layer
 The knowledge substrate includes:
@@ -564,17 +625,29 @@ Do not use SSM for:
 
 ## 16. Visual / Multimodal Lane
 
-### Keep image generation in MLX
-That part stays.
+### Defer image generation for launch
+Image generation is not launch-critical for the notetaking / cognitive-OS wedge.
+The product-critical visual lane is vision understanding: screenshots, whiteboards,
+PDF pages, charts, OCR, and source-grounded analysis.
+
+MLX remains the future home for local image generation, but `image_generate`
+must not block Phase 6 closure or the launch loop while no real Flux / MLX
+Diffusion pipeline is wired.
 
 ### Update dependency preference
 Do not anchor long-term planning on DiffusionKit because it is archived. Prefer active MLX-Swift paths such as `flux.swift` and similar maintained Apple-native stacks.
 
 ### Default execution mode
-Image generation is:
-- sidecar
+When image generation returns, it is:
+- MLX sidecar first
 - sequential by default
 - not assumed to co-reside with main reasoning runtime
+- hidden from normal user-visible catalogs until the local runtime lane actually works
+- never silently rerouted to cloud
+
+Cloud image generation, if kept, is an explicit opt-in provider path only. FAL or
+other remote image providers may exist for manual/advanced use, but they do not
+make the MLX lane "complete" and must not be used as silent fallback.
 
 ## 17. Revised Phase Roadmap
 
@@ -644,8 +717,65 @@ Only if previous phases are stable:
 - workspace/profile ontology separation
 - OpenClaw-like executable workspace behavior
 - Hermes-like memory systems
+- dedicated Agent Command Center / agent home
 - multimodal sidecars
 - remote planner escalation with local guardrail preserved
+
+Phase 5 is a product-intelligence phase, not a runtime-identity rewrite.
+
+Rules:
+- do not reopen the runtime split unless a concrete regression is found
+- treat memory as explicit product state, not hidden model state
+- treat skills as explicit artifacts, not prompt soup or silent weight drift
+- treat workspace/profile separation as a permissions and namespace system, not only a UI grouping
+- treat the Agent Command Center as the explicit delegation UX layer, not as a replacement for the control plane
+- require the Agent Command Center to expose the full delegation stack visibly:
+  - slash-command discovery
+  - skill selection
+  - context attachment
+  - MCP/tool restrictions
+  - brain/provider selection
+  - right-side execution inspection
+- migrate advanced agent affordances that already exist in main chat into the dedicated Agent home rather than maintaining two competing full-featured agent surfaces
+- keep multimodal and remote extensions advisory, bounded, and inspectable
+
+### Phase 6 — Communication and media closure
+Deliver:
+- `send_message`
+- `vision_analyze`
+- `text_to_speech`
+- `imessage`
+- `imessage_contacts`
+- Swift channel registry / driver / settings integration
+- explicit tool tiering and permission gates
+- explicit failure for missing credentials, missing permissions, or unavailable runtimes
+- no silent local-to-cloud escalation
+- automated verification across Rust and Swift
+- manual runtime verification with safe test destinations and OS permissions
+
+Defer:
+- local MLX image generation runtime
+- user-visible `image_generate` catalog exposure
+
+Phase 6 is closed only when communication, vision analysis, speech output,
+iMessage routing, channel routing, automated tests, and manual runtime checks
+are all truthful and verified. Image generation is not a Phase 6 closure gate
+unless a real local MLX image pipeline is intentionally added.
+
+### Phase 6.5 — Capture-to-memory launch wedge
+After Phase 6 closure, prioritize the core Epistemos loop:
+
+- voice or quick capture
+- transcription
+- structured note generation
+- entity / task extraction
+- graph write path
+- source spans and evidence links
+- trace / replay records
+- optional follow-up actions through explicit tool gates
+
+This wedge matters more than image generation because it makes Epistemos feel
+like a local-first cognitive operating system rather than a generic AI workspace.
 
 ## 18. Persistent Memory and Skills
 
@@ -659,12 +789,29 @@ Add later:
 - source-linked memory objects
 - inspectable memory editing
 
+Persistent memory rules:
+- memory objects must be explicit records, not opaque latent state
+- every memory object must preserve provenance to notes, chats, files, or other source artifacts
+- memory hydrate must be selective and policy-bounded, not a blind replay of all prior state
+- memory consolidation must write structured, inspectable artifacts with timestamps and source links
+- memory editing, correction, deletion, and rollback must be first-class operations
+- no memory write may occur silently; important memory changes must be observable in telemetry or audit logs
+- semantic, episodic, and procedural memory must remain distinguishable at the data-model level
+
 ### Skills
 Add later:
 - skill capture from successful workflows
 - reusable recipes
 - workflow registry
 - task-conditioned skill retrieval
+
+Skill rules:
+- skills must be explicit registry objects, not hidden prompt fragments
+- every skill must retain provenance to the workflow, examples, or evidence that created it
+- skills should be versioned and auditable
+- skill retrieval must be task-conditioned and policy-aware
+- skill execution must respect workspace/profile permissions
+- no skill may silently mutate memory, policies, or runtimes outside approved pathways
 
 ### Goal
 Match or surpass Hermes by making memory:
@@ -674,6 +821,9 @@ Match or surpass Hermes by making memory:
 - editable
 - local-first
 - integrated with notes, code, and project structure
+
+The key product principle:
+- Epistemos memory should behave like editable knowledge artifacts, not a hidden subconscious
 
 ## 19. Workspace / Profile Ontology
 
@@ -687,6 +837,14 @@ Add later:
 - executable workspaces
 
 This is your OpenClaw-inspired path, but knowledge-first rather than gateway-first.
+
+Workspace/profile rules:
+- workspace boundaries must enforce memory namespaces, not only presentation boundaries
+- action permissions must be profile-scoped and inspectable
+- shared global memory must be explicit and intentionally bridged into profile-local views
+- profile-local memory must not leak silently across workspaces
+- executable workspaces must declare their allowed tools, sidecars, and escalation permissions
+- browser, system, code, and knowledge contexts should be separable so the user can reason about what each profile can see and do
 
 ## 20. Failure Modes and Guardrails
 
@@ -745,7 +903,7 @@ Non-negotiable truths:
 - Rust is the sole control-plane authority.
 - `gguf`, `mlx`, and later `remote` are sibling runtimes.
 - `gguf` owns primary local text generation.
-- `mlx` is permanent and owns embeddings, helper models, adaptation, image generation, and Apple-native auxiliary workloads.
+- `mlx` is permanent and owns embeddings, helper models, adaptation, future local image generation, and Apple-native auxiliary workloads.
 - No silent backend rerouting.
 - No runtime self-escalates to cloud.
 - No mid-generation backend switching.
@@ -783,7 +941,13 @@ Research placement:
 - TTT/LoRA = bounded MLX adaptation lane, not default main runtime behavior
 - MoE = selective specialization and expert budgeting
 - SSM/Mamba = memory compression helper lane
-- image generation = MLX sidecar mode
+- image generation = deferred MLX sidecar mode, hidden until real local runtime support exists
+
+Phase 5 product constraints:
+- persistent memory must be source-linked, editable, and reversible
+- skills must be explicit artifacts with provenance and versioning
+- workspace/profile ontology must enforce namespaces and permissions
+- multimodal and remote extensions must remain explicit, bounded, and observable
 
 Required specs beyond Backend Interface Spec v1:
 1. Capability Handshake Spec
@@ -796,3 +960,180 @@ Implementation rule:
 - keep GGUF primary for main reasoning
 - use explicit telemetry and fail closed
 - do not widen scope casually
+
+## 22. BoltFFI Hot-Path Migration Audit
+
+### 22.1 Intent
+Epistemos should move toward a BoltFFI-first native data plane wherever it
+creates real user-visible performance, latency, memory, or smoothness wins.
+
+This is not a mandate to rewrite every bridge for ideology. It is a mandate to
+audit every Swift/Rust boundary, measure cost, and migrate the surfaces where
+UniFFI, JSON-over-FFI, C FFI shims, or missing FFI boundaries are constraining
+the product.
+
+Preferred long-term direction:
+- BoltFFI for hot data planes
+- UniFFI only for cold control-plane calls where ergonomics matter more than throughput
+- XPC or process boundaries where isolation matters more than raw transfer speed
+- shared memory or chunked payload references for very large local payloads
+- no duplicate Swift control plane introduced during migration
+
+### 22.2 Non-negotiable rules
+- Rust remains the control-plane authority.
+- BoltFFI must not create a second routing, permission, or runtime decision layer in Swift.
+- No migration may remove explicit permission gates, telemetry, cancellation, or fail-closed behavior.
+- No hot-path optimization may hide unsupported capability, silently reroute backend, or widen cloud escalation.
+- Every migrated surface needs before/after benchmarks and parity tests.
+- Keep UniFFI where the call is low-frequency and type ergonomics are more valuable than raw throughput.
+- Prefer stable ABI structs, typed handles, borrowed buffers, and preallocated output buffers over JSON strings on hot paths.
+- Never pass large graph, transcript, embedding, screenshot, or agent-event payloads as repeatedly serialized JSON if a typed buffer or shared-memory path is feasible.
+
+### 22.3 Required audit scope
+Run a dedicated FFI audit across:
+
+- existing UniFFI exports in `agent_core`, `epistemos-core`, `omega-mcp`, and `omega-ax`
+- current C FFI graph-engine bridge surfaces
+- JSON-over-FFI calls such as command-center compile, tool execution results, session graphs, topology, and memory payloads
+- Swift-only hot paths that could benefit from moving computation or transfer into Rust
+- local Swift/Rust streaming paths for agents, tool calls, trace events, MCP payloads, graph updates, and capture pipelines
+- no-FFI surfaces where Swift is doing high-volume transformation that Rust could own more efficiently
+
+The audit output must classify every boundary as:
+- `keep_uniffi`
+- `boltffi_candidate`
+- `boltffi_priority`
+- `shared_memory_candidate`
+- `xpc_or_process_boundary`
+- `defer_no_measured_gain`
+
+### 22.4 Highest-priority BoltFFI candidates
+
+#### Graph and visual data plane
+Graph is the first serious candidate because the user can feel latency, jitter,
+and allocation churn directly.
+
+Audit and likely migrate:
+- node and edge batch transfer
+- graph position snapshots
+- physics update buffers
+- hover, selection, and neighborhood result batches
+- graph search result batches
+- SDF label instance payloads
+- page-subgraph and global-graph delta application
+- renderer-facing structs where copy count affects frame time
+
+Goal:
+- fewer bridge allocations
+- fewer JSON/string payloads
+- stable typed buffers for node IDs, positions, colors, sizes, edge endpoints, labels, and search hits
+- no per-frame allocations caused by bridge marshalling
+
+#### Agent and tool-event data plane
+The agent system should keep Rust as authority, but high-volume event transfer
+should be audited for BoltFFI.
+
+Audit and likely migrate:
+- agent stream events
+- token deltas and thinking deltas
+- tool-call start/input/output events
+- trace/replay event batches
+- command-center diagnostics snapshots
+- tool catalog and permission catalog payloads
+- session lineage and session-browser summaries
+
+Keep or defer:
+- command-center compile can remain cold-path UniFFI or JSON-over-FFI until profiling proves it matters
+- provider route preview can remain UniFFI unless it becomes high-frequency UI traffic
+- destructive tool approval requests must preserve explicit audit semantics even if the transport changes
+
+#### Capture, transcript, and evidence data plane
+Phase 6.5 and later capture work should avoid building a beautiful note pipeline
+on a slow bridge.
+
+Audit and likely migrate:
+- transcript segments
+- source spans
+- extracted task/entity batches
+- evidence span payloads
+- trace/replay capture events
+- audio/STT result structs when they cross Swift/Rust frequently
+
+Goal:
+- voice -> note -> graph -> evidence should feel instant and native
+- source spans and evidence chips should move as typed records, not ad hoc JSON blobs
+
+#### Memory, retrieval, and embeddings
+Retrieval and memory will become increasingly data-heavy. BoltFFI should be
+considered before the vault gets large enough for bridge overhead to become
+visible.
+
+Audit and likely migrate:
+- embedding vectors and vector batches
+- sqlite-vec / FTS5 / hybrid retrieval result batches
+- graph memory and PPR result payloads
+- memory consolidation inputs/outputs
+- source-linked memory records
+- contradiction and provenance result batches
+
+Use shared memory when:
+- payloads are large enough that even BoltFFI typed transfer is not the right shape
+- embeddings, screenshots, document chunks, or trace bundles would otherwise be copied repeatedly
+
+#### MCP and external tool payloads
+MCP transports remain MCP transports. BoltFFI should optimize local Swift/Rust
+handoff around MCP, not replace the MCP protocol.
+
+Audit and likely migrate:
+- local MCP result objects
+- large resource payload metadata
+- screenshot and file-result references
+- chunked MCP framing handoff
+- tool schema batch transfer when the catalog grows
+
+### 22.5 Measurement protocol
+Before any migration, record:
+- payload size
+- call frequency
+- allocation count
+- Swift main-thread time
+- Rust marshalling time
+- end-to-end latency
+- peak memory and copy count where measurable
+- user-visible symptom, if any: frame hitch, delayed token, slow graph load, sluggish inspector, slow capture import
+
+After migration, require:
+- parity tests
+- bridge safety tests
+- benchmark delta
+- memory/copy delta where measurable
+- failure-path tests
+- manual UI feel check for graph, agent streaming, or capture surfaces when relevant
+
+Do not migrate a surface if:
+- it is cold-path configuration
+- it runs only on app startup
+- it is not measurable
+- it would complicate permission/audit semantics
+- it would duplicate Rust authority in Swift
+
+### 22.6 Suggested execution order
+
+1. Inventory every Swift/Rust boundary.
+2. Build a table of UniFFI, C FFI, JSON-over-FFI, shared-memory, XPC, and Swift-only hot paths.
+3. Add microbenchmarks for graph snapshots, agent events, transcript spans, retrieval results, and embedding batches.
+4. Pick one vertical slice first: graph data-plane transfer.
+5. Build BoltFFI bindings for the selected slice only.
+6. Keep the existing bridge behind a compatibility switch until parity and benchmarks pass.
+7. Repeat for agent event streaming and capture/evidence payloads.
+8. Retire UniFFI surfaces only after the BoltFFI path is proven and the old path has no remaining callers.
+
+### 22.7 Exit criteria
+The BoltFFI migration program is complete only when:
+- every FFI boundary has an explicit keep/migrate/defer decision
+- graph hot-path transfer has been benchmarked and either migrated or explicitly justified
+- agent event streaming has been benchmarked and either migrated or explicitly justified
+- capture/transcript/evidence payloads have been benchmarked before Phase 6.5/7 expansion
+- embedding/retrieval payloads have a typed or shared-memory strategy before graph memory v2 scales up
+- UniFFI remains only where it is intentionally cold-path or ergonomically superior
+- no migration weakens Rust sovereignty, permission gates, audit logs, or local-first routing rules

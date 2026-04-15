@@ -2,6 +2,7 @@ pub mod agent_loop;
 pub mod approval;
 pub mod bridge;
 pub mod channel_relay;
+pub mod command_center;
 pub mod compaction;
 pub mod context_compiler;
 pub mod context_loader;

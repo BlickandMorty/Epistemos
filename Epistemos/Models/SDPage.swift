@@ -185,15 +185,15 @@ final class SDPage {
     /// - Parameter mapped: When `true`, reads through a file-mapped `Data` path before decoding to `String`.
     ///   This reduces intermediate copying for bulk operations, but the returned `String` is still materialized.
     ///   Default `false` for interactive use (editing, display) where the String is long-lived.
-    func loadBody(mapped: Bool = false) -> String {
+    func loadBody(mapped: Bool = false, fast: Bool = false) -> String {
         let hasManagedBody = NoteFileStorage.bodyExists(pageId: id)
         let diskBody: String
         if mapped {
             diskBody = autoreleasepool {
-                NoteFileStorage.readBody(pageId: id, mapped: true, fast: false)
+                NoteFileStorage.readBody(pageId: id, mapped: true, fast: fast)
             }
         } else {
-            diskBody = NoteFileStorage.readBody(pageId: id, mapped: false, fast: true)
+            diskBody = NoteFileStorage.readBody(pageId: id, mapped: false, fast: fast)
         }
         if !diskBody.isEmpty || hasManagedBody {
             return diskBody

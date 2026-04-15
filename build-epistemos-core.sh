@@ -28,7 +28,9 @@ fi
 # Copy dylib to a stable path Xcode can reference
 mkdir -p ../build-rust
 rm -f ../build-rust/libepistemos_core.dylib
-lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output ../build-rust/libepistemos_core.dylib
+TEMP_OUTPUT="$(mktemp ../build-rust/libepistemos_core.XXXXXX.dylib)"
+lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output "$TEMP_OUTPUT"
+mv -f "$TEMP_OUTPUT" ../build-rust/libepistemos_core.dylib
 
 # Also update install name so macOS finds it next to the executable
 install_name_tool -id "@rpath/libepistemos_core.dylib" ../build-rust/libepistemos_core.dylib

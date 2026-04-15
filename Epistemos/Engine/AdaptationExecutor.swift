@@ -72,6 +72,7 @@ final class AdaptationExecutor: @unchecked Sendable {
         }
 
         let config = AdaptSessionConfig(
+            adaptTarget: "helper_model",
             adapterId: adapterID,
             modelId: modelID,
             minChunkTokens: minChunkTokens,

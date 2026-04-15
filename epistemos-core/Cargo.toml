@@ -43,6 +43,8 @@ parking_lot = "0.12"
 default = []
 diet_experiment = []
 dip_experiment = []
+learned_mask_predictor = []
+experimental_main_adapt = []
 
 [dev-dependencies]
 tempfile = "3"

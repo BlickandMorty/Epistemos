@@ -58,8 +58,6 @@ struct LandingView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(\.modelContext) private var modelContext
-    @AppStorage("epistemos.mainChatOperatingMode")
-    private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
     @State private var showWelcomeBack = false
     @State private var welcomeBackDismissTask: Task<Void, Never>?
@@ -87,25 +85,8 @@ struct LandingView: View {
     private var trimmedLandingSearchText: String {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private var selectedOperatingMode: EpistemosOperatingMode {
-        inference.sanitizedOperatingMode(
-            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
-        )
-    }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
-    }
-    private var operatingModeBinding: Binding<EpistemosOperatingMode> {
-        Binding(
-            get: { selectedOperatingMode },
-            set: { operatingModeRaw = inference.sanitizedOperatingMode($0).rawValue }
-        )
-    }
-    private var incognitoBinding: Binding<Bool> {
-        Binding(
-            get: { chat.isIncognito },
-            set: { chat.isIncognito = $0 }
-        )
     }
     private var landingMentionSearchResults: ChatCoordinator.ReferenceSearchResults {
         ChatCoordinator.searchReferenceResults(
@@ -174,15 +155,11 @@ struct LandingView: View {
         .animation(Motion.smooth, value: showWelcomeBack)
         .animation(Motion.smooth, value: showingSearchPopover)
         .onAppear {
-            sanitizeStoredOperatingMode()
             scheduleWelcomeBackPresentationIfNeeded()
         }
         .onDisappear {
             welcomeBackDismissTask?.cancel()
             welcomeBackDismissTask = nil
-        }
-        .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
-            sanitizeStoredOperatingMode()
         }
         .background {
             // Hidden ⌘N shortcut — creates new note and teleports there
@@ -327,6 +304,17 @@ struct LandingView: View {
                         HologramController.shared.toggle()
                     }
                     .springEntrance(index: 4, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
+                    CommandHint(modIcon: "command", key: "J", label: "Command Center", theme: theme) {
+                        Task { @MainActor in
+                            AppBootstrap.shared?.agentCommandCenterState.present()
+                        }
+                    }
+                    .springEntrance(index: 5, stagger: 0.08)
                 }
                 .padding(.bottom, 28)
             }
@@ -460,13 +448,6 @@ struct LandingView: View {
                         }
 
                         HStack(spacing: LandingSearchLayout.controlRowSpacing) {
-                            ComposerControlStrip(
-                                spacing: LandingSearchLayout.controlRowSpacing,
-                                resetKey: composerControlResetKey
-                            ) {
-                                landingInferenceControl
-                            }
-
                             if !landingSearchText.isEmpty {
                                 Button {
                                     landingSearchText = ""
@@ -537,21 +518,6 @@ struct LandingView: View {
         .buttonStyle(.plain)
     }
 
-    private var landingInferenceControl: some View {
-        LocalModelToolbarMenu(
-            variant: .toolbar,
-            operatingMode: operatingModeBinding,
-            isTemporaryChatEnabled: incognitoBinding
-        )
-            .accessibilityLabel("Local Model")
-    }
-
-    private var composerControlResetKey: String {
-        inference.availableOperatingModes.map(\.rawValue).joined(separator: "|")
-            + "::"
-            + inference.activeChatModelDisplayName
-    }
-
     private func activateLandingSearch(at location: CGPoint? = nil) {
         guard !showingBrief else { return }
         // If no location (e.g. from shortcut), center it roughly
@@ -574,14 +540,6 @@ struct LandingView: View {
         }
     }
 
-    private func sanitizeStoredOperatingMode() {
-        let sanitized = inference.sanitizedOperatingMode(
-            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
-        )
-        if sanitized.rawValue != operatingModeRaw {
-            operatingModeRaw = sanitized.rawValue
-        }
-    }
 
     private func dismissLandingSearch() {
         showingSearchPopover = false
@@ -629,7 +587,6 @@ struct LandingView: View {
         let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let attachments = landingContextAttachments
-        let operatingMode = selectedOperatingMode
         dismissLandingSearch()
         chat.startNewChat()
         for attachment in attachments {
@@ -638,7 +595,7 @@ struct LandingView: View {
         ui.setActivePanel(.home)
         MainChatSubmissionRouter.submit(
             trimmed,
-            operatingMode: operatingMode,
+            operatingMode: .fast,
             chat: chat,
             orchestrator: orchestrator
         )

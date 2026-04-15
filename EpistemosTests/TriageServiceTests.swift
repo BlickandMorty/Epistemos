@@ -589,9 +589,11 @@ struct InferencePolicyEngineTests {
 
 @Suite("Overseer Complexity Router")
 struct OverseerComplexityRouterTests {
-    @Test("simple agent chat stays local only with no tool budget")
-    @MainActor func simpleAgentChatStaysLocalOnly() {
-        let inference = makeIsolatedInferenceState()
+    @Test("simple main chat stays local only with no tool budget")
+    @MainActor func simpleMainChatStaysLocalOnly() {
+        let inference = makeIsolatedInferenceState(
+            hardwareCapabilitySnapshot: ggufCapableTestHardwareSnapshot
+        )
         inference.appleIntelligenceAvailable = false
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
@@ -601,7 +603,7 @@ struct OverseerComplexityRouterTests {
         let executionPlan = router.planForMainChat(
             query: "Explain determinism in one concise paragraph.",
             contentLength: 43,
-            operatingMode: .agent,
+            operatingMode: .fast,
             hasExplicitContext: false,
             attachmentCount: 0,
             notesContext: nil,

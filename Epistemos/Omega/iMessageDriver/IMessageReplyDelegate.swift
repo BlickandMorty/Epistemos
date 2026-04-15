@@ -209,6 +209,13 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
         "{\"output\":\"\",\"error\":\"constrained_generate disabled in iMessage driver\"}"
     }
 
+    func generateImage(prompt: String, aspectRatio: String) -> String {
+        // The iMessage driver is reply-isolated and must not escalate to
+        // MLX Flux or any cloud image provider mid-conversation. This is
+        // an explicit, canonical denial so no fake success can surface.
+        "{\"error\":\"image_generate disabled in iMessage driver — reply isolation forbids mid-conversation media escalation\"}"
+    }
+
     func triggerNightbrainJob(jobType: String, priority: String) -> String {
         "{\"status\":\"skipped\",\"error\":\"nightbrain trigger disabled in iMessage driver\"}"
     }

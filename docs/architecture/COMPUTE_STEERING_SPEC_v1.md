@@ -1,9 +1,11 @@
 # Compute Steering Spec v1
 
 ## Purpose
+
 Compute Steering is the policy-driven selection of auxiliary modules, masks, expert budgets, and execution budgets under explicit telemetry.
 
 It exists to unify:
+
 - KAN helper modules
 - retrieval/reranking helpers
 - structured masking
@@ -15,6 +17,7 @@ It exists to unify:
 without polluting the base runtime contract with raw research-specific schemas.
 
 ## Inputs
+
 - `compute_profile`
 - `compute_budget`
 - runtime capability flags
@@ -22,6 +25,7 @@ without polluting the base runtime contract with raw research-specific schemas.
 - optional overseer hints
 
 ## Compute profiles
+
 - `standard`
 - `deep_graph`
 - `adaptive`
@@ -29,7 +33,9 @@ without polluting the base runtime contract with raw research-specific schemas.
 - `visual_sidecar`
 
 ## Compute budget
+
 Fields:
+
 - `max_wall_ms?`
 - `max_tokens?`
 - `max_io_bytes?`
@@ -37,7 +43,9 @@ Fields:
 - `max_aux_calls?`
 
 ## Internal Rust output
+
 Rust resolves an `ExecutionGraph` or `ExecutionPlan` with nodes such as:
+
 - `retrieve_context`
 - `graph_score`
 - `rerank_context`
@@ -48,6 +56,7 @@ Rust resolves an `ExecutionGraph` or `ExecutionPlan` with nodes such as:
 - `image_sidecar`
 
 ## Hard rules
+
 - unsupported nodes must be rejected before execution
 - serial I/O invariant must hold in streamed/fallback GGUF paths
 - dense fallback must exist for invalid mask plans
@@ -55,13 +64,16 @@ Rust resolves an `ExecutionGraph` or `ExecutionPlan` with nodes such as:
 - compute steering must always be visible in telemetry
 
 ## Structured mask rules
+
 - structured masks only
 - compiler/kernels must support them
 - unexecutable masks fail closed
 - masking state must be logged
 
 ## Expert budget rules
+
 Expose expert budget classes:
+
 - `default`
 - `constrained`
 - `deep`
@@ -69,13 +81,17 @@ Expose expert budget classes:
 No hidden expert inflation.
 
 ## KV policy
+
 KV policy should remain abstract and resolved by Rust:
+
 - `baseline`
 - `compressed`
 - `blocked`
 
 ## Telemetry requirements
+
 Every execution must surface:
+
 - compute profile
 - execution policy ref
 - masking state

@@ -185,10 +185,50 @@ struct IMessageDriverServiceRoutingTests {
     }
 
     @MainActor
-    @Test("model presets keep the multi-model example on an agent-capable local model")
-    func modelPresetsUseAgentCapableGroupExample() {
-        #expect(IMessageDriverService.modelPresetOptions.contains("qwen-4b,claude-sonnet-4-6"))
-        #expect(!IMessageDriverService.modelPresetOptions.contains("qwen-2b,claude-sonnet-4-6"))
+    @Test("suggested model options derive the multi-model example from installed agent-capable locals")
+    func suggestedModelOptionsUseInstalledAgentCapableExample() {
+        let options = IMessageDriverService.suggestedModelOptions(
+            installedLocalModelIDs: [
+                LocalTextModelID.qwen35_2B4Bit.rawValue,
+                LocalTextModelID.qwen35_4B4Bit.rawValue,
+            ],
+            configuredCloudProviders: [.anthropic, .google]
+        )
+
+        #expect(options.contains("qwen-4b"))
+        #expect(options.contains("claude-sonnet-4-6"))
+        #expect(options.contains("gemini-pro"))
+        #expect(options.contains("qwen-4b,claude-sonnet-4-6"))
+        #expect(!options.contains("qwen-2b,claude-sonnet-4-6"))
+    }
+
+    @MainActor
+    @Test("reply rate limiter blocks the sixty-first auto-reply inside one hour and clears after pruning old sends")
+    func replyRateLimiterBlocksBurstAndPrunesOldEntries() {
+        let now = Date(timeIntervalSince1970: 1_712_708_800)
+        let window = (0..<IMessageDriverService.perContactHourlyReplyLimit).map { offset in
+            now.addingTimeInterval(TimeInterval(-offset))
+        }
+
+        #expect(
+            IMessageDriverService.isReplyRateLimited(
+                existingReplyTimestamps: window,
+                now: now
+            )
+        )
+
+        let oldTimestamps = window + [now.addingTimeInterval(-3700)]
+        let pruned = IMessageDriverService.prunedReplyTimestamps(
+            oldTimestamps,
+            now: now
+        )
+        #expect(pruned.count == IMessageDriverService.perContactHourlyReplyLimit)
+        #expect(
+            IMessageDriverService.isReplyRateLimited(
+                existingReplyTimestamps: Array(pruned.dropFirst()),
+                now: now
+            ) == false
+        )
     }
 
     @MainActor

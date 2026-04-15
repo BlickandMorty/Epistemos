@@ -8,9 +8,38 @@ enum LandingToolbarGlyphs {
 
 enum HomeWindowIdentity {
     static let title = "Epistemos"
+    static let sceneIdentifier = "main"
 
     static func matches(_ window: NSWindow?) -> Bool {
-        window?.title == title
+        guard let window else { return false }
+        return window.identifier?.rawValue == sceneIdentifier
+            || window.title == title
+    }
+
+    @MainActor
+    static func surfaceHomeWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        guard let mainWindow = NSApp.windows.first(where: matches) else { return }
+        if mainWindow.isMiniaturized {
+            mainWindow.deminiaturize(nil)
+        }
+        mainWindow.orderFrontRegardless()
+        mainWindow.makeKeyAndOrderFront(nil)
+
+        Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(50))
+            } catch {
+                return
+            }
+
+            guard let mainWindow = NSApp.windows.first(where: matches) else { return }
+            if mainWindow.isMiniaturized {
+                mainWindow.deminiaturize(nil)
+            }
+            mainWindow.orderFrontRegardless()
+            mainWindow.makeKeyAndOrderFront(nil)
+        }
     }
 }
 
@@ -23,6 +52,8 @@ struct RootView: View {
     @Environment(ChatState.self) private var chat
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
+
+    @Environment(AgentCommandCenterState.self) private var accState
 
     /// Set by EpistemosApp when AppBootstrap detected a database error.
     var databaseError: Error?
@@ -60,16 +91,22 @@ struct RootView: View {
     }
 
     var body: some View {
+        rootContent
+            .modifier(RootWindowLifecycle(ui: ui))
+            .modifier(RootWorkspaceEvents(
+                showWorkspaceSwitcher: $showWorkspaceSwitcher,
+                showSessionIntelligence: $showSessionIntelligence,
+                showTimeMachine: $showTimeMachine
+            ))
+    }
+
+    private var rootContent: some View {
         ZStack {
             ContentRouter()
         }
-        // Wire the appearance observer — fires on real OS dark/light toggle.
-        .onAppear {
-            appearanceObserver.onAppearanceChange = { @MainActor isDark in
-                ui.isSystemDark = isDark
-            }
-            appearanceObserver.start()
-        }
+        .overlay { agentCommandCenterOverlay }
+        .animation(.spring(response: 0.35, dampingFraction: 0.88), value: accState.isPresented)
+        .onAppear(perform: handleAppearanceOnAppear)
         .onDisappear {
             appearanceObserver.stop()
         }
@@ -142,46 +179,6 @@ struct RootView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
         }
-        // Pause heavy animations when the window is minimized to the Dock.
-        // Without this, LiquidGreeting (typewriter loop) keeps running and burns CPU while invisible.
-        // Filter by keyWindow to ignore miniaturize events from utility/MiniChat windows.
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) {
-            note in
-            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                ui.windowOccluded = true
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification))
-        { note in
-            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                ui.windowOccluded = false
-            }
-        }
-        // Pause when the home window loses key status to another window (note editor, settings, etc.)
-        // This is the primary guard against burning CPU behind other windows.
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) {
-            note in
-            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                ui.windowOccluded = true
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
-            note in
-            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                ui.windowOccluded = false
-            }
-        }
-        // Also pause when app loses focus entirely (Cmd+Tab away, etc.)
-        .onReceive(
-            NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
-        ) { _ in
-            ui.windowOccluded = true
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
-        ) { _ in
-            ui.windowOccluded = false
-        }
         // Setup screen — shown after a full reset (covers everything)
         .overlay {
             if ui.needsSetup {
@@ -208,33 +205,8 @@ struct RootView: View {
                 .transition(.opacity)
             }
         }
-        .overlay { workspaceOverlays }
-        .background { workspaceKeyboardShortcuts }
-        .onKeyPress(.escape) {
-            if showWorkspaceSwitcher { showWorkspaceSwitcher = false; return .handled }
-            if showSessionIntelligence { showSessionIntelligence = false; return .handled }
-            if showTimeMachine { showTimeMachine = false; return .handled }
-            return .ignored
-        }
-        .animation(Motion.smooth, value: showWorkspaceSwitcher)
-        .animation(Motion.smooth, value: showSessionIntelligence)
-        .animation(Motion.smooth, value: showTimeMachine)
-        .onReceive(NotificationCenter.default.publisher(for: .toggleWorkspaceSwitcher)) { _ in
-            showWorkspaceSwitcher.toggle()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .toggleSessionIntelligence)) { _ in
-            showSessionIntelligence.toggle()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .toggleTimeMachine)) { _ in
-            showTimeMachine.toggle()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .showSaveWorkspacePanel)) { _ in
-            QuitSavePanelController.showSave()
-        }
         .animation(Motion.smooth, value: ui.needsSetup)
-        .onAppear {
-            if databaseError != nil { showDatabaseAlert = true }
-        }
+        .onAppear(perform: handleDatabaseCheck)
         .alert("Database Error", isPresented: $showDatabaseAlert) {
             Button("Continue Empty") { }
             Button("Reset Database", role: .destructive) { onResetDatabase?() }
@@ -245,35 +217,25 @@ struct RootView: View {
     }
 
     @ViewBuilder
-    private var workspaceOverlays: some View {
-        if showWorkspaceSwitcher {
-            WorkspaceSwitcherOverlay(isPresented: $showWorkspaceSwitcher)
-        }
-        if showSessionIntelligence {
-            SessionIntelligenceOverlay(isPresented: $showSessionIntelligence)
-        }
-        if showTimeMachine {
-            TimeMachineView(isPresented: $showTimeMachine)
+    private var agentCommandCenterOverlay: some View {
+        if accState.isPresented {
+            AgentCommandCenterView()
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                .zIndex(100)
         }
     }
 
-    @ViewBuilder
-    private var workspaceKeyboardShortcuts: some View {
-        Button(action: { showWorkspaceSwitcher.toggle() }) {}
-            .keyboardShortcut("w", modifiers: [.command, .control])
-            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
+    private func handleDatabaseCheck() {
+        if databaseError != nil {
+            showDatabaseAlert = true
+        }
+    }
 
-        Button(action: { showSessionIntelligence.toggle() }) {}
-            .keyboardShortcut("r", modifiers: [.command, .control])
-            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
-
-        Button(action: { showTimeMachine.toggle() }) {}
-            .keyboardShortcut("t", modifiers: [.command, .control])
-            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
-
-        Button(action: { QuitSavePanelController.showSave() }) {}
-            .keyboardShortcut("s", modifiers: [.command, .control])
-            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
+    private func handleAppearanceOnAppear() {
+        appearanceObserver.onAppearanceChange = { @MainActor isDark in
+            ui.isSystemDark = isDark
+        }
+        appearanceObserver.start()
     }
 
     private var rootToolbarControls: some View {
@@ -302,13 +264,15 @@ struct RootView: View {
         .help("Settings (⌘S)")
     }
 
+    @ViewBuilder
     private func modelToolbarButton(title: String? = nil) -> some View {
-        LocalModelToolbarMenu(
-            variant: .toolbar,
-            overrideTitle: title,
-            overrideFont: title != nil ? Font.system(size: 16, weight: .semibold, design: .rounded) : nil
-        )
-        .fixedSize()
+        Text(title ?? chat.chatTitle ?? "")
+            .font(.system(size: 16, weight: .semibold, design: .rounded))
+            .foregroundStyle(ui.theme.textPrimary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .fixedSize()
+            .accessibilityLabel("Chat title")
     }
 
     private func openSettingsWindow() {
@@ -1252,5 +1216,106 @@ struct SetupView: View {
                 buttonOpacity = 1
             }
         }
+    }
+}
+
+private struct RootWindowLifecycle: ViewModifier {
+    let ui: UIState
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { note in
+                if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
+                    ui.windowOccluded = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)) { note in
+                if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
+                    ui.windowOccluded = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
+                if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
+                    ui.windowOccluded = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
+                if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
+                    ui.windowOccluded = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+                ui.windowOccluded = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                ui.windowOccluded = false
+            }
+    }
+}
+
+private struct RootWorkspaceEvents: ViewModifier {
+    @Binding var showWorkspaceSwitcher: Bool
+    @Binding var showSessionIntelligence: Bool
+    @Binding var showTimeMachine: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .overlay { workspaceOverlays }
+            .background { workspaceKeyboardShortcuts }
+            .onKeyPress(.escape, action: handleEscapeKeyPress)
+            .animation(Motion.smooth, value: showWorkspaceSwitcher)
+            .animation(Motion.smooth, value: showSessionIntelligence)
+            .animation(Motion.smooth, value: showTimeMachine)
+            .onReceive(NotificationCenter.default.publisher(for: .toggleWorkspaceSwitcher)) { _ in
+                showWorkspaceSwitcher.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .toggleSessionIntelligence)) { _ in
+                showSessionIntelligence.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .toggleTimeMachine)) { _ in
+                showTimeMachine.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .showSaveWorkspacePanel)) { _ in
+                QuitSavePanelController.showSave()
+            }
+    }
+
+    private func handleEscapeKeyPress() -> KeyPress.Result {
+        if showWorkspaceSwitcher { showWorkspaceSwitcher = false; return .handled }
+        if showSessionIntelligence { showSessionIntelligence = false; return .handled }
+        if showTimeMachine { showTimeMachine = false; return .handled }
+        return .ignored
+    }
+
+    @ViewBuilder
+    private var workspaceOverlays: some View {
+        if showWorkspaceSwitcher {
+            WorkspaceSwitcherOverlay(isPresented: $showWorkspaceSwitcher)
+        }
+        if showSessionIntelligence {
+            SessionIntelligenceOverlay(isPresented: $showSessionIntelligence)
+        }
+        if showTimeMachine {
+            TimeMachineView(isPresented: $showTimeMachine)
+        }
+    }
+
+    @ViewBuilder
+    private var workspaceKeyboardShortcuts: some View {
+        Button(action: { showWorkspaceSwitcher.toggle() }) {}
+            .keyboardShortcut("w", modifiers: [.command, .control])
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
+
+        Button(action: { showSessionIntelligence.toggle() }) {}
+            .keyboardShortcut("r", modifiers: [.command, .control])
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
+
+        Button(action: { showTimeMachine.toggle() }) {}
+            .keyboardShortcut("t", modifiers: [.command, .control])
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
+
+        Button(action: { QuitSavePanelController.showSave() }) {}
+            .keyboardShortcut("s", modifiers: [.command, .control])
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
     }
 }

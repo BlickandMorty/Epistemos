@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftData
 import os
@@ -86,6 +87,8 @@ struct WorkspaceDiffSummary {
 final class WorkspaceService {
     private static let log = Logger(subsystem: "com.epistemos", category: "Workspace")
     private static let restoreDefaultsKey = "epistemos.restoreLastSession"
+    private static let skipNextRestoreDefaultsKey = "epistemos.skipWorkspaceRestoreOnce"
+    private static let skipNextAutoSaveDefaultsKey = "epistemos.skipWorkspaceAutoSaveOnce"
 
     var restoreLastSession: Bool {
         get { UserDefaults.standard.bool(forKey: Self.restoreDefaultsKey) }
@@ -321,7 +324,13 @@ final class WorkspaceService {
             bootstrap.graphState.restorePinnedNodes(Set(pinnedIds))
         }
 
+        restoreMainWindowAfterSnapshot()
+
         Self.log.info("Workspace restored: \(snapshot.openNoteTabs.count) notes, \(snapshot.openMiniChatIds.count) mini chats")
+    }
+
+    private func restoreMainWindowAfterSnapshot() {
+        HomeWindowIdentity.surfaceHomeWindow()
     }
 
     // MARK: - Auto-Save / Auto-Restore
@@ -376,6 +385,12 @@ final class WorkspaceService {
     }
 
     func autoRestore() {
+        if consumeSkipRestoreRequest() {
+            welcomeBack = nil
+            Self.log.info("Workspace auto-restore skipped by one-shot relaunch override")
+            return
+        }
+
         guard restoreLastSession else { return }
 
         let context = modelContainer.mainContext
@@ -419,6 +434,49 @@ final class WorkspaceService {
             sessionMinutes: digest?.sessionDurationMinutes ?? 0,
             editedNoteTitles: digest?.editedNotes.map(\.title) ?? []
         )
+    }
+
+    func prepareSkipRestoreRelaunch() {
+        UserDefaults.standard.set(true, forKey: Self.skipNextRestoreDefaultsKey)
+        UserDefaults.standard.set(true, forKey: Self.skipNextAutoSaveDefaultsKey)
+        clearAutoSavedWorkspace()
+        welcomeBack = nil
+    }
+
+    func consumeSkipRestoreRequest() -> Bool {
+        let defaults = UserDefaults.standard
+        let shouldSkip = defaults.bool(forKey: Self.skipNextRestoreDefaultsKey)
+        if shouldSkip {
+            defaults.removeObject(forKey: Self.skipNextRestoreDefaultsKey)
+        }
+        return shouldSkip
+    }
+
+    func consumeSkipAutoSaveRequest() -> Bool {
+        let defaults = UserDefaults.standard
+        let shouldSkip = defaults.bool(forKey: Self.skipNextAutoSaveDefaultsKey)
+        if shouldSkip {
+            defaults.removeObject(forKey: Self.skipNextAutoSaveDefaultsKey)
+        }
+        return shouldSkip
+    }
+
+    func clearAutoSavedWorkspace() {
+        let context = modelContainer.mainContext
+        let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
+        let descriptor = FetchDescriptor(predicate: predicate)
+
+        do {
+            let workspaces = try context.fetch(descriptor)
+            guard !workspaces.isEmpty else { return }
+            for workspace in workspaces {
+                context.delete(workspace)
+            }
+            try context.save()
+            Self.log.info("Cleared auto-saved workspace snapshot for skip-restore relaunch")
+        } catch {
+            Self.log.error("Workspace skip-restore cleanup failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Auto-Save Timer
