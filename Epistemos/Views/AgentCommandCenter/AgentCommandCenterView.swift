@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 // MARK: - Agent Command Center View
@@ -11,6 +12,7 @@ struct AgentCommandCenterView: View {
     @Environment(AgentChatState.self) private var agentChat
     @Environment(UIState.self) private var ui
     @Environment(MCPBridge.self) private var mcpBridge
+    @State private var landingStatsTab: ACCLandingStatsTab = .overview
 
     private var theme: EpistemosTheme { ui.theme }
     private let terminalBlack = Color(red: 0.035, green: 0.036, blue: 0.036)
@@ -40,6 +42,23 @@ struct AgentCommandCenterView: View {
             labels.append(effort.displayName)
         }
         return labels.joined(separator: " · ")
+    }
+
+    private var greetingName: String {
+        let fullName = NSFullUserName().trimmingCharacters(in: .whitespacesAndNewlines)
+        let accountName = NSUserName().trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidate = fullName.isEmpty || fullName == accountName ? accountName : fullName
+        guard let first = candidate.split(separator: " ").first else { return "Researcher" }
+        return String(first)
+    }
+
+    private var agentPersonaLabel: String {
+        switch accState.selectedOperatingMode {
+        case .fast: "Navigator"
+        case .thinking: "Researcher"
+        case .pro: "Operator"
+        case .agent: "Architect"
+        }
     }
 
     private var isRightRailVisible: Bool {
@@ -330,21 +349,205 @@ struct AgentCommandCenterView: View {
     }
 
     private var emptyTranscript: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Ready to continue Epistemos development")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.82))
-
-            VStack(alignment: .leading, spacing: 8) {
-                terminalBullet("Use `/` for commands and modes")
-                terminalBullet("Use `@` to attach notes, vault scope, graph context, or agents")
-                terminalBullet("Tool permissions stay explicit and inspectable")
-                terminalBullet("Rust remains the control plane")
-            }
+        VStack(alignment: .leading, spacing: 18) {
+            agentLandingHero
 
             if accState.presentationMode != .compact {
-                terminalTable
+                agentStatsPanel
             }
+
+            agentLandingHints
+        }
+        .frame(maxWidth: 620, alignment: .leading)
+        .padding(.top, 8)
+    }
+
+    private var agentLandingHero: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Greetings, \(greetingName)")
+                .font(AppDisplayTypography.font(size: 21, allowDisplayFont: true))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.94),
+                            syntaxBlue.opacity(0.92),
+                            syntaxViolet.opacity(0.86),
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .shadow(color: syntaxBlue.opacity(0.22), radius: 14, y: 6)
+
+            HStack(spacing: 7) {
+                syntaxBadge(agentPersonaLabel.lowercased(), color: syntaxBlue)
+                syntaxBadge("rust:authority", color: terminalGreen)
+                syntaxBadge("trace:ready", color: syntaxCyan)
+            }
+
+            Text("Start a new agent session below. Epistemos will route models, tools, context, and permission gates from the same control plane.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(mutedTerminalText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var agentStatsPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                ForEach(ACCLandingStatsTab.allCases) { tab in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            landingStatsTab = tab
+                        }
+                    } label: {
+                        Text(tab.title)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(landingStatsTab == tab ? Color.white.opacity(0.84) : mutedTerminalText)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(
+                                landingStatsTab == tab ? Color.white.opacity(0.075) : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer()
+
+                Text("live")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(terminalGreen)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(terminalGreen.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+
+            switch landingStatsTab {
+            case .overview:
+                overviewStatsGrid
+                activityHeatmap
+            case .models:
+                modelStatsChart
+            }
+        }
+        .padding(10)
+        .background(terminalPanel.opacity(0.74), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(terminalBorder.opacity(1.15), lineWidth: 0.7)
+        }
+        .frame(maxWidth: 560, alignment: .leading)
+    }
+
+    private var overviewStatsGrid: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+            landingMetricCard("Turns", "\(agentChat.agentTurnCount)")
+            landingMetricCard("Messages", "\(agentChat.messages.count)")
+            landingMetricCard("Tools", "\(accState.enabledToolNames.count)")
+            landingMetricCard("Disabled", "\(disabledToolCount)")
+            landingMetricCard("Context", "\(agentChat.estimatedContextTokens.formatted())")
+            landingMetricCard("Budget", "\(agentChat.maxContextTokens.formatted())")
+            landingMetricCard("MCP tools", "\(accState.mcpToolCount)")
+            landingMetricCard("Runs", "\(accState.mcpExecutionCount)")
+        }
+    }
+
+    private func landingMetricCard(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(mutedTerminalText)
+                .lineLimit(1)
+            Text(value)
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.white.opacity(0.82))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+    }
+
+    private var activityHeatmap: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(9), spacing: 3), count: 28), spacing: 3) {
+                ForEach(0..<84, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(heatmapColor(for: index))
+                        .frame(width: 9, height: 9)
+                }
+            }
+
+            Text("Context reserve: \(Int((1 - agentChat.contextUsageFraction) * 100))% free · active model: \(currentBrainLabel)")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(mutedTerminalText.opacity(0.92))
+        }
+    }
+
+    private func heatmapColor(for index: Int) -> Color {
+        let seed = agentChat.messages.count + accState.enabledToolNames.count + accState.mcpExecutionCount
+        let value = (index * 17 + seed * 11) % 9
+        switch value {
+        case 0...2: return Color.white.opacity(0.07)
+        case 3...4: return syntaxBlue.opacity(0.24)
+        case 5...6: return syntaxBlue.opacity(0.48)
+        case 7: return syntaxViolet.opacity(0.56)
+        default: return syntaxCyan.opacity(0.72)
+        }
+    }
+
+    private var modelStatsChart: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(modelBars.enumerated()), id: \.offset) { _, bar in
+                HStack(spacing: 8) {
+                    Text(bar.name)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.72))
+                        .lineLimit(1)
+                        .frame(width: 132, alignment: .leading)
+
+                    GeometryReader { proxy in
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(bar.color.opacity(0.26))
+                            .overlay(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(bar.color)
+                                    .frame(width: max(8, proxy.size.width * bar.fraction))
+                            }
+                    }
+                    .frame(height: 10)
+
+                    Text(bar.detail)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(mutedTerminalText)
+                        .frame(width: 52, alignment: .trailing)
+                }
+            }
+        }
+    }
+
+    private var modelBars: [ACCLandingModelBar] {
+        let brains = accState.availableBrains.isEmpty ? [.placeholder(currentBrainLabel)] : accState.availableBrains.map { ACCLandingModelBar.Source.brain($0) }
+        return brains.prefix(7).enumerated().map { index, source in
+            let score = Double(max(1, 7 - index))
+            return ACCLandingModelBar(
+                name: source.name,
+                detail: source.detail,
+                fraction: score / 7.0,
+                color: [syntaxBlue, syntaxViolet, syntaxCyan, terminalGreen][index % 4]
+            )
+        }
+    }
+
+    private var agentLandingHints: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            terminalBullet("Use `/` for commands and modes")
+            terminalBullet("Use `@` to attach notes, vault scope, graph context, or agents")
+            terminalBullet("Tool permissions stay explicit and inspectable")
+            terminalBullet("Rust remains the control plane")
         }
     }
 
@@ -355,50 +558,6 @@ struct AgentCommandCenterView: View {
             Text(text)
                 .font(.system(size: 13, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.70))
-        }
-    }
-
-    private var terminalTable: some View {
-        VStack(spacing: 0) {
-            terminalTableRow("Surface", "Status", isHeader: true)
-            terminalTableRow("Mode", accState.selectedOperatingMode.displayName)
-            terminalTableRow("Brain", currentBrainLabel)
-            terminalTableRow("Tools", "\(accState.enabledToolNames.count) allowed")
-        }
-        .background(terminalPanel.opacity(0.74))
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(terminalBorder, lineWidth: 0.6)
-        }
-        .frame(maxWidth: 520, alignment: .leading)
-    }
-
-    private func terminalTableRow(_ left: String, _ right: String, isHeader: Bool = false) -> some View {
-        HStack(spacing: 0) {
-            Text(left)
-                .font(.system(size: 12, weight: isHeader ? .semibold : .regular, design: .monospaced))
-                .foregroundStyle(isHeader ? Color.white.opacity(0.82) : Color.white.opacity(0.66))
-                .frame(width: 170, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-
-            Rectangle()
-                .fill(terminalBorder)
-                .frame(width: 0.6)
-
-            Text(right)
-                .font(.system(size: 12, weight: isHeader ? .semibold : .regular, design: .monospaced))
-                .foregroundStyle(isHeader ? Color.white.opacity(0.82) : Color.white.opacity(0.66))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-        }
-        .background(isHeader ? Color.white.opacity(0.035) : Color.clear)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(terminalBorder)
-                .frame(height: 0.6)
         }
     }
 
@@ -1122,6 +1281,53 @@ private enum ACCTranscriptStatus {
         case .failure: Color(red: 0.82, green: 0.30, blue: 0.38)
         }
     }
+}
+
+private enum ACCLandingStatsTab: String, CaseIterable, Identifiable {
+    case overview
+    case models
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overview: "Overview"
+        case .models: "Models"
+        }
+    }
+}
+
+private struct ACCLandingModelBar {
+    enum Source {
+        case brain(ACCBrainSelection)
+        case placeholder(String)
+
+        var name: String {
+            switch self {
+            case .brain(let brain): brain.displayName
+            case .placeholder(let label): label
+            }
+        }
+
+        var detail: String {
+            switch self {
+            case .brain(.local(_, _, let thinking, let vision, let tools)):
+                let count = [thinking, vision, tools].filter { $0 }.count
+                return "\(count)/3"
+            case .brain(.appleIntelligence):
+                return "local"
+            case .brain(.cloud):
+                return "cloud"
+            case .placeholder:
+                return "auto"
+            }
+        }
+    }
+
+    let name: String
+    let detail: String
+    let fraction: Double
+    let color: Color
 }
 
 private struct ACCEditedFileSummary: Identifiable {

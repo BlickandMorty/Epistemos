@@ -199,4 +199,27 @@ struct AgentCommandCenterStateTests {
         #expect(state.contextProviders.contains { $0.token == "AllNotes" })
         #expect(state.contextProviders.contains { $0.token == "My Note" })
     }
+
+    @Test func agentLandingKeepsRetroGreetingAndUsefulStats() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift")
+
+        #expect(source.contains("Greetings,"))
+        #expect(source.contains("AppDisplayTypography.font(size: 21, allowDisplayFont: true)"))
+        #expect(source.contains("ACCLandingStatsTab"))
+        #expect(source.contains("overviewStatsGrid"))
+        #expect(source.contains("modelStatsChart"))
+        #expect(source.contains("activityHeatmap"))
+        #expect(source.contains("agentPersonaLabel"))
+    }
+
+    @Test func agentLandingPreservesTerminalSyntaxAndSafetyLanguage() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift")
+
+        #expect(source.contains("rust:authority"))
+        #expect(source.contains("trace:ready"))
+        #expect(source.contains("permission:gated"))
+        #expect(source.contains("-silentFallback"))
+        #expect(source.contains("turnFailureCard"))
+        #expect(source.contains("inlineDiffCard"))
+    }
 }
