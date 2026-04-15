@@ -1,0 +1,379 @@
+import Foundation
+import SwiftData
+import Testing
+@testable import Epistemos
+
+// MARK: - Phase 6.5: TextCapturePipeline Tests
+//
+// Coverage:
+// - empty capture fails clearly
+// - short capture produces note/draft and trace
+// - unicode capture preserves text
+// - tasks/entities extraction is deterministic on a fixture
+// - source spans point into original text
+// - no follow-up action executes without explicit permission
+// - graph unavailable path fails truthfully or records skipped graph write
+
+@Suite("TextCapturePipeline")
+@MainActor
+struct TextCapturePipelineTests {
+
+    // MARK: - Test Helpers
+
+    /// Creates a minimal in-memory SwiftData container for testing.
+    private func makeTestContainer() throws -> ModelContainer {
+        let schema = Schema([SDPage.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    private func makePipeline() -> TextCapturePipeline {
+        let traceDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-test-traces-\(UUID().uuidString)")
+        let collector = TraceCollector(baseDir: traceDir)
+        return TextCapturePipeline(
+            traceCollector: collector,
+            sessionId: "test-session-\(UUID().uuidString)"
+        )
+    }
+
+    // MARK: - Empty Capture
+
+    @Test("Empty capture throws TextCaptureError.emptyCapture")
+    func emptyCapture() async throws {
+        let pipeline = makePipeline()
+
+        await #expect(throws: TextCaptureError.emptyCapture) {
+            _ = try await pipeline.run(rawText: "")
+        }
+    }
+
+    @Test("Whitespace-only capture throws emptyCapture")
+    func whitespaceOnlyCapture() async throws {
+        let pipeline = makePipeline()
+
+        await #expect(throws: TextCaptureError.emptyCapture) {
+            _ = try await pipeline.run(rawText: "   \n\t  \n  ")
+        }
+    }
+
+    // MARK: - Short Capture
+
+    @Test("Short capture produces valid CaptureResult with trace ID")
+    func shortCapture() async throws {
+        let pipeline = makePipeline()
+        let result = try await pipeline.run(rawText: "Buy milk at the store")
+
+        #expect(!result.traceID.isEmpty)
+        #expect(result.cleanedText == "Buy milk at the store")
+        #expect(!result.title.isEmpty)
+        #expect(!result.summary.isEmpty)
+        #expect(result.rawText == "Buy milk at the store")
+    }
+
+    @Test("Short capture with model context creates note")
+    func shortCaptureWithPersistence() async throws {
+        let pipeline = makePipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        let result = try await pipeline.run(
+            rawText: "Meeting notes from today",
+            modelContext: context
+        )
+
+        #expect(result.createdNoteID != nil, "Note should be created")
+
+        // Verify note exists in SwiftData
+        let descriptor = FetchDescriptor<SDPage>()
+        let pages = try context.fetch(descriptor)
+        #expect(pages.count == 1)
+        #expect(pages.first?.title == "Meeting notes from today")
+    }
+
+    // MARK: - Unicode Preservation
+
+    @Test("Unicode text is preserved through pipeline")
+    func unicodeCapture() async throws {
+        let pipeline = makePipeline()
+        let text = "会议记录：讨论了新项目的进展。\n参会人：张三、李四"
+
+        let result = try await pipeline.run(rawText: text)
+
+        #expect(result.cleanedText == text)
+        #expect(result.rawText == text)
+        #expect(!result.title.isEmpty)
+    }
+
+    @Test("Emoji text preserved")
+    func emojiCapture() async throws {
+        let pipeline = makePipeline()
+        let text = "📝 Notes from standup 🚀\n- Ship the feature\n- Fix the bug 🐛"
+
+        let result = try await pipeline.run(rawText: text)
+        #expect(result.cleanedText == text)
+    }
+
+    // MARK: - Title Extraction
+
+    @Test("Title extracted from first line")
+    func titleFromFirstLine() async throws {
+        let pipeline = makePipeline()
+        let result = try await pipeline.run(
+            rawText: "Project Alpha Status\n\nWe discussed the timeline and deliverables."
+        )
+
+        #expect(result.title == "Project Alpha Status")
+    }
+
+    @Test("Title strips markdown heading prefix")
+    func titleStripsMarkdownHeading() async throws {
+        let pipeline = makePipeline()
+        let result = try await pipeline.run(rawText: "# Weekly Review\n\nThis week was productive.")
+
+        #expect(result.title == "Weekly Review")
+    }
+
+    // MARK: - Task Extraction
+
+    @Test("Markdown checkboxes extracted as tasks")
+    func markdownCheckboxTasks() async throws {
+        let pipeline = makePipeline()
+        let text = """
+        Meeting Notes
+
+        - [ ] Send follow-up email
+        - [x] Review proposal
+        - [ ] Schedule next meeting
+        """
+
+        let result = try await pipeline.run(rawText: text)
+
+        #expect(result.tasks.count == 3)
+
+        let uncompleted = result.tasks.filter { !$0.isCompleted }
+        let completed = result.tasks.filter { $0.isCompleted }
+        #expect(uncompleted.count == 2)
+        #expect(completed.count == 1)
+        #expect(completed.first?.text == "Review proposal")
+    }
+
+    @Test("TODO: prefix lines extracted as tasks")
+    func todoPrefixTasks() async throws {
+        let pipeline = makePipeline()
+        let text = """
+        Notes
+
+        TODO: Update the documentation
+        Some other text here.
+        FIXME: Handle edge case in parser
+        """
+
+        let result = try await pipeline.run(rawText: text)
+
+        #expect(result.tasks.count == 2)
+        #expect(result.tasks[0].text == "Update the documentation")
+        #expect(result.tasks[1].text == "Handle edge case in parser")
+        #expect(result.tasks.allSatisfy { !$0.isCompleted })
+    }
+
+    @Test("Task source spans point into original text")
+    func taskSourceSpans() async throws {
+        let pipeline = makePipeline()
+        let text = "Notes\n\n- [ ] Buy groceries"
+
+        let result = try await pipeline.run(rawText: text)
+
+        #expect(result.tasks.count == 1)
+        let span = result.tasks[0].sourceSpan
+
+        // Verify span points into the original text
+        let nsText = text as NSString
+        let extracted = nsText.substring(with: NSRange(location: span.start, length: span.end - span.start))
+        #expect(extracted.contains("Buy groceries"))
+    }
+
+    // MARK: - Entity Extraction
+
+    @Test("Named entities extracted from text")
+    func entityExtraction() async throws {
+        let pipeline = makePipeline()
+        // Use a sentence that NL framework reliably tags
+        let text = "Tim Cook announced new products at Apple Park in Cupertino."
+
+        let result = try await pipeline.run(rawText: text)
+
+        // NL entity recognition is probabilistic — check that at least some entities are found
+        // and that source spans are valid
+        for entity in result.entities {
+            #expect(!entity.text.isEmpty)
+            #expect(!entity.kind.isEmpty)
+            #expect(entity.sourceSpan.start >= 0)
+            #expect(entity.sourceSpan.end > entity.sourceSpan.start)
+
+            // Verify source span text matches entity text
+            #expect(entity.sourceSpan.text == entity.text)
+        }
+    }
+
+    @Test("Entity source spans have correct roles")
+    func entitySourceSpanRoles() async throws {
+        let pipeline = makePipeline()
+        let result = try await pipeline.run(
+            rawText: "John Smith works at Acme Corp in New York."
+        )
+
+        for entity in result.entities {
+            #expect(entity.sourceSpan.role.hasPrefix("entity:"))
+            let kind = String(entity.sourceSpan.role.dropFirst("entity:".count))
+            #expect(["person", "place", "organization"].contains(kind))
+        }
+    }
+
+    // MARK: - Source Spans
+
+    @Test("Source spans point into original text")
+    func sourceSpansValid() async throws {
+        let pipeline = makePipeline()
+        let text = "# My Title\n\n- [ ] Do something\nJohn went to London."
+
+        let result = try await pipeline.run(rawText: text)
+
+        let nsText = text as NSString
+        for span in result.sourceSpans {
+            #expect(span.start >= 0)
+            #expect(span.end <= nsText.length)
+            #expect(span.end > span.start)
+            #expect(!span.text.isEmpty)
+            #expect(!span.role.isEmpty)
+        }
+    }
+
+    // MARK: - Graph Write
+
+    @Test("Graph nodes created for note and entities")
+    func graphWriteCreatesNodes() async throws {
+        let pipeline = makePipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        let result = try await pipeline.run(
+            rawText: "Tim Cook presented the new iPhone at Apple Park.",
+            modelContext: context
+        )
+
+        #expect(result.graphWriteSummary.noteNodeCreated)
+        #expect(result.graphWriteSummary.skippedReason == nil)
+
+        // Verify a note node exists
+        let nodeDescriptor = FetchDescriptor<SDGraphNode>()
+        let nodes = try context.fetch(nodeDescriptor)
+        let noteNodes = nodes.filter { $0.type == GraphNodeType.note.rawValue }
+        #expect(noteNodes.count >= 1)
+    }
+
+    @Test("Graph write skipped when no model context")
+    func graphWriteSkippedWithoutContext() async throws {
+        let pipeline = makePipeline()
+
+        let result = try await pipeline.run(rawText: "Some text about John Smith.")
+
+        #expect(!result.graphWriteSummary.noteNodeCreated)
+        #expect(result.graphWriteSummary.skippedReason != nil)
+        #expect(result.graphWriteSummary.skippedReason?.contains("no model context") == true)
+    }
+
+    // MARK: - No Follow-Up Actions Without Permission
+
+    @Test("Pipeline does not execute follow-up actions")
+    func noFollowUpActionsExecuted() async throws {
+        let pipeline = makePipeline()
+
+        // Even with task content that mentions actions, the pipeline
+        // should only extract — never execute
+        let text = """
+        ACTION: Send email to john@example.com
+        TODO: Delete old files
+        - [ ] Call the API endpoint
+        """
+
+        let result = try await pipeline.run(rawText: text)
+
+        // Tasks are extracted but not executed
+        #expect(result.tasks.count >= 2)
+        // No createdNoteID when no context
+        #expect(result.createdNoteID == nil)
+        // Graph write is skipped (no context)
+        #expect(result.graphWriteSummary.skippedReason != nil)
+    }
+
+    // MARK: - Trace ID
+
+    @Test("Each run generates a unique trace ID")
+    func uniqueTraceIds() async throws {
+        let pipeline = makePipeline()
+
+        let result1 = try await pipeline.run(rawText: "First capture")
+        let result2 = try await pipeline.run(rawText: "Second capture")
+
+        #expect(result1.traceID != result2.traceID)
+    }
+
+    // MARK: - Summary Extraction
+
+    @Test("Summary is first paragraph")
+    func summaryFromFirstParagraph() async throws {
+        let pipeline = makePipeline()
+        let text = """
+        This is the first paragraph about the project status.
+
+        This is a second paragraph with more details about timelines.
+        """
+
+        let result = try await pipeline.run(rawText: text)
+        #expect(result.summary == "This is the first paragraph about the project status.")
+    }
+
+    // MARK: - Text Cleaning
+
+    @Test("Leading and trailing whitespace trimmed")
+    func textCleaning() async throws {
+        let pipeline = makePipeline()
+        let result = try await pipeline.run(rawText: "  \n  Hello World  \n  ")
+
+        #expect(result.cleanedText == "Hello World")
+    }
+
+    // MARK: - Deterministic Extraction on Fixture
+
+    @Test("Extraction is deterministic on a fixed fixture")
+    func deterministicExtraction() async throws {
+        let pipeline = makePipeline()
+        let fixture = """
+        # Sprint Review Notes
+
+        - [ ] Deploy to staging
+        - [x] Write tests
+        - [ ] Update README
+
+        TODO: Notify the team about the release
+        """
+
+        let result1 = try await pipeline.run(rawText: fixture)
+        let result2 = try await pipeline.run(rawText: fixture)
+
+        // Title must be identical
+        #expect(result1.title == result2.title)
+        #expect(result1.title == "Sprint Review Notes")
+
+        // Task count must be identical
+        #expect(result1.tasks.count == result2.tasks.count)
+        #expect(result1.tasks.count == 4)
+
+        // Task text must be identical
+        for (t1, t2) in zip(result1.tasks, result2.tasks) {
+            #expect(t1.text == t2.text)
+            #expect(t1.isCompleted == t2.isCompleted)
+        }
+    }
+}

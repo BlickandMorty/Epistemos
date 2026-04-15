@@ -55,6 +55,12 @@ struct TraceEvent: Sendable {
         case thermalChange = "thermal_change"
         case breakerTripped = "breaker_tripped"
         case progressUpdate = "progress_update"
+        // Phase 6.5: Capture pipeline events
+        case captureReceived = "capture_received"
+        case structureGenerated = "structure_generated"
+        case notePersisted = "note_persisted"
+        case graphWriteAttempted = "graph_write_attempted"
+        case evidenceLinked = "evidence_linked"
     }
 }
 
