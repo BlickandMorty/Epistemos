@@ -147,8 +147,10 @@
 		360089CF093C49C2F71B636B /* OrphanSubprocessCleanup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7192A1A87165FCC671CF0A /* OrphanSubprocessCleanup.swift */; };
 		3675FB2AF39BB9539FC23ED3 /* epistemos_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 622C39C0E4B5D43F0EDEBB3B /* epistemos_core.swift */; };
 		36C2381254B132C8BA10CE03 /* SDNoteInsight.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD68A8643F3BDD533737EDA /* SDNoteInsight.swift */; };
+		36CA196F70D0D45E7CE4E045 /* GraphWorkspaceRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 159B77858EA6887ED8BED025 /* GraphWorkspaceRoute.swift */; };
 		3708734B196E1F80A011D8CA /* PrivacyTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E418DAA86CEDF631D4B93542 /* PrivacyTest.swift */; };
 		373FD8E6EDE1F9ABB3E840B6 /* ScrollStabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 535B5EEE5A4AC1A2D3C80400 /* ScrollStabilityTests.swift */; };
+		377B35A6ECFAC32BE37971E5 /* GraphWorkspaceContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE6CF5023B2262C90B702160 /* GraphWorkspaceContainer.swift */; };
 		37C477F11DCB0021FD1E30A9 /* ComposerAttachmentEntryAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7CB9C6F21BB72A1C37528B /* ComposerAttachmentEntryAuditTests.swift */; };
 		37F13F0B6FB084F01BF792AF /* test_sgmm_kernel.py in Resources */ = {isa = PBXBuildFile; fileRef = 43427607952B4C4061C608F1 /* test_sgmm_kernel.py */; };
 		383D0DB758B8A446D7DB831A /* ModelProfileDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B074A50D20964DB957352A63 /* ModelProfileDetailView.swift */; };
@@ -700,6 +702,7 @@
 		14965194FB11F63F8935B6DD /* GraphInspectModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphInspectModeView.swift; sourceTree = "<group>"; };
 		1533A25A157BAB8DCF4707A2 /* DualBrainRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DualBrainRouter.swift; sourceTree = "<group>"; };
 		155350A716FA070578EE7CE9 /* MetricEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricEvaluator.swift; sourceTree = "<group>"; };
+		159B77858EA6887ED8BED025 /* GraphWorkspaceRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphWorkspaceRoute.swift; sourceTree = "<group>"; };
 		15A36FF996AD8E27353B6301 /* SkillEvolutionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillEvolutionView.swift; sourceTree = "<group>"; };
 		162BF8250700EA25C3D5E14D /* KTOTrainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KTOTrainer.swift; sourceTree = "<group>"; };
 		16362A21806262ACF048A137 /* OmegaPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaPanel.swift; sourceTree = "<group>"; };
@@ -1130,6 +1133,7 @@
 		BD9F8FAF8C937C445D7C2152 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		BDA1C5294324F1868D31AF86 /* DeviceAgentServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAgentServiceTests.swift; sourceTree = "<group>"; };
 		BDE82F9CF9DF9FC5F2C7EE22 /* MLXInferenceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceBridge.swift; sourceTree = "<group>"; };
+		BE6CF5023B2262C90B702160 /* GraphWorkspaceContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphWorkspaceContainer.swift; sourceTree = "<group>"; };
 		BE7CB9C6F21BB72A1C37528B /* ComposerAttachmentEntryAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerAttachmentEntryAuditTests.swift; sourceTree = "<group>"; };
 		BEE97337FB7D9CFDA3BADD57 /* OmegaToolCallParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaToolCallParserTests.swift; sourceTree = "<group>"; };
 		BFC98CBB80264865BF17B1D0 /* RecipeGraphSkills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeGraphSkills.swift; sourceTree = "<group>"; };
@@ -1361,6 +1365,14 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		077866344A76E66D535F2FD3 /* Workspace */ = {
+			isa = PBXGroup;
+			children = (
+				159B77858EA6887ED8BED025 /* GraphWorkspaceRoute.swift */,
+			);
+			path = Workspace;
+			sourceTree = "<group>";
+		};
 		1E2DA7CF994F0167CF307CD5 /* Inference */ = {
 			isa = PBXGroup;
 			children = (
@@ -1459,6 +1471,7 @@
 				14965194FB11F63F8935B6DD /* GraphInspectModeView.swift */,
 				980E414DBA487C5A678E912D /* GraphOverlayPanel.swift */,
 				431F0F077A0CDBAD72902973 /* GraphWarmupView.swift */,
+				BE6CF5023B2262C90B702160 /* GraphWorkspaceContainer.swift */,
 				32186F0FF89A179A2B0CC5E6 /* HologramController.swift */,
 				3B250D49A16B04364E4C70CC /* HologramNodeInspector.swift */,
 				A11009083D15E102656AC6E6 /* HologramOverlay.swift */,
@@ -2402,6 +2415,7 @@
 				485B919C933576E29FD6662F /* SDFLabelAtlas.swift */,
 				F796002DDA40C60CE1212EFA /* SDFLabelInstanceBuilder.swift */,
 				291567F8B992AB3846B23B29 /* SemanticClusterService.swift */,
+				077866344A76E66D535F2FD3 /* Workspace */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -3020,6 +3034,8 @@
 				8B14A1D34B4C1D377D8043DD /* GraphStore.swift in Sources */,
 				0111829EA017ED2492CC1072 /* GraphTypes.swift in Sources */,
 				63B6A46F433D60F9DAF7AC0F /* GraphWarmupView.swift in Sources */,
+				377B35A6ECFAC32BE37971E5 /* GraphWorkspaceContainer.swift in Sources */,
+				36CA196F70D0D45E7CE4E045 /* GraphWorkspaceRoute.swift in Sources */,
 				BB8ADCD02A99A1B9E37BDD2E /* HardwareTierManager.swift in Sources */,
 				B955209FD4110041C982F7A9 /* HarnessIntegration.swift in Sources */,
 				A5F53A1BE078BD08DD2FF379 /* HarnessLab.swift in Sources */,

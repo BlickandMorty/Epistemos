@@ -1456,6 +1456,15 @@ final class MetalGraphNSView: NSView {
         pendingPointerUpdate = nil
         graph_engine_mouse_down(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale), shift)
 
+        // Phase 7: Local Route Navigation via Double-Click
+        if event.clickCount == 2 {
+            if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
+                let uuid = String(cString: uuidPtr)
+                graphState?.openNode(uuid)
+                return
+            }
+        }
+
         // Cursor feedback: closedHand for both node drag and pan.
         if graph_engine_hovered_node_uuid(engine) != nil {
             isDraggingNode = true
@@ -1473,6 +1482,61 @@ final class MetalGraphNSView: NSView {
         }
         NSCursor.closedHand.set()
         needsRender = true
+    }
+    
+    // MARK: - Phase 7 Context Menus (Right Click)
+
+    override func rightMouseDown(with event: NSEvent) {
+        guard let engine else {
+            super.rightMouseDown(with: event)
+            return
+        }
+
+        let loc = convert(event.locationInWindow, from: nil)
+        let scale = metalLayer?.contentsScale ?? 2.0
+        // Ensure the engine knows the mouse locus so we can grab the accurate hovered node
+        graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
+
+        if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
+            let uuid = String(cString: uuidPtr)
+
+            let menu = NSMenu()
+            
+            let goItem = NSMenuItem(title: "Go to Node", action: #selector(contextMenuGoToNode(_:)), keyEquivalent: "")
+            goItem.representedObject = uuid
+            goItem.target = self
+            menu.addItem(goItem)
+            
+            let revealItem = NSMenuItem(title: "Reveal in Graph", action: #selector(contextMenuRevealInGraph(_:)), keyEquivalent: "")
+            revealItem.representedObject = uuid
+            revealItem.target = self
+            menu.addItem(revealItem)
+            
+            let chatItem = NSMenuItem(title: "Ask Graph Chat", action: #selector(contextMenuAskGraphChat(_:)), keyEquivalent: "")
+            chatItem.representedObject = uuid
+            chatItem.target = self
+            menu.addItem(chatItem)
+
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        } else {
+            super.rightMouseDown(with: event)
+        }
+    }
+
+    @objc private func contextMenuGoToNode(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        graphState?.openNode(id)
+    }
+
+    @objc private func contextMenuRevealInGraph(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        graphState?.pendingCenterNodeId = id
+    }
+
+    @objc private func contextMenuAskGraphChat(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        metalGraphLog.info("Ask Graph Chat invoked for node \(id, privacy: .public)")
+        // No-op hook for Graph Chat integration (Step 6)
     }
 
     override func mouseDragged(with event: NSEvent) {

@@ -389,6 +389,42 @@ final class GraphState {
     /// live execution-memory nodes without re-enabling disabled source/quote types.
     var vaultMode: GraphVaultMode = .humanVault
 
+    /// The local navigation state for the graph workspace (Step 2 routing foundation).
+    /// Tracks if we are looking at the 3D canvas or deep-linked into a specific node's page.
+    var currentRoute: GraphWorkspaceRoute = .canvas
+
+    // MARK: - Local Workspace Routing (Phase 7)
+    
+    /// Called when a node is requested to be opened (e.g. via double tap or context menu).
+    func openNode(_ id: String) {
+        // Find the node to determine its type and dispatch to the right route.
+        guard let node = store.nodes[id] else { return }
+        
+        switch node.type {
+        case .folder:
+            openFolder(id)
+        default:
+            // For now, map all content/document nodes to the note route
+            if let sourceId = node.sourceId, !sourceId.isEmpty {
+                openNote(sourceId)
+            } else {
+                openNote(id) // Missing source ID fallback to the node ID
+            }
+        }
+    }
+
+    func openNote(_ sourceId: String) {
+        currentRoute = .note(id: sourceId)
+    }
+
+    func openFolder(_ id: String) {
+        currentRoute = .folder(id: id)
+    }
+
+    func returnToCanvas() {
+        currentRoute = .canvas
+    }
+
     private static let visualThemeDefaultsKey = "graphVisualTheme"
     private static let visualThemeMigrationDefaultsKey =
         "epistemos.graph.visualTheme.migratedClassicDefault"
